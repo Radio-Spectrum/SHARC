@@ -181,36 +181,6 @@ class StationManager(object):
             elevation[i] = np.degrees(np.arctan2(rel_z, distance))
             
         return elevation
-        
-        
-    def get_elevation_angle(self, station, sat_params) -> dict:
-        free_space_angle = np.empty(self.num_stations)
-        angle = np.empty(self.num_stations)
-        for i in range(self.num_stations):
-            # calculate free-space elevation angle according to Attachment A
-            rel_x = station.x - self.x[i]
-            rel_y = station.y - self.y[i]
-            rel_z = station.height - self.height[i]
-
-            gts = np.sqrt(rel_x**2 + rel_y**2)
-            theta_0 = np.arctan2(rel_z, gts) # free-space elevation angle
-            free_space_angle[i] = np.degrees(theta_0)
-
-            ##
-            # calculate apparent elevation angle according to ITU-R P619, Attachment B
-
-            tau_fs1 = 1.728 + 0.5411 * theta_0 + 0.03723 * theta_0**2
-            tau_fs2 = 0.1815 + 0.06272 * theta_0 + 0.01380 * theta_0**2
-            tau_fs3 = 0.01727 + 0.008288 * theta_0
-
-            # change in elevation angle due to refraction
-            tau_fs_deg = 1/(tau_fs1 + sat_params.altitude*tau_fs2 +
-                            sat_params.altitude**2*tau_fs3)
-            tau_fs = tau_fs_deg / 180. * np.pi
-
-            angle[i] = np.degrees(theta_0 + tau_fs)
-
-        return{'free_space': free_space_angle, 'apparent': angle}
 
     def get_pointing_vector_to(self, station) -> tuple:
 

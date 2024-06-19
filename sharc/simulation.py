@@ -114,11 +114,11 @@ class Simulation(ABC, Observable):
             self.adjacent_channel = False
 
         random_number_gen = np.random.RandomState(self.parameters.general.seed)
-        self.propagation_imt = PropagationFactory.create_propagation(self.parameters.imt.channel_model, 
+        self.propagation_imt = PropagationFactory.create_propagation(self.parameters.imt.channel_model,
                                                                      self.parameters,
                                                                      self.param_system,
                                                                      random_number_gen)
-        self.propagation_system = PropagationFactory.create_propagation(self.param_system.channel_model, 
+        self.propagation_system = PropagationFactory.create_propagation(self.param_system.channel_model,
                                                                         self.parameters,
                                                                         self.param_system,
                                                                         random_number_gen)
@@ -289,13 +289,12 @@ class Simulation(ABC, Observable):
 
     def calculate_intra_imt_coupling_loss(self,
                                           imt_ue_station: StationManager,
-                                          imt_bs_station: StationManager,
-                                          is_co_channel=True) -> np.array:
+                                          imt_bs_station: StationManager) -> np.array:
         """
         Calculates the coupling loss (path loss + antenna gains + other losses) between
         a IMT stations (UE and BS).
 
-        Returns an numpy array with imt_ue_station.size X imt_bs_station.size with coupling loss
+        Returns an numpy array with imt_bs_station.size X imt_ue_station.size with coupling loss
         values.
 
         Parameters
@@ -315,20 +314,20 @@ class Simulation(ABC, Observable):
             values.
         """
 
-        # Get the elevation angles between IMT stations
-        elevation_angles = np.transpose(imt_bs_station.get_elevation(imt_ue_station))
+        # Get the elevation angles between IMT stations.
+        # The elevation angles is used when IMT is NTN and certain propagation models.
+        # The elevation angles is always w.r.t. earth-based station
+        elevation_angles = np.transpose(imt_ue_station.get_elevation(imt_bs_station))
+
+        earth_to_space = \
+            True if (self.parameters.general.imt_link == "UPLINK" and imt_bs_station.is_space_station) else False
 
         imt_inter_distance_2d = self.bs_to_ue_d_2D
         imt_inter_distance_3d = self.bs_to_ue_d_3D
 
-        # Check if IMT BS is space station. For example in NTN systems.
-        earth_to_space = False
-        if imt_bs_station.is_space_station:
-            earth_to_space = True
-
         # Calculate the antenna gains
-        ant_gain_ue_to_bs = self.calculate_gains(imt_ue_station, imt_bs_station)
-        ant_gain_bs_to_ue = np.transpose(self.calculate_gains(imt_bs_station, imt_ue_station))
+        ant_gain_bs_to_ue = self.calculate_gains(imt_bs_station, imt_ue_station)
+        ant_gain_ue_to_bs = np.transpose(self.calculate_gains(imt_ue_station, imt_bs_station))
 
         single_entry = True if self.parameters.imt.interfered_with else False
 
@@ -338,8 +337,7 @@ class Simulation(ABC, Observable):
             distance_2D=imt_inter_distance_2d,
             frequency=self.parameters.imt.frequency *
             np.ones(imt_inter_distance_2d.shape),
-            indoor_stations=np.tile(imt_bs_station.indoor,
-                                    (imt_ue_station.num_stations, 1)),
+            indoor_stations=np.tile(imt_ue_station.indoor, (imt_bs_station.num_stations, 1)),
             bs_height=imt_ue_station.height,
             ue_height=imt_bs_station.height,
             elevation=elevation_angles,

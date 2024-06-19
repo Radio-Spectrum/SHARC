@@ -88,7 +88,7 @@ class PropagationP619(Propagation):
         Parameters
         ----------
             frequency_MHz (float) : center frequencies [MHz]
-            apparent_elevation (float) : apparent elevation angle (degrees)
+            apparent_elevation (float) : apparent elevation angle at the Earth-based station (degrees)
         Returns
         -------
             path_loss (float): scalar with atmospheric loss
@@ -235,6 +235,7 @@ class PropagationP619(Propagation):
             frequency (np.array) : center frequencies [MHz]
             indoor_stations (np.array) : array indicating stations that are indoor
             elevation (np.array) : free-space elevation angles (degrees)
+            earth_to_space (bool): whether the ray direction is earth-to-space
             single_entry (bool): True for single-entry interference, False for multiple-entry (default = False)
             number_of_sectors (int): number of sectors in a node (default = 1)
 

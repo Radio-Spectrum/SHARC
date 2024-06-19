@@ -58,8 +58,8 @@ class SimulationUplink(Simulation):
 
         # Calculate coupling loss after beams are created
         self.coupling_loss_imt = self.calculate_intra_imt_coupling_loss(
-            self.bs,
-            self.ue
+            self.ue,
+            self.bs
         )
         self.scheduler()
         self.power_control()

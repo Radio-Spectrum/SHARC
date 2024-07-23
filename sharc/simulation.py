@@ -207,41 +207,26 @@ class Simulation(ABC, Observable):
             Returns an numpy array with system_station.size X imt_station.size with coupling loss
             values.
         """
-
-        # Calculate the elevation angles between the stations
-        elevation_angles = imt_station.get_elevation(system_station)
-
-        # Calculate distance from transmitters to receivers. The result is a
-        # num_station_a x num_station_b
-        d_3d = system_station.get_3d_distance_to(imt_station)
-
         # Set the frequency and other parameters for the propagation model
         if self.parameters.imt.interfered_with:
             freq = self.param_system.frequency
-            earth_to_space = False
-            single_entry = True
         else:
             freq = self.parameters.imt.frequency
-            earth_to_space = True
-            single_entry = False
 
         # Calculate the antenna gains of the IMT station with respect to the system's station
         if imt_station.station_type is StationType.IMT_UE:
             # define antenna gains
-            gain_a = self.calculate_gains(system_station, imt_station)
-            gain_b = np.transpose(self.calculate_gains(
+            gain_sys_to_imt = self.calculate_gains(system_station, imt_station)
+            gain_imt_to_sys = np.transpose(self.calculate_gains(
                 imt_station, system_station, is_co_channel))
-            sectors_in_node = 1
             additional_loss = self.parameters.imt.ue_ohmic_loss \
                 + self.parameters.imt.ue_body_loss \
                 + self.polarization_loss
         elif imt_station.station_type is StationType.IMT_BS:
             # define antenna gains
-            gain_a = np.repeat(self.calculate_gains(system_station, imt_station),
-                               self.parameters.imt.ue_k, 1)
-            gain_b = np.transpose(self.calculate_gains(
+            gain_sys_to_imt = self.calculate_gains(system_station, imt_station)
+            gain_imt_to_sys = np.transpose(self.calculate_gains(
                 imt_station, system_station, is_co_channel))
-            sectors_in_node = self.parameters.imt.ue_k
             additional_loss = self.parameters.imt.bs_ohmic_loss \
                 + self.polarization_loss
         else:
@@ -249,41 +234,26 @@ class Simulation(ABC, Observable):
             return ValueError(f"Invalid IMT StationType! {imt_station.station_type}")
 
         # Calculate the path loss based on the propagation model
-        # TODO: Huge parameter list to satisfy all propagation models parameters. We need to
-        # redesign that.
-        path_loss = self.propagation_system.get_loss(
-            distance_3D=d_3d,
-            frequency=freq*np.ones(d_3d.shape),
-            indoor_stations=np.tile(
-                imt_station.indoor, (system_station.num_stations, 1)),
-            elevation=elevation_angles,
-            earth_to_space=earth_to_space,
-            earth_station_antenna_gain=gain_b,
-            single_entry=single_entry,
-            number_of_sectors=sectors_in_node,
-            es_params=self.param_system,
-            tx_gain=gain_a,
-            rx_gain=gain_b,
-            imt_sta_type=imt_station.station_type,
-            imt_x=imt_station.x,
-            imt_y=imt_station.y,
-            imt_z=imt_station.height,
-            es_x=imt_station.x,
-            es_y=imt_station.y,
-            es_z=imt_station.height
-        )
+        path_loss = self.propagation_system.get_loss(params=self.parameters,
+                                                     frequency=freq,
+                                                     station_a=system_station,
+                                                     station_b=imt_station,
+                                                     station_a_gains=gain_sys_to_imt,
+                                                     station_b_gains=gain_imt_to_sys)
         # Store antenna gains and path loss samples
         if self.param_system.channel_model == "HDFSS":
             self.imt_system_build_entry_loss = path_loss[1]
             self.imt_system_diffraction_loss = path_loss[2]
             path_loss = path_loss[0]
-        self.system_imt_antenna_gain = gain_a
-        self.imt_system_antenna_gain = gain_b
-        self.imt_system_path_loss = path_loss
+        
+        # The resulting arrays must be system.num_stations x (imt_bs.num_stations * num_of_beams)
+        self.system_imt_antenna_gain =  np.repeat(gain_sys_to_imt, self.parameters.imt.ue_k, 1)
+        self.imt_system_antenna_gain = gain_imt_to_sys
+        self.imt_system_path_loss = np.repeat(path_loss, self.parameters.imt.ue_k, 1)
 
         # calculate coupling loss
         coupling_loss = np.squeeze(
-            path_loss - gain_a - gain_b) + additional_loss
+            self.imt_system_path_loss - self.system_imt_antenna_gain - gain_imt_to_sys) + additional_loss
 
         return coupling_loss
 
@@ -313,54 +283,31 @@ class Simulation(ABC, Observable):
             Returns an numpy array with imt_ue_station.size X imt_bs_station.size with coupling loss
             values.
         """
-
-        # Get the elevation angles between IMT stations.
-        # The elevation angles is used when IMT is NTN and certain propagation models.
-        # The elevation angles is always w.r.t. earth-based station
-        elevation_angles = np.transpose(imt_ue_station.get_elevation(imt_bs_station))
-
-        earth_to_space = \
-            True if (self.parameters.general.imt_link == "UPLINK" and imt_bs_station.is_space_station) else False
-
-        imt_inter_distance_2d = self.bs_to_ue_d_2D
-        imt_inter_distance_3d = self.bs_to_ue_d_3D
-
         # Calculate the antenna gains
         ant_gain_bs_to_ue = self.calculate_gains(imt_bs_station, imt_ue_station)
-        ant_gain_ue_to_bs = np.transpose(self.calculate_gains(imt_ue_station, imt_bs_station))
-
-        single_entry = True if self.parameters.imt.interfered_with else False
+        ant_gain_ue_to_bs = self.calculate_gains(imt_ue_station, imt_bs_station)
 
         # Calculate the path loss between IMT stations. Primarly used for UL power control.
-        path_loss = self.propagation_imt.get_loss(
-            distance_3D=imt_inter_distance_3d,
-            distance_2D=imt_inter_distance_2d,
-            frequency=self.parameters.imt.frequency *
-            np.ones(imt_inter_distance_2d.shape),
-            indoor_stations=np.tile(imt_ue_station.indoor, (imt_bs_station.num_stations, 1)),
-            bs_height=imt_ue_station.height,
-            ue_height=imt_bs_station.height,
-            elevation=elevation_angles,
-            earth_to_space=earth_to_space,
-            earth_station_antenna_gain=ant_gain_ue_to_bs,
-            single_entry=single_entry, # single UE to single BS
-            number_of_sectors=1, # UE has a single transmitter
-            shadowing=self.parameters.imt.shadowing
-        )
+        path_loss = self.propagation_imt.get_loss(params=self.parameters,
+                                                  frequency=self.parameters.imt.frequency,
+                                                  station_a=imt_ue_station,
+                                                  station_b=imt_bs_station,
+                                                  station_a_gains=ant_gain_ue_to_bs,
+                                                  station_b_gains=ant_gain_bs_to_ue)
 
         # Collect IMT BS and UE antenna gain samples
-        self.path_loss_imt = path_loss
-        self.imt_bs_antenna_gain = ant_gain_ue_to_bs
-        self.imt_ue_antenna_gain = ant_gain_bs_to_ue
+        self.path_loss_imt = np.transpose(path_loss)
+        self.imt_bs_antenna_gain = ant_gain_bs_to_ue
+        self.imt_ue_antenna_gain = np.transpose(ant_gain_ue_to_bs)
         additional_loss = self.parameters.imt.bs_ohmic_loss \
             + self.parameters.imt.ue_ohmic_loss \
             + self.parameters.imt.ue_body_loss
 
         # calculate coupling loss
         coupling_loss = np.squeeze(
-            path_loss - ant_gain_ue_to_bs - ant_gain_bs_to_ue) + additional_loss
+            path_loss - ant_gain_ue_to_bs - np.transpose(ant_gain_bs_to_ue)) + additional_loss
 
-        return coupling_loss
+        return np.transpose(coupling_loss)
 
     def connect_ue_to_bs(self):
         """

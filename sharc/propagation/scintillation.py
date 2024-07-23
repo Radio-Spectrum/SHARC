@@ -56,8 +56,6 @@ class Scintillation():
         f_GHz = kwargs["frequency_MHz"] / 1000.
         elevation_rad = kwargs["elevation"] / 180. * np.pi
         antenna_gain_dB = kwargs["antenna_gain_dB"]
-        if not np.isscalar(antenna_gain_dB):
-            antenna_gain_dB = antenna_gain_dB.flatten()
         time_ratio = kwargs.pop("time_ratio", "random")
         wet_refractivity = kwargs.pop("wet_refractivity", False)
 
@@ -95,7 +93,7 @@ class Scintillation():
                                    / np.sin(elevation_rad) ** 1.2)
 
         if isinstance(time_ratio, str) and time_ratio.lower() == "random":
-            time_ratio = self.random_number_gen.rand(len(elevation_rad))
+            time_ratio = self.random_number_gen.rand(elevation_rad.size).reshape(elevation_rad.shape)
 
         # tropospheric scintillation attenuation not exceeded for time_percentage percent time
         time_percentage = time_ratio * 100.
@@ -110,7 +108,7 @@ class Scintillation():
             if np.isscalar(time_percentage):
                 time_percentage = np.ones(num_el) * time_percentage
 
-        attenuation = np.empty(num_el)
+        attenuation = np.empty(elevation_rad.shape)
 
         a_ste = (2.672 - 1.258 * np.log10(time_percentage) -
                  .0835 * np.log10(time_percentage) ** 2 -
@@ -120,8 +118,8 @@ class Scintillation():
                  .072 * np.log10(100 - time_percentage) ** 2 -
                  .061 * np.log10(100 - time_percentage) ** 3)
 
-        gain_indices = np.where(time_percentage <= 50.)[0]
-        if gain_indices.size:
+        gain_indices = np.where(time_percentage <= 50.)
+        if gain_indices:
             attenuation[gain_indices] = - scintillation_intensity[gain_indices] * a_ste[gain_indices]
         fade_indices = np.where(time_percentage > 50.)[0]
         if fade_indices.size:

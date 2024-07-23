@@ -5,10 +5,14 @@ Created on Mon Apr 17 15:35:00 2017
 @author: andre barreto
 """
 
-from sharc.propagation.propagation import Propagation
 
-import math
+import os
+import csv
+from scipy.interpolate import interp1d
 import numpy as np
+from sharc.station_manager import StationManager
+from sharc.parameters.parameters import Parameters
+from sharc.propagation.propagation import Propagation
 from sharc.propagation.propagation_free_space import PropagationFreeSpace
 from sharc.propagation.propagation_clutter_loss import PropagationClutterLoss
 from sharc.propagation.propagation_building_entry_loss import PropagationBuildingEntryLoss
@@ -122,10 +126,8 @@ class PropagationP619(Propagation):
                     return loss
 
         rho_s = surf_water_vapour_density * \
-            np.exp(h/2)  # water vapour density at h
+            np.exp(h / 2)  # water vapour density at h
         if apparent_elevation < 0:
-            # get temperature (t), dry-air pressure (p), water-vapour pressure (e),
-            #     refractive index (n) and specific attenuation (gamma)
             t, p, e, n, gamma = self.atmosphere.get_atmospheric_params(
                 h, rho_s, frequency_MHz)
             delta = .0001 + 0.01 * max(h, 0)  # layer thickness
@@ -133,16 +135,15 @@ class PropagationP619(Propagation):
             while True:
                 m = (r + delta) * np.sin(beta) - r
                 if m >= 0:
-                    dh = 2 * np.sqrt(2*r*(delta-m)+delta**2 -
-                                     m**2)  # horizontal path
+                    dh = 2 * np.sqrt(2 * r * (delta - m) +
+                                     delta ** 2 - m ** 2)  # horizontal path
                     a_acc += dh * gamma
                     break
-                ds = (r+delta)*np.cos(beta)-np.sqrt((r+delta)**2 * np.cos(beta)**2 -
-                                                    # slope distance
-                                                    (2*r*delta + delta**2))
-                a_acc += ds*gamma
-                alpha = np.arcsin((r+delta)/r * np.sin(beta)
-                                  )  # angle to vertical
+                ds = (r + delta) * np.cos(beta) - np.sqrt((r + delta) **
+                                                          2 * np.cos(beta) ** 2 - (2 * r * delta + delta ** 2))
+                a_acc += ds * gamma
+                # angle to vertical
+                alpha = np.arcsin((r + delta) / r * np.sin(beta))
                 h -= delta
                 r -= delta
                 t, p, e, n_new, gamma = self.atmosphere.get_atmospheric_params(
@@ -157,17 +158,17 @@ class PropagationP619(Propagation):
         r = earth_radius_km + h
 
         while True:
-            ds = np.sqrt(r**2 * np.cos(beta)**2 + 2*r *
-                         delta + delta**2) - r * np.cos(beta)
+            ds = np.sqrt(r ** 2 * np.cos(beta) ** 2 + 2 * r *
+                         delta + delta ** 2) - r * np.cos(beta)
             a_acc += ds * gamma
             alpha = np.arcsin(r/(r+delta) * np.sin(beta))
             h += delta
             if h >= 100:
                 break
             r += delta
-            t, p, e, n_new, gamma = self.atmosphere.get_atmospheric_params(h, rho_s,
-                                                                           frequency_MHz)
-            beta = np.arcsin(n/n_new * np.sin(alpha))
+            t, p, e, n_new, gamma = self.atmosphere.get_atmospheric_params(
+                h, rho_s, frequency_MHz)
+            beta = np.arcsin(n / n_new * np.sin(alpha))
             n = n_new
 
         self.atmospheric_loss.append(a_acc)
@@ -196,11 +197,10 @@ class PropagationP619(Propagation):
         # calculate scintillation intensity, based on ITU-R P.618-12
         altitude_km = altitude / 1000
 
-        numerator = .5411 + .07446 * elevation + altitude_km * (.06272 + .0276 * elevation) \
-            + altitude_km ** 2 * .008288
-        denominator = (1.728 + .5411 * elevation + .03723 * elevation ** 2 +
-                       altitude_km * (.1815 + .06272 * elevation + .0138 * elevation ** 2) +
-                       (altitude_km ** 2) * (.01727 + .008288 * elevation))**2
+        numerator = .5411 + .07446 * elevation + altitude_km * \
+            (.06272 + .0276 * elevation) + altitude_km ** 2 * .008288
+        denominator = (1.728 + .5411 * elevation + .03723 * elevation ** 2 + altitude_km * (.1815 + .06272 *
+                       elevation + .0138 * elevation ** 2) + (altitude_km ** 2) * (.01727 + .008288 * elevation)) ** 2
 
         attenuation = 10 * np.log10(1 - numerator/denominator)
 
@@ -225,89 +225,141 @@ class PropagationP619(Propagation):
 
         return np.degrees(elev_angles_rad + tau_fs)
 
-    def get_loss(self, *args, **kwargs) -> np.array:
+    def get_loss(self,
+                 params: Parameters,
+                 frequency: float,
+                 station_a: StationManager,
+                 station_b: StationManager,
+                 station_a_gains=None,
+                 station_b_gains=None) -> np.array:
+        """Wrapper for the get_loss function that satisfies the ABS class interface
+
+        Parameters
+        ----------
+        station_a : StationManager
+            StationManager container representing station_a
+        station_b : StationManager
+            StationManager container representing station_a
+        params : Parameters
+            Simulation parameters needed for the propagation class.
+
+        Returns
+        -------
+        np.array
+            Return an array station_a.num_stations x station_b.num_stations with the path loss 
+            between each station
+        """
+        distance = station_a.get_3d_distance_to(station_b)
+        frequency = frequency * np.ones(distance.shape)
+        indoor_stations = np.tile(
+            station_b.indoor, (station_a.num_stations, 1))
+
+        if station_a.is_space_station:
+            elevation = np.transpose(station_b.get_elevation(station_a))
+            earth_to_space = False
+            earth_station_antenna_gain = np.transpose(station_b_gains)
+        elif station_b.is_space_station:
+            elevation = station_a.get_elevation(station_b)
+            earth_to_space = True
+            earth_station_antenna_gain = station_a_gains
+        else:
+            raise ValueError(
+                "PropagationP619: At least one station must be an space station")
+
+        is_single_entry_interf = False
+        if station_a.station_type is StationType.IMT_BS or \
+            station_b.station_type is StationType.IMT_BS:
+            is_single_entry_interf = True
+
+        return self._get_loss(distance=distance,
+                              frequency=frequency,
+                              indoor_stations=indoor_stations,
+                              elevation=elevation,
+                              earth_to_space=earth_to_space,
+                              single_entry=is_single_entry_interf,
+                              earth_station_antenna_gain=earth_station_antenna_gain)
+
+    def _get_loss(self,
+                  distance: np.array,
+                  frequency: np.array,
+                  indoor_stations: np.array,
+                  elevation: np.array,
+                  earth_to_space: bool,
+                  earth_station_antenna_gain: np.array,
+                  single_entry: bool) -> np.array:
         """
         Calculates path loss for earth-space link
 
         Parameters
         ----------
-            distance_3D (np.array) : distances between stations [m]
+            distance (np.array) : 3D distances between stations [m]
             frequency (np.array) : center frequencies [MHz]
             indoor_stations (np.array) : array indicating stations that are indoor
             elevation (np.array) : free-space elevation angles (degrees)
             earth_to_space (bool): whether the ray direction is earth-to-space
-            single_entry (bool): True for single-entry interference, False for multiple-entry (default = False)
-            number_of_sectors (int): number of sectors in a node (default = 1)
+            single_entry (bool): True for single-entry interference, False for 
+            multiple-entry (default = False)
+            earth_station_antenna_gain (np.array): Earth station atenna gain array.
 
         Returns
         -------
             array with path loss values with dimensions of distance_3D
 
         """
-        mandatory_params = ["distance_3D", "frequency", "indoor_stations", "elevation", "earth_to_space",
-                            "earth_station_antenna_gain", "number_of_sectors"]
+        elevation_dict = {}
+        elevation_dict["free_space"] = elevation
+        elevation_dict["apparent"] = \
+            self.__apparent_elevation_angle(
+                elevation_dict["free_space"], self.earth_station_alt_m)
 
-        for param in mandatory_params:
-            if param not in kwargs:
-                raise ValueError(
-                    f"PropagationP619: Missing mandatory parameter \"{param}\"")
+        free_space_loss = self.free_space.get_free_space_loss(
+            frequency=frequency, distance=distance)
 
-        d = kwargs["distance_3D"]
-        f = kwargs["frequency"]
-        indoor_stations = kwargs["indoor_stations"]
-        elevation = {}
-        elevation["free_space"] = kwargs["elevation"]
-        elevation["apparent"] = self.__apparent_elevation_angle(elevation["free_space"],
-                                                                self.earth_station_alt_m)
-        earth_to_space = kwargs["earth_to_space"]
-        earth_station_antenna_gain = kwargs["earth_station_antenna_gain"]
-        single_entry = kwargs.pop("single_entry", False)
-        number_of_sectors = kwargs["number_of_sectors"]
-
-        free_space_loss = self.free_space.get_loss(distance_3D=d, frequency=f)
-
-        freq_set = np.unique(f)
+        freq_set = np.unique(frequency)
         if len(freq_set) > 1:
             error_message = "different frequencies not supported in P619"
             raise ValueError(error_message)
 
         atmospheric_gasses_loss = self._get_atmospheric_gasses_loss(frequency_MHz=freq_set,
-                                                                    apparent_elevation=np.mean(elevation["apparent"]))
-        beam_spreading_attenuation = self._get_beam_spreading_att(elevation["free_space"],
+                                                                    apparent_elevation=np.mean(elevation_dict["apparent"]))
+        beam_spreading_attenuation = self._get_beam_spreading_att(elevation_dict["free_space"],
                                                                   self.earth_station_alt_m,
                                                                   earth_to_space)
         diffraction_loss = 0
 
         if single_entry:
-            elevation_sectors = np.repeat(
-                elevation["free_space"], number_of_sectors)
-            tropo_scintillation_loss = \
-                self.scintillation.get_tropospheric_attenuation(elevation=elevation_sectors,
-                                                                antenna_gain_dB=earth_station_antenna_gain,
-                                                                frequency_MHz=freq_set,
-                                                                earth_station_alt_m=self.earth_station_alt_m,
-                                                                earth_station_lat_deg=self.earth_station_lat_deg,
-                                                                season=self.season)
+            tropo_scintillation_loss = self.scintillation.get_tropospheric_attenuation(
+                elevation=elevation_dict["free_space"],
+                antenna_gain_dB=earth_station_antenna_gain,
+                frequency_MHz=freq_set,
+                earth_station_alt_m=self.earth_station_alt_m,
+                earth_station_lat_deg=self.earth_station_lat_deg,
+                season=self.season
+            )
 
-            loss = (free_space_loss + self.depolarization_loss +
-                    atmospheric_gasses_loss + beam_spreading_attenuation + diffraction_loss)
-            loss = np.repeat(loss, number_of_sectors, 1) + \
-                tropo_scintillation_loss
+            loss = \
+                free_space_loss + self.depolarization_loss + atmospheric_gasses_loss + beam_spreading_attenuation + \
+                diffraction_loss + tropo_scintillation_loss
         else:
-            clutter_loss = self.clutter.get_loss(frequency=f, distance=d,
-                                                 elevation=elevation["free_space"],
-                                                 station_type=StationType.FSS_SS)
+            clutter_loss = \
+                self.clutter.get_loss(frequency=frequency, 
+                                      distance=distance, 
+                                      elevation=elevation_dict["free_space"], 
+                                      station_type=StationType.FSS_SS)
             building_loss = self.building_entry.get_loss(
-                f, elevation["apparent"]) * indoor_stations
+                frequency, elevation_dict["apparent"]) * indoor_stations
 
             loss = (free_space_loss + clutter_loss + building_loss + self.polarization_mismatch_loss +
                     atmospheric_gasses_loss + beam_spreading_attenuation + diffraction_loss)
-            loss = np.repeat(loss, number_of_sectors, 1)
 
         return loss
 
 
 if __name__ == '__main__':
+
+    import matplotlib
+    matplotlib.use('Agg')
+
     import matplotlib.pyplot as plt
 
     # params = Parameters()
@@ -348,18 +400,20 @@ if __name__ == '__main__':
     loss_12_5 = np.zeros(len(apparent_elevation))
 
     print("Plotting atmospheric loss:")
-    for index in range(len(apparent_elevation)):
+    for index, _ in enumerate(apparent_elevation):
         print("\tApparent Elevation: {} degrees".format(
             apparent_elevation[index]))
 
-        surf_water_vapour_density = 2.5
-        loss_2_5[index] = propagation._get_atmospheric_gasses_loss(frequency_MHz=frequency_MHz,
-                                                                   apparent_elevation=apparent_elevation[index],
-                                                                   surf_water_vapour_density=surf_water_vapour_density)
-        surf_water_vapour_density = 12.5
-        loss_12_5[index] = propagation._get_atmospheric_gasses_loss(frequency_MHz=frequency_MHz,
-                                                                    apparent_elevation=apparent_elevation[index],
-                                                                    surf_water_vapour_density=surf_water_vapour_density)
+        SURF_WATER_VAPOUR_DENSITY = 2.5
+        loss_2_5[index] = \
+            propagation._get_atmospheric_gasses_loss(frequency_MHz=frequency_MHz,
+                                                     apparent_elevation=apparent_elevation[index],
+                                                     surf_water_vapour_density=SURF_WATER_VAPOUR_DENSITY)
+        SURF_WATER_VAPOUR_DENSITY = 12.5
+        loss_12_5[index] = \
+            propagation._get_atmospheric_gasses_loss(frequency_MHz=frequency_MHz,
+                                                     apparent_elevation=apparent_elevation[index],
+                                                     surf_water_vapour_density=SURF_WATER_VAPOUR_DENSITY)
 
     plt.figure()
     plt.semilogy(apparent_elevation, loss_2_5, label='2.5 g/m^3')
@@ -384,7 +438,7 @@ if __name__ == '__main__':
     print("Plotting beam spreading attenuation:")
 
     plt.figure()
-    for index in range(len(altitude_vec)):
+    for index, _ in enumerate(altitude_vec):
         attenuation[index, :] = propagation._get_beam_spreading_att(elevation_vec,
                                                                     altitude_vec[index],
                                                                     earth_to_space)

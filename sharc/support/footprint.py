@@ -16,7 +16,7 @@ class Footprint(object):
     "Satellite Communication Systems" by M. Richharia ISBN 0-07-134208-7
     
     Construction:
-        FootprintArea(bore_lat_deg, bore_subsat_long_deg, beam)
+        FootprintArea(beam_deg, *, bore_lat_deg, bore_subsat_long_deg, beam)
             beam_deg (float): half of beam width in degrees
             elevation_deg (float): optional. Satellite elevation at 
             boresight bore_lat_deg (float): optional, default = 0. 
@@ -28,6 +28,7 @@ class Footprint(object):
                 parameter is not used. Default = 0
             sat_height (int): optional, Default = 3578600.
                 Height of satellite in meters. If none are given, it is assumed that it is a geostationary satellite.
+                This parameter is only used if elevation_deg is also given
     """
     def __init__(self,beam_deg:float,**kwargs):
         # Initialize attributes

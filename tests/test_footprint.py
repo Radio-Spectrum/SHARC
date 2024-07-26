@@ -58,8 +58,8 @@ class FootprintAreaTest(unittest.TestCase):
         )
 
     def test_sigma_precision(self):
-        # test added after sat_heigth is variable
-        # may be good to assert distance from previous used values
+        # test added after sat_heigth became "settable"
+        # may be good to assert delta from previously used values
         # so that the results may be compared
         self.assertAlmostEqual(self.fa3.sigma, 0.151, delta=0.151 * 0.001)
         self.assertAlmostEqual(

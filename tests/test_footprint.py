@@ -44,7 +44,9 @@ class FootprintAreaTest(unittest.TestCase):
             self.fa3.bore_subsat_long_deg, 61.84, delta=0.01
         )
 
-        # 90 - elevation_deg - arcsin(cos(elevation_rad) * EARTH_RADIUS / (EARTH_RADIUS + sat_height))
+        # 90 - elevation_deg - arcsin(
+        #   cos(elevation_rad) * EARTH_RADIUS / (EARTH_RADIUS + sat_height)
+        # )
         self.assertEqual(self.fa4.sat_height, 600000)
         self.assertAlmostEqual(
             self.fa4.bore_subsat_long_deg, 10.816493232, delta=0.01
@@ -60,7 +62,9 @@ class FootprintAreaTest(unittest.TestCase):
         # may be good to assert distance from previous used values
         # so that the results may be compared
         self.assertAlmostEqual(self.fa3.sigma, 0.151, delta=0.151 * 0.001)
-        self.assertAlmostEqual(1 / self.fa3.sigma, 6.6235, delta=6.6235 * 0.001)
+        self.assertAlmostEqual(
+            1 / self.fa3.sigma, 6.6235, delta=6.6235 * 0.001
+        )
 
     def test_set_elevation(self):
         self.fa2.set_elevation(20)
@@ -85,7 +89,8 @@ class FootprintAreaTest(unittest.TestCase):
         self.assertAlmostEqual(a2, 486300, delta=486300 * 0.003)
         # [TODO]: find reference to also make fa4 and fa5 golden tests
         # if cannot, tilt elevation_deg while footprint is ellipsis to
-        # at least test some elevation_deg != 90 with new considered heights (12000 and 6000 km)
+        # at least test some elevation_deg != 90
+        # with the heights 12000 and 6000 km
 
     def test_calc_area_with_changing_height_and_beam_deg(self):
         for i in range(1, 10):
@@ -94,7 +99,8 @@ class FootprintAreaTest(unittest.TestCase):
             footprint = Footprint(
                 beam_deg, elevation_deg=90, sat_height=height
             )
-            # cone base area works as golden test standard when elevation_deg=90
+            # cone base area works as golden test standard when
+            # elevation_deg=90
             cone_radius_in_km = height * np.tan(np.deg2rad(beam_deg)) / 1000
             cone_base_area_in_km2 = np.pi * (cone_radius_in_km**2)
             footprint_area_in_km2 = footprint.calc_area(1000)
@@ -103,6 +109,7 @@ class FootprintAreaTest(unittest.TestCase):
                 cone_base_area_in_km2,
                 delta=cone_base_area_in_km2 * 0.01,
             )
+
 
 if __name__ == "__main__":
     unittest.main()

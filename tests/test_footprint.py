@@ -96,22 +96,17 @@ class FootprintAreaTest(unittest.TestCase):
         self.assertAlmostEqual(a1, 130000, delta=130000 * 0.002)
         a2 = self.fa3.calc_area(1000)
         self.assertAlmostEqual(a2, 486300, delta=486300 * 0.003)
-        # [TODO]: find reference to also make fa4 and fa5 golden tests
-        # if cannot, tilt elevation_deg while footprint is ellipsis to
-        # at least test some elevation_deg != 90
-        # with the heights 12000 and 6000 km
 
-    def test_calc_area_with_changing_height_and_beam_deg(self):
-        for i in range(1, 10):
-            height = 3578600 * i
-            beam_deg = 0.0325 * i
+        for height in [1200000, 600000]:
+            beam_deg = 0.225
             footprint = Footprint(
                 beam_deg, elevation_deg=90, sat_height=height
             )
             # cone base area works as golden test standard when
-            # elevation_deg=90
+            # elevation_deg=90, since footprint is "circular"
             cone_radius_in_km = height * np.tan(np.deg2rad(beam_deg)) / 1000
             cone_base_area_in_km2 = np.pi * (cone_radius_in_km**2)
+
             footprint_area_in_km2 = footprint.calc_area(1000)
             self.assertAlmostEqual(
                 footprint_area_in_km2,

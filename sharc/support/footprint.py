@@ -28,24 +28,19 @@ class Footprint(object):
                 parameter is not used. Default = 0
             sat_height (int): optional, Default = 3578600.
                 Height of satellite in meters. If none are given, it is assumed that it is a geostationary satellite.
-                This parameter is only used if elevation_deg is also given
     """
     def __init__(self,beam_deg:float,**kwargs):
         # Initialize attributes
-        if 'elevation_deg' in kwargs.keys() and 'sat_height' in kwargs.keys():
-            self.elevation_deg = kwargs['elevation_deg']
+        self.sat_height = 35786000
+        if 'sat_height' in kwargs.keys():
             self.sat_height = kwargs['sat_height']
-            self.sigma = EARTH_RADIUS / (EARTH_RADIUS + self.sat_height)
-            self.bore_lat_deg = 0.0
-            self.bore_subsat_long_deg = self.calc_beta(self.elevation_deg)
-        elif 'elevation_deg' in kwargs.keys() and 'sat_height' not in kwargs.keys():
+
+        if 'elevation_deg' in kwargs.keys():
             self.elevation_deg = kwargs['elevation_deg']
-            self.bore_lat_deg = 0.0
-            self.sat_height = 35786000
             self.sigma = EARTH_RADIUS / (EARTH_RADIUS + self.sat_height)
+            self.bore_lat_deg = 0.0
             self.bore_subsat_long_deg = self.calc_beta(self.elevation_deg)
         else:
-            self.sat_height = 35786000
             self.sigma = EARTH_RADIUS / (EARTH_RADIUS + self.sat_height)
             self.bore_lat_deg = 0.0
             self.bore_subsat_long_deg = 0.0

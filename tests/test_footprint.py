@@ -20,6 +20,12 @@ class FootprintAreaTest(unittest.TestCase):
         self.fa3 = Footprint(0.325, elevation_deg=20)
         self.fa4 = Footprint(0.325, elevation_deg=20, sat_height=600000)
         self.fa5 = Footprint(0.325, elevation_deg=20, sat_height=1200000)
+        self.fa6 = Footprint(
+            0.325,
+            sat_height=1200000,
+            bore_lat_deg=0,
+            bore_subsat_long_deg=17.744178387,
+        )
 
     def test_construction(self):
         self.assertEqual(self.fa1.sat_height, 35786000)
@@ -57,9 +63,12 @@ class FootprintAreaTest(unittest.TestCase):
             self.fa5.bore_subsat_long_deg, 17.744178387, delta=0.01
         )
 
+        self.assertEqual(self.fa6.sat_height, 1200000)
+        self.assertAlmostEqual(self.fa6.elevation_deg, 20, delta=0.01)
+
     def test_sigma_precision(self):
         # test added after sat_heigth became "settable"
-        # may be good to assert delta from previously used values
+        # asserting delta from previously used `sigma`` for height=35786000
         # so that the results may be compared
         self.assertAlmostEqual(self.fa3.sigma, 0.151, delta=0.151 * 0.001)
         self.assertAlmostEqual(

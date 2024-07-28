@@ -38,8 +38,9 @@ class View(tkinter.Tk, Observer):
         Creates all the graphical components
         """
         self.title("SHARC simulator")
-
-        self.__app_icon = tkinter.PhotoImage(file="img/app_icon.gif")
+        current_file_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        
+        self.__app_icon = tkinter.PhotoImage(file=os.path.join(current_file_path,"img/app_icon.gif"))
         self.tk.call('wm', 'iconphoto', self._w, self.__app_icon)
 
         self.__frame = tkinter.Frame(self, bg = '#CCCCCC')
@@ -49,34 +50,34 @@ class View(tkinter.Tk, Observer):
             wrap=tkinter.WORD, width=80, height=25, bd=5)
         self.__scrolledtext.grid(column=0, row=1, columnspan=7, sticky='EW')
 
-        self.__start_image = tkinter.PhotoImage(file = "img/start_icon.gif")
+        self.__start_image = tkinter.PhotoImage(file =os.path.join(current_file_path,"img/start_icon.gif"))
         self.__start_button = tkinter.Button(self.__frame, text="START",
             image=self.__start_image, compound=tkinter.LEFT,
             state=tkinter.NORMAL, command=self.__on_start_button_click)
         self.__start_button.bind("<Return>", self.__on_start_button_click)
         self.__start_button.grid(column=1, row=0, sticky='EW')
 
-        self.__stop_image = tkinter.PhotoImage(file="img/stop_icon.gif")
+        self.__stop_image = tkinter.PhotoImage(file=os.path.join(current_file_path,"img/stop_icon.gif"))
         self.__stop_button = tkinter.Button(self.__frame, text="STOP  ",
             image=self.__stop_image, compound=tkinter.LEFT,
             state=tkinter.DISABLED, command=self.__on_stop_button_click)
         self.__stop_button.bind("<Return>", self.__on_stop_button_click)
         self.__stop_button.grid(column=2, row=0, sticky='EW')
 
-        self.__results_image = tkinter.PhotoImage(file = "img/results_icon.gif")
+        self.__results_image = tkinter.PhotoImage(file =os.path.join(current_file_path,"img/results_icon.gif"))
         self.__results_button = tkinter.Button(self.__frame, text="RESULTS",
             image=self.__results_image, compound=tkinter.LEFT,
             state=tkinter.DISABLED, command=self.__on_results_button_click)
         self.__results_button.bind("<Return>", self.__on_results_button_click)
         self.__results_button.grid(column=3, row=0, sticky='EW')
 
-        self.__clear_image = tkinter.PhotoImage(file="img/clear_icon.gif")
+        self.__clear_image = tkinter.PhotoImage(file=os.path.join(current_file_path,"img/clear_icon.gif"))
         self.__clear_button = tkinter.Button(self.__frame, text="CLEAR",
             image=self.__clear_image, compound=tkinter.LEFT,
             state=tkinter.NORMAL, command=self.__on_clear_button_click)
         self.__clear_button.grid(column=4, row=0, sticky='EW')
 
-        self.__copy_image = tkinter.PhotoImage(file="img/copy_icon.gif")
+        self.__copy_image = tkinter.PhotoImage(file=os.path.join(current_file_path,"img/copy_icon.gif"))
         self.__copy_button = tkinter.Button(self.__frame, text="COPY",
             image=self.__copy_image, compound=tkinter.LEFT,
             state=tkinter.NORMAL, command=self.__on_copy_button_click)

@@ -310,14 +310,11 @@ class SimulationTestHIBSRAS(unittest.TestCase):
         self.simulation.calculate_external_interference()
 
         print(f"Path Loss {self.simulation.imt_system_path_loss}")
-        print(f"Perda por acoplamento {
-              self.simulation.coupling_loss_imt_system_adjacent}")
-        print(f"Valor de RX Interference {
-              self.simulation.system.rx_interference}")
+        print(f"Perda por acoplamento {self.simulation.coupling_loss_imt_system_adjacent}")
+        print(f"Valor de RX Interference {self.simulation.system.rx_interference}")
         print(f"Valor de Ruido Térmico {self.simulation.system.thermal_noise}")
 
-        print(f"RX Interference - Ruido termico {
-              self.simulation.system.rx_interference-self.simulation.system.thermal_noise}")
+        print(f"RX Interference - Ruido termico {self.simulation.system.rx_interference-self.simulation.system.thermal_noise}")
         print(f"Valor de System INR {self.simulation.system.inr}")
         print(f"Valor de System PFD {self.simulation.system.pfd}")
 

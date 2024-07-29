@@ -6,9 +6,11 @@ Created on Mon Nov 27 08:52:28 2017
 """
 
 from area import area as earthArea
+import numpy as np
 from numpy import cos, sin, tan, arctan, deg2rad, rad2deg, arccos, pi, linspace, arcsin, vstack, arctan2, where, zeros_like
 import matplotlib.pyplot as plt
 from sharc.parameters.constants import EARTH_RADIUS
+
 class Footprint(object):
     """
     Defines a satellite footprint region and calculates its area.
@@ -188,7 +190,21 @@ class Footprint(object):
     
     def arccot(self,x):
         return pi/2 - arctan(x)
-        
+
+def monte_carlo_simulation(num_samples, beam_deg, sat_height, elevation_range):
+    areas = []
+    elevations = np.random.uniform(elevation_range[0], elevation_range[1], num_samples)
+    
+    for elevation in elevations:
+        footprint = Footprint(beam_deg, sat_height=sat_height, elevation_deg=elevation)
+        area = footprint.calc_area(5000)
+        areas.append(area)
+    
+    max_area = max(areas)
+    best_elevation = elevations[areas.index(max_area)]
+    
+    return best_elevation, max_area, elevations, areas    
+
 if __name__ == '__main__':
     
     #Create 20km footprints
@@ -201,142 +217,160 @@ if __name__ == '__main__':
     plt.figure(figsize=(15,2))
     n = 100
     lng,lat = footprint_20km_90deg.calc_footprint(n)
-    plt.plot(lng, lat, 'k', label= f'$90^o$')
+    plt.plot(lng,lat,label='20 km Footprint with Elevation 90 deg')
     lng,lat = footprint_20km_45deg.calc_footprint(n)
-    plt.plot(lng, lat, 'b', label= f'$45^o$')
+    plt.plot(lng,lat,label='20 km Footprint with Elevation 45 deg')
     lng,lat = footprint_20km_30deg.calc_footprint(n)
-    plt.plot(lng, lat, 'r', label= f'$30^o$')
+    plt.plot(lng,lat,label='20 km Footprint with Elevation 30 deg')
     lng,lat = footprint_20km_20deg.calc_footprint(n)
-    plt.plot(lng, lat, 'g', label= f'$20^o$')
+    plt.plot(lng,lat,label='20 km Footprint with Elevation 20 deg')
     lng,lat = footprint_20km_10deg.calc_footprint(n)
-    plt.plot(lng, lat, 'y', label= f'$10^o$')
-    
-    plt.title("Footprints at 20km")
-    plt.legend(loc='upper right')
-    plt.xlabel('Longitude [deg]')
-    plt.ylabel('Latitude [deg]')
-    # plt.xlim([-5, 6])
-    plt.grid()
+    plt.plot(lng,lat,label='20 km Footprint with Elevation 10 deg')
+    plt.xlabel('Longitude (deg)')
+    plt.ylabel('Latitude (deg)')
+    plt.legend()
     plt.show()
+
+    print("Areas for 20km footprints:")
+    print(f"Elevation 10 deg: {footprint_20km_10deg.calc_area(n)} km^2")
+    print(f"Elevation 20 deg: {footprint_20km_20deg.calc_area(n)} km^2")
+    print(f"Elevation 30 deg: {footprint_20km_30deg.calc_area(n)} km^2")
+    print(f"Elevation 45 deg: {footprint_20km_45deg.calc_area(n)} km^2")
+    print(f"Elevation 90 deg: {footprint_20km_90deg.calc_area(n)} km^2")
     
-    
-    #Create 500km footprints
-    footprint_500km_10deg = Footprint(5, elevation_deg=10, sat_height=500000)
-    footprint_500km_20deg = Footprint(5, elevation_deg=20, sat_height=500000)
-    footprint_500km_30deg = Footprint(5, elevation_deg=30, sat_height=500000)
-    footprint_500km_45deg = Footprint(5, elevation_deg=45, sat_height=500000)
-    footprint_500km_90deg = Footprint(5, elevation_deg=90, sat_height=500000)
-    print("Sat at 500km elevation 90 deg: area = {}".format(footprint_500km_90deg.calc_area(n)))
+    # Create 35786km footprints
+    footprint_35786km_10deg = Footprint(5, elevation_deg=10, sat_height=35786000)
+    footprint_35786km_20deg = Footprint(5, elevation_deg=20, sat_height=35786000)
+    footprint_35786km_30deg = Footprint(5, elevation_deg=30, sat_height=35786000)
+    footprint_35786km_45deg = Footprint(5, elevation_deg=45, sat_height=35786000)
+    footprint_35786km_90deg = Footprint(5, elevation_deg=90, sat_height=35786000)
     
     plt.figure(figsize=(15,2))
     n = 100
-    lng,lat = footprint_500km_90deg.calc_footprint(n)
-    plt.plot(lng, lat, 'k', label= f'$90^o$')
-    lng,lat = footprint_500km_45deg.calc_footprint(n)
-    plt.plot(lng, lat, 'b', label= f'$45^o$')
-    lng,lat = footprint_500km_30deg.calc_footprint(n)
-    plt.plot(lng, lat, 'r', label= f'$30^o$')
-    lng,lat = footprint_500km_20deg.calc_footprint(n)
-    plt.plot(lng, lat, 'g', label= f'$20^o$')
-    lng,lat = footprint_500km_10deg.calc_footprint(n)
-    plt.plot(lng, lat, 'y', label= f'$10^o$')
-    
-    plt.title("Footprints at 500km")
-    plt.legend(loc='upper right')
-    plt.xlabel('Longitude [deg]')
-    plt.ylabel('Latitude [deg]')
-    # plt.xlim([-5, 20])
-    plt.grid()
+    lng,lat = footprint_35786km_90deg.calc_footprint(n)
+    plt.plot(lng,lat,label='35786 km Footprint with Elevation 90 deg')
+    lng,lat = footprint_35786km_45deg.calc_footprint(n)
+    plt.plot(lng,lat,label='35786 km Footprint with Elevation 45 deg')
+    lng,lat = footprint_35786km_30deg.calc_footprint(n)
+    plt.plot(lng,lat,label='35786 km Footprint with Elevation 30 deg')
+    lng,lat = footprint_35786km_20deg.calc_footprint(n)
+    plt.plot(lng,lat,label='35786 km Footprint with Elevation 20 deg')
+    lng,lat = footprint_35786km_10deg.calc_footprint(n)
+    plt.plot(lng,lat,label='35786 km Footprint with Elevation 10 deg')
+    plt.xlabel('Longitude (deg)')
+    plt.ylabel('Latitude (deg)')
+    plt.legend()
     plt.show()
     
+    print("Areas for 35786km footprints:")
+    print(f"Elevation 10 deg: {footprint_35786km_10deg.calc_area(n)} km^2")
+    print(f"Elevation 20 deg: {footprint_35786km_20deg.calc_area(n)} km^2")
+    print(f"Elevation 30 deg: {footprint_35786km_30deg.calc_area(n)} km^2")
+    print(f"Elevation 45 deg: {footprint_35786km_45deg.calc_area(n)} km^2")
+    print(f"Elevation 90 deg: {footprint_35786km_90deg.calc_area(n)} km^2")
     
-    #Create GEO footprints
-    fprint90 = Footprint(0.325,elevation_deg=90)
-    fprint45 = Footprint(0.325,elevation_deg=45)
-    fprint30 = Footprint(0.325,elevation_deg=30)
-    fprint20 = Footprint(0.325,elevation_deg=20)
-    fprint05 = Footprint(0.325,elevation_deg=5)
+    # Create 1200km footprints
+    footprint_1200km_10deg = Footprint(5, elevation_deg=10, sat_height=1200000)
+    footprint_1200km_20deg = Footprint(5, elevation_deg=20, sat_height=1200000)
+    footprint_1200km_30deg = Footprint(5, elevation_deg=30, sat_height=1200000)
+    footprint_1200km_45deg = Footprint(5, elevation_deg=45, sat_height=1200000)
+    footprint_1200km_90deg = Footprint(5, elevation_deg=90, sat_height=1200000)
     
-    # Plot coordinates
-    n = 100
     plt.figure(figsize=(15,2))
-    long, lat = fprint90.calc_footprint(n)
-    plt.plot(long,lat,'k',label='$90^o$')
-    long, lat = fprint45.calc_footprint(n)
-    plt.plot(long,lat,'b',label='$45^o$')
-    long, lat = fprint30.calc_footprint(n)
-    plt.plot(long,lat,'r',label='$30^o$')
-    long, lat = fprint20.calc_footprint(n)
-    plt.plot(long,lat,'g',label='$20^o$')
-    long, lat = fprint05.calc_footprint(n)
-    plt.plot(long,lat,'y',label='$5^o$')
-    
-    plt.title("Footprints at 35786km (GEO)")
-    plt.legend(loc='upper right')
-    plt.xlabel('Longitude [deg]')
-    plt.ylabel('Latitude [deg]')
-    # plt.xlim([-5, 90])
-    plt.grid()
+    n = 100
+    lng,lat = footprint_1200km_90deg.calc_footprint(n)
+    plt.plot(lng,lat,label='1200 km Footprint with Elevation 90 deg')
+    lng,lat = footprint_1200km_45deg.calc_footprint(n)
+    plt.plot(lng,lat,label='1200 km Footprint with Elevation 45 deg')
+    lng,lat = footprint_1200km_30deg.calc_footprint(n)
+    plt.plot(lng,lat,label='1200 km Footprint with Elevation 30 deg')
+    lng,lat = footprint_1200km_20deg.calc_footprint(n)
+    plt.plot(lng,lat,label='1200 km Footprint with Elevation 20 deg')
+    lng,lat = footprint_1200km_10deg.calc_footprint(n)
+    plt.plot(lng,lat,label='1200 km Footprint with Elevation 10 deg')
+    plt.xlabel('Longitude (deg)')
+    plt.ylabel('Latitude (deg)')
+    plt.legend()
     plt.show()
+
+    print("Areas for 1200km footprints:")
+    print(f"Elevation 10 deg: {footprint_1200km_10deg.calc_area(n)} km^2")
+    print(f"Elevation 20 deg: {footprint_1200km_20deg.calc_area(n)} km^2")
+    print(f"Elevation 30 deg: {footprint_1200km_30deg.calc_area(n)} km^2")
+    print(f"Elevation 45 deg: {footprint_1200km_45deg.calc_area(n)} km^2")
+    print(f"Elevation 90 deg: {footprint_1200km_90deg.calc_area(n)} km^2")
+
+    # Create 600km footprints
+    footprint_600km_10deg = Footprint(5, elevation_deg=10, sat_height=600000)
+    footprint_600km_20deg = Footprint(5, elevation_deg=20, sat_height=600000)
+    footprint_600km_30deg = Footprint(5, elevation_deg=30, sat_height=600000)
+    footprint_600km_45deg = Footprint(5, elevation_deg=45, sat_height=600000)
+    footprint_600km_90deg = Footprint(5, elevation_deg=90, sat_height=600000)
     
-    # Print areas
-    n = 1000
-    
-    #area 20km
-    print("Sat at 20km elevation 90 deg: area = {}".format(footprint_20km_90deg.calc_area(n)))
-    print("Sat at 20km elevation 45 deg: area = {}".format(footprint_20km_45deg.calc_area(n)))
-    print("Sat at 20km elevation 30 deg: area = {}".format(footprint_20km_30deg.calc_area(n)))
-    print("Sat at 20km elevation 20 deg: area = {}".format(footprint_20km_20deg.calc_area(n)))
-    print("Sat at 20km elevation 10 deg: area = {}".format(footprint_20km_10deg.calc_area(n)))
-    
-    #area 500km
-    print("Sat at 500km elevation 90 deg: area = {}".format(footprint_500km_90deg.calc_area(n)))
-    print("Sat at 500km elevation 45 deg: area = {}".format(footprint_500km_45deg.calc_area(n)))
-    print("Sat at 500km elevation 30 deg: area = {}".format(footprint_500km_30deg.calc_area(n)))
-    print("Sat at 500km elevation 20 deg: area = {}".format(footprint_500km_20deg.calc_area(n)))
-    print("Sat at 500km elevation 10 deg: area = {}".format(footprint_500km_10deg.calc_area(n)))
-    
-    
-    # Plot area vs elevation
-    n_el = 100
-    n_poly = 1000
-    elevation = linspace(0,90,num=n_el)
-    area_20km = zeros_like(elevation)
-    area_500km = zeros_like(elevation)
-    area_35786km = zeros_like(elevation)
-    
-    fprint_20km = Footprint(5,elevation_deg=0, sat_height=20000)
-    fprint_500km = Footprint(5,elevation_deg=0, sat_height=500000)
-    fprint_35786km = Footprint(0.325,elevation_deg=0, sat_height=35786000)
-    
-    for k in range(len(elevation)):
-        fprint_20km.set_elevation(elevation[k])
-        area_20km[k] = fprint_20km.calc_area(n_poly)
-        fprint_500km.set_elevation(elevation[k])
-        area_500km[k] = fprint_500km.calc_area(n_poly)
-        fprint_35786km.set_elevation(elevation[k])
-        area_35786km[k] = fprint_35786km.calc_area(n_poly)
-        
-    plt.plot(elevation,area_20km, color ='r', label='20km')
-    plt.plot(elevation,area_500km, color ='g', label='500km')
-    plt.plot(elevation,area_35786km, color ='b', label='35786km')
-    plt.xlabel('Elevation [deg]')
-    plt.ylabel('Footprint area [$km^2$]')
-    plt.legend(loc='upper right')
-    plt.xlim([0, 90])
-    plt.grid()
+    plt.figure(figsize=(15,2))
+    n = 100
+    lng,lat = footprint_600km_90deg.calc_footprint(n)
+    plt.plot(lng,lat,label='600 km Footprint with Elevation 90 deg')
+    lng,lat = footprint_600km_45deg.calc_footprint(n)
+    plt.plot(lng,lat,label='600 km Footprint with Elevation 45 deg')
+    lng,lat = footprint_600km_30deg.calc_footprint(n)
+    plt.plot(lng,lat,label='600 km Footprint with Elevation 30 deg')
+    lng,lat = footprint_600km_20deg.calc_footprint(n)
+    plt.plot(lng,lat,label='600 km Footprint with Elevation 20 deg')
+    lng,lat = footprint_600km_10deg.calc_footprint(n)
+    plt.plot(lng,lat,label='600 km Footprint with Elevation 10 deg')
+    plt.xlabel('Longitude (deg)')
+    plt.ylabel('Latitude (deg)')
+    plt.legend()
     plt.show()
-    
-    
-    
-    # Plot area vs elevation
-    n_el = 100
-    n_poly = 1000
-    elevation = linspace(0,90,num=n_el)
-    area = zeros_like(elevation)
-    
-    
-    
-    
-    
-        
+
+    print("Areas for 600km footprints:")
+    print(f"Elevation 10 deg: {footprint_600km_10deg.calc_area(n)} km^2")
+    print(f"Elevation 20 deg: {footprint_600km_20deg.calc_area(n)} km^2")
+    print(f"Elevation 30 deg: {footprint_600km_30deg.calc_area(n)} km^2")
+    print(f"Elevation 45 deg: {footprint_600km_45deg.calc_area(n)} km^2")
+    print(f"Elevation 90 deg: {footprint_600km_90deg.calc_area(n)} km^2")
+
+
+
+
+
+
+# Parâmetros
+num_samples = 1000
+beam_deg = 5
+sat_height = 1200000
+elevation_range = [5, 85]  # Faixa de elevação em graus
+
+# Executar a simulação de Monte Carlo
+best_elevation, max_area, elevations, areas = monte_carlo_simulation(num_samples, beam_deg, sat_height, elevation_range)
+
+# Plotar os resultados
+plt.scatter(elevations, areas, s=1)
+plt.xlabel('Elevation (degrees)')
+plt.ylabel('Area (km^2)')
+plt.title('Monte Carlo Simulation for Satellite Elevation')
+plt.show()
+
+print(f'Melhor elevação: {best_elevation} graus')
+print(f'Maior área de cobertura: {max_area} km^2')
+
+ """
+O código simula a cobertura de um satélite na Terra,
+ calculando a área da região coberta para diferentes ângulos de elevação.
+A simulação de Monte Carlo é utilizada para encontrar o ângulo ideal que maximiza a cobertura.
+ Os resultados são visualizados graficamente, permitindo uma análise detalhada
+
+Funcionalidades Principais:
+
+Cálculo da Área: A classe calcula a área da região de cobertura com base em
+ parâmetros como a largura do feixe, a altura do satélite e o ângulo de elevação.
+
+Visualização: O código gera gráficos para visualizar as diferentes formas da 
+cobertura do satélite em diferentes altitudes e ângulos de elevação.
+
+Simulação de Monte Carlo: A principal modificação introduzida é a simulação de
+Monte Carlo. Essa técnica permite encontrar o ângulo de elevação ideal para maximizar a área de cobertura, simulando aleatoriamente diferentes ângulos e calculando a área correspondente.
+
+
+ """

@@ -107,11 +107,7 @@ class TopologyNTN(Topology):
         # Update the number of base stations after setup
         self.num_base_stations = len(self.x)
         self.indoor = np.zeros(self.num_base_stations, dtype=bool)
-
-        # Update the number of base stations after setup
-        self.num_base_stations = len(self.x)
-        self.indoor = np.zeros(self.num_base_stations, dtype=bool)
-
+        
         self.x = self.x_rotated
         self.y = self.y_rotated
         

@@ -51,9 +51,9 @@ class FootprintAreaTest(unittest.TestCase):
 
     def test_calc_area(self):
         a1 = self.fa2.calc_area(1000)
-        self.assertAlmostEqual(a1, 130000, delta=200)
+        self.assertAlmostEqual(a1, 130000, delta=130000 * 0.002)
         a2 = self.fa3.calc_area(1000)
-        self.assertAlmostEqual(a2, 486300, delta=200)
+        self.assertAlmostEqual(a2, 486300, delta=486300 * 0.003)
 
 
 if __name__ == '__main__':

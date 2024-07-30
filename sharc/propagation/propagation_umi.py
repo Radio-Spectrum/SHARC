@@ -63,7 +63,7 @@ class PropagationUMi(Propagation):
 
         loss = self._get_loss(distance_3D=bs_to_ue_dist_3d,
                               distance_2D=bs_to_ue_dist_2d,
-                              frequency=params.imt.frequency*np.ones(bs_to_ue_dist_2d.shape),
+                              frequency=frequency*np.ones(bs_to_ue_dist_2d.shape),
                               bs_height=station_b.height,
                               ue_height=station_a.height,
                               shadowing=params.imt.shadowing)

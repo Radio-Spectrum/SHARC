@@ -246,10 +246,15 @@ class Simulation(ABC, Observable):
             self.imt_system_diffraction_loss = path_loss[2]
             path_loss = path_loss[0]
         
-        # The resulting arrays must be system.num_stations x (imt_bs.num_stations * num_of_beams)
-        self.system_imt_antenna_gain =  np.repeat(gain_sys_to_imt, self.parameters.imt.ue_k, 1)
+        if imt_station.station_type is StationType.IMT_UE:
+            self.system_imt_antenna_gain =  gain_sys_to_imt
+            self.imt_system_path_loss = path_loss
+        else:
+            # Repeat for each BS beam
+            self.system_imt_antenna_gain =  np.repeat(gain_sys_to_imt, self.parameters.imt.ue_k, 1)
+            self.imt_system_path_loss = np.repeat(path_loss, self.parameters.imt.ue_k, 1)
+        
         self.imt_system_antenna_gain = gain_imt_to_sys
-        self.imt_system_path_loss = np.repeat(path_loss, self.parameters.imt.ue_k, 1)
 
         # calculate coupling loss
         coupling_loss = np.squeeze(

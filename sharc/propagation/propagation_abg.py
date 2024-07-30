@@ -5,10 +5,11 @@ Created on Tue Jul  4 11:57:41 2017
 @author: LeticiaValle_Mac
 """
 
-from sharc.propagation.propagation import Propagation
-
 import numpy as np
 
+from sharc.propagation.propagation import Propagation
+from sharc.station_manager import StationManager
+from sharc.parameters.parameters import Parameters
 
 class PropagationABG(Propagation):
     """
@@ -23,9 +24,54 @@ class PropagationABG(Propagation):
         self.gamma = 2.3
         self.building_loss = 20
         self.shadowing_sigma_dB = 6.5
+    
+    def get_loss(self,
+                params: Parameters,
+                frequency: float,
+                station_a: StationManager,
+                station_b: StationManager,
+                station_a_gains=None,
+                station_b_gains=None) -> np.array:
+        """Wrapper function for the get_loss method
+        Calculates the loss between station_a and station_b
 
+        Parameters
+        ----------
+        station_a : StationManager
+            StationManager container representing IMT UE station - Station_type.IMT_UE
+        station_b : StationManager
+            StationManager container representing IMT BS stattion
+        params : Parameters
+            Simulation parameters needed for the propagation class - Station_type.IMT_BS
 
-    def get_loss(self, *args, **kwargs) -> np.array:
+        Returns
+        -------
+        np.array
+            Return an array station_a.num_stations x station_b.num_stations with the path loss 
+            between each station
+        """
+        wrap_around_enabled = \
+            params.imt.wrap_around and \
+            (params.imt.topology == 'MACROCELL' or params.imt.topology == 'HOTSPOT') and \
+                params.imt.num_clusters == 1
+        
+        if wrap_around_enabled:
+            _, bs_to_ue_dist_3d, _, _ = \
+                station_b.get_dist_angles_wrap_around(station_a)
+        else:
+            bs_to_ue_dist_3d = station_b.get_3d_distance_to(station_a)
+
+        indoor_stations = np.tile(station_a.indoor, (station_b.num_stations, 1))
+        loss = \
+            self.__get_loss(distance_3D=bs_to_ue_dist_3d,
+                            frequency=frequency*np.ones(bs_to_ue_dist_3d.shape),
+                            indoor_stations=indoor_stations,
+                            shadowing=params.imt.shadowing)
+        
+        # the interface expects station_a.num_stations x station_b.num_stations array
+        return np.transpose(loss)
+
+    def __get_loss(self, *args, **kwargs) -> np.array:
         """
         Calculates path loss for LOS and NLOS cases with respective shadowing
         (if shadowing is to be added)

@@ -80,7 +80,7 @@ class ParametersFssSs(ParametersBase):
                              Invalid value for parameter season - {self.season}. \
                              Possible values are \"SUMMER\", \"WINTER\".")
 
-        if self.channel_model.upper() not in ["FSPL", "SatelliteSimple", "P619"]:
+        if self.channel_model.upper() not in ["FSPL", "SATELLITESIMPLE", "P619"]:
             raise ValueError(f"ParametersFssSs: \
                              Invalid value for paramter channel_model = {self.channel_model}. \
                              Possible values are \"FSPL\", \"SatelliteSimple\", \"P619\".")

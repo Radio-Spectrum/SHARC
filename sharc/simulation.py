@@ -280,7 +280,7 @@ class Simulation(ABC, Observable):
         Returns
         -------
         np.array
-            Returns an numpy array with imt_ue_station.size X imt_bs_station.size with coupling loss
+            Returns an numpy array with imt_bs_station.size X imt_ue_station.size with coupling loss
             values.
         """
         # Calculate the antenna gains
@@ -288,6 +288,9 @@ class Simulation(ABC, Observable):
         ant_gain_ue_to_bs = self.calculate_gains(imt_ue_station, imt_bs_station)
 
         # Calculate the path loss between IMT stations. Primarly used for UL power control.
+        
+        # Note on the array dimentions for coupling loss calculations:
+        # The function get_loss returns an array station_a x station_b
         path_loss = self.propagation_imt.get_loss(params=self.parameters,
                                                   frequency=self.parameters.imt.frequency,
                                                   station_a=imt_ue_station,
@@ -305,9 +308,9 @@ class Simulation(ABC, Observable):
 
         # calculate coupling loss
         coupling_loss = np.squeeze(
-            path_loss - ant_gain_ue_to_bs - np.transpose(ant_gain_bs_to_ue)) + additional_loss
+            self.path_loss_imt - self.imt_bs_antenna_gain  - self.imt_ue_antenna_gain) + additional_loss
 
-        return np.transpose(coupling_loss)
+        return coupling_loss
 
     def connect_ue_to_bs(self):
         """

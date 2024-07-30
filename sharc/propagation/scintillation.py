@@ -36,10 +36,18 @@ class Scintillation():
                                              default = "random"
             wet_refractivity (float) : wet term of the radio refractivity - optional
                                        if not given, then it is calculated from sat_params
-            sat_params (ParametersFss) : satellite channel parameters - optional
-                                         needed only if wet_refractivity is not given
-
-
+            
+            satellite channel parameters:
+            optional needed only if wet_refractivity is not given
+            space_station_alt_m : float
+                The space statio altitude in meters.
+                Optional needed only if wet_refractivity is not given
+            earth_station_alt_m : float
+                The Earth station altitude in meters.
+                Optional needed only if wet_refractivity is not given
+            earth_station_lat_deg : float
+                The Earth station latitude in degrees.
+                Optional needed only if wet_refractivity is not given
         Returns
         -------
             attenuation (np.array): attenuation (dB) with dimensions equal to "elevation"
@@ -54,13 +62,15 @@ class Scintillation():
         wet_refractivity = kwargs.pop("wet_refractivity", False)
 
         if not wet_refractivity:
-            sat_params = kwargs["sat_params"]
+            for p in ["earth_station_alt_m", "earth_station_lat_deg", "season"]:
+                if p not in kwargs:
+                    raise ValueError(f"Scintillation: parameter {p} is mandatory if wet_refractivity is set.")
 
             temperature, \
             pressure, \
-            water_vapour_density = self.atmosphere.get_reference_atmosphere_p835(sat_params.imt_lat_deg,
-                                                                                 sat_params.imt_altitude,
-                                                                                 sat_params.season)
+            water_vapour_density = self.atmosphere.get_reference_atmosphere_p835(kwargs["earth_station_lat_deg"],
+                                                                                 kwargs["earth_station_lat_deg"],
+                                                                                 kwargs["season"])
 
             # calculate saturation water vapour pressure according to ITU-R P.453-12
             # water coefficients (ice disregarded)

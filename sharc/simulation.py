@@ -114,9 +114,13 @@ class Simulation(ABC, Observable):
             self.adjacent_channel = False
 
         random_number_gen = np.random.RandomState(self.parameters.general.seed)
-        self.propagation_imt = PropagationFactory.create_propagation(self.parameters.imt.channel_model, self.parameters,
+        self.propagation_imt = PropagationFactory.create_propagation(self.parameters.imt.channel_model, 
+                                                                     self.parameters,
+                                                                     self.param_system,
                                                                      random_number_gen)
-        self.propagation_system = PropagationFactory.create_propagation(self.param_system.channel_model, self.parameters,
+        self.propagation_system = PropagationFactory.create_propagation(self.param_system.channel_model, 
+                                                                        self.parameters,
+                                                                        self.param_system,
                                                                         random_number_gen)
 
     def add_observer_list(self, observers: list):
@@ -205,13 +209,7 @@ class Simulation(ABC, Observable):
         """
 
         # Calculate the elevation angles between the stations
-        if self.propagation_system.is_earth_space_model:
-            # apply angle correction for earth-space paths
-            # TODO: move the angle correction to propagation object.
-            elevation_angles = imt_station.get_elevation_angle(
-                system_station, self.param_system)
-        else:
-            elevation_angles = imt_station.get_elevation(system_station)
+        elevation_angles = imt_station.get_elevation(system_station)
 
         # Calculate distance from transmitters to receivers. The result is a
         # num_station_a x num_station_b
@@ -259,7 +257,6 @@ class Simulation(ABC, Observable):
             indoor_stations=np.tile(
                 imt_station.indoor, (system_station.num_stations, 1)),
             elevation=elevation_angles,
-            sat_params=self.param_system,
             earth_to_space=earth_to_space,
             earth_station_antenna_gain=gain_b,
             single_entry=single_entry,
@@ -333,6 +330,7 @@ class Simulation(ABC, Observable):
         ant_gain_ue_to_bs = self.calculate_gains(imt_ue_station, imt_bs_station)
         ant_gain_bs_to_ue = np.transpose(self.calculate_gains(imt_bs_station, imt_ue_station))
 
+        single_entry = True if self.parameters.imt.interfered_with else False
 
         # Calculate the path loss between IMT stations. Primarly used for UL power control.
         path_loss = self.propagation_imt.get_loss(
@@ -345,10 +343,9 @@ class Simulation(ABC, Observable):
             bs_height=imt_ue_station.height,
             ue_height=imt_bs_station.height,
             elevation=elevation_angles,
-            sat_params=self.param_system,
             earth_to_space=earth_to_space,
             earth_station_antenna_gain=ant_gain_ue_to_bs,
-            single_entry=True, # single UE to single BS
+            single_entry=single_entry, # single UE to single BS
             number_of_sectors=1, # UE has a single transmitter
             shadowing=self.parameters.imt.shadowing
         )

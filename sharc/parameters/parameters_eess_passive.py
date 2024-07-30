@@ -37,10 +37,16 @@ class ParametersEessPassive(ParametersBase):
     # Channel model, possible values are "FSPL" (free-space path loss), "P619"
     channel_model:str= "FSPL"  # Channel model to be used
 
-    # Relevant IMT parameters which apply for ITU-R P.619
-    imt_altitude:float= 20.0  # Altitude of IMT system (in meters)
-    imt_lat_deg:float= -22.9  # Latitude of IMT system (in degrees)
-    season:str = "SUMMER"  # Season of the year
+    # Parameters for the P.619 propagation model
+    #    earth_station_alt_m - altitude of IMT system (in meters)
+    #    earth_station_lat_deg - latitude of IMT system (in degrees)
+    #    earth_station_long_diff_deg - difference between longitudes of IMT and satellite system
+    #      (positive if space-station is to the East of earth-station)
+    #    season - season of the year.
+    earth_station_alt_m: float = 0.0
+    earth_station_lat_deg: float = 0.0
+    earth_station_long_diff_deg: float = 0.0
+    season:str = "SUMMER"
 
     def load_parameters_from_file(self, config_file: str):
         """

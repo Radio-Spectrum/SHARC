@@ -58,9 +58,7 @@ class SimulationDownlink(Simulation):
         self.select_ue(random_number_gen)
 
         # Calculate coupling loss after beams are created
-        self.coupling_loss_imt = self.calculate_coupling_loss(self.bs,
-                                                              self.ue,
-                                                              self.propagation_imt)
+        self.coupling_loss_imt = self.calculate_intra_imt_coupling_loss(self.bs, self.ue)
         self.scheduler()
         self.power_control()
 

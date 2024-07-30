@@ -33,14 +33,16 @@ class ParametersRns(ParametersBase):
     #                                    "SatelliteSimple" (FSPL + 4 dB + clutter loss)
     #                                    "P619"
     channel_model: str = "P619"
-    # Specific parameters for P619
-    season: str = "SUMMER"
-    #    altitude of IMT system (in meters)
-    #    latitude of IMT system (in degrees)
-    #    difference between longitudes of IMT and satellite system
+    # Parameters for the P.619 propagation model
+    #    earth_station_alt_m - altitude of IMT system (in meters)
+    #    earth_station_lat_deg - latitude of IMT system (in degrees)
+    #    earth_station_long_diff_deg - difference between longitudes of IMT and satellite system
     #      (positive if space-station is to the East of earth-station)
-    imt_altitude: float = 0.0
-    imt_lat_deg: float = 0.0
+    #    season - season of the year.
+    earth_station_alt_m: float = 0.0
+    earth_station_lat_deg: float = 0.0
+    earth_station_long_diff_deg: float = 0.0
+    season:str = "SUMMER"
     # Adjacent channel selectivity [dB]
     acs: float = 30.0
 

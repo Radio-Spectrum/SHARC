@@ -32,16 +32,16 @@ class ParametersFssSs(ParametersBase):
     # Antenna pattern of the FSS space station
     # Possible values: "ITU-R S.672", "ITU-R S.1528", "FSS_SS", "OMNI"
     antenna_pattern: str = "FSS_SS"
-    # IMT parameters relevant to the satellite system
-    #    altitude of IMT system (in meters)
-    #    latitude of IMT system (in degrees)
-    #    difference between longitudes of IMT and satellite system
+    # Parameters for the P.619 propagation model
+    #    earth_station_alt_m - altitude of IMT system (in meters)
+    #    earth_station_lat_deg - latitude of IMT system (in degrees)
+    #    earth_station_long_diff_deg - difference between longitudes of IMT and satellite system
     #      (positive if space-station is to the East of earth-station)
-    imt_altitude: float = 0.0
-    imt_lat_deg: float = 0.0
-    imt_long_diff_deg: float = 0.0
-    # Season of the year used by the channel model.
-    season: str = "SUMMER"
+    #    season - season of the year.
+    earth_station_alt_m: float = 0.0
+    earth_station_lat_deg: float = 0.0
+    earth_station_long_diff_deg: float = 0.0
+    season:str = "SUMMER"
     # Channel parameters
     # channel model, possible values are "FSPL" (free-space path loss),
     #                                    "SatelliteSimple" (FSPL + 4 + clutter loss)

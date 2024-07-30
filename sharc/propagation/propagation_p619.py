@@ -209,7 +209,7 @@ class PropagationP619(Propagation):
 
         return attenuation
 
-    def __apparent_elevation_angle(self, elevation_deg: np.array, earth_station_alt_m: float) -> np.array:
+    def __apparent_elevation_angle(self, elevation_deg: np.array, space_station_alt_m: float) -> np.array:
         ##
         # calculate apparent elevation angle according to ITU-R P619, Attachment B
 
@@ -219,8 +219,8 @@ class PropagationP619(Propagation):
         tau_fs3 = 0.01727 + 0.008288 * elev_angles_rad
 
         # change in elevation angle due to refraction
-        tau_fs_deg = 1/(tau_fs1 + earth_station_alt_m*tau_fs2 +
-                        earth_station_alt_m**2*tau_fs3)
+        tau_fs_deg = 1/(tau_fs1 + space_station_alt_m*tau_fs2 +
+                        space_station_alt_m**2*tau_fs3)
         tau_fs = tau_fs_deg / 180. * np.pi
 
         return np.degrees(elev_angles_rad + tau_fs)
@@ -253,28 +253,34 @@ class PropagationP619(Propagation):
         frequency = frequency * np.ones(distance.shape)
         indoor_stations = np.tile(
             station_b.indoor, (station_a.num_stations, 1))
+        
+        elevation_angles = {}
 
         if station_a.is_space_station:
-            elevation = np.transpose(station_b.get_elevation(station_a))
+            elevation_angles["free_space"] = np.transpose(station_b.get_elevation(station_a))
             earth_to_space = False
             earth_station_antenna_gain = np.transpose(station_b_gains)
+            elevation_angles["apparent"] = self.__apparent_elevation_angle(elevation_angles["free_space"], 
+                                                                           station_a.height)
         elif station_b.is_space_station:
-            elevation = station_a.get_elevation(station_b)
+            elevation_angles["free_space"] = station_a.get_elevation(station_b)
             earth_to_space = True
             earth_station_antenna_gain = station_a_gains
+            elevation_angles["apparent"] = self.__apparent_elevation_angle(elevation_angles["free_space"], 
+                                                                           station_b.height)
         else:
             raise ValueError(
                 "PropagationP619: At least one station must be an space station")
 
-        is_single_entry_interf = False
+        is_single_entry_interf = True
         if station_a.station_type is StationType.IMT_BS or \
             station_b.station_type is StationType.IMT_BS:
-            is_single_entry_interf = True
+            is_single_entry_interf = False
 
         return self._get_loss(distance=distance,
                               frequency=frequency,
                               indoor_stations=indoor_stations,
-                              elevation=elevation,
+                              elevation=elevation_angles,
                               earth_to_space=earth_to_space,
                               single_entry=is_single_entry_interf,
                               earth_station_antenna_gain=earth_station_antenna_gain)
@@ -283,7 +289,7 @@ class PropagationP619(Propagation):
                   distance: np.array,
                   frequency: np.array,
                   indoor_stations: np.array,
-                  elevation: np.array,
+                  elevation: dict,
                   earth_to_space: bool,
                   earth_station_antenna_gain: np.array,
                   single_entry: bool) -> np.array:
@@ -295,7 +301,7 @@ class PropagationP619(Propagation):
             distance (np.array) : 3D distances between stations [m]
             frequency (np.array) : center frequencies [MHz]
             indoor_stations (np.array) : array indicating stations that are indoor
-            elevation (np.array) : free-space elevation angles (degrees)
+            elevation (dict) : dict containing free-space elevation angles (degrees), and aparent elevation angles
             earth_to_space (bool): whether the ray direction is earth-to-space
             single_entry (bool): True for single-entry interference, False for 
             multiple-entry (default = False)
@@ -306,12 +312,6 @@ class PropagationP619(Propagation):
             array with path loss values with dimensions of distance_3D
 
         """
-        elevation_dict = {}
-        elevation_dict["free_space"] = elevation
-        elevation_dict["apparent"] = \
-            self.__apparent_elevation_angle(
-                elevation_dict["free_space"], self.earth_station_alt_m)
-
         free_space_loss = self.free_space.get_free_space_loss(
             frequency=frequency, distance=distance)
 
@@ -321,15 +321,15 @@ class PropagationP619(Propagation):
             raise ValueError(error_message)
 
         atmospheric_gasses_loss = self._get_atmospheric_gasses_loss(frequency_MHz=freq_set,
-                                                                    apparent_elevation=np.mean(elevation_dict["apparent"]))
-        beam_spreading_attenuation = self._get_beam_spreading_att(elevation_dict["free_space"],
+                                                                    apparent_elevation=np.mean(elevation["apparent"]))
+        beam_spreading_attenuation = self._get_beam_spreading_att(elevation["free_space"],
                                                                   self.earth_station_alt_m,
                                                                   earth_to_space)
         diffraction_loss = 0
 
         if single_entry:
             tropo_scintillation_loss = self.scintillation.get_tropospheric_attenuation(
-                elevation=elevation_dict["free_space"],
+                elevation=elevation["free_space"],
                 antenna_gain_dB=earth_station_antenna_gain,
                 frequency_MHz=freq_set,
                 earth_station_alt_m=self.earth_station_alt_m,
@@ -344,10 +344,10 @@ class PropagationP619(Propagation):
             clutter_loss = \
                 self.clutter.get_loss(frequency=frequency, 
                                       distance=distance, 
-                                      elevation=elevation_dict["free_space"], 
+                                      elevation=elevation["free_space"], 
                                       station_type=StationType.FSS_SS)
             building_loss = self.building_entry.get_loss(
-                frequency, elevation_dict["apparent"]) * indoor_stations
+                frequency, elevation["apparent"]) * indoor_stations
 
             loss = (free_space_loss + clutter_loss + building_loss + self.polarization_mismatch_loss +
                     atmospheric_gasses_loss + beam_spreading_attenuation + diffraction_loss)

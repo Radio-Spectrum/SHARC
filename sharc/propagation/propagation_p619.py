@@ -58,7 +58,6 @@ class PropagationP619(Propagation):
 
         super().__init__(random_number_gen)
 
-        self.is_earth_space_model = True
         self.clutter = PropagationClutterLoss(self.random_number_gen)
         self.free_space = PropagationFreeSpace(self.random_number_gen)
         self.building_entry = PropagationBuildingEntryLoss(
@@ -234,12 +233,14 @@ class PropagationP619(Propagation):
                  station_b_gains=None) -> np.array:
         """Wrapper for the get_loss function that satisfies the ABS class interface
 
+        Calculates P.619 path loss between station_a and station_b stations.
+
         Parameters
         ----------
         station_a : StationManager
             StationManager container representing station_a
         station_b : StationManager
-            StationManager container representing station_a
+            StationManager container representing station_b
         params : Parameters
             Simulation parameters needed for the propagation class.
 
@@ -253,35 +254,51 @@ class PropagationP619(Propagation):
         frequency = frequency * np.ones(distance.shape)
         indoor_stations = np.tile(
             station_b.indoor, (station_a.num_stations, 1))
-        
+   
+        # Elevation angles seen from the station on Earth.
         elevation_angles = {}
-
         if station_a.is_space_station:
             elevation_angles["free_space"] = np.transpose(station_b.get_elevation(station_a))
-            earth_to_space = False
             earth_station_antenna_gain = np.transpose(station_b_gains)
-            elevation_angles["apparent"] = self.__apparent_elevation_angle(elevation_angles["free_space"], 
+            elevation_angles["apparent"] = self.__apparent_elevation_angle(elevation_angles["free_space"],
                                                                            station_a.height)
         elif station_b.is_space_station:
             elevation_angles["free_space"] = station_a.get_elevation(station_b)
-            earth_to_space = True
             earth_station_antenna_gain = station_a_gains
-            elevation_angles["apparent"] = self.__apparent_elevation_angle(elevation_angles["free_space"], 
+            elevation_angles["apparent"] = self.__apparent_elevation_angle(elevation_angles["free_space"],
                                                                            station_b.height)
         else:
             raise ValueError(
                 "PropagationP619: At least one station must be an space station")
 
-        is_single_entry_interf = True
-        if station_a.station_type is StationType.IMT_BS or \
-            station_b.station_type is StationType.IMT_BS:
+        # Determine the Earth-space path direction and if the interferer is single or multiple-entry.
+        # The get_loss interface won't tell us who is the interferer, so we need to get it from the parameters.
+        if station_a.is_imt_station() and station_b.is_imt_station():
+            # Intra-IMT
+            if params.general.imt_link == "UPLINK":
+                is_earth_to_space_link = True
+            else:
+                is_earth_to_space_link = False
+            # Intra-IMT is always multiple-entry interference
             is_single_entry_interf = False
+        else:
+            # System-IMT
+            imt_station, sys_station = (station_a, station_b) if station_a.is_imt_station() else (station_b, station_a)
+            if params.imt.interfered_with:
+                is_earth_to_space_link = True if imt_station.is_space_station else False
+                if sys_station.num_stations > 1:
+                    is_single_entry_interf = False
+                else:
+                    is_single_entry_interf = True
+            else:
+                is_earth_to_space_link = False if imt_station.is_space_station else True
+                is_single_entry_interf = False
 
         return self._get_loss(distance=distance,
                               frequency=frequency,
                               indoor_stations=indoor_stations,
                               elevation=elevation_angles,
-                              earth_to_space=earth_to_space,
+                              earth_to_space=is_earth_to_space_link,
                               single_entry=is_single_entry_interf,
                               earth_station_antenna_gain=earth_station_antenna_gain)
 
@@ -302,7 +319,7 @@ class PropagationP619(Propagation):
             frequency (np.array) : center frequencies [MHz]
             indoor_stations (np.array) : array indicating stations that are indoor
             elevation (dict) : dict containing free-space elevation angles (degrees), and aparent elevation angles
-            earth_to_space (bool): whether the ray direction is earth-to-space
+            earth_to_space (bool): whether the ray direction is earth-to-space. Affects beam spreadding Attenuation.
             single_entry (bool): True for single-entry interference, False for 
             multiple-entry (default = False)
             earth_station_antenna_gain (np.array): Earth station atenna gain array.
@@ -342,9 +359,9 @@ class PropagationP619(Propagation):
                 diffraction_loss + tropo_scintillation_loss
         else:
             clutter_loss = \
-                self.clutter.get_loss(frequency=frequency, 
-                                      distance=distance, 
-                                      elevation=elevation["free_space"], 
+                self.clutter.get_loss(frequency=frequency,
+                                      distance=distance,
+                                      elevation=elevation["free_space"],
                                       station_type=StationType.FSS_SS)
             building_loss = self.building_entry.get_loss(
                 frequency, elevation["apparent"]) * indoor_stations

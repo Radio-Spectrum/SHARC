@@ -83,9 +83,9 @@ class TopologyNTNTest(unittest.TestCase):
         space_z = np.repeat(topology.space_station_z, topology.num_sectors)
         # using expected_x and expected_y so this test is independent of other tests
         expected_azimuth = np.arctan2(expected_y - space_y, expected_x - space_x) * 180 / np.pi
-        expected_distance_xy = np.sqrt((expected_x - space_x)**2 + (expected_y - space_y)**2)
+        expected_dist_xy = np.sqrt((expected_x - space_x)**2 + (expected_y - space_y)**2)
         # using expected_z so this test is independent of other tests
-        expected_elevation = np.arctan2(expected_z - space_z, expected_distance_xy) * 180 / np.pi
+        expected_elevation = np.arctan2(expected_z - space_z, expected_dist_xy) * 180 / np.pi
 
         # testing expected azimuth and elevation
         for actual_azi, expected_azi in zip(topology.azimuth, expected_azimuth):
@@ -110,8 +110,8 @@ class TopologyNTNTest(unittest.TestCase):
         # defining expected x, y, z
         expected_x = [0]
         expected_y = [0]
-        expected_x.extend([d * math.cos(np.radians(30+60*k)) for k in range(6)])
-        expected_y.extend([d * math.sin(np.radians(30+60*k)) for k in range(6)])
+        expected_x.extend([d * self.cos(30+60*k) for k in range(6)])
+        expected_y.extend([d * self.sin(30+60*k) for k in range(6)])
         for k in range(6):
             # already rotated 30 degrees
             angle = 30+k*60

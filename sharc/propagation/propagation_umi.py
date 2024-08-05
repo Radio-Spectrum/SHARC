@@ -61,17 +61,17 @@ class PropagationUMi(Propagation):
             bs_to_ue_dist_2d = station_b.get_distance_to(station_a)
             bs_to_ue_dist_3d = station_b.get_3d_distance_to(station_a)
 
-        loss = self._get_loss(distance_3D=bs_to_ue_dist_3d,
-                              distance_2D=bs_to_ue_dist_2d,
-                              frequency=frequency*np.ones(bs_to_ue_dist_2d.shape),
-                              bs_height=station_b.height,
-                              ue_height=station_a.height,
-                              shadowing=params.imt.shadowing)
+        loss = self.__get_loss(distance_3D=bs_to_ue_dist_3d,
+                               distance_2D=bs_to_ue_dist_2d,
+                               frequency=frequency*np.ones(bs_to_ue_dist_2d.shape),
+                               bs_height=station_b.height,
+                               ue_height=station_a.height,
+                               shadowing=params.imt.shadowing)
         
         # the interface expects station_a.num_stations x station_b.num_stations array
         return np.transpose(loss)
     
-    def _get_loss(self, *args, **kwargs) -> np.array:
+    def __get_loss(self, *args, **kwargs) -> np.array:
         """
         Calculates path loss for LOS and NLOS cases with respective shadowing
         (if shadowing is to be added)

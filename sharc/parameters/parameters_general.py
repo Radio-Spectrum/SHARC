@@ -34,7 +34,7 @@ class ParametersGeneral(ParametersBase):
         super().load_parameters_from_file(config_file)
 
         # Now do the sanity check for some parameters
-        if self.imt_link not in ["DOWNLINK", "UPLINK"]:
+        if self.imt_link.upper() not in ["DOWNLINK", "UPLINK"]:
             raise ValueError(f"ParametersGeneral: \
                              Invalid value for parameter imt_link - {self.imt_link} \
                              Possible values are DOWNLINK and UPLINK")

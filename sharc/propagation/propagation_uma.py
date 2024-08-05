@@ -5,11 +5,13 @@ Created on Mon Jun  5 16:56:13 2017
 @author: edgar
 """
 
-from sharc.propagation.propagation import Propagation
-
 import numpy as np
 import matplotlib.pyplot as plt
 from cycler import cycler
+
+from sharc.propagation.propagation import Propagation
+from sharc.station_manager import StationManager
+from sharc.parameters.parameters import Parameters
 
 class PropagationUMa(Propagation):
     """
@@ -18,7 +20,54 @@ class PropagationUMa(Propagation):
     TODO: calculate the effective environment height for the generic case
     """
 
-    def get_loss(self, *args, **kwargs) -> np.array:
+    def get_loss(self,
+            params: Parameters,
+            frequency: float,
+            station_a: StationManager,
+            station_b: StationManager,
+            station_a_gains=None,
+            station_b_gains=None) -> np.array:
+        """Wrapper function for the PropagationUMa get_loss method
+        Calculates the loss between station_a and station_b
+
+        Parameters
+        ----------
+        station_a : StationManager
+            StationManager container representing IMT UE station - Station_type.IMT_UE
+        station_b : StationManager
+            StationManager container representing IMT BS stattion
+        params : Parameters
+            Simulation parameters needed for the propagation class - Station_type.IMT_BS
+
+        Returns
+        -------
+        np.array
+            Return an array station_a.num_stations x station_b.num_stations with the path loss 
+            between each station
+        """
+        wrap_around_enabled = \
+            params.imt.wrap_around and \
+            (params.imt.topology == 'MACROCELL' or params.imt.topology == 'HOTSPOT') and \
+                params.imt.num_clusters == 1
+        
+        if wrap_around_enabled:
+            bs_to_ue_dist_2d, bs_to_ue_dist_3d, _, _ = \
+                station_b.get_dist_angles_wrap_around(station_a)
+        else:
+            bs_to_ue_dist_2d = station_b.get_distance_to(station_a)
+            bs_to_ue_dist_3d = station_b.get_3d_distance_to(station_a)
+
+        loss = self.__get_loss(distance_3D=bs_to_ue_dist_3d,
+                               distance_2D=bs_to_ue_dist_2d,
+                               frequency=frequency*np.ones(bs_to_ue_dist_2d.shape),
+                               bs_height=station_b.height,
+                               ue_height=station_a.height,
+                               shadowing=params.imt.shadowing)
+        
+        # the interface expects station_a.num_stations x station_b.num_stations array
+        return np.transpose(loss)
+
+    def __get_loss(self, *args, **kwargs) -> np.array:
         """
         Calculates path loss for LOS and NLOS cases with respective shadowing
         (if shadowing is to be added)

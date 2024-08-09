@@ -234,12 +234,12 @@ class Simulation(ABC, Observable):
             return ValueError(f"Invalid IMT StationType! {imt_station.station_type}")
 
         # Calculate the path loss based on the propagation model
-        path_loss = self.propagation_system.get_loss(params=self.parameters,
-                                                     frequency=freq,
-                                                     station_a=system_station,
-                                                     station_b=imt_station,
-                                                     station_a_gains=gain_sys_to_imt,
-                                                     station_b_gains=gain_imt_to_sys)
+        path_loss = self.propagation_system.get_loss(self.parameters,
+                                                     freq,
+                                                     system_station,
+                                                     imt_station,
+                                                     gain_sys_to_imt,
+                                                     gain_imt_to_sys)
         # Store antenna gains and path loss samples
         if self.param_system.channel_model == "HDFSS":
             self.imt_system_build_entry_loss = path_loss[1]
@@ -296,12 +296,12 @@ class Simulation(ABC, Observable):
         
         # Note on the array dimentions for coupling loss calculations:
         # The function get_loss returns an array station_a x station_b
-        path_loss = self.propagation_imt.get_loss(params=self.parameters,
-                                                  frequency=self.parameters.imt.frequency,
-                                                  station_a=imt_ue_station,
-                                                  station_b=imt_bs_station,
-                                                  station_a_gains=ant_gain_ue_to_bs,
-                                                  station_b_gains=ant_gain_bs_to_ue)
+        path_loss = self.propagation_imt.get_loss(self.parameters,
+                                                  self.parameters.imt.frequency,
+                                                  imt_ue_station,
+                                                  imt_bs_station,
+                                                  ant_gain_ue_to_bs,
+                                                  ant_gain_bs_to_ue)
 
         # Collect IMT BS and UE antenna gain samples
         self.path_loss_imt = np.transpose(path_loss)

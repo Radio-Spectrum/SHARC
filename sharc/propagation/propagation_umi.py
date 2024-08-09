@@ -5,6 +5,7 @@ Created on Mon Jul  3 10:29:47 2017
 @author: LeticiaValle_Mac
 """
 import numpy as np
+from multipledispatch import dispatch
 
 from sharc.propagation.propagation import Propagation
 from sharc.station_manager import StationManager
@@ -23,7 +24,8 @@ class PropagationUMi(Propagation):
                  los_adjustment_factor: float):
         super().__init__(random_number_gen)
         self.los_adjustment_factor = los_adjustment_factor
-    
+
+    @dispatch(Parameters, float, StationManager, StationManager, np.ndarray, np.ndarray)
     def get_loss(self,
                 params: Parameters,
                 frequency: float,
@@ -61,17 +63,26 @@ class PropagationUMi(Propagation):
             bs_to_ue_dist_2d = station_b.get_distance_to(station_a)
             bs_to_ue_dist_3d = station_b.get_3d_distance_to(station_a)
 
-        loss = self._get_loss(distance_3D=bs_to_ue_dist_3d,
-                               distance_2D=bs_to_ue_dist_2d,
-                               frequency=frequency*np.ones(bs_to_ue_dist_2d.shape),
-                               bs_height=station_b.height,
-                               ue_height=station_a.height,
-                               shadowing=params.imt.shadowing)
-        
+        loss = self.get_loss(bs_to_ue_dist_3d,
+                             bs_to_ue_dist_2d,
+                             frequency*np.ones(bs_to_ue_dist_2d.shape),
+                             station_b.height,
+                             station_a.height,
+                             params.imt.shadowing)
+
         # the interface expects station_a.num_stations x station_b.num_stations array
         return np.transpose(loss)
-    
-    def _get_loss(self, *args, **kwargs) -> np.array:
+
+    # pylint: disable=function-redefined
+    # pylint: disable=arguments-renamed
+    @dispatch(np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, bool)
+    def get_loss(self,
+                 distance_3D: np.array,
+                 distance_2D: np.array,
+                 frequency: np.array,
+                 bs_height: np.array,
+                 ue_height: np.array,
+                 shadowing_flag: bool) -> np.array:
         """
         Calculates path loss for LOS and NLOS cases with respective shadowing
         (if shadowing is to be added)
@@ -89,36 +100,31 @@ class PropagationUMi(Propagation):
         -------
             array with path loss values with dimensions of distance_2D
         """
-        d_3D = kwargs["distance_3D"]
-        d_2D = kwargs["distance_2D"]
-        f = kwargs["frequency"]
-        h_bs = kwargs["bs_height"]
-        h_ue = kwargs["ue_height"]
-        h_e = np.ones(d_2D.shape)
-        std = kwargs["shadowing"]
-
-        if std:
+        if shadowing_flag:
             shadowing_los = 4
             shadowing_nlos = 7.82    # option 1 for UMi NLOS
             #shadowing_nlos = 8.2    # option 2 for UMi NLOS
         else:
             shadowing_los = 0
             shadowing_nlos = 0
+       
+        # effective height
+        h_e = np.ones(distance_2D.shape)
 
-        los_probability = self.get_los_probability(d_2D, self.los_adjustment_factor)
+        los_probability = self.get_los_probability(distance_2D, self.los_adjustment_factor)
         los_condition = self.get_los_condition(los_probability)
 
         i_los = np.where(los_condition == True)[:2]
         i_nlos = np.where(los_condition == False)[:2]
 
-        loss = np.empty(d_2D.shape)
+        loss = np.empty(distance_2D.shape)
 
         if len(i_los[0]):
-            loss_los = self.get_loss_los(d_2D, d_3D, f, h_bs, h_ue, h_e, shadowing_los)
+            loss_los = self.get_loss_los(distance_2D, distance_3D, frequency, bs_height, ue_height, h_e, shadowing_los)
             loss[i_los] = loss_los[i_los]
 
         if len(i_nlos[0]):
-            loss_nlos = self.get_loss_nlos(d_2D, d_3D, f, h_bs, h_ue, h_e, shadowing_nlos)
+            loss_nlos = self.get_loss_nlos(distance_2D, distance_3D, frequency, bs_height, ue_height, h_e, shadowing_nlos)
             loss[i_nlos] = loss_nlos[i_nlos]
 
         return loss

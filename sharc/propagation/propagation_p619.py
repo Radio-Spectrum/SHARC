@@ -208,10 +208,22 @@ class PropagationP619(Propagation):
 
         return attenuation
 
-    def __apparent_elevation_angle(self, elevation_deg: np.array, space_station_alt_m: float) -> np.array:
-        ##
-        # calculate apparent elevation angle according to ITU-R P619, Attachment B
+    @classmethod
+    def apparent_elevation_angle(cls, elevation_deg: np.array, space_station_alt_m: float) -> np.array:
+        """Calculate apparent elevation angle according to ITU-R P619, Attachment B
 
+        Parameters
+        ----------
+        elevation_deg : np.array
+            free-space elevation angle
+        space_station_alt_m : float
+            space-station altitude
+
+        Returns
+        -------
+        np.array
+            apparent elevation angle
+        """
         elev_angles_rad = np.deg2rad(elevation_deg)
         tau_fs1 = 1.728 + 0.5411 * elev_angles_rad + 0.03723 * elev_angles_rad**2
         tau_fs2 = 0.1815 + 0.06272 * elev_angles_rad + 0.01380 * elev_angles_rad**2
@@ -260,12 +272,12 @@ class PropagationP619(Propagation):
         if station_a.is_space_station:
             elevation_angles["free_space"] = np.transpose(station_b.get_elevation(station_a))
             earth_station_antenna_gain = np.transpose(station_b_gains)
-            elevation_angles["apparent"] = self.__apparent_elevation_angle(elevation_angles["free_space"],
+            elevation_angles["apparent"] = self.apparent_elevation_angle(elevation_angles["free_space"],
                                                                            station_a.height)
         elif station_b.is_space_station:
             elevation_angles["free_space"] = station_a.get_elevation(station_b)
             earth_station_antenna_gain = station_a_gains
-            elevation_angles["apparent"] = self.__apparent_elevation_angle(elevation_angles["free_space"],
+            elevation_angles["apparent"] = self.apparent_elevation_angle(elevation_angles["free_space"],
                                                                            station_b.height)
         else:
             raise ValueError(

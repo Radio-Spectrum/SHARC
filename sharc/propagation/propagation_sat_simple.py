@@ -97,23 +97,20 @@ class PropagationSatSimple(Propagation):
             Bool array indicating if the terrestrial station is indoor or not.
         elevation : np.array
             Array with elevation angles w.r.t terrestrial station
-        number_of_sectors : int, optional
-            Number of sectors of the terrestrial station, by default 1
 
         Returns
         -------
         np.array
             Array of clutter losses with the same shape as distance
         """
-        return self.get_loss(distance, frequency, indoor_stations, elevation, 1)
+        return self.get_loss(distance, frequency, indoor_stations, elevation)
     
-    @dispatch(np.ndarray, np.ndarray, np.ndarray, dict, int)
+    @dispatch(np.ndarray, np.ndarray, np.ndarray, dict)
     def get_loss(self,
                  distance: np.array,
                  frequency: np.array,
                  indoor_stations: np.array,
-                 elevation: np.array,
-                 number_of_sectors=1) -> np.array:
+                 elevation: np.array) -> np.array:
         """Calculates the clutter loss.
 
         Parameters
@@ -126,8 +123,6 @@ class PropagationSatSimple(Propagation):
             Bool array indicating if the terrestrial station is indoor or not.
         elevation : np.array
             Array with elevation angles w.r.t terrestrial station
-        number_of_sectors : int, optional
-            Number of sectors of the terrestrial station, by default 1
 
         Returns
         -------
@@ -148,8 +143,5 @@ class PropagationSatSimple(Propagation):
         building_loss = self.building_entry.get_loss(frequency, elevation["apparent"]) * indoor_stations
 
         loss = free_space_loss + clutter_loss + building_loss + self.atmospheric_loss
-
-        if number_of_sectors > 1:
-            loss = np.repeat(loss, number_of_sectors, 1)
 
         return loss

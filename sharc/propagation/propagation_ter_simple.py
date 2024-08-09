@@ -58,9 +58,6 @@ class PropagationTerSimple(Propagation):
         frequency_array = frequency * np.ones(distance.shape)
         indoor_stations = np.tile(station_b.indoor, (station_a.num_stations, 1))
         imt_station = station_a if station_a.is_imt_station() else station_b
-        number_of_sectors = 1
-        if imt_station.station_type is StationType.IMT_BS:
-            number_of_sectors = params.imt.ue_k
 
         return self.get_loss(distance, frequency_array, indoor_stations, -1.0)
     

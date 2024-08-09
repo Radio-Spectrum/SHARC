@@ -127,7 +127,6 @@ class PropagationTvro(Propagation):
         frequency = kwargs["frequency"]
         # shadowing is enabled by default
         shadowing = kwargs.pop("shadowing", True)
-        number_of_sectors = kwargs.pop("number_of_sectors", 1)
         indoor_stations = kwargs["indoor_stations"]
 
         if "imt_sta_type" in kwargs.keys():
@@ -154,8 +153,6 @@ class PropagationTvro(Propagation):
                                            height,
                                            indoor_stations,
                                            shadowing)
-        if number_of_sectors > 1:
-            loss = np.repeat(loss, number_of_sectors, 1)
 
         return loss
 

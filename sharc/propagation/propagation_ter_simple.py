@@ -36,17 +36,23 @@ class PropagationTerSimple(Propagation):
                 station_b: StationManager,
                 station_a_gains=None,
                 station_b_gains=None) -> np.array:
-        """Wrapper function for the PropagationUMi get_loss method
+        """Wrapper function for the get_loss method to fit the Propagation ABC class interface
         Calculates the loss between station_a and station_b
 
         Parameters
         ----------
-        station_a : StationManager
-            StationManager container
-        station_b : StationManager
-            StationManager container
         params : Parameters
-            Simulation parameters needed for the propagation class - Station_type.IMT_BS
+            Simulation parameters needed for the propagation class
+        frequency: float
+            Center frequency
+        station_a : StationManager
+            StationManager container representing the system station
+        station_b : StationManager
+            StationManager container representing the IMT station
+        station_a_gains: np.ndarray defaults to None
+            Not used
+        station_b_gains: np.ndarray defaults to None
+            Not used
 
         Returns
         -------
@@ -57,7 +63,6 @@ class PropagationTerSimple(Propagation):
         distance = station_a.get_3d_distance_to(station_b)
         frequency_array = frequency * np.ones(distance.shape)
         indoor_stations = np.tile(station_b.indoor, (station_a.num_stations, 1))
-        imt_station = station_a if station_a.is_imt_station() else station_b
 
         return self.get_loss(distance, frequency_array, indoor_stations, -1.0)
     

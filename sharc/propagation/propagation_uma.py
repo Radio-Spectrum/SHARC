@@ -8,6 +8,7 @@ Created on Mon Jun  5 16:56:13 2017
 import numpy as np
 import matplotlib.pyplot as plt
 from cycler import cycler
+from multipledispatch import dispatch
 
 from sharc.propagation.propagation import Propagation
 from sharc.station_manager import StationManager
@@ -19,7 +20,7 @@ class PropagationUMa(Propagation):
     to 3GPP TR 38.900 v14.2.0.
     TODO: calculate the effective environment height for the generic case
     """
-
+    @dispatch(Parameters, float, StationManager, StationManager, np.ndarray, np.ndarray)
     def get_loss(self,
             params: Parameters,
             frequency: float,
@@ -57,17 +58,19 @@ class PropagationUMa(Propagation):
             bs_to_ue_dist_2d = station_b.get_distance_to(station_a)
             bs_to_ue_dist_3d = station_b.get_3d_distance_to(station_a)
 
-        loss = self.__get_loss(distance_3D=bs_to_ue_dist_3d,
-                               distance_2D=bs_to_ue_dist_2d,
-                               frequency=frequency*np.ones(bs_to_ue_dist_2d.shape),
-                               bs_height=station_b.height,
-                               ue_height=station_a.height,
-                               shadowing=params.imt.shadowing)
+        loss = self.get_loss(bs_to_ue_dist_3d,
+                             bs_to_ue_dist_2d,
+                             frequency*np.ones(bs_to_ue_dist_2d.shape),
+                             station_b.height,
+                             station_a.height,
+                             params.imt.shadowing)
         
         # the interface expects station_a.num_stations x station_b.num_stations array
         return loss
 
-    def __get_loss(self, *args, **kwargs) -> np.array:
+    @dispatch(np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, bool)
+    def get_loss(self, distance_3d: np.array, distance_2d: np.array, frequency: np.array,
+                 bs_height: np.array, ue_height: np.array, shadowing: bool) -> np.array:
         """
         Calculates path loss for LOS and NLOS cases with respective shadowing
         (if shadowing is to be added)
@@ -86,35 +89,28 @@ class PropagationUMa(Propagation):
             array with path loss values with dimensions of distance_2D
 
         """
-        d_3D = kwargs["distance_3D"]
-        d_2D = kwargs["distance_2D"]
-        f = kwargs["frequency"]
-        h_bs = kwargs["bs_height"]
-        h_ue = kwargs["ue_height"]
-        h_e = np.ones(d_2D.shape)
-        std = kwargs["shadowing"]
-
-        if std:
+        h_e = np.ones(distance_2d.shape)
+        if shadowing:
             shadowing_los = 4
             shadowing_nlos = 6
         else:
             shadowing_los = 0
             shadowing_nlos = 0
 
-        los_probability = self.get_los_probability(d_2D, h_ue)
+        los_probability = self.get_los_probability(distance_2d, ue_height)
         los_condition = self.get_los_condition(los_probability)
 
         i_los = np.where(los_condition == True)[:2]
         i_nlos = np.where(los_condition == False)[:2]
 
-        loss = np.empty(d_2D.shape)
+        loss = np.empty(distance_2d.shape)
 
         if len(i_los[0]):
-            loss_los = self.get_loss_los(d_2D, d_3D, f, h_bs, h_ue, h_e, shadowing_los)
+            loss_los = self.get_loss_los(distance_2d, distance_3d, frequency, bs_height, ue_height, h_e, shadowing_los)
             loss[i_los] = loss_los[i_los]
 
         if len(i_nlos[0]):
-            loss_nlos = self.get_loss_nlos(d_2D, d_3D, f, h_bs, h_ue, h_e, shadowing_nlos)
+            loss_nlos = self.get_loss_nlos(distance_2d, distance_3d, frequency, bs_height, ue_height, h_e, shadowing_nlos)
             loss[i_nlos] = loss_nlos[i_nlos]
 
         return loss

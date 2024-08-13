@@ -5,6 +5,7 @@ Created on Thu Feb 16 12:04:27 2017
 @author: edgar
 """
 import numpy as np
+from multipledispatch import dispatch
 
 from sharc.propagation.propagation import Propagation
 from sharc.station_manager import StationManager
@@ -16,6 +17,7 @@ class PropagationFreeSpace(Propagation):
     Frequency in MHz and distance in meters
     """
 
+    @dispatch(Parameters, float, StationManager, StationManager, np.ndarray, np.ndarray)
     def get_loss(self,
                  params: Parameters,
                  frequency: float,
@@ -42,6 +44,10 @@ class PropagationFreeSpace(Propagation):
         """
         distance_3d = station_a.get_3d_distance_to(station_b)
         return self.get_free_space_loss(frequency=frequency, distance=distance_3d)
+    
+    @dispatch(np.ndarray, np.ndarray)
+    def get_loss(self, distance_3D: np.array, frequency: float) -> np.array:
+        return self.get_free_space_loss(np.unique(frequency), distance_3D)
     
     def get_free_space_loss(self, frequency: float, distance: np.array) -> np.array:
         """Calculates the free-space loss for the given distance and frequency

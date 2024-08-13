@@ -10,6 +10,7 @@ import os
 import csv
 from scipy.interpolate import interp1d
 import numpy as np
+from multipledispatch import dispatch
 from sharc.station_manager import StationManager
 from sharc.parameters.parameters import Parameters
 from sharc.propagation.propagation import Propagation
@@ -236,6 +237,7 @@ class PropagationP619(Propagation):
 
         return np.degrees(elev_angles_rad + tau_fs)
 
+    @dispatch(Parameters, float, StationManager, StationManager, np.ndarray, np.ndarray)
     def get_loss(self,
                  params: Parameters,
                  frequency: float,
@@ -306,22 +308,23 @@ class PropagationP619(Propagation):
                 is_earth_to_space_link = False if imt_station.is_space_station else True
                 is_single_entry_interf = False
 
-        return self._get_loss(distance=distance,
-                              frequency=frequency,
-                              indoor_stations=indoor_stations,
-                              elevation=elevation_angles,
-                              earth_to_space=is_earth_to_space_link,
-                              single_entry=is_single_entry_interf,
-                              earth_station_antenna_gain=earth_station_antenna_gain)
-
-    def _get_loss(self,
-                  distance: np.array,
-                  frequency: np.array,
-                  indoor_stations: np.array,
-                  elevation: dict,
-                  earth_to_space: bool,
-                  earth_station_antenna_gain: np.array,
-                  single_entry: bool) -> np.array:
+        return self.get_loss(distance,
+                             frequency,
+                             indoor_stations,
+                             elevation_angles,
+                             is_earth_to_space_link,
+                             earth_station_antenna_gain,
+                             is_single_entry_interf)
+    
+    @dispatch(np.ndarray, np.ndarray, np.ndarray, dict, bool, np.ndarray, bool)
+    def get_loss(self,
+                 distance: np.array,
+                 frequency: np.array,
+                 indoor_stations: np.array,
+                 elevation: dict,
+                 earth_to_space: bool,
+                 earth_station_antenna_gain: np.array,
+                 single_entry: bool) -> np.array:
         """
         Calculates path loss for earth-space link
 

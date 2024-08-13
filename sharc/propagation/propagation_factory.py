@@ -74,7 +74,7 @@ class PropagationFactory(object):
                                    earth_station_long_diff_deg=param_system.earth_station_lat_deg,
                                    season=param_system.season)
         elif channel_model == "P452":
-            return PropagationClearAir(random_number_gen)
+            return PropagationClearAir(random_number_gen, param_system.param_p452)
         elif channel_model == "TVRO-URBAN":
             return PropagationTvro(random_number_gen, "URBAN")
         elif channel_model == "TVRO-SUBURBAN":

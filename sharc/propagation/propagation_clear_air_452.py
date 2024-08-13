@@ -5,28 +5,31 @@
 """
 Created on Mon May 22 15:10:11 2017
 """
-from sharc.propagation.propagation import Propagation
+import numpy as np
+from multipledispatch import dispatch
 
+from sharc.propagation.propagation import Propagation
+from sharc.station_manager import StationManager
+from sharc.parameters.parameters import Parameters
+from sharc.parameters.parameters_p452 import ParametersP452
 from sharc.propagation.clear_air_452_aux import p676_ga
 from sharc.propagation.clear_air_452_aux import inv_cum_norm
 from sharc.support.enumerations import StationType
 from sharc.propagation.propagation_clutter_loss import PropagationClutterLoss
 from sharc.propagation.propagation_building_entry_loss import PropagationBuildingEntryLoss
-
-import numpy as np
-
 class PropagationClearAir(Propagation):
     """
     Basic transmission loss due to free-space propagation and attenuation by atmospheric gases
     """
-    def __init__(self, random_number_gen: np.random.RandomState):
+    # pylint: disable=function-redefined
+    # pylint: disable=arguments-renamed
+    def __init__(self, random_number_gen: np.random.RandomState, model_params: ParametersP452):
         super().__init__(random_number_gen)
 
         self.clutter = PropagationClutterLoss(random_number_gen)
         self.building_entry = PropagationBuildingEntryLoss(self.random_number_gen)
-
         self.building_loss = 20
-
+        self.model_params = model_params
 
     @staticmethod
     def closs_corr(f, d, h, zone, htg, hrg, ha_t, ha_r, dk_t, dk_r):
@@ -714,46 +717,117 @@ class PropagationClearAir(Propagation):
         return Ldp, Ld50
 
 
-    def get_loss(self, *args, **kwargs) -> np.array:
+    @dispatch(Parameters, float, StationManager, StationManager, np.ndarray, np.ndarray)
+    def get_loss(self,
+                 params: Parameters,
+                 frequency: float,
+                 station_a: StationManager,
+                 station_b: StationManager,
+                 station_a_gains=None,
+                 station_b_gains=None) -> np.array:
+        """Wrapper function for the get_loss method to fit the Propagation ABC class interface
+        Calculates the loss between station_a and station_b
 
-        d_km = np.asarray(kwargs["distance_3D"])*(1e-3)   #Km
-        f = np.asarray(kwargs["frequency"])*(1e-3)  #GHz
-        number_of_sectors = kwargs.pop("number_of_sectors",1)
-        indoor_stations = kwargs.pop("indoor_stations",1)
-        elevation = kwargs["elevation"]
+        Parameters
+        ----------
+        params : Parameters
+            Simulation parameters needed for the propagation class
+        frequency: float
+            Center frequency
+        station_a : StationManager
+            StationManager container representing the system station
+        station_b : StationManager
+            StationManager container representing the IMT station
+        station_a_gains: np.ndarray defaults to None
+            System antenna gains
+        station_b_gains: np.ndarray defaults to None
+            IMT antenna gains
 
-        f = np.unique(f)
-        if len(f) > 1:
-            error_message = "different frequencies not supported in P619"
+        Returns
+        -------
+        np.array
+            Return an array station_a.num_stations x station_b.num_stations with the path loss 
+            between each station
+        """
+        distance = station_a.get_3d_distance_to(station_b)*(1e-3) # P.452 expects Kms
+        frequency_array = frequency * np.ones(distance.shape)*(1e-3) # P.452 expects GHz
+        indoor_stations = np.tile(station_b.indoor, (station_a.num_stations, 1))
+        elevation = station_b.get_elevation(station_a)
+        if params.imt.interfered_with:
+            tx_gain = station_a_gains
+            rx_gain = station_b_gains
+        else:
+            tx_gain = station_b_gains
+            rx_gain = station_a_gains
+
+        return self.get_loss(
+            distance,
+            frequency_array,
+            indoor_stations,
+            elevation,
+            tx_gain,
+            rx_gain
+        )
+
+    # pylint: disable=arguments-differ
+    @dispatch(np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray)
+    def get_loss(self, distance: np.ndarray, frequency: np.ndarray,
+                 indoor_stations: np.ndarray, elevation: np.ndarray,
+                 tx_gain: np.ndarray, rx_gain: np.ndarray) -> np.array:
+        """Calculates the loss according to P.452
+
+        Parameters
+        ----------
+        distance : np.ndarray
+            Distance array between stations in KMs
+        frequency : np.ndarray
+            Frequency array for the links
+        indoor_stations : np.ndarray
+            Whether the rx stations are indoor
+        elevation : np.ndarray
+            elevation angle between stations
+        tx_gain: np.ndarray
+            transmitter antenna gains
+        rx_gain: np.ndarray
+            receiver antenna gains
+
+        Returns
+        -------
+        np.array
+            array of losses
+        """
+        frequency = np.unique(frequency)
+        if len(frequency) > 1:
+            error_message = "different frequencies not supported in P.452"
             raise ValueError(error_message)
 
-        es_params =kwargs["es_params"]
-        Ph = np.asarray(es_params.atmospheric_pressure)
-        T = np.asarray(es_params.air_temperature)
-        Dct = np.asarray(es_params.Dct)
-        Dcr = np.asarray(es_params.Dcr)
-        Hte = np.asarray(es_params.Hte)
-        Hre = np.asarray(es_params.Hre)
-        N0 = np.asarray(es_params.N0)
-        deltaN = np.asarray(es_params.delta_N)
-        if es_params.percentage_p == 'RANDOM':
-            p = 50*self.random_number_gen.rand(d_km.size)
+        # TODO: Remove unecessary assignments
+        Ph = np.asarray(self.model_params.atmospheric_pressure)
+        T = np.asarray(self.model_params.air_temperature)
+        Dct = np.asarray(self.model_params.Dct)
+        Dcr = np.asarray(self.model_params.Dcr)
+        Hte = np.asarray(self.model_params.Hte)
+        Hre = np.asarray(self.model_params.Hre)
+        N0 = np.asarray(self.model_params.N0)
+        deltaN = np.asarray(self.model_params.delta_N)
+        if self.model_params.percentage_p == 'RANDOM':
+            p = 50*self.random_number_gen.rand(distance.size)
         else:
-            p = float(es_params.percentage_p)*np.ones(d_km.size)
+            p = float(self.model_params.percentage_p)*np.ones(distance.size)
 
-        tx_lat = es_params.tx_lat
-        rx_lat = es_params.rx_lat
+        tx_lat = self.model_params.tx_lat
+        rx_lat = self.model_params.rx_lat
 
-        Gt = np.ravel(np.asarray(kwargs["tx_gain"]))
-        Gr = np.ravel(np.asarray(kwargs["rx_gain"]))
+        tx_gain = np.ravel(tx_gain)
+        rx_gain = np.ravel(rx_gain)
 
         # Modify the path according to Section 4.5.4, Step 1  and compute clutter losses
         # consider no obstacles profile
         profile_length = 100
-        num_dists = d_km.size
+        num_dists = distance.size
         d = np.empty([num_dists, profile_length])
         for ii in range(num_dists):
-            d[ii, :] = np.linspace(0,d_km[0][ii],profile_length)
+            d[ii, :] = np.linspace(0,distance[0][ii],profile_length)
 
         h = np.zeros(d.shape)
 
@@ -798,7 +872,7 @@ class PropagationClearAir(Propagation):
         Ce = 1 / ae
 
         # Wavelength in meters
-        lamb = 0.3 / f
+        lamb = 0.3 / frequency
 
         # Calculate an interpolation factor Fj to take account of the path angular
         # distance(58)
@@ -806,12 +880,12 @@ class PropagationClearAir(Propagation):
         KSI = 0.8
 
         for ii in range(num_dists):
-            [dc, hc, zonec, htg, hrg, Aht, Ahr] = self.closs_corr(f, d[ii,:], h[ii,:], zone, Hte, Hre, ha_t, ha_r, dk_t, dk_r)
+            [dc, hc, zonec, htg, hrg, Aht, Ahr] = self.closs_corr(frequency, d[ii,:], h[ii,:], zone, Hte, Hre, ha_t, ha_r, dk_t, dk_r)
             d[ii,:] = dc
             h[ii,:] = hc
 
             [hst, hsr, hstd, hsrd, hte,hre, hm, dlt,
-             dlr, theta_t, theta_r, theta, pathtype] = self.smooth_earth_heights(d[ii,:], h[ii,:], htg, hrg, ae, f)
+             dlr, theta_t, theta_r, theta, pathtype] = self.smooth_earth_heights(d[ii,:], h[ii,:], htg, hrg, ae, frequency)
 
             dtot = d[ii,-1] - d[ii,0]
 
@@ -846,9 +920,9 @@ class PropagationClearAir(Propagation):
 
             Fk = 1.0 - 0.5 * (1.0 + np.tanh(3.0 * kappa * (dtot - dsw) / dsw))
 
-            [Lbfsg, Lb0p, Lb0b] = self.pl_los(dtot, f, p[ii], b0[ii], omega[ii], T, Ph, dlt, dlr)
+            [Lbfsg, Lb0p, Lb0b] = self.pl_los(dtot, frequency, p[ii], b0[ii], omega[ii], T, Ph, dlt, dlr)
 
-            [Ldp, Ld50] = self.dl_p(d[ii], h[ii], hts, hrs, hstd, hsrd, f, omega[ii], p[ii], b0[ii], deltaN)
+            [Ldp, Ld50] = self.dl_p(d[ii], h[ii], hts, hrs, hstd, hsrd, frequency, omega[ii], p[ii], b0[ii], deltaN)
 
             # The median basic transmission loss associated with diffraction Eq (43)
             Lbd50 = Lbfsg + Ld50
@@ -868,7 +942,7 @@ class PropagationClearAir(Propagation):
             # and transhorizon signal enhancements
             eta = 2.5
 
-            Lba = self.tl_anomalous(dtot, dlt, dlr, Dct, Dcr, dlm[ii], hts, hrs, hte, hre, hm, theta_t, theta_r, f, p[ii], T, Ph,
+            Lba = self.tl_anomalous(dtot, dlt, dlr, Dct, Dcr, dlm[ii], hts, hrs, hte, hre, hm, theta_t, theta_r, frequency, p[ii], T, Ph,
                                     omega[ii], ae, b0[ii])
 
             Lminbap = eta * np.log(np.exp(Lba / eta) + np.exp(Lb0p / eta))
@@ -885,36 +959,30 @@ class PropagationClearAir(Propagation):
 
             # Calculate the basic transmission loss due to troposcatter not exceeded
             # for any time percantage p
-            Lbs = self.tl_tropo(dtot, theta, f, p[ii], T, Ph, N0, Gt[ii], Gr[ii])
+            Lbs = self.tl_tropo(dtot, theta, frequency, p[ii], T, Ph, N0, tx_gain[ii], rx_gain[ii])
 
             # Calculate the final transmission loss not exceeded for p % time
             Lb_pol = -5 * np.log10(10 ** (-0.2 * Lbs) + 10** (-0.2 * Lbam)) + Aht + Ahr
 
-            if (es_params.polarization).lower() == "horizontal":
+            if (self.model_params.polarization).lower() == "horizontal":
                 Lb[0,ii] = Lb_pol[0]
-            elif (es_params.polarization).lower() == "vertical":
+            elif (self.model_params.polarization).lower() == "vertical":
                 Lb[0,ii] = Lb_pol[1]
             else:
                 error_message = "invalid polarization"
                 raise ValueError(error_message)
 
-        if es_params.clutter_loss:
-            clutter_loss = self.clutter.get_loss(frequency=f * 1000,
-                                                 distance=d_km * 1000,
+        if self.model_params.clutter_loss:
+            clutter_loss = self.clutter.get_loss(frequency=frequency * 1000,
+                                                 distance=distance * 1000,
                                                  station_type=StationType.FSS_ES)
         else:
-            clutter_loss = np.zeros(d_km.shape)
+            clutter_loss = np.zeros(distance.shape)
 
 #        building_loss = self.building_loss * indoor_stations
-        b_loss = np.transpose(self.building_entry.get_loss(f, elevation))
+        b_loss = np.transpose(self.building_entry.get_loss(frequency, elevation))
         building_loss = b_loss * indoor_stations
+        lb_new = Lb + clutter_loss + building_loss
 
-        if number_of_sectors > 1:
-            Lb = np.repeat(Lb, number_of_sectors, 1)
-            clutter_loss = np.repeat(clutter_loss, number_of_sectors, 1)
-            building_loss = np.repeat(building_loss, number_of_sectors, 1)
-
-        Lb_new = Lb + clutter_loss + building_loss
-
-        return Lb_new
+        return lb_new
 

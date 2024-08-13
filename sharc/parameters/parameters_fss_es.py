@@ -3,6 +3,7 @@ from dataclasses import dataclass
 
 from sharc.support.sharc_utils import is_float
 from sharc.parameters.parameters_base import ParametersBase
+from sharc.parameters.parameters_p452 import ParametersP452
 
 
 @dataclass
@@ -64,6 +65,7 @@ class ParametersFssEs(ParametersBase):
     channel_model: str = "P452"
 
     # P452 parameters
+    param_p452 = ParametersP452()
     # Total air pressure in hPa
     atmospheric_pressure: float = 935.0
     # Temperature in Kelvin
@@ -177,3 +179,9 @@ class ParametersFssEs(ParametersBase):
                              Invalid value for parameter bs_building_entry_loss_type - \
                              {self.bs_building_entry_loss_type} \
                              Allowd values are \"P2109_RANDOM\", \"P2109_FIXED\", \"FIXED_VALUE\".")
+        if self.channel_model.upper() not in ["FSPL", "TERRESTRIALSIMPLE", "P452",
+                                              "TVRO-URBAN", "TVRO-SUBURBAN", "HDFSS"]:
+            raise ValueError(f"ParametersFssEs: Invalid value for parameter channel_model - {self.channel_model}")
+
+        if self.channel_model == "P452":
+            self.param_p452.load_from_paramters(self)

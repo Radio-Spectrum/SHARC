@@ -224,7 +224,9 @@ class Simulation(ABC, Observable):
                 + self.polarization_loss
         elif imt_station.station_type is StationType.IMT_BS:
             # define antenna gains
-            gain_sys_to_imt = self.calculate_gains(system_station, imt_station)
+            # repeat for each BS beam
+            gain_sys_to_imt = np.repeat(self.calculate_gains(system_station, imt_station), 
+                                        self.parameters.imt.ue_k, 1)
             gain_imt_to_sys = np.transpose(self.calculate_gains(
                 imt_station, system_station, is_co_channel))
             additional_loss = self.parameters.imt.bs_ohmic_loss \
@@ -245,20 +247,19 @@ class Simulation(ABC, Observable):
             self.imt_system_build_entry_loss = path_loss[1]
             self.imt_system_diffraction_loss = path_loss[2]
             path_loss = path_loss[0]
-        
+
         if imt_station.station_type is StationType.IMT_UE:
-            self.system_imt_antenna_gain =  gain_sys_to_imt
             self.imt_system_path_loss = path_loss
         else:
             # Repeat for each BS beam
-            self.system_imt_antenna_gain =  np.repeat(gain_sys_to_imt, self.parameters.imt.ue_k, 1)
             self.imt_system_path_loss = np.repeat(path_loss, self.parameters.imt.ue_k, 1)
-        
+
+        self.system_imt_antenna_gain = gain_sys_to_imt
         self.imt_system_antenna_gain = gain_imt_to_sys
 
         # calculate coupling loss
         coupling_loss = np.squeeze(
-            self.imt_system_path_loss - self.system_imt_antenna_gain - gain_imt_to_sys) + additional_loss
+            self.imt_system_path_loss - self.system_imt_antenna_gain - self.imt_system_antenna_gain) + additional_loss
 
         return coupling_loss
 

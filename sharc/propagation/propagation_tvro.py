@@ -105,8 +105,7 @@ class PropagationTvro(Propagation):
                                   indoor_stations=np.tile(station_a.indoor, 
                                                          (station_b.num_stations, 1)))
 
-        # the interface expects station_a.num_stations x station_b.num_stations array
-        return np.transpose(loss)
+        return loss
 
     def _get_loss(self, *args, **kwargs) -> np.array:
         """

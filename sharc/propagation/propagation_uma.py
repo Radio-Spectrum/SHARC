@@ -65,7 +65,7 @@ class PropagationUMa(Propagation):
                                shadowing=params.imt.shadowing)
         
         # the interface expects station_a.num_stations x station_b.num_stations array
-        return np.transpose(loss)
+        return loss
 
     def __get_loss(self, *args, **kwargs) -> np.array:
         """

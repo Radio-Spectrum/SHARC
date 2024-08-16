@@ -10,12 +10,14 @@ import logging.config
 
 import yaml
 
-class Logging():
 
-    
+class Logging:
     @staticmethod
-    def setup_logging(default_path='support/logging.yaml', 
-                      default_level=logging.INFO, env_key='LOG_CFG'):
+    def setup_logging(
+        default_path="support/logging.yaml",
+        default_level=logging.INFO,
+        env_key="LOG_CFG",
+    ):
         """
         Setup logging configuration
         """
@@ -24,7 +26,7 @@ class Logging():
         if value:
             path = value
         if os.path.exists(path):
-            with open(path, 'rt') as f:
+            with open(path, "rt") as f:
                 config = yaml.safe_load(f.read())
             logging.config.dictConfig(config)
         else:

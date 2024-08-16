@@ -1,10 +1,11 @@
 import configparser
 from dataclasses import dataclass
 
+
 @dataclass
 class ParametersBase:
-    """Base class for parameter dataclassess
-    """
+    """Base class for parameter dataclassess"""
+
     section_name: str = "DEFAULT"
 
     def load_parameters_from_file(self, config_file: str):
@@ -30,8 +31,13 @@ class ParametersBase:
             return
 
         # Load all the parameters from the configuration file
-        attr_list = [a for a in dir(self) if not a.startswith('__') and not
-                     callable(getattr(self, a)) and a != "section_name"]
+        attr_list = [
+            a
+            for a in dir(self)
+            if not a.startswith("__")
+            and not callable(getattr(self, a))
+            and a != "section_name"
+        ]
 
         for attr_name in attr_list:
             try:
@@ -39,11 +45,17 @@ class ParametersBase:
                 if isinstance(attr_val, str):
                     setattr(self, attr_name, config.get(self.section_name, attr_name))
                 elif isinstance(attr_val, bool):
-                    setattr(self, attr_name, config.getboolean(self.section_name, attr_name))
+                    setattr(
+                        self, attr_name, config.getboolean(self.section_name, attr_name)
+                    )
                 elif isinstance(attr_val, float):
-                    setattr(self, attr_name, config.getfloat(self.section_name, attr_name))
+                    setattr(
+                        self, attr_name, config.getfloat(self.section_name, attr_name)
+                    )
                 elif isinstance(attr_val, int):
-                    setattr(self, attr_name, config.getint(self.section_name, attr_name))
+                    setattr(
+                        self, attr_name, config.getint(self.section_name, attr_name)
+                    )
                 elif isinstance(attr_val, tuple):
                     # Check if the string defines a list of floats
                     try:
@@ -53,8 +65,12 @@ class ParametersBase:
                     except ValueError:
                         # its a regular string. Let the specific class implementation
                         # do the sanity check
-                        print(f"ParametersBase: could not convert string to tuple \"{self.section_name}.{attr_name}\"")
+                        print(
+                            f'ParametersBase: could not convert string to tuple "{self.section_name}.{attr_name}"'
+                        )
                         exit()
 
             except configparser.NoOptionError:
-                print(f"ParametersBase: NOTICE! Configuration parameter \"{self.section_name}.{attr_name}\" is not set in configuration file. Using default value {attr_val}")
+                print(
+                    f'ParametersBase: NOTICE! Configuration parameter "{self.section_name}.{attr_name}" is not set in configuration file. Using default value {attr_val}'
+                )

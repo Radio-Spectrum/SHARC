@@ -9,6 +9,7 @@ class ParametersRns(ParametersBase):
     """
     Simulation parameters for radionavigation service
     """
+
     section_name: str = "RNS"
     # x-y coordinates [m]
     x: float = 660.0
@@ -59,14 +60,14 @@ class ParametersRns(ParametersBase):
         """
         super().load_parameters_from_file(config_file)
         if self.antenna_pattern not in ["ITU-R M.1466", "OMNI"]:
-            raise ValueError(f"ParametersRns: \
+            raise ValueError(f'ParametersRns: \
                              Invalid value for parameter {self.antenna_pattern}. \
-                             Allowed values are \"ITU-R M.1466\", \"OMNI\".")
+                             Allowed values are "ITU-R M.1466", "OMNI".')
         if self.channel_model.upper() not in ["FSPL", "SatelliteSimple", "P619"]:
-            raise ValueError(f"ParametersRns: \
+            raise ValueError(f'ParametersRns: \
                              Invalid value for paramter channel_model = {self.channel_model}. \
-                             Possible values are \"FSPL\", \"SatelliteSimple\", \"P619\".")
+                             Possible values are "FSPL", "SatelliteSimple", "P619".')
         if self.season.upper() not in ["SUMMER", "WINTER"]:
-            raise ValueError(f"ParametersRns: \
+            raise ValueError(f'ParametersRns: \
                              Invalid value for parameter season - {self.season}. \
-                             Possible values are \"SUMMER\", \"WINTER\".")
+                             Possible values are "SUMMER", "WINTER".')

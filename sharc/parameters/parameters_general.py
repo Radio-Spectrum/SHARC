@@ -5,10 +5,11 @@ from dataclasses import dataclass
 from sharc.sharc_definitions import SHARC_IMPLEMENTED_SYSTEMS
 from sharc.parameters.parameters_base import ParametersBase
 
+
 @dataclass
 class ParametersGeneral(ParametersBase):
-    """Dataclass containing the general parameters for the simulator
-    """
+    """Dataclass containing the general parameters for the simulator"""
+
     section_name: str = "GENERAL"
     num_snapshots: int = 10000
     imt_link: str = "DOWNLINK"
@@ -38,6 +39,6 @@ class ParametersGeneral(ParametersBase):
             raise ValueError(f"ParametersGeneral: \
                              Invalid value for parameter imt_link - {self.imt_link} \
                              Possible values are DOWNLINK and UPLINK")
-       
+
         if self.system not in SHARC_IMPLEMENTED_SYSTEMS:
             raise ValueError(f"Invalid system name {self.system}")

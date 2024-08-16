@@ -44,7 +44,6 @@ class Parameters(object):
         self.rns = ParametersRns()
         self.ras = ParametersRas()
 
-
     def set_file_name(self, file_name: str):
         """sets the configuration file name
 
@@ -55,10 +54,8 @@ class Parameters(object):
         """
         self.file_name = file_name
 
-
     def read_params(self):
-        """Read the parameters from the config file
-        """
+        """Read the parameters from the config file"""
         if not os.path.isfile(self.file_name):
             err_msg = f"PARAMETER ERROR [{self.__class__.__name__}]: \
                 Could not find the configuration file {self.file_name}"
@@ -172,11 +169,16 @@ class Parameters(object):
         #######################################################################
         self.eess_passive.load_parameters_from_file(self.file_name)
 
+
 if __name__ == "__main__":
     from pprint import pprint
+
     parameters = Parameters()
-    param_sections = [a for a in dir(parameters) if not a.startswith('__') and not
-                callable(getattr(parameters, a))]
+    param_sections = [
+        a
+        for a in dir(parameters)
+        if not a.startswith("__") and not callable(getattr(parameters, a))
+    ]
     print("\n#### Dumping default parameters:")
     for p in param_sections:
         print("\n")

@@ -10,6 +10,7 @@ class ParametersRas(ParametersBase):
     """
     Simulation parameters for Radio Astronomy Service
     """
+
     section_name: str = "RAS"
     # x-y coordinates [m]
     x: float = 81000.0
@@ -88,17 +89,17 @@ class ParametersRas(ParametersBase):
         """
         super().load_parameters_from_file(config_file)
         if self.channel_model.upper() not in ["FSPL", "TERRESTRIALSIMPLE", "P452"]:
-            raise ValueError(f"ParametersRas: \
+            raise ValueError(f'ParametersRas: \
                              Invalid value for parameter channel_model - {self.channel_model}. \
-                             Allowed values are: \"FSPL\", \"TerrestrialSimple\", \"P452\"")
+                             Allowed values are: "FSPL", "TerrestrialSimple", "P452"')
         if self.antenna_pattern.upper() not in ["ITU-R SA.509", "OMNI"]:
-            raise ValueError(f"ParametersRas: \
+            raise ValueError(f'ParametersRas: \
                              Invalid value for parameter antenna_pattern - {self.antenna_pattern}. \
-                             Allowed values are: \"ITU-R SA.509\", \"OMNI\"")
+                             Allowed values are: "ITU-R SA.509", "OMNI"')
         if self.polarization.lower() not in ["horizontal", "vertical"]:
-            raise ValueError(f"ParametersRas: \
+            raise ValueError(f'ParametersRas: \
                              Invalid value for parameter polarization - {self.polarization}. \
-                             Allowed values are: \"horizontal\", \"vertical\"")
+                             Allowed values are: "horizontal", "vertical"')
         if is_float(self.percentage_p):
             self.percentage_p = float(self.percentage_p)
         elif self.percentage_p.upper() != "RANDOM":

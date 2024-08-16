@@ -15,8 +15,6 @@ from scipy import special
 
 
 class PropagationClutterLoss(Propagation):
-
-
     def get_loss(self, *args, **kwargs) -> np.array:
         """
         Calculates clutter loss.
@@ -39,7 +37,7 @@ class PropagationClutterLoss(Propagation):
 
         """
         f = kwargs["frequency"]
-        loc_per = kwargs.pop("loc_percentage","RANDOM")
+        loc_per = kwargs.pop("loc_percentage", "RANDOM")
         type = kwargs["station_type"]
 
         d = kwargs["distance"]
@@ -50,18 +48,22 @@ class PropagationClutterLoss(Propagation):
         if isinstance(loc_per, str) and loc_per.upper() == "RANDOM":
             p = self.random_number_gen.random_sample(d.shape)
         else:
-            p = loc_per*np.ones(d.shape)
+            p = loc_per * np.ones(d.shape)
 
-        if type is StationType.IMT_BS or type is StationType.IMT_UE or type is StationType.FSS_ES:
+        if (
+            type is StationType.IMT_BS
+            or type is StationType.IMT_UE
+            or type is StationType.FSS_ES
+        ):
             loss = self.get_terrestrial_clutter_loss(f, d, p)
         else:
             theta = kwargs["elevation"]
             loss = self.get_spacial_clutter_loss(f, theta, p)
         return loss
 
-    def get_spacial_clutter_loss(self, frequency : float,
-                             elevation_angle : float,
-                             loc_percentage):
+    def get_spacial_clutter_loss(
+        self, frequency: float, elevation_angle: float, loc_percentage
+    ):
         """
         This method models the calculation of the statistical distribution of
         clutter loss where one end of the interference path is within man-made
@@ -80,24 +82,34 @@ class PropagationClutterLoss(Propagation):
             loss : The clutter loss not exceeded for p% of locations for the
                 terrestrial to terrestrial path
         """
-        k1 = 93*(frequency*1e-3)**0.175
+        k1 = 93 * (frequency * 1e-3) ** 0.175
         A1 = 0.05
 
-        y = np.sin(A1*(1 - (elevation_angle/90)) + math.pi*(elevation_angle/180))
-        y1 = np.cos(A1*(1 - (elevation_angle/90)) + math.pi*(elevation_angle/180))
+        y = np.sin(
+            A1 * (1 - (elevation_angle / 90)) + math.pi * (elevation_angle / 180)
+        )
+        y1 = np.cos(
+            A1 * (1 - (elevation_angle / 90)) + math.pi * (elevation_angle / 180)
+        )
 
-        cot = (y1/y)
-        Q = np.sqrt(2)*scipy.special.erfcinv(2*loc_percentage)
-        loss = (-k1*(np.log(1 - loc_percentage))*cot)**(0.5*(90 - elevation_angle)/90) - 1 - 0.6*Q
+        cot = y1 / y
+        Q = np.sqrt(2) * scipy.special.erfcinv(2 * loc_percentage)
+        loss = (
+            (-k1 * (np.log(1 - loc_percentage)) * cot)
+            ** (0.5 * (90 - elevation_angle) / 90)
+            - 1
+            - 0.6 * Q
+        )
 
         return loss
 
-
-    def get_terrestrial_clutter_loss(self,
-                                     frequency: float,
-                                     distance: float,
-                                     loc_percentage: float,
-                                     apply_both_ends = True):
+    def get_terrestrial_clutter_loss(
+        self,
+        frequency: float,
+        distance: float,
+        loc_percentage: float,
+        apply_both_ends=True,
+    ):
         """
         This method gives models the statistical distribution of clutter loss.
         The model can be applied for urban and suburban clutter loss modelling.
@@ -137,14 +149,16 @@ class PropagationClutterLoss(Propagation):
             Lt = 23.5 + 9.6 * np.log10(f[id_2] * 1e-3)
             Ls = 32.98 + 23.9 * np.log10(d[id_2] * 1e-3) + 3 * np.log10(f[id_2] * 1e-3)
             Q = np.sqrt(2) * scipy.special.erfcinv(2 * (p[id_2]))
-            loss[id_2] = loss[id_2] + (-5 * np.log10(10 ** (-0.2 * Lt) + 10 ** (-0.2 * Ls)) - 6 * Q)
+            loss[id_2] = loss[id_2] + (
+                -5 * np.log10(10 ** (-0.2 * Lt) + 10 ** (-0.2 * Ls)) - 6 * Q
+            )
 
         loss = loss.reshape(distance.shape)
 
         return loss
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     import matplotlib.pyplot as plt
 
     elevation_angle = np.array([90, 80, 70, 60, 50, 40, 30, 20, 15, 10, 5, 0])
@@ -156,15 +170,20 @@ if __name__ == '__main__':
     clutter_loss = np.empty([len(elevation_angle), len(loc_percentage)])
 
     for i in range(len(loc_percentage)):
-        clutter_loss[:, i] = cl.get_spacial_clutter_loss(frequency,
-                                                         elevation_angle,
-                                                         loc_percentage[i])
+        clutter_loss[:, i] = cl.get_spacial_clutter_loss(
+            frequency, elevation_angle, loc_percentage[i]
+        )
 
-    fig = plt.figure(figsize=(8, 6), facecolor='w', edgecolor='k')
+    fig = plt.figure(figsize=(8, 6), facecolor="w", edgecolor="k")
     ax = fig.gca()
 
     for j in range(len(elevation_angle)):
-        ax.plot(clutter_loss[j, :], 100 * loc_percentage, label="%i deg" % elevation_angle[j], linewidth=1)
+        ax.plot(
+            clutter_loss[j, :],
+            100 * loc_percentage,
+            label="%i deg" % elevation_angle[j],
+            linewidth=1,
+        )
 
     plt.title("Cumulative distribution of clutter loss not exceeded for 27 GHz")
     plt.xlabel("clutter loss [dB]")
@@ -186,18 +205,22 @@ if __name__ == '__main__':
     clutter_loss_ter = np.empty([len(frequency), len(distance)])
 
     for i in range(len(frequency)):
-        clutter_loss_ter[i, :] = cl.get_terrestrial_clutter_loss(frequency[i] * np.ones(distance.shape),
-                                                                 distance,
-                                                                 loc_percentage,
-                                                                 apply_both_ends)
+        clutter_loss_ter[i, :] = cl.get_terrestrial_clutter_loss(
+            frequency[i] * np.ones(distance.shape),
+            distance,
+            loc_percentage,
+            apply_both_ends,
+        )
 
-    fig = plt.figure(figsize=(8, 6), facecolor='w', edgecolor='k')
+    fig = plt.figure(figsize=(8, 6), facecolor="w", edgecolor="k")
     ax = fig.gca()
     # ax.set_prop_cycle( cycler('color', ['k', 'r', 'b', 'g']) )
 
     for j in range(len(frequency)):
         freq = frequency[j] * 1e-3
-        ax.semilogx(distance * 1e-3, clutter_loss_ter[j, :], label="%i GHz" % freq, linewidth=1)
+        ax.semilogx(
+            distance * 1e-3, clutter_loss_ter[j, :], label="%i GHz" % freq, linewidth=1
+        )
 
     plt.title("Median clutter loss for terrestrial paths")
     plt.xlabel("Distance [km]")

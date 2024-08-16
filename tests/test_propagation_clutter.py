@@ -12,16 +12,15 @@ import numpy as np
 
 from sharc.propagation.propagation_clutter_loss import PropagationClutterLoss
 
-class PropagationClutterLossTest(unittest.TestCase):
 
+class PropagationClutterLossTest(unittest.TestCase):
     def setUp(self):
         self.__ClutterAtt = PropagationClutterLoss(np.random.RandomState())
 
     def test_loss(self):
-
-        f = 27000    #GHz
+        f = 27000  # GHz
         theta = 0
-        per_p =50
+        per_p = 50
         d = 10000
         P = 0.9
         dist = 10
@@ -34,8 +33,8 @@ class PropagationClutterLossTest(unittest.TestCase):
         x = -3
         y = 4.5
         z = -2
-        #npt.assert_allclose(73.150,
-         #                self.__ClutterAtt.get_loss(frequency=f, distance = d,percentage_p = per_p, dist = dist, elevation_angle_facade=theta, probability_loss_notExceeded=P, coeff_r=r, coeff_s=s, coeff_t=t, coeff_u=u,coeff_v=v, coeff_w=w,coeff_x=x,coeff_y=y,coeff_z=z),atol=1e-3)
+        # npt.assert_allclose(73.150,
+        #                self.__ClutterAtt.get_loss(frequency=f, distance = d,percentage_p = per_p, dist = dist, elevation_angle_facade=theta, probability_loss_notExceeded=P, coeff_r=r, coeff_s=s, coeff_t=t, coeff_u=u,coeff_v=v, coeff_w=w,coeff_x=x,coeff_y=y,coeff_z=z),atol=1e-3)
 
 
 #        f = [10,20]    #GHz
@@ -58,6 +57,5 @@ class PropagationClutterLossTest(unittest.TestCase):
 #
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()
-

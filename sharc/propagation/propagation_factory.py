@@ -22,10 +22,12 @@ from sharc.propagation.propagation_tvro import PropagationTvro
 from sharc.propagation.propagation_indoor import PropagationIndoor
 from sharc.propagation.propagation_hdfss import PropagationHDFSS
 
-class PropagationFactory(object):
 
+class PropagationFactory(object):
     @staticmethod
-    def create_propagation(channel_model: str, param: Parameters, random_number_gen: rnd.RandomState) -> Propagation:
+    def create_propagation(
+        channel_model: str, param: Parameters, random_number_gen: rnd.RandomState
+    ) -> Propagation:
         if channel_model == "FSPL":
             return PropagationFreeSpace(random_number_gen)
         elif channel_model == "ABG":
@@ -47,10 +49,11 @@ class PropagationFactory(object):
         elif channel_model == "TVRO-SUBURBAN":
             return PropagationTvro(random_number_gen, "SUBURBAN")
         elif channel_model == "HDFSS":
-            return PropagationHDFSS(param.fss_es,random_number_gen)
+            return PropagationHDFSS(param.fss_es, random_number_gen)
         elif channel_model == "INDOOR":
-            return PropagationIndoor(random_number_gen, param.indoor, 
-                                     param.imt.ue_k*param.imt.ue_k_m)
+            return PropagationIndoor(
+                random_number_gen, param.indoor, param.imt.ue_k * param.imt.ue_k_m
+            )
         else:
             sys.stderr.write("ERROR\nInvalid channel_model: " + channel_model)
             sys.exit(1)

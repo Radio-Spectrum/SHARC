@@ -1,15 +1,16 @@
 # -*- coding: utf-8 -*-
-"""Parameters definitions for IMT systems
-"""
+"""Parameters definitions for IMT systems"""
+
 import configparser
 from dataclasses import dataclass
 
 from sharc.parameters.parameters_base import ParametersBase
 
+
 @dataclass
 class ParametersImt(ParametersBase):
-    """Dataclass containing the IMT system parameters
-    """
+    """Dataclass containing the IMT system parameters"""
+
     section_name: str = "IMT"
     topology: str = "MACROCELL"
     wrap_around: bool = False
@@ -22,8 +23,8 @@ class ParametersImt(ParametersBase):
     rb_bandwidth: float = 0.180
     spectral_mask: str = "IMT-2020"
     spurious_emissions: float = -13.0
-    guard_band_ratio: float =  0.1
-    bs_load_probability: float = .2
+    guard_band_ratio: float = 0.1
+    bs_load_probability: float = 0.2
     bs_conducted_power: float = 10.0
     bs_height: float = 6.0
     bs_noise_figure: float = 10.0
@@ -73,6 +74,8 @@ class ParametersImt(ParametersBase):
         # Now do the sanity check for some parameters
         if self.topology.upper() not in ["MACROCELL", "HOTSPOT", "SINGLE_BS", "INDOOR"]:
             raise ValueError(f"ParamtersImt: Invalid topology name {self.topology}")
- 
+
         if self.spectral_mask.upper() not in ["IMT-2020", "3GPP E-UTRA"]:
-            raise ValueError(f"ParametersImt: Inavlid Spectral Mask Name {self.spectral_mask}")
+            raise ValueError(
+                f"ParametersImt: Inavlid Spectral Mask Name {self.spectral_mask}"
+            )

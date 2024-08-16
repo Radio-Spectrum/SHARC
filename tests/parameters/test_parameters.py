@@ -3,8 +3,7 @@ from sharc.parameters.parameters import Parameters
 
 
 class ParametersTest(unittest.TestCase):
-    """Run Parameter class tests.
-    """
+    """Run Parameter class tests."""
 
     def setUp(self):
         self.parameters = Parameters()
@@ -12,8 +11,7 @@ class ParametersTest(unittest.TestCase):
         self.parameters.read_params()
 
     def test_parameters_imt(self):
-        """Unit test for ParametersIMT
-        """
+        """Unit test for ParametersIMT"""
 
         self.assertEqual(self.parameters.imt.topology, "INDOOR")
         self.assertEqual(self.parameters.imt.wrap_around, False)
@@ -58,15 +56,20 @@ class ParametersTest(unittest.TestCase):
         self.assertEqual(self.parameters.imt.shadowing, False)
 
     def test_parameters_imt_antenna(self):
-        """Test ParametersImtAntenna parameters
-        """
-        self.assertEqual(self.parameters.antenna_imt.adjacent_antenna_model, "BEAMFORMING")
+        """Test ParametersImtAntenna parameters"""
+        self.assertEqual(
+            self.parameters.antenna_imt.adjacent_antenna_model, "BEAMFORMING"
+        )
         self.assertEqual(self.parameters.antenna_imt.bs_normalization, False)
         self.assertEqual(self.parameters.antenna_imt.ue_normalization, False)
-        self.assertEqual(self.parameters.antenna_imt.bs_normalization_file,
-                         "antenna/beamforming_normalization/bs_norm.npz")
-        self.assertEqual(self.parameters.antenna_imt.ue_normalization_file,
-                         "antenna/beamforming_normalization/ue_norm.npz")
+        self.assertEqual(
+            self.parameters.antenna_imt.bs_normalization_file,
+            "antenna/beamforming_normalization/bs_norm.npz",
+        )
+        self.assertEqual(
+            self.parameters.antenna_imt.ue_normalization_file,
+            "antenna/beamforming_normalization/ue_norm.npz",
+        )
         self.assertEqual(self.parameters.antenna_imt.bs_element_pattern, "F1336")
         self.assertEqual(self.parameters.antenna_imt.ue_element_pattern, "F1336")
         self.assertEqual(self.parameters.antenna_imt.bs_minimum_array_gain, -200)
@@ -94,15 +97,13 @@ class ParametersTest(unittest.TestCase):
         self.assertEqual(self.parameters.antenna_imt.ue_multiplication_factor, 12)
 
     def test_parameters_hotspot(self):
-        """Test ParametersHotspot
-        """
+        """Test ParametersHotspot"""
         self.assertEqual(self.parameters.hotspot.num_hotspots_per_cell, 1)
         self.assertEqual(self.parameters.hotspot.max_dist_hotspot_ue, 99.9)
         self.assertEqual(self.parameters.hotspot.min_dist_bs_hotspot, 1.2)
 
     def test_parameters_indoor(self):
-        """Test ParametersIndoor
-        """
+        """Test ParametersIndoor"""
         self.assertEqual(self.parameters.indoor.basic_path_loss, "FSPL")
         self.assertEqual(self.parameters.indoor.n_rows, 3)
         self.assertEqual(self.parameters.indoor.n_colums, 2)
@@ -111,12 +112,11 @@ class ParametersTest(unittest.TestCase):
         self.assertEqual(self.parameters.indoor.intersite_distance, 40.1)
         self.assertEqual(self.parameters.indoor.num_cells, 3)
         self.assertEqual(self.parameters.indoor.num_floors, 1)
-        self.assertEqual(self.parameters.indoor.ue_indoor_percent, .95)
+        self.assertEqual(self.parameters.indoor.ue_indoor_percent, 0.95)
         self.assertEqual(self.parameters.indoor.building_class, "THERMALLY_EFFICIENT")
 
     def test_parameters_fss_ss(self):
-        """Test ParametersFssSs
-        """
+        """Test ParametersFssSs"""
         self.assertEqual(self.parameters.fss_ss.frequency, 43000.0)
         self.assertEqual(self.parameters.fss_ss.bandwidth, 200.0)
         self.assertEqual(self.parameters.fss_ss.tx_power_density, -5.0)
@@ -137,8 +137,7 @@ class ParametersTest(unittest.TestCase):
         self.assertEqual(self.parameters.fss_ss.antenna_3_dB, 0.65)
 
     def test_parameters_fss_es(self):
-        """Test ParametersFssEs
-        """
+        """Test ParametersFssEs"""
         self.assertEqual(self.parameters.fss_es.location, "UNIFORM_DIST")
         self.assertEqual(self.parameters.fss_es.x, 10000)
         self.assertEqual(self.parameters.fss_es.y, 0)
@@ -176,13 +175,14 @@ class ParametersTest(unittest.TestCase):
         self.assertEqual(self.parameters.fss_es.building_loss_enabled, True)
         self.assertEqual(self.parameters.fss_es.same_building_enabled, False)
         self.assertEqual(self.parameters.fss_es.diffraction_enabled, False)
-        self.assertEqual(self.parameters.fss_es.bs_building_entry_loss_type, "P2109_FIXED")
+        self.assertEqual(
+            self.parameters.fss_es.bs_building_entry_loss_type, "P2109_FIXED"
+        )
         self.assertEqual(self.parameters.fss_es.bs_building_entry_loss_prob, 0.75)
         self.assertEqual(self.parameters.fss_es.bs_building_entry_loss_value, 35.0)
 
     def test_parameters_fs(self):
-        """Test ParametersFs
-        """
+        """Test ParametersFs"""
         self.assertEqual(self.parameters.fs.x, 1000.0)
         self.assertEqual(self.parameters.fs.y, 0.0)
         self.assertEqual(self.parameters.fs.height, 15.0)
@@ -199,14 +199,15 @@ class ParametersTest(unittest.TestCase):
         self.assertEqual(self.parameters.fs.channel_model, "TerrestrialSimple")
 
     def test_parameters_haps(self):
-        """Test ParametersHaps
-        """
+        """Test ParametersHaps"""
         self.assertEqual(self.parameters.haps.frequency, 27251.1)
         self.assertEqual(self.parameters.haps.bandwidth, 200.0)
         self.assertEqual(self.parameters.haps.antenna_gain, 28.1)
         self.assertEqual(self.parameters.haps.eirp_density, 4.4)
-        self.assertEqual(self.parameters.haps.tx_power_density, \
-                         self.parameters.haps.eirp_density - self.parameters.haps.antenna_gain - 60)
+        self.assertEqual(
+            self.parameters.haps.tx_power_density,
+            self.parameters.haps.eirp_density - self.parameters.haps.antenna_gain - 60,
+        )
         self.assertEqual(self.parameters.haps.altitude, 20001.1)
         self.assertEqual(self.parameters.haps.lat_deg, 0.1)
         self.assertEqual(self.parameters.haps.elevation, 270.0)
@@ -221,8 +222,7 @@ class ParametersTest(unittest.TestCase):
         self.assertEqual(self.parameters.haps.antenna_l_n, -25)
 
     def test_paramters_rns(self):
-        """Test ParametersRns
-        """
+        """Test ParametersRns"""
         self.assertEqual(self.parameters.rns.x, 660.1)
         self.assertEqual(self.parameters.rns.y, -370.1)
         self.assertEqual(self.parameters.rns.altitude, 150.1)
@@ -239,14 +239,13 @@ class ParametersTest(unittest.TestCase):
         self.assertEqual(self.parameters.rns.acs, 30.1)
 
     def test_parametes_ras(self):
-        """Test ParametersRas
-        """
+        """Test ParametersRas"""
         self.assertEqual(self.parameters.ras.x, 81000.1)
         self.assertEqual(self.parameters.ras.y, 0.1)
         self.assertEqual(self.parameters.ras.height, 15.1)
         self.assertEqual(self.parameters.ras.elevation, 45.1)
         self.assertEqual(self.parameters.ras.azimuth, -90.1)
-        self.assertEqual(self.parameters.ras.frequency,  43000.1)
+        self.assertEqual(self.parameters.ras.frequency, 43000.1)
         self.assertEqual(self.parameters.ras.bandwidth, 1000.1)
         self.assertEqual(self.parameters.ras.antenna_noise_temperature, 25.1)
         self.assertEqual(self.parameters.ras.receiver_noise_temperature, 65.1)
@@ -271,8 +270,7 @@ class ParametersTest(unittest.TestCase):
         self.assertEqual(self.parameters.ras.clutter_loss, True)
 
     def test_paramters_eess_passive(self):
-        """Test ParametersEessPassive
-        """
+        """Test ParametersEessPassive"""
         self.assertEqual(self.parameters.eess_passive.frequency, 23900.1)
         self.assertEqual(self.parameters.eess_passive.bandwidth, 200.1)
         self.assertEqual(self.parameters.eess_passive.nadir_angle, 46.6)
@@ -286,5 +284,6 @@ class ParametersTest(unittest.TestCase):
         self.assertEqual(self.parameters.eess_passive.imt_lat_deg, -22.9)
         self.assertEqual(self.parameters.eess_passive.season, "WINTER")
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

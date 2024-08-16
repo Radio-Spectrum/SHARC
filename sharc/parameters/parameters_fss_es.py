@@ -10,8 +10,9 @@ class ParametersFssEs(ParametersBase):
     """Dataclass containing the Fixed Satellite Services - Earth Station
     parameters for the simulator
     """
+
     section_name: str = "FSS_ES"
-    
+
     # type of FSS-ES location:
     # FIXED - position must be given
     # CELL - random within central cell
@@ -107,13 +108,13 @@ class ParametersFssEs(ParametersBase):
     # P2109_RANDOM: random probability at P.2109 model, considering elevation
     # P2109_FIXED: fixed probability at P.2109 model, considering elevation.
     #              Probability must be specified in bs_building_entry_loss_prob.
-    # FIXED_VALUE: fixed value per BS. Value must be specified in 
+    # FIXED_VALUE: fixed value per BS. Value must be specified in
     #              bs_building_entry_loss_value.
     bs_building_entry_loss_type: str = "P2109_FIXED"
-    # Probability of building entry loss not exceeded if 
+    # Probability of building entry loss not exceeded if
     # bs_building_entry_loss_type = P2109_FIXED
     bs_building_entry_loss_prob: float = 0.75
-    # Value in dB of building entry loss if 
+    # Value in dB of building entry loss if
     # bs_building_entry_loss_type = FIXED_VALUE
     bs_building_entry_loss_value: float = 35
 
@@ -133,17 +134,22 @@ class ParametersFssEs(ParametersBase):
         super().load_parameters_from_file(config_file)
 
         if self.location not in ["FIXED", "CELL", "NETWORK", "UNIFORM_DIST"]:
-            raise ValueError(f"ParametersFssEs: \
+            raise ValueError(f'ParametersFssEs: \
                              Invalid value for paramter location - {self.location}. \
-                            Allowed values are \"FIXED\", \"CELL\", \"NETWORK\", \"UNIFORM_DIST\".")
+                            Allowed values are "FIXED", "CELL", "NETWORK", "UNIFORM_DIST".')
 
-        if self.antenna_pattern not in ["ITU-R S.1855", "ITU-R S.465", "ITU-R S.580", "OMNI",
-                                        "Modified ITU-R S.465"]:
-            raise ValueError(f"ParametersFssEs: \
+        if self.antenna_pattern not in [
+            "ITU-R S.1855",
+            "ITU-R S.465",
+            "ITU-R S.580",
+            "OMNI",
+            "Modified ITU-R S.465",
+        ]:
+            raise ValueError(f'ParametersFssEs: \
                              Invalid value for paramter antenna_pattern - {self.antenna_pattern}. \
                              Allowed values are \
-                             \"ITU-R S.1855\", \"ITU-R S.465\", \"ITU-R S.580\", \"OMNI\", \
-                             \"Modified ITU-R S.465\"")
+                             "ITU-R S.1855", "ITU-R S.465", "ITU-R S.580", "OMNI", \
+                             "Modified ITU-R S.465"')
 
         if is_float(self.azimuth):
             self.azimuth = float(self.azimuth)
@@ -163,17 +169,21 @@ class ParametersFssEs(ParametersBase):
                             Allowed values are \"RANDOM\" or a percentage ]0,1]""")
 
         if self.polarization.lower() not in ["horizontal", "vertical"]:
-            raise ValueError(f"ParametersFssEss: \
+            raise ValueError(f'ParametersFssEss: \
                              Invalid value for parameter polarization - {self.polarization}. \
-                             Allowed values are: \"horizontal\", \"vertical\"")
+                             Allowed values are: "horizontal", "vertical"')
 
         if self.es_position.upper() not in ["BUILDINGSIDE", "ROOFTOP"]:
-            raise ValueError(f"ParametersFssEss: \
+            raise ValueError(f'ParametersFssEss: \
                              Invalid value for parameter es_position - {self.es_position} \
-                             Allowed values are \"BUILDINGSIDE\", \"ROOFTOP\".")
+                             Allowed values are "BUILDINGSIDE", "ROOFTOP".')
 
-        if self.bs_building_entry_loss_type not in ["P2109_RANDOM", "P2109_FIXED", "FIXED_VALUE"]:
-            raise ValueError(f"ParametersFssEs: \
+        if self.bs_building_entry_loss_type not in [
+            "P2109_RANDOM",
+            "P2109_FIXED",
+            "FIXED_VALUE",
+        ]:
+            raise ValueError(f'ParametersFssEs: \
                              Invalid value for parameter bs_building_entry_loss_type - \
                              {self.bs_building_entry_loss_type} \
-                             Allowd values are \"P2109_RANDOM\", \"P2109_FIXED\", \"FIXED_VALUE\".")
+                             Allowd values are "P2109_RANDOM", "P2109_FIXED", "FIXED_VALUE".')

@@ -12,10 +12,10 @@ import numpy as np
 import unittest
 import numpy.testing as npt
 
-class AntennaSA509Test(unittest.TestCase):
 
+class AntennaSA509Test(unittest.TestCase):
     def setUp(self):
-        self.par = ParametersRas();
+        self.par = ParametersRas()
         self.par.diameter = 10
         self.par.antenna_efficiency = 1
         self.par.frequency = 30000
@@ -23,17 +23,17 @@ class AntennaSA509Test(unittest.TestCase):
         self.antenna = AntennaSA509(self.par)
 
     def test_construction(self):
-        self.assertEqual(self.antenna.diameter,10)
-        self.assertEqual(self.antenna.efficiency,1)
-        self.assertAlmostEqual(self.antenna.wavelength,1e-2, places=3)
+        self.assertEqual(self.antenna.diameter, 10)
+        self.assertEqual(self.antenna.efficiency, 1)
+        self.assertAlmostEqual(self.antenna.wavelength, 1e-2, places=3)
 
-        self.assertAlmostEqual(self.antenna.effective_area,78.539,delta=1e-2)
+        self.assertAlmostEqual(self.antenna.effective_area, 78.539, delta=1e-2)
 
-        self.assertAlmostEqual(self.antenna.g_0,69.943,delta=1e-2)
-        self.assertAlmostEqual(self.antenna.phi_0,0.03464,delta=1e-4)
+        self.assertAlmostEqual(self.antenna.g_0, 69.943, delta=1e-2)
+        self.assertAlmostEqual(self.antenna.phi_0, 0.03464, delta=1e-4)
 
-        self.assertAlmostEqual(self.antenna.phi_1,0.08944,delta=1e-4)
-        self.assertAlmostEqual(self.antenna.phi_2,0.14531,delta=1e-4)
+        self.assertAlmostEqual(self.antenna.phi_1, 0.08944, delta=1e-4)
+        self.assertAlmostEqual(self.antenna.phi_2, 0.14531, delta=1e-4)
 
     def test_calculate_gain(self):
         phi = np.array([0.03464, 0.05, 0.1, 10, 25, 50, 100, 150])
@@ -43,5 +43,5 @@ class AntennaSA509Test(unittest.TestCase):
         npt.assert_allclose(gain, ref_gain, atol=1e-2)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

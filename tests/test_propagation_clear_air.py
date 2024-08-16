@@ -10,13 +10,12 @@ import numpy.testing as npt
 
 from sharc.propagation.propagation_clear_air_452 import PropagationClearAir
 
-class PropagationClearAirTest(unittest.TestCase):
 
+class PropagationClearAirTest(unittest.TestCase):
     def setUp(self):
         self.__ClearAir = PropagationClearAir(np.random.RandomState())
 
     def test_loss(self):
-
         params = ParametersFssEs()
 
         d = 10000
@@ -43,8 +42,8 @@ class PropagationClearAirTest(unittest.TestCase):
 
         params.omega = 0
         params.phi = 60
-        params.dtm = .8
-        params.dlm = .8
+        params.dtm = 0.8
+        params.dlm = 0.8
 
         params.epsilon = 3.5
 
@@ -63,15 +62,15 @@ class PropagationClearAirTest(unittest.TestCase):
         Gt = 10
         Gr = 10
 
-        di = [1,1,1]
-        hi = [2,4,6]
+        di = [1, 1, 1]
+        hi = [2, 4, 6]
 
 
 #        Ld50, Ldbeta, Ldb = self.__Diffraction.get_loss(beta = Beta, distance=d, frequency=f, atmospheric_pressure=Ph, air_temperature=T, water_vapour=ro, delta_N=deltaN, Hrs=hrs, Hts=hts, Hte=hte, Hre=hre, Hsr=hsr, Hst=hst, H0=h0, Hn=hn, dist_di=di, hight_hi=hi, omega=omega, Dlt=dlt ,Dlr=dlr, percentage_p=p)
 #
 #        npt.assert_allclose(158.491,Ldb,atol=1e-3)
 
-        #Grafico da perda de difraçao em funçao da distancia e da frequencia
+# Grafico da perda de difraçao em funçao da distancia e da frequencia
 #        data1 = []
 #        data2 = []
 #        data3 = []
@@ -135,26 +134,26 @@ class PropagationClearAirTest(unittest.TestCase):
 #                                                    tx_gain=Gt, rx_gain=Gr, di=di, hi=hi)
 #                    data5.append(Loss)
 
-    #     fig = plt.figure(2)
-    #     f = ['10 GHz','20 GHz','30 GHz','40 GHz','50 GHz','60 GHz']
-    #     ax = fig.add_subplot(111)
-    #     ax.plot(eixo_x, data1)
-    #     ax.plot(eixo_x, data2)
-    #     ax.plot(eixo_x, data3)
-    #     ax.plot(eixo_x, data4)
-    #     ax.plot(eixo_x, data5)
-    # #    ax.plot(eixo_x, data6)
-    #
-    #     # Add legend, title and axis labels
-    #     lgd = ax.legend( [ 'f = ' + str(lag) for lag in f], loc='upper center', bbox_to_anchor=(0.16, 1))
-    #     ax.set_title('Overall prediction attenuation')
-    #     ax.set_xlabel('Distance (Km)')
-    #     ax.set_ylabel('Attenuation (dB)')
-    #     ax.set_xlim([0,100])
-    #     ax.set_ylim([0,60])
-    #     ax.grid(True)
-    #     fig.savefig('clear_air_att.png', dpi=350, format='png')
+#     fig = plt.figure(2)
+#     f = ['10 GHz','20 GHz','30 GHz','40 GHz','50 GHz','60 GHz']
+#     ax = fig.add_subplot(111)
+#     ax.plot(eixo_x, data1)
+#     ax.plot(eixo_x, data2)
+#     ax.plot(eixo_x, data3)
+#     ax.plot(eixo_x, data4)
+#     ax.plot(eixo_x, data5)
+# #    ax.plot(eixo_x, data6)
+#
+#     # Add legend, title and axis labels
+#     lgd = ax.legend( [ 'f = ' + str(lag) for lag in f], loc='upper center', bbox_to_anchor=(0.16, 1))
+#     ax.set_title('Overall prediction attenuation')
+#     ax.set_xlabel('Distance (Km)')
+#     ax.set_ylabel('Attenuation (dB)')
+#     ax.set_xlim([0,100])
+#     ax.set_ylim([0,60])
+#     ax.grid(True)
+#     fig.savefig('clear_air_att.png', dpi=350, format='png')
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

@@ -8,10 +8,13 @@ Created on Thu Feb 16 12:04:27 2017
 from sharc.propagation.propagation import Propagation
 from sharc.propagation.propagation_free_space import PropagationFreeSpace
 from sharc.propagation.propagation_clutter_loss import PropagationClutterLoss
-from sharc.propagation.propagation_building_entry_loss import PropagationBuildingEntryLoss
+from sharc.propagation.propagation_building_entry_loss import (
+    PropagationBuildingEntryLoss,
+)
 from sharc.support.enumerations import StationType
 
 import numpy as np
+
 
 class PropagationSatSimple(Propagation):
     """
@@ -25,7 +28,6 @@ class PropagationSatSimple(Propagation):
         self.building_entry = PropagationBuildingEntryLoss(self.random_number_gen)
         self.atmospheric_loss = 0.75
 
-
     def get_loss(self, *args, **kwargs) -> np.array:
         d = kwargs["distance_3D"]
         f = kwargs["frequency"]
@@ -34,18 +36,24 @@ class PropagationSatSimple(Propagation):
         number_of_sectors = kwargs.pop("number_of_sectors", 1)
         enable_clutter_loss = kwargs.pop("enable_clutter_loss", True)
 
-        free_space_loss = self.free_space.get_loss(distance_3D = d,
-                                                   frequency = f)
+        free_space_loss = self.free_space.get_loss(distance_3D=d, frequency=f)
 
         if enable_clutter_loss:
-            clutter_loss = np.maximum(0, self.clutter.get_loss(frequency = f, 
-                                                               distance = d,
-                                                               elevation = elevation["free_space"],
-                                                               station_type = StationType.FSS_SS))
+            clutter_loss = np.maximum(
+                0,
+                self.clutter.get_loss(
+                    frequency=f,
+                    distance=d,
+                    elevation=elevation["free_space"],
+                    station_type=StationType.FSS_SS,
+                ),
+            )
         else:
             clutter_loss = 0
 
-        building_loss = self.building_entry.get_loss(f, elevation["apparent"]) * indoor_stations
+        building_loss = (
+            self.building_entry.get_loss(f, elevation["apparent"]) * indoor_stations
+        )
 
         loss = free_space_loss + clutter_loss + building_loss + self.atmospheric_loss
 

@@ -84,6 +84,15 @@ myenv/Scripts/pip3.exe
 myenv/Scripts/python.exe
 myenv/Scripts/pythonw.exe
 
+# Ignore output files
+[IMT]*.txt
+[SYS]*.txt
+IMT_*.txt
+SYS_*.txt
 
 
-output/
+# Ignores campaigns output
+
+/sharc/campaigns/imt_*/output/output_imt*/*.csv
+/sharc/campaigns/imt_*/output/output_imt*/*.ini
+/sharc/campaigns/imt_*/output/Figs/*.png

@@ -17,6 +17,8 @@ class ParametersGeneral(ParametersBase):
     enable_adjacent_channel: bool = True
     seed: int = 101
     overwrite_output: bool = True
+    output_dir: str = "output"
+    output_dir_prefix: str = "output"
 
     def load_parameters_from_file(self, config_file: str):
         """Load the parameters from file an run a sanity check

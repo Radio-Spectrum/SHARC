@@ -68,8 +68,8 @@ class ParametersImt(ParametersBase):
     #    season - season of the year.
     param_p619 = ParametersP619()
     space_station_alt_m: float = 20000.0
-    earth_station_alt_m: float = 0.0
-    earth_station_lat_deg: float = 0.0
+    earth_station_alt_m: float = 1000.0
+    earth_station_lat_deg: float = -15.7801
     earth_station_long_diff_deg: float = 0.0
     season: str = "SUMMER"
     los_adjustment_factor: float = 18.0
@@ -113,6 +113,4 @@ class ParametersImt(ParametersBase):
         
         if self.topology == "NTN":
             self.is_space_to_earth = True
-            self.space_station_alt_m = self.bs_height
-            self.earth_station_alt_m = self.ue_height
             self.param_p619.load_from_paramters(self)

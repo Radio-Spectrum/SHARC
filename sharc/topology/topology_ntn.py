@@ -19,7 +19,8 @@ class TopologyNTN(Topology):
 
     ALLOWED_NUM_SECTORS = [1, 7, 19]
 
-    def __init__(self, intersite_distance: float, cell_radius: int, bs_height: float, bs_azimuth: float, bs_elevation: float, num_sectors=7):
+    def __init__(self, intersite_distance: float, cell_radius: int, bs_height: float, bs_azimuth: float, 
+                 bs_elevation: float, num_sectors=7):
         """
         Initializes the NTN topology with specific network settings.
 

@@ -216,14 +216,14 @@ class SimulationDownlink(Simulation):
 
                 rx_interference += math.pow(10, 0.1*oob_interference)
 
+        # Total received interference - dBW
         self.system.rx_interference = 10*np.log10(rx_interference)
         # calculate N
         self.system.thermal_noise = \
-            10*math.log10(BOLTZMANN_CONSTANT* \
-                          self.system.noise_temperature*1e3) + \
+            10*math.log10(BOLTZMANN_CONSTANT * self.system.noise_temperature * 1e3) + \
             10*math.log10(self.param_system.bandwidth * 1e6)
 
-        # calculate INR at the system
+        # Calculate INR at the system - dBm/MHz
         self.system.inr = np.array(
             [self.system.rx_interference - self.system.thermal_noise])
 

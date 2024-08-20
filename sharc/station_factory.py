@@ -20,7 +20,6 @@ from sharc.parameters.parameters_fss_es import ParametersFssEs
 from sharc.parameters.parameters_haps import ParametersHaps
 from sharc.parameters.parameters_rns import ParametersRns
 from sharc.parameters.parameters_ras import ParametersRas
-from sharc.parameters.parameters_imt_mobile_station import ParametersImtMobileStation
 from sharc.parameters.parameters_ntn import ParametersNTN
 from sharc.parameters.constants import EARTH_RADIUS , BOLTZMANN_CONSTANT
 from sharc.station_manager import StationManager
@@ -491,12 +490,12 @@ class StationFactory(object):
             fss_earth_station.x = np.array([param.x])
             fss_earth_station.y = np.array([param.y])
         elif param.location.upper() == "CELL":
-            x, y, dummy1, dummy2 = StationFactory.get_random_position(1, topology, random_number_gen,
+            x, y, _, _ = StationFactory.get_random_position(1, topology, random_number_gen,
                                                                       param.min_dist_to_bs, True)
             fss_earth_station.x = np.array(x)
             fss_earth_station.y = np.array(y)
         elif param.location.upper() == "NETWORK":
-            x, y, dummy1, dummy2 = StationFactory.get_random_position(1, topology, random_number_gen,
+            x, y, _, _ = StationFactory.get_random_position(1, topology, random_number_gen,
                                                                       param.min_dist_to_bs, False)
             fss_earth_station.x = np.array(x)
             fss_earth_station.y = np.array(y)
@@ -814,69 +813,6 @@ class StationFactory(object):
         
 
         return x, y, theta, distance
-    
-
-    @staticmethod
-    def generate_imt_mobile_station(param: ParametersImtMobileStation, random_number_gen: np.random.RandomState):
-        num_imt_mobile_station = 1
-        imt_mobile_station = StationManager(num_imt_mobile_station)
-        imt_mobile_station.station_type = StationType.IMT_MOBILE_STATION
-
-        if param.channel_model == "P619":
-            # Coordinates according to ITU-R P619-1, Attachment A
-            # Calculate distances to the center of the Earth
-            dist_ntn_centre_earth_km = (EARTH_RADIUS + param.altitude) / 1000
-            dist_system_centre_earth_km = (EARTH_RADIUS + param.system_altitude) / 1000
-
-            # Calculate Cartesian coordinates of satellite, with origin at center of the Earth
-            sat_lat_rad = param.hibs_lat_deg * np.pi / 180.
-            system_long_diff_rad = param.system_long_diff_deg * np.pi / 180.
-            x1 = dist_ntn_centre_earth_km * np.cos(sat_lat_rad) * np.cos(system_long_diff_rad)
-            y1 = dist_ntn_centre_earth_km * np.cos(sat_lat_rad) * np.sin(system_long_diff_rad)
-            z1 = dist_ntn_centre_earth_km * np.sin(sat_lat_rad)
-
-            # Rotate axis and calculate coordinates with origin at System
-            sys_lat_rad = param.system_lat_deg * np.pi / 180.
-            imt_mobile_station.x = np.array([x1 * np.sin(sys_lat_rad) - z1 * np.cos(sys_lat_rad)]) * 1000
-            imt_mobile_station.y = np.array([y1]) * 1000
-            z2 = np.array([(z1 * np.sin(sys_lat_rad) + x1 * np.cos(sys_lat_rad) - dist_system_centre_earth_km)]) * 1000
-            imt_mobile_station.height = param.altitude - z2
-        else:
-            imt_mobile_station.x = np.array([param.x])
-            imt_mobile_station.y = np.array([param.y])
-            imt_mobile_station.height = np.array([param.height])
-
-        if param.distribution_enable == "ON":
-            if param.distribution_type == "UNIFORM":
-                param.azimuth = random_number_gen.uniform(param.azimuth_distribution[0], param.azimuth_distribution[1])
-                param.elevation = random_number_gen.uniform(param.elevation_distribution[0], param.elevation_distribution[1])
-                imt_mobile_station.azimuth = np.array([param.azimuth])
-                imt_mobile_station.elevation = np.array([param.elevation])
-            elif param.distribution_type == "UNIFORM_NORMAL":
-                param.azimuth = random_number_gen.uniform(param.azimuth_distribution[0], param.azimuth_distribution[1])
-                param.elevation = random_number_gen.normal(param.elevation_distribution[0], param.elevation_distribution[1])
-                imt_mobile_station.azimuth = np.array([param.azimuth])
-                imt_mobile_station.elevation = np.array([param.elevation])
-        else:
-            imt_mobile_station.azimuth = np.array([param.azimuth])
-            imt_mobile_station.elevation = np.array([param.elevation])
-
-        imt_mobile_station.active = np.ones(num_imt_mobile_station, dtype=bool)
-
-        ## Is it possible other antenna pattern
-        if param.antenna_pattern == "OMNI":
-            imt_mobile_station.antenna = np.array([AntennaOmni(param.antenna_gain)])
-        else:
-            raise ValueError("Invalid IMT mobile station antenna pattern: " + param.antenna_pattern)
-
-        imt_mobile_station.bandwidth = np.array([param.bandwidth])
-        imt_mobile_station.noise_temperature = param.noise_temperature
-        imt_mobile_station.thermal_noise = -500   #
-        imt_mobile_station.total_interference = -500
-        imt_mobile_station.rx_interference = -500
-
-        return imt_mobile_station
-
 
 
 if __name__ == '__main__':

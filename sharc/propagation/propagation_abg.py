@@ -66,13 +66,13 @@ class PropagationABG(Propagation):
 
         indoor_stations = np.tile(station_a.indoor, (station_b.num_stations, 1))
         loss = \
-            self.__get_loss(bs_to_ue_dist_3d,
-                            frequency*np.ones(bs_to_ue_dist_3d.shape),
-                            indoor_stations,
-                            params.imt.shadowing)
+            self.get_loss(bs_to_ue_dist_3d,
+                          frequency*np.ones(bs_to_ue_dist_3d.shape),
+                          indoor_stations,
+                          params.imt.shadowing)
         
         return loss
-
+    @dispatch(np.ndarray, np.ndarray, np.ndarray, bool)
     def get_loss(self, distance: np.array, frequency: np.array, indoor_stations: np.array, shadowing: bool) -> np.array:
         """
         Calculates path loss for LOS and NLOS cases with respective shadowing

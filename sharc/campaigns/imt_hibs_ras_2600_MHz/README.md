@@ -21,3 +21,5 @@ This project may require additional software or libraries to run the simulations
 
 # Running the Simulations
 `python3 main_cli.py -p campaigns/imt_hibs_ras_2600_MHz/input/<campaign-parameter-file>`
+or on root
+`python3 sharc/main_cli.py -p sharc/campaigns/imt_hibs_ras_2600_MHz/input/<campaign-parameter-file>`

@@ -226,7 +226,9 @@ class Simulation(ABC, Observable):
                 + self.polarization_loss
         elif imt_station.station_type is StationType.IMT_BS:
             # define antenna gains
-            gain_sys_to_imt = self.calculate_gains(system_station, imt_station)
+            # repeat for each BS beam
+            gain_sys_to_imt = np.repeat(self.calculate_gains(system_station, imt_station), 
+                                        self.parameters.imt.ue_k, 1)
             gain_imt_to_sys = np.transpose(self.calculate_gains(
                 imt_station, system_station, is_co_channel))
             additional_loss = self.parameters.imt.bs_ohmic_loss \
@@ -236,26 +238,30 @@ class Simulation(ABC, Observable):
             return ValueError(f"Invalid IMT StationType! {imt_station.station_type}")
 
         # Calculate the path loss based on the propagation model
-        path_loss = self.propagation_system.get_loss(params=self.parameters,
-                                                     frequency=freq,
-                                                     station_a=system_station,
-                                                     station_b=imt_station,
-                                                     station_a_gains=gain_sys_to_imt,
-                                                     station_b_gains=gain_imt_to_sys)
+        path_loss = self.propagation_system.get_loss(self.parameters,
+                                                     freq,
+                                                     system_station,
+                                                     imt_station,
+                                                     gain_sys_to_imt,
+                                                     gain_imt_to_sys)
         # Store antenna gains and path loss samples
         if self.param_system.channel_model == "HDFSS":
             self.imt_system_build_entry_loss = path_loss[1]
             self.imt_system_diffraction_loss = path_loss[2]
             path_loss = path_loss[0]
-        
-        # The resulting arrays must be system.num_stations x (imt_bs.num_stations * num_of_beams)
-        self.system_imt_antenna_gain =  np.repeat(gain_sys_to_imt, self.parameters.imt.ue_k, 1)
+
+        if imt_station.station_type is StationType.IMT_UE:
+            self.imt_system_path_loss = path_loss
+        else:
+            # Repeat for each BS beam
+            self.imt_system_path_loss = np.repeat(path_loss, self.parameters.imt.ue_k, 1)
+
+        self.system_imt_antenna_gain = gain_sys_to_imt
         self.imt_system_antenna_gain = gain_imt_to_sys
-        self.imt_system_path_loss = np.repeat(path_loss, self.parameters.imt.ue_k, 1)
 
         # calculate coupling loss
         coupling_loss = np.squeeze(
-            self.imt_system_path_loss - self.system_imt_antenna_gain - gain_imt_to_sys) + additional_loss
+            self.imt_system_path_loss - self.system_imt_antenna_gain - self.imt_system_antenna_gain) + additional_loss
 
         return coupling_loss
 
@@ -282,7 +288,7 @@ class Simulation(ABC, Observable):
         Returns
         -------
         np.array
-            Returns an numpy array with imt_ue_station.size X imt_bs_station.size with coupling loss
+            Returns an numpy array with imt_bs_station.size X imt_ue_station.size with coupling loss
             values.
         """
         # Calculate the antenna gains
@@ -290,15 +296,18 @@ class Simulation(ABC, Observable):
         ant_gain_ue_to_bs = self.calculate_gains(imt_ue_station, imt_bs_station)
 
         # Calculate the path loss between IMT stations. Primarly used for UL power control.
-        path_loss = self.propagation_imt.get_loss(params=self.parameters,
-                                                  frequency=self.parameters.imt.frequency,
-                                                  station_a=imt_ue_station,
-                                                  station_b=imt_bs_station,
-                                                  station_a_gains=ant_gain_ue_to_bs,
-                                                  station_b_gains=ant_gain_bs_to_ue)
+        
+        # Note on the array dimentions for coupling loss calculations:
+        # The function get_loss returns an array station_a x station_b
+        path_loss = self.propagation_imt.get_loss(self.parameters,
+                                                  self.parameters.imt.frequency,
+                                                  imt_ue_station,
+                                                  imt_bs_station,
+                                                  ant_gain_ue_to_bs,
+                                                  ant_gain_bs_to_ue)
 
         # Collect IMT BS and UE antenna gain samples
-        self.path_loss_imt = np.transpose(path_loss)
+        self.path_loss_imt = path_loss
         self.imt_bs_antenna_gain = ant_gain_bs_to_ue
         self.imt_ue_antenna_gain = np.transpose(ant_gain_ue_to_bs)
         additional_loss = self.parameters.imt.bs_ohmic_loss \
@@ -307,9 +316,9 @@ class Simulation(ABC, Observable):
 
         # calculate coupling loss
         coupling_loss = np.squeeze(
-            path_loss - ant_gain_ue_to_bs - np.transpose(ant_gain_bs_to_ue)) + additional_loss
+            self.path_loss_imt - self.imt_bs_antenna_gain  - self.imt_ue_antenna_gain) + additional_loss
 
-        return np.transpose(coupling_loss)
+        return coupling_loss
 
     def connect_ue_to_bs(self):
         """
@@ -461,7 +470,7 @@ class Simulation(ABC, Observable):
             off_axis_angle = station_1.get_off_axis_angle(station_2)
             distance = station_1.get_distance_to(station_2)
             theta = np.degrees(np.arctan2(
-                (station_1.height - station_2.height),distance)) + station_1.elevation
+                (station_1.height - station_2.height), distance)) + station_1.elevation
             gains[0, station_2_active] = station_1.antenna[0].calculate_gain(off_axis_angle_vec=off_axis_angle[0, station_2_active],
                                                                              theta_vec=theta[0, station_2_active])
         else:  # for IMT <-> IMT

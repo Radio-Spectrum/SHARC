@@ -427,17 +427,17 @@ class StationFactory(object):
 
         # calculate distances to the centre of the Earth
         dist_sat_centre_earth_km = (EARTH_RADIUS + param.altitude)/1000
-        dist_imt_centre_earth_km = (EARTH_RADIUS + param.imt_altitude)/1000
+        dist_imt_centre_earth_km = (EARTH_RADIUS + param.earth_station_alt_m)/1000
 
         # calculate Cartesian coordinates of satellite, with origin at centre of the Earth
         sat_lat_rad = param.lat_deg * np.pi / 180.
-        imt_long_diff_rad = param.imt_long_diff_deg * np.pi / 180.
+        imt_long_diff_rad = param.earth_station_long_diff_deg * np.pi / 180.
         x1 = dist_sat_centre_earth_km * np.cos(sat_lat_rad) * np.cos(imt_long_diff_rad)
         y1 = dist_sat_centre_earth_km * np.cos(sat_lat_rad) * np.sin(imt_long_diff_rad)
         z1 = dist_sat_centre_earth_km * np.sin(sat_lat_rad)
 
         # rotate axis and calculate coordinates with origin at IMT system
-        imt_lat_rad = param.imt_lat_deg * np.pi / 180.
+        imt_lat_rad = param.earth_station_lat_deg * np.pi / 180.
         fss_space_station.x = np.array([x1 * np.sin(imt_lat_rad) - z1 * np.cos(imt_lat_rad)]) * 1000
         fss_space_station.y = np.array([y1]) * 1000
         fss_space_station.height = np.array([(z1 * np.sin(imt_lat_rad) + x1 * np.cos(imt_lat_rad)

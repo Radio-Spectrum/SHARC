@@ -4,10 +4,13 @@ Created on Mon Jul  3 10:29:47 2017
 
 @author: LeticiaValle_Mac
 """
+import numpy as np
+from multipledispatch import dispatch
 
 from sharc.propagation.propagation import Propagation
+from sharc.station_manager import StationManager
+from sharc.parameters.parameters import Parameters
 
-import numpy as np
 
 class PropagationUMi(Propagation):
     """
@@ -21,18 +24,73 @@ class PropagationUMi(Propagation):
                  los_adjustment_factor: float):
         super().__init__(random_number_gen)
         self.los_adjustment_factor = los_adjustment_factor
-    
-    
-    def get_loss(self, *args, **kwargs) -> np.array:
+
+    @dispatch(Parameters, float, StationManager, StationManager, np.ndarray, np.ndarray)
+    def get_loss(self,
+                params: Parameters,
+                frequency: float,
+                station_a: StationManager,
+                station_b: StationManager,
+                station_a_gains=None,
+                station_b_gains=None) -> np.array:
+        """Wrapper function for the PropagationUMi get_loss method
+        Calculates the loss between station_a and station_b
+
+        Parameters
+        ----------
+        station_a : StationManager
+            StationManager container representing IMT UE station - Station_type.IMT_UE
+        station_b : StationManager
+            StationManager container representing IMT BS stattion
+        params : Parameters
+            Simulation parameters needed for the propagation class - Station_type.IMT_BS
+
+        Returns
+        -------
+        np.array
+            Return an array station_a.num_stations x station_b.num_stations with the path loss 
+            between each station
+        """
+        wrap_around_enabled = \
+            params.imt.wrap_around and \
+            (params.imt.topology == 'MACROCELL' or params.imt.topology == 'HOTSPOT') and \
+                params.imt.num_clusters == 1
+        
+        if wrap_around_enabled:
+            bs_to_ue_dist_2d, bs_to_ue_dist_3d, _, _ = \
+                station_b.get_dist_angles_wrap_around(station_a)
+        else:
+            bs_to_ue_dist_2d = station_b.get_distance_to(station_a)
+            bs_to_ue_dist_3d = station_b.get_3d_distance_to(station_a)
+
+        loss = self.get_loss(bs_to_ue_dist_3d,
+                             bs_to_ue_dist_2d,
+                             frequency*np.ones(bs_to_ue_dist_2d.shape),
+                             station_b.height,
+                             station_a.height,
+                             params.imt.shadowing)
+
+        return loss
+
+    # pylint: disable=function-redefined
+    # pylint: disable=arguments-renamed
+    @dispatch(np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, bool)
+    def get_loss(self,
+                 distance_3D: np.array,
+                 distance_2D: np.array,
+                 frequency: np.array,
+                 bs_height: np.array,
+                 ue_height: np.array,
+                 shadowing_flag: bool) -> np.array:
         """
         Calculates path loss for LOS and NLOS cases with respective shadowing
         (if shadowing is to be added)
 
         Parameters
         ----------
-            distance_3D (np.array) : 3D distances between stations
-            distance_2D (np.array) : 2D distances between stations
-            frequency (np.array) : center frequencie [MHz]
+            distance_3D (np.array) : 3D distances between base stations and user equipment
+            distance_2D (np.array) : 2D distances between base stations and user equipment
+            frequency (np.array) : center frequencies [MHz]
             bs_height (np.array) : base station antenna heights
             ue_height (np.array) : user equipment antenna heights
             shadowing (bool) : if shadowing should be added or not
@@ -40,46 +98,43 @@ class PropagationUMi(Propagation):
         Returns
         -------
             array with path loss values with dimensions of distance_2D
-
         """
-        d_3D = kwargs["distance_3D"]
-        d_2D = kwargs["distance_2D"]
-        f = kwargs["frequency"]
-        h_bs = kwargs["bs_height"]
-        h_ue = kwargs["ue_height"]
-        h_e = np.ones(d_2D.shape)
-        std = kwargs["shadowing"]
-
-        if std:
+        if shadowing_flag:
             shadowing_los = 4
             shadowing_nlos = 7.82    # option 1 for UMi NLOS
             #shadowing_nlos = 8.2    # option 2 for UMi NLOS
         else:
             shadowing_los = 0
             shadowing_nlos = 0
+       
+        # effective height
+        h_e = np.ones(distance_2D.shape)
 
-        los_probability = self.get_los_probability(d_2D, self.los_adjustment_factor)
+        los_probability = self.get_los_probability(distance_2D, self.los_adjustment_factor)
         los_condition = self.get_los_condition(los_probability)
 
         i_los = np.where(los_condition == True)[:2]
         i_nlos = np.where(los_condition == False)[:2]
 
-        loss = np.empty(d_2D.shape)
+        loss = np.empty(distance_2D.shape)
 
         if len(i_los[0]):
-            loss_los = self.get_loss_los(d_2D, d_3D, f, h_bs, h_ue, h_e, shadowing_los)
+            loss_los = self.get_loss_los(distance_2D, distance_3D, frequency, bs_height, ue_height, h_e, shadowing_los)
             loss[i_los] = loss_los[i_los]
 
         if len(i_nlos[0]):
-            loss_nlos = self.get_loss_nlos(d_2D, d_3D, f, h_bs, h_ue, h_e, shadowing_nlos)
+            loss_nlos = self.get_loss_nlos(distance_2D, distance_3D, frequency, bs_height, ue_height, h_e, shadowing_nlos)
             loss[i_nlos] = loss_nlos[i_nlos]
 
         return loss
 
 
-    def get_loss_los(self, distance_2D: np.array, distance_3D: np.array,
+    def get_loss_los(self, distance_2D: np.array, 
+                     distance_3D: np.array,
                      frequency: np.array,
-                     h_bs: np.array, h_ue: np.array, h_e: np.array,
+                     h_bs: np.array, 
+                     h_ue: np.array, 
+                     h_e: np.array,
                      shadowing_std=4):
         """
         Calculates path loss for the LOS (line-of-sight) case.
@@ -272,7 +327,7 @@ if __name__ == '__main__':
 
     loss_los = umi.get_loss_los(distance_2D, distance_3D, freq, h_bs, h_ue, h_e, shadowing_std)
     loss_nlos = umi.get_loss_nlos(distance_2D, distance_3D, freq, h_bs, h_ue, h_e, shadowing_std)
-    loss_fs = PropagationFreeSpace(np.random.RandomState(101)).get_loss(distance_2D=distance_2D, frequency=freq)
+    loss_fs = PropagationFreeSpace(np.random.RandomState(101)).get_free_space_loss(distance=distance_2D, frequency=freq)
 
     fig = plt.figure(figsize=(8,6), facecolor='w', edgecolor='k')
     ax = fig.gca()

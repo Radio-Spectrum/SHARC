@@ -122,8 +122,7 @@ class PropagationHDFSSRoofTop(Propagation):
             loss[:,same_build_idx] += self.get_same_build_loss(imt_z[same_build_idx],
                                                                es_z)
         
-        loss[:,fspl_idx] += self.propagation_fspl.get_loss(distance_3D=d[:,fspl_idx],
-                                                           frequency=f[:,fspl_idx])
+        loss[:,fspl_idx] += self.propagation_fspl.get_free_space_loss(distance=d[:,fspl_idx], frequency=f[:,fspl_idx])
         loss[:,fspl_to_los_idx] += self.interpolate_fspl_to_los(d[:,fspl_to_los_idx],
                                                                 f[:,fspl_to_los_idx],
                                                                 self.param.shadow_enabled)
@@ -168,8 +167,8 @@ class PropagationHDFSSRoofTop(Propagation):
         return loss, build_loss, diff_loss
     
     def interpolate_fspl_to_los(self,dist,freq,shad): 
-        fspl_loss = self.propagation_fspl.get_loss(distance_3D=self.fspl_dist,
-                                                   frequency=freq)
+        fspl_loss = self.propagation_fspl.get_free_space_loss(distance=self.fspl_dist, 
+                                                              frequency=freq)
         los_loss = self.propagation_p1411.get_loss(distance_3D=self.fspl_to_los_dist,
                                                    frequency=freq,
                                                    los=True,

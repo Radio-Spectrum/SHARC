@@ -19,7 +19,7 @@ class PropagationClutterLoss(Propagation):
 
     def get_loss(self, *args, **kwargs) -> np.array:
         """
-        Calculates clutter loss.
+        Calculates clutter loss according to Recommendation P.2108-0
 
         Parameters
         ----------
@@ -149,24 +149,25 @@ if __name__ == '__main__':
 
     elevation_angle = np.array([90, 80, 70, 60, 50, 40, 30, 20, 15, 10, 5, 0])
     loc_percentage = np.linspace(0.01, 0.99, 1000)
-    frequency = 27250 * np.ones(elevation_angle.shape)
+    frequency_mhz = 30000 * np.ones(elevation_angle.shape)
 
     random_number_gen = np.random.RandomState(101)
     cl = PropagationClutterLoss(random_number_gen)
     clutter_loss = np.empty([len(elevation_angle), len(loc_percentage)])
 
-    for i in range(len(loc_percentage)):
-        clutter_loss[:, i] = cl.get_spacial_clutter_loss(frequency,
+    for i, _ in enumerate(loc_percentage):
+        clutter_loss[:, i] = cl.get_spacial_clutter_loss(frequency_mhz,
                                                          elevation_angle,
                                                          loc_percentage[i])
 
     fig = plt.figure(figsize=(8, 6), facecolor='w', edgecolor='k')
     ax = fig.gca()
 
-    for j in range(len(elevation_angle)):
-        ax.plot(clutter_loss[j, :], 100 * loc_percentage, label="%i deg" % elevation_angle[j], linewidth=1)
+    for j, _ in enumerate(elevation_angle):
+        ax.plot(clutter_loss[j, :], 100 * loc_percentage, 
+                label="%i deg" % elevation_angle[j], linewidth=1)
 
-    plt.title("Cumulative distribution of clutter loss not exceeded for 27 GHz")
+    plt.title(f"Cumulative distribution of clutter loss not exceeded for {frequency_mhz[0]/1000:.2f} GHz")
     plt.xlabel("clutter loss [dB]")
 
     plt.ylabel("percent of locations [%]")
@@ -178,15 +179,15 @@ if __name__ == '__main__':
     plt.show()
 
     distance = np.linspace(250, 100000, 100000)
-    frequency = np.array([2, 3, 6, 16, 40, 67]) * 1e3
+    frequency_mhz = np.array([2, 3, 6, 16, 40, 67]) * 1e3
 
     loc_percentage = 0.5 * np.ones(distance.shape)
     apply_both_ends = False
 
-    clutter_loss_ter = np.empty([len(frequency), len(distance)])
+    clutter_loss_ter = np.empty([len(frequency_mhz), len(distance)])
 
-    for i in range(len(frequency)):
-        clutter_loss_ter[i, :] = cl.get_terrestrial_clutter_loss(frequency[i] * np.ones(distance.shape),
+    for i in range(len(frequency_mhz)):
+        clutter_loss_ter[i, :] = cl.get_terrestrial_clutter_loss(frequency_mhz[i] * np.ones(distance.shape),
                                                                  distance,
                                                                  loc_percentage,
                                                                  apply_both_ends)
@@ -195,10 +196,12 @@ if __name__ == '__main__':
     ax = fig.gca()
     # ax.set_prop_cycle( cycler('color', ['k', 'r', 'b', 'g']) )
 
-    for j in range(len(frequency)):
-        freq = frequency[j] * 1e-3
+    for j in range(len(frequency_mhz)):
+        freq = frequency_mhz[j] * 1e-3
         ax.semilogx(distance * 1e-3, clutter_loss_ter[j, :], label="%i GHz" % freq, linewidth=1)
 
     plt.title("Median clutter loss for terrestrial paths")
     plt.xlabel("Distance [km]")
+    plt.legend(loc="lower right")
+    plt.grid()
     plt.show()

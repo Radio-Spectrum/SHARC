@@ -3,6 +3,8 @@ from dataclasses import dataclass
 
 from sharc.support.sharc_utils import is_float
 from sharc.parameters.parameters_base import ParametersBase
+from sharc.parameters.parameters_p452 import ParametersP452
+from sharc.parameters.parameters_p619 import ParametersP619
 
 
 @dataclass
@@ -64,6 +66,7 @@ class ParametersFssEs(ParametersBase):
     channel_model: str = "P452"
 
     # P452 parameters
+    param_p452 = ParametersP452()
     # Total air pressure in hPa
     atmospheric_pressure: float = 935.0
     # Temperature in Kelvin
@@ -90,6 +93,20 @@ class ParametersFssEs(ParametersBase):
     polarization: str = "horizontal"
     # Determine whether clutter loss following ITU-R P.2108 is added (TRUE/FALSE)
     clutter_loss: bool = True
+
+    # Parameters for the P.619 propagation model used for sharing studies between IMT-NTN and FSS-ES
+    #    space_station_alt_m - altiteude of the IMT-MSS station
+    #    earth_station_alt_m - altitude of FSS-ES system (in meters)
+    #    earth_station_lat_deg - latitude of FSS-ES system (in degrees)
+    #    earth_station_long_diff_deg - difference between longitudes of IMT-NTN station and FSS-ES system
+    #      (positive if space-station is to the East of earth-station)
+    #    season - season of the year.
+    param_p619 = ParametersP619()
+    space_station_alt_m: float = 35780000.0
+    earth_station_alt_m: float = 0.0
+    earth_station_lat_deg: float = 0.0
+    earth_station_long_diff_deg: float = 0.0
+    season:str = "SUMMER"
 
     # HDFSS propagation parameters
     # HDFSS position relative to building it is on. Possible values are
@@ -177,3 +194,12 @@ class ParametersFssEs(ParametersBase):
                              Invalid value for parameter bs_building_entry_loss_type - \
                              {self.bs_building_entry_loss_type} \
                              Allowd values are \"P2109_RANDOM\", \"P2109_FIXED\", \"FIXED_VALUE\".")
+        if self.channel_model.upper() not in ["FSPL", "TERRESTRIALSIMPLE", "P452", "P619",
+                                              "TVRO-URBAN", "TVRO-SUBURBAN", "HDFSS"]:
+            raise ValueError(f"ParametersFssEs: Invalid value for parameter channel_model - {self.channel_model}")
+
+        if self.channel_model == "P452":
+            self.param_p452.load_from_paramters(self)
+
+        elif self.channel_model == "P619":
+            self.param_p619.load_from_paramters(self)

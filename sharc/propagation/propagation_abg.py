@@ -5,10 +5,12 @@ Created on Tue Jul  4 11:57:41 2017
 @author: LeticiaValle_Mac
 """
 
-from sharc.propagation.propagation import Propagation
-
 import numpy as np
+from multipledispatch import dispatch
 
+from sharc.propagation.propagation import Propagation
+from sharc.station_manager import StationManager
+from sharc.parameters.parameters import Parameters
 
 class PropagationABG(Propagation):
     """
@@ -16,16 +18,62 @@ class PropagationABG(Propagation):
     Loss Models for 5G Urban Microand Macro-Cellular Scenarios"
     """
 
-    def __init__(self, random_number_gen: np.random.RandomState):
+    def __init__(self, random_number_gen: np.random.RandomState, 
+                 alpha=3.4, beta=19.2, gamma=2.3, building_loss=20, shadowing_sigma_dB=6.5):
         super().__init__(random_number_gen)
-        self.alpha = 3.4
-        self.beta = 19.2
-        self.gamma = 2.3
+        self.alpha = alpha
+        self.beta = beta
+        self.gamma = gamma
         self.building_loss = 20
         self.shadowing_sigma_dB = 6.5
 
+    @dispatch(Parameters, float, StationManager, StationManager, np.ndarray, np.ndarray)
+    def get_loss(self,
+                params: Parameters,
+                frequency: float,
+                station_a: StationManager,
+                station_b: StationManager,
+                station_a_gains=None,
+                station_b_gains=None) -> np.array:
+        """Wrapper function for the get_loss method
+        Calculates the loss between station_a and station_b
 
-    def get_loss(self, *args, **kwargs) -> np.array:
+        Parameters
+        ----------
+        station_a : StationManager
+            StationManager container representing IMT UE station - Station_type.IMT_UE
+        station_b : StationManager
+            StationManager container representing IMT BS stattion
+        params : Parameters
+            Simulation parameters needed for the propagation class - Station_type.IMT_BS
+
+        Returns
+        -------
+        np.array
+            Return an array station_a.num_stations x station_b.num_stations with the path loss 
+            between each station
+        """
+        wrap_around_enabled = \
+            params.imt.wrap_around and \
+            (params.imt.topology == 'MACROCELL' or params.imt.topology == 'HOTSPOT') and \
+                params.imt.num_clusters == 1
+        
+        if wrap_around_enabled:
+            _, bs_to_ue_dist_3d, _, _ = \
+                station_b.get_dist_angles_wrap_around(station_a)
+        else:
+            bs_to_ue_dist_3d = station_b.get_3d_distance_to(station_a)
+
+        indoor_stations = np.tile(station_a.indoor, (station_b.num_stations, 1))
+        loss = \
+            self.get_loss(bs_to_ue_dist_3d,
+                          frequency*np.ones(bs_to_ue_dist_3d.shape),
+                          indoor_stations,
+                          params.imt.shadowing)
+        
+        return loss
+    @dispatch(np.ndarray, np.ndarray, np.ndarray, bool)
+    def get_loss(self, distance: np.array, frequency: np.array, indoor_stations: np.array, shadowing: bool) -> np.array:
         """
         Calculates path loss for LOS and NLOS cases with respective shadowing
         (if shadowing is to be added)
@@ -45,36 +93,14 @@ class PropagationABG(Propagation):
             array with path loss values with dimensions of distance_2D
 
         """
-        f = kwargs["frequency"]
-        indoor_stations = kwargs["indoor_stations"]
-
-        if "distance_3D" in kwargs:
-            d = kwargs["distance_3D"]
-        else:
-            d = kwargs["distance_2D"]
-
-        if "alpha" in kwargs:
-            self.alpha = kwargs["alpha"]
-
-        if "beta" in kwargs:
-            self.beta = kwargs["beta"]
-
-        if "gamma" in kwargs:
-            self.gamma = kwargs["gamma"]
-
-        if "shadowing" in kwargs:
-            std = kwargs["shadowing"]
-        else:
-            std = False
-
-        if std:
-            shadowing = self.random_number_gen.normal(0, self.shadowing_sigma_dB, d.shape)
+        if shadowing:
+            shadowing = self.random_number_gen.normal(0, self.shadowing_sigma_dB, distance.shape)
         else:
             shadowing = 0
 
         building_loss = self.building_loss*indoor_stations
 
-        loss = 10*self.alpha*np.log10(d) + self.beta + 10*self.gamma*np.log10(f*1e-3) + \
+        loss = 10*self.alpha*np.log10(distance) + self.beta + 10*self.gamma*np.log10(frequency*1e-3) + \
                shadowing + building_loss
 
         return loss
@@ -100,7 +126,7 @@ if __name__ == '__main__':
     random_number_gen = np.random.RandomState(101)
     
     uma = PropagationUMa(random_number_gen)
-    umi = PropagationUMi(random_number_gen)
+    umi = PropagationUMi(random_number_gen, 18)
     abg = PropagationABG(random_number_gen)
     freespace = PropagationFreeSpace(random_number_gen)
 
@@ -108,8 +134,8 @@ if __name__ == '__main__':
     uma_nlos = uma.get_loss_nlos(distance_2D, distance_3D, freq, h_bs, h_ue, h_e, shadowing_std)
     umi_los = umi.get_loss_los(distance_2D, distance_3D, freq, h_bs, h_ue, h_e, shadowing_std)
     umi_nlos = umi.get_loss_nlos(distance_2D, distance_3D, freq, h_bs, h_ue, h_e, shadowing_std)
-    fs = freespace.get_loss(distance_2D=distance_2D, frequency=freq)
-    abg_los = abg.get_loss(distance_2D=distance_2D, frequency=freq, indoor_stations=0)
+    fs = freespace.get_loss(distance_2D, freq)
+    abg_los = abg.get_loss(distance_2D, freq, np.zeros(shape=distance_2D.shape, dtype=bool), False)
 
     fig = plt.figure(figsize=(8,6), facecolor='w', edgecolor='k')
     ax = fig.gca()

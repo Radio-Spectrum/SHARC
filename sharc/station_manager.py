@@ -223,3 +223,21 @@ class StationManager(object):
         phi_deg = np.degrees(phi)
 
         return phi_deg
+    
+    def is_imt_station(self) -> bool:
+        """Whether this station is IMT or not
+
+        Parameters
+        ----------
+        sta : StationManager
+            The station that we're testing.
+
+        Returns
+        -------
+        bool
+            Whether this station is IMT or not
+        """
+        if self.station_type is StationType.IMT_BS or self.station_type is StationType.IMT_UE:
+            return True
+        else:
+            return False

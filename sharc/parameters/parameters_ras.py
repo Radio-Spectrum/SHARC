@@ -6,6 +6,8 @@ from sharc.support.sharc_utils import is_float
 from sharc.parameters.parameters_base import ParametersBase
 from sharc.parameters.parameters_p619 import ParametersP619
 from sharc.parameters.constants import EARTH_RADIUS
+from sharc.parameters.parameters_p452 import ParametersP452
+
 
 @dataclass
 class ParametersRas(ParametersBase):
@@ -48,6 +50,7 @@ class ParametersRas(ParametersBase):
     channel_model: str = "P452"
 
     # P452 parameters
+    param_p452 = ParametersP452()
     # Total air pressure in hPa
     atmospheric_pressure: float = 935.0
     # Temperature in Kelvin
@@ -107,6 +110,9 @@ class ParametersRas(ParametersBase):
             raise ValueError(f"ParametersRas: \
                              Invalid value for parameter channel_model - {self.channel_model}. \
                              Allowed values are: \"FSPL\", \"TerrestrialSimple\", \"P452\"")
+        if self.channel_model == "P452":
+            self.param_p452.load_from_paramters(self)
+
         if self.antenna_pattern.upper() not in ["ITU-R SA.509", "OMNI"]:
             raise ValueError(f"ParametersRas: \
                              Invalid value for parameter antenna_pattern - {self.antenna_pattern}. \

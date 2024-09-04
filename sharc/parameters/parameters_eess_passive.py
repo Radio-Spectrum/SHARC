@@ -7,7 +7,7 @@ class ParametersEessPassive(ParametersBase):
     Defines parameters for passive Earth Exploration Satellite Service (EESS) sensors
     and their interaction with other services based on ITU recommendations.
     """
-    section_name: str = "EESS_PASSIVE"
+    section_name: str = "eess_passive"
     
     # Sensor center frequency [MHz]
     frequency:float = 23900.0  # Center frequency of the sensor in MHz

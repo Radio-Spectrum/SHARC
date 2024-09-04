@@ -12,7 +12,7 @@ class ParametersNTN(ParametersBase):
     """
     Simulation parameters for NTN network topology.
     """
-    section_name: str = "NTN"
+    section_name: str = "ntn"
 
     # NTN Airborne Platform height (m)
     bs_height: float = 20000

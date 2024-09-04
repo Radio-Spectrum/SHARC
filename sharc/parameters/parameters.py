@@ -8,6 +8,7 @@ Created on Wed Aug  9 19:35:52 2017
 import sys
 import os
 import configparser
+import yaml
 
 from sharc.parameters.parameters_general import ParametersGeneral
 from sharc.parameters.parameters_imt import ParametersImt
@@ -67,12 +68,15 @@ class Parameters(object):
             sys.stderr.write(err_msg)
             sys.exit(1)
 
-        config = configparser.ConfigParser()
-        config.read(self.file_name)
+        print('reading params from', self.file_name)
+
+        #with open(self.file_name, 'r') as yaml_file:
+        #yaml_config = yaml.safe_load(yaml_file)
 
         #######################################################################
         # GENERAL
         #######################################################################
+        
         self.general.load_parameters_from_file(self.file_name)
 
         #######################################################################

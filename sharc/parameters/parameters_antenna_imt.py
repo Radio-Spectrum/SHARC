@@ -20,7 +20,7 @@ class ParametersAntennaImt(ParametersBase):
     Defines the antenna model and related parameters to be used in compatibility
     studies between IMT and other services in adjacent bands.
     """
-    section_name:str = "IMT_ANTENNA"
+    section_name:str = "imt_antenna"
     # Antenna model for adjacent band studies.
     adjacent_antenna_model:str = "SINGLE_ELEMENT"
 

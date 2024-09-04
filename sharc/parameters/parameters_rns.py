@@ -9,7 +9,7 @@ class ParametersRns(ParametersBase):
     """
     Simulation parameters for radionavigation service
     """
-    section_name: str = "RNS"
+    section_name: str = "rns"
     # x-y coordinates [m]
     x: float = 660.0
     y: float = -370.0

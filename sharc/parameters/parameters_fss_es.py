@@ -12,7 +12,7 @@ class ParametersFssEs(ParametersBase):
     """Dataclass containing the Fixed Satellite Services - Earth Station
     parameters for the simulator
     """
-    section_name: str = "FSS_ES"
+    section_name: str = "fss_es"
     
     # type of FSS-ES location:
     # FIXED - position must be given

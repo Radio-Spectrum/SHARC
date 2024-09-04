@@ -1,5 +1,6 @@
-import configparser
+import yaml
 from dataclasses import dataclass
+import configparser
 
 @dataclass
 class ParametersBase:
@@ -22,40 +23,24 @@ class ParametersBase:
         ValueError
             if a parameter is not valid
         """
-        config = configparser.ConfigParser()
-        config.read(config_file)
+    
+                
+        with open(config_file, 'r') as yaml_file:
 
-        if not self.section_name in config.sections():
-            print(f"ParameterBase: section {self.section_name} not in parameter file.\
-                  Only default parameters where loaded.")
-            return
+            yaml_config = yaml.safe_load(yaml_file)
 
-        # Load all the parameters from the configuration file
-        attr_list = [a for a in dir(self) if not a.startswith('__') and not
-                     callable(getattr(self, a)) and a != "section_name"]
+            if not self.section_name in yaml_config.keys():
+                print(f"ParameterBase: section {self.section_name} not in parameter file.\
+                    Only default parameters where loaded.")
+                return
 
-        for attr_name in attr_list:
-            try:
-                attr_val = getattr(self, attr_name)
-                if isinstance(attr_val, str):
-                    setattr(self, attr_name, config.get(self.section_name, attr_name))
-                elif isinstance(attr_val, bool):
-                    setattr(self, attr_name, config.getboolean(self.section_name, attr_name))
-                elif isinstance(attr_val, float):
-                    setattr(self, attr_name, config.getfloat(self.section_name, attr_name))
-                elif isinstance(attr_val, int):
-                    setattr(self, attr_name, config.getint(self.section_name, attr_name))
-                elif isinstance(attr_val, tuple):
-                    # Check if the string defines a list of floats
-                    try:
-                        param_val = config.get(self.section_name, attr_name)
-                        tmp_val = list(map(float, param_val.split(",")))
-                        setattr(self, attr_name, tuple(tmp_val))
-                    except ValueError:
-                        # its a regular string. Let the specific class implementation
-                        # do the sanity check
-                        print(f"ParametersBase: could not convert string to tuple \"{self.section_name}.{attr_name}\"")
-                        exit()
+            # Load all the parameters from the configuration file
+            attr_list = [a for a in dir(self) if not a.startswith('__') and not
+                        callable(getattr(self, a)) and a != "section_name"]
 
-            except configparser.NoOptionError:
-                print(f"ParametersBase: NOTICE! Configuration parameter \"{self.section_name}.{attr_name}\" is not set in configuration file. Using default value {attr_val}")
+            for attr_name in attr_list:
+                try:
+                    attr_val = getattr(self, attr_name)
+                    setattr(self, attr_name, yaml_config[self.section_name][attr_name])
+                except:
+                    print(f"ParametersBase: NOTICE! Configuration parameter \"{self.section_name}.{attr_name}\" is not set in configuration file. Using default value {attr_val}")

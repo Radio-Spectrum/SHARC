@@ -119,7 +119,7 @@ class PropagationClutterLoss(Propagation):
             elevation_angle : elevation angle [degrees] - Elevation angle
                               range: 0 to 90 degrees
             loc_percentage : percentage of locations - Percentage locations
-                             range: 0 < p < 1
+                             range: 0 < p < 100
 
         Returns
         -------

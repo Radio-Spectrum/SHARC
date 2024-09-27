@@ -50,6 +50,8 @@ class Simulation(ABC, Observable):
             self.param_system = self.parameters.rns
         elif self.parameters.general.system == "RAS":
             self.param_system = self.parameters.ras
+        elif self.parameters.general.system == "MSS_SS":
+            self.param_system = self.parameters.mss_ss
         else:
             sys.stderr.write(
                 "ERROR\nInvalid system: " +

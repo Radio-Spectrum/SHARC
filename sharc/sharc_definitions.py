@@ -8,6 +8,7 @@ SHARC_IMPLEMENTED_SYSTEMS = [
     # "FSS_ES",
     # "FS",
     # "RAS",
+    "MSS_SS",
     "SINGLE_EARTH_STATION",
     "SINGLE_SPACE_STATION",
 ]

@@ -548,10 +548,7 @@ class StationFactory(object):
         elif parameters.general.system == "SINGLE_SPACE_STATION":
             return StationFactory.generate_single_space_station(parameters.single_space_station)
         elif parameters.general.system == "RAS":
-            return StationFactory.generate_ras_station(
-                                                       parameters.ras, random_number_gen,
-                                                       topology
-                                                   )
+            return StationFactory.generate_ras_station(parameters.ras, random_number_gen, topology)
         elif parameters.general.system == "FSS_SS":
             return StationFactory.generate_fss_space_station(parameters.fss_ss)
         elif parameters.general.system == "FS":
@@ -686,15 +683,15 @@ class StationFactory(object):
             ) * 1000,
         ])
 
-        fss_space_station.azimuth = param.azimuth
-        fss_space_station.elevation = param.elevation
+        fss_space_station.azimuth = np.array([param.azimuth])
+        fss_space_station.elevation = np.array([param.elevation])
 
         fss_space_station.active = np.array([True])
         fss_space_station.tx_power = np.array(
             [param.tx_power_density + 10 *
                 math.log10(param.bandwidth * 1e6) + 30],
         )
-        fss_space_station.rx_interference = -500
+        fss_space_station.rx_interference = np.array([-500])
 
         if param.antenna_pattern == "OMNI":
             fss_space_station.antenna = np.array(
@@ -712,10 +709,10 @@ class StationFactory(object):
             )
             sys.exit(1)
 
-        fss_space_station.bandwidth = param.bandwidth
-        fss_space_station.noise_temperature = param.noise_temperature
-        fss_space_station.thermal_noise = -500
-        fss_space_station.total_interference = -500
+        fss_space_station.bandwidth = np.array([param.bandwidth])
+        fss_space_station.noise_temperature = np.array([param.noise_temperature])
+        fss_space_station.thermal_noise = np.array([-500])
+        fss_space_station.total_interference = np.array([-500])
 
         return fss_space_station
 
@@ -796,7 +793,7 @@ class StationFactory(object):
         if param.azimuth.upper() == "RANDOM":
             fss_earth_station.azimuth = random_number_gen.uniform(-180., 180.)
         else:
-            fss_earth_station.azimuth = float(param.azimuth)
+            fss_earth_station.azimuth = np.array([float(param.azimuth)])
 
         elevation = random_number_gen.uniform(
             param.elevation_min, param.elevation_max,
@@ -808,7 +805,7 @@ class StationFactory(object):
             [param.tx_power_density + 10 *
                 math.log10(param.bandwidth * 1e6) + 30],
         )
-        fss_earth_station.rx_interference = -500
+        fss_earth_station.rx_interference = np.array([-500])
 
         if param.antenna_pattern.upper() == "OMNI":
             fss_earth_station.antenna = np.array(
@@ -828,11 +825,11 @@ class StationFactory(object):
             )
             sys.exit(1)
 
-        fss_earth_station.noise_temperature = param.noise_temperature
+        fss_earth_station.noise_temperature = np.array([param.noise_temperature])
         fss_earth_station.bandwidth = np.array([param.bandwidth])
-        fss_earth_station.noise_temperature = param.noise_temperature
-        fss_earth_station.thermal_noise = -500
-        fss_earth_station.total_interference = -500
+        fss_earth_station.noise_temperature = np.array([param.noise_temperature])
+        fss_earth_station.thermal_noise = np.array([-500])
+        fss_earth_station.total_interference = np.array([-500])
 
         return fss_earth_station
 

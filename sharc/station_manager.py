@@ -10,8 +10,7 @@ import numpy as np
 from sharc.support.enumerations import StationType
 from sharc.station import Station
 from sharc.antenna.antenna import Antenna
-from sharc.mask.spectral_mask_3gpp import SpectralMask3Gpp
-
+from sharc.mask.spectral_mask import SpectralMask
 
 class StationManager(object):
     """
@@ -42,11 +41,10 @@ class StationManager(object):
         self.snr = np.empty(n)
         self.sinr = np.empty(n)
         self.sinr_ext = np.empty(n)
-        self.inr = np.empty(n)  # INR in dBm/MHz
-        self.pfd = np.empty(n)  # Powerflux density in dBm/m^2
-        self.spectral_mask = np.empty(n, dtype=SpectralMask3Gpp)
+        self.inr = np.empty(n) # INR in dBm/MHz
+        self.pfd = np.empty(n) # Powerflux density in dBm/m^2
+        self.spectral_mask = np.empty(n, dtype=SpectralMask)
         self.center_freq = np.empty(n)
-        self.spectral_mask = None
         self.station_type = StationType.NONE
         self.is_space_station = False
         self.intersite_dist = 0.0
@@ -245,8 +243,8 @@ class StationManager(object):
         Az, b = self.get_pointing_vector_to(station)
         Az0 = self.azimuth
 
-        a = 90 - self.elevation
-        C = Az0 - Az
+        a = 90 - self.elevation[:, np.newaxis]
+        C = Az0[:, np.newaxis] - Az
 
         phi = np.arccos(
             np.cos(np.radians(a)) * np.cos(np.radians(b)) +

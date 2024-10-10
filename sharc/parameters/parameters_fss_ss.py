@@ -99,4 +99,5 @@ class ParametersFssSs(ParametersBase):
                              Invalid value for paramter channel_model = {self.channel_model}. \
                              Possible values are \"FSPL\", \"SatelliteSimple\", \"P619\".")
         self.param_p619.load_from_paramters(self)
-        self.antenna_s1528.set_external_parameters(self.frequency, self.bandwidth, self.antenna_gain, self.antenna_l_s)
+        self.antenna_s1528.set_external_parameters(self.frequency, self.bandwidth, self.antenna_gain, self.antenna_l_s,
+                                                   self.antenna_3_dB)

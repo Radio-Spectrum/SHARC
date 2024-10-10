@@ -513,7 +513,7 @@ fss_ss:
         l_r : 0.4
         l_t : 0.4
         # Roll-off factor
-        roll_off : 2
+        roll_off : 5
     # IMT parameters relevant to the satellite system
     #    altitude of IMT system (in meters)
     #    latitude of IMT system (in degrees)

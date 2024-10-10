@@ -99,7 +99,7 @@ legends_mapper = [
 
 
 def get_date_from_dirname(dirname: str, prefix_length: int):
-    return dirname[prefix_length : prefix_length + len("yyyy-mm-dd")]
+    return dirname[prefix_length: prefix_length + len("yyyy-mm-dd")]
 
 
 def get_id_from_dirname(dirname: str):
@@ -112,16 +112,14 @@ for subdir in subdirs:
     for mapper in legends_mapper:
         if mapper["output_dir_prefix"] in subdir:
             subfolders_filters\
-                .setdefault(mapper["output_dir_prefix"], { "id": "0", "date": "2024-01-01" })
+                .setdefault(mapper["output_dir_prefix"], {"id": "0", "date": "2024-01-01"})
 
-            subfolders_filters[mapper["output_dir_prefix"]]["id"] = max(
-                        subfolders_filters[mapper["output_dir_prefix"]]["id"],
-                        get_id_from_dirname(subdir)
-                    )
-            subfolders_filters[mapper["output_dir_prefix"]]["date"] = max(
-                        subfolders_filters[mapper["output_dir_prefix"]]["date"],
-                        get_date_from_dirname(subdir, 1 + len(mapper['output_dir_prefix']))
-                    )
+            subfolders_filters[mapper["output_dir_prefix"]]["id"] = \
+                max(subfolders_filters[mapper["output_dir_prefix"]]["id"],
+                    get_id_from_dirname(subdir))
+            subfolders_filters[mapper["output_dir_prefix"]]["date"] = \
+                max(subfolders_filters[mapper["output_dir_prefix"]]["date"],
+                    get_date_from_dirname(subdir, 1 + len(mapper['output_dir_prefix'])))
 
 
 legend_and_subfolders = [
@@ -131,11 +129,8 @@ legend_and_subfolders = [
         "subfolder": d,
     }
     for d in subdirs
-    for mapper in legends_mapper
-    if mapper["output_dir_prefix"] in d
-        # comment filters out if needed
-        and subfolders_filters[mapper["output_dir_prefix"]]["id"] == get_id_from_dirname(d)
-        and subfolders_filters[mapper["output_dir_prefix"]]["date"] == get_date_from_dirname(d, len(mapper["output_dir_prefix"]) + 1)
+    # comment filters out if needed
+    for mapper in legends_mapper if mapper["output_dir_prefix"] in d and subfolders_filters[mapper["output_dir_prefix"]]["id"] == get_id_from_dirname(d) and subfolders_filters[mapper["output_dir_prefix"]]["date"] == get_date_from_dirname(d, len(mapper["output_dir_prefix"]) + 1)
 ]
 
 # Example with specific subfolders and legends

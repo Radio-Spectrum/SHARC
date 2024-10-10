@@ -209,7 +209,7 @@ class ParametersTest(unittest.TestCase):
         self.assertEqual(self.parameters.fss_ss.antenna_s1528.n_side_lobes, 5)
         self.assertEqual(self.parameters.fss_ss.antenna_s1528.l_r, .4)
         self.assertEqual(self.parameters.fss_ss.antenna_s1528.l_t, .4)
-        self.assertEqual(self.parameters.fss_ss.antenna_s1528.roll_off, 2)
+        self.assertEqual(self.parameters.fss_ss.antenna_s1528.roll_off, 5)
 
     def test_parameters_fss_es(self):
         """Test ParametersFssEs

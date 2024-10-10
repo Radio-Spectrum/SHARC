@@ -53,16 +53,7 @@ class ParametersAntennaS1528(ParametersBase):
         """
         super().load_parameters_from_file(config_file)
 
-        # Now do the sanity check for some parameters
-        if self.antenna_pattern.upper() not in [ParametersAntennaS1528]:
-            raise ValueError(f"ParametersAntennaS1528: \
-                             invalid value for parameter antenna_pattern - {self.antenna_pattern}. \
-                             Possible values \
-                             are \"ITU-R-S.1528-Section1.2\", \"ITU-R-S.1528-LEO\", \"ITU-R-S.1528-Taylor\"")
-
-        if int(self.roll_off) not in [3, 5, 7]:
-            raise ValueError(
-                f"AntennaS1528Taylor: Invalid value for roll_off factor {self.roll_off}")
+        self.validate("antenna_s1528")
 
     def load_from_parameters(self, param: ParametersBase):
         """Load from another parameter object
@@ -85,7 +76,8 @@ class ParametersAntennaS1528(ParametersBase):
         self.l_t = param.l_t
         return self
 
-    def set_external_parameters(self, frequency: float, bandwidth: float, antenna_gain: float, antenna_l_s: float):
+    def set_external_parameters(self, frequency: float, bandwidth: float, antenna_gain: float, antenna_l_s: float,
+                                antenna_3_dB: float):
         """
             This method is used to "propagate" parameters from external context
             to the values required by antenna S1528.
@@ -94,3 +86,19 @@ class ParametersAntennaS1528(ParametersBase):
         self.bandwidth = bandwidth
         self.antenna_gain = antenna_gain
         self.antenna_l_s = antenna_l_s
+        self.antenna_3_dB = antenna_3_dB
+
+        self.validate("S.1528")
+
+    def validate(self, ctx: str):
+        # Now do the sanity check for some parameters
+        if self.antenna_pattern not in ["ITU-R-S.1528-Section1.2", "ITU-R-S.1528-LEO", "ITU-R-S.1528-Taylor"]:
+            raise ValueError(f"ParametersAntennaS1528: \
+                             invalid value for parameter antenna_pattern - {self.antenna_pattern}. \
+                             Possible values \
+                             are \"ITU-R-S.1528-Section1.2\", \"ITU-R-S.1528-LEO\", \"ITU-R-S.1528-Taylor\"")
+
+        if int(self.roll_off) not in [3, 5, 7]:
+            raise ValueError(
+                f"AntennaS1528Taylor: Invalid value for roll_off factor {self.roll_off}")
+

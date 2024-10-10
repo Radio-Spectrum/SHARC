@@ -49,7 +49,7 @@ from sharc.antenna.antenna_s672 import AntennaS672
 from sharc.antenna.antenna_s1528 import AntennaS1528
 from sharc.antenna.antenna_s1855 import AntennaS1855
 from sharc.antenna.antenna_sa509 import AntennaSA509
-from sharc.antenna.antenna_s1528 import AntennaS1528, AntennaS1528Leo
+from sharc.antenna.antenna_s1528 import AntennaS1528, AntennaS1528Leo, AntennaS1528Taylor
 from sharc.antenna.antenna_beamforming_imt import AntennaBeamformingImt
 from sharc.topology.topology import Topology
 from sharc.topology.topology_ntn import TopologyNTN
@@ -290,7 +290,6 @@ class StationFactory(object):
                 idx = np.where((angle_n < angle_cutoff) & (angle_n > -angle_cutoff))[0][:num_ue]
                 angle = angle_n[idx]
             elif param.ue.distribution_azimuth.upper() == "UNIFORM":
-                azimuth_range = (-60, 60)
                 angle = (azimuth_range[1] - azimuth_range[0]) * random_number_gen.random_sample(num_ue) \
                     + azimuth_range[0]
             else:
@@ -1230,9 +1229,11 @@ class StationFactory(object):
 
         for i in range(num_bs):
             if param_mss.antenna_pattern == "ITU-R-S.1528-LEO":
-                mss_ss.antenna[i] = AntennaS1528Leo(param_mss.antenna_param)
+                mss_ss.antenna[i] = AntennaS1528Leo(param_mss.antenna_s1528)
             elif param_mss.antenna_pattern == "ITU-R-S.1528-Section1.2":
-                mss_ss.antenna[i] = AntennaS1528(param_mss.antenna_param)
+                mss_ss.antenna[i] = AntennaS1528(param_mss.antenna_s1528)
+            elif param_mss.antenna_pattern == "ITU-R-S.1528-Taylor":
+                mss_ss.antenna[i] = AntennaS1528Taylor(param_mss.antenna_s1528)
             else:
                 raise ValueError("generate_mss_ss: Invalid antenna type: {param_mss.antenna_pattern}")
 

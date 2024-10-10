@@ -1,11 +1,11 @@
 # -*- coding: utf-8 -*-
 """Parameters definitions for NTN systems
 """
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from sharc.parameters.parameters_base import ParametersBase
 from sharc.parameters.parameters_p619 import ParametersP619
-from sharc.parameters.parameters_antenna_s1528 import ParametersAntennaS1528
+from sharc.parameters.antenna.parameters_antenna_s1528 import ParametersAntennaS1528
 import numpy as np
 
 
@@ -38,13 +38,13 @@ class ParametersMssSs(ParametersBase):
     adjacent_ch_leak_ratio: float = 45.0
 
     # MSS_SS altitude w.r.t. sea level
-    altitude: float = 120000.0
+    altitude: float = 1200000.0
 
     # NTN cell radius in network topology [m]
     cell_radius: float = 45000.0
 
     # NTN Intersite Distance (m). Intersite distance = Cell Radius * sqrt(3)
-    intersite_distance: float = np.sqrt(3)*cell_radius
+    intersite_distance: float = np.sqrt(3) * cell_radius
 
     # Satellite tx power density in dBW/MHz
     tx_power_density: float = 40.0
@@ -66,9 +66,6 @@ class ParametersMssSs(ParametersBase):
     # Possible values: "ITU-R-S.1528-Section1.2", "ITU-R-S.1528-LEO"
     antenna_pattern: str = "ITU-R-S.1528-LEO"
 
-    # Paramters for the ITU-R-S.1528 antenna patterns
-    antenna_param = ParametersAntennaS1528()
-
     # Radius of the antenna's circular aperture in meters
     antenna_diamter: float = 1.0
 
@@ -78,19 +75,21 @@ class ParametersMssSs(ParametersBase):
     # 3 dB beamwidth angle (3 dB below maximum gain) [degrees]
     antenna_3_dB_bw: float = 4.4127
 
+    # Paramters for the ITU-R-S.1528 antenna patterns
+    antenna_s1528: ParametersAntennaS1528 = field(default_factory=ParametersAntennaS1528)
+
     # paramters for channel model
     param_p619 = ParametersP619()
     space_station_alt_m: float = 35780000.0
     earth_station_alt_m: float = 0.0
     earth_station_lat_deg: float = 0.0
     earth_station_long_diff_deg: float = 0.0
-    season:str = "SUMMER"
+    season: str = "SUMMER"
     # Channel parameters
     # channel model, possible values are "FSPL" (free-space path loss),
     #                                    "SatelliteSimple" (FSPL + 4 + clutter loss)
     #                                    "P619"
     channel_model: str = "P619"
-
 
     def load_parameters_from_file(self, config_file: str):
         """
@@ -116,6 +115,8 @@ class ParametersMssSs(ParametersBase):
         if self.cell_radius <= 0:
             raise ValueError(f"ParametersMssSs: cell_radius must be greater than 0, but is {
                              self.cell_radius}")
+        else:
+            self.intersite_distance = np.sqrt(3) * self.cell_radius
 
         if not np.all((0 <= self.azimuth) & (self.azimuth <= 360)):
             raise ValueError(
@@ -128,4 +129,8 @@ class ParametersMssSs(ParametersBase):
         if self.spectral_mask.upper() not in ["IMT-2020", "3GPP E-UTRA"]:
             raise ValueError(f"""ParametersImt: Inavlid Spectral Mask Name {self.spectral_mask}""")
         
-        self.antenna_param = self.antenna_param.load_from_parameters(self)
+        self.antenna_s1528.set_external_parameters(self.frequency,
+                                                   self.bandwidth,
+                                                   self.antenna_gain,
+                                                   self.antenna_l_s,
+                                                   self.antenna_3_dB_bw)

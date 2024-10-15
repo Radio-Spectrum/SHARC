@@ -114,7 +114,7 @@ class StationFactory(object):
                                                                param.spurious_emissions)
 
         if param.topology == 'MACROCELL' or param.topology == 'HOTSPOT':
-            imt_base_stations.intesite_dist = param.intersite_distance
+            imt_base_stations.intersite_dist = param.intersite_distance
 
         return imt_base_stations
 

@@ -7,7 +7,7 @@ class ParametersFs(ParametersBase):
     Parameters definitions for fixed wireless service systems.
     """
 
-    section_name: str = "FS"
+    section_name: str = "fs"
 
     # x-y coordinates [meters]
     x:float = 1000.0

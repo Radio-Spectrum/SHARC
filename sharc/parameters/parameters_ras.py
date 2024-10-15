@@ -14,7 +14,7 @@ class ParametersRas(ParametersBase):
     """
     Simulation parameters for Radio Astronomy Service
     """
-    section_name: str = "RAS"
+    section_name: str = "ras"
     # x-y coordinates [m]
     x: float = 81000.0
     y: float = 0.0
@@ -121,9 +121,7 @@ class ParametersRas(ParametersBase):
             raise ValueError(f"ParametersRas: \
                              Invalid value for parameter polarization - {self.polarization}. \
                              Allowed values are: \"horizontal\", \"vertical\"")
-        if is_float(self.percentage_p):
-            self.percentage_p = float(self.percentage_p)
-        elif self.percentage_p.upper() != "RANDOM":
+        if isinstance(self.percentage_p, str) and self.percentage_p.upper() != "RANDOM":
             raise ValueError(f"""ParametersRas:
                             Invalid value for parameter percentage_p - {self.percentage_p}.
                             Allowed values are \"RANDOM\" or a percentage ]0,1]""")

@@ -12,7 +12,7 @@ class ParametersFssEs(ParametersBase):
     """Dataclass containing the Fixed Satellite Services - Earth Station
     parameters for the simulator
     """
-    section_name: str = "FSS_ES"
+    section_name: str = "fss_es"
     
     # type of FSS-ES location:
     # FIXED - position must be given
@@ -171,13 +171,13 @@ class ParametersFssEs(ParametersBase):
                 raise ValueError(f"""ParametersFssEs:
                                 Invalid value for parameter azimuth - {self.azimuth}.
                                 Allowed values are \"RANDOM\" or a angle in degrees.""")
-
-        if is_float(self.percentage_p):
-            self.percentage_p = float(self.percentage_p)
-        elif self.percentage_p.upper() != "RANDOM":
-            raise ValueError(f"""ParametersFssEs:
-                            Invalid value for parameter azimuth - {self.percentage_p}.
-                            Allowed values are \"RANDOM\" or a percentage ]0,1]""")
+        
+        if isinstance(self.percentage_p, str) and self.percentage_p.upper() != "RANDOM":
+            percentage_p = float(self.percentage_p)
+            if percentage_p <= 0 or percentage_p > 1:
+                raise ValueError(f"""ParametersFssEs:
+                        Invalid value for parameter percentage_p - {self.percentage_p}.
+                        Allowed values are a percentage between 0 and 1 (exclusive).""")
 
         if self.polarization.lower() not in ["horizontal", "vertical"]:
             raise ValueError(f"ParametersFssEss: \

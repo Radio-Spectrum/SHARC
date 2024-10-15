@@ -10,7 +10,7 @@ class ParametersIndoor(ParametersBase):
     """
     Simulation parameters for indoor network topology.
     """
-    section_name: str = "INDOOR"
+    section_name: str = "indoor"
     
     # Basic path loss model for indoor topology.
     # Possible values: "FSPL" (free-space path loss), "INH_OFFICE" (3GPP Indoor Hotspot - Office)

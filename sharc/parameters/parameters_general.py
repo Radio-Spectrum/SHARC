@@ -9,7 +9,7 @@ from sharc.parameters.parameters_base import ParametersBase
 class ParametersGeneral(ParametersBase):
     """Dataclass containing the general parameters for the simulator
     """
-    section_name: str = "GENERAL"
+    section_name: str = "general"
     num_snapshots: int = 10000
     imt_link: str = "DOWNLINK"
     system: str = "RAS"

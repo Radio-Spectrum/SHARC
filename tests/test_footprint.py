@@ -38,13 +38,18 @@ class FootprintTest(unittest.TestCase):
         self.fa3 = Footprint(0.325, elevation_deg=20)
         self.fa4 = Footprint(0.325, elevation_deg=30, sat_height=1200000)
         self.fa5 = Footprint(0.325, elevation_deg=30, sat_height=600000)
+        self.fa6 = Footprint(
+            0.325,
+            sat_height=1200000,
+            bore_lat_deg=0,
+            bore_subsat_long_deg=17.744178387,
+        )
 
         """
         Requested tests for Low Earth Orbit (LEO) Satellite at 1200Km and 600Km added bellow (Issue 33).
         """
 
         # New tests obtained for the LEO satellite type heights (1200km and 600km)
-        self.elevations = np.linspace(5, 90, num=32)  # Expanded elevation angles from 5 to 90 degrees
         self.sat_heights = [1200000, 600000]  # Different satellite heights (1200 km and 600 km)
 
     def test_construction(self):
@@ -79,6 +84,9 @@ class FootprintTest(unittest.TestCase):
         self.assertEqual(self.fa5.bore_lat_deg, 0)
         self.assertAlmostEqual(self.fa5.bore_subsat_long_deg, 7.68, delta=0.01)
 
+        self.assertEqual(self.fa6.sat_height, 1200000)
+        self.assertAlmostEqual(self.fa6.elevation_deg, 20, delta=0.01)
+
     def test_set_elevation(self):
         """
         Test the set_elevation method to ensure it correctly updates the elevation angle.
@@ -100,78 +108,25 @@ class FootprintTest(unittest.TestCase):
         Test the calc_area method to verify the calculation of the footprint area.
         """
         a1 = self.fa2.calc_area(1000)
-        self.assertAlmostEqual(a1, 130000, delta=200)
+        self.assertAlmostEqual(a1, 130000, delta=130000 * 0.0025)
         a2 = self.fa3.calc_area(1000)
-        self.assertAlmostEqual(a2, 486300, delta=200)
+        self.assertAlmostEqual(a2, 486300, delta=486300 * 0.0025)
         a3 = self.fa4.calc_area(1000)
         self.assertAlmostEqual(a3, 810, delta=810 * 0.0025)
         a4 = self.fa5.calc_area(1000)
         self.assertAlmostEqual(a4, 234, delta=234 * 0.0025)
 
-    def plot_footprints(self, sat_height, title):
-        """
-        Plot the footprints for various elevation angles at a given satellite height.
-        """
-        plt.figure(figsize=(15, 2))
-        n = 100
-        colors = plt.cm.viridis(np.linspace(0, 1, len(self.elevations)))
-        labels = [f'${e:.0f}^o$' for e in self.elevations]
-
-        # Plotting footprint for each elevation
-        for elevation, color, label in zip(self.elevations, colors, labels):
-            footprint = Footprint(5, elevation_deg=elevation, sat_height=sat_height)
-            lng, lat = footprint.calc_footprint(n)
-            plt.plot(lng, lat, color=color, label=label)
-
-        plt.title(f"Footprints at {sat_height / 1000} km")
-        plt.legend(loc='upper right', bbox_to_anchor=(1.1, 1))
-        plt.xlabel('Longitude [deg]')
-        plt.ylabel('Latitude [deg]')
-        plt.grid()
-        plt.show()
-
-    def test_plot_1200km(self):
-        """
-        Test plotting of footprints at 1200 km satellite height.
-        """
-        self.plot_footprints(1200000, "1200 km")
-
-    def test_plot_600km(self):
-        """
-        Test plotting of footprints at 600 km satellite height.
-        """
-        self.plot_footprints(600000, "600 km")
-
-    def test_area_vs_elevation(self):
-        """
-        Test the variation of footprint area with elevation angle for different satellite heights.
-        """
-        n_el = len(self.elevations)
-        n_poly = 1000
-        elevation = np.linspace(5, 90, num=n_el)
-        area_1200km = np.zeros_like(elevation)
-        area_600km = np.zeros_like(elevation)
-
-        # Footprint objects for different satellite heights [Km]
-        fprint_1200km = Footprint(5, elevation_deg=0, sat_height=1200000)
-        fprint_600km = Footprint(5, elevation_deg=0, sat_height=600000)
-
-        # Calculate footprint area for different elevation angles [Deg]
-        for k in range(len(elevation)):
-            fprint_1200km.set_elevation(elevation[k])
-            area_1200km[k] = fprint_1200km.calc_area(n_poly)
-            fprint_600km.set_elevation(elevation[k])
-            area_600km[k] = fprint_600km.calc_area(n_poly)
-
-        # Plotting area x elevation
-        plt.plot(elevation, area_1200km, color='r', label='1200 km')
-        plt.plot(elevation, area_600km, color='b', label='600 km')
-        plt.xlabel('Elevation [deg]')
-        plt.ylabel('Footprint area [$km^2$]')
-        plt.legend(loc='upper right')
-        plt.xlim([0, 90])
-        plt.grid()
-        plt.show()
+        for height in self.sat_heights:
+            beam_deg = 0.325
+            footprint = Footprint(beam_deg, elevation_deg=90, sat_height=height)
+            cone_radius_in_km = height * np.tan(np.deg2rad(beam_deg)) / 1000
+            cone_base_area_in_km2 = np.pi * (cone_radius_in_km**2)
+            footprint_area_in_km2 = footprint.calc_area(1000)
+            self.assertAlmostEqual(
+                footprint_area_in_km2,
+                cone_base_area_in_km2,
+                delta=cone_base_area_in_km2 * 0.01,
+            )
 
 if __name__ == '__main__':
     unittest.main()

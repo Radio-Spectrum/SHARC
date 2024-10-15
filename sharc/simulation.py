@@ -180,8 +180,12 @@ class Simulation(ABC, Observable):
         """
         Finalizes the simulation (collect final results, etc...)
         """
-        snapshot_number = kwargs["snapshot_number"]
-        self.results.write_files(snapshot_number)
+        # TODO: remove this code?
+        # snapshot_number = kwargs["snapshot_number"]
+        
+        # Calculate and write statistics
+        self.results.calculate_statistics()
+        self.results.write_statistics()
 
     def calculate_coupling_loss_system_imt(self,
                                            system_station: StationManager,

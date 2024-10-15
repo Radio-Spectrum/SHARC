@@ -16,7 +16,7 @@ def run_campaign(campaign_name):
     campaign_folder = os.path.join(workfolder, "campaigns", campaign_name, "input")
     
     # List of parameter files
-    parameter_files = [os.path.join(campaign_folder, f) for f in os.listdir(campaign_folder) if f.endswith('.ini')]
+    parameter_files = [os.path.join(campaign_folder, f) for f in os.listdir(campaign_folder) if f.endswith('.yaml')]
 
     # Number of threads (adjust as needed)
     num_threads = min(len(parameter_files), os.cpu_count())

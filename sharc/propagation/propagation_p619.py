@@ -81,8 +81,7 @@ class PropagationP619(Propagation):
         self.earth_station_long_diff_deg = earth_station_long_diff_deg
 
         if season.upper() not in ["SUMMER", "WINTER"]:
-            raise ValueError(f"PropagationP619: Invalid value for parameter season - {
-                             season}. Possible values are \"SUMMER\", \"WINTER\".")
+            raise ValueError(f"PropagationP619: Invalid value for parameter season - {season}. Possible values are \"SUMMER\", \"WINTER\".")
         self.season = season
         # Load city name based on latitude
         self.lookup_table = False
@@ -121,8 +120,7 @@ class PropagationP619(Propagation):
         if lookupTable and self.city_name != 'Unknown':
             # Define the path to the CSV file
             output_dir = os.path.join(os.path.dirname(__file__), 'Dataset')
-            csv_file = os.path.join(output_dir, f'{self.city_name}_{int(frequency_MHz)}_{
-                                    int(self.earth_station_alt_m)}m.csv')
+            csv_file = os.path.join(output_dir, f'{self.city_name}_{int(frequency_MHz)}_{int(self.earth_station_alt_m)}m.csv')
             if os.path.exists(csv_file):
                 elevations = []
                 losses = []

@@ -352,9 +352,9 @@ fss_ss:
     #    latitude of IMT system (in degrees)
     #    difference between longitudes of IMT and satellite system
     #      (positive if space-station is to the East of earth-station)
-    imt_altitude  : 0
-    imt_lat_deg  : 0
-    imt_long_diff_deg  : 0
+    earth_station_alt_m  : 0
+    earth_station_lat_deg  : 0
+    earth_station_long_diff_deg  : 0
     season  : SUMMER
     ###########################################################################
     # Channel parameters
@@ -599,9 +599,9 @@ haps:
     #    latitude of IMT system (in degrees)
     #    difference between longitudes of IMT and satellite system
     #      (positive if space-station is to the East of earth-station)
-    imt_altitude  : 0
-    imt_lat_deg  : 0
-    imt_long_diff_deg  : 0
+    earth_station_alt_m  : 0
+    earth_station_lat_deg  : 0
+    earth_station_long_diff_deg  : 0
     season  : SUMMER
     ###########################################################################
     # Channel parameters
@@ -656,8 +656,8 @@ rns:
     ###########################################################################
     # Specific parameters for P619
     season  : SUMMER
-    imt_altitude  : 0
-    imt_lat_deg  : 0
+    earth_station_alt_m  : 0
+    earth_station_lat_deg  : 0
 ras:
     ###########################################################################
     # x-y coordinates [m]
@@ -784,8 +784,8 @@ eess_passive:
     #    altitude of IMT system (in meters)
     #    latitude of IMT system (in degrees)
     #    season of the year: "SUMMER", "WINTER"
-    imt_altitude  : 20.1
-    imt_lat_deg  : -22.9
+    earth_station_alt_m  : 20.1
+    earth_station_lat_deg  : -22.9
     season  : WINTER
     ###########################################################################
     # Constants

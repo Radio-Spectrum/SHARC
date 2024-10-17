@@ -35,8 +35,8 @@ class SimulationUplinkTest(unittest.TestCase):
         self.param.imt.intersite_distance = 150
         self.param.imt.minimum_separation_distance_bs_ue = 10
         self.param.imt.interfered_with = False
-        self.param.imt.frequency = 10000
-        self.param.imt.bandwidth = 100
+        self.param.imt.frequency = 10000.0
+        self.param.imt.bandwidth = 100.0
         self.param.imt.rb_bandwidth = 0.180
         self.param.imt.spectral_mask = "IMT-2020"
         self.param.imt.spurious_emissions = -13
@@ -210,16 +210,19 @@ class SimulationUplinkTest(unittest.TestCase):
         # scenario we do not want to change the order of the UE's
 
         self.simulation.propagation_imt = PropagationFactory.create_propagation(self.param.imt.channel_model,
-                                                                                self.param, random_number_gen)
+                                                                                self.param, 
+                                                                                self.simulation.param_system,
+                                                                                random_number_gen)
         self.simulation.propagation_system = PropagationFactory.create_propagation(self.param.fss_ss.channel_model,
-                                                                                   self.param, random_number_gen)
+                                                                                   self.param, 
+                                                                                   self.simulation.param_system,
+                                                                                   random_number_gen)
 
         # test coupling loss method
-        self.simulation.coupling_loss_imt = self.simulation.calculate_intra_imt_coupling_loss(self.simulation.bs,
-                                                                                              self.simulation.ue,
-                                                                                              self.simulation.propagation_imt)
-        coupling_loss_imt = np.array([[88.47-1-10,  99.35-1-11,  103.27-1-22,  107.05-1-23],
-                                      [107.55-2-10,  104.72-2-11,  101.53-2-22,  91.99-2-23]])
+        self.simulation.coupling_loss_imt = self.simulation.calculate_intra_imt_coupling_loss(self.simulation.ue,
+                                                                                              self.simulation.bs)
+        coupling_loss_imt = np.array([[88.68-1-10,  99.36-1-11,  103.28-1-22,  107.06-1-23],
+                                      [107.55-2-10,  104.73-2-11,  101.54-2-22,  92.08-2-23]])
         npt.assert_allclose(self.simulation.coupling_loss_imt,
                             coupling_loss_imt,
                             atol=1e-2)
@@ -361,14 +364,16 @@ class SimulationUplinkTest(unittest.TestCase):
         # We do not test the selection method here because in this specific
         # scenario we do not want to change the order of the UE's
         self.simulation.propagation_imt = PropagationFactory.create_propagation(self.param.imt.channel_model,
-                                                                                self.param, random_number_gen)
+                                                                                self.param, self.simulation.param_system,
+                                                                                random_number_gen)
         self.simulation.propagation_system = PropagationFactory.create_propagation(self.param.fss_ss.channel_model,
-                                                                                   self.param, random_number_gen)
+                                                                                   self.param, 
+                                                                                   self.simulation.param_system,
+                                                                                   random_number_gen)
 
         # test coupling loss method
-        self.simulation.coupling_loss_imt = self.simulation.calculate_intra_imt_coupling_loss(self.simulation.bs,
-                                                                                              self.simulation.ue,
-                                                                                              self.simulation.propagation_imt)
+        self.simulation.coupling_loss_imt = self.simulation.calculate_intra_imt_coupling_loss(self.simulation.ue,
+                                                                                              self.simulation.bs)
 
         self.simulation.scheduler()
         bandwidth_per_ue = math.trunc((1 - 0.1)*100/2)
@@ -379,8 +384,8 @@ class SimulationUplinkTest(unittest.TestCase):
         tx_power = 20
 
         # check coupling loss IMT
-        coupling_loss_imt = np.array([[88.47-1-10,  99.35-1-11,  103.27-1-22,  107.05-1-23],
-                                      [107.55-2-10,  104.72-2-11,  101.53-2-22,  91.99-2-23]])
+        coupling_loss_imt = np.array([[88.68-1-10,  99.36-1-11,  103.28-1-22,  107.06-1-23],
+                                      [107.55-2-10,  104.73-2-11,  101.54-2-22,  92.08-2-23]])
         npt.assert_allclose(self.simulation.coupling_loss_imt,
                             coupling_loss_imt,
                             atol=1e-2)
@@ -548,14 +553,18 @@ class SimulationUplinkTest(unittest.TestCase):
         self.simulation.link = {0: [0, 1], 1: [2, 3]}
 
         self.simulation.propagation_imt = PropagationFactory.create_propagation(self.param.imt.channel_model,
-                                                                                self.param, random_number_gen)
+                                                                                self.param,
+                                                                                self.simulation.param_system,
+                                                                                random_number_gen)
+
         self.simulation.propagation_system = PropagationFactory.create_propagation(self.param.fss_ss.channel_model,
-                                                                                   self.param, random_number_gen)
+                                                                                   self.param,
+                                                                                   self.simulation.param_system,
+                                                                                   random_number_gen)
 
         # test coupling loss method
-        self.simulation.coupling_loss_imt = self.simulation.calculate_intra_imt_coupling_loss(self.simulation.bs,
-                                                                                              self.simulation.ue,
-                                                                                              self.simulation.propagation_imt)
+        self.simulation.coupling_loss_imt = self.simulation.calculate_intra_imt_coupling_loss(self.simulation.ue,
+                                                                                              self.simulation.bs)
 
         self.simulation.scheduler()
         bandwidth_per_ue = math.trunc((1 - 0.1)*100/2)
@@ -571,10 +580,10 @@ class SimulationUplinkTest(unittest.TestCase):
 
         # check SINR
         npt.assert_allclose(self.simulation.bs.sinr[0],
-                            np.array([-57.47 - (-60.27),  -67.35 - (-63.05)]),
+                            np.array([-57.47 - (-60.06),  -67.35 - (-63.04)]),
                             atol=1e-2)
         npt.assert_allclose(self.simulation.bs.sinr[1],
-                            np.array([-57.53 - (-75.41),  -46.99 - (-71.67)]),
+                            np.array([-57.53 - (-75.40),  -46.99 - (-71.57)]),
                             atol=1e-2)
 
         # Create system

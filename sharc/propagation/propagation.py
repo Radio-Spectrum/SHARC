@@ -10,6 +10,8 @@ import numpy as np
 
 from sharc.station_manager import StationManager
 from sharc.parameters.parameters import Parameters
+
+
 class Propagation(ABC):
     """
     Abstract base class for propagation models
@@ -42,6 +44,6 @@ class Propagation(ABC):
         Returns
         -------
         np.array
-            Return an array station_a.num_stations x station_b.num_stations with the path loss 
+            Return an array station_a.num_stations x station_b.num_stations with the path loss
             between each station
         """

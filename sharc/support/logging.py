@@ -10,11 +10,11 @@ import logging.config
 
 import yaml
 
+
 class Logging():
 
-    
     @staticmethod
-    def setup_logging(default_path='support/logging.yaml', 
+    def setup_logging(default_path='support/logging.yaml',
                       default_level=logging.INFO, env_key='LOG_CFG'):
         """
         Setup logging configuration

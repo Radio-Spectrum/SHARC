@@ -14,12 +14,13 @@ from sharc.topology.topology_ntn import TopologyNTN
 from sharc.topology.topology_single_base_station import TopologySingleBaseStation
 from sharc.parameters.parameters import Parameters
 
+
 class TopologyFactory(object):
-    
+
     @staticmethod
     def createTopology(parameters: Parameters) -> Topology:
         if parameters.imt.topology == "SINGLE_BS":
-            return TopologySingleBaseStation(parameters.imt.intersite_distance*2/3, parameters.imt.num_clusters)
+            return TopologySingleBaseStation(parameters.imt.intersite_distance * 2 / 3, parameters.imt.num_clusters)
         elif parameters.imt.topology == "MACROCELL":
             return TopologyMacrocell(parameters.imt.intersite_distance, parameters.imt.num_clusters)
         elif parameters.imt.topology == "HOTSPOT":
@@ -28,7 +29,8 @@ class TopologyFactory(object):
             return TopologyIndoor(parameters.indoor)
         elif parameters.imt.topology == "NTN":
             return TopologyNTN(parameters.ntn.intersite_distance, parameters.ntn.cell_radius, parameters.ntn.bs_height,
-                               parameters.ntn.bs_azimuth, parameters.ntn.bs_elevation,parameters.ntn.num_sectors)
+                               parameters.ntn.bs_azimuth, parameters.ntn.bs_elevation, parameters.ntn.num_sectors)
         else:
-            sys.stderr.write("ERROR\nInvalid topology: " + parameters.imt.topology)
-            sys.exit(1)            
+            sys.stderr.write("ERROR\nInvalid topology: " +
+                             parameters.imt.topology)
+            sys.exit(1)

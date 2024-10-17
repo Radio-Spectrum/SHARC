@@ -67,18 +67,18 @@ following keys:
     parameters (AntennaPar): antenna parameters used in the normalization
 """
 
+from sharc.antenna.beamforming_normalization.beamforming_normalizer import BeamformingNormalizer
+from sharc.support.named_tuples import AntennaPar
 import sys
 import os
 sys.path.append(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
 
-from sharc.support.named_tuples import AntennaPar
-from sharc.antenna.beamforming_normalization.beamforming_normalizer import BeamformingNormalizer
 
 if __name__ == "__main__":
 
     ###########################################################################
-    ## List of antenna parameters to which calculate the normalization factors.
-    adjacent_antenna_model = "" # not needed here
+    # List of antenna parameters to which calculate the normalization factors.
+    adjacent_antenna_model = ""  # not needed here
     normalization = False       # not needed here
     normalization_data = None   # not needed here
     element_pattern = "M2101"
@@ -94,7 +94,7 @@ if __name__ == "__main__":
     multiplication_factor = 12
     minimum_array_gain = -200
     downtilt = 0
-        
+
     file_names = ["bs_norm_8x8_050.npz"]
     param_list = [AntennaPar(adjacent_antenna_model,
                              normalization,
@@ -113,17 +113,17 @@ if __name__ == "__main__":
                              minimum_array_gain,
                              downtilt)]
     ###########################################################################
-    ## Setup
+    # Setup
     # General parameters
     resolution = 5
     tolerance = 1e-2
-    
+
     # Create object
     norm = BeamformingNormalizer(resolution, tolerance)
     ###########################################################################
-    ## Normalize and save
+    # Normalize and save
     for par, file in zip(param_list, file_names):
         s = 'Generating ' + file
         print(s)
-    
-        norm.generate_correction_matrix(par,file)
+
+        norm.generate_correction_matrix(par, file)

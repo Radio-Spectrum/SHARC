@@ -5,6 +5,8 @@ from sharc.parameters.parameters_space_station import ParametersSpaceStation
 # The default values come from Report ITU-R SA.2488-0, table 19 (the only earth-to-space MetSat entry)
 # TODO: let MetSat as interferrer
 # TODO: ver com professor se considerar as tabelas do report está correto
+
+
 @dataclass
 class ParametersMetSatSS(ParametersSpaceStation):
     """
@@ -14,15 +16,15 @@ class ParametersMetSatSS(ParametersSpaceStation):
     section_name: str = "mestat_ss"
 
     # raw data transmission in 8175-8215 range
-    frequency: float = 8195.0 # Satellite center frequency [MHz]
+    frequency: float = 8195.0  # Satellite center frequency [MHz]
     bandwidth: float = 20.0
 
     # Elevation angle [deg]
-    elevation: float = 3 # Minimum == 3
+    elevation: float = 3  # Minimum == 3
 
     # Satellite altitude [m]
     # Altitude of the satellite above the Earth's surface in meters
-    altitude: float = 35786000.0 # 35786000 for GSO
+    altitude: float = 35786000.0  # 35786000 for GSO
 
     # Antenna pattern of the satellite
     # Possible values: "ITU-R S.672"

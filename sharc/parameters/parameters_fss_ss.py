@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from sharc.parameters.parameters_base import ParametersBase
 from sharc.parameters.parameters_p619 import ParametersP619
 
+
 @dataclass
 class ParametersFssSs(ParametersBase):
     """Dataclass containing the Fixed Satellite Services - Space Station
@@ -45,7 +46,7 @@ class ParametersFssSs(ParametersBase):
     earth_station_alt_m: float = 0.0
     earth_station_lat_deg: float = 0.0
     earth_station_long_diff_deg: float = 0.0
-    season:str = "SUMMER"
+    season: str = "SUMMER"
     # Channel parameters
     # channel model, possible values are "FSPL" (free-space path loss),
     #                                    "SatelliteSimple" (FSPL + 4 + clutter loss)

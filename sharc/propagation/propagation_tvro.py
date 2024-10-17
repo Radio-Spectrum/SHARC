@@ -63,7 +63,7 @@ class PropagationTvro(Propagation):
         Returns
         -------
         np.array
-            Return an array station_a.num_stations x station_b.num_stations with the path loss 
+            Return an array station_a.num_stations x station_b.num_stations with the path loss
             between each station
         """
         wrap_around_enabled = \
@@ -82,18 +82,20 @@ class PropagationTvro(Propagation):
         # TODO: Refactor __get_loss and get rid of that if-else.
         if station_a.is_imt_station() and station_b.is_imt_station():
             loss = self._get_loss(distance_3D=bs_to_ue_dist_3d,
-                                   distance_2D=bs_to_ue_dist_2d,
-                                   frequency=frequency * np.ones(bs_to_ue_dist_2d.shape),
-                                   bs_height=station_b.height,
-                                   ue_height=station_a.height,
-                                   indoor_stations=np.tile(station_a.indoor, 
-                                                           (station_b.num_stations, 1)))
+                                  distance_2D=bs_to_ue_dist_2d,
+                                  frequency=frequency *
+                                  np.ones(bs_to_ue_dist_2d.shape),
+                                  bs_height=station_b.height,
+                                  ue_height=station_a.height,
+                                  indoor_stations=np.tile(station_a.indoor,
+                                                          (station_b.num_stations, 1)))
         else:
             imt_station, sys_station = (station_a, station_b) \
                 if station_a.is_imt_station() else (station_b, station_a)
             loss = self._get_loss(distance_3D=bs_to_ue_dist_3d,
                                   distance_2D=bs_to_ue_dist_2d,
-                                  frequency=frequency * np.ones(bs_to_ue_dist_2d.shape),
+                                  frequency=frequency *
+                                  np.ones(bs_to_ue_dist_2d.shape),
                                   bs_height=station_b.height,
                                   imt_sta_type=imt_station.station_type,
                                   imt_x=imt_station.x,
@@ -102,8 +104,8 @@ class PropagationTvro(Propagation):
                                   es_x=sys_station.x,
                                   es_y=sys_station.y,
                                   es_z=sys_station.height,
-                                  indoor_stations=np.tile(station_a.indoor, 
-                                                         (station_b.num_stations, 1)))
+                                  indoor_stations=np.tile(station_a.indoor,
+                                                          (station_b.num_stations, 1)))
 
         return loss
 
@@ -160,10 +162,10 @@ class PropagationTvro(Propagation):
                            frequency: np.array,
                            indoor_stations: np.array,
                            shadowing) -> np.array:
-        pl_los = 102.93 + 20*np.log10(distance_3D/1000)
-        pl_nlos = 153.5 + 40*np.log10(distance_3D/1000)
+        pl_los = 102.93 + 20 * np.log10(distance_3D / 1000)
+        pl_nlos = 153.5 + 40 * np.log10(distance_3D / 1000)
         pr_los = self.get_los_probability(distance_3D)
-        loss = pl_los*pr_los + pl_nlos*(1 - pr_los)
+        loss = pl_los * pr_los + pl_nlos * (1 - pr_los)
 
         if shadowing:
             shadowing_fading = self.random_number_gen.normal(0,
@@ -171,7 +173,7 @@ class PropagationTvro(Propagation):
                                                              loss.shape)
             loss = loss + shadowing_fading
 
-        loss = loss + self.building_loss*indoor_stations
+        loss = loss + self.building_loss * indoor_stations
 
         free_space_path_loss = self.free_space_path_loss.get_free_space_loss(distance=distance_3D,
                                                                              frequency=frequency)
@@ -186,24 +188,24 @@ class PropagationTvro(Propagation):
                            indoor_stations: np.array,
                            shadowing: bool) -> np.array:
 
-        free_space_path_loss = self.free_space_path_loss.get_free_space_loss(distance=distance_3D, 
+        free_space_path_loss = self.free_space_path_loss.get_free_space_loss(distance=distance_3D,
                                                                              frequency=frequency)
 
-        f_fc = .25 + .375*(1 + np.tanh(7.5*(frequency/1000 - .5)))
+        f_fc = .25 + .375 * (1 + np.tanh(7.5 * (frequency / 1000 - .5)))
         clutter_loss = 10.25 * f_fc * np.exp(-self.d_k) * \
-            (1 - np.tanh(6*(height/self.h_a - .625))) - .33
+            (1 - np.tanh(6 * (height / self.h_a - .625))) - .33
 
         loss = free_space_path_loss.copy()
 
         indices = (distance_3D >= 40) & (distance_3D < 10 * self.d_k * 1000)
         loss[indices] = loss[indices] + \
-            (distance_3D[indices]/1000 - 0.04) / \
-            (10*self.d_k - 0.04) * clutter_loss[indices]
+            (distance_3D[indices] / 1000 - 0.04) / \
+            (10 * self.d_k - 0.04) * clutter_loss[indices]
 
         indices = (distance_3D >= 10 * self.d_k * 1000)
         loss[indices] = loss[indices] + clutter_loss[indices]
 
-        loss = loss + self.building_loss*indoor_stations
+        loss = loss + self.building_loss * indoor_stations
 
         if shadowing:
             shadowing_fading = self.random_number_gen.normal(0,
@@ -230,15 +232,15 @@ class PropagationTvro(Propagation):
         -------
             LOS probability as a numpy array with same length as distance
         """
-        p_los = 1/(1 + (1/np.exp(-0.1*(distance - distance_transition))))
+        p_los = 1 / (1 + (1 / np.exp(-0.1 * (distance - distance_transition))))
         return p_los
 
 
 if __name__ == '__main__':
     distance_2D = np.linspace(10, 1000, num=1000)[:, np.newaxis]
-    frequency = 3600*np.ones(distance_2D.shape)
-    h_bs = 25*np.ones(len(distance_2D[:, 0]))
-    h_ue = 1.5*np.ones(len(distance_2D[0, :]))
+    frequency = 3600 * np.ones(distance_2D.shape)
+    h_bs = 25 * np.ones(len(distance_2D[:, 0]))
+    h_ue = 1.5 * np.ones(len(distance_2D[0, :]))
     h_tvro = 6
     distance_3D = np.sqrt(distance_2D**2 + (h_bs[:, np.newaxis] - h_ue)**2)
     indoor_stations = np.zeros(distance_3D.shape, dtype=bool)
@@ -250,35 +252,35 @@ if __name__ == '__main__':
     prop_free_space = PropagationFreeSpace(rand_gen)
 
     loss_urban_bs_ue = prop_urban._get_loss(distance_3D=distance_3D,
-                                           frequency=frequency,
-                                           indoor_stations=indoor_stations,
-                                           shadowing=shadowing,
-                                           ue_height=h_ue)
+                                            frequency=frequency,
+                                            indoor_stations=indoor_stations,
+                                            shadowing=shadowing,
+                                            ue_height=h_ue)
     loss_suburban_bs_ue = prop_suburban._get_loss(distance_3D=distance_3D,
-                                                 frequency=frequency,
-                                                 indoor_stations=indoor_stations,
-                                                 shadowing=shadowing,
-                                                 ue_height=h_ue)
+                                                  frequency=frequency,
+                                                  indoor_stations=indoor_stations,
+                                                  shadowing=shadowing,
+                                                  ue_height=h_ue)
 
     loss_urban_bs_tvro = prop_urban._get_loss(distance_3D=distance_3D,
-                                             frequency=frequency,
-                                             indoor_stations=indoor_stations,
-                                             shadowing=shadowing,
-                                             imt_sta_type=StationType.IMT_BS,
-                                             es_z=h_tvro)
+                                              frequency=frequency,
+                                              indoor_stations=indoor_stations,
+                                              shadowing=shadowing,
+                                              imt_sta_type=StationType.IMT_BS,
+                                              es_z=h_tvro)
     loss_suburban_bs_tvro = prop_suburban._get_loss(distance_3D=distance_3D,
-                                                   frequency=frequency,
-                                                   indoor_stations=indoor_stations,
-                                                   shadowing=shadowing,
-                                                   imt_sta_type=StationType.IMT_BS,
-                                                   es_z=h_tvro)
+                                                    frequency=frequency,
+                                                    indoor_stations=indoor_stations,
+                                                    shadowing=shadowing,
+                                                    imt_sta_type=StationType.IMT_BS,
+                                                    es_z=h_tvro)
 
     loss_ue_tvro = prop_urban._get_loss(distance_3D=distance_3D,
-                                       frequency=frequency,
-                                       indoor_stations=indoor_stations,
-                                       imt_sta_type=StationType.IMT_UE,
-                                       shadowing=shadowing,
-                                       es_z=h_tvro)
+                                        frequency=frequency,
+                                        indoor_stations=indoor_stations,
+                                        imt_sta_type=StationType.IMT_UE,
+                                        shadowing=shadowing,
+                                        es_z=h_tvro)
 
     loss_fs = prop_free_space.get_free_space_loss(distance=distance_3D,
                                                   frequency=frequency)

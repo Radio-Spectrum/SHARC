@@ -20,7 +20,7 @@ from sharc.propagation.propagation_building_entry_loss import PropagationBuildin
 from sharc.propagation.atmosphere import ReferenceAtmosphere
 from sharc.support.enumerations import StationType
 from sharc.propagation.scintillation import Scintillation
-from sharc.parameters.constants import BOLTZMANN_CONSTANT, EARTH_RADIUS, SPEED_OF_LIGHT
+from sharc.parameters.constants import EARTH_RADIUS
 
 
 class PropagationP619(Propagation):
@@ -81,7 +81,8 @@ class PropagationP619(Propagation):
         self.earth_station_long_diff_deg = earth_station_long_diff_deg
 
         if season.upper() not in ["SUMMER", "WINTER"]:
-            raise ValueError(f"PropagationP619: Invalid value for parameter season - {season}. Possible values are \"SUMMER\", \"WINTER\".")
+            raise ValueError(
+                f"PropagationP619: Invalid value for parameter season - {season}. Possible values are \"SUMMER\", \"WINTER\".")
         self.season = season
         # Load city name based on latitude
         self.lookup_table = False
@@ -120,7 +121,8 @@ class PropagationP619(Propagation):
         if lookupTable and self.city_name != 'Unknown':
             # Define the path to the CSV file
             output_dir = os.path.join(os.path.dirname(__file__), 'Dataset')
-            csv_file = os.path.join(output_dir, f'{self.city_name}_{int(frequency_MHz)}_{int(self.earth_station_alt_m)}m.csv')
+            csv_file = os.path.join(
+                output_dir, f'{self.city_name}_{int(frequency_MHz)}_{int(self.earth_station_alt_m)}m.csv')
             if os.path.exists(csv_file):
                 elevations = []
                 losses = []
@@ -262,8 +264,8 @@ class PropagationP619(Propagation):
         tau_fs3 = 0.01727 + 0.008288 * elev_angles_rad
 
         # change in elevation angle due to refraction
-        tau_fs_deg = 1/(tau_fs1 + space_station_alt_m*tau_fs2 +
-                        space_station_alt_m**2*tau_fs3)
+        tau_fs_deg = 1 / (tau_fs1 + space_station_alt_m * tau_fs2 +
+                          space_station_alt_m**2 * tau_fs3)
         tau_fs = tau_fs_deg / 180. * np.pi
 
         return np.degrees(elev_angles_rad + tau_fs)
@@ -292,33 +294,35 @@ class PropagationP619(Propagation):
         Returns
         -------
         np.array
-            Return an array station_a.num_stations x station_b.num_stations with the path loss 
+            Return an array station_a.num_stations x station_b.num_stations with the path loss
             between each station
         """
         distance = station_a.get_3d_distance_to(station_b)
         frequency = frequency * np.ones(distance.shape)
         indoor_stations = np.tile(
             station_b.indoor, (station_a.num_stations, 1))
-   
+
         # Elevation angles seen from the station on Earth.
         elevation_angles = {}
         if station_a.is_space_station:
-            elevation_angles["free_space"] = np.transpose(station_b.get_elevation(station_a))
+            elevation_angles["free_space"] = np.transpose(
+                station_b.get_elevation(station_a))
             earth_station_antenna_gain = np.transpose(station_b_gains)
             elevation_angles["apparent"] = self.apparent_elevation_angle(elevation_angles["free_space"],
-                                                                           station_a.height)
+                                                                         station_a.height)
         elif station_b.is_space_station:
             elevation_angles["free_space"] = station_a.get_elevation(station_b)
             earth_station_antenna_gain = station_a_gains
             elevation_angles["apparent"] = self.apparent_elevation_angle(elevation_angles["free_space"],
-                                                                           station_b.height)
+                                                                         station_b.height)
         else:
             raise ValueError(
                 "PropagationP619: At least one station must be an space station")
 
         # Determine the Earth-space path direction and if the interferer is single or multiple-entry.
         # The get_loss interface won't tell us who is the interferer, so we need to get it from the parameters.
-        is_intra_imt = True if station_a.is_imt_station() and station_b.is_imt_station() else False
+        is_intra_imt = True if station_a.is_imt_station(
+        ) and station_b.is_imt_station() else False
         if is_intra_imt:
             # Intra-IMT
             if params.general.imt_link == "UPLINK":
@@ -329,7 +333,8 @@ class PropagationP619(Propagation):
             is_single_entry_interf = False
         else:
             # System-IMT
-            imt_station, sys_station = (station_a, station_b) if station_a.is_imt_station() else (station_b, station_a)
+            imt_station, sys_station = (
+                station_a, station_b) if station_a.is_imt_station() else (station_b, station_a)
             if params.imt.interfered_with:
                 is_earth_to_space_link = True if imt_station.is_space_station else False
                 if sys_station.num_stations > 1:
@@ -351,7 +356,7 @@ class PropagationP619(Propagation):
         if is_intra_imt:
             loss = np.transpose(loss)
         return loss
-    
+
     @dispatch(np.ndarray, np.ndarray, np.ndarray, dict, bool, np.ndarray, bool)
     def get_loss(self,
                  distance: np.array,
@@ -371,7 +376,7 @@ class PropagationP619(Propagation):
             indoor_stations (np.array) : array indicating stations that are indoor
             elevation (dict) : dict containing free-space elevation angles (degrees), and aparent elevation angles
             earth_to_space (bool): whether the ray direction is earth-to-space. Affects beam spreadding Attenuation.
-            single_entry (bool): True for single-entry interference, False for 
+            single_entry (bool): True for single-entry interference, False for
             multiple-entry (default = False)
             earth_station_antenna_gain (np.array): Earth station atenna gain array.
 

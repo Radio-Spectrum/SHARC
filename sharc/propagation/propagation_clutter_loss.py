@@ -73,7 +73,7 @@ class PropagationClutterLoss(Propagation):
 
         """
         f = kwargs["frequency"]
-        loc_per = kwargs.pop("loc_percentage","RANDOM")
+        loc_per = kwargs.pop("loc_percentage", "RANDOM")
         type = kwargs["station_type"]
 
         d = kwargs["distance"]
@@ -84,7 +84,7 @@ class PropagationClutterLoss(Propagation):
         if isinstance(loc_per, str) and loc_per.upper() == "RANDOM":
             p = self.random_number_gen.random_sample(d.shape)
         else:
-            p = loc_per*np.ones(d.shape)
+            p = loc_per * np.ones(d.shape)
 
         if type is StationType.IMT_BS or type is StationType.IMT_UE or type is StationType.FSS_ES:
             loss = self.get_terrestrial_clutter_loss(f, d, p)
@@ -120,7 +120,7 @@ class PropagationClutterLoss(Propagation):
             loss : The clutter loss not exceeded for loc_percentage% of
                    locations for the terrestrial to terrestrial path
         """
-        k1 = 93*(frequency*1e-3)**0.175
+        k1 = 93 * (frequency * 1e-3)**0.175
         A1 = 0.05
 
         y = np.tan(A1*(1 - (elevation_angle/90)) + math.pi*(elevation_angle/180))
@@ -132,12 +132,11 @@ class PropagationClutterLoss(Propagation):
 
         return loss
 
-
     def get_terrestrial_clutter_loss(self,
                                      frequency: float,
                                      distance: float,
                                      loc_percentage: float,
-                                     apply_both_ends = True):
+                                     apply_both_ends=True):
         """
         This method gives a statistical distribution of clutter loss. The model
         can be applied for urban and suburban clutter loss modelling. An

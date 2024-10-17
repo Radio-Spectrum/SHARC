@@ -34,7 +34,7 @@ class SimulationDownlinkHapsTest(unittest.TestCase):
         self.param.imt.intersite_distance = 150
         self.param.imt.minimum_separation_distance_bs_ue = 10
         self.param.imt.interfered_with = False
-        self.param.imt.frequency = 10000
+        self.param.imt.frequency = 10000.0
         self.param.imt.bandwidth = 100
         self.param.imt.rb_bandwidth = 0.180
         self.param.imt.spectral_mask = "IMT-2020"
@@ -158,15 +158,19 @@ class SimulationDownlinkHapsTest(unittest.TestCase):
         self.simulation.ue.active = np.ones(4, dtype=bool)
 
         self.simulation.propagation_imt = PropagationFactory.create_propagation(self.param.imt.channel_model,
-                                                                                self.param, random_number_gen)
+                                                                                self.param, 
+                                                                                self.simulation.param_system,
+                                                                                random_number_gen)
         self.simulation.propagation_system = PropagationFactory.create_propagation(self.param.haps.channel_model,
-                                                                                   self.param, random_number_gen)
+                                                                                   self.param,
+                                                                                   self.simulation.param_system,
+                                                                                   random_number_gen)
         self.simulation.connect_ue_to_bs()
         self.simulation.select_ue(random_number_gen)
         self.simulation.link = {0:[0,1],1:[2,3]}
-        self.simulation.coupling_loss_imt = self.simulation.calculate_intra_imt_coupling_loss(self.simulation.bs,
-                                                                                    self.simulation.ue,
-                                                                                    self.simulation.propagation_imt)
+        self.simulation.coupling_loss_imt = \
+            self.simulation.calculate_intra_imt_coupling_loss(self.simulation.ue,
+                                                              self.simulation.bs)
         self.simulation.scheduler()
         self.simulation.power_control()
         self.simulation.calculate_sinr()
@@ -179,11 +183,11 @@ class SimulationDownlinkHapsTest(unittest.TestCase):
         npt.assert_allclose(self.simulation.bs.tx_power[1], np.array([tx_power, tx_power]), atol=1e-2)
 
         # check UE received power
-        rx_power = np.array([tx_power-3-(78.47-1-10)-4-3, tx_power-3-(89.35-1-11)-4-3, tx_power-3-(91.53-2-22)-4-3, tx_power-3-(81.99-2-23)-4-3])
+        rx_power = np.array([tx_power-3-(78.68-1-10)-4-3, tx_power-3-(89.37-1-11)-4-3, tx_power-3-(91.54-2-22)-4-3, tx_power-3-(82.09-2-23)-4-3])
         npt.assert_allclose(self.simulation.ue.rx_power, rx_power, atol=1e-2)
 
         # check UE received interference
-        rx_interference = np.array([tx_power-3-(97.55-2-10)-4-3,  tx_power-3-(94.72-2-11)-4-3, tx_power-3-(93.27-1-22)-4-3, tx_power-3-(97.05-1-23)-4-3])
+        rx_interference = np.array([tx_power-3-(97.55-2-10)-4-3,  tx_power-3-(94.73-2-11)-4-3, tx_power-3-(93.28-1-22)-4-3, tx_power-3-(97.07-1-23)-4-3])
         npt.assert_allclose(self.simulation.ue.rx_interference, rx_interference, atol=1e-2)
 
         # check UE thermal noise

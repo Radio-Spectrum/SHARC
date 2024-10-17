@@ -35,7 +35,7 @@ class SimulationDownlinkTvroTest(unittest.TestCase):
         self.param.imt.intersite_distance = 150
         self.param.imt.minimum_separation_distance_bs_ue = 10
         self.param.imt.interfered_with = False
-        self.param.imt.frequency = 3590
+        self.param.imt.frequency = 3590.0
         self.param.imt.bandwidth = 20
         self.param.imt.rb_bandwidth = 0.180
         self.param.imt.spectral_mask = "3GPP E-UTRA"
@@ -162,16 +162,18 @@ class SimulationDownlinkTvroTest(unittest.TestCase):
         self.assertEqual(self.simulation.link, {0: [0, 1], 1: [2, 3]})
 
         self.simulation.propagation_imt = PropagationFactory.create_propagation(self.param.imt.channel_model,
-                                                                                self.param, random_number_gen)
+                                                                                self.param, 
+                                                                                self.simulation.param_system,
+                                                                                random_number_gen)
         self.simulation.propagation_system = PropagationFactory.create_propagation(self.param.fss_es.channel_model,
+                                                                                   self.simulation.param_system,
                                                                                    self.param, random_number_gen)
 
         # test coupling loss method
-        self.simulation.coupling_loss_imt = self.simulation.calculate_intra_imt_coupling_loss(self.simulation.bs,
-                                                                                              self.simulation.ue,
-                                                                                              self.simulation.propagation_imt)
-        path_loss_imt = np.array([[73.09,  79.11,  90.40,  93.09],
-                                  [90.78,  91.85,  69.57,  83.55]])
+        self.simulation.coupling_loss_imt = self.simulation.calculate_intra_imt_coupling_loss(self.simulation.ue,
+                                                                                              self.simulation.bs)
+        path_loss_imt = np.array([[74.49, 79.50, 90.43,	93.11],
+                                  [90.81,  91.87,  72.25,  83.69]])
         bs_antenna_gains = np.array([[3.04,   7.30,  -6.45,  -6.45],
                                      [-6.45,  -6.45,   1.63,  17.95]])
         ue_antenna_gains = np.array([[-4,  -4,  -4,  -4], [-4,  -4,  -4,  -4]])

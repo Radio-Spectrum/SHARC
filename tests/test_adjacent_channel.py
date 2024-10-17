@@ -35,7 +35,7 @@ class SimulationAdjacentTest(unittest.TestCase):
         self.param.imt.intersite_distance = 150
         self.param.imt.minimum_separation_distance_bs_ue = 10
         self.param.imt.interfered_with = False
-        self.param.imt.frequency = 10000
+        self.param.imt.frequency = 10000.0
         self.param.imt.bandwidth = 100
         self.param.imt.spectral_mask = "IMT-2020"
         self.param.imt.spurious_emissions = -13
@@ -171,16 +171,20 @@ class SimulationAdjacentTest(unittest.TestCase):
         # scenario we do not want to change the order of the UE's
 
         self.simulation.propagation_imt = PropagationFactory.create_propagation(self.param.imt.channel_model,
-                                                                                self.param, random_number_gen)
+                                                                                self.param,
+                                                                                self.simulation.param_system,
+                                                                                random_number_gen)
         self.simulation.propagation_system = PropagationFactory.create_propagation(self.param.fss_ss.channel_model,
-                                                                                   self.param, random_number_gen)
+                                                                                   self.param,
+                                                                                   self.simulation.param_system,
+                                                                                   random_number_gen)
 
         # test coupling loss method
-        self.simulation.coupling_loss_imt = self.simulation.calculate_intra_imt_coupling_loss(self.simulation.bs,
-                                                                                    self.simulation.ue)
+        self.simulation.coupling_loss_imt = self.simulation.calculate_intra_imt_coupling_loss(self.simulation.ue, 
+                                                                                              self.simulation.bs)
         npt.assert_allclose(self.simulation.coupling_loss_imt,
-                            np.array([[88.47-1-10,  99.35-1-11,  103.27-1-22,  107.05-1-23],
-                                      [107.55-2-10,  104.72-2-11,  101.53-2-22,  91.99-2-23]]),
+                            np.array([[88.68-1-10,  99.36-1-11,  103.28-1-22,  107.06-1-23],
+                                      [107.55-2-10,  104.73-2-11,  101.54-2-22,  92.08-2-23]]),
                             atol=1e-2)
 
         # test scheduler and bandwidth allocation
@@ -194,7 +198,7 @@ class SimulationAdjacentTest(unittest.TestCase):
         npt.assert_allclose(self.simulation.bs.tx_power[0], np.array([tx_power, tx_power]), atol=1e-2)
         npt.assert_allclose(self.simulation.bs.tx_power[1], np.array([tx_power, tx_power]), atol=1e-2)
 
-        npt.assert_equal(self.simulation.bs.spectral_mask.mask_dbm,np.array([-50, -20, -10, -10, -10, -20, -50]))
+        npt.assert_equal(self.simulation.bs.spectral_mask.mask_dbm, np.array([-50, -20, -10, -10, -10, -20, -50]))
 
         # create system
         self.simulation.system = StationFactory.generate_fss_space_station(self.param.fss_ss)
@@ -262,15 +266,19 @@ class SimulationAdjacentTest(unittest.TestCase):
         # We do not test the selection method here because in this specific
         # scenario we do not want to change the order of the UE's
         self.simulation.propagation_imt = PropagationFactory.create_propagation(self.param.imt.channel_model,
-                                                                                self.param, random_number_gen)
+                                                                                self.param,
+                                                                                self.simulation.param_system,
+                                                                                random_number_gen)
         self.simulation.propagation_system = PropagationFactory.create_propagation(self.param.fss_ss.channel_model,
-                                                                                   self.param, random_number_gen)
+                                                                                   self.param,
+                                                                                   self.simulation.param_system,
+                                                                                   random_number_gen)
 
         # test coupling loss method
-        self.simulation.coupling_loss_imt = self.simulation.calculate_intra_imt_coupling_loss(self.simulation.bs,
-                                                                                    self.simulation.ue)
-        coupling_loss_imt = np.array([[88.47-1-10,  99.35-1-11,  103.27-1-22,  107.05-1-23],
-                                      [107.55-2-10,  104.72-2-11,  101.53-2-22,  91.99-2-23]])
+        self.simulation.coupling_loss_imt = self.simulation.calculate_intra_imt_coupling_loss(self.simulation.ue, 
+                                                                                              self.simulation.bs)
+        coupling_loss_imt = np.array([[88.68-1-10,  99.36-1-11,  103.28-1-22,  107.06-1-23],
+                                      [107.55-2-10,  104.73-2-11,  101.54-2-22,  92.08-2-23]])
         npt.assert_allclose(self.simulation.coupling_loss_imt,
                             coupling_loss_imt,
                             atol=1e-2)

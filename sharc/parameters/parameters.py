@@ -7,7 +7,6 @@ Created on Wed Aug  9 19:35:52 2017
 
 import sys
 import os
-import yaml
 
 from sharc.parameters.parameters_general import ParametersGeneral
 from sharc.parameters.parameters_imt import ParametersImt
@@ -50,7 +49,6 @@ class Parameters(object):
         self.single_earth_station = ParametersSingleEarthStation()
         self.metsat_ss = ParametersMetSatSS()
 
-
     def set_file_name(self, file_name: str):
         """sets the configuration file name
 
@@ -61,7 +59,6 @@ class Parameters(object):
         """
         self.file_name = file_name
 
-
     def read_params(self):
         """Read the parameters from the config file
         """
@@ -70,8 +67,8 @@ class Parameters(object):
                 Could not find the configuration file {self.file_name}"
             sys.stderr.write(err_msg)
             sys.exit(1)
-            
-        with open(self.file_name, 'r') as yaml_file:
+
+        with open(self.file_name, 'r'):
             # yaml_config = yaml.safe_load(yaml_file)
 
             #######################################################################
@@ -183,14 +180,14 @@ class Parameters(object):
         #######################################################################
         self.ntn.load_parameters_from_file(self.file_name)
 
-
         self.single_earth_station.load_parameters_from_file(self.file_name)
+
 
 if __name__ == "__main__":
     from pprint import pprint
     parameters = Parameters()
     param_sections = [a for a in dir(parameters) if not a.startswith('__') and not
-                callable(getattr(parameters, a))]
+                      callable(getattr(parameters, a))]
     print("\n#### Dumping default parameters:")
     for p in param_sections:
         print("\n")

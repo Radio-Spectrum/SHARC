@@ -11,10 +11,7 @@ import math
 from sharc.simulation import Simulation
 from sharc.parameters.parameters import Parameters
 from sharc.station_factory import StationFactory
-from sharc.support.enumerations import StationType
 from sharc.parameters.constants import BOLTZMANN_CONSTANT
-
-from sharc.propagation.propagation_factory import PropagationFactory
 
 
 class SimulationDownlink(Simulation):
@@ -58,7 +55,8 @@ class SimulationDownlink(Simulation):
         self.select_ue(random_number_gen)
 
         # Calculate coupling loss after beams are created
-        self.coupling_loss_imt = self.calculate_intra_imt_coupling_loss(self.ue, self.bs)
+        self.coupling_loss_imt = self.calculate_intra_imt_coupling_loss(
+            self.ue, self.bs)
         self.scheduler()
         self.power_control()
 
@@ -67,13 +65,11 @@ class SimulationDownlink(Simulation):
             # interference into IMT
             self.calculate_sinr()
             self.calculate_sinr_ext()
-            pass
         else:
             # Execute this piece of code if IMT generates interference into
             # the other system
             self.calculate_sinr()
             self.calculate_external_interference()
-            pass
 
         self.collect_results(write_to_file, snapshot_number)
 
@@ -95,7 +91,7 @@ class SimulationDownlink(Simulation):
         # power from bs_1 to ue_2, etc
         bs_active = np.where(self.bs.active)[0]
         self.bs.tx_power = dict(
-            [(bs, tx_power*np.ones(self.parameters.imt.ue_k)) for bs in bs_active])
+            [(bs, tx_power * np.ones(self.parameters.imt.ue_k)) for bs in bs_active])
 
         # Update the spectral mask
         if self.adjacent_channel:
@@ -119,18 +115,18 @@ class SimulationDownlink(Simulation):
                 interference = self.bs.tx_power[bi] - \
                     self.coupling_loss_imt[bi, ue]
 
-                self.ue.rx_interference[ue] = 10*np.log10(
-                    np.power(10, 0.1*self.ue.rx_interference[ue]) + np.power(10, 0.1*interference))
+                self.ue.rx_interference[ue] = 10 * np.log10(
+                    np.power(10, 0.1 * self.ue.rx_interference[ue]) + np.power(10, 0.1 * interference))
 
         # Thermal noise in dBm
         self.ue.thermal_noise = \
-            10*math.log10(BOLTZMANN_CONSTANT*self.parameters.imt.noise_temperature*1e3) + \
-            10*np.log10(self.ue.bandwidth * 1e6) + \
+            10 * math.log10(BOLTZMANN_CONSTANT * self.parameters.imt.noise_temperature * 1e3) + \
+            10 * np.log10(self.ue.bandwidth * 1e6) + \
             self.ue.noise_figure
 
         self.ue.total_interference = \
-            10*np.log10(np.power(10, 0.1*self.ue.rx_interference) +
-                        np.power(10, 0.1*self.ue.thermal_noise))
+            10 * np.log10(np.power(10, 0.1 * self.ue.rx_interference) +
+                          np.power(10, 0.1 * self.ue.thermal_noise))
 
         self.ue.sinr = self.ue.rx_power - self.ue.total_interference
         self.ue.snr = self.ue.rx_power - self.ue.thermal_noise
@@ -150,13 +146,13 @@ class SimulationDownlink(Simulation):
         ue = np.where(self.ue.active)[0]
 
         tx_power_sys = self.param_system.tx_power_density + \
-            10*np.log10(self.ue.bandwidth[ue]*1e6) + 30
+            10 * np.log10(self.ue.bandwidth[ue] * 1e6) + 30
         self.ue.ext_interference[ue] = tx_power_sys - \
             self.coupling_loss_imt_system[ue]
 
         self.ue.sinr_ext[ue] = self.ue.rx_power[ue] \
-            - (10*np.log10(np.power(10, 0.1*self.ue.total_interference[ue]) + np.power(
-                10, 0.1*self.ue.ext_interference[ue])))
+            - (10 * np.log10(np.power(10, 0.1 * self.ue.total_interference[ue]) + np.power(
+                10, 0.1 * self.ue.ext_interference[ue])))
         self.ue.inr[ue] = self.ue.ext_interference[ue] - \
             self.ue.thermal_noise[ue]
 
@@ -183,7 +179,7 @@ class SimulationDownlink(Simulation):
         for bs in bs_active:
 
             active_beams = [i for i in range(
-                bs*self.parameters.imt.ue_k, (bs+1)*self.parameters.imt.ue_k)]
+                bs * self.parameters.imt.ue_k, (bs + 1) * self.parameters.imt.ue_k)]
 
             if self.co_channel:
                 if self.overlapping_bandwidth:
@@ -197,8 +193,8 @@ class SimulationDownlink(Simulation):
 
                 interference = self.bs.tx_power[bs] - \
                     self.coupling_loss_imt_system[active_beams]
-                rx_interference += np.sum(weights*np.power(10,
-                                          0.1*interference)) / 10**(acs/10.)
+                rx_interference += np.sum(weights * np.power(10,
+                                          0.1 * interference)) / 10**(acs / 10.)
 
             if self.adjacent_channel:
 
@@ -211,17 +207,17 @@ class SimulationDownlink(Simulation):
 
                 oob_interference = oob_power \
                     - self.coupling_loss_imt_system_adjacent[active_beams[0]] \
-                    + 10*np.log10((self.param_system.bandwidth - self.overlapping_bandwidth) /
-                                  self.param_system.bandwidth)
+                    + 10 * np.log10((self.param_system.bandwidth - self.overlapping_bandwidth) /
+                                    self.param_system.bandwidth)
 
-                rx_interference += math.pow(10, 0.1*oob_interference)
+                rx_interference += math.pow(10, 0.1 * oob_interference)
 
         # Total received interference - dBW
-        self.system.rx_interference = 10*np.log10(rx_interference)
+        self.system.rx_interference = 10 * np.log10(rx_interference)
         # calculate N
         self.system.thermal_noise = \
-            10*math.log10(BOLTZMANN_CONSTANT * self.system.noise_temperature * 1e3) + \
-            10*math.log10(self.param_system.bandwidth * 1e6)
+            10 * math.log10(BOLTZMANN_CONSTANT * self.system.noise_temperature * 1e3) + \
+            10 * math.log10(self.param_system.bandwidth * 1e6)
 
         # Calculate INR at the system - dBm/MHz
         self.system.inr = np.array(
@@ -231,7 +227,7 @@ class SimulationDownlink(Simulation):
         # TODO: generalize this a bit more if needed
         if hasattr(self.system.antenna[0], "effective_area") and self.system.num_stations == 1:
             self.system.pfd = 10 * \
-                np.log10(10**(self.system.rx_interference/10) /
+                np.log10(10**(self.system.rx_interference / 10) /
                          self.system.antenna[0].effective_area)
 
     def collect_results(self, write_to_file: bool, snapshot_number: int):
@@ -284,7 +280,7 @@ class SimulationDownlink(Simulation):
                         self.imt_system_diffraction_loss[0, ue])
             else:
                 active_beams = [i for i in range(
-                    bs*self.parameters.imt.ue_k, (bs+1)*self.parameters.imt.ue_k)]
+                    bs * self.parameters.imt.ue_k, (bs + 1) * self.parameters.imt.ue_k)]
                 self.results.system_imt_antenna_gain.extend(
                     self.system_imt_antenna_gain[0, active_beams])
                 self.results.imt_system_antenna_gain.extend(

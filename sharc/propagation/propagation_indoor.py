@@ -47,7 +47,7 @@ class PropagationIndoor(Propagation):
         self.bel = PropagationBuildingEntryLoss(random_number_gen)
         self.building_class = param.building_class
         self.bs_per_building = param.num_cells
-        self.ue_per_building = ue_per_cell*param.num_cells
+        self.ue_per_building = ue_per_cell * param.num_cells
 
     @dispatch(Parameters, float, StationManager, StationManager, np.ndarray, np.ndarray)
     def get_loss(self,
@@ -78,7 +78,7 @@ class PropagationIndoor(Propagation):
         Returns
         -------
         np.array
-            Return an array station_a.num_stations x station_b.num_stations with the path loss 
+            Return an array station_a.num_stations x station_b.num_stations with the path loss
             between each station
         """
         wrap_around_enabled = \
@@ -130,13 +130,13 @@ class PropagationIndoor(Propagation):
             array with path loss values with dimensions of distance_2D
 
         """
-        loss = PropagationIndoor.HIGH_PATH_LOSS*np.ones(frequency.shape)
-        iter = int(frequency.shape[0]/self.bs_per_building)
+        loss = PropagationIndoor.HIGH_PATH_LOSS * np.ones(frequency.shape)
+        iter = int(frequency.shape[0] / self.bs_per_building)
         for i in range(iter):
-            bi = int(self.bs_per_building*i)
-            bf = int(self.bs_per_building*(i+1))
-            ui = int(self.ue_per_building*i)
-            uf = int(self.ue_per_building*(i+1))
+            bi = int(self.bs_per_building * i)
+            bf = int(self.bs_per_building * (i + 1))
+            ui = int(self.ue_per_building * i)
+            uf = int(self.ue_per_building * (i + 1))
 
             # calculate basic path loss
             loss[bi:bf, ui:uf] = self.bpl.get_loss(distance_3D=distance_3D[bi:bf, ui:uf],
@@ -168,17 +168,17 @@ if __name__ == '__main__':
     bs_per_building = 3
     ue_per_bs = 3
 
-    num_bs = bs_per_building*params.n_rows*params.n_colums
-    num_ue = num_bs*ue_per_bs
-    distance_2D = 150*np.random.random((num_bs, num_ue))
-    frequency = 27000*np.ones(distance_2D.shape)
+    num_bs = bs_per_building * params.n_rows * params.n_colums
+    num_ue = num_bs * ue_per_bs
+    distance_2D = 150 * np.random.random((num_bs, num_ue))
+    frequency = 27000 * np.ones(distance_2D.shape)
     indoor = np.random.rand(1, num_ue) < params.ue_indoor_percent
     indoor = np.tile(indoor, (num_bs, 1))
-    h_bs = 3*np.ones(num_bs)
-    h_ue = 1.5*np.ones(num_ue)
+    h_bs = 3 * np.ones(num_bs)
+    h_ue = 1.5 * np.ones(num_ue)
     distance_3D = np.sqrt(distance_2D**2 + (h_bs[:, np.newaxis] - h_ue)**2)
     height_diff = np.tile(h_bs, (num_bs, 3)) - np.tile(h_ue, (num_bs, 1))
-    elevation = np.degrees(np.arctan(height_diff/distance_2D))
+    elevation = np.degrees(np.arctan(height_diff / distance_2D))
 
     propagation_indoor = PropagationIndoor(
         np.random.RandomState(), params, ue_per_bs)

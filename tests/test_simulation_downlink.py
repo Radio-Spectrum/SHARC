@@ -35,7 +35,7 @@ class SimulationDownlinkTest(unittest.TestCase):
         self.param.imt.intersite_distance = 150
         self.param.imt.minimum_separation_distance_bs_ue = 10
         self.param.imt.interfered_with = False
-        self.param.imt.frequency = 10000
+        self.param.imt.frequency = 10000.0
         self.param.imt.bandwidth = 100
         self.param.imt.rb_bandwidth = 0.180
         self.param.imt.spectral_mask = "IMT-2020"
@@ -111,7 +111,7 @@ class SimulationDownlinkTest(unittest.TestCase):
         self.param.antenna_imt.ue_element_vert_spacing = 0.5
         self.param.antenna_imt.ue_multiplication_factor = 12
 
-        self.param.fss_ss.frequency = 10000
+        self.param.fss_ss.frequency = 10000.0
         self.param.fss_ss.bandwidth = 100
         self.param.fss_ss.acs = 0
         self.param.fss_ss.altitude = 35786000
@@ -140,7 +140,7 @@ class SimulationDownlinkTest(unittest.TestCase):
         self.param.fss_es.elevation_min = 20
         self.param.fss_es.elevation_max = 20
         self.param.fss_es.azimuth = "0"
-        self.param.fss_es.frequency = 10000
+        self.param.fss_es.frequency = 10000.0
         self.param.fss_es.bandwidth = 100
         self.param.fss_es.noise_temperature = 100
         self.param.fss_es.tx_power_density = -60
@@ -155,7 +155,7 @@ class SimulationDownlinkTest(unittest.TestCase):
         self.param.ras.height = 10
         self.param.ras.elevation = 20
         self.param.ras.azimuth = 0
-        self.param.ras.frequency = 10000
+        self.param.ras.frequency = 10000.0
         self.param.ras.bandwidth = 100
         self.param.ras.antenna_noise_temperature = 50
         self.param.ras.receiver_noise_temperature = 50
@@ -207,16 +207,19 @@ class SimulationDownlinkTest(unittest.TestCase):
         # scenario we do not want to change the order of the UE's
 
         self.simulation.propagation_imt = PropagationFactory.create_propagation(self.param.imt.channel_model,
-                                                                                self.param, random_number_gen)
+                                                                                self.param,
+                                                                                self.simulation.param_system,
+                                                                                random_number_gen)
         self.simulation.propagation_system = PropagationFactory.create_propagation(self.param.fss_ss.channel_model,
-                                                                                   self.param, random_number_gen)
+                                                                                   self.param,
+                                                                                   self.simulation.param_system,
+                                                                                   random_number_gen)
 
         # test coupling loss method
-        self.simulation.coupling_loss_imt = self.simulation.calculate_intra_imt_coupling_loss(self.simulation.bs,
-                                                                                              self.simulation.ue,
-                                                                                              self.simulation.propagation_imt)
-        path_loss_imt = np.array([[78.47,  89.35,  93.27,  97.05],
-                                  [97.55,  94.72,  91.53,  81.99]])
+        self.simulation.coupling_loss_imt = self.simulation.calculate_intra_imt_coupling_loss(self.simulation.ue,
+                                                                                              self.simulation.bs)
+        path_loss_imt = np.array([[78.68,  89.36,  93.28,  97.06],
+                                  [97.55,  94.73,  91.54,  82.08]])
         bs_antenna_gains = np.array([[1,  1,  1,  1], [2,  2,  2,  2]])
         ue_antenna_gains = np.array([[10,  11,  22,  23], [10,  11,  22,  23]])
         coupling_loss_imt = path_loss_imt - bs_antenna_gains - ue_antenna_gains \
@@ -355,14 +358,15 @@ class SimulationDownlinkTest(unittest.TestCase):
         self.simulation.ue.active = np.ones(4, dtype=bool)
 
         self.simulation.propagation_imt = PropagationFactory.create_propagation(self.param.imt.channel_model,
-                                                                                self.param, random_number_gen)
+                                                                                self.param,
+                                                                                self.simulation.param_system,
+                                                                                random_number_gen)
 
         self.simulation.connect_ue_to_bs()
         self.simulation.select_ue(random_number_gen)
         self.simulation.link = {0: [0, 1], 1: [2, 3]}
-        self.simulation.coupling_loss_imt = self.simulation.calculate_intra_imt_coupling_loss(self.simulation.bs,
-                                                                                              self.simulation.ue,
-                                                                                              self.simulation.propagation_imt)
+        self.simulation.coupling_loss_imt = self.simulation.calculate_intra_imt_coupling_loss(self.simulation.ue,
+                                                                                              self.simulation.bs)
         self.simulation.scheduler()
         self.simulation.power_control()
         self.simulation.calculate_sinr()
@@ -376,13 +380,14 @@ class SimulationDownlinkTest(unittest.TestCase):
             [tx_power, tx_power]), atol=1e-2)
 
         # check UE received power
-        rx_power = np.array([tx_power-3-(78.47-1-10)-4-3, tx_power-3-(89.35-1-11) -
-                            4-3, tx_power-3-(91.53-2-22)-4-3, tx_power-3-(81.99-2-23)-4-3])
+        path_loss_imt = np.array([78.68,  89.37,  91.54,  82.09])
+        rx_power = np.array([tx_power-3+1+10-4-3, tx_power-3+1+11 -
+                            4-3, tx_power-3+2+22-4-3, tx_power-3+2+23-4-3]) - path_loss_imt
         npt.assert_allclose(self.simulation.ue.rx_power, rx_power, atol=1e-2)
 
         # check UE received interference
         rx_interference = np.array([tx_power-3-(97.55-2-10)-4-3,  tx_power-3-(
-            94.72-2-11)-4-3, tx_power-3-(93.27-1-22)-4-3, tx_power-3-(97.05-1-23)-4-3])
+            94.73-2-11)-4-3, tx_power-3-(93.28-1-22)-4-3, tx_power-3-(97.06-1-23)-4-3])
         npt.assert_allclose(self.simulation.ue.rx_interference,
                             rx_interference, atol=1e-2)
 
@@ -406,15 +411,20 @@ class SimulationDownlinkTest(unittest.TestCase):
         self.simulation.system.height = np.array([self.param.fss_es.height])
 
         self.simulation.propagation_imt = PropagationFactory.create_propagation(self.param.imt.channel_model,
-                                                                                self.param, random_number_gen)
+                                                                                self.param,
+                                                                                self.simulation.param_system,
+                                                                                random_number_gen)
+
         self.simulation.propagation_system = PropagationFactory.create_propagation(self.param.fss_es.channel_model,
-                                                                                   self.param, random_number_gen)
+                                                                                   self.param,
+                                                                                   self.simulation.param_system,
+                                                                                   random_number_gen)
         # what if FSS ES is the interferer?
         self.simulation.calculate_sinr_ext()
 
         # check coupling loss between FSS_ES and IMT_UE
         coupling_loss_imt_system = np.array(
-            [128.55-50-10,  128.76-50-11,  128.93-50-22,  129.17-50-23])
+            [128.55-50-10,  128.77-50-11,  128.93-50-22,  129.18-50-23])
         npt.assert_allclose(self.simulation.coupling_loss_imt_system,
                             coupling_loss_imt_system,
                             atol=1e-2)
@@ -493,18 +503,21 @@ class SimulationDownlinkTest(unittest.TestCase):
         self.simulation.ue.active = np.ones(4, dtype=bool)
 
         self.simulation.propagation_imt = PropagationFactory.create_propagation(self.param.imt.channel_model,
-                                                                                self.param, random_number_gen)
+                                                                                self.param,
+                                                                                self.simulation.param_system,
+                                                                                random_number_gen)
         self.simulation.propagation_system = PropagationFactory.create_propagation(self.param.ras.channel_model,
-                                                                                   self.param, random_number_gen)
+                                                                                   self.param,
+                                                                                   self.simulation.param_system,
+                                                                                   random_number_gen)
 
         self.simulation.connect_ue_to_bs()
         self.simulation.select_ue(random_number_gen)
         self.simulation.link = {0: [0, 1], 1: [2, 3]}
         self.simulation.select_ue(random_number_gen)
         self.simulation.link = {0: [0, 1], 1: [2, 3]}
-        self.simulation.coupling_loss_imt = self.simulation.calculate_intra_imt_coupling_loss(self.simulation.bs,
-                                                                                              self.simulation.ue,
-                                                                                              self.simulation.propagation_imt)
+        self.simulation.coupling_loss_imt = self.simulation.calculate_intra_imt_coupling_loss(self.simulation.ue,
+                                                                                              self.simulation.bs)
         self.simulation.scheduler()
         self.simulation.power_control()
         self.simulation.calculate_sinr()
@@ -520,7 +533,7 @@ class SimulationDownlinkTest(unittest.TestCase):
         # check SINR
         npt.assert_allclose(self.simulation.ue.sinr,
                             np.array(
-                                [-70.48 - (-85.49), -80.36 - (-83.19), -70.54 - (-73.15), -60.00 - (-75.82)]),
+                                [-70.70 - (-85.49), -80.37 - (-83.19), -70.55 - (-73.15), -60.10 - (-75.82)]),
                             atol=1e-2)
 
         self.simulation.system = StationFactory.generate_ras_station(

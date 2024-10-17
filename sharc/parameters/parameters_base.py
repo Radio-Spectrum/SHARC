@@ -1,12 +1,13 @@
 import yaml
 from dataclasses import dataclass
 
+
 @dataclass
 class ParametersBase:
     """Base class for parameter dataclassess
     """
     section_name: str = "DEFAULT"
-    is_space_to_earth: bool = False # whether the system is a space station or not
+    is_space_to_earth: bool = False  # whether the system is a space station or not
 
     # whether to enable recursive parameters setting on .yaml file
     # TODO: make every system have this be True and remove this attribute
@@ -17,26 +18,30 @@ class ParametersBase:
         """
             ctx: provides information on what subattribute is being parsed.
                  This is mainly for debugging/logging/error handling
-            params: dict that contains the attributes needed by the 
+            params: dict that contains the attributes needed by the
         """
         # Load all the parameters from the configuration file
         attr_list = [a for a in dir(self) if not a.startswith('_') and not
-                     callable(getattr(self, a)) and a not in ["section_name", "nested_parameters_enabled"]
-                 ]
+                     callable(getattr(self, a)) and a not in [
+            "section_name", "nested_parameters_enabled"]
+        ]
 
         for attr_name in attr_list:
             default_attr_value = getattr(self, attr_name)
 
             if attr_name not in params:
-                print(f"[INFO]: WARNING. Using default parameters for {ctx}.{attr_name}: {default_attr_value}")
+                print(
+                    f"[INFO]: WARNING. Using default parameters for {ctx}.{attr_name}: {default_attr_value}")
             elif isinstance(default_attr_value, ParametersBase):
                 if not isinstance(params[attr_name], dict):
-                    raise ValueError(f"ERROR: Cannot parse section {ctx}.{attr_name}, is {params[attr_name]} instead of a dictionary")
+                    raise ValueError(
+                        f"ERROR: Cannot parse section {ctx}.{attr_name}, is {params[attr_name]} instead of a dictionary")
 
                 # try to recursively set config
                 # is a bit hacky and limits some stuff, since it doesn't know the context it is in
                 # for example, it cannot get system frequency to set some value
-                default_attr_value.load_subparameters(f"{ctx}.{attr_name}", params[attr_name])
+                default_attr_value.load_subparameters(
+                    f"{ctx}.{attr_name}", params[attr_name])
             else:
                 setattr(self, attr_name, params[attr_name])
 
@@ -69,12 +74,11 @@ class ParametersBase:
         ValueError
             if a parameter is not valid
         """
-        
+
         with open(config_file, 'r') as file:
             config = yaml.safe_load(file)
-            
 
-        if not self.section_name in config.keys():
+        if self.section_name not in config.keys():
             print(f"ParameterBase: section {self.section_name} not in parameter file.\
                   Only default parameters where loaded.")
             return
@@ -97,25 +101,32 @@ class ParametersBase:
                     except ValueError:
                         # its a regular string. Let the specific class implementation
                         # do the sanity check
-                        print(f"ParametersBase: could not convert string to tuple \"{self.section_name}.{attr_name}\"")
+                        print(
+                            f"ParametersBase: could not convert string to tuple \"{self.section_name}.{attr_name}\"")
                         exit()
 
-                # TODO: make every parameters use this way of setting its own attributes, and remove attr_val.nested_parameters_enabled
-                # we check for attr_val.nested_parameters_enabled because we don't want to print notice for this kind of parameter YET
+                # TODO: make every parameters use this way of setting its own attributes, and remove
+                # attr_val.nested_parameters_enabled we check for attr_val.nested_parameters_enabled because we don't
+                # want to print notice for this kind of parameter YET
                 elif isinstance(attr_val, ParametersBase):
                     if not self.nested_parameters_enabled:
                         continue
 
                     if not isinstance(config[self.section_name][attr_name], dict):
-                        raise ValueError(f"ERROR: Cannot parse section {self.section_name}.{attr_name}, is {config[self.section_name][attr_name]} instead of a dictionary")
+                        raise ValueError(
+                            f"ERROR: Cannot parse section {self.section_name}.{attr_name}, is \
+                                {config[self.section_name][attr_name]} instead of a dictionary")
 
                     # try to recursively set config
                     # is a bit hacky and limits some stuff, since it doesn't know the context it is in
                     # for example, it cannot get system frequency to set some value
-                    attr_val.load_subparameters(f"{self.section_name}.{attr_name}", config[self.section_name][attr_name])
+                    attr_val.load_subparameters(
+                        f"{self.section_name}.{attr_name}", config[self.section_name][attr_name])
                 else:
-                    setattr(self, attr_name, config[self.section_name][attr_name])
-                    
+                    setattr(self, attr_name,
+                            config[self.section_name][attr_name])
 
             except KeyError:
-                print(f"ParametersBase: NOTICE! Configuration parameter \"{self.section_name}.{attr_name}\" is not set in configuration file. Using default value {attr_val}")
+                print(
+                    f"ParametersBase: NOTICE! Configuration parameter \"{self.section_name}.{attr_name}\" \
+                        is not set in configuration file. Using default value {attr_val}")

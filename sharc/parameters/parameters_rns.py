@@ -42,7 +42,7 @@ class ParametersRns(ParametersBase):
     earth_station_alt_m: float = 0.0
     earth_station_lat_deg: float = 0.0
     earth_station_long_diff_deg: float = 0.0
-    season:str = "SUMMER"
+    season: str = "SUMMER"
     # Adjacent channel selectivity [dB]
     acs: float = 30.0
 

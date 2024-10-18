@@ -2,7 +2,7 @@ import numpy as np
 
 def s1528_taylor_angles(lat_ss, lon_ss, alt_ss, lat_es, lon_es, alt_es):
     """
-    Calcula os 4 ângulos de interesse para o diagrama de radiação da antena
+    Calcula os quatro ângulos de interesse para o diagrama de radiação da antena
     de Taylor da Recomendação ITU-R S.1528, item 1.4: El, Az, θ e φ, 
     considerando o vetor com sentido estação espacial --> ponto na Terra.
 

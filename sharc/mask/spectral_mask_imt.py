@@ -37,9 +37,10 @@ class SpectralMaskImt(SpectralMask):
         alternative_mask_used (bool): represents whether the alternative mask should be used or not
         ALTERNATIVE_MASK_DIAGONAL_SAMPLESIZE (int): A hardcoded value that specifies how many samples of a diagonal
             line may be taken. Is needed because oob_power is calculated expecting rectangles, so we approximate
-            the diagonal with 'SAMPLESIZE' rectangles
+            the diagonal with 'SAMPLESIZE' rectangles. Its value is 50 because the related documents specify
+            density per 100KHz through 5MHz bandwidth (5M/100K = 50).
     """
-    ALTERNATIVE_MASK_DIAGONAL_SAMPLESIZE: int = 40
+    ALTERNATIVE_MASK_DIAGONAL_SAMPLESIZE: int = 50
     def __init__(self, 
                  sta_type: StationType, 
                  freq_mhz: float, 
@@ -142,7 +143,7 @@ class SpectralMaskImt(SpectralMask):
 
     def get_alternative_mask_delta_f_lim(self, freq_mhz: float, band_mhz: float) -> np.array:
         """
-            Implements spectral masks for IMT-2020 outdoor BS's when freq < 26GHz,
+            Implements spectral masks for IMT-2020 outdoor BS's when freq < 24.25GHz,
                 according to Documents ITU-R SM.1541-6, ITU-R SM.1539-1 and ETSI TS 138 104 V16.6.0. 
             Reference tables are:
                 - Table 1 in ITU-R SM.1541-6
@@ -171,7 +172,7 @@ class SpectralMaskImt(SpectralMask):
         elif (freq_mhz > 10000 and freq_mhz < 15000):
             B_L = 0.3
             B_U = 250
-        elif (freq_mhz > 15000 and freq_mhz < 26000):
+        elif (freq_mhz > 15000 and freq_mhz < 24250):
             B_L = 0.5
             B_U = 500
 
@@ -187,16 +188,16 @@ class SpectralMaskImt(SpectralMask):
         else:
             delta_f_spurious = B_N_separation
 
-        diagonal = np.array([i * 5 / self.ALTERNATIVE_MASK_DIAGONAL_SAMPLESIZE for i in range(self.ALTERNATIVE_MASK_DIAGONAL_SAMPLESIZE)])
+        diagonal = np.array([0.05 + i * 5 / self.ALTERNATIVE_MASK_DIAGONAL_SAMPLESIZE for i in range(self.ALTERNATIVE_MASK_DIAGONAL_SAMPLESIZE)])
 
         # band/2 is subtracted from delta_f_spurious beacuse that specific interval is from frequency center
-        rest_of_oob_and_spurious = np.array([5, 10.0, delta_f_spurious - band_mhz/2])
+        rest_of_oob_and_spurious = np.array([5.05, 10.05, delta_f_spurious - band_mhz/2])
 
         return np.concatenate((diagonal, rest_of_oob_and_spurious))
 
     def get_alternative_mask_mask_dbm(self, power: float = 0) -> np.array:
         """
-            Implements spectral masks for IMT-2020 outdoor BS's when freq < 26GHz,
+            Implements spectral masks for IMT-2020 outdoor BS's when freq < 24.25GHz,
                 according to Documents ITU-R SM.1541-6, ITU-R SM.1539-1 and ETSI TS 138 104 V16.6.0. 
             Reference tables are:
                 - Table 1 in ITU-R SM.1541-6
@@ -208,23 +209,29 @@ class SpectralMaskImt(SpectralMask):
         """
         self.p_tx = power - 10*np.log10(self.band_mhz)
 
+        # @important we added 10dB to the spectral densities that were x/100KHz
+        # this way we have the value as x/1MHz.
+        # @important When analyzing the mask this conversion should be EXPLICITLY mentioned.
+        # However, numerically, after computing the oob_power, both give the same result
         if self.spurious_emissions == -13:
+            # Category A, so
             # use document ETSI TS 138 104 V16.6.0 Table 6.6.4.2.1-2
             diagonal_samples = np.array([
-               -7 -7/5 * (i * 5 / self.ALTERNATIVE_MASK_DIAGONAL_SAMPLESIZE)
+               10 -7 -7/5 * (0.05 + i * 5 / self.ALTERNATIVE_MASK_DIAGONAL_SAMPLESIZE)
                for i in range(self.ALTERNATIVE_MASK_DIAGONAL_SAMPLESIZE)
-           ])
+            ])
             rest_of_oob_and_spurious = np.array([
-                -14, -13, self.spurious_emissions
+                10 -14, -13, self.spurious_emissions
             ])
             mask_dbm = np.concatenate((diagonal_samples, rest_of_oob_and_spurious))
         elif self.spurious_emissions == -30:
+            # Category B, so
             # use document ETSI TS 138 104 V16.6.0 Table 6.6.4.2.2.1-2
             diagonal_samples = np.array([
-                -7 -7/5 * (i * 5 / self.ALTERNATIVE_MASK_DIAGONAL_SAMPLESIZE)
+                10 -7 -7/5 * (0.05 + i * 5 / self.ALTERNATIVE_MASK_DIAGONAL_SAMPLESIZE)
                 for i in range(self.ALTERNATIVE_MASK_DIAGONAL_SAMPLESIZE)
             ])
-            rest_of_oob_and_spurious = np.array([-14, -15, self.spurious_emissions])
+            rest_of_oob_and_spurious = np.array([10 -14, -15, self.spurious_emissions])
             mask_dbm = np.concatenate((diagonal_samples, rest_of_oob_and_spurious))
         else:
             raise ValueError("Alternative mask should only be used for spurious emissions -13 and -30")

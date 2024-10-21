@@ -1,6 +1,7 @@
 from pathlib import Path
 import unittest
 from sharc.parameters.parameters import Parameters
+import numpy as np
 
 
 class ParametersTest(unittest.TestCase):
@@ -17,10 +18,7 @@ class ParametersTest(unittest.TestCase):
     def test_parameters_imt(self):
         """Unit test for ParametersIMT
         """
-        self.assertEqual(self.parameters.imt.topology, "INDOOR")
-        self.assertEqual(self.parameters.imt.wrap_around, False)
-        self.assertEqual(self.parameters.imt.num_clusters, 1)
-        self.assertEqual(self.parameters.imt.intersite_distance, 399)
+        self.assertEqual(self.parameters.imt.topology.type, "INDOOR")
         self.assertEqual(
             self.parameters.imt.minimum_separation_distance_bs_ue, 1.3)
         self.assertEqual(self.parameters.imt.interfered_with, False)
@@ -30,112 +28,139 @@ class ParametersTest(unittest.TestCase):
         self.assertEqual(self.parameters.imt.spectral_mask, "3GPP E-UTRA")
         self.assertEqual(self.parameters.imt.spurious_emissions, -13.1)
         self.assertEqual(self.parameters.imt.guard_band_ratio, 0.14)
-        self.assertEqual(self.parameters.imt.bs_load_probability, 0.2)
-        self.assertEqual(self.parameters.imt.bs_conducted_power, 11.1)
-        self.assertEqual(self.parameters.imt.bs_height, 6.1)
-        self.assertEqual(self.parameters.imt.bs_noise_figure, 10.1)
-        self.assertEqual(self.parameters.imt.bs_noise_temperature, 290.1)
-        self.assertEqual(self.parameters.imt.bs_ohmic_loss, 3.1)
-        self.assertEqual(self.parameters.imt.ul_attenuation_factor, 0.4)
-        self.assertEqual(self.parameters.imt.ul_sinr_min, -10.0)
-        self.assertEqual(self.parameters.imt.ul_sinr_max, 22.0)
-        self.assertEqual(self.parameters.imt.ue_k, 3)
-        self.assertEqual(self.parameters.imt.ue_k_m, 1)
-        self.assertEqual(self.parameters.imt.ue_indoor_percent, 5.0)
+
+        self.assertEqual(self.parameters.imt.bs.load_probability, 0.2)
+        self.assertEqual(self.parameters.imt.bs.conducted_power, 11.1)
+        self.assertEqual(self.parameters.imt.bs.height, 6.1)
+        self.assertEqual(self.parameters.imt.bs.noise_figure, 10.1)
+        self.assertEqual(self.parameters.imt.bs.ohmic_loss, 3.1)
+        self.assertEqual(self.parameters.imt.uplink.attenuation_factor, 0.4)
+        self.assertEqual(self.parameters.imt.uplink.sinr_min, -10.0)
+        self.assertEqual(self.parameters.imt.uplink.sinr_max, 22.0)
+        self.assertEqual(self.parameters.imt.ue.k, 3)
+        self.assertEqual(self.parameters.imt.ue.k_m, 1)
+        self.assertEqual(self.parameters.imt.ue.indoor_percent, 5.0)
         self.assertEqual(
-            self.parameters.imt.ue_distribution_type,
+            self.parameters.imt.ue.distribution_type,
             "ANGLE_AND_DISTANCE")
         self.assertEqual(
-            self.parameters.imt.ue_distribution_distance,
+            self.parameters.imt.ue.distribution_distance,
             "UNIFORM")
-        self.assertEqual(self.parameters.imt.ue_tx_power_control, True)
-        self.assertEqual(self.parameters.imt.ue_p_o_pusch, -95.0)
-        self.assertEqual(self.parameters.imt.ue_alpha, 1.0)
-        self.assertEqual(self.parameters.imt.ue_p_cmax, 22.0)
-        self.assertEqual(self.parameters.imt.ue_power_dynamic_range, 63.0)
-        self.assertEqual(self.parameters.imt.ue_height, 1.5)
-        self.assertEqual(self.parameters.imt.ue_noise_figure, 10.0)
-        self.assertEqual(self.parameters.imt.ue_ohmic_loss, 3.0)
-        self.assertEqual(self.parameters.imt.ue_body_loss, 4.0)
-        self.assertEqual(self.parameters.imt.dl_attenuation_factor, 0.6)
-        self.assertEqual(self.parameters.imt.dl_sinr_min, -10.0)
-        self.assertEqual(self.parameters.imt.dl_sinr_max, 30.0)
+        self.assertEqual(self.parameters.imt.ue.tx_power_control, True)
+        self.assertEqual(self.parameters.imt.ue.p_o_pusch, -95.0)
+        self.assertEqual(self.parameters.imt.ue.alpha, 1.0)
+        self.assertEqual(self.parameters.imt.ue.p_cmax, 22.0)
+        self.assertEqual(self.parameters.imt.ue.power_dynamic_range, 63.0)
+        self.assertEqual(self.parameters.imt.ue.height, 1.5)
+        self.assertEqual(self.parameters.imt.ue.noise_figure, 10.0)
+        self.assertEqual(self.parameters.imt.ue.ohmic_loss, 3.0)
+        self.assertEqual(self.parameters.imt.ue.body_loss, 4.0)
+        self.assertEqual(self.parameters.imt.downlink.attenuation_factor, 0.6)
+        self.assertEqual(self.parameters.imt.downlink.sinr_min, -10.0)
+        self.assertEqual(self.parameters.imt.downlink.sinr_max, 30.0)
         self.assertEqual(self.parameters.imt.channel_model, "FSPL")
         self.assertEqual(self.parameters.imt.los_adjustment_factor, 18.0)
         self.assertEqual(self.parameters.imt.shadowing, False)
 
-    def test_parameters_imt_antenna(self):
         """Test ParametersImtAntenna parameters
         """
         self.assertEqual(
-            self.parameters.antenna_imt.adjacent_antenna_model,
+            self.parameters.imt.adjacent_antenna_model,
             "BEAMFORMING")
-        self.assertEqual(self.parameters.antenna_imt.bs_normalization, False)
-        self.assertEqual(self.parameters.antenna_imt.ue_normalization, False)
-        self.assertEqual(self.parameters.antenna_imt.bs_normalization_file,
+        self.assertEqual(self.parameters.imt.bs.antenna.normalization, False)
+        self.assertEqual(self.parameters.imt.ue.antenna.normalization, False)
+        self.assertEqual(self.parameters.imt.bs.antenna.normalization_file,
                          "antenna/beamforming_normalization/bs_norm.npz")
-        self.assertEqual(self.parameters.antenna_imt.ue_normalization_file,
+        self.assertEqual(self.parameters.imt.ue.antenna.normalization_file,
                          "antenna/beamforming_normalization/ue_norm.npz")
         self.assertEqual(
-            self.parameters.antenna_imt.bs_element_pattern,
+            self.parameters.imt.bs.antenna.element_pattern,
             "F1336")
         self.assertEqual(
-            self.parameters.antenna_imt.ue_element_pattern,
+            self.parameters.imt.ue.antenna.element_pattern,
             "F1336")
         self.assertEqual(
-            self.parameters.antenna_imt.bs_minimum_array_gain, -200)
+            self.parameters.imt.bs.antenna.minimum_array_gain, -200)
         self.assertEqual(
-            self.parameters.antenna_imt.ue_minimum_array_gain, -200)
-        self.assertEqual(self.parameters.antenna_imt.bs_downtilt, 6)
-        self.assertEqual(self.parameters.antenna_imt.bs_element_max_g, 5)
-        self.assertEqual(self.parameters.antenna_imt.ue_element_max_g, 5)
-        self.assertEqual(self.parameters.antenna_imt.bs_element_phi_3db, 65)
-        self.assertEqual(self.parameters.antenna_imt.ue_element_phi_3db, 90)
-        self.assertEqual(self.parameters.antenna_imt.bs_element_theta_3db, 65)
-        self.assertEqual(self.parameters.antenna_imt.ue_element_theta_3db, 90)
-        self.assertEqual(self.parameters.antenna_imt.bs_n_rows, 8)
-        self.assertEqual(self.parameters.antenna_imt.ue_n_rows, 4)
-        self.assertEqual(self.parameters.antenna_imt.bs_n_columns, 8)
-        self.assertEqual(self.parameters.antenna_imt.ue_n_columns, 4)
+            self.parameters.imt.ue.antenna.minimum_array_gain, -200)
+        self.assertEqual(self.parameters.imt.bs.antenna.downtilt, 6)
+        self.assertEqual(self.parameters.imt.bs.antenna.element_max_g, 5)
+        self.assertEqual(self.parameters.imt.ue.antenna.element_max_g, 5)
+        self.assertEqual(self.parameters.imt.bs.antenna.element_phi_3db, 65)
+        self.assertEqual(self.parameters.imt.ue.antenna.element_phi_3db, 90)
+        self.assertEqual(self.parameters.imt.bs.antenna.element_theta_3db, 65)
+        self.assertEqual(self.parameters.imt.ue.antenna.element_theta_3db, 90)
+        self.assertEqual(self.parameters.imt.bs.antenna.n_rows, 8)
+        self.assertEqual(self.parameters.imt.ue.antenna.n_rows, 4)
+        self.assertEqual(self.parameters.imt.bs.antenna.n_columns, 8)
+        self.assertEqual(self.parameters.imt.ue.antenna.n_columns, 4)
         self.assertEqual(
-            self.parameters.antenna_imt.bs_element_horiz_spacing, 0.5)
+            self.parameters.imt.bs.antenna.element_horiz_spacing, 0.5)
         self.assertEqual(
-            self.parameters.antenna_imt.ue_element_horiz_spacing, 0.5)
+            self.parameters.imt.ue.antenna.element_horiz_spacing, 0.5)
         self.assertEqual(
-            self.parameters.antenna_imt.bs_element_vert_spacing, 0.5)
+            self.parameters.imt.bs.antenna.element_vert_spacing, 0.5)
         self.assertEqual(
-            self.parameters.antenna_imt.ue_element_vert_spacing, 0.5)
-        self.assertEqual(self.parameters.antenna_imt.bs_element_am, 30)
-        self.assertEqual(self.parameters.antenna_imt.ue_element_am, 25)
-        self.assertEqual(self.parameters.antenna_imt.bs_element_sla_v, 30)
-        self.assertEqual(self.parameters.antenna_imt.ue_element_sla_v, 25)
+            self.parameters.imt.ue.antenna.element_vert_spacing, 0.5)
+        self.assertEqual(self.parameters.imt.bs.antenna.element_am, 30)
+        self.assertEqual(self.parameters.imt.ue.antenna.element_am, 25)
+        self.assertEqual(self.parameters.imt.bs.antenna.element_sla_v, 30)
+        self.assertEqual(self.parameters.imt.ue.antenna.element_sla_v, 25)
         self.assertEqual(
-            self.parameters.antenna_imt.bs_multiplication_factor, 12)
+            self.parameters.imt.bs.antenna.multiplication_factor, 12)
         self.assertEqual(
-            self.parameters.antenna_imt.ue_multiplication_factor, 12)
+            self.parameters.imt.ue.antenna.multiplication_factor, 12)
 
-    def test_parameters_hotspot(self):
         """Test ParametersHotspot
         """
-        self.assertEqual(self.parameters.hotspot.num_hotspots_per_cell, 1)
-        self.assertEqual(self.parameters.hotspot.max_dist_hotspot_ue, 99.9)
-        self.assertEqual(self.parameters.hotspot.min_dist_bs_hotspot, 1.2)
+        self.assertEqual(self.parameters.imt.topology.hotspot.num_hotspots_per_cell, 1)
+        self.assertEqual(self.parameters.imt.topology.hotspot.max_dist_hotspot_ue, 99.9)
+        self.assertEqual(self.parameters.imt.topology.hotspot.min_dist_bs_hotspot, 1.2)
+        self.assertEqual(self.parameters.imt.topology.hotspot.intersite_distance, 321)
+        self.assertEqual(self.parameters.imt.topology.hotspot.num_clusters, 7)
+        self.assertEqual(self.parameters.imt.topology.hotspot.wrap_around, True)
 
-    def test_parameters_indoor(self):
+        """Test ParametersMacrocell
+        """
+        self.assertEqual(self.parameters.imt.topology.macrocell.intersite_distance, 543)
+        self.assertEqual(self.parameters.imt.topology.macrocell.num_clusters, 7)
+        self.assertEqual(self.parameters.imt.topology.macrocell.wrap_around, True)
+
+        """Test ParametersSingleBaseStation
+        """
+        self.assertEqual(self.parameters.imt.topology.single_bs.cell_radius, 543)
+        self.assertEqual(self.parameters.imt.topology.single_bs.intersite_distance,
+                         self.parameters.imt.topology.single_bs.cell_radius * 3 / 2)
+        self.assertEqual(self.parameters.imt.topology.single_bs.num_clusters, 2)
+
         """Test ParametersIndoor
         """
-        self.assertEqual(self.parameters.indoor.basic_path_loss, "FSPL")
-        self.assertEqual(self.parameters.indoor.n_rows, 3)
-        self.assertEqual(self.parameters.indoor.n_colums, 2)
-        self.assertEqual(self.parameters.indoor.num_imt_buildings, 2)
-        self.assertEqual(self.parameters.indoor.street_width, 30.1)
-        self.assertEqual(self.parameters.indoor.intersite_distance, 40.1)
-        self.assertEqual(self.parameters.indoor.num_cells, 3)
-        self.assertEqual(self.parameters.indoor.num_floors, 1)
-        self.assertEqual(self.parameters.indoor.ue_indoor_percent, .95)
+        self.assertEqual(self.parameters.imt.topology.indoor.basic_path_loss, "FSPL")
+        self.assertEqual(self.parameters.imt.topology.indoor.n_rows, 3)
+        self.assertEqual(self.parameters.imt.topology.indoor.n_colums, 2)
+        self.assertEqual(self.parameters.imt.topology.indoor.num_imt_buildings, 2)
+        self.assertEqual(self.parameters.imt.topology.indoor.street_width, 30.1)
+        self.assertEqual(self.parameters.imt.topology.indoor.intersite_distance, 40.1)
+        self.assertEqual(self.parameters.imt.topology.indoor.num_cells, 3)
+        self.assertEqual(self.parameters.imt.topology.indoor.num_floors, 1)
+        self.assertEqual(self.parameters.imt.topology.indoor.ue_indoor_percent, .95)
         self.assertEqual(
-            self.parameters.indoor.building_class,
+            self.parameters.imt.topology.indoor.building_class,
             "THERMALLY_EFFICIENT")
+
+        self.assertEqual(self.parameters.imt.topology.ntn.bs_height, self.parameters.imt.bs.height)
+        self.assertEqual(self.parameters.imt.topology.ntn.cell_radius, 123)
+        self.assertEqual(self.parameters.imt.topology.ntn.intersite_distance,
+                         self.parameters.imt.topology.ntn.cell_radius * np.sqrt(3))
+        self.assertEqual(self.parameters.imt.topology.ntn.bs_azimuth, 45)
+        self.assertEqual(self.parameters.imt.topology.ntn.bs_elevation, 45)
+        self.assertEqual(self.parameters.imt.topology.ntn.num_sectors, 19)
+        
+        
+        
+        
+        
+        
 
     def test_parameters_fss_ss(self):
         """Test ParametersFssSs

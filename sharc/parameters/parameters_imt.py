@@ -14,6 +14,7 @@ class ParametersImt(ParametersBase):
     section_name: str = "imt"
     topology: str = "MACROCELL"
     wrap_around: bool = False
+    azimuth_range: tuple = (-60, 60)
     num_clusters: int = 1
     intersite_distance: float = 500.0
     minimum_separation_distance_bs_ue: float = 0.0

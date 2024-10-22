@@ -181,9 +181,12 @@ class StationFactory(object):
 
         ue_x = list()
         ue_y = list()
-
+        # TODO: Sanitaze the azimuth_range parameter
+        azimuth_range = param.azimuth_range
+        if (not isinstance(azimuth_range, tuple)) or len(azimuth_range) != 2:
+            raise ValueError("Invalid type or length for parameter azimuth_range")
+        
         # Calculate UE pointing
-        azimuth_range = (-60, 60)
         azimuth = (azimuth_range[1] - azimuth_range[0]) * \
             random_number_gen.random_sample(num_ue) + azimuth_range[0]
         # Remove the randomness from azimuth and you will have a perfect pointing
@@ -257,13 +260,12 @@ class StationFactory(object):
                     angle_mean, angle_scale, int(N * num_ue),
                 )
 
-                angle_cutoff = 60
+                angle_cutoff = np.max(azimuth_range)
                 idx = np.where((angle_n < angle_cutoff) & (
                     angle_n > -angle_cutoff
                 ))[0][:num_ue]
                 angle = angle_n[idx]
             elif param.ue_distribution_azimuth.upper() == "UNIFORM":
-                azimuth_range = (-60, 60)
                 angle = (azimuth_range[1] - azimuth_range[0]) * random_number_gen.random_sample(num_ue) \
                     + azimuth_range[0]
             else:

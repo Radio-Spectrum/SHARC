@@ -54,17 +54,17 @@ class PropagationUMa(Propagation):
             (params.imt.topology == 'MACROCELL' or params.imt.topology == 'HOTSPOT') and \
             params.imt.num_clusters == 1
 
-        if wrap_around_enabled:
-            bs_to_ue_dist_2d, bs_to_ue_dist_3d, _, _ = \
-                station_b.get_dist_angles_wrap_around(station_a)
+        if wrap_around_enabled and (station_a.is_imt_station() and station_b.is_imt_station()):
+            distances_2d, distances_3d, _, _ = \
+                station_a.get_dist_angles_wrap_around(station_b)
         else:
-            bs_to_ue_dist_2d = station_b.get_distance_to(station_a)
-            bs_to_ue_dist_3d = station_b.get_3d_distance_to(station_a)
+            distances_2d = station_a.get_distance_to(station_b)
+            distances_3d = station_a.get_3d_distance_to(station_b)
 
         loss = self.get_loss(
-            bs_to_ue_dist_3d,
-            bs_to_ue_dist_2d,
-            frequency * np.ones(bs_to_ue_dist_2d.shape),
+            distances_3d,
+            distances_2d,
+            frequency * np.ones(distances_2d.shape),
             station_b.height,
             station_a.height,
             params.imt.shadowing,
@@ -107,8 +107,8 @@ class PropagationUMa(Propagation):
         los_probability = self.get_los_probability(distance_2d, ue_height)
         los_condition = self.get_los_condition(los_probability)
 
-        i_los = np.where(los_condition is True)[:2]
-        i_nlos = np.where(los_condition is False)[:2]
+        i_los = np.where(los_condition == True)[:2]
+        i_nlos = np.where(los_condition == False)[:2]
 
         loss = np.empty(distance_2d.shape)
 
@@ -165,7 +165,7 @@ class PropagationUMa(Propagation):
             fitting_term = -10 * \
                 np.log10(
                     breakpoint_distance**2 +
-                    (h_bs[:, np.newaxis] - h_ue)**2,
+                    (h_bs - h_ue[:, np.newaxis])**2,
                 )
             loss[idg] = 40 * np.log10(distance_3D[idg]) + 20 * np.log10(frequency[idg]) - 27.55 \
                 + fitting_term[idg]
@@ -198,7 +198,7 @@ class PropagationUMa(Propagation):
             h_bs : array of base stations antenna heights [m]
             h_ue : array of user equipments antenna heights [m]        """
         loss_nlos = -46.46 + 39.08 * np.log10(distance_3D) + 20 * np.log10(frequency) \
-            - 0.6 * (h_ue - 1.5)
+            - 0.6 * (h_ue[:, np.newaxis] - 1.5)
 
         idl = np.where(distance_2D < 5000)
         if len(idl[0]):
@@ -233,8 +233,8 @@ class PropagationUMa(Propagation):
             array of breakpoint distances [m]
         """
         #  calculate the effective antenna heights
-        h_bs_eff = h_bs[:, np.newaxis] - h_e
-        h_ue_eff = h_ue - h_e
+        h_bs_eff = h_bs - h_e
+        h_ue_eff = h_ue[:, np.newaxis] - h_e
 
         # calculate the breakpoint distance
         breakpoint_distance = 4 * h_bs_eff * \
@@ -328,12 +328,14 @@ if __name__ == '__main__':
     # Print path loss for UMa-LOS, UMa-NLOS and Free Space
     from propagation_free_space import PropagationFreeSpace
     shadowing_std = 0
-    distance_2D = np.linspace(1, 10000, num=10000)[:, np.newaxis]
+    num_ue = 1
+    num_bs = 1000
+    distance_2D = np.repeat(np.linspace(1, num_bs, num=num_bs)[np.newaxis, :], num_ue, axis=0)
     freq = 27000 * np.ones(distance_2D.shape)
-    h_bs = 25 * np.ones(len(distance_2D[:, 0]))
-    h_ue = 1.5 * np.ones(len(distance_2D[0, :]))
-    h_e = np.zeros(distance_2D.shape)
-    distance_3D = np.sqrt(distance_2D**2 + (h_bs[:, np.newaxis] - h_ue)**2)
+    h_bs = 6 * np.ones(num_bs)
+    h_ue = 1.5 * np.ones(num_ue)
+    h_e = np.ones(distance_2D.shape)
+    distance_3D = np.sqrt(distance_2D**2 + (h_bs - h_ue[np.newaxis, :])**2)
 
     loss_los = uma.get_loss_los(
         distance_2D, distance_3D, freq, h_bs, h_ue, h_e, shadowing_std,
@@ -350,14 +352,14 @@ if __name__ == '__main__':
     ax = fig.gca()
     ax.set_prop_cycle(cycler('color', ['r', 'g', 'b', 'y']))
 
-    ax.semilogx(distance_2D, loss_los, label="UMa LOS")
-    ax.semilogx(distance_2D, loss_nlos, label="UMa NLOS")
-    ax.semilogx(distance_2D, loss_fs, label="free space")
+    ax.semilogx(distance_2D[0, :], loss_los[0, :], label="UMa LOS")
+    ax.semilogx(distance_2D[0, :], loss_nlos[0, :], label="UMa NLOS")
+    ax.semilogx(distance_2D[0, :], loss_fs[0, :], label="free space")
 
     plt.title("UMa - path loss")
     plt.xlabel("distance [m]")
     plt.ylabel("path loss [dB]")
-    plt.xlim((0, distance_2D[-1, 0]))
+    plt.xlim((0, distance_2D[0, -1]))
     # plt.ylim((0, 1.1))
     plt.legend(loc="upper left")
     plt.tight_layout()

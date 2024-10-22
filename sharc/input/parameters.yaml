@@ -8,7 +8,7 @@ general:
     ###########################################################################
     # The chosen system for sharing study
     # EESS_PASSIVE, FSS_SS, FSS_ES, FS, RAS, SINGLE_EARTH_STATION
-    system  : FSS_SS
+    system  : FSS_ES
     ###########################################################################
     # Compatibility scenario (co-channel and/or adjacent channel interference)
     enable_cochannel  : FALSE
@@ -179,7 +179,7 @@ imt:
     #                                    "TVRO-URBAN"
     #                                    "TVRO-SUBURBAN"
     #                                    "ABG" (Alpha-Beta-Gamma)
-    channel_model  : UMi
+    channel_model  : UMa
     # Parameters for the P.619 propagation model
     # Used only when TopologyNTN is set.
     #    space_station_alt_m - altitude of IMT space station (BS) (in meters)
@@ -493,6 +493,8 @@ fss_es:
     #                                    "TVRO-URBAN"
     #                                    "TVRO-SUBURBAN"
     #                                    "HDFSS"
+    #                                    "UMa"
+    #                                    "UMi"
     channel_model  : P452
     ###########################################################################
     # Constants

@@ -60,17 +60,17 @@ class PropagationUMi(Propagation):
             (params.imt.topology == 'MACROCELL' or params.imt.topology == 'HOTSPOT') and \
             params.imt.num_clusters == 1
 
-        if wrap_around_enabled:
-            bs_to_ue_dist_2d, bs_to_ue_dist_3d, _, _ = \
-                station_b.get_dist_angles_wrap_around(station_a)
+        if wrap_around_enabled and (station_a.is_imt_station() and station_b.is_imt_station()):
+            distance_2d, distance_3d, _, _ = \
+                station_a.get_dist_angles_wrap_around(station_b)
         else:
-            bs_to_ue_dist_2d = station_b.get_distance_to(station_a)
-            bs_to_ue_dist_3d = station_b.get_3d_distance_to(station_a)
+            distance_2d = station_a.get_distance_to(station_b)
+            distance_3d = station_a.get_3d_distance_to(station_b)
 
         loss = self.get_loss(
-            bs_to_ue_dist_3d,
-            bs_to_ue_dist_2d,
-            frequency * np.ones(bs_to_ue_dist_2d.shape),
+            distance_3d,
+            distance_2d,
+            frequency * np.ones(distance_2d.shape),
             station_b.height,
             station_a.height,
             params.imt.shadowing,
@@ -123,8 +123,8 @@ class PropagationUMi(Propagation):
         )
         los_condition = self.get_los_condition(los_probability)
 
-        i_los = np.where(los_condition is True)[:2]
-        i_nlos = np.where(los_condition is False)[:2]
+        i_los = np.where(los_condition == True)[:2]
+        i_nlos = np.where(los_condition == False)[:2]
 
         loss = np.empty(distance_2D.shape)
 
@@ -184,7 +184,7 @@ class PropagationUMi(Propagation):
             fitting_term = -9.5 * \
                 np.log10(
                     breakpoint_distance**2 +
-                    (h_bs[:, np.newaxis] - h_ue)**2,
+                    (h_bs - h_ue[:, np.newaxis])**2,
                 )
             loss[idg] = 40 * np.log10(distance_3D[idg]) + 20 * np.log10(frequency[idg]) - 27.55 \
                 + fitting_term[idg]
@@ -219,7 +219,7 @@ class PropagationUMi(Propagation):
         """
         # option 1 for UMi NLOS
         loss_nlos = -37.55 + 35.3 * np.log10(distance_3D) + 21.3 * np.log10(frequency) \
-            - 0.3 * (h_ue - 1.5)
+            - 0.3 * (h_ue[:, np.newaxis] - 1.5)
 
         loss_los = self.get_loss_los(
             distance_2D, distance_3D, frequency, h_bs, h_ue, h_e, 0,
@@ -254,8 +254,8 @@ class PropagationUMi(Propagation):
             array of breakpoint distances [m]
         """
         #  calculate the effective antenna heights
-        h_bs_eff = h_bs[:, np.newaxis] - h_e
-        h_ue_eff = h_ue - h_e
+        h_bs_eff = h_bs - h_e
+        h_ue_eff = h_ue[:, np.newaxis] - h_e
 
         # calculate the breakpoint distance
         breakpoint_distance = 4 * h_bs_eff * \
@@ -355,12 +355,15 @@ if __name__ == '__main__':
     # Print path loss for UMi-LOS, UMi-NLOS and Free Space
     from propagation_free_space import PropagationFreeSpace
     shadowing_std = 0
-    distance_2D = np.linspace(1, 1000, num=1000)[:, np.newaxis]
+    #  1 ue x 1000 bs
+    num_ue = 1
+    num_bs = 1000
+    distance_2D = np.repeat(np.linspace(1, num_bs, num=num_bs)[np.newaxis, :], num_ue, axis=0)
     freq = 24350 * np.ones(distance_2D.shape)
-    h_bs = 6 * np.ones(len(distance_2D[:, 0]))
-    h_ue = 1.5 * np.ones(len(distance_2D[0, :]))
+    h_bs = 6 * np.ones(num_bs)
+    h_ue = 1.5 * np.ones(num_ue)
     h_e = np.ones(distance_2D.shape)
-    distance_3D = np.sqrt(distance_2D**2 + (h_bs[:, np.newaxis] - h_ue)**2)
+    distance_3D = np.sqrt(distance_2D**2 + (h_bs - h_ue[np.newaxis, :])**2)
 
     loss_los = umi.get_loss_los(
         distance_2D, distance_3D, freq, h_bs, h_ue, h_e, shadowing_std,
@@ -376,14 +379,14 @@ if __name__ == '__main__':
     ax = fig.gca()
     ax.set_prop_cycle(cycler('color', ['r', 'g', 'b', 'y']))
 
-    ax.semilogx(distance_2D, loss_los, label="UMi LOS")
-    ax.semilogx(distance_2D, loss_nlos, label="UMi NLOS")
-    ax.semilogx(distance_2D, loss_fs, label="free space")
+    ax.semilogx(distance_2D[0, :], loss_los[0, :], label="UMi LOS")
+    ax.semilogx(distance_2D[0, :], loss_nlos[0, :], label="UMi NLOS")
+    ax.semilogx(distance_2D[0, :], loss_fs[0, :], label="free space")
 
     plt.title("UMi - path loss")
     plt.xlabel("distance [m]")
     plt.ylabel("path loss [dB]")
-    plt.xlim((0, distance_2D[-1, 0]))
+    plt.xlim((0, distance_2D[0, -1]))
     plt.ylim((60, 200))
     plt.legend(loc="upper left")
     plt.tight_layout()

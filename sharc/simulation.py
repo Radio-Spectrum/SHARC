@@ -117,6 +117,9 @@ class Simulation(ABC, Observable):
 
             self.adjacent_channel = False
 
+        if not self.co_channel and not self.adjacent_channel:
+            raise ValueError("Both co_channel and adjacent_channel can't be false")
+
         random_number_gen = np.random.RandomState(self.parameters.general.seed)
         self.propagation_imt = PropagationFactory.create_propagation(
             self.parameters.imt.channel_model,
@@ -348,7 +351,7 @@ class Simulation(ABC, Observable):
         )
 
         # Collect IMT BS and UE antenna gain samples
-        self.path_loss_imt = path_loss
+        self.path_loss_imt = np.transpose(path_loss)
         self.imt_bs_antenna_gain = ant_gain_bs_to_ue
         self.imt_ue_antenna_gain = np.transpose(ant_gain_ue_to_bs)
         additional_loss = self.parameters.imt.bs_ohmic_loss \

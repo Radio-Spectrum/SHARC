@@ -6,7 +6,7 @@ from dataclasses import dataclass
 class ParametersBase:
     """Base class for parameter dataclassess
     """
-    section_name: str = "DEFAULT"
+    section_name: str = "default"
     is_space_to_earth: bool = False  # whether the system is a space station or not
 
     # whether to enable recursive parameters setting on .yaml file
@@ -83,7 +83,7 @@ class ParametersBase:
         with open(config_file, 'r') as file:
             config = yaml.safe_load(file)
 
-        if self.section_name not in config.keys():
+        if self.section_name.lower() not in config.keys():
             if not quiet:
                 print(f"ParameterBase: section {self.section_name} not in parameter file.\
                     Only default parameters where loaded.")

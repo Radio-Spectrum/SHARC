@@ -15,7 +15,8 @@ from sharc.parameters.parameters import Parameters
 class PropagationFreeSpace(Propagation):
     """
     Implements the Free Space propagation model.
-    Frequency in MHz and distance in meters
+
+    Frequency in MHz and distance are in meters
     """
 
     @dispatch(Parameters, float, StationManager, StationManager, np.ndarray, np.ndarray)
@@ -28,7 +29,7 @@ class PropagationFreeSpace(Propagation):
         station_a_gains=None,
         station_b_gains=None,
     ) -> np.array:
-        """Wrapper for the calculation loss between station_a and station_b
+        """Wrapper for the calculation loss between station_a and station_b.
 
         Parameters
         ----------
@@ -47,8 +48,7 @@ class PropagationFreeSpace(Propagation):
         """
         distance_3d = station_a.get_3d_distance_to(station_b)
         loss = self.get_free_space_loss(frequency=frequency, distance=distance_3d)
-        if station_a.is_imt_station() and station_b.is_imt_station():
-            loss = np.transpose(loss)
+
         return loss
 
     @dispatch(np.ndarray, np.ndarray)

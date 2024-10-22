@@ -198,7 +198,7 @@ class ParametersFssEs(ParametersBase):
                              Allowd values are \"P2109_RANDOM\", \"P2109_FIXED\", \"FIXED_VALUE\".")
         if self.channel_model.upper() not in [
             "FSPL", "TERRESTRIALSIMPLE", "P452", "P619",
-            "TVRO-URBAN", "TVRO-SUBURBAN", "HDFSS",
+            "TVRO-URBAN", "TVRO-SUBURBAN", "HDFSS", "UMA", "UMI",
         ]:
             raise ValueError(
                 f"ParametersFssEs: Invalid value for parameter channel_model - {self.channel_model}",

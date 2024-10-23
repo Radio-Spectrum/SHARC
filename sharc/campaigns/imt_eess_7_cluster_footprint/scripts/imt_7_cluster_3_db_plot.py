@@ -144,6 +144,7 @@ class TopologyMacrocell:
         # Add color bar for signal strength
         m = plt.cm.ScalarMappable(cmap='jet')
         m.set_array(signal_strengths_normalized)
+        m.set_clim(0, 48)
         plt.colorbar(m, ax=ax, shrink=0.5, aspect=5)
         
         handles, labels = ax.get_legend_handles_labels()

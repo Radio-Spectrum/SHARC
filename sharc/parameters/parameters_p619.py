@@ -2,6 +2,7 @@
 # Object that loads the parameters for the P.619 propagation model.
 """Parameters definitions for IMT systems
 """
+import configparser
 from dataclasses import dataclass
 
 from sharc.parameters.parameters_base import ParametersBase

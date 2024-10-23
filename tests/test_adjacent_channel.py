@@ -16,7 +16,7 @@ from sharc.parameters.parameters import Parameters
 from sharc.antenna.antenna_omni import AntennaOmni
 from sharc.station_factory import StationFactory
 from sharc.propagation.propagation_factory import PropagationFactory
-
+from sharc.parameters.constants import BOLTZMANN_CONSTANT, EARTH_RADIUS, SPEED_OF_LIGHT
 
 class SimulationAdjacentTest(unittest.TestCase):
 
@@ -35,7 +35,7 @@ class SimulationAdjacentTest(unittest.TestCase):
         self.param.imt.intersite_distance = 150
         self.param.imt.minimum_separation_distance_bs_ue = 10
         self.param.imt.interfered_with = False
-        self.param.imt.frequency = 10000.0
+        self.param.imt.frequency = 10000
         self.param.imt.bandwidth = 100
         self.param.imt.spectral_mask = "IMT-2020"
         self.param.imt.spurious_emissions = -13
@@ -74,15 +74,14 @@ class SimulationAdjacentTest(unittest.TestCase):
         self.param.imt.dl_sinr_min = -10
         self.param.imt.dl_sinr_max = 30
         self.param.imt.channel_model = "FSPL"
-        # probability of line-of-sight (not for FSPL)
-        self.param.imt.line_of_sight_prob = 0.75
+        self.param.imt.line_of_sight_prob = 0.75 # probability of line-of-sight (not for FSPL)
         self.param.imt.shadowing = False
         self.param.imt.noise_temperature = 290
 
         self.param.antenna_imt.adjacent_antenna_model = "SINGLE_ELEMENT"
         self.param.antenna_imt.bs_normalization = False
         self.param.antenna_imt.ue_normalization = False
-
+        
         self.param.antenna_imt.bs_normalization_file = None
         self.param.antenna_imt.bs_element_pattern = "M2101"
         self.param.antenna_imt.bs_minimum_array_gain = -200
@@ -110,7 +109,7 @@ class SimulationAdjacentTest(unittest.TestCase):
         self.param.antenna_imt.ue_n_columns = 1
         self.param.antenna_imt.ue_element_horiz_spacing = 0.5
         self.param.antenna_imt.ue_element_vert_spacing = 0.5
-        self.param.antenna_imt.ue_multiplication_factor = 12
+        self.param.antenna_imt.ue_multiplication_factor = 12        
 
         self.param.fss_ss.frequency = 5000
         self.param.fss_ss.bandwidth = 100
@@ -124,7 +123,7 @@ class SimulationAdjacentTest(unittest.TestCase):
         self.param.fss_ss.antenna_pattern = "OMNI"
         self.param.fss_ss.imt_altitude = 1000
         self.param.fss_ss.imt_lat_deg = -23.5629739
-        self.param.fss_ss.imt_long_diff_deg = (-46.6555132 - 75)
+        self.param.fss_ss.imt_long_diff_deg = (-46.6555132-75)
         self.param.fss_ss.channel_model = "FSPL"
         self.param.fss_ss.line_of_sight_prob = 0.01
         self.param.fss_ss.surf_water_vapour_density = 7.5
@@ -158,82 +157,72 @@ class SimulationAdjacentTest(unittest.TestCase):
                                                             self.simulation.topology,
                                                             random_number_gen)
         self.simulation.ue.x = np.array([20, 70, 110, 170])
-        self.simulation.ue.y = np.array([0, 0, 0, 0])
-        self.simulation.ue.antenna = np.array(
-            [AntennaOmni(10), AntennaOmni(11), AntennaOmni(22), AntennaOmni(23)])
+        self.simulation.ue.y = np.array([ 0,  0,   0,   0])
+        self.simulation.ue.antenna = np.array([AntennaOmni(10), AntennaOmni(11), AntennaOmni(22), AntennaOmni(23)])
         self.simulation.ue.active = np.ones(4, dtype=bool)
 
         # test connection method
         self.simulation.connect_ue_to_bs()
-        self.assertEqual(self.simulation.link, {0: [0, 1], 1: [2, 3]})
+        self.assertEqual(self.simulation.link, {0: [0,1], 1: [2,3]})
         self.simulation.select_ue(random_number_gen)
-        self.simulation.link = {0: [0, 1], 1: [2, 3]}
+        self.simulation.link = {0:[0,1],1:[2,3]}
 
         # We do not test the selection method here because in this specific
         # scenario we do not want to change the order of the UE's
 
         self.simulation.propagation_imt = PropagationFactory.create_propagation(self.param.imt.channel_model,
-                                                                                self.param,
-                                                                                self.simulation.param_system,
-                                                                                random_number_gen)
+                                                                                self.param, random_number_gen)
         self.simulation.propagation_system = PropagationFactory.create_propagation(self.param.fss_ss.channel_model,
-                                                                                   self.param,
-                                                                                   self.simulation.param_system,
-                                                                                   random_number_gen)
+                                                                                   self.param, random_number_gen)
 
         # test coupling loss method
-        self.simulation.coupling_loss_imt = self.simulation.calculate_intra_imt_coupling_loss(self.simulation.ue,
-                                                                                              self.simulation.bs)
+        self.simulation.coupling_loss_imt = self.simulation.calculate_intra_imt_coupling_loss(self.simulation.bs,
+                                                                                    self.simulation.ue)
         npt.assert_allclose(self.simulation.coupling_loss_imt,
-                            np.array([[88.68 - 1 - 10, 99.36 - 1 - 11, 103.28 - 1 - 22, 107.06 - 1 - 23],
-                                      [107.55 - 2 - 10, 104.73 - 2 - 11, 101.54 - 2 - 22, 92.08 - 2 - 23]]),
+                            np.array([[88.47-1-10,  99.35-1-11,  103.27-1-22,  107.05-1-23],
+                                      [107.55-2-10,  104.72-2-11,  101.53-2-22,  91.99-2-23]]),
                             atol=1e-2)
 
         # test scheduler and bandwidth allocation
         self.simulation.scheduler()
-        bandwidth_per_ue = math.trunc((1 - 0.1) * 100 / 2)
-        npt.assert_allclose(
-            self.simulation.ue.bandwidth,
-            bandwidth_per_ue * np.ones(4),
-            atol=1e-2)
+        bandwidth_per_ue = math.trunc((1 - 0.1)*100/2)
+        npt.assert_allclose(self.simulation.ue.bandwidth, bandwidth_per_ue*np.ones(4), atol=1e-2)
 
         # there is no power control, so BS's will transmit at maximum power
         self.simulation.power_control()
-        tx_power = 10 - 10 * math.log10(2)
-        npt.assert_allclose(self.simulation.bs.tx_power[0], np.array(
-            [tx_power, tx_power]), atol=1e-2)
-        npt.assert_allclose(self.simulation.bs.tx_power[1], np.array(
-            [tx_power, tx_power]), atol=1e-2)
+        tx_power = 10 - 10*math.log10(2)
+        npt.assert_allclose(self.simulation.bs.tx_power[0], np.array([tx_power, tx_power]), atol=1e-2)
+        npt.assert_allclose(self.simulation.bs.tx_power[1], np.array([tx_power, tx_power]), atol=1e-2)
+
+        npt.assert_equal(self.simulation.bs.spectral_mask.mask_dbm,np.array([-50, -20, -10, -10, -10, -20, -50]))
 
         # create system
-        self.simulation.system = StationFactory.generate_fss_space_station(
-            self.param.fss_ss)
-        self.simulation.system.x = np.array([0.01])  # avoids zero-division
+        self.simulation.system = StationFactory.generate_fss_space_station(self.param.fss_ss)
+        self.simulation.system.x = np.array([0.01]) # avoids zero-division
         self.simulation.system.y = np.array([0])
         self.simulation.system.height = np.array([self.param.fss_ss.altitude])
 
-        # test the method that calculates interference from IMT UE to FSS space
-        # station
+        # test the method that calculates interference from IMT UE to FSS space station
         self.simulation.calculate_external_interference()
 
         # check coupling loss
-        coupling_loss_imt_system_adj = np.array(
-            [209.52 - 51 - 1, 209.52 - 51 - 1, 209.52 - 51 - 2, 209.52 - 51 - 2])
+        coupling_loss_imt_system_adj = np.array([209.52-51-1, 209.52-51-1, 209.52-51-2, 209.52-51-2]) 
         npt.assert_allclose(self.simulation.coupling_loss_imt_system_adjacent,
                             coupling_loss_imt_system_adj,
                             atol=1e-2)
 
         # check interference generated by BS to FSS space station
-        interf_pow = np.power(10, 0.1 * (self.param.imt.bs_conducted_power))
-        rx_interf_bs1 = 10 * math.log10(interf_pow)\
-            - coupling_loss_imt_system_adj[0]
-        rx_interf_bs2 = 10 * math.log10(interf_pow)\
-            - coupling_loss_imt_system_adj[2]
-        rx_interference = 10 * math.log10(math.pow(10, 0.1 * rx_interf_bs1) +
-                                          math.pow(10, 0.1 * rx_interf_bs2))
+        interf_pow = np.power(10, 0.1*(-50))*100
+        rx_interf_bs1 = 10*math.log10(interf_pow)\
+                          - coupling_loss_imt_system_adj[0]
+        rx_interf_bs2 = 10*math.log10(interf_pow)\
+                          - coupling_loss_imt_system_adj[2]
+        rx_interference = 10*math.log10(math.pow(10,0.1*rx_interf_bs1) + \
+                                        math.pow(10,0.1*rx_interf_bs2)) + 3
         self.assertAlmostEqual(self.simulation.system.rx_interference,
                                rx_interference,
                                delta=.01)
+
 
     def test_simulation_2bs_4ue_uplink(self):
         self.param.general.imt_link = "UPLINK"
@@ -260,81 +249,69 @@ class SimulationAdjacentTest(unittest.TestCase):
                                                             self.simulation.topology,
                                                             random_number_gen)
         self.simulation.ue.x = np.array([20, 70, 110, 170])
-        self.simulation.ue.y = np.array([0, 0, 0, 0])
-        self.simulation.ue.antenna = np.array(
-            [AntennaOmni(10), AntennaOmni(11), AntennaOmni(22), AntennaOmni(23)])
+        self.simulation.ue.y = np.array([ 0,  0,   0,   0])
+        self.simulation.ue.antenna = np.array([AntennaOmni(10), AntennaOmni(11), AntennaOmni(22), AntennaOmni(23)])
         self.simulation.ue.active = np.ones(4, dtype=bool)
 
         # test connection method
         self.simulation.connect_ue_to_bs()
-        self.assertEqual(self.simulation.link, {0: [0, 1], 1: [2, 3]})
+        self.assertEqual(self.simulation.link, {0: [0,1], 1: [2,3]})
         self.simulation.select_ue(random_number_gen)
-        self.simulation.link = {0: [0, 1], 1: [2, 3]}
+        self.simulation.link = {0:[0,1],1:[2,3]}
 
         # We do not test the selection method here because in this specific
         # scenario we do not want to change the order of the UE's
         self.simulation.propagation_imt = PropagationFactory.create_propagation(self.param.imt.channel_model,
-                                                                                self.param,
-                                                                                self.simulation.param_system,
-                                                                                random_number_gen)
+                                                                                self.param, random_number_gen)
         self.simulation.propagation_system = PropagationFactory.create_propagation(self.param.fss_ss.channel_model,
-                                                                                   self.param,
-                                                                                   self.simulation.param_system,
-                                                                                   random_number_gen)
+                                                                                   self.param, random_number_gen)
 
         # test coupling loss method
-        self.simulation.coupling_loss_imt = self.simulation.calculate_intra_imt_coupling_loss(self.simulation.ue,
-                                                                                              self.simulation.bs)
-        coupling_loss_imt = np.array([[88.68 - 1 - 10, 99.36 - 1 - 11, 103.28 - 1 - 22, 107.06 - 1 - 23],
-                                      [107.55 - 2 - 10, 104.73 - 2 - 11, 101.54 - 2 - 22, 92.08 - 2 - 23]])
+        self.simulation.coupling_loss_imt = self.simulation.calculate_intra_imt_coupling_loss(self.simulation.bs,
+                                                                                    self.simulation.ue)
+        coupling_loss_imt = np.array([[88.47-1-10,  99.35-1-11,  103.27-1-22,  107.05-1-23],
+                                      [107.55-2-10,  104.72-2-11,  101.53-2-22,  91.99-2-23]])
         npt.assert_allclose(self.simulation.coupling_loss_imt,
                             coupling_loss_imt,
                             atol=1e-2)
 
         # test scheduler and bandwidth allocation
         self.simulation.scheduler()
-        bandwidth_per_ue = math.trunc((1 - 0.1) * 100 / 2)
-        npt.assert_allclose(
-            self.simulation.ue.bandwidth,
-            bandwidth_per_ue * np.ones(4),
-            atol=1e-2)
+        bandwidth_per_ue = math.trunc((1 - 0.1)*100/2)
+        npt.assert_allclose(self.simulation.ue.bandwidth, bandwidth_per_ue*np.ones(4), atol=1e-2)
 
         # there is no power control, so UE's will transmit at maximum power
         self.simulation.power_control()
-        npt.assert_equal(self.simulation.ue_power_diff, np.zeros(4))
+        npt.assert_equal(self.simulation.ue_power_diff,np.zeros(4))
         tx_power = 20
-        npt.assert_allclose(self.simulation.ue.tx_power, tx_power * np.ones(4))
+        npt.assert_allclose(self.simulation.ue.tx_power, tx_power*np.ones(4))
 
-        npt.assert_equal(self.simulation.ue.spectral_mask.mask_dbm,
-                         np.array([-13, -13, -5, -20, -5, -13, -13]))
+        npt.assert_equal(self.simulation.ue.spectral_mask.mask_dbm,np.array([-13, -13, -5, -20, -5, -13, -13]))
 
         # create system
-        self.simulation.system = StationFactory.generate_fss_space_station(
-            self.param.fss_ss)
+        self.simulation.system = StationFactory.generate_fss_space_station(self.param.fss_ss)
         self.simulation.system.x = np.array([0])
         self.simulation.system.y = np.array([0])
         self.simulation.system.height = np.array([self.param.fss_ss.altitude])
 
-        # test the method that calculates interference from IMT UE to FSS space
-        # station
+        # test the method that calculates interference from IMT UE to FSS space station
         self.simulation.calculate_external_interference()
 
         # check coupling loss
-        coupling_loss_imt_system_adj = np.array(
-            [213.52 - 51 - 10, 213.52 - 51 - 11, 213.52 - 51 - 22, 213.52 - 51 - 23])
+        coupling_loss_imt_system_adj = np.array([213.52-51-10, 213.52-51-11, 213.52-51-22, 213.52-51-23])
         npt.assert_allclose(self.simulation.coupling_loss_imt_system_adjacent,
                             coupling_loss_imt_system_adj,
                             atol=1e-2)
 
         # check interference generated by UE to FSS space station
-        interf_pow = np.power(10, 0.1 * (-13)) * 100
-        interference = 10 * math.log10(interf_pow) \
-            - coupling_loss_imt_system_adj
-        rx_interference = 10 * \
-            math.log10(np.sum(np.power(10, 0.1 * interference))) + 3
+        interf_pow = np.power(10, 0.1*(-13))*100
+        interference = 10*math.log10(interf_pow) \
+                          - coupling_loss_imt_system_adj
+        rx_interference = 10*math.log10(np.sum(np.power(10, 0.1*interference))) + 3
         self.assertAlmostEqual(self.simulation.system.rx_interference,
                                rx_interference,
                                delta=.01)
+
 
 
 if __name__ == '__main__':

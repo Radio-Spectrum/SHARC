@@ -1,13 +1,9 @@
+/sharc/logfile.log
 /sharc/output/*.txt
+/sharc/output/*.csv
 /sharc/output/*.png
 /sharc/output_*/*
-/sharc/campaings/**/*.csv
-/sharc/campaigns/imt_hibs_ras_2600_MHz/output/
-/sharc/campaigns/imt_mss_ras_2600_MHz/output/
-/sharc/campaigns/imt_*/output/output_imt*/*.csv
-/sharc/campaigns/imt_*/output/output_imt*/*.ini
-/sharc/campaigns/imt_*/output/figs/*.png
-
+*.csv
 
 __pycache__
 .spyproject

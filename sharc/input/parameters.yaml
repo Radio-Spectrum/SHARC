@@ -7,7 +7,7 @@ general:
     imt_link  : DOWNLINK
     ###########################################################################
     # The chosen system for sharing study
-    # EESS_PASSIVE, FSS_SS, FSS_ES, FS, RAS, SINGLE_EARTH_STATION
+    # EESS_PASSIVE, FSS_SS, FSS_ES, FS, RAS
     system  : FSS_SS
     ###########################################################################
     # Compatibility scenario (co-channel and/or adjacent channel interference)
@@ -53,7 +53,7 @@ imt:
     ###########################################################################
     # IMT spectrum emission mask. Options are:
     #   "IMT-2020" : for mmWave as described in ITU-R TG 5/1 Contribution 36
-    #   "3GPP E-UTRA" : for E-UTRA bands > 1 GHz as described in
+    #   "3GPP E-UTRA" : for E-UTRA bands > 1 GHz as described in 
     #                   TS 36.104 v11.2.0 (BS) and TS 36.101 v11.2.0 (UE)
     spectral_mask  : IMT-2020
     ###########################################################################
@@ -112,9 +112,6 @@ imt:
     # Possible values: UNIFORM : UEs will be uniformly distributed within the
     #                            whole simulation area. Not applicable to
     #                            hotspots.
-    #                  UNIFORM_IN_CELL : UEs will be distributed within each
-    #                                    cell, i.e., with the same number of UEs
-    #                                    in each cell.
     #                  ANGLE_AND_DISTANCE : UEs will be distributed following
     #                                   given distributions for angle and
     #                                   distance. In this case, these must be
@@ -225,7 +222,7 @@ imt_antenna:
     bs_normalization_file  : antenna/beamforming_normalization/bs_norm.npz
     ###########################################################################
     # File to be used in the UE beamforming normalization
-    # Normalization files can be generated with the
+    # Normalization files can be generated with the 
     # antenna/beamforming_normalization/normalize_script.py script
     ue_normalization_file  : antenna/beamforming_normalization/ue_norm.npz
     ###########################################################################
@@ -284,7 +281,7 @@ imt_antenna:
     ue_element_sla_v  : 25
     ###########################################################################
     # Multiplication factor k that is used to adjust the single-element pattern.
-    # According to Report ITU-R M.[IMT.AAS], this may give a closer match of the
+    # According to Report ITU-R M.[IMT.AAS], this may give a closer match of the 
     # side lobes when beamforming is assumed in adjacent channel.
     #       Original value: 12 (Rec. ITU-R M.2101)
     bs_multiplication_factor  : 12
@@ -339,28 +336,28 @@ ntn:
     ###########################################################################
     # NTN Airborne Platform height (m)
     bs_height  : 20000
-    ###########################################################################
+    ###########################################################################    
     # NTN cell radius in network topology [m]
     cell_radius  : 90000
-    ###########################################################################
+    ###########################################################################    
     # NTN space station azimuth [degree]
     bs_azimuth  : 45
-    ###########################################################################
+    ###########################################################################    
     # NTN space station elevation [degree]
     bs_elevation  : 45
-    ###########################################################################
+    ###########################################################################    
     # number of sectors [degree]
     num_sectors  : 7
-    ###########################################################################
+    ###########################################################################    
     # NTN Intersite Distance (m). Intersite distance = Cell Radius * sqrt(3)
     intersite_distance  : 155884
-    ###########################################################################
+    ###########################################################################    
     # Conducted power per element [dBm/bandwidth]
     bs_conducted_power  : 37
-    ###########################################################################
+    ###########################################################################    
     # Backoff Power [Layer 2] [dB]. Allowed: 7 sector topology - Layer 2
     bs_backoff_power  : 3
-    ###########################################################################
+    ###########################################################################    
     # NTN Antenna configuration
     bs_n_rows_layer1   : 2
     bs_n_columns_layer1  : 2
@@ -562,15 +559,15 @@ fss_es:
     # P2109_RANDOM: random probability at P.2109 model, considering elevation
     # P2109_FIXED: fixed probability at P.2109 model, considering elevation.
     #              Probability must be specified in bs_building_entry_loss_prob.
-    # FIXED_VALUE: fixed value per BS. Value must be specified in
+    # FIXED_VALUE: fixed value per BS. Value must be specified in 
     #              bs_building_entry_loss_value.
     bs_building_entry_loss_type  : P2109_FIXED
     ###########################################################################
-    # Probability of building entry loss not exceeded if
+    # Probability of building entry loss not exceeded if 
     # bs_building_entry_loss_type = P2109_FIXED
     bs_building_entry_loss_prob  : 0.75
     ###########################################################################
-    # Value in dB of building entry loss if
+    # Value in dB of building entry loss if 
     # bs_building_entry_loss_type = FIXED_VALUE
     bs_building_entry_loss_value  : 35
 fs:
@@ -837,23 +834,13 @@ ras:
     # This parameter is ignored as it will be calculated from x,y positions in run time
     earth_station_long_diff_deg  : 0.0
     season  : SUMMER
-eess_ss:
+eess_passive:
     ###########################################################################
     # sensor center frequency [MHz]
     frequency  : 23900
     ###########################################################################
     # sensor bandwidth [MHz]
     bandwidth  : 200
-    ###########Creates a statistical distribution of nadir angle###############
-    ##############following variables nadir_angle_distribution#################
-    # if distribution_enable = ON, nadir_angle will vary statistically#########
-    # if distribution_enable = OFF, nadir_angle follow nadir_angle variable ###
-    # distribution_type = UNIFORM
-    # UNIFORM = UNIFORM distribution in nadir_angle
-    # - nadir_angle_distribution = initial nadir angle, final nadir angle
-    distribution_enable  : OFF
-    distribution_type  : UNIFORM
-    nadir_angle_distribution  : 18.6,49.4
     ###########################################################################
     # Off-nadir pointing angle [deg]
     nadir_angle  : 46.6
@@ -890,307 +877,7 @@ eess_ss:
     earth_station_lat_deg  : 0
     earth_station_long_diff_deg  : 0
     season  : "SUMMER"
-metsat_ss:
     ###########################################################################
-    # sensor center frequency [MHz]
-    frequency  : 8195
-    ###########################################################################
-    # sensor bandwidth [MHz]
-    bandwidth  : 20
-    ###########Creates a statistical distribution of nadir angle###############
-    ##############following variables nadir_angle_distribution#################
-    # if distribution_enable = ON, nadir_angle will vary statistically#########
-    # if distribution_enable = OFF, nadir_angle follow nadir_angle variable ###
-    # distribution_type = UNIFORM
-    # UNIFORM = UNIFORM distribution in nadir_angle
-    # - nadir_angle_distribution = initial nadir angle, final nadir angle
-    distribution_enable  : OFF
-    distribution_type  : UNIFORM
-    nadir_angle_distribution  : 18.6,49.4
-    ###########################################################################
-    # Elevation angle [deg]
-    elevation  : 3
-    ###########################################################################
-    # sensor altitude [m]
-    altitude  : 35786000
-    ###########################################################################
-    # Antenna pattern of the sensor
-    antenna_pattern  : ITU-R S.672
-    ###########################################################################
-    # receive antenna gain [dBi]
-    antenna_gain  : 52
-    # The required near-in-side-lobe level (dB) relative to peak gain
-    # according to ITU-R S.672-4
-    antenna_l_s  : -20.0
-    # 3 dB beamwidth angle (3 dB below maximum gain) [degrees]
-    antenna_3_dB  : 0.65
-    ###########################################################################
-    # Channel parameters
-    # channel model, possible values are "FSPL" (free-space path loss),
-    #                                    "P619"
-    channel_model  : FSPL
-    # Parameters for the P.619 propagation model
-    #    earth_station_alt_m - altitude of IMT system (in meters)
-    #    earth_station_lat_deg - latitude of IMT system (in degrees)
-    #    earth_station_long_diff_deg - difference between longitudes of IMT and satellite system
-    #      (positive if space-station is to the East of earth-station)
-    #    season - season of the year.
-    earth_station_alt_m  : 0
-    earth_station_lat_deg  : 0
-    earth_station_long_diff_deg  : 0
-    season  : "SUMMER"
     # Constants
     BOLTZMANN_CONSTANT  : 1.38064852e-23
     EARTH_RADIUS  : 6371000
-
-
-
-single_earth_station:
-    ###########################################################################
-    # Sensor center frequency [MHz]
-    frequency: 8250
-    ###########################################################################
-    # Sensor bandwidth [MHz]
-    bandwidth: 100
-    ###########################################################################
-    # System receive noise temperature [K]
-    noise_temperature: 300
-    ###########################################################################
-    # Peak transmit power spectral density (clear sky) [dBW/Hz]
-    tx_power_density: -65
-    # Adjacent channel selectivity [dB]
-    adjacent_ch_selectivity: 20.0
-    geometry:
-        ###########################################################################
-        # Antenna height [meters]
-        height: 6
-        ###########################################################################
-        # Azimuth angle [degrees]
-        azimuth:
-            ###########################################################################
-            # Type of azimuth. May be "UNIFORM_DIST", "FIXED"
-            type: FIXED
-            ###########################################################################
-            # Value of azimuth when type == "FIXED" [deg]
-            fixed: 0
-            ###########################################################################
-            # Limits of random uniform distribution when type == "UNIFORM_DIST"
-            uniform_dist:
-                ###########################################################################
-                # uniform distribution lower bound [deg]
-                min: -180
-                ###########################################################################
-                # uniform distribution upper bound [deg]
-                max: 180
-        ###########################################################################
-        # Elevation angle [degrees]
-        elevation:
-            # Type of elevation. May be "UNIFORM_DIST", "FIXED"
-            type: FIXED
-            # Value of elevation when type == "FIXED" [deg]
-            fixed: 60
-            # Limits of random uniform distribution when type == "UNIFORM_DIST"
-            uniform_dist:
-                # uniform distribution lower bound [deg]
-                min: 30
-                # uniform distribution upper bound [deg]
-                max: 65
-        ###########################################################################
-        # Station 2d location [meters]:
-        location:
-            ###########################################################################
-            # choose way to set location. May be "CELL", "NETWORK", "UNIFORM_DIST" or "FIXED"
-            # location.type == CELL means that the ES will be distributed randomly,
-            #                           but always in the central cell
-            # location.type == NETWORK means that the ES will be distributed randomly,
-            #                           in a random cell
-            # location.type == UNIFORM_DIST means that the ES will be distributed randomly,
-            #                           in a ring shaped section with delimited outer and inner radius
-            # location.type == FIXED means that the ES will be always at SAME fixed location
-            type: CELL
-            ###########################################################################
-            # Value of position (x,y) when type == "FIXED" [(m, m)]
-            fixed:
-                x: 10
-                y: 100
-            cell:
-                ###########################################################################
-                # Minimum distance to IMT BS when location.type == CELL [m]
-                min_dist_to_bs: 100
-            network:
-                ###########################################################################
-                # Minimum distance to IMT BS when location.type == NETWORK [m]
-                min_dist_to_bs: 150
-            uniform_dist:
-                ###########################################################################
-                # Ring inner radius [m]
-                min_dist_to_center: 101
-                ###########################################################################
-                # Ring outer radius [m]
-                max_dist_to_center: 102
-    antenna:
-        ###########################################################################
-        # Choose the antenna pattern. Can be one of:
-        # "OMNI", "ITU-R F.699", "ITU-R S.465", "ITU-R S.580", "MODIFIED ITU-R S.465", "ITU-R S.1855"
-        pattern: ITU-R S.465
-        ###########################################################################
-        # Earth station peak receive antenna gain [dBi]
-        gain: 28
-        itu_r_f_699:
-            ###########################################################################
-            # Antenna diameter [m]
-            diameter: 1.1
-        itu_r_s_465:
-            ###########################################################################
-            # Antenna diameter [m]
-            diameter: 1.1
-        itu_r_s_580:
-            ###########################################################################
-            # Antenna diameter [m]
-            diameter: 1.1
-        itu_r_s_1855:
-            ###########################################################################
-            # Antenna diameter [m]
-            diameter: 1.1
-        itu_r_s_465_modified:
-            ###########################################################################
-            # Antenna envelope gain [dBi]
-            envelope_gain: -4
-    ###########################################################################
-    # Selected channel model
-    # Possible values are "P619", "P452", "TerrestrialSimple"
-    channel_model: "P619"
-
-    ###########################################################################
-    # Parameters for P619 channel model
-    param_p619:
-        ###########################################################################
-        # altitude of the space station [m]
-        space_station_alt_m: 540000
-        ###########################################################################
-        # altitude of ES system [m]
-        earth_station_alt_m: 1200
-        ###########################################################################
-        # latitude of ES system [m]
-        earth_station_lat_deg: 13
-        ###########################################################################
-        # difference between longitudes of IMT-NTN station and FSS-ES system [deg]
-        #   (positive if space-station is to the East of earth-station)
-        earth_station_long_diff_deg: 10
-
-    ###########################################################################
-    # season - season of the year.
-    #   Only actually useful for P619, but we can't put it inside param_p619 without changing more code
-    season: SUMMER
-
-    ###########################################################################
-    # Parameters for P452 channel model
-    param_p452:
-        ###########################################################################
-        # Total air pressure [hPa]
-        atmospheric_pressure: 1
-        ###########################################################################
-        # Temperature [K]
-        air_temperature: 2
-        ###########################################################################
-        # Sea-level surface refractivity (use the map)
-        N0: 3
-        ###########################################################################
-        # Average radio-refractive (use the map)
-        delta_N: 4
-        ###########################################################################
-        # percentage p. Float (0 to 100) or RANDOM
-        percentage_p: 5
-        ###########################################################################
-        # Distance over land from the transmit and receive antennas to the coast (km)
-        Dct: 6
-        ###########################################################################
-        # Distance over land from the transmit and receive antennas to the coast (km)
-        Dcr: 7
-        ###########################################################################
-        # Effective height of interfering antenna (m)
-        Hte: 8
-        ###########################################################################
-        # Effective height of interfered-with antenna (m)
-        Hre: 9
-        ###########################################################################
-        # Latitude of transmitter
-        tx_lat: 10
-        ###########################################################################
-        # Latitude of receiver
-        rx_lat: 11
-        ###########################################################################
-        # Antenna polarization. Possible values are "horizontal", "vertical"
-        polarization: horizontal
-        ###########################################################################
-        # determine whether clutter loss following ITU-R P.2108 is added (TRUE/FALSE)
-        clutter_loss: TRUE
-
-    # HDFSS propagation parameters
-    param_hdfss:
-        ###########################################################################
-        # HDFSS position relative to building it is on. Possible values are
-        # ROOFTOP and BUILDINGSIDE
-        es_position: BUILDINGSIDE
-        ###########################################################################
-        # Enable shadowing loss
-        shadow_enabled: FALSE
-        ###########################################################################
-        # Enable building entry loss
-        building_loss_enabled: FALSE
-        ###########################################################################
-        # Enable interference from IMT stations at the same building as the HDFSS
-        same_building_enabled: TRUE
-        ###########################################################################
-        # Enable diffraction loss
-        diffraction_enabled: FALSE
-        ###########################################################################
-        # Building entry loss type applied between BSs and HDFSS ES. Options are:
-        # P2109_RANDOM: random probability at P.2109 model, considering elevation
-        # P2109_FIXED: fixed probability at P.2109 model, considering elevation.
-        #              Probability must be specified in bs_building_entry_loss_prob.
-        # FIXED_VALUE: fixed value per BS. Value must be specified in
-        #              bs_building_entry_loss_value.
-        bs_building_entry_loss_type: FIXED_VALUE
-        ###########################################################################
-        # Probability of building entry loss not exceeded if
-        # bs_building_entry_loss_type = P2109_FIXED
-        bs_building_entry_loss_prob: 0.19
-        ###########################################################################
-        # Value in dB of building entry loss if
-        # bs_building_entry_loss_type = FIXED_VALUE
-        bs_building_entry_loss_value: 35
-
-        ###########################################################################
-        # HDFSS position relative to building it is on. Possible values are
-        # ROOFTOP and BUILDINGSIDE
-        es_position: BUILDINGSIDE
-        ###########################################################################
-        # Enable shadowing loss
-        shadow_enabled: TRUE
-        ###########################################################################
-        # Enable building entry loss
-        building_loss_enabled: TRUE
-        ###########################################################################
-        # Enable interference from IMT stations at the same building as the HDFSS
-        same_building_enabled: FALSE
-        ###########################################################################
-        # Enable diffraction loss
-        diffraction_enabled: FALSE
-        ###########################################################################
-        # Building entry loss type applied between BSs and HDFSS ES. Options are:
-        # P2109_RANDOM: random probability at P.2109 model, considering elevation
-        # P2109_FIXED: fixed probability at P.2109 model, considering elevation.
-        #              Probability must be specified in bs_building_entry_loss_prob.
-        # FIXED_VALUE: fixed value per BS. Value must be specified in
-        #              bs_building_entry_loss_value.
-        bs_building_entry_loss_type: P2109_FIXED
-        ###########################################################################
-        # Probability of building entry loss not exceeded if
-        # bs_building_entry_loss_type = P2109_FIXED
-        bs_building_entry_loss_prob: 0.75
-        ###########################################################################
-        # Value in dB of building entry loss if
-        # bs_building_entry_loss_type = FIXED_VALUE
-        bs_building_entry_loss_value: 35
-

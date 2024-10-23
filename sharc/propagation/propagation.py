@@ -10,8 +10,6 @@ import numpy as np
 
 from sharc.station_manager import StationManager
 from sharc.parameters.parameters import Parameters
-
-
 class Propagation(ABC):
     """
     Abstract base class for propagation models
@@ -23,15 +21,13 @@ class Propagation(ABC):
         self.is_earth_space_model = False
 
     @abstractmethod
-    def get_loss(
-        self,
-        params: Parameters,
-        frequency: float,
-        station_a: StationManager,
-        station_b: StationManager,
-        station_a_gains=None,
-        station_b_gains=None,
-    ) -> np.array:
+    def get_loss(self,
+                 params: Parameters,
+                 frequency: float,
+                 station_a: StationManager,
+                 station_b: StationManager,
+                 station_a_gains=None,
+                 station_b_gains=None) -> np.array:
         """Calculates the loss between station_a and station_b
 
         Parameters
@@ -46,6 +42,6 @@ class Propagation(ABC):
         Returns
         -------
         np.array
-            Return an array station_a.num_stations x station_b.num_stations with the path loss
+            Return an array station_a.num_stations x station_b.num_stations with the path loss 
             between each station
         """

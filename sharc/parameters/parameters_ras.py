@@ -2,6 +2,7 @@
 from dataclasses import dataclass
 import numpy as np
 
+from sharc.support.sharc_utils import is_float
 from sharc.parameters.parameters_base import ParametersBase
 from sharc.parameters.parameters_p619 import ParametersP619
 from sharc.parameters.constants import EARTH_RADIUS
@@ -13,7 +14,7 @@ class ParametersRas(ParametersBase):
     """
     Simulation parameters for Radio Astronomy Service
     """
-    section_name: str = "ras"
+    section_name: str = "RAS"
     # x-y coordinates [m]
     x: float = 81000.0
     y: float = 0.0
@@ -120,14 +121,14 @@ class ParametersRas(ParametersBase):
             raise ValueError(f"ParametersRas: \
                              Invalid value for parameter polarization - {self.polarization}. \
                              Allowed values are: \"horizontal\", \"vertical\"")
-        if isinstance(self.percentage_p, str) and self.percentage_p.upper() != "RANDOM":
+        if is_float(self.percentage_p):
+            self.percentage_p = float(self.percentage_p)
+        elif self.percentage_p.upper() != "RANDOM":
             raise ValueError(f"""ParametersRas:
                             Invalid value for parameter percentage_p - {self.percentage_p}.
                             Allowed values are \"RANDOM\" or a percentage ]0,1]""")
-
+  
         if self.channel_model == "P619":
             self.param_p619.load_from_paramters(self)
             # This is relative to the IMT space station nadir point which is always x=0; y=0.
-            self.param_p619.earth_station_long_diff_deg = np.rad2deg(
-                self.x / EARTH_RADIUS,
-            )
+            self.param_p619.earth_station_long_diff_deg = np.rad2deg(self.x / EARTH_RADIUS)

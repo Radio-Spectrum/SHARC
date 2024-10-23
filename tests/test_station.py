@@ -13,11 +13,10 @@ from sharc.antenna.antenna_omni import AntennaOmni
 from sharc.parameters.parameters_antenna_imt import ParametersAntennaImt
 from sharc.station import Station
 
-
 class StationTest(unittest.TestCase):
 
     def setUp(self):
-        # Array parameters
+        #Array parameters
         self.param = ParametersAntennaImt()
 
         self.param.adjacent_antenna_model = "SINGLE_ELEMENT"
@@ -61,7 +60,7 @@ class StationTest(unittest.TestCase):
         self.station.tx_power = 20
         self.station.rx_power = -3
         par = self.param.get_antenna_parameters(StationType.IMT_BS)
-        self.station.antenna = AntennaBeamformingImt(par, 300, -10)
+        self.station.antenna = AntennaBeamformingImt(par,300,-10)
 
         self.station2 = Station()
         self.station2.id = 1
@@ -72,7 +71,7 @@ class StationTest(unittest.TestCase):
         self.station2.tx_power = 17
         self.station2.rx_power = 9
         par = self.param.get_antenna_parameters(StationType.IMT_UE)
-        self.station2.antenna = AntennaBeamformingImt(par, 270, 2)
+        self.station2.antenna = AntennaBeamformingImt(par,270,2)
 
         self.station3 = Station()
         self.station3.id = 2
@@ -88,7 +87,7 @@ class StationTest(unittest.TestCase):
         self.assertEqual(self.station.id, 1)
 
     def test_station_type(self):
-        self.assertEqual(self.station.station_type, StationType.IMT_BS)
+        self.assertEqual(self.station.station_type,StationType.IMT_BS)
 
     def test_x(self):
         self.assertEqual(self.station.x, 10)

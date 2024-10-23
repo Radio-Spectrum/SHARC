@@ -11,8 +11,7 @@ def is_float(s: str) -> bool:
     bool
         whether the string is a float value or not
     """
-    try:
-        float(s)
+    if s.replace(".", "").isnumeric():
         return True
-    except ValueError:
+    else:
         return False

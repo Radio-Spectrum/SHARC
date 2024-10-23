@@ -23,17 +23,3 @@ This project may require additional software or libraries to run the simulations
 `python3 main_cli.py -p campaigns/imt_hibs_ras_2600_MHz/input/<campaign-parameter-file>`
 or on root
 `python3 sharc/main_cli.py -p sharc/campaigns/imt_hibs_ras_2600_MHz/input/<campaign-parameter-file>`
-
-# Running the scripts
-
-## For plotting 
-
-`python3 sharc/campaigns/imt_hibs_ras_2600_MHz/scripts/plot_results.py`
-
-## For starting simulation multi thread
-
-`sharc/campaigns/imt_hibs_ras_2600_MHz/scripts/start_simulations_multi_thread.py`
-
-## For starting simulation single thread
-
-`sharc/campaigns/imt_hibs_ras_2600_MHz/scripts/start_simulations_single_thread.py`

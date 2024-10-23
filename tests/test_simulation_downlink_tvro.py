@@ -14,6 +14,7 @@ from sharc.simulation_downlink import SimulationDownlink
 from sharc.parameters.parameters import Parameters
 from sharc.station_factory import StationFactory
 from sharc.propagation.propagation_factory import PropagationFactory
+from sharc.parameters.constants import BOLTZMANN_CONSTANT, EARTH_RADIUS, SPEED_OF_LIGHT
 
 
 class SimulationDownlinkTvroTest(unittest.TestCase):
@@ -34,7 +35,7 @@ class SimulationDownlinkTvroTest(unittest.TestCase):
         self.param.imt.intersite_distance = 150
         self.param.imt.minimum_separation_distance_bs_ue = 10
         self.param.imt.interfered_with = False
-        self.param.imt.frequency = 3590.0
+        self.param.imt.frequency = 3590
         self.param.imt.bandwidth = 20
         self.param.imt.rb_bandwidth = 0.180
         self.param.imt.spectral_mask = "3GPP E-UTRA"
@@ -161,21 +162,19 @@ class SimulationDownlinkTvroTest(unittest.TestCase):
         self.assertEqual(self.simulation.link, {0: [0, 1], 1: [2, 3]})
 
         self.simulation.propagation_imt = PropagationFactory.create_propagation(self.param.imt.channel_model,
-                                                                                self.param,
-                                                                                self.simulation.param_system,
-                                                                                random_number_gen)
+                                                                                self.param, random_number_gen)
         self.simulation.propagation_system = PropagationFactory.create_propagation(self.param.fss_es.channel_model,
-                                                                                   self.simulation.param_system,
                                                                                    self.param, random_number_gen)
 
         # test coupling loss method
-        self.simulation.coupling_loss_imt = self.simulation.calculate_intra_imt_coupling_loss(self.simulation.ue,
-                                                                                              self.simulation.bs)
-        path_loss_imt = np.array([[74.49, 79.50, 90.43, 93.11],
-                                  [90.81, 91.87, 72.25, 83.69]])
-        bs_antenna_gains = np.array([[3.04, 7.30, -6.45, -6.45],
-                                     [-6.45, -6.45, 1.63, 17.95]])
-        ue_antenna_gains = np.array([[-4, -4, -4, -4], [-4, -4, -4, -4]])
+        self.simulation.coupling_loss_imt = self.simulation.calculate_intra_imt_coupling_loss(self.simulation.bs,
+                                                                                              self.simulation.ue,
+                                                                                              self.simulation.propagation_imt)
+        path_loss_imt = np.array([[73.09,  79.11,  90.40,  93.09],
+                                  [90.78,  91.85,  69.57,  83.55]])
+        bs_antenna_gains = np.array([[3.04,   7.30,  -6.45,  -6.45],
+                                     [-6.45,  -6.45,   1.63,  17.95]])
+        ue_antenna_gains = np.array([[-4,  -4,  -4,  -4], [-4,  -4,  -4,  -4]])
         coupling_loss_imt = path_loss_imt - bs_antenna_gains - ue_antenna_gains \
             + self.param.imt.bs_ohmic_loss \
             + self.param.imt.ue_ohmic_loss \
@@ -186,13 +185,13 @@ class SimulationDownlinkTvroTest(unittest.TestCase):
 
         # test scheduler and bandwidth allocation
         self.simulation.scheduler()
-        bandwidth_per_ue = math.trunc((1 - 0.1) * 20 / 2)
+        bandwidth_per_ue = math.trunc((1 - 0.1)*20/2)
         npt.assert_allclose(self.simulation.ue.bandwidth,
-                            bandwidth_per_ue * np.ones(4), atol=1e-2)
+                            bandwidth_per_ue*np.ones(4), atol=1e-2)
 
         # there is no power control, so BS's will transmit at maximum power
         self.simulation.power_control()
-        tx_power = 46 - 10 * np.log10(2)
+        tx_power = 46 - 10*np.log10(2)
         npt.assert_allclose(self.simulation.bs.tx_power[0], np.array(
             [tx_power, tx_power]), atol=1e-2)
         npt.assert_allclose(self.simulation.bs.tx_power[1], np.array(
@@ -216,14 +215,14 @@ class SimulationDownlinkTvroTest(unittest.TestCase):
 
         # check UE thermal noise
         thermal_noise = 10 * \
-            np.log10(1.38064852e-23 * 290 * bandwidth_per_ue * 1e3 * 1e6) + 9
+            np.log10(1.38064852e-23*290*bandwidth_per_ue*1e3*1e6) + 9
         npt.assert_allclose(self.simulation.ue.thermal_noise,
                             thermal_noise, atol=1e-1)
 
         # check UE thermal noise + interference
         total_interference = 10 * \
-            np.log10(np.power(10, 0.1 * rx_interference) +
-                     np.power(10, 0.1 * thermal_noise))
+            np.log10(np.power(10, 0.1*rx_interference) +
+                     np.power(10, 0.1*thermal_noise))
         npt.assert_allclose(
             self.simulation.ue.total_interference, total_interference, atol=1e-1)
 
@@ -241,16 +240,15 @@ class SimulationDownlinkTvroTest(unittest.TestCase):
         self.simulation.system.x = np.array([600])
         self.simulation.system.y = np.array([0])
 
-        # test the method that calculates interference from IMT UE to FSS space
-        # station
+        # test the method that calculates interference from IMT UE to FSS space station
         self.simulation.calculate_external_interference()
 
         # check coupling loss from IMT_BS to FSS_ES
         # 4 values because we have 2 BS * 2 beams for each base station.
-        path_loss_imt_system = np.array([99.11, 99.11, 101.61, 101.61])
+        path_loss_imt_system = np.array([99.11,   99.11,  101.61,  101.61])
         polarization_loss = 3
-        tvro_antenna_gain = np.array([0, 0, 0, 0])
-        bs_antenna_gain = np.array([6.47, 6.47, -6.45, -6.45])
+        tvro_antenna_gain = np.array([0,  0,  0,  0])
+        bs_antenna_gain = np.array([6.47,  6.47, -6.45, -6.45])
         coupling_loss_imt_system = path_loss_imt_system - tvro_antenna_gain \
             - bs_antenna_gain \
             + polarization_loss \
@@ -262,8 +260,7 @@ class SimulationDownlinkTvroTest(unittest.TestCase):
 
         # check blocking signal
         interference = tx_power - coupling_loss_imt_system
-        rx_interference = 10 * \
-            math.log10(np.sum(np.power(10, 0.1 * interference)))
+        rx_interference = 10*math.log10(np.sum(np.power(10, 0.1*interference)))
         self.assertAlmostEqual(self.simulation.system.rx_interference,
                                rx_interference,
                                delta=.01)

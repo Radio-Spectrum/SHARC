@@ -14,7 +14,6 @@ from sharc.propagation.propagation_free_space import PropagationFreeSpace
 from sharc.propagation.propagation_clutter_loss import PropagationClutterLoss
 from sharc.support.enumerations import StationType
 
-
 class PropagationTerSimple(Propagation):
     # pylint: disable=function-redefined
     # pylint: disable=arguments-renamed
@@ -30,15 +29,13 @@ class PropagationTerSimple(Propagation):
         self.building_loss = 20
 
     @dispatch(Parameters, float, StationManager, StationManager, np.ndarray, np.ndarray)
-    def get_loss(
-        self,
-        params: Parameters,
-        frequency: float,
-        station_a: StationManager,
-        station_b: StationManager,
-        station_a_gains=None,
-        station_b_gains=None,
-    ) -> np.array:
+    def get_loss(self,
+                params: Parameters,
+                frequency: float,
+                station_a: StationManager,
+                station_b: StationManager,
+                station_a_gains=None,
+                station_b_gains=None) -> np.array:
         """Wrapper function for the get_loss method to fit the Propagation ABC class interface
         Calculates the loss between station_a and station_b
 
@@ -60,23 +57,20 @@ class PropagationTerSimple(Propagation):
         Returns
         -------
         np.array
-            Return an array station_a.num_stations x station_b.num_stations with the path loss
+            Return an array station_a.num_stations x station_b.num_stations with the path loss 
             between each station
         """
         distance = station_a.get_3d_distance_to(station_b)
         frequency_array = frequency * np.ones(distance.shape)
-        indoor_stations = np.tile(
-            station_b.indoor, (station_a.num_stations, 1),
-        )
+        indoor_stations = np.tile(station_b.indoor, (station_a.num_stations, 1))
 
         return self.get_loss(distance, frequency_array, indoor_stations, -1.0)
-
+    
     # pylint: disable=arguments-differ
     @dispatch(np.ndarray, np.ndarray, np.ndarray, float)
-    def get_loss(
-        self, distance: np.ndarray, frequency: np.ndarray, indoor_stations: np.ndarray,
-        loc_percentage: float,
-    ) -> np.array:
+    def get_loss(self, distance: np.ndarray, frequency: np.ndarray, indoor_stations: np.ndarray,
+                 loc_percentage: float) -> np.array:
+
         """Calculates loss with a simple terrestrial model:
         * Building loss is set statically in class construction
         * Clutter loss is calculated using P.2108 standard
@@ -99,20 +93,16 @@ class PropagationTerSimple(Propagation):
         np.array
             array of losses with distance dimentions
         """
-        free_space_loss = self.free_space.get_free_space_loss(
-            frequency, distance,
-        )
+        free_space_loss = self.free_space.get_free_space_loss(frequency, distance)
         if loc_percentage < 0:
             loc_percentage = "RANDOM"
 
-        clutter_loss = self.clutter.get_loss(
-            frequency=frequency,
-            distance=distance,
-            loc_percentage=loc_percentage,
-            station_type=StationType.FSS_ES,
-        )
+        clutter_loss = self.clutter.get_loss(frequency=frequency,
+                                             distance=distance,
+                                             loc_percentage=loc_percentage,
+                                             station_type=StationType.FSS_ES)
 
-        building_loss = self.building_loss * indoor_stations
+        building_loss = self.building_loss*indoor_stations
 
         loss = free_space_loss + building_loss + clutter_loss
 
@@ -127,8 +117,8 @@ if __name__ == '__main__':
     # Print path loss for TerrestrialSimple and Free Space
 
     d = np.linspace(10, 10000, num=10000)
-    freq = 27000 * np.ones(d.shape)
-    indoor_stations = np.zeros(d.shape, dtype=bool)
+    freq = 27000*np.ones(d.shape)
+    indoor_stations = np.zeros(d.shape, dtype = bool)
     loc_percentage = 0.5
 
     free_space = PropagationFreeSpace(np.random.RandomState(101))
@@ -138,13 +128,10 @@ if __name__ == '__main__':
 
     loss_fs = free_space.get_free_space_loss(freq, d)
 
-    fig = plt.figure(figsize=(8, 6), facecolor='w', edgecolor='k')
+    fig = plt.figure(figsize=(8,6), facecolor='w', edgecolor='k')
 
-    plt.semilogx(np.squeeze(d), np.squeeze(loss_fs), label="free space")
-    plt.semilogx(
-        np.squeeze(d), np.squeeze(loss_ter),
-        label="free space + clutter loss",
-    )
+    plt.semilogx(np.squeeze(d), np.squeeze(loss_fs), label = "free space")
+    plt.semilogx(np.squeeze(d), np.squeeze(loss_ter), label = "free space + clutter loss")
 
     plt.title("Free space with additional median clutter loss ($f=27GHz$)")
     plt.xlabel("distance [m]")

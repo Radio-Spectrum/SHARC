@@ -11,15 +11,14 @@ import numpy.testing as npt
 
 from sharc.station_factory import StationFactory
 
-
 class StationFactoryTest(unittest.TestCase):
-
+    
     def setUp(self):
         pass
-
+        
     def test_generate_imt_base_stations(self):
         pass
-
-
+    
+        
 if __name__ == '__main__':
-    unittest.main()
+    unittest.main()    

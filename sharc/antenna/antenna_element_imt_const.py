@@ -9,7 +9,6 @@ Created on Fri Apr 14 14:13:58 2017
 from sharc.support.named_tuples import AntennaPar
 import numpy as np
 
-
 class AntennaElementImtConst(object):
     """
     Implements a single element of an IMT antenna array with constant gain
@@ -20,7 +19,7 @@ class AntennaElementImtConst(object):
 
     """
 
-    def __init__(self, par: AntennaPar):
+    def __init__(self,par: AntennaPar):
         """
         Constructs an AntennaElementImt object.
 

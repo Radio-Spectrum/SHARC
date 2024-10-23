@@ -8,7 +8,7 @@ from sharc.parameters.parameters_base import ParametersBase
 class ParametersHaps(ParametersBase):
     """Dataclass containing the IMT system parameters
     """
-    section_name: str = "haps"
+    section_name: str = "HAPS"
     # HAPS center frequency [MHz]
     frequency: float = 27250.0
     # HAPS bandwidth [MHz]
@@ -38,7 +38,7 @@ class ParametersHaps(ParametersBase):
     earth_station_alt_m: float = 0.0
     earth_station_lat_deg: float = 0.0
     earth_station_long_diff_deg: float = 0.0
-    season: str = "SUMMER"
+    season:str = "SUMMER"
     # Adjacent channel selectivity [dB]
     acs: float = 30.0
     # Channel parameters
@@ -76,7 +76,8 @@ class ParametersHaps(ParametersBase):
             raise ValueError(f"ParametersHaps: \
                              Invalid value for parameter season - {self.season}. \
                              Possible values are \"SUMMER\", \"WINTER\".")
-
+        
         # Post initialization
         # tx antenna power density [dBW/MHz]
         self.tx_power_density = self.eirp_density - self.antenna_gain - 60
+

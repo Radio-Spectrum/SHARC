@@ -1,22 +1,21 @@
 from dataclasses import dataclass
 from sharc.parameters.parameters_base import ParametersBase
 
-
 @dataclass
 class ParametersHotspot(ParametersBase):
     """
     Parameters definitions for Hotspot systems.
     """
-    section_name: str = "hotspot"
+    section_name: str = "HOTSPOT"
     # Number of hotspots per macro cell (sector).
-    num_hotspots_per_cell: int = 1
+    num_hotspots_per_cell:int = 1
 
     # Maximum 2D distance between hotspot and UE [m].
     # This is the hotspot radius.
-    max_dist_hotspot_ue: float = 100.0
+    max_dist_hotspot_ue:float = 100.0
 
     # Minimum 2D distance between macro cell base station and hotspot [m].
-    min_dist_bs_hotspot: float = 0.0
+    min_dist_bs_hotspot:float = 0.0
 
     def load_parameters_from_file(self, config_file: str):
         """

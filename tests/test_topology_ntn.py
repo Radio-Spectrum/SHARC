@@ -28,36 +28,34 @@ class TopologyNTNTest(unittest.TestCase):
 
     def test_single_sector(self):
         topology = TopologyNTN(
-            self.intersite_distance,
-            self.cell_radius,
-            self.bs_height,
-            self.bs_azimuth,
-            self.bs_elevation,
-            num_sectors=1)
+                            self.intersite_distance,
+                            self.cell_radius,
+                            self.bs_height,
+                            self.bs_azimuth,
+                            self.bs_elevation,
+                            num_sectors=1)
         topology.calculate_coordinates()
         expected_x = expected_y = expected_z = [0]
         self.assertListEqual(list(topology.x), expected_x)
         self.assertListEqual(list(topology.y), expected_y)
         self.assertListEqual(list(topology.z), expected_z)
         expected_azimuth = [-135.0]
-        for actual_azi, expected_azi in zip(
-                topology.azimuth, expected_azimuth):
+        for actual_azi, expected_azi in zip(topology.azimuth, expected_azimuth):
             # cannot check asserListEqual because of float precision
             self.assertAlmostEqual(actual_azi, expected_azi, places=3)
         expected_elevation = [-45.0]
-        for expected_elev, actual_elev in zip(
-                topology.elevation, expected_elevation):
+        for expected_elev, actual_elev in zip(topology.elevation, expected_elevation):
             # cannot check asserListEqual because of float precision
             self.assertAlmostEqual(actual_elev, expected_elev, places=3)
 
     def test_seven_sectors(self):
         topology = TopologyNTN(
-            self.intersite_distance,
-            self.cell_radius,
-            self.bs_height,
-            self.bs_azimuth,
-            self.bs_elevation,
-            num_sectors=7)
+                            self.intersite_distance,
+                            self.cell_radius,
+                            self.bs_height,
+                            self.bs_azimuth,
+                            self.bs_elevation,
+                            num_sectors=7)
         topology.calculate_coordinates()
 
         d = self.intersite_distance
@@ -83,36 +81,28 @@ class TopologyNTNTest(unittest.TestCase):
         space_x = np.repeat(topology.space_station_x, topology.num_sectors)
         space_y = np.repeat(topology.space_station_y, topology.num_sectors)
         space_z = np.repeat(topology.space_station_z, topology.num_sectors)
-        # using expected_x and expected_y so this test is independent of other
-        # tests
-        expected_azimuth = np.arctan2(
-            expected_y - space_y,
-            expected_x - space_x) * 180 / np.pi
-        expected_dist_xy = np.sqrt(
-            (expected_x - space_x)**2 + (expected_y - space_y)**2)
+        # using expected_x and expected_y so this test is independent of other tests
+        expected_azimuth = np.arctan2(expected_y - space_y, expected_x - space_x) * 180 / np.pi
+        expected_dist_xy = np.sqrt((expected_x - space_x)**2 + (expected_y - space_y)**2)
         # using expected_z so this test is independent of other tests
-        expected_elevation = np.arctan2(
-            expected_z - space_z,
-            expected_dist_xy) * 180 / np.pi
+        expected_elevation = np.arctan2(expected_z - space_z, expected_dist_xy) * 180 / np.pi
 
         # testing expected azimuth and elevation
-        for actual_azi, expected_azi in zip(
-                topology.azimuth, expected_azimuth):
+        for actual_azi, expected_azi in zip(topology.azimuth, expected_azimuth):
             # cannot check asserListEqual because of float precision
             self.assertAlmostEqual(actual_azi, expected_azi, places=3)
-        for expected_elev, actual_elev in zip(
-                topology.elevation, expected_elevation):
+        for expected_elev, actual_elev in zip(topology.elevation, expected_elevation):
             # cannot check asserListEqual because of float precision
             self.assertAlmostEqual(actual_elev, expected_elev, places=3)
 
     def test_nineteen_sectors(self):
         topology = TopologyNTN(
-            self.intersite_distance,
-            self.cell_radius,
-            self.bs_height,
-            self.bs_azimuth,
-            self.bs_elevation,
-            num_sectors=19)
+                            self.intersite_distance,
+                            self.cell_radius,
+                            self.bs_height,
+                            self.bs_azimuth,
+                            self.bs_elevation,
+                            num_sectors=19)
         topology.calculate_coordinates()
 
         d = self.intersite_distance
@@ -120,11 +110,11 @@ class TopologyNTNTest(unittest.TestCase):
         # defining expected x, y, z
         expected_x = [0]
         expected_y = [0]
-        expected_x.extend([d * self.cos(30 + 60 * k) for k in range(6)])
-        expected_y.extend([d * self.sin(30 + 60 * k) for k in range(6)])
+        expected_x.extend([d * self.cos(30+60*k) for k in range(6)])
+        expected_y.extend([d * self.sin(30+60*k) for k in range(6)])
         for k in range(6):
             # already rotated 30 degrees
-            angle = 30 + k * 60
+            angle = 30+k*60
             expected_x.append(2 * d * self.cos(angle))
             expected_y.append(2 * d * self.sin(angle))
             expected_x.append(d * self.cos(angle) + d * self.cos(angle + 60))
@@ -144,25 +134,17 @@ class TopologyNTNTest(unittest.TestCase):
         space_x = np.repeat(topology.space_station_x, topology.num_sectors)
         space_y = np.repeat(topology.space_station_y, topology.num_sectors)
         space_z = np.repeat(topology.space_station_z, topology.num_sectors)
-        # using expected_x and expected_y so this test is independent of other
-        # tests
-        expected_azimuth = np.arctan2(
-            expected_y - space_y,
-            expected_x - space_x) * 180 / np.pi
-        expected_distance_xy = np.sqrt(
-            (expected_x - space_x)**2 + (expected_y - space_y)**2)
+        # using expected_x and expected_y so this test is independent of other tests
+        expected_azimuth = np.arctan2(expected_y - space_y, expected_x - space_x) * 180 / np.pi
+        expected_distance_xy = np.sqrt((expected_x - space_x)**2 + (expected_y - space_y)**2)
         # using expected_z so this test is independent of other tests
-        expected_elevation = np.arctan2(
-            expected_z - space_z,
-            expected_distance_xy) * 180 / np.pi
+        expected_elevation = np.arctan2(expected_z - space_z, expected_distance_xy) * 180 / np.pi
 
         # testing expected azimuth and elevation
-        for actual_azi, expected_azi in zip(
-                topology.azimuth, expected_azimuth):
+        for actual_azi, expected_azi in zip(topology.azimuth, expected_azimuth):
             # cannot check asserListEqual because of float precision
             self.assertAlmostEqual(actual_azi, expected_azi, places=3)
-        for expected_elev, actual_elev in zip(
-                topology.elevation, expected_elevation):
+        for expected_elev, actual_elev in zip(topology.elevation, expected_elevation):
             # cannot check asserListEqual because of float precision
             self.assertAlmostEqual(actual_elev, expected_elev, places=3)
 

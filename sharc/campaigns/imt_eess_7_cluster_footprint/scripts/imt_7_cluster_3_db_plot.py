@@ -140,7 +140,6 @@ class TopologyMacrocell:
         # Plot satellite and normal vector
         ax.quiver(0, 0, 0, 0, 0, satellite_position[2], color='k', label=f'Height = {satellite_position[2]} Km', arrow_length_ratio=0, pivot='tail')
         ax.scatter(satellite_position[0], satellite_position[1], satellite_position[2], c='k', marker='^', s=55, label='Satellite')
-        ax.scatter(satellite_position[0], satellite_position[1], satellite_position[2], c='r', marker='^', s=50, label='Satellite')
         
         # Add color bar for signal strength
         m = plt.cm.ScalarMappable(cmap='jet')

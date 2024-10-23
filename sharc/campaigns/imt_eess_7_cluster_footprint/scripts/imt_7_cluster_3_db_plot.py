@@ -1,3 +1,10 @@
+# -*- coding: utf-8 -*-
+
+"""
+@author: Thiago Ferreira
+
+"""
+
 import matplotlib.pyplot as plt
 import math
 import numpy as np
@@ -15,6 +22,14 @@ from sharc.antenna.antenna_s1528 import AntennaS1528, AntennaS1528Leo
 from sharc.station_manager import StationManager as station_manager
 from sharc.support.enumerations import StationType as station_type
 from sharc.station_factory import StationFactory as station_factory
+
+""" 
+
+    Class topology macrocell is defined in sharc/topology, and was estabilished an imt macrocell structure that represents the 
+SHARC simulation, validation and benchmarking, the objetive of this class is to implement the multi-cluster study for EESS
+footprint satellite and the respective gain in different points of terrestrial macrocell structure.
+
+"""
 
 class TopologyMacrocell:
     AZIMUTH = [60, 180, 300]
@@ -113,8 +128,8 @@ class TopologyMacrocell:
             vector_to_base_station = (base_station_position - satellite_position) / distance
             cosine_angle = np.dot(normal_vector, vector_to_base_station)  # Projection onto normal
                         
-            signal_strength = (param_eess.antenna_gain / (distance)**2 ) * param_eess.antenna_efficiency
-            signal_strengths.append(signal_strength)
+            signal_strength = (param_eess.antenna_gain / (distance)**2 ) * param_eess.antenna_efficiency # Issues in implementation of the signal strength related to propagation and atenuation of satellite beamforming
+            signal_strengths.append(signal_strength) 
         
         signal_strengths = np.array(signal_strengths)
         signal_strengths_normalized = (signal_strengths - np.min(signal_strengths)) / (np.max(signal_strengths) - np.min(signal_strengths))

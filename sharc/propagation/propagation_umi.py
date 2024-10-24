@@ -55,10 +55,13 @@ class PropagationUMi(Propagation):
             Return an array station_a.num_stations x station_b.num_stations with the path loss
             between each station
         """
-        wrap_around_enabled = \
-            params.imt.wrap_around and \
-            (params.imt.topology == 'MACROCELL' or params.imt.topology == 'HOTSPOT') and \
-            params.imt.num_clusters == 1
+        wrap_around_enabled = False
+        if params.imt.topology.type == "MACROCELL":
+            wrap_around_enabled = params.imt.topology.macrocell.wrap_around \
+                                    and params.imt.topology.macrocell.num_clusters == 1
+        if params.imt.topology.type == "HOTSPOT":
+            wrap_around_enabled = params.imt.topology.hotspot.wrap_around \
+                                    and params.imt.topology.hotspot.num_clusters == 1
 
         if wrap_around_enabled:
             bs_to_ue_dist_2d, bs_to_ue_dist_3d, _, _ = \

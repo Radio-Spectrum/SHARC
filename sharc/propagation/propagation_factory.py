@@ -8,7 +8,7 @@ Created on Thu Jul  6 16:03:24 2017
 import sys
 import numpy.random as rnd
 from sharc.parameters.parameters_base import ParametersBase
-from sharc.parameters.parameters_imt import ParametersImt
+from sharc.parameters.imt.parameters_imt import ParametersImt
 from sharc.parameters.parameters import Parameters
 from sharc.propagation.propagation import Propagation
 from sharc.propagation.propagation_free_space import PropagationFreeSpace
@@ -70,17 +70,17 @@ class PropagationFactory(object):
             return PropagationTerSimple(random_number_gen)
         elif channel_model == "P619":
             if isinstance(param_system, ParametersImt):
-                if param_system.topology != "NTN":
+                if param_system.topology.type != "NTN":
                     raise ValueError(
-                        f"PropagationFactory: Channel model P.619 is invalid for topolgy {param.imt.topology}",
+                        f"PropagationFactory: Channel model P.619 is invalid for topolgy {param.imt.topology.type}",
                     )
             else:
                 # P.619 model is used only for space-to-earth links
-                if param.imt.topology != "NTN" and not param_system.is_space_to_earth:
+                if param.imt.topology.type != "NTN" and not param_system.is_space_to_earth:
                     raise ValueError((
                         "PropagationFactory: Channel model P.619 is invalid"
                         f"for system {param.general.system} and IMT "
-                        f"topology {param.imt.topology}"
+                        f"topology {param.imt.topology.type}"
                     ))
             return PropagationP619(
                 random_number_gen=random_number_gen,
@@ -105,8 +105,8 @@ class PropagationFactory(object):
         elif channel_model == "INDOOR":
             return PropagationIndoor(
                 random_number_gen,
-                param.indoor,
-                param.imt.ue_k * param.imt.ue_k_m,
+                param.imt.topology.indoor,
+                param.imt.ue.k * param.imt.ue.k_m,
             )
         else:
             sys.stderr.write("ERROR\nInvalid channel_model: " + channel_model)

@@ -16,7 +16,7 @@ from shapely.geometry import Polygon
 
 from sharc.topology.topology import Topology
 from sharc.topology.topology_macrocell import TopologyMacrocell
-from sharc.parameters.parameters_hotspot import ParametersHotspot
+from sharc.parameters.imt.parameters_hotspot import ParametersHotspot
 
 
 class TopologyHotspot(Topology):

@@ -38,7 +38,7 @@ class SimulationDownlink(Simulation):
         # network load factor)
         self.bs = StationFactory.generate_imt_base_stations(
             self.parameters.imt,
-            self.parameters.antenna_imt,
+            self.parameters.imt.bs.antenna,
             self.topology, random_number_gen,
         )
 
@@ -50,7 +50,7 @@ class SimulationDownlink(Simulation):
         # Create IMT user equipments
         self.ue = StationFactory.generate_imt_ue(
             self.parameters.imt,
-            self.parameters.antenna_imt,
+            self.parameters.imt.ue.antenna,
             self.topology, random_number_gen,
         )
 
@@ -88,16 +88,16 @@ class SimulationDownlink(Simulation):
         """
         # Currently, the maximum transmit power of the base station is equaly
         # divided among the selected UEs
-        total_power = self.parameters.imt.bs_conducted_power \
+        total_power = self.parameters.imt.bs.conducted_power \
             + self.bs_power_gain
-        tx_power = total_power - 10 * math.log10(self.parameters.imt.ue_k)
+        tx_power = total_power - 10 * math.log10(self.parameters.imt.ue.k)
         # calculate transmit powers to have a structure such as
         # {bs_1: [pwr_1, pwr_2,...], ...}, where bs_1 is the base station id,
         # pwr_1 is the transmit power from bs_1 to ue_1, pwr_2 is the transmit
         # power from bs_1 to ue_2, etc
         bs_active = np.where(self.bs.active)[0]
         self.bs.tx_power = dict(
-            [(bs, tx_power * np.ones(self.parameters.imt.ue_k))
+            [(bs, tx_power * np.ones(self.parameters.imt.ue.k))
              for bs in bs_active],
         )
 
@@ -202,8 +202,8 @@ class SimulationDownlink(Simulation):
             active_beams = [
                 i for i in range(
                     bs *
-                    self.parameters.imt.ue_k, (bs + 1) *
-                    self.parameters.imt.ue_k,
+                    self.parameters.imt.ue.k, (bs + 1) *
+                    self.parameters.imt.ue.k,
                 )
             ]
 
@@ -213,11 +213,11 @@ class SimulationDownlink(Simulation):
                     weights = self.calculate_bw_weights(
                         self.parameters.imt.bandwidth,
                         self.param_system.bandwidth,
-                        self.parameters.imt.ue_k,
+                        self.parameters.imt.ue.k,
                     )
                 else:
                     acs = self.param_system.adjacent_ch_selectivity
-                    weights = np.ones(self.parameters.imt.ue_k)
+                    weights = np.ones(self.parameters.imt.ue.k)
 
                 interference = self.bs.tx_power[bs] - \
                     self.coupling_loss_imt_system[active_beams]
@@ -235,7 +235,7 @@ class SimulationDownlink(Simulation):
                 # included in coupling loss. Then, care has to be taken;
                 # otherwise ohmic loss will be included twice.
                 oob_power = self.bs.spectral_mask.power_calc(self.param_system.frequency, self.system.bandwidth) \
-                    + self.parameters.imt.bs_ohmic_loss
+                    + self.parameters.imt.bs.ohmic_loss
 
                 oob_interference = oob_power \
                     - self.coupling_loss_imt_system_adjacent[active_beams[0]] \
@@ -294,18 +294,18 @@ class SimulationDownlink(Simulation):
 
             tput = self.calculate_imt_tput(
                 self.ue.sinr[ue],
-                self.parameters.imt.dl_sinr_min,
-                self.parameters.imt.dl_sinr_max,
-                self.parameters.imt.dl_attenuation_factor,
+                self.parameters.imt.downlink.sinr_min,
+                self.parameters.imt.downlink.sinr_max,
+                self.parameters.imt.downlink.attenuation_factor,
             )
             self.results.imt_dl_tput.extend(tput.tolist())
 
             if self.parameters.imt.interfered_with:
                 tput_ext = self.calculate_imt_tput(
                     self.ue.sinr_ext[ue],
-                    self.parameters.imt.dl_sinr_min,
-                    self.parameters.imt.dl_sinr_max,
-                    self.parameters.imt.dl_attenuation_factor,
+                    self.parameters.imt.downlink.sinr_min,
+                    self.parameters.imt.downlink.sinr_max,
+                    self.parameters.imt.downlink.attenuation_factor,
                 )
                 self.results.imt_dl_tput_ext.extend(tput_ext.tolist())
                 self.results.imt_dl_sinr_ext.extend(
@@ -333,8 +333,8 @@ class SimulationDownlink(Simulation):
                 active_beams = [
                     i for i in range(
                         bs *
-                        self.parameters.imt.ue_k, (bs + 1) *
-                        self.parameters.imt.ue_k,
+                        self.parameters.imt.ue.k, (bs + 1) *
+                        self.parameters.imt.ue.k,
                     )
                 ]
                 self.results.system_imt_antenna_gain.extend(

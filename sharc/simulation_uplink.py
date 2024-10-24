@@ -38,7 +38,7 @@ class SimulationUplink(Simulation):
         # network load factor)
         self.bs = StationFactory.generate_imt_base_stations(
             self.parameters.imt,
-            self.parameters.antenna_imt,
+            self.parameters.imt.bs.antenna,
             self.topology, random_number_gen,
         )
 
@@ -50,7 +50,7 @@ class SimulationUplink(Simulation):
         # Create IMT user equipments
         self.ue = StationFactory.generate_imt_ue(
             self.parameters.imt,
-            self.parameters.antenna_imt,
+            self.parameters.imt.ue.antenna,
             self.topology, random_number_gen,
         )
         # self.plot_scenario()
@@ -83,19 +83,19 @@ class SimulationUplink(Simulation):
         """
         Apply uplink power control algorithm
         """
-        if self.parameters.imt.ue_tx_power_control == "OFF":
+        if self.parameters.imt.ue.tx_power_control == "OFF":
             ue_active = np.where(self.ue.active)[0]
-            self.ue.tx_power[ue_active] = self.parameters.imt.ue_p_cmax * \
+            self.ue.tx_power[ue_active] = self.parameters.imt.ue.p_cmax * \
                 np.ones(len(ue_active))
         else:
             bs_active = np.where(self.bs.active)[0]
             for bs in bs_active:
                 ue = self.link[bs]
-                p_cmax = self.parameters.imt.ue_p_cmax
+                p_cmax = self.parameters.imt.ue.p_cmax
                 m_pusch = self.num_rb_per_ue
-                p_o_pusch = self.parameters.imt.ue_p_o_pusch
-                alpha = self.parameters.imt.ue_alpha
-                ue_power_dynamic_range = self.parameters.imt.ue_power_dynamic_range
+                p_o_pusch = self.parameters.imt.ue.p_o_pusch
+                alpha = self.parameters.imt.ue.alpha
+                ue_power_dynamic_range = self.parameters.imt.ue.power_dynamic_range
                 cl = self.coupling_loss_imt[bs, ue]
                 self.ue.tx_power[ue] = np.minimum(
                     p_cmax, 10 * np.log10(m_pusch) + p_o_pusch + alpha * cl,
@@ -105,7 +105,7 @@ class SimulationUplink(Simulation):
                     self.ue.tx_power[ue], p_cmax - ue_power_dynamic_range,
                 )
         if self.adjacent_channel:
-            self.ue_power_diff = self.parameters.imt.ue_p_cmax - self.ue.tx_power
+            self.ue_power_diff = self.parameters.imt.ue.p_cmax - self.ue.tx_power
 
     def calculate_sinr(self):
         """
@@ -167,7 +167,7 @@ class SimulationUplink(Simulation):
         for bs in bs_active:
             active_beams = [
                 i for i in range(
-                bs * self.parameters.imt.ue_k, (bs + 1) * self.parameters.imt.ue_k,
+                bs * self.parameters.imt.ue.k, (bs + 1) * self.parameters.imt.ue.k,
                 )
             ]
             self.bs.ext_interference[bs] = tx_power[bs] - \
@@ -219,11 +219,11 @@ class SimulationUplink(Simulation):
                     weights = self.calculate_bw_weights(
                         self.parameters.imt.bandwidth,
                         self.param_system.bandwidth,
-                        self.parameters.imt.ue_k,
+                        self.parameters.imt.ue.k,
                     )
                 else:
                     acs = self.param_system.adjacent_ch_selectivity
-                    weights = np.ones(self.parameters.imt.ue_k)
+                    weights = np.ones(self.parameters.imt.ue.k)
 
                 interference_ue = self.ue.tx_power[ue] - \
                     self.coupling_loss_imt_system[ue]
@@ -241,7 +241,7 @@ class SimulationUplink(Simulation):
                 # otherwise ohmic loss will be included twice.
                 oob_power = self.ue.spectral_mask.power_calc(self.param_system.frequency, self.system.bandwidth)\
                     - self.ue_power_diff[ue] \
-                    + self.parameters.imt.ue_ohmic_loss
+                    + self.parameters.imt.ue.ohmic_loss
                 oob_interference_array = oob_power - self.coupling_loss_imt_system_adjacent[ue] \
                     + 10 * np.log10(
                         (self.param_system.bandwidth - self.overlapping_bandwidth) /
@@ -304,18 +304,18 @@ class SimulationUplink(Simulation):
 
             tput = self.calculate_imt_tput(
                 self.bs.sinr[bs],
-                self.parameters.imt.ul_sinr_min,
-                self.parameters.imt.ul_sinr_max,
-                self.parameters.imt.ul_attenuation_factor,
+                self.parameters.imt.uplink.sinr_min,
+                self.parameters.imt.uplink.sinr_max,
+                self.parameters.imt.uplink.attenuation_factor,
             )
             self.results.imt_ul_tput.extend(tput.tolist())
 
             if self.parameters.imt.interfered_with:
                 tput_ext = self.calculate_imt_tput(
                     self.bs.sinr_ext[bs],
-                    self.parameters.imt.ul_sinr_min,
-                    self.parameters.imt.ul_sinr_max,
-                    self.parameters.imt.ul_attenuation_factor,
+                    self.parameters.imt.uplink.sinr_min,
+                    self.parameters.imt.uplink.sinr_max,
+                    self.parameters.imt.uplink.attenuation_factor,
                 )
                 self.results.imt_ul_tput_ext.extend(tput_ext.tolist())
                 self.results.imt_ul_sinr_ext.extend(
@@ -325,7 +325,7 @@ class SimulationUplink(Simulation):
 
                 active_beams = [
                     i for i in range(
-                    bs * self.parameters.imt.ue_k, (bs + 1) * self.parameters.imt.ue_k,
+                    bs * self.parameters.imt.ue.k, (bs + 1) * self.parameters.imt.ue.k,
                     )
                 ]
                 self.results.system_imt_antenna_gain.extend(

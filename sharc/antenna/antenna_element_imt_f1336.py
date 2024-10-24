@@ -161,7 +161,7 @@ class AntennaElementImtF1336(object):
 
 if __name__ == '__main__':
 
-    from sharc.parameters.parameters_antenna_imt import ParametersAntennaImt
+    from sharc.parameters.imt.parameters_antenna_imt import ParametersAntennaImt
     from matplotlib import pyplot as plt
 
     param = ParametersAntennaImt()

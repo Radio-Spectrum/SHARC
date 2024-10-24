@@ -6,7 +6,7 @@ Created on Tue Dec  5 15:45:26 2017
 """
 
 from sharc.topology.topology import Topology
-from sharc.parameters.parameters_indoor import ParametersIndoor
+from sharc.parameters.imt.parameters_indoor import ParametersIndoor
 import matplotlib.pyplot as plt
 import matplotlib.axes
 

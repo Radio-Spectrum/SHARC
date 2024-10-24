@@ -4,8 +4,8 @@ Created on Wed Apr 4 17:08:00 2018
 @author: Calil
 """
 from sharc.antenna.antenna import Antenna
-from sharc.parameters.parameters_imt import ParametersImt
-from sharc.parameters.parameters_antenna_imt import ParametersAntennaImt
+from sharc.parameters.imt.parameters_imt import ParametersImt
+from sharc.parameters.imt.parameters_antenna_imt import ParametersAntennaImt
 import numpy as np
 import math
 

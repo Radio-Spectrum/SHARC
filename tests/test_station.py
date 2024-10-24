@@ -10,7 +10,7 @@ import unittest
 from sharc.support.enumerations import StationType
 from sharc.antenna.antenna_beamforming_imt import AntennaBeamformingImt
 from sharc.antenna.antenna_omni import AntennaOmni
-from sharc.parameters.parameters_antenna_imt import ParametersAntennaImt
+from sharc.parameters.imt.parameters_antenna_imt import ParametersAntennaImt
 from sharc.station import Station
 
 
@@ -18,39 +18,40 @@ class StationTest(unittest.TestCase):
 
     def setUp(self):
         # Array parameters
-        self.param = ParametersAntennaImt()
+        self.bs_param = ParametersAntennaImt()
+        self.ue_param = ParametersAntennaImt()
 
-        self.param.adjacent_antenna_model = "SINGLE_ELEMENT"
-        self.param.bs_normalization = False
-        self.param.bs_normalization_file = None
-        self.param.bs_element_pattern = "M2101"
-        self.param.bs_minimum_array_gain = -200
-        self.param.bs_element_max_g = 10
-        self.param.bs_element_phi_3db = 65
-        self.param.bs_element_theta_3db = 75
-        self.param.bs_element_am = 35
-        self.param.bs_element_sla_v = 25
-        self.param.bs_n_rows = 8
-        self.param.bs_n_columns = 8
-        self.param.bs_element_horiz_spacing = 0.5
-        self.param.bs_element_vert_spacing = 0.5
-        self.param.bs_multiplication_factor = 12
-        self.param.bs_downtilt = 0
+        self.bs_param.adjacent_antenna_model = "SINGLE_ELEMENT"
+        self.bs_param.normalization = False
+        self.bs_param.normalization_file = None
+        self.bs_param.element_pattern = "M2101"
+        self.bs_param.minimum_array_gain = -200
+        self.bs_param.element_max_g = 10
+        self.bs_param.element_phi_3db = 65
+        self.bs_param.element_theta_3db = 75
+        self.bs_param.element_am = 35
+        self.bs_param.element_sla_v = 25
+        self.bs_param.n_rows = 8
+        self.bs_param.n_columns = 8
+        self.bs_param.element_horiz_spacing = 0.5
+        self.bs_param.element_vert_spacing = 0.5
+        self.bs_param.multiplication_factor = 12
+        self.bs_param.downtilt = 0
 
-        self.param.ue_element_pattern = "M2101"
-        self.param.ue_normalization = False
-        self.param.ue_normalization_file = None
-        self.param.ue_minimum_array_gain = -200
-        self.param.ue_element_max_g = 10
-        self.param.ue_element_phi_3db = 75
-        self.param.ue_element_theta_3db = 65
-        self.param.ue_element_am = 25
-        self.param.ue_element_sla_v = 35
-        self.param.ue_n_rows = 2
-        self.param.ue_n_columns = 2
-        self.param.ue_element_horiz_spacing = 0.5
-        self.param.ue_element_vert_spacing = 0.5
-        self.param.ue_multiplication_factor = 12
+        self.ue_param.element_pattern = "M2101"
+        self.ue_param.normalization = False
+        self.ue_param.normalization_file = None
+        self.ue_param.minimum_array_gain = -200
+        self.ue_param.element_max_g = 10
+        self.ue_param.element_phi_3db = 75
+        self.ue_param.element_theta_3db = 65
+        self.ue_param.element_am = 25
+        self.ue_param.element_sla_v = 35
+        self.ue_param.n_rows = 2
+        self.ue_param.n_columns = 2
+        self.ue_param.element_horiz_spacing = 0.5
+        self.ue_param.element_vert_spacing = 0.5
+        self.ue_param.multiplication_factor = 12
 
         self.station = Station()
         self.station.id = 1
@@ -60,7 +61,7 @@ class StationTest(unittest.TestCase):
         self.station.height = 6
         self.station.tx_power = 20
         self.station.rx_power = -3
-        par = self.param.get_antenna_parameters(StationType.IMT_BS)
+        par = self.bs_param.get_antenna_parameters()
         self.station.antenna = AntennaBeamformingImt(par, 300, -10)
 
         self.station2 = Station()
@@ -71,7 +72,7 @@ class StationTest(unittest.TestCase):
         self.station2.height = 6
         self.station2.tx_power = 17
         self.station2.rx_power = 9
-        par = self.param.get_antenna_parameters(StationType.IMT_UE)
+        par = self.ue_param.get_antenna_parameters()
         self.station2.antenna = AntennaBeamformingImt(par, 270, 2)
 
         self.station3 = Station()

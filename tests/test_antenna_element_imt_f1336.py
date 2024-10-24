@@ -10,7 +10,7 @@ import unittest
 import numpy.testing as npt
 
 from sharc.antenna.antenna_element_imt_f1336 import AntennaElementImtF1336
-from sharc.parameters.parameters_antenna_imt import ParametersAntennaImt
+from sharc.parameters.imt.parameters_antenna_imt import ParametersAntennaImt
 from sharc.support.enumerations import StationType
 
 
@@ -18,29 +18,29 @@ class AntennaElementImtF1336Test(unittest.TestCase):
 
     def setUp(self):
         # Element parameters
-        self.param = ParametersAntennaImt()
+        self.bs_param = ParametersAntennaImt()
 
-        self.param.adjacent_antenna_model = "SINGLE_ELEMENT"
-        self.param.bs_element_pattern = "F1336"
-        self.param.bs_minimum_array_gain = -200
-        self.param.bs_normalization = False
-        self.param.bs_downtilt = 0
+        self.bs_param.adjacent_antenna_model = "SINGLE_ELEMENT"
+        self.bs_param.element_pattern = "F1336"
+        self.bs_param.minimum_array_gain = -200
+        self.bs_param.normalization = False
+        self.bs_param.downtilt = 0
 
-        self.param.bs_normalization_file = None
-        self.param.bs_element_max_g = 18
-        self.param.bs_element_phi_3db = 65
-        self.param.bs_element_theta_3db = 0
-        self.param.bs_n_rows = 1
-        self.param.bs_n_columns = 1
+        self.bs_param.normalization_file = None
+        self.bs_param.element_max_g = 18
+        self.bs_param.element_phi_3db = 65
+        self.bs_param.element_theta_3db = 0
+        self.bs_param.n_rows = 1
+        self.bs_param.n_columns = 1
 
-        self.param.bs_element_am = 30
-        self.param.bs_element_sla_v = 30
-        self.param.bs_element_horiz_spacing = 0.5
-        self.param.bs_element_vert_spacing = 0.5
-        self.param.bs_multiplication_factor = 12
+        self.bs_param.element_am = 30
+        self.bs_param.element_sla_v = 30
+        self.bs_param.element_horiz_spacing = 0.5
+        self.bs_param.element_vert_spacing = 0.5
+        self.bs_param.multiplication_factor = 12
 
         # Create antenna IMT objects
-        par = self.param.get_antenna_parameters(StationType.IMT_BS)
+        par = self.bs_param.get_antenna_parameters()
         self.antenna1 = AntennaElementImtF1336(par)
 
     def test_g_max(self):

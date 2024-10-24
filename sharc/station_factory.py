@@ -12,8 +12,8 @@ import math
 
 from sharc.support.enumerations import StationType
 from sharc.parameters.parameters import Parameters
-from sharc.parameters.parameters_imt import ParametersImt
-from sharc.parameters.parameters_antenna_imt import ParametersAntennaImt
+from sharc.parameters.imt.parameters_imt import ParametersImt
+from sharc.parameters.imt.parameters_antenna_imt import ParametersAntennaImt
 from sharc.parameters.parameters_space_station import ParametersSpaceStation
 from sharc.parameters.parameters_eess_ss import ParametersEessSS
 from sharc.parameters.parameters_metsat_ss import ParametersMetSatSS
@@ -58,15 +58,15 @@ class StationFactory(object):
     @staticmethod
     def generate_imt_base_stations(
         param: ParametersImt,
-        param_ant: ParametersAntennaImt,
+        param_ant_bs: ParametersAntennaImt,
         topology: Topology,
         random_number_gen: np.random.RandomState,
     ):
-        param_ant = param_ant.get_antenna_parameters(StationType.IMT_BS)
+        param_ant = param_ant_bs.get_antenna_parameters()
         num_bs = topology.num_base_stations
         imt_base_stations = StationManager(num_bs)
         imt_base_stations.station_type = StationType.IMT_BS
-        if param.topology == "NTN":
+        if param.topology.type == "NTN":
             imt_base_stations.x = topology.space_station_x * np.ones(num_bs)
             imt_base_stations.y = topology.space_station_y * np.ones(num_bs)
             imt_base_stations.height = topology.space_station_z * \
@@ -77,40 +77,40 @@ class StationFactory(object):
             imt_base_stations.x = topology.x
             imt_base_stations.y = topology.y
             imt_base_stations.elevation = -param_ant.downtilt * np.ones(num_bs)
-            if param.topology == 'INDOOR':
+            if param.topology.type == 'INDOOR':
                 imt_base_stations.height = topology.height
             else:
-                imt_base_stations.height = param.bs_height * np.ones(num_bs)
+                imt_base_stations.height = param.bs.height * np.ones(num_bs)
 
         imt_base_stations.azimuth = topology.azimuth
         imt_base_stations.active = random_number_gen.rand(
             num_bs,
-        ) < param.bs_load_probability
-        imt_base_stations.tx_power = param.bs_conducted_power * np.ones(num_bs)
+        ) < param.bs.load_probability
+        imt_base_stations.tx_power = param.bs.conducted_power * np.ones(num_bs)
         imt_base_stations.rx_power = dict(
-            [(bs, -500 * np.ones(param.ue_k)) for bs in range(num_bs)],
+            [(bs, -500 * np.ones(param.ue.k)) for bs in range(num_bs)],
         )
         imt_base_stations.rx_interference = dict(
-            [(bs, -500 * np.ones(param.ue_k)) for bs in range(num_bs)],
+            [(bs, -500 * np.ones(param.ue.k)) for bs in range(num_bs)],
         )
         imt_base_stations.ext_interference = dict(
-            [(bs, -500 * np.ones(param.ue_k)) for bs in range(num_bs)],
+            [(bs, -500 * np.ones(param.ue.k)) for bs in range(num_bs)],
         )
         imt_base_stations.total_interference = dict(
-            [(bs, -500 * np.ones(param.ue_k)) for bs in range(num_bs)],
+            [(bs, -500 * np.ones(param.ue.k)) for bs in range(num_bs)],
         )
 
         imt_base_stations.snr = dict(
-            [(bs, -500 * np.ones(param.ue_k)) for bs in range(num_bs)],
+            [(bs, -500 * np.ones(param.ue.k)) for bs in range(num_bs)],
         )
         imt_base_stations.sinr = dict(
-            [(bs, -500 * np.ones(param.ue_k)) for bs in range(num_bs)],
+            [(bs, -500 * np.ones(param.ue.k)) for bs in range(num_bs)],
         )
         imt_base_stations.sinr_ext = dict(
-            [(bs, -500 * np.ones(param.ue_k)) for bs in range(num_bs)],
+            [(bs, -500 * np.ones(param.ue.k)) for bs in range(num_bs)],
         )
         imt_base_stations.inr = dict(
-            [(bs, -500 * np.ones(param.ue_k)) for bs in range(num_bs)],
+            [(bs, -500 * np.ones(param.ue.k)) for bs in range(num_bs)],
         )
 
         imt_base_stations.antenna = np.empty(
@@ -126,7 +126,7 @@ class StationFactory(object):
         # imt_base_stations.antenna = [AntennaOmni(0) for bs in range(num_bs)]
         imt_base_stations.bandwidth = param.bandwidth * np.ones(num_bs)
         imt_base_stations.center_freq = param.frequency * np.ones(num_bs)
-        imt_base_stations.noise_figure = param.bs_noise_figure * \
+        imt_base_stations.noise_figure = param.bs.noise_figure * \
             np.ones(num_bs)
         imt_base_stations.thermal_noise = -500 * np.ones(num_bs)
 
@@ -136,7 +136,7 @@ class StationFactory(object):
                 param.frequency,
                 param.bandwidth,
                 param.spurious_emissions,
-                scenario=param.topology,
+                scenario=param.topology.type,
             )
         elif param.spectral_mask == "3GPP E-UTRA":
             imt_base_stations.spectral_mask = SpectralMask3Gpp(
@@ -146,33 +146,46 @@ class StationFactory(object):
                 param.spurious_emissions,
             )
 
-        if param.topology == 'MACROCELL' or param.topology == 'HOTSPOT':
-            imt_base_stations.intersite_dist = param.intersite_distance
+        if param.topology.type == 'MACROCELL':
+            imt_base_stations.intersite_dist = param.topology.macrocell.intersite_distance
+        elif param.topology.type == 'HOTSPOT':
+            imt_base_stations.intersite_dist = param.topology.hotspot.intersite_distance
 
         return imt_base_stations
 
     @staticmethod
     def generate_imt_ue(
         param: ParametersImt,
-        param_ant: ParametersAntennaImt,
+        ue_param_ant: ParametersAntennaImt,
         topology: Topology,
         random_number_gen: np.random.RandomState,
     ) -> StationManager:
 
-        if param.topology == "INDOOR":
-            return StationFactory.generate_imt_ue_indoor(param, param_ant, random_number_gen, topology)
+        if param.topology.type == "INDOOR":
+            return StationFactory.generate_imt_ue_indoor(param, ue_param_ant, random_number_gen, topology)
         else:
-            return StationFactory.generate_imt_ue_outdoor(param, param_ant, random_number_gen, topology)
+            return StationFactory.generate_imt_ue_outdoor(param, ue_param_ant, random_number_gen, topology)
+
+    @staticmethod
+    def generate_ras_station(
+        param: ParametersRas,
+        random_number_gen: np.random.RandomState,
+        topology: Topology,
+    ) -> StationManager:
+        return StationFactory.generate_single_earth_station(
+            param, random_number_gen,
+            StationType.RAS, topology
+        )
 
     @staticmethod
     def generate_imt_ue_outdoor(
         param: ParametersImt,
-        param_ant: ParametersAntennaImt,
+        ue_param_ant: ParametersAntennaImt,
         random_number_gen: np.random.RandomState,
         topology: Topology,
     ) -> StationManager:
         num_bs = topology.num_base_stations
-        num_ue_per_bs = param.ue_k * param.ue_k_m
+        num_ue_per_bs = param.ue.k * param.ue.k_m
 
         num_ue = num_bs * num_ue_per_bs
 
@@ -191,18 +204,18 @@ class StationFactory(object):
         elevation = (elevation_range[1] - elevation_range[0]) * random_number_gen.random_sample(num_ue) + \
             elevation_range[0]
 
-        if param.ue_distribution_type.upper() == "UNIFORM" or \
-           param.ue_distribution_type.upper() == "CELL" or \
-           param.ue_distribution_type.upper() == "UNIFORM_IN_CELL":
+        if param.ue.distribution_type.upper() == "UNIFORM" or \
+           param.ue.distribution_type.upper() == "CELL" or \
+           param.ue.distribution_type.upper() == "UNIFORM_IN_CELL":
 
             deterministic_cell = False
             central_cell = False
 
-            if param.ue_distribution_type.upper() == "UNIFORM_IN_CELL" or \
-               param.ue_distribution_type.upper() == "CELL":
+            if param.ue.distribution_type.upper() == "UNIFORM_IN_CELL" or \
+               param.ue.distribution_type.upper() == "CELL":
                 deterministic_cell = True
 
-                if param.ue_distribution_type.upper() == "CELL":
+                if param.ue.distribution_type.upper() == "CELL":
                     central_cell = True
 
             if not (type(topology) is TopologyMacrocell):
@@ -217,17 +230,17 @@ class StationFactory(object):
                 deterministic_cell=True,
             )
             psi = np.degrees(
-                np.arctan((param.bs_height - param.ue_height) / distance),
+                np.arctan((param.bs.height - param.ue.height) / distance),
             )
 
             imt_ue.azimuth = (azimuth + theta + np.pi / 2)
             imt_ue.elevation = elevation + psi
 
-        elif param.ue_distribution_type.upper() == "ANGLE_AND_DISTANCE":
+        elif param.ue.distribution_type.upper() == "ANGLE_AND_DISTANCE":
             # The Rayleigh and Normal distribution parameters (mean, scale and cutoff)
             # were agreed in TG 5/1 meeting (May 2017).
 
-            if param.ue_distribution_distance.upper() == "RAYLEIGH":
+            if param.ue.distribution_distance.upper() == "RAYLEIGH":
                 # For the distance between UE and BS, it is desired that 99% of UE's
                 # are located inside the [soft] cell edge, i.e. Prob(d<d_edge) = 99%.
                 # Since the distance is modeled by a random variable with Rayleigh
@@ -236,16 +249,16 @@ class StationFactory(object):
                 # the requirement Prob(d<d_edge) = 99% for a given cell radius.
                 radius_scale = topology.cell_radius / 3.0345
                 radius = random_number_gen.rayleigh(radius_scale, num_ue)
-            elif param.ue_distribution_distance.upper() == "UNIFORM":
+            elif param.ue.distribution_distance.upper() == "UNIFORM":
                 radius = topology.cell_radius * \
                     random_number_gen.random_sample(num_ue)
             else:
                 sys.stderr.write(
-                    "ERROR\nInvalid UE distance distribution: " + param.ue_distribution_distance,
+                    "ERROR\nInvalid UE distance distribution: " + param.ue.distribution_distance,
                 )
                 sys.exit(1)
 
-            if param.ue_distribution_azimuth.upper() == "NORMAL":
+            if param.ue.distribution_azimuth.upper() == "NORMAL":
                 # In case of the angles, we generate N times the number of UE's because
                 # the angle cutoff will discard 5% of the terminals whose angle is
                 # outside the angular sector defined by [-60, 60]. So, N = 1.4 seems to
@@ -262,13 +275,13 @@ class StationFactory(object):
                     angle_n > -angle_cutoff
                 ))[0][:num_ue]
                 angle = angle_n[idx]
-            elif param.ue_distribution_azimuth.upper() == "UNIFORM":
+            elif param.ue.distribution_azimuth.upper() == "UNIFORM":
                 azimuth_range = (-60, 60)
                 angle = (azimuth_range[1] - azimuth_range[0]) * random_number_gen.random_sample(num_ue) \
                     + azimuth_range[0]
             else:
                 sys.stderr.write(
-                    "ERROR\nInvalid UE azimuth distribution: " + param.ue_distribution_distance,
+                    "ERROR\nInvalid UE azimuth distribution: " + param.ue.distribution_distance,
                 )
                 sys.exit(1)
 
@@ -295,12 +308,12 @@ class StationFactory(object):
                     (topology.x[bs] - x) ** 2 + (topology.y[bs] - y) ** 2,
                 )
                 psi = np.degrees(
-                    np.arctan((param.bs_height - param.ue_height) / distance),
+                    np.arctan((param.bs.height - param.ue.height) / distance),
                 )
                 imt_ue.elevation[idx] = elevation[idx] + psi
         else:
             sys.stderr.write(
-                "ERROR\nInvalid UE distribution type: " + param.ue_distribution_type,
+                "ERROR\nInvalid UE distribution type: " + param.ue.distribution_type,
             )
             sys.exit(1)
 
@@ -308,15 +321,15 @@ class StationFactory(object):
         imt_ue.y = np.array(ue_y)
 
         imt_ue.active = np.zeros(num_ue, dtype=bool)
-        imt_ue.height = param.ue_height * np.ones(num_ue)
+        imt_ue.height = param.ue.height * np.ones(num_ue)
         imt_ue.indoor = random_number_gen.random_sample(
             num_ue,
-        ) <= (param.ue_indoor_percent / 100)
+        ) <= (param.ue.indoor_percent / 100)
         imt_ue.rx_interference = -500 * np.ones(num_ue)
         imt_ue.ext_interference = -500 * np.ones(num_ue)
 
         # TODO: this piece of code works only for uplink
-        par = param_ant.get_antenna_parameters(StationType.IMT_UE)
+        par = ue_param_ant.get_antenna_parameters()
         for i in range(num_ue):
             imt_ue.antenna[i] = AntennaBeamformingImt(
                 par, imt_ue.azimuth[i],
@@ -326,7 +339,7 @@ class StationFactory(object):
         # imt_ue.antenna = [AntennaOmni(0) for bs in range(num_ue)]
         imt_ue.bandwidth = param.bandwidth * np.ones(num_ue)
         imt_ue.center_freq = param.frequency * np.ones(num_ue)
-        imt_ue.noise_figure = param.ue_noise_figure * np.ones(num_ue)
+        imt_ue.noise_figure = param.ue.noise_figure * np.ones(num_ue)
 
         if param.spectral_mask == "IMT-2020":
             imt_ue.spectral_mask = SpectralMaskImt(
@@ -347,7 +360,7 @@ class StationFactory(object):
 
         imt_ue.spectral_mask.set_mask()
 
-        if param.topology == 'MACROCELL' or param.topology == 'HOTSPOT':
+        if param.topology.type == 'MACROCELL' or param.topology.type == 'HOTSPOT':
             imt_ue.intersite_dist = param.intersite_distance
 
         return imt_ue
@@ -355,12 +368,12 @@ class StationFactory(object):
     @staticmethod
     def generate_imt_ue_indoor(
         param: ParametersImt,
-        param_ant: ParametersAntennaImt,
+        ue_param_ant: ParametersAntennaImt,
         random_number_gen: np.random.RandomState,
         topology: Topology,
     ) -> StationManager:
         num_bs = topology.num_base_stations
-        num_ue_per_bs = param.ue_k * param.ue_k_m
+        num_ue_per_bs = param.ue.k * param.ue.k_m
         num_ue = num_bs * num_ue_per_bs
 
         imt_ue = StationManager(num_ue)
@@ -423,7 +436,7 @@ class StationFactory(object):
                 random_number_gen.random_sample(num_ue_per_bs) + y_min
             z = [
                 topology.height[bs] - topology.b_h +
-                param.ue_height for k in range(num_ue_per_bs)
+                param.ue.height for k in range(num_ue_per_bs)
             ]
             ue_x.extend(x)
             ue_y.extend(y)
@@ -444,7 +457,7 @@ class StationFactory(object):
                 (topology.x[bs] - x)**2 + (topology.y[bs] - y)**2,
             )
             psi = np.degrees(
-                np.arctan((param.bs_height - param.ue_height) / distance),
+                np.arctan((param.bs.height - param.ue.height) / distance),
             )
             imt_ue.elevation[idx] = elevation[idx] + psi
 
@@ -471,7 +484,7 @@ class StationFactory(object):
         imt_ue.ext_interference = -500 * np.ones(num_ue)
 
         # TODO: this piece of code works only for uplink
-        par = param_ant.get_antenna_parameters(StationType.IMT_UE)
+        par = ue_param_ant.get_antenna_parameters()
         for i in range(num_ue):
             imt_ue.antenna[i] = AntennaBeamformingImt(
                 par, imt_ue.azimuth[i],
@@ -481,7 +494,7 @@ class StationFactory(object):
         # imt_ue.antenna = [AntennaOmni(0) for bs in range(num_ue)]
         imt_ue.bandwidth = param.bandwidth * np.ones(num_ue)
         imt_ue.center_freq = param.frequency * np.ones(num_ue)
-        imt_ue.noise_figure = param.ue_noise_figure * np.ones(num_ue)
+        imt_ue.noise_figure = param.ue.noise_figure * np.ones(num_ue)
 
         if param.spectral_mask == "IMT-2020":
             imt_ue.spectral_mask = SpectralMaskImt(
@@ -513,7 +526,13 @@ class StationFactory(object):
         elif parameters.general.system == "FSS_ES":
             return StationFactory.generate_fss_earth_station(parameters.fss_es, random_number_gen, topology)
         elif parameters.general.system == "SINGLE_EARTH_STATION":
-            return StationFactory.generate_single_earth_station(parameters.single_earth_station, random_number_gen, topology)
+            return StationFactory.generate_single_earth_station(parameters.single_earth_station, random_number_gen,
+                                                                StationType.SINGLE_EARTH_STATION, topology)
+        elif parameters.general.system == "RAS":
+            return StationFactory.generate_ras_station(
+                                                       parameters.ras, random_number_gen,
+                                                       topology
+                                                   )
         elif parameters.general.system == "FSS_SS":
             return StationFactory.generate_fss_space_station(parameters.fss_ss)
         elif parameters.general.system == "FS":
@@ -522,8 +541,6 @@ class StationFactory(object):
             return StationFactory.generate_haps(parameters.haps, parameters.imt.intersite_distance, random_number_gen)
         elif parameters.general.system == "RNS":
             return StationFactory.generate_rns(parameters.rns, random_number_gen)
-        elif parameters.general.system == "RAS":
-            return StationFactory.generate_ras_station(parameters.ras)
         else:
             sys.stderr.write(
                 "ERROR\nInvalid system: " +
@@ -721,7 +738,7 @@ class StationFactory(object):
     @staticmethod
     def generate_single_earth_station(
         param: ParametersSingleEarthStation, random_number_gen: np.random.RandomState,
-        topology=None,
+        station_type=StationType.SINGLE_EARTH_STATION, topology=None,
     ):
         """
         Generates a Single Earth Station.
@@ -998,51 +1015,6 @@ class StationFactory(object):
         return rns
 
     @staticmethod
-    def generate_ras_station(param: ParametersRas):
-        """
-        @deprecated
-        Since this creates a Single Earth Station, you should use StationFactory.generate_single_earth_station instead.
-        This will be deleted in the future
-        """
-        warn(
-            "This is deprecated, use StationFactory.generate_single_earth_station() instead; date=2024-10-11",
-            DeprecationWarning, stacklevel=2,
-        )
-
-        ras_station = StationManager(1)
-        ras_station.station_type = StationType.RAS
-
-        ras_station.x = np.array([param.x])
-        ras_station.y = np.array([param.y])
-        ras_station.height = np.array([param.height])
-
-        ras_station.azimuth = np.array([param.azimuth])
-        ras_station.elevation = np.array([param.elevation])
-
-        ras_station.active = np.array([True])
-        ras_station.rx_interference = -500
-
-        if param.antenna_pattern == "OMNI":
-            ras_station.antenna = np.array([AntennaOmni(param.antenna_gain)])
-            ras_station.antenna[0].effective_area = SPEED_OF_LIGHT**2 / \
-                (4 * np.pi * (param.frequency * 1e6)**2)
-        elif param.antenna_pattern == "ITU-R SA.509":
-            ras_station.antenna = np.array([AntennaSA509(param)])
-        else:
-            sys.stderr.write(
-                "ERROR\nInvalid RAS antenna pattern: " + param.antenna_pattern,
-            )
-            sys.exit(1)
-
-        ras_station.noise_temperature = np.array(
-            param.antenna_noise_temperature +
-            param.receiver_noise_temperature,
-        )
-        ras_station.bandwidth = np.array(param.bandwidth)
-
-        return ras_station
-
-    @staticmethod
     def generate_eess_space_station(param: ParametersEessSS):
         if param.distribution_enable:
             if param.distribution_type == "UNIFORM":
@@ -1232,7 +1204,7 @@ class StationFactory(object):
             distance = np.sqrt((cell_x - x) ** 2 + (cell_y - y) ** 2)
         else:
             theta = np.arctan2(y - topology.space_station_y[cell], x - topology.space_station_x[cell])
-            distance = np.sqrt((cell_x - x) ** 2 + (cell_y - y) ** 2 + (topology.bs_height)**2)
+            distance = np.sqrt((cell_x - x) ** 2 + (cell_y - y) ** 2 + (topology.bs.height)**2)
 
         return x, y, theta, distance
 
@@ -1265,42 +1237,44 @@ if __name__ == '__main__':
 
     params = ParamsAux()
 
-    ant_param = ParametersAntennaImt()
+    bs_ant_param = ParametersAntennaImt()
 
-    ant_param.adjacent_antenna_model = "SINGLE_ELEMENT"
-    ant_param.bs_element_pattern = "F1336"
-    ant_param.bs_element_max_g = 5
-    ant_param.bs_element_phi_3db = 65
-    ant_param.bs_element_theta_3db = 65
-    ant_param.bs_element_am = 30
-    ant_param.bs_element_sla_v = 30
-    ant_param.bs_n_rows = 8
-    ant_param.bs_n_columns = 8
-    ant_param.bs_element_horiz_spacing = 0.5
-    ant_param.bs_element_vert_spacing = 0.5
-    ant_param.bs_downtilt_deg = 10
-    ant_param.bs_multiplication_factor = 12
-    ant_param.bs_minimum_array_gain = -200
+    bs_ant_param.adjacent_antenna_model = "SINGLE_ELEMENT"
+    bs_ant_param.element_pattern = "F1336"
+    bs_ant_param.element_max_g = 5
+    bs_ant_param.element_phi_3db = 65
+    bs_ant_param.element_theta_3db = 65
+    bs_ant_param.element_am = 30
+    bs_ant_param.element_sla_v = 30
+    bs_ant_param.n_rows = 8
+    bs_ant_param.n_columns = 8
+    bs_ant_param.element_horiz_spacing = 0.5
+    bs_ant_param.element_vert_spacing = 0.5
+    bs_ant_param.downtilt = 10
+    bs_ant_param.multiplication_factor = 12
+    bs_ant_param.minimum_array_gain = -200
 
-    ant_param.ue_element_pattern = "FIXED"
-    ant_param.ue_element_max_g = 5
-    ant_param.ue_element_phi_3db = 90
-    ant_param.ue_element_theta_3db = 90
-    ant_param.ue_element_am = 25
-    ant_param.ue_element_sla_v = 25
-    ant_param.ue_n_rows = 4
-    ant_param.ue_n_columns = 4
-    ant_param.ue_element_horiz_spacing = 0.5
-    ant_param.ue_element_vert_spacing = 0.5
-    ant_param.ue_multiplication_factor = 12
-    ant_param.ue_minimum_array_gain = -200
+    ue_ant_param = ParametersAntennaImt()
 
-    ant_param.ue_normalization = False
-    ant_param.bs_normalization = False
+    ue_ant_param.element_pattern = "FIXED"
+    ue_ant_param.element_max_g = 5
+    ue_ant_param.element_phi_3db = 90
+    ue_ant_param.element_theta_3db = 90
+    ue_ant_param.element_am = 25
+    ue_ant_param.element_sla_v = 25
+    ue_ant_param.n_rows = 4
+    ue_ant_param.n_columns = 4
+    ue_ant_param.element_horiz_spacing = 0.5
+    ue_ant_param.element_vert_spacing = 0.5
+    ue_ant_param.multiplication_factor = 12
+    ue_ant_param.minimum_array_gain = -200
+
+    ue_ant_param.normalization = False
+    bs_ant_param.normalization = False
 
     rnd = np.random.RandomState(1)
 
-    imt_ue = factory.generate_imt_ue(params, ant_param, topology, rnd)
+    imt_ue = factory.generate_imt_ue(params, ue_ant_param, topology, rnd)
 
     fig = plt.figure(
         figsize=(8, 8), facecolor='w',

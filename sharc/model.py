@@ -85,7 +85,7 @@ class Model(Observable):
             + "\tfrequency: {:.3f} GHz\n".format(self.parameters.imt.frequency * 1e-3) \
             + "\tbandwidth: {:.0f} MHz\n".format(self.parameters.imt.bandwidth) \
             + "\tspurious emissions: {:.0f} dBm/MHz\n".format(self.parameters.imt.spurious_emissions) \
-            + "\ttopology: {:s}\n".format(self.parameters.imt.topology) \
+            + "\ttopology: {:s}\n".format(self.parameters.imt.topology.type) \
             + "\tpath loss model: {:s}\n".format(self.parameters.imt.channel_model)  \
             + "{:s}:\n".format(self.parameters.general.system) \
             + "\tfrequency: {:.3f} GHz\n".format(param_system.frequency * 1e-3) \

@@ -213,7 +213,7 @@ class ParametersSingleEarthStation(ParametersBase):
         )
 
         if should_validate:
-            self.validate()
+            self.validate(self.section_name)
 
     def validate(self, ctx="single_earth_station"):
         super().validate(ctx)

@@ -9,7 +9,7 @@ import unittest
 import numpy as np
 # import numpy.testing as npt
 
-from sharc.parameters.parameters_hotspot import ParametersHotspot
+from sharc.parameters.imt.parameters_hotspot import ParametersHotspot
 from sharc.topology.topology_hotspot import TopologyHotspot
 
 

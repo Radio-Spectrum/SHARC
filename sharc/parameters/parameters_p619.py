@@ -26,7 +26,6 @@ class ParametersP619(ParametersBase):
     earth_station_lat_deg: float = 0.0
     earth_station_long_diff_deg: float = 0.0
     season: str = "SUMMER"
-    los_adjustment_factor: float = 18.0
     shadowing: bool = True
     noise_temperature: float = 290.0
 

@@ -55,12 +55,13 @@ class Simulation(ABC, Observable):
             )
             sys.exit(1)
 
-        self.wrap_around_enabled = self.parameters.imt.wrap_around and \
-            (
-                self.parameters.imt.topology == 'MACROCELL' or
-                self.parameters.imt.topology == 'HOTSPOT'
-            ) and \
-            self.parameters.imt.num_clusters == 1
+        self.wrap_around_enabled = False
+        if self.parameters.imt.topology.type == "MACROCELL":
+            self.wrap_around_enabled = self.parameters.imt.topology.macrocell.wrap_around \
+                                    and self.parameters.imt.topology.macrocell.num_clusters == 1
+        if self.parameters.imt.topology.type == "HOTSPOT":
+            self.wrap_around_enabled = self.parameters.imt.topology.hotspot.wrap_around \
+                                    and self.parameters.imt.topology.hotspot.num_clusters == 1
 
         self.co_channel = self.parameters.general.enable_cochannel
         self.adjacent_channel = self.parameters.general.enable_adjacent_channel
@@ -142,15 +143,15 @@ class Simulation(ABC, Observable):
 
         self.topology.calculate_coordinates()
         num_bs = self.topology.num_base_stations
-        num_ue = num_bs * self.parameters.imt.ue_k * self.parameters.imt.ue_k_m
+        num_ue = num_bs * self.parameters.imt.ue.k * self.parameters.imt.ue.k_m
 
         self.bs_power_gain = 10 * math.log10(
-            self.parameters.antenna_imt.bs_n_rows *
-            self.parameters.antenna_imt.bs_n_columns,
+            self.parameters.imt.bs.antenna.n_rows *
+            self.parameters.imt.bs.antenna.n_columns,
         )
         self.ue_power_gain = 10 * math.log10(
-            self.parameters.antenna_imt.ue_n_rows *
-            self.parameters.antenna_imt.ue_n_columns,
+            self.parameters.imt.ue.antenna.n_rows *
+            self.parameters.imt.ue.antenna.n_columns,
         )
         self.imt_bs_antenna_gain = list()
         self.imt_ue_antenna_gain = list()
@@ -178,7 +179,7 @@ class Simulation(ABC, Observable):
         )
         # calculates the number of RB per UE on a given BS
         self.num_rb_per_ue = math.trunc(
-            self.num_rb_per_bs / self.parameters.imt.ue_k,
+            self.num_rb_per_bs / self.parameters.imt.ue.k,
         )
 
         self.results = Results(
@@ -188,8 +189,8 @@ class Simulation(ABC, Observable):
             self.parameters.general.output_dir_prefix,
         )
 
-        if self.parameters.general.system == 'RAS':
-            self.polarization_loss = 0.0
+        if hasattr(self.param_system, "polarization_loss"):
+            self.polarization_loss = self.param_system.polarization_loss
         else:
             self.polarization_loss = 3.0
 
@@ -243,22 +244,22 @@ class Simulation(ABC, Observable):
                     imt_station, system_station, is_co_channel,
                 ),
             )
-            additional_loss = self.parameters.imt.ue_ohmic_loss \
-                + self.parameters.imt.ue_body_loss \
+            additional_loss = self.parameters.imt.ue.ohmic_loss \
+                + self.parameters.imt.ue.body_loss \
                 + self.polarization_loss
         elif imt_station.station_type is StationType.IMT_BS:
             # define antenna gains
             # repeat for each BS beam
             gain_sys_to_imt = np.repeat(
                 self.calculate_gains(system_station, imt_station),
-                self.parameters.imt.ue_k, 1,
+                self.parameters.imt.ue.k, 1,
             )
             gain_imt_to_sys = np.transpose(
                 self.calculate_gains(
                     imt_station, system_station, is_co_channel,
                 ),
             )
-            additional_loss = self.parameters.imt.bs_ohmic_loss \
+            additional_loss = self.parameters.imt.bs.ohmic_loss \
                 + self.polarization_loss
         else:
             # should never reach this line
@@ -284,7 +285,7 @@ class Simulation(ABC, Observable):
         else:
             # Repeat for each BS beam
             self.imt_system_path_loss = np.repeat(
-                path_loss, self.parameters.imt.ue_k, 1,
+                path_loss, self.parameters.imt.ue.k, 1,
             )
 
         self.system_imt_antenna_gain = gain_sys_to_imt
@@ -327,6 +328,7 @@ class Simulation(ABC, Observable):
             values.
         """
         # Calculate the antenna gains
+
         ant_gain_bs_to_ue = self.calculate_gains(
             imt_bs_station, imt_ue_station,
         )
@@ -351,9 +353,9 @@ class Simulation(ABC, Observable):
         self.path_loss_imt = path_loss
         self.imt_bs_antenna_gain = ant_gain_bs_to_ue
         self.imt_ue_antenna_gain = np.transpose(ant_gain_ue_to_bs)
-        additional_loss = self.parameters.imt.bs_ohmic_loss \
-            + self.parameters.imt.ue_ohmic_loss \
-            + self.parameters.imt.ue_body_loss
+        additional_loss = self.parameters.imt.bs.ohmic_loss \
+            + self.parameters.imt.ue.ohmic_loss \
+            + self.parameters.imt.ue.body_loss
 
         # calculate coupling loss
         coupling_loss = np.squeeze(
@@ -368,7 +370,7 @@ class Simulation(ABC, Observable):
         user equipments are distributed and pointed to a certain base station
         according to the decisions taken at TG 5/1 meeting
         """
-        num_ue_per_bs = self.parameters.imt.ue_k * self.parameters.imt.ue_k_m
+        num_ue_per_bs = self.parameters.imt.ue.k * self.parameters.imt.ue.k_m
         bs_active = np.where(self.bs.active)[0]
         for bs in bs_active:
             ue_list = [
@@ -397,7 +399,7 @@ class Simulation(ABC, Observable):
         for bs in bs_active:
             # select K UE's among the ones that are connected to BS
             random_number_gen.shuffle(self.link[bs])
-            K = self.parameters.imt.ue_k
+            K = self.parameters.imt.ue.k
             del self.link[bs][K:]
             # Activate the selected UE's and create beams
             if self.bs.active[bs]:
@@ -452,10 +454,10 @@ class Simulation(ABC, Observable):
                 beams_idx = self.bs_to_ue_beam_rbs[station_2_active]
             elif not station_2.is_imt_station():
                 phi, theta = station_1.get_pointing_vector_to(station_2)
-                phi = np.repeat(phi, self.parameters.imt.ue_k, 0)
-                theta = np.repeat(theta, self.parameters.imt.ue_k, 0)
+                phi = np.repeat(phi, self.parameters.imt.ue.k, 0)
+                theta = np.repeat(theta, self.parameters.imt.ue.k, 0)
                 beams_idx = np.tile(
-                    np.arange(self.parameters.imt.ue_k), self.bs.num_stations,
+                    np.arange(self.parameters.imt.ue.k), self.bs.num_stations,
                 )
 
         elif (station_1.station_type is StationType.IMT_UE):
@@ -470,7 +472,7 @@ class Simulation(ABC, Observable):
         gains = np.zeros(phi.shape)
         if station_1.station_type is StationType.IMT_BS and not station_2.is_imt_station():
             for k in station_1_active:
-                for b in range(k * self.parameters.imt.ue_k, (k + 1) * self.parameters.imt.ue_k):
+                for b in range(k * self.parameters.imt.ue.k, (k + 1) * self.parameters.imt.ue.k):
                     gains[b, station_2_active] = station_1.antenna[k].calculate_gain(
                         phi_vec=phi[b, station_2_active],
                         theta_vec=theta[
@@ -525,7 +527,6 @@ class Simulation(ABC, Observable):
                     ],
                     beams_l=beams_idx,
                 )
-
         return gains
 
     def calculate_imt_tput(

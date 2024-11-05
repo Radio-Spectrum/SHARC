@@ -2,7 +2,6 @@
 # Object that loads the parameters for the P.619 propagation model.
 """Parameters definitions for IMT systems
 """
-import configparser
 from dataclasses import dataclass
 
 from sharc.parameters.parameters_base import ParametersBase
@@ -27,7 +26,6 @@ class ParametersP619(ParametersBase):
     earth_station_lat_deg: float = 0.0
     earth_station_long_diff_deg: float = 0.0
     season: str = "SUMMER"
-    los_adjustment_factor: float = 18.0
     shadowing: bool = True
     noise_temperature: float = 290.0
 

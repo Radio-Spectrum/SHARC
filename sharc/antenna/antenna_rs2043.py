@@ -9,13 +9,14 @@ import numpy as np
 
 class AntennaRS2043(object):
     """
-     Implements the reference antenna pattern described in Table 9 from Recommendation 
+     Implements the reference antenna pattern described in Table 9 from Recommendation
      ITU-R RS.2043.
 
     Attributes
     ----------
         antenna_gain (float): maximum gain of FS omni antenna
     """
+
     def calculate_gain(self, **kwargs) -> np.array:
         phi = np.asarray(kwargs["off_axis_angle_vec"])
         theta = np.asarray(kwargs["theta_vec"])
@@ -30,7 +31,7 @@ class AntennaRS2043(object):
         gh = np.zeros(phi.shape)
 
         for i in range(len(phi)):
-            if -0.542<= phi[i] <= 0.542:
+            if -0.542 <= phi[i] <= 0.542:
                 gh[i] = 0 - 45.53 * ((phi[i]) ** 2)
 
             if 0.542 < phi[i] <= 5.053:
@@ -101,6 +102,7 @@ class AntennaRS2043(object):
 
         return gv
 
+
 if __name__ == '__main__':
 
     from matplotlib import pyplot as plt
@@ -121,8 +123,14 @@ if __name__ == '__main__':
     # ax1.semilogx(theta, antenna.get_gain_el(theta=theta), '-',color='blue', label='ITU-R RS.2043-0 (Table 9)')
     # ax2.semilogx(phi, antenna.get_gain_az(phi=phi), '-', color='darkorange', label='ITU-R RS.2043-0 (Table 9)')
 
-    ax1.plot(theta, antenna.get_gain_el(theta=theta), '-', color='blue', label='ITU-R RS.2043-0 (Table 9)')
-    ax2.plot(phi, antenna.get_gain_az(phi=phi)+47, '-', color='darkorange', label='ITU-R RS.2043-0 (Table 9)')
+    ax1.plot(
+        theta, antenna.get_gain_el(theta=theta), '-',
+        color='blue', label='ITU-R RS.2043-0 (Table 9)',
+    )
+    ax2.plot(
+        phi, antenna.get_gain_az(phi=phi) + 47, '-',
+        color='darkorange', label='ITU-R RS.2043-0 (Table 9)',
+    )
     ax1.grid()
     ax2.grid()
     ax1.legend()

@@ -1,7 +1,8 @@
 from sharc.parameters.parameters_base import ParametersBase
 
 from dataclasses import dataclass
-    
+
+
 @dataclass
 class ParametersAntennaWithEnvelopeGain(ParametersBase):
     antenna_gain: float = None
@@ -13,7 +14,7 @@ class ParametersAntennaWithEnvelopeGain(ParametersBase):
     def validate(self, ctx):
         if None in [
             self.antenna_gain,
-            self.envelope_gain
+            self.envelope_gain,
         ]:
             raise ValueError(f"{ctx} needs to have all its parameters set")
 
@@ -22,4 +23,3 @@ class ParametersAntennaWithEnvelopeGain(ParametersBase):
 
         if not isinstance(self.envelope_gain, int) and not isinstance(self.envelope_gain, float):
             raise ValueError(f"{ctx}.envelope_gain needs to be a number")
-

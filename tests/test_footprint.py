@@ -13,14 +13,16 @@ Request for Issue 33 correction suggestion, adding the unitary tests for LEO typ
 
 # Thiago Ferreira - 231025717
 
-#from footprint import Footprint # Old importing for testing and debugging space
-from sharc.support.footprint import Footprint  # Importing Footprint class from the given module in repository
+# from footprint import Footprint # Old importing for testing and debugging space
+# Importing Footprint class from the given module in repository
+from sharc.support.footprint import Footprint
 import unittest
 import numpy as np
 import numpy.testing as npt
 
 # Added the matplotlib for plotting the footprint generated in the test
 import matplotlib.pyplot as plt
+
 
 class FootprintTest(unittest.TestCase):
     """
@@ -32,7 +34,8 @@ class FootprintTest(unittest.TestCase):
         """
         Set up the test environment by initializing Footprint instances with different parameters.
         """
-        # Geostationary (GEO type) satellite height (35786000 m) and different beam widths and elevations
+        # Geostationary (GEO type) satellite height (35786000 m) and different
+        # beam widths and elevations
         self.fa1 = Footprint(0.1, bore_lat_deg=0, bore_subsat_long_deg=0.0)
         self.fa2 = Footprint(0.325, bore_lat_deg=0)
         self.fa3 = Footprint(0.325, elevation_deg=20)
@@ -49,8 +52,10 @@ class FootprintTest(unittest.TestCase):
         Requested tests for Low Earth Orbit (LEO) Satellite at 1200Km and 600Km added bellow (Issue 33).
         """
 
-        # New tests obtained for the LEO satellite type heights (1200km and 600km)
-        self.sat_heights = [1200000, 600000]  # Different satellite heights (1200 km and 600 km)
+        # New tests obtained for the LEO satellite type heights (1200km and
+        # 600km)
+        # Different satellite heights (1200 km and 600 km)
+        self.sat_heights = [1200000, 600000]
 
     def test_construction(self):
         """
@@ -74,11 +79,13 @@ class FootprintTest(unittest.TestCase):
 
         # Verify properties of fa3
         self.assertEqual(self.fa3.bore_lat_deg, 0)
-        self.assertAlmostEqual(self.fa3.bore_subsat_long_deg, 61.84, delta=0.01)
+        self.assertAlmostEqual(
+            self.fa3.bore_subsat_long_deg, 61.84, delta=0.01)
 
         # Verify properties of fa4
         self.assertEqual(self.fa4.bore_lat_deg, 0)
-        self.assertAlmostEqual(self.fa4.bore_subsat_long_deg, 13.22, delta=0.01)
+        self.assertAlmostEqual(
+            self.fa4.bore_subsat_long_deg, 13.22, delta=0.01)
 
         # Verify properties of fa5
         self.assertEqual(self.fa5.bore_lat_deg, 0)
@@ -93,15 +100,18 @@ class FootprintTest(unittest.TestCase):
         """
         self.fa2.set_elevation(20)
         self.assertEqual(self.fa2.bore_lat_deg, 0)
-        self.assertAlmostEqual(self.fa2.bore_subsat_long_deg, 61.84, delta=0.01)
+        self.assertAlmostEqual(
+            self.fa2.bore_subsat_long_deg, 61.84, delta=0.01)
 
     def test_calc_footprint(self):
         """
         Test the calc_footprint method to verify the coordinates of the generated footprint polygon.
         """
         fp_long, fp_lat = self.fa1.calc_footprint(4)
-        npt.assert_allclose(fp_long, np.array([0.0, 0.487, -0.487, 0.0]), atol=1e-2)
-        npt.assert_allclose(fp_lat, np.array([-0.562, 0.281, 0.281, -0.562]), atol=1e-2)
+        npt.assert_allclose(fp_long, np.array(
+            [0.0, 0.487, -0.487, 0.0]), atol=1e-2)
+        npt.assert_allclose(fp_lat, np.array(
+            [-0.562, 0.281, 0.281, -0.562]), atol=1e-2)
 
     def test_calc_area(self):
         """
@@ -118,7 +128,8 @@ class FootprintTest(unittest.TestCase):
 
         for height in self.sat_heights:
             beam_deg = 0.325
-            footprint = Footprint(beam_deg, elevation_deg=90, sat_height=height)
+            footprint = Footprint(
+                beam_deg, elevation_deg=90, sat_height=height)
             cone_radius_in_km = height * np.tan(np.deg2rad(beam_deg)) / 1000
             cone_base_area_in_km2 = np.pi * (cone_radius_in_km**2)
             footprint_area_in_km2 = footprint.calc_area(1000)
@@ -127,6 +138,7 @@ class FootprintTest(unittest.TestCase):
                 cone_base_area_in_km2,
                 delta=cone_base_area_in_km2 * 0.01,
             )
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -24,9 +24,11 @@ class PropagationTvro(Propagation):
     TODO: calculate the effective environment height for the generic case
     """
 
-    def __init__(self,
-                 random_number_gen: np.random.RandomState,
-                 environment: str):
+    def __init__(
+        self,
+        random_number_gen: np.random.RandomState,
+        environment: str,
+    ):
         super().__init__(random_number_gen)
         if environment.upper() == "URBAN":
             self.d_k = 0.02  # km
@@ -40,13 +42,15 @@ class PropagationTvro(Propagation):
 
         self.free_space_path_loss = PropagationFreeSpace(random_number_gen)
 
-    def get_loss(self,
-                 params: Parameters,
-                 frequency: float,
-                 station_a: StationManager,
-                 station_b: StationManager,
-                 station_a_gains=None,
-                 station_b_gains=None) -> np.array:
+    def get_loss(
+        self,
+        params: Parameters,
+        frequency: float,
+        station_a: StationManager,
+        station_b: StationManager,
+        station_a_gains=None,
+        station_b_gains=None,
+    ) -> np.array:
         """Wrapper function for the PropagationUMi get_loss method
         Calculates the loss between station_a and station_b
 
@@ -63,47 +67,54 @@ class PropagationTvro(Propagation):
         Returns
         -------
         np.array
-            Return an array station_a.num_stations x station_b.num_stations with the path loss 
+            Return an array station_a.num_stations x station_b.num_stations with the path loss
             between each station
         """
-        wrap_around_enabled = \
-            params.imt.wrap_around and \
-            (params.imt.topology == 'MACROCELL' or params.imt.topology == 'HOTSPOT') and \
-            params.imt.num_clusters == 1
+        wrap_around_enabled = False
+        if params.imt.topology.type == "MACROCELL":
+            wrap_around_enabled = params.imt.topology.macrocell.wrap_around \
+                                    and params.imt.topology.macrocell.num_clusters == 1
+        if params.imt.topology.type == "HOTSPOT":
+            wrap_around_enabled = params.imt.topology.hotspot.wrap_around \
+                                    and params.imt.topology.hotspot.num_clusters == 1
 
-        if wrap_around_enabled:
-            bs_to_ue_dist_2d, bs_to_ue_dist_3d, _, _ = \
-                station_b.get_dist_angles_wrap_around(station_a)
+        if wrap_around_enabled and (station_a.is_imt_station() and station_b.is_imt_station()):
+            distances_2d, distances_3d, _, _ = \
+                station_a.get_dist_angles_wrap_around(station_b)
         else:
-            bs_to_ue_dist_2d = station_b.get_distance_to(station_a)
-            bs_to_ue_dist_3d = station_b.get_3d_distance_to(station_a)
+            distances_2d = station_a.get_distance_to(station_b)
+            distances_3d = station_a.get_3d_distance_to(station_b)
+
+        indoor_stations = np.tile(station_a.indoor, (station_b.num_stations, 1)).transpose()
 
         # Use the right interface whether the link is IMT-IMT or IMT-System
         # TODO: Refactor __get_loss and get rid of that if-else.
         if station_a.is_imt_station() and station_b.is_imt_station():
-            loss = self._get_loss(distance_3D=bs_to_ue_dist_3d,
-                                   distance_2D=bs_to_ue_dist_2d,
-                                   frequency=frequency * np.ones(bs_to_ue_dist_2d.shape),
-                                   bs_height=station_b.height,
-                                   ue_height=station_a.height,
-                                   indoor_stations=np.tile(station_a.indoor, 
-                                                           (station_b.num_stations, 1)))
+            loss = self._get_loss(
+                distance_3D=distances_3d,
+                distance_2D=distances_2d,
+                frequency=frequency * np.ones(distances_2d.shape),
+                bs_height=station_b.height,
+                ue_height=station_a.height,
+                indoor_stations=indoor_stations
+            )
         else:
             imt_station, sys_station = (station_a, station_b) \
                 if station_a.is_imt_station() else (station_b, station_a)
-            loss = self._get_loss(distance_3D=bs_to_ue_dist_3d,
-                                  distance_2D=bs_to_ue_dist_2d,
-                                  frequency=frequency * np.ones(bs_to_ue_dist_2d.shape),
-                                  bs_height=station_b.height,
-                                  imt_sta_type=imt_station.station_type,
-                                  imt_x=imt_station.x,
-                                  imt_y=imt_station.y,
-                                  imt_z=imt_station.height,
-                                  es_x=sys_station.x,
-                                  es_y=sys_station.y,
-                                  es_z=sys_station.height,
-                                  indoor_stations=np.tile(station_a.indoor, 
-                                                         (station_b.num_stations, 1)))
+            loss = self._get_loss(
+                distance_3D=distances_3d,
+                distance_2D=distances_2d,
+                frequency=frequency * np.ones(distances_2d.shape),
+                bs_height=station_b.height,
+                imt_sta_type=imt_station.station_type,
+                imt_x=imt_station.x,
+                imt_y=imt_station.y,
+                imt_z=imt_station.height,
+                es_x=sys_station.x,
+                es_y=sys_station.y,
+                es_z=sys_station.height,
+                indoor_stations=indoor_stations
+            )
 
         return loss
 
@@ -134,90 +145,110 @@ class PropagationTvro(Propagation):
             # check if IMT staton is BS or UE
             imt_sta_type = kwargs["imt_sta_type"]
             if imt_sta_type is StationType.IMT_BS:
-                loss = self.get_loss_macrocell(distance_3D,
-                                               frequency,
-                                               height,
-                                               indoor_stations,
-                                               shadowing)
+                loss = self.get_loss_macrocell(
+                    distance_3D,
+                    frequency,
+                    height,
+                    indoor_stations,
+                    shadowing,
+                )
             else:
-                loss = self.get_loss_microcell(distance_3D,
-                                               frequency,
-                                               indoor_stations,
-                                               shadowing)
+                loss = self.get_loss_microcell(
+                    distance_3D,
+                    frequency,
+                    indoor_stations,
+                    shadowing,
+                )
         else:
             # calculating path loss for the IMT-IMT link
             height = kwargs["ue_height"]
-            loss = self.get_loss_macrocell(distance_3D,
-                                           frequency,
-                                           height,
-                                           indoor_stations,
-                                           shadowing)
+            loss = self.get_loss_macrocell(
+                distance_3D,
+                frequency,
+                height,
+                indoor_stations,
+                shadowing,
+            )
 
         return loss
 
-    def get_loss_microcell(self,
-                           distance_3D: np.array,
-                           frequency: np.array,
-                           indoor_stations: np.array,
-                           shadowing) -> np.array:
-        pl_los = 102.93 + 20*np.log10(distance_3D/1000)
-        pl_nlos = 153.5 + 40*np.log10(distance_3D/1000)
+    def get_loss_microcell(
+        self,
+        distance_3D: np.array,
+        frequency: np.array,
+        indoor_stations: np.array,
+        shadowing,
+    ) -> np.array:
+        pl_los = 102.93 + 20 * np.log10(distance_3D / 1000)
+        pl_nlos = 153.5 + 40 * np.log10(distance_3D / 1000)
         pr_los = self.get_los_probability(distance_3D)
-        loss = pl_los*pr_los + pl_nlos*(1 - pr_los)
+        loss = pl_los * pr_los + pl_nlos * (1 - pr_los)
 
         if shadowing:
-            shadowing_fading = self.random_number_gen.normal(0,
-                                                             3.89,
-                                                             loss.shape)
+            shadowing_fading = self.random_number_gen.normal(
+                0,
+                3.89,
+                loss.shape,
+            )
             loss = loss + shadowing_fading
 
-        loss = loss + self.building_loss*indoor_stations
+        loss = loss + self.building_loss * indoor_stations
 
-        free_space_path_loss = self.free_space_path_loss.get_free_space_loss(distance=distance_3D,
-                                                                             frequency=frequency)
+        free_space_path_loss = self.free_space_path_loss.get_free_space_loss(
+            distance=distance_3D,
+            frequency=frequency,
+        )
         loss = np.maximum(loss, free_space_path_loss)
 
         return loss
 
-    def get_loss_macrocell(self,
-                           distance_3D: np.array,
-                           frequency: np.array,
-                           height: np.array,
-                           indoor_stations: np.array,
-                           shadowing: bool) -> np.array:
+    def get_loss_macrocell(
+        self,
+        distance_3D: np.array,
+        frequency: np.array,
+        height: np.array,
+        indoor_stations: np.array,
+        shadowing: bool,
+    ) -> np.array:
 
-        free_space_path_loss = self.free_space_path_loss.get_free_space_loss(distance=distance_3D, 
-                                                                             frequency=frequency)
+        free_space_path_loss = self.free_space_path_loss.get_free_space_loss(
+            distance=distance_3D,
+            frequency=frequency,
+        )
 
-        f_fc = .25 + .375*(1 + np.tanh(7.5*(frequency/1000 - .5)))
+        f_fc = .25 + .375 * (1 + np.tanh(7.5 * (frequency / 1000 - .5)))
         clutter_loss = 10.25 * f_fc * np.exp(-self.d_k) * \
-            (1 - np.tanh(6*(height/self.h_a - .625))) - .33
+            (1 - np.tanh(6 * (height[:, np.newaxis] / self.h_a - .625))) - .33
 
         loss = free_space_path_loss.copy()
 
         indices = (distance_3D >= 40) & (distance_3D < 10 * self.d_k * 1000)
         loss[indices] = loss[indices] + \
-            (distance_3D[indices]/1000 - 0.04) / \
-            (10*self.d_k - 0.04) * clutter_loss[indices]
+            (distance_3D[indices] / 1000 - 0.04) / \
+            (10 * self.d_k - 0.04) * clutter_loss[indices]
 
         indices = (distance_3D >= 10 * self.d_k * 1000)
         loss[indices] = loss[indices] + clutter_loss[indices]
 
-        loss = loss + self.building_loss*indoor_stations
+        loss = loss + self.building_loss * indoor_stations
 
         if shadowing:
-            shadowing_fading = self.random_number_gen.normal(0,
-                                                             self.shadowing_std,
-                                                             loss.shape)
+            shadowing_fading = self.random_number_gen.normal(
+                0,
+                self.shadowing_std,
+                loss.shape,
+            )
             loss = loss + shadowing_fading
 
         loss = np.maximum(loss, free_space_path_loss)
 
         return loss
 
-    def get_los_probability(self,
-                            distance: np.array,
-                            distance_transition: float = 70) -> np.array:
+    def get_los_probability(
+        self,
+        distance: np.array,
+        distance_transition: float = 70,
+    ) -> np.array:
         """
         Returns the line-of-sight (LOS) probability
 
@@ -230,15 +261,15 @@ class PropagationTvro(Propagation):
         -------
             LOS probability as a numpy array with same length as distance
         """
-        p_los = 1/(1 + (1/np.exp(-0.1*(distance - distance_transition))))
+        p_los = 1 / (1 + (1 / np.exp(-0.1 * (distance - distance_transition))))
         return p_los
 
 
 if __name__ == '__main__':
     distance_2D = np.linspace(10, 1000, num=1000)[:, np.newaxis]
-    frequency = 3600*np.ones(distance_2D.shape)
-    h_bs = 25*np.ones(len(distance_2D[:, 0]))
-    h_ue = 1.5*np.ones(len(distance_2D[0, :]))
+    frequency = 3600 * np.ones(distance_2D.shape)
+    h_bs = 25 * np.ones(len(distance_2D[:, 0]))
+    h_ue = 1.5 * np.ones(len(distance_2D[0, :]))
     h_tvro = 6
     distance_3D = np.sqrt(distance_2D**2 + (h_bs[:, np.newaxis] - h_ue)**2)
     indoor_stations = np.zeros(distance_3D.shape, dtype=bool)
@@ -249,53 +280,75 @@ if __name__ == '__main__':
     prop_suburban = PropagationTvro(rand_gen, "SUBURBAN")
     prop_free_space = PropagationFreeSpace(rand_gen)
 
-    loss_urban_bs_ue = prop_urban._get_loss(distance_3D=distance_3D,
-                                           frequency=frequency,
-                                           indoor_stations=indoor_stations,
-                                           shadowing=shadowing,
-                                           ue_height=h_ue)
-    loss_suburban_bs_ue = prop_suburban._get_loss(distance_3D=distance_3D,
-                                                 frequency=frequency,
-                                                 indoor_stations=indoor_stations,
-                                                 shadowing=shadowing,
-                                                 ue_height=h_ue)
+    loss_urban_bs_ue = prop_urban._get_loss(
+        distance_3D=distance_3D,
+        frequency=frequency,
+        indoor_stations=indoor_stations,
+        shadowing=shadowing,
+        ue_height=h_ue,
+    )
+    loss_suburban_bs_ue = prop_suburban._get_loss(
+        distance_3D=distance_3D,
+        frequency=frequency,
+        indoor_stations=indoor_stations,
+        shadowing=shadowing,
+        ue_height=h_ue,
+    )
 
-    loss_urban_bs_tvro = prop_urban._get_loss(distance_3D=distance_3D,
-                                             frequency=frequency,
-                                             indoor_stations=indoor_stations,
-                                             shadowing=shadowing,
-                                             imt_sta_type=StationType.IMT_BS,
-                                             es_z=h_tvro)
-    loss_suburban_bs_tvro = prop_suburban._get_loss(distance_3D=distance_3D,
-                                                   frequency=frequency,
-                                                   indoor_stations=indoor_stations,
-                                                   shadowing=shadowing,
-                                                   imt_sta_type=StationType.IMT_BS,
-                                                   es_z=h_tvro)
+    loss_urban_bs_tvro = prop_urban._get_loss(
+        distance_3D=distance_3D,
+        frequency=frequency,
+        indoor_stations=indoor_stations,
+        shadowing=shadowing,
+        imt_sta_type=StationType.IMT_BS,
+        es_z=h_tvro,
+    )
+    loss_suburban_bs_tvro = prop_suburban._get_loss(
+        distance_3D=distance_3D,
+        frequency=frequency,
+        indoor_stations=indoor_stations,
+        shadowing=shadowing,
+        imt_sta_type=StationType.IMT_BS,
+        es_z=h_tvro,
+    )
 
-    loss_ue_tvro = prop_urban._get_loss(distance_3D=distance_3D,
-                                       frequency=frequency,
-                                       indoor_stations=indoor_stations,
-                                       imt_sta_type=StationType.IMT_UE,
-                                       shadowing=shadowing,
-                                       es_z=h_tvro)
+    loss_ue_tvro = prop_urban._get_loss(
+        distance_3D=distance_3D,
+        frequency=frequency,
+        indoor_stations=indoor_stations,
+        imt_sta_type=StationType.IMT_UE,
+        shadowing=shadowing,
+        es_z=h_tvro,
+    )
 
-    loss_fs = prop_free_space.get_free_space_loss(distance=distance_3D,
-                                                  frequency=frequency)
+    loss_fs = prop_free_space.get_free_space_loss(
+        distance=distance_3D,
+        frequency=frequency,
+    )
 
     fig = plt.figure(figsize=(7, 5), facecolor='w', edgecolor='k')
     ax = fig.gca()
 
-    ax.semilogx(distance_3D, loss_urban_bs_tvro, "-r",
-                label="urban, BS-to-TVRO", linewidth=1)
-    ax.semilogx(distance_3D, loss_suburban_bs_tvro, "--r",
-                label="suburban, BS-to-TVRO", linewidth=1)
-    ax.semilogx(distance_3D, loss_urban_bs_ue, "-b",
-                label="urban, BS-to-UE", linewidth=1)
-    ax.semilogx(distance_3D, loss_suburban_bs_ue, "--b",
-                label="suburban, BS-to-UE", linewidth=1)
-    ax.semilogx(distance_3D, loss_ue_tvro, "-.y",
-                label="UE-to-TVRO", linewidth=1)
+    ax.semilogx(
+        distance_3D, loss_urban_bs_tvro, "-r",
+        label="urban, BS-to-TVRO", linewidth=1,
+    )
+    ax.semilogx(
+        distance_3D, loss_suburban_bs_tvro, "--r",
+        label="suburban, BS-to-TVRO", linewidth=1,
+    )
+    ax.semilogx(
+        distance_3D, loss_urban_bs_ue, "-b",
+        label="urban, BS-to-UE", linewidth=1,
+    )
+    ax.semilogx(
+        distance_3D, loss_suburban_bs_ue, "--b",
+        label="suburban, BS-to-UE", linewidth=1,
+    )
+    ax.semilogx(
+        distance_3D, loss_ue_tvro, "-.y",
+        label="UE-to-TVRO", linewidth=1,
+    )
     ax.semilogx(distance_3D, loss_fs, "-g", label="free space", linewidth=1.5)
 
     plt.title("Path loss (no shadowing)")

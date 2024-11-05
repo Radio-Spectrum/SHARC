@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-import configparser
 from dataclasses import dataclass
 
 from sharc.parameters.parameters_base import ParametersBase
@@ -26,13 +25,12 @@ class ParametersHDFSS(ParametersBase):
     # P2109_RANDOM: random probability at P.2109 model, considering elevation
     # P2109_FIXED: fixed probability at P.2109 model, considering elevation.
     #              Probability must be specified in bs_building_entry_loss_prob.
-    # FIXED_VALUE: fixed value per BS. Value must be specified in 
+    # FIXED_VALUE: fixed value per BS. Value must be specified in
     #              bs_building_entry_loss_value.
     bs_building_entry_loss_type: str = "P2109_FIXED"
-    # Probability of building entry loss not exceeded if 
+    # Probability of building entry loss not exceeded if
     # bs_building_entry_loss_type = P2109_FIXED
     bs_building_entry_loss_prob: float = 0.75
-    # Value in dB of building entry loss if 
+    # Value in dB of building entry loss if
     # bs_building_entry_loss_type = FIXED_VALUE
     bs_building_entry_loss_value: float = 35
-

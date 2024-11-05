@@ -11,8 +11,8 @@ import csv
 import numpy as np
 import matplotlib
 matplotlib.use('Agg')
-import matplotlib.pyplot as plt
-from sharc.propagation.propagation_p619 import PropagationP619
+import matplotlib.pyplot as plt  # noqa: E402
+from sharc.propagation.propagation_p619 import PropagationP619  # noqa: E402
 
 # Constants
 frequency_MHz = 2680.0
@@ -39,8 +39,7 @@ losses_with_table = []
 for elevation in apparent_elevation:
     loss = propagation._get_atmospheric_gasses_loss(frequency_MHz=frequency_MHz,
                                                     apparent_elevation=elevation,
-                                                    surf_water_vapour_density=surf_water_vapour_density
-                                                    )                                                    
+                                                    surf_water_vapour_density=surf_water_vapour_density)
     losses_with_table.append(loss)
 time_with_table = time.time() - start_time
 
@@ -82,9 +81,9 @@ plt.savefig(plot_file)
 print(f"Atmospheric loss plot saved to {plot_file}")
 
 
-import matplotlib
+import matplotlib  # noqa: E402
 matplotlib.use('Agg')
-import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt  # noqa: E402
 
 # Load profiling results from CSV
 input_file = os.path.join(os.path.dirname(__file__), 'profile_results', 'profiling_results_table.csv')

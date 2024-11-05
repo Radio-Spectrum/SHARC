@@ -7,15 +7,15 @@ Profile script for PropagationP619
 
 import os
 import csv
-import time
 import numpy as np
 import matplotlib
-matplotlib.use('Agg')
-import matplotlib.pyplot as plt
 from sharc.propagation.propagation_p619 import PropagationP619
 import cProfile
 import pstats
 import io
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt  # noqa: E402
 
 # Constants
 frequency_MHz = 2680.0
@@ -36,6 +36,7 @@ propagation = PropagationP619(random_number_gen=random_number_gen,
                               earth_station_long_diff_deg=earth_station_long_diff_deg,
                               season=season)
 
+
 def profile_get_atmospheric_gasses_loss():
     losses = []
     for elevation in apparent_elevation:
@@ -45,6 +46,7 @@ def profile_get_atmospheric_gasses_loss():
                                                         lookupTable=False)
         losses.append(loss)
     return losses
+
 
 # Profile the function
 pr = cProfile.Profile()

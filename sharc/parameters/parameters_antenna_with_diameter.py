@@ -1,7 +1,8 @@
 from sharc.parameters.parameters_base import ParametersBase
 
 from dataclasses import dataclass
-    
+
+
 @dataclass
 class ParametersAntennaWithDiameter(ParametersBase):
     antenna_gain: float = None
@@ -15,7 +16,7 @@ class ParametersAntennaWithDiameter(ParametersBase):
         if None in [
             self.antenna_gain,
             self.diameter,
-            self.frequency
+            self.frequency,
         ]:
             raise ValueError(f"{ctx} needs to have all its parameters set")
 
@@ -27,4 +28,3 @@ class ParametersAntennaWithDiameter(ParametersBase):
 
         if not isinstance(self.frequency, int) and not isinstance(self.frequency, float):
             raise ValueError(f"{ctx}.frequency needs to be a number")
-

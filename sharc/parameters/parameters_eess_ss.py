@@ -1,10 +1,8 @@
 from dataclasses import dataclass
-import math
 
-from sharc.parameters.constants import EARTH_RADIUS
-from sharc.parameters.parameters_base import ParametersBase
 from sharc.parameters.parameters_p619 import ParametersP619
 from sharc.parameters.parameters_space_station import ParametersSpaceStation
+
 
 @dataclass
 class ParametersEessSS(ParametersSpaceStation):
@@ -15,7 +13,7 @@ class ParametersEessSS(ParametersSpaceStation):
     section_name: str = "eess_ss"
 
     is_space_to_earth: bool = True
-    
+
     # Sensor center frequency [MHz]
     frequency: float = 23900.0  # Center frequency of the sensor in MHz
 
@@ -30,7 +28,7 @@ class ParametersEessSS(ParametersSpaceStation):
     altitude: float = 828000.0
 
     # Antenna pattern of the sensor
-    # Possible values: "ITU-R RS.1813", "ITU-R RS.1861 9a", "ITU-R RS.1861 9b", 
+    # Possible values: "ITU-R RS.1813", "ITU-R RS.1861 9a", "ITU-R RS.1861 9b",
     # "ITU-R RS.1861 9c", "ITU-R RS.2043", "OMNI"
     # TODO: check `x` and `y`:
     # @important: for EESS Passive, antenna pattern is from Recommendatio ITU-R RS.1813
@@ -59,7 +57,7 @@ class ParametersEessSS(ParametersSpaceStation):
     earth_station_alt_m: float = 0.0
     earth_station_lat_deg: float = 0.0
     earth_station_long_diff_deg: float = 0.0
-    season:str = "SUMMER"
+    season: str = "SUMMER"
 
     ########### Creates a statistical distribution of nadir angle###############
     ############## following variables nadir_angle_distribution#################
@@ -96,22 +94,29 @@ class ParametersEessSS(ParametersSpaceStation):
         if not (0 <= self.antenna_efficiency or self.antenna_efficiency <= 1):
             raise ValueError("antenna_efficiency must be between 0 and 1")
 
-        if self.antenna_pattern not in ["ITU-R RS.1813", "ITU-R RS.1861 9a",
-                                        "ITU-R RS.1861 9b", "ITU-R RS.1861 9c",
-                                        "ITU-R RS.2043", "OMNI"]:
+        if self.antenna_pattern not in [
+            "ITU-R RS.1813", "ITU-R RS.1861 9a",
+            "ITU-R RS.1861 9b", "ITU-R RS.1861 9c",
+            "ITU-R RS.2043", "OMNI",
+        ]:
             raise ValueError(f"Invalid antenna_pattern: {
-                             self.antenna_pattern}")
+                             self.antenna_pattern
+            }")
 
         if self.antenna_pattern == "ITU-R RS.2043" and \
                 (self.frequency <= 9000.0 or self.frequency >= 10999.0):
-            raise ValueError(f"Frequency {self.frequency} MHz is not in the range for antenna pattern \"ITU-R RS.2043\"")
+            raise ValueError(
+                f"Frequency {self.frequency} MHz is not in the range for antenna pattern \"ITU-R RS.2043\"",
+            )
 
         # Check channel model
         if self.channel_model not in ["FSPL", "P619"]:
             raise ValueError(
-                "Invalid channel_model, must be either 'FSPL' or 'P619'")
+                "Invalid channel_model, must be either 'FSPL' or 'P619'",
+            )
 
         # Check season
         if self.season not in ["SUMMER", "WINTER"]:
             raise ValueError(
-                "Invalid season, must be either 'SUMMER' or 'WINTER'")
+                "Invalid season, must be either 'SUMMER' or 'WINTER'",
+            )

@@ -18,26 +18,28 @@ class ParametersSingleEarthStation(ParametersBase):
     nested_parameters_enabled: bool = True
 
     # Sensor center frequency [MHz]
-    frequency:float = None  # Center frequency of the sensor in MHz
+    frequency: float = None  # Center frequency of the sensor in MHz
 
     # Sensor bandwidth [MHz]
-    bandwidth:float = None # Bandwidth of the sensor in MHz
+    bandwidth: float = None  # Bandwidth of the sensor in MHz
 
     # System receive noise temperature [K]
     noise_temperature: float = None
 
     # Adjacent channel selectivity [dB]
-    adjacent_ch_selectivity:float = None
+    adjacent_ch_selectivity: float = None
 
     # Peak transmit power spectral density (clear sky) [dBW/Hz]
-    tx_power_density:float = None
+    tx_power_density: float = None
 
     # Antenna pattern of the sensor
     antenna: ParametersAntenna = field(default_factory=ParametersAntenna)
 
-    
     # Channel model, possible values are "FSPL" (free-space path loss), "P619"
-    channel_model: typing.Literal["FSPL", "P619", "P452"] = "FSPL"  # Channel model to be used
+    channel_model: typing.Literal[
+        "FSPL", "P619",
+        "P452",
+    ] = "FSPL"  # Channel model to be used
 
     param_p619: ParametersP619 = field(default_factory=ParametersP619)
     # TODO: remove season from system parameter and put it as p619 parameter
@@ -56,6 +58,7 @@ class ParametersSingleEarthStation(ParametersBase):
             __EXISTING_TYPES = ["UNIFORM_DIST", "FIXED"]
             type: typing.Literal["UNIFORM_DIST", "FIXED"] = None
             fixed: float = None
+
             @dataclass
             class UniformDistParams(ParametersBase):
                 min: float = None
@@ -63,16 +66,26 @@ class ParametersSingleEarthStation(ParametersBase):
 
                 def validate(self, ctx):
                     if not isinstance(self.min, int) and not isinstance(self.min, float):
-                        raise ValueError(f"{ctx}.min parameter should be a number")
+                        raise ValueError(
+                            f"{ctx}.min parameter should be a number",
+                        )
                     if not isinstance(self.max, int) and not isinstance(self.max, float):
-                        raise ValueError(f"{ctx}.max parameter should be a number")
+                        raise ValueError(
+                            f"{ctx}.max parameter should be a number",
+                        )
                     if self.max < self.min:
-                        raise ValueError(f"{ctx}.max parameter should be greater than or equal to {ctx}.min")
-            uniform_dist: UniformDistParams = field(default_factory=UniformDistParams)
+                        raise ValueError(
+                            f"{ctx}.max parameter should be greater than or equal to {ctx}.min",
+                        )
+            uniform_dist: UniformDistParams = field(
+                default_factory=UniformDistParams,
+            )
 
             def validate(self, ctx):
                 if self.type not in self.__EXISTING_TYPES:
-                    raise ValueError(f"Invalid value for {ctx}.type. Should be one of {self.__EXISTING_TYPES}")
+                    raise ValueError(
+                        f"Invalid value for {ctx}.type. Should be one of {self.__EXISTING_TYPES}",
+                    )
 
                 match self.type:
                     case "UNIFORM_DIST":
@@ -81,16 +94,23 @@ class ParametersSingleEarthStation(ParametersBase):
                         if not isinstance(self.fixed, int) and not isinstance(self.fixed, float):
                             raise ValueError(f"{ctx}.fixed should be a number")
                     case _:
-                        raise NotImplementedError(f"Validation for {ctx}.type = {self.type} is not implemented")
-
+                        raise NotImplementedError(
+                            f"Validation for {ctx}.type = {self.type} is not implemented",
+                        )
 
         azimuth: FixedOrUniformDist = field(default_factory=FixedOrUniformDist)
-        elevation: FixedOrUniformDist = field(default_factory=FixedOrUniformDist)
+        elevation: FixedOrUniformDist = field(
+            default_factory=FixedOrUniformDist,
+        )
 
         @dataclass
         class Location(ParametersBase):
             __EXISTING_TYPES = ["FIXED", "CELL", "NETWORK", "UNIFORM_DIST"]
-            type: typing.Literal["FIXED", "CELL", "NETWORK", "UNIFORM_DIST"] = None
+            type: typing.Literal[
+                "FIXED", "CELL",
+                "NETWORK", "UNIFORM_DIST",
+            ] = None
+
             @dataclass
             class LocationFixed(ParametersBase):
                 x: float = None
@@ -101,13 +121,16 @@ class ParametersSingleEarthStation(ParametersBase):
                         raise ValueError(f"{ctx}.x needs to be a number")
                     if not isinstance(self.y, int) and not isinstance(self.y, float):
                         raise ValueError(f"{ctx}.y needs to be a number")
+
             @dataclass
             class LocationDistributed(ParametersBase):
                 min_dist_to_bs: float = None
 
                 def validate(self, ctx):
                     if not isinstance(self.min_dist_to_bs, int) and not isinstance(self.min_dist_to_bs, float):
-                        raise ValueError(f"{ctx}.min_dist_to_bs needs to be a number")
+                        raise ValueError(
+                            f"{ctx}.min_dist_to_bs needs to be a number",
+                        )
 
             @dataclass
             class LocationDistributedWithinCircle(ParametersBase):
@@ -116,14 +139,24 @@ class ParametersSingleEarthStation(ParametersBase):
 
                 def validate(self, ctx):
                     if not isinstance(self.min_dist_to_center, int) and not isinstance(self.min_dist_to_center, float):
-                        raise ValueError(f"{ctx}.min_dist_to_center needs to be a number")
+                        raise ValueError(
+                            f"{ctx}.min_dist_to_center needs to be a number",
+                        )
                     if not isinstance(self.max_dist_to_center, int) and not isinstance(self.max_dist_to_center, float):
-                        raise ValueError(f"{ctx}.max_dist_to_center needs to be a number")
+                        raise ValueError(
+                            f"{ctx}.max_dist_to_center needs to be a number",
+                        )
 
             fixed: LocationFixed = field(default_factory=LocationFixed)
-            cell: LocationDistributed = field(default_factory=LocationDistributed)
-            network: LocationDistributed = field(default_factory=LocationDistributed)
-            uniform_dist: LocationDistributedWithinCircle = field(default_factory=LocationDistributedWithinCircle)
+            cell: LocationDistributed = field(
+                default_factory=LocationDistributed,
+            )
+            network: LocationDistributed = field(
+                default_factory=LocationDistributed,
+            )
+            uniform_dist: LocationDistributedWithinCircle = field(
+                default_factory=LocationDistributedWithinCircle,
+            )
 
             def validate(self, ctx):
                 match self.type:
@@ -136,11 +169,15 @@ class ParametersSingleEarthStation(ParametersBase):
                     case "UNIFORM_DIST":
                         self.uniform_dist.validate(f"{ctx}.uniform_dist")
                     case _:
-                        raise NotImplementedError(f"ParametersSingleEarthStation.Location.type = {self.type} has no validation implemented!")
-                
+                        raise NotImplementedError(
+                            f"ParametersSingleEarthStation.Location.type = {self.type} has no validation implemented!",
+                        )
+
         location: Location = field(default_factory=Location)
 
-    geometry: EarthStationGeometry = field(default_factory=EarthStationGeometry)
+    geometry: EarthStationGeometry = field(
+        default_factory=EarthStationGeometry,
+    )
 
     def load_parameters_from_file(self, config_file: str):
         """
@@ -161,7 +198,7 @@ class ParametersSingleEarthStation(ParametersBase):
         # this is needed because nested parameters
         # don't know/cannot access parents attributes
         self.antenna.set_external_parameters(
-            frequency=self.frequency
+            frequency=self.frequency,
         )
 
         # this parameter is required in system get description
@@ -169,22 +206,30 @@ class ParametersSingleEarthStation(ParametersBase):
 
         # this should be done by validating this parameters only if it is the selected system on the general section
         # TODO: make this better by changing the Parameters class itself
-        should_validate = any(v is not None for v in [self.frequency, self.bandwidth])
+        should_validate = any(
+            v is not None for v in [
+                self.frequency, self.bandwidth,
+            ]
+        )
 
         if should_validate:
-            self.validate()
+            self.validate(self.section_name)
 
-    def validate(self, ctx = "single_earth_station"):
+    def validate(self, ctx="single_earth_station"):
         super().validate(ctx)
 
         if None in [self.frequency, self.bandwidth, self.channel_model]:
-            raise ValueError("ParametersSingleEarthStation required parameters are not all set")
+            raise ValueError(
+                "ParametersSingleEarthStation required parameters are not all set",
+            )
 
         if self.season not in ["WINTER", "SUMMER"]:
-            raise ValueError(f"{ctx}.season needs to be either 'WINTER' or 'SUMMER'")
+            raise ValueError(
+                f"{ctx}.season needs to be either 'WINTER' or 'SUMMER'",
+            )
 
         if self.channel_model not in ["FSPL", "P619", "P452", "TerrestrialSimple", "TVRO-URBAN", "TVRO-SUBURBAN"]:
-            raise ValueError(f"{ctx}.channel_model needs to be in ['FSPL', 'P619', 'P452', 'TerrestrialSimple', 'TVRO-URBAN', 'TVRO-SUBURBAN']")
-        
-
-
+            raise ValueError(
+                f"{ctx}.channel_model" +
+                "needs to be in ['FSPL', 'P619', 'P452', 'TerrestrialSimple', 'TVRO-URBAN', 'TVRO-SUBURBAN']",
+            )

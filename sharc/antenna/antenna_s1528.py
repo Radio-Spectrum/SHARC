@@ -27,43 +27,70 @@ class AntennaS1528Taylor(Antenna):
         self.peak_gain = param.antenna_gain
         self.frequency_mhz = param.frequency
         self.bandwidth_mhz = param.bandwidth
+
         # Wavelength of the lowest frequency of the band of interest (in meters).
         self.lamb = (SPEED_OF_LIGHT / 1e6) / (self.frequency_mhz - self.bandwidth_mhz / 2)
+
         # SLR is the side-lobe ratio of the pattern (dB), the difference in gain between the maximum
         # gain and the gain at the peak of the first side lobe.
         self.slr = param.slr
+
         # Number of secondary lobes considered in the diagram (coincide with the roots of the Bessel function)
         self.n_side_lobes = param.n_side_lobes
-        # Radial and transverse sizes of the effective radiating area of the satellite transmit antenna (m).
-        self.l_r = param.l_r
-        self.l_t = param.l_t
 
-        self.roll_off = param.roll_off
+        # half-radial axis distance of the illuminated beam (degrees) (subtended at the satellite)
+        self.a_deg = param.a_deg
+
+        # half-transverse axis distance of the illuminated beam (degrees) (subtended at the satellite)
+        self.b_deg = param.b_deg
 
         # Beam roll-off (difference between the maximum gain and the gain at the edge of the illuminated beam)
-        # Possible values are 3, 5, and 7
-        if int(self.roll_off) not in [3, 5, 7]:
+        # Possible values are 0, 3, 5 and 7.
+        # The value 0 (zero) means that the first J1 root of the bessel function
+        # sits at the edge of the beam.
+        self.roll_off = param.roll_off
+        if int(self.roll_off) not in [0, 3, 5, 7]:
             raise ValueError(
                 f"AntennaS1528Taylor: Invalid value for roll_off factor {self.roll_off}")
         self.roll_off = int(self.roll_off)
 
-    def calculate_gain(self, *args, **kwargs) -> np.array:
-        phi = np.abs(np.radians(kwargs.get('phi', 0)))
-        theta = np.abs(np.radians(kwargs.get('theta', 0)))
+        # Radial (l_r) and transverse (l_t) sizes of the effective radiating area of the satellite transmitt antenna (m)
+        # Lr and Lt calculation based on Table 2.
+        if self.roll_off == 0:
+            k = 1.2
+        elif self.roll_off == 3:
+            k = 0.51
+        elif self.roll_off == 5:
+            k = 0.64
+        elif self.roll_off == 7:
+            k = 0.74
+        self.l_r = self.lamb * k / np.sin(np.radians(self.a_deg))
+        self.l_t = self.lamb * k / np.sin(np.radians(self.b_deg))
 
         # Intermediary variables
-        A = (1 / np.pi) * np.arccosh(10 ** (self.slr / 20))
-        j1_roots = jn_zeros(1, self.n_side_lobes) / np.pi
-        sigma = j1_roots[-1] / np.sqrt(A ** 2 + (self.n_side_lobes - 1 / 2) ** 2)
+        self.A = (1 / np.pi) * np.arccosh(10 ** (self.slr / 20))
+        self.j1_roots = jn_zeros(1, self.n_side_lobes) / np.pi
+        self.sigma = self.j1_roots[-1] / np.sqrt(self.A ** 2 + (self.n_side_lobes - 1 / 2) ** 2)
+        self.mu = jn_zeros(1, self.n_side_lobes - 1) / np.pi
+
+    def calculate_gain(self, *args, **kwargs) -> np.array:
+        # The reference angles for the simulator and the antenna realisation are switched.
+        # Local theta is simulator off_axis_angle and local phi is simulator theta_vec
+        if 'off_axis_angle_vec' not in kwargs:
+            raise ValueError("off_axis_angle vector must be given")
+        if 'theta_vec' not in kwargs:
+            raise ValueError("theta vector must be given")
+        theta = np.abs(np.radians(kwargs.get('off_axis_angle_vec', 0)))
+        phi = np.abs(np.radians(kwargs.get('theta_vec', 0)))
+
         u = (np.pi / self.lamb) * np.sqrt((self.l_r * np.sin(theta) * np.cos(phi)) ** 2 +
                                           (self.l_t * np.sin(theta) * np.sin(phi)) ** 2)
 
-        mu = jn_zeros(1, self.n_side_lobes - 1) / np.pi
         v = np.ones(u.shape + (self.n_side_lobes - 1,))
 
-        for i, ui in enumerate(mu):
-            v[..., i] = (1 - u ** 2 / (np.pi ** 2 * sigma ** 2 *
-                                       (A ** 2 + (i + 1 - 0.5) ** 2))) / (1 - (u / (np.pi * ui)) ** 2)
+        for i, ui in enumerate(self.mu):
+            v[..., i] = (1 - u ** 2 / (np.pi ** 2 * self.sigma ** 2 *
+                                       (self.A ** 2 + (i + 1 - 0.5) ** 2))) / (1 - (u / (np.pi * ui)) ** 2)
 
         # Take care of divide-by-zero
         with np.errstate(divide='ignore', invalid='ignore'):
@@ -296,15 +323,15 @@ if __name__ == '__main__':
     # Section 1.4 (Taylor)
     params = ParametersAntennaS1528(
         antenna_gain=0,
-        frequency=6000,
-        bandwidth=500,
+        frequency=2000,
+        bandwidth=10,
         slr=20,
         n_side_lobes=4,
         l_r=0.5,
         l_t=0.5,
-        roll_off=3
+        roll_off=7
     )
-
+   
     # Create an instance of AntennaS1528Taylor
     antenna = AntennaS1528Taylor(params)
     print(f"Taylor antenna.lamb = {antenna.lamb}")

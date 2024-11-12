@@ -13,6 +13,7 @@ from sharc.parameters.imt.parameters_antenna_imt import ParametersAntennaImt
 from sharc.parameters.parameters_mss_ss import ParametersMssSs
 from sharc.parameters.antenna.parameters_antenna_s1528 import ParametersAntennaS1528
 from sharc.mask.spectral_mask_imt import SpectralMaskImt
+from sharc.parameters.constants import SPEED_OF_LIGHT
 
 if __name__ == "__main__":
 
@@ -20,22 +21,26 @@ if __name__ == "__main__":
     param_mss = ParametersMssSs()
     param_mss.frequency = 2100.0  # MHz
     param_mss.bandwidth = 10.0  # MHz
-    param_mss.altitude = 120e3  # meters
+    param_mss.altitude = 600e3  # meters
     param_mss.azimuth = 0
     param_mss.elevation = 90  # degrees
-    param_mss.cell_radius = 19e3  # meters
+    param_mss.cell_radius = 25e3  # meters
     param_mss.intersite_distance = param_mss.cell_radius * np.sqrt(3)
     param_mss.num_sectors = 19
     param_mss.antenna_gain = 30  # dBi
-    param_mss.antenna_3_dB_bw = 4.4127
+    param_mss.antenna_3_dB_bw = 4.4127 / 2
+    param_mss.antenna_l_s = 20  # in dB
     # Parameters used for the S.1528 antenna
-    # param_mss.antenna_pattern = "ITU-R-S.1528-Taylor"
-    param_mss.antenna_pattern = "ITU-R-S.1528-LEO"
-    param_mss.antenna_s1528.set_external_parameters(param_mss.frequency,
-                                                    param_mss.bandwidth,
-                                                    param_mss.antenna_gain,
-                                                    param_mss.antenna_l_s,
-                                                    param_mss.antenna_3_dB_bw)
+    param_mss.antenna_pattern = "ITU-R-S.1528-Taylor"
+    # param_mss.antenna_pattern = "ITU-R-S.1528-LEO"
+    roll_off = 7
+    param_mss.antenna_s1528.set_external_parameters(frequency=param_mss.frequency,
+                                                    bandwidth=param_mss.bandwidth,
+                                                    antenna_gain=param_mss.antenna_gain,
+                                                    antenna_l_s=param_mss.antenna_l_s,
+                                                    a_deg=param_mss.antenna_3_dB_bw,
+                                                    b_deg=param_mss.antenna_3_dB_bw,
+                                                    roll_off=roll_off)
     beam_idx = 3  # beam index used for gain analysis
 
     seed = 100
@@ -75,15 +80,17 @@ if __name__ == "__main__":
         gains[k, station_2_active] = \
             ntn_bs.antenna[k].calculate_gain(
                 off_axis_angle_vec=off_axis_angle[k, station_2_active], theta_vec=theta[k, station_2_active])
+                # phi=off_axis_angle[k, station_2_active], theta=theta[k, station_2_active])
 
     fig = plt.figure()
     ax = fig.add_subplot(111, projection='3d')
-    ax.set_xlim([-200, 200])
-    ax.set_ylim([-200, 200])
+    # ax.set_xlim([-200, 200])
+    # ax.set_ylim([-200, 200])
     ntn_topology.plot_3d(ax, False)  # Plot the 3D topology
-    im = ax.scatter(xs=ntn_ue.x / 1000, ys=ntn_ue.y /
-                    1000, c=gains[beam_idx], cmap='jet')
-    fig.colorbar(im)
+    im = ax.scatter(xs=ntn_ue.x / 1000, ys=ntn_ue.y / 1000,
+                    c=gains[beam_idx] - np.max(param_mss.antenna_gain), vmin=-50, cmap='jet')
+    ax.view_init(azim=0, elev=90)
+    fig.colorbar(im, label='Normalized antenna gain (dBi)')
 
     plt.show()
     exit()

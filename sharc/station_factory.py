@@ -1251,7 +1251,7 @@ class StationFactory(object):
                                                     scenario="OUTDOOR")
         else:
             raise ValueError(f"Invalid or not implemented spectral mask - {param_mss.spectral_mask}")
-        mss_ss.spectral_mask.set_mask(param_mss.tx_power_density + 10*np.log10(param_mss.bandwidth*1e6))
+        mss_ss.spectral_mask.set_mask(param_mss.tx_power_density + 10 * np.log10(param_mss.bandwidth * 10e6))
 
         return mss_ss
 

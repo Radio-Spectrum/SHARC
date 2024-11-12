@@ -1,19 +1,12 @@
-import math
 import numpy as np
 import matplotlib.pyplot as plt
 
 from sharc.topology.topology_ntn import TopologyNTN
-from sharc.topology.topology_macrocell import TopologyMacrocell
-from sharc.antenna.antenna_s1528 import AntennaS1528, AntennaS1528Leo
-from sharc.station_manager import StationManager
-from sharc.support.enumerations import StationType
 from sharc.station_factory import StationFactory
 from sharc.parameters.imt.parameters_imt import ParametersImt
 from sharc.parameters.imt.parameters_antenna_imt import ParametersAntennaImt
 from sharc.parameters.parameters_mss_ss import ParametersMssSs
-from sharc.parameters.antenna.parameters_antenna_s1528 import ParametersAntennaS1528
-from sharc.mask.spectral_mask_imt import SpectralMaskImt
-from sharc.parameters.constants import SPEED_OF_LIGHT
+
 
 if __name__ == "__main__":
 
@@ -28,18 +21,19 @@ if __name__ == "__main__":
     param_mss.intersite_distance = param_mss.cell_radius * np.sqrt(3)
     param_mss.num_sectors = 19
     param_mss.antenna_gain = 30  # dBi
-    param_mss.antenna_3_dB_bw = 4.4127 / 2
+    param_mss.antenna_3_dB_bw = 4.4127
     param_mss.antenna_l_s = 20  # in dB
     # Parameters used for the S.1528 antenna
     param_mss.antenna_pattern = "ITU-R-S.1528-Taylor"
     # param_mss.antenna_pattern = "ITU-R-S.1528-LEO"
-    roll_off = 7
+    roll_off = 0
     param_mss.antenna_s1528.set_external_parameters(frequency=param_mss.frequency,
                                                     bandwidth=param_mss.bandwidth,
                                                     antenna_gain=param_mss.antenna_gain,
                                                     antenna_l_s=param_mss.antenna_l_s,
-                                                    a_deg=param_mss.antenna_3_dB_bw,
-                                                    b_deg=param_mss.antenna_3_dB_bw,
+                                                    antenna_3_dB_bw=param_mss.antenna_3_dB_bw,
+                                                    a_deg=param_mss.antenna_3_dB_bw / 2,
+                                                    b_deg=param_mss.antenna_3_dB_bw / 2,
                                                     roll_off=roll_off)
     beam_idx = 3  # beam index used for gain analysis
 

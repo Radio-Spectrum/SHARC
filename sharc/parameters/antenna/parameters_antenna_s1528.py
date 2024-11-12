@@ -23,7 +23,7 @@ class ParametersAntennaS1528(ParametersBase):
     # according to ITU-R S.672-4
     antenna_l_s: float = -20.0
     # 3 dB beamwidth angle (3 dB below maximum gain) [degrees]
-    antenna_3_dB: float = 0.65
+    antenna_3_dB_bw: float = 0.65
 
     # The following parameters are used for S.1528-Taylor antenna pattern
 
@@ -75,7 +75,7 @@ class ParametersAntennaS1528(ParametersBase):
         self.antenna_gain = param.antenna_gain
         self.antenna_pattern = param.antenna_pattern
         self.antenna_l_s = param.antenna_l_s
-        self.antenna_3_dB = param.antenna_3_dB_bw
+        self.antenna_3_dB_bw = param.antenna_3_dB_bw
         self.slr = param.slr
         self.n_side_lobes = param.n_side_lobes
         self.roll_off = param.roll_off

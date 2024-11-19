@@ -22,7 +22,8 @@ from sharc.propagation.propagation_clear_air_452 import PropagationClearAir
 from sharc.propagation.propagation_tvro import PropagationTvro
 from sharc.propagation.propagation_indoor import PropagationIndoor
 from sharc.propagation.propagation_hdfss import PropagationHDFSS
-
+from sharc.propagation.propagation_p528 import PropagationP528
+from sharc.parameters.parameters_p528 import ParametersP528 
 
 class PropagationFactory(object):
 
@@ -68,6 +69,20 @@ class PropagationFactory(object):
             return PropagationSatSimple(random_number_gen)
         elif channel_model == "TerrestrialSimple":
             return PropagationTerSimple(random_number_gen)
+        elif channel_model == "P528":
+            # Check if system has P528 parameters
+            if hasattr(param_system, 'param_p528'):
+                return PropagationP528(
+                    random_number_gen=random_number_gen,
+                    time_percentage=param_system.param_p528.time_percentage,
+                    polarization=param_system.param_p528.polarization
+                )
+            # Use defaults if no parameters specified
+            return PropagationP528(
+                random_number_gen=random_number_gen,
+                time_percentage="RANDOM",
+                polarization="RANDOM"
+            )
         elif channel_model == "P619":
             if isinstance(param_system, ParametersImt):
                 if param_system.topology.type != "NTN":

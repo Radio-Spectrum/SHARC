@@ -8,10 +8,8 @@ from sharc.propagation.propagation import Propagation
 from dataclasses import dataclass
 from typing import List
 import numpy as np
-from sharc.support.enumerations import StationType
 from sharc.station_manager import StationManager
 from sharc.parameters.parameters import Parameters
-import matplotlib.pyplot as plt
 
 # Constants
 a_0__km = 6371.0

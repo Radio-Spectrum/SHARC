@@ -19,7 +19,7 @@ class ParametersHotspot(ParametersBase):
     min_dist_bs_hotspot: float = 0.0
 
     def validate(self, ctx):
-        if not isinstance(self.intersite_distance, int) or not isinstance(self.intersite_distance, float):
+        if not isinstance(self.intersite_distance, int) and not isinstance(self.intersite_distance, float):
             raise ValueError(f"{ctx}.intersite_distance should be a number")
 
         if self.num_clusters not in [1, 7]:
@@ -28,10 +28,10 @@ class ParametersHotspot(ParametersBase):
         if not isinstance(self.num_hotspots_per_cell, int) or self.num_hotspots_per_cell < 0:
             raise ValueError("num_hotspots_per_cell must be non-negative")
 
-        if not isinstance(self.max_dist_hotspot_ue, float) or not isinstance(self.max_dist_hotspot_ue, int)\
+        if (not isinstance(self.max_dist_hotspot_ue, float) and not isinstance(self.max_dist_hotspot_ue, int))\
                 or self.max_dist_hotspot_ue < 0:
             raise ValueError("max_dist_hotspot_ue must be non-negative")
 
-        if not isinstance(self.min_dist_bs_hotspot, float) or not isinstance(self.min_dist_bs_hotspot, int)\
+        if (not isinstance(self.min_dist_bs_hotspot, float) and not isinstance(self.min_dist_bs_hotspot, int))\
                 or self.min_dist_bs_hotspot < 0:
             raise ValueError("min_dist_bs_hotspot must be non-negative")

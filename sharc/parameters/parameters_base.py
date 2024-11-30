@@ -2,6 +2,16 @@ import yaml
 from dataclasses import dataclass
 
 
+# Register a tuple constructor with PyYAML
+def tuple_constructor(loader, node):
+    """Load the sequence of values from the YAML node and returns a tuple constructed from the sequence."""
+    values = loader.construct_sequence(node)
+    return tuple(values)
+
+
+yaml.SafeLoader.add_constructor('tag:yaml.org,2002:python/tuple', tuple_constructor)
+
+
 @dataclass
 class ParametersBase:
     """Base class for parameter dataclassess

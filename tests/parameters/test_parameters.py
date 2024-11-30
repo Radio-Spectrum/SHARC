@@ -38,6 +38,7 @@ class ParametersTest(unittest.TestCase):
         self.assertEqual(self.parameters.imt.ue.indoor_percent, 5.0)
         self.assertEqual(self.parameters.imt.ue.distribution_type, "ANGLE_AND_DISTANCE")
         self.assertEqual(self.parameters.imt.ue.distribution_distance, "UNIFORM")
+        self.assertEqual(self.parameters.imt.ue.azimuth_range, (-70, 90))
         self.assertEqual(self.parameters.imt.ue.tx_power_control, True)
         self.assertEqual(self.parameters.imt.ue.p_o_pusch, -95.0)
         self.assertEqual(self.parameters.imt.ue.alpha, 1.0)
@@ -151,8 +152,16 @@ class ParametersTest(unittest.TestCase):
         self.assertEqual(self.parameters.fss_ss.earth_station_long_diff_deg, 0.0)
         self.assertEqual(self.parameters.fss_ss.season, "SUMMER")
         self.assertEqual(self.parameters.fss_ss.channel_model, "P619")
-        self.assertEqual(self.parameters.fss_ss.antenna_l_s, -20.0)
+        self.assertEqual(self.parameters.fss_ss.antenna_l_s, -20.1)
         self.assertEqual(self.parameters.fss_ss.antenna_3_dB, 0.65)
+
+        self.assertEqual(self.parameters.fss_ss.antenna_s1528.antenna_pattern, "ITU-R-S.1528-LEO")
+        self.assertEqual(self.parameters.fss_ss.antenna_s1528.slr, 21)
+        self.assertEqual(self.parameters.fss_ss.antenna_s1528.antenna_l_s, -20.1)
+        self.assertEqual(self.parameters.fss_ss.antenna_s1528.n_side_lobes, 5)
+        self.assertEqual(self.parameters.fss_ss.antenna_s1528.l_r, .4)
+        self.assertEqual(self.parameters.fss_ss.antenna_s1528.l_t, .4)
+        self.assertEqual(self.parameters.fss_ss.antenna_s1528.roll_off, 2)
 
     def test_parameters_fss_es(self):
         """Test ParametersFssEs"""

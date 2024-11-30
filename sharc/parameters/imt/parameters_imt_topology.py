@@ -24,14 +24,14 @@ class ParametersImtTopology(ParametersBase):
     def validate(self, ctx):
         match self.type:
             case "MACROCELL":
-                self.macrocell.validate(ctx)
+                self.macrocell.validate(f"{ctx}.macrocell")
             case "HOTSPOT":
-                self.hotspot.validate(ctx)
+                self.hotspot.validate(f"{ctx}.hotspot")
             case "INDOOR":
-                self.indoor.validate(ctx)
+                self.indoor.validate(f"{ctx}.indoor")
             case "SINGLE_BS":
-                self.single_bs.validate(ctx)
+                self.single_bs.validate(f"{ctx}.single_bs")
             case "NTN":
-                self.ntn.validate(ctx)
+                self.ntn.validate(f"{ctx}.ntn")
             case _:
                 raise NotImplementedError(f"{ctx}.type == '{self.type}' may not be implemented")

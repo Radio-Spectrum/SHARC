@@ -26,7 +26,7 @@ class FieldStatistics:
         self.standard_deviation = np.std(sample)
         # @important TODO: check if using t distribution here is correct
         self.confidence_interval = scipy.stats.norm.interval(
-            confidence, loc=self.mean, scale=scipy.stats.sem(sample)
+            confidence, loc=self.mean, scale=self.standard_deviation
         )
         return self
 
@@ -243,7 +243,7 @@ class PostProcessor:
         self.plot_legend_patterns.append(
             {"dir_name_contains": dir_name_contains, "legend": legend}
         )
-        self.plot_legend_patterns.sort(key=lambda p: len(p["dir_name_contains"]))
+        self.plot_legend_patterns.sort(key=lambda p: -len(p["dir_name_contains"]))
 
         return self
 
@@ -450,3 +450,7 @@ class PostProcessor:
     @staticmethod
     def generate_statistics(result: Results) -> ResultsStatistics:
         return ResultsStatistics().load_from_results(result)
+
+    @staticmethod
+    def generate_sample_statistics(fieldname: str, sample: list[float]) -> ResultsStatistics:
+        return FieldStatistics().load_from_sample(fieldname, sample)

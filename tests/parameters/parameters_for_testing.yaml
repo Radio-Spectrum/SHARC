@@ -300,6 +300,11 @@ imt:
         # Possible values: NORMAL, UNIFORM
         distribution_azimuth  : NORMAL
         ###########################################################################
+        # Azimuth range used when distributing the UE within the cell.
+        # Default value is (-60, 60) which representes a 120 degree sector.
+        # Change this to (-180, 180) when deploying the NTN topology
+        azimuth_range: !!python/tuple [-70, 90]
+        ###########################################################################
         # Power control algorithm
         # tx_power_control = "ON",power control On
         # tx_power_control = "OFF",power control Off
@@ -473,6 +478,23 @@ fss_ss:
     # Antenna pattern of the FSS space station
     # Possible values: "ITU-R S.672", "ITU-R S.1528", "FSS_SS", "OMNI"
     antenna_pattern  : FSS_SS
+    ###########################################################################
+    # Paramters for the Antenna ITU-R S.1528
+    antenna_s1528:
+        # Antenna pattern according to ITU-R-S.1528. Possible values are
+        # "ITU-R-S.1528-Section1.2", "ITU-R-S.1528-LEO", "ITU-R-S.1528-Taylor"
+        antenna_pattern: "ITU-R-S.1528-LEO"
+        ###########################################################################
+        # SLR is the side-lobe ratio of the pattern (dB), the difference in gain between the maximum
+        # gain and the gain at the peak of the first side lobe.
+        slr: 21
+        # Number of secondary lobes considered in the diagram (coincide with the roots of the Bessel function)
+        n_side_lobes : 5
+        # Radial and transverse sizes of the effective radiating area of the satellite transmit antenna (m).
+        l_r : 0.4
+        l_t : 0.4
+        # Roll-off factor
+        roll_off : 2
     # IMT parameters relevant to the satellite system
     #    altitude of IMT system (in meters)
     #    latitude of IMT system (in degrees)
@@ -491,14 +513,11 @@ fss_ss:
     ###########################################################################
     # The required near-in-side-lobe level (dB) relative to peak gain
     # according to ITU-R S.672-4
-    antenna_l_s  : -20
+    antenna_l_s  : -20.1
     ###########################################################################
     # 3 dB beamwidth angle (3 dB below maximum gain) [degrees]
     antenna_3_dB  : 0.65
-    ###########################################################################
-    # Constants
-    BOLTZMANN_CONSTANT  : 1.38064852e-23
-    EARTH_RADIUS  : 6371000
+
 fss_es:
     ###########################################################################
     # type of FSS-ES location:

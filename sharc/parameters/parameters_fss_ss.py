@@ -1,8 +1,9 @@
 # -*- coding: utf-8 -*-
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from sharc.parameters.parameters_base import ParametersBase
 from sharc.parameters.parameters_p619 import ParametersP619
+from sharc.parameters.antenna.parameters_antenna_s1528 import ParametersAntennaS1528
 
 
 @dataclass
@@ -11,6 +12,7 @@ class ParametersFssSs(ParametersBase):
     parameters for the simulator
     """
     section_name: str = "fss_ss"
+    nested_parameters_enabled: bool = True
     is_space_to_earth: bool = True
     # satellite center frequency [MHz]
     frequency: float = 43000.0
@@ -30,11 +32,21 @@ class ParametersFssSs(ParametersBase):
     noise_temperature: float = 950.0
     # Adjacent channel selectivity (dB)
     adjacent_ch_selectivity: float = 0.0
-    # Satellite peak receive antenna gain [dBi]
-    antenna_gain: float = 46.6
+
+    # Antenna parameters
     # Antenna pattern of the FSS space station
     # Possible values: "ITU-R S.672", "ITU-R S.1528", "FSS_SS", "OMNI"
-    antenna_pattern: str = "FSS_SS"
+    antenna_pattern: str = "ITU-R S.672"
+    ############################
+    # Satellite peak receive antenna gain [dBi]
+    antenna_gain: float = 46.6
+    # The required near-in-side-lobe level (dB) relative to peak gain
+    # according to ITU-R S.672-4
+    antenna_l_s: float = -20.0
+    # Parameters if antenna_pattern = ITU_R S.1528
+    antenna_s1528: ParametersAntennaS1528 = field(default_factory=ParametersAntennaS1528)
+
+    ############################
     # Parameters for the P.619 propagation model
     #    earth_station_alt_m - altitude of IMT system (in meters)
     #    earth_station_lat_deg - latitude of IMT system (in degrees)
@@ -52,9 +64,6 @@ class ParametersFssSs(ParametersBase):
     #                                    "SatelliteSimple" (FSPL + 4 + clutter loss)
     #                                    "P619"
     channel_model: str = "P619"
-    # The required near-in-side-lobe level (dB) relative to peak gain
-    # according to ITU-R S.672-4
-    antenna_l_s: float = -20.0
     # 3 dB beamwidth angle (3 dB below maximum gain) [degrees]
     antenna_3_dB: float = 0.65
 
@@ -90,3 +99,4 @@ class ParametersFssSs(ParametersBase):
                              Invalid value for paramter channel_model = {self.channel_model}. \
                              Possible values are \"FSPL\", \"SatelliteSimple\", \"P619\".")
         self.param_p619.load_from_paramters(self)
+        self.antenna_s1528.set_external_parameters(self.frequency, self.bandwidth, self.antenna_gain, self.antenna_l_s)

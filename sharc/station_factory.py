@@ -194,9 +194,12 @@ class StationFactory(object):
 
         ue_x = list()
         ue_y = list()
+        # TODO: Sanitaze the azimuth_range parameter
+        azimuth_range = param.ue.azimuth_range
+        if (not isinstance(azimuth_range, tuple)) or len(azimuth_range) != 2:
+            raise ValueError("Invalid type or length for parameter azimuth_range")
 
         # Calculate UE pointing
-        azimuth_range = (-60, 60)
         azimuth = (azimuth_range[1] - azimuth_range[0]) * \
             random_number_gen.random_sample(num_ue) + azimuth_range[0]
         # Remove the randomness from azimuth and you will have a perfect pointing
@@ -270,7 +273,7 @@ class StationFactory(object):
                     angle_mean, angle_scale, int(N * num_ue),
                 )
 
-                angle_cutoff = 60
+                angle_cutoff = np.max(azimuth_range)
                 idx = np.where((angle_n < angle_cutoff) & (
                     angle_n > -angle_cutoff
                 ))[0][:num_ue]
@@ -360,8 +363,10 @@ class StationFactory(object):
 
         imt_ue.spectral_mask.set_mask()
 
-        if param.topology.type == 'MACROCELL' or param.topology.type == 'HOTSPOT':
-            imt_ue.intersite_dist = param.intersite_distance
+        if param.topology.type == 'MACROCELL':
+            imt_ue.intersite_dist = param.topology.macrocell.intersite_distance
+        elif param.topology.type == 'HOTSPOT':
+            imt_ue.intersite_dist = param.topology.hotspot.intersite_distance
 
         return imt_ue
 
@@ -519,6 +524,11 @@ class StationFactory(object):
 
     @staticmethod
     def generate_system(parameters: Parameters, topology: Topology, random_number_gen: np.random.RandomState):
+        if parameters.imt.topology.type == 'MACROCELL':
+            intersite_dist = parameters.imt.topology.macrocell.intersite_distance
+        elif parameters.imt.topology.type == 'HOTSPOT':
+            intersite_dist = parameters.imt.topology.hotspot.intersite_distance
+
         if parameters.general.system == "METSAT_SS":
             return StationFactory.generate_metsat_ss(parameters.metsat_ss)
         elif parameters.general.system == "EESS_SS":
@@ -538,7 +548,7 @@ class StationFactory(object):
         elif parameters.general.system == "FS":
             return StationFactory.generate_fs_station(parameters.fs)
         elif parameters.general.system == "HAPS":
-            return StationFactory.generate_haps(parameters.haps, parameters.imt.intersite_distance, random_number_gen)
+            return StationFactory.generate_haps(parameters.haps, intersite_dist, random_number_gen)
         elif parameters.general.system == "RNS":
             return StationFactory.generate_rns(parameters.rns, random_number_gen)
         else:
@@ -602,7 +612,7 @@ class StationFactory(object):
         elif param.antenna_pattern == "ITU-R S.672":
             fss_space_station.antenna = np.array([AntennaS672(param)])
         elif param.antenna_pattern == "ITU-R S.1528":
-            fss_space_station.antenna = np.array([AntennaS1528(param)])
+            fss_space_station.antenna = np.array([AntennaS1528(param.antenna_s1528)])
         elif param.antenna_pattern == "FSS_SS":
             fss_space_station.antenna = np.array([AntennaFssSs(param)])
         else:

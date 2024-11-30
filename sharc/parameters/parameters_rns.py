@@ -9,7 +9,8 @@ class ParametersRns(ParametersBase):
     """
     Simulation parameters for radionavigation service
     """
-
+    # whether to enable recursive parameters setting on .yaml file
+    nested_parameters_enabled: bool = True
     section_name: str = "rns"
     # x-y coordinates [m]
     x: float = 660.0
@@ -47,7 +48,7 @@ class ParametersRns(ParametersBase):
     # Adjacent channel selectivity [dB]
     acs: float = 30.0
     # Parameters for P528 model
-    ParametersP528 = ParametersP528()
+    param_p528: ParametersP528 = field(default_factory=ParametersP528)
 
     def load_parameters_from_file(self, config_file: str):
         """Load the parameters from file an run a sanity check

@@ -357,11 +357,10 @@ class ParametersTest(unittest.TestCase):
         self.assertEqual(self.parameters.rns.channel_model, "P528")
 
     def test_parameters_p528(self):
-        """Test ParametersP528"""
+        """Test param_p528"""
         # Test default values
-        self.assertEqual(self.parameters.rns.ParametersP528.time_percentage, "RANDOM")
-        self.assertEqual(self.parameters.rns.ParametersP528.polarization, "RANDOM")
-        self.assertEqual(self.parameters.rns.ParametersP528.channel_mode, "P528")
+        self.assertEqual(self.parameters.rns.param_p528.time_percentage, 53)
+        self.assertEqual(self.parameters.rns.param_p528.polarization, 1)
 
 
 if __name__ == "__main__":

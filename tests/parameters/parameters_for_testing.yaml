@@ -784,10 +784,10 @@ rns:
     param_p528:
         ###########################################################################
         # Time percentage between 1-99 or "RANDOM"  
-        time_percentage: "RANDOM"
+        time_percentage: 53
         ###########################################################################
         # Polarization: 0 (horizontal), 1 (vertical) or "RANDOM"
-        polarization: "RANDOM"
+        polarization: 1
 ras:
     ###########################################################################
     # frequency [MHz]

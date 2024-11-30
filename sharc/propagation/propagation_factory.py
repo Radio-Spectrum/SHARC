@@ -71,14 +71,13 @@ class PropagationFactory(object):
             return PropagationTerSimple(random_number_gen)
         elif channel_model == "P528":
             # Check IF ther's P528 parameters
-            if hasattr(param_system, "param_p528"):
-                return PropagationP528(
-                    random_number_gen=random_number_gen,
-                    time_percentage=param_system.param_p528.time_percentage,
-                    polarization=param_system.param_p528.polarization,
-                )
-            # Use defaults if no parameters specified
-            return PropagationP528(random_number_gen=random_number_gen, time_percentage="RANDOM", polarization="RANDOM")
+            if not hasattr(param_system, 'param_p528'):
+                raise AttributeError("param_system does not have an attribute named 'param_p528'")
+            return PropagationP528(
+                random_number_gen=random_number_gen,
+                time_percentage=param_system.param_p528.time_percentage,
+                polarization=param_system.param_p528.polarization,
+            )
         elif channel_model == "P619":
             if isinstance(param_system, ParametersImt):
                 if param_system.topology.type != "NTN":

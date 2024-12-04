@@ -333,14 +333,17 @@ class PropagationP619(Propagation):
         # Elevation angles seen from the station on Earth.
         elevation_angles = {}
         if station_a.is_space_station:
-            elevation_angles["free_space"] = np.transpose(
-                station_b.get_elevation(station_a),
-            )
-            earth_station_antenna_gain = np.transpose(station_b_gains)
+            elevation_angles["free_space"] = station_b.get_elevation(station_a)
+            earth_station_antenna_gain = station_b_gains
+            if (station_b_gains.shape != distance.shape):
+                raise ValueError(f"Invalid shape for station_b_gains = {station_b_gains.shape}")
             elevation_angles["apparent"] = self.apparent_elevation_angle(
                 elevation_angles["free_space"],
                 station_a.height,
             )
+            # Transpose it to fit the expected path loss shape
+            elevation_angles["free_space"] = np.transpose(elevation_angles["free_space"])
+            elevation_angles["apparent"] = np.transpose(elevation_angles["apparent"])
         elif station_b.is_space_station:
             elevation_angles["free_space"] = station_a.get_elevation(station_b)
             earth_station_antenna_gain = station_a_gains

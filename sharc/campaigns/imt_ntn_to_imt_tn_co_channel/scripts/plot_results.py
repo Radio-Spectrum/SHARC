@@ -1,163 +1,135 @@
 import os
-from sharc.plots.plot_cdf import all_plots
+from pathlib import Path
+from sharc.results import Results
+# import plotly.graph_objects as go
+from sharc.post_processor import PostProcessor
 
-# Define the base directory
-name = "imt_ntn_to_imt_tn_co_channel"
+post_processor = PostProcessor()
 
-# this should behave similarly to `sharc/plots/plot_cdf:13`
-# ideally the readable legend would be in the .ini metadata and all this code would be deleted
-workfolder = os.path.dirname(os.path.abspath(__file__))
-csv_folder = os.path.abspath(os.path.join(workfolder, "..", "output"))
+# Add a legend to results in folder that match the pattern
+# This could easily come from a config file
+post_processor\
+    .add_plot_legend_pattern(
+        dir_name_contains="_no_overlap_alt_500km_sep_0km",
+        legend="sep 0 Km"
+    ).add_plot_legend_pattern(
+        dir_name_contains="_no_overlap_alt_500km_sep_100km",
+        legend="sep 100 Km"
+    ).add_plot_legend_pattern(
+        dir_name_contains="_no_overlap_alt_500km_sep_200km",
+        legend="sep 200 Km"
+    ).add_plot_legend_pattern(
+        dir_name_contains="_no_overlap_alt_500km_sep_400km",
+        legend="sep 400 Km"
+    ).add_plot_legend_pattern(
+        dir_name_contains="_no_overlap_alt_500km_sep_600km",
+        legend="sep 600 Km"
+    ).add_plot_legend_pattern(
+        dir_name_contains="_no_overlap_alt_500km_sep_700km",
+        legend="sep 700 Km"
+    ).add_plot_legend_pattern(
+        dir_name_contains="_no_overlap_alt_500km_sep_1000km",
+        legend="sep 1000 Km"
+    )
+# post_processor\
+#     .add_plot_legend_pattern(
+#         dir_name_contains="_no_overlap_alt_500km_sep_700km",
+#         legend="sep 700 Km"
+#     )
+# post_processor\
+#     .add_plot_legend_pattern(
+#         dir_name_contains="_no_overlap_alt_500km_sep_0km",
+#         legend="sep 0 Km"
+#     ).add_plot_legend_pattern(
+#         dir_name_contains="_no_overlap_alt_500km_sep_100km",
+#         legend="sep 100 Km"
+#     ).add_plot_legend_pattern(
+#         dir_name_contains="_no_overlap_alt_500km_sep_200km",
+#         legend="sep 200 Km"
+#     ).add_plot_legend_pattern(
+#         dir_name_contains="_no_overlap_alt_500km_sep_300km",
+#         legend="sep 300 Km"
+#     ).add_plot_legend_pattern(
+#         dir_name_contains="_no_overlap_alt_500km_sep_400km",
+#         legend="sep 400 Km"
+#     ).add_plot_legend_pattern(
+#         dir_name_contains="_no_overlap_alt_500km_sep_500km",
+#         legend="sep 500 Km"
+#     ).add_plot_legend_pattern(
+#         dir_name_contains="_no_overlap_alt_500km_sep_600km",
+#         legend="sep 600 Km"
+#     ).add_plot_legend_pattern(
+#         dir_name_contains="_no_overlap_alt_500km_sep_700km",
+#         legend="sep 700 Km"
+#     ).add_plot_legend_pattern(
+#         dir_name_contains="_no_overlap_alt_500km_sep_1000km",
+#         legend="sep 1000 Km"
+#     )
 
-subdirs = [
-    d
-    for d in os.listdir(csv_folder)
-    if os.path.isdir(os.path.join(csv_folder, d))
-    and d.startswith(f"output_{name}_")
-]
+campaign_base_dir = str((Path(__file__) / ".." / "..").resolve())
 
-subdirs = sorted(subdirs)
+many_results = Results.load_many_from_dir(os.path.join(campaign_base_dir, "output"), only_latest=True)
+# ^: typing.List[Results]
 
-legends_mapper = [
-    {
-        # same as from .ini
-        # the legend should probably also be in the metadata there instead of making... this
-        "output_dir_prefix": "output_imt_ntn_to_imt_tn_co_channel_no_overlap_0km",
-        "legend": "no overlap - 0km",
-    },
-    {
-        "output_dir_prefix": "output_imt_ntn_to_imt_tn_co_channel_no_overlap_100km",
-        "legend": "no overlap - 100km",
-    },
-    {
-        "output_dir_prefix": "output_imt_ntn_to_imt_tn_co_channel_no_overlap_200km",
-        "legend": "no overlap - 200km",
-    },
-    {
-        "output_dir_prefix": "output_imt_ntn_to_imt_tn_co_channel_no_overlap_300km",
-        "legend": "no overlap - 300km",
-    },
-    {
-        "output_dir_prefix": "output_imt_ntn_to_imt_tn_co_channel_no_overlap_400km",
-        "legend": "no overlap - 400km",
-    },
-    {
-        "output_dir_prefix": "output_imt_ntn_to_imt_tn_co_channel_no_overlap_500km",
-        "legend": "no overlap - 500km",
-    },
-    {
-        # same as from .ini
-        # the legend should probably also be in the metadata there instead of making... this
-        "output_dir_prefix": "output_imt_ntn_to_imt_tn_co_channel_10MHz_overlap_0km",
-        "legend": "10MHz overlap - 0km",
-    },
-    {
-        "output_dir_prefix": "output_imt_ntn_to_imt_tn_co_channel_10MHz_overlap_100km",
-        "legend": "10MHz overlap - 100km",
-    },
-    {
-        "output_dir_prefix": "output_imt_ntn_to_imt_tn_co_channel_10MHz_overlap_200km",
-        "legend": "10MHz overlap - 200km",
-    },
-    {
-        "output_dir_prefix": "output_imt_ntn_to_imt_tn_co_channel_10MHz_overlap_300km",
-        "legend": "10MHz overlap - 300km",
-    },
-    {
-        "output_dir_prefix": "output_imt_ntn_to_imt_tn_co_channel_10MHz_overlap_400km",
-        "legend": "10MHz overlap - 400km",
-    },
-    {
-        "output_dir_prefix": "output_imt_ntn_to_imt_tn_co_channel_10MHz_overlap_500km",
-        "legend": "10MHz overlap - 500km",
-    },
-    {
-        "output_dir_prefix": "output_imt_ntn_to_imt_tn_co_channel_20MHz_overlap_0km",
-        "legend": "20MHz overlap - 0km",
-    },
-    {
-        "output_dir_prefix": "output_imt_ntn_to_imt_tn_co_channel_20MHz_overlap_100km",
-        "legend": "20MHz overlap - 100km",
-    },
-    {
-        "output_dir_prefix": "output_imt_ntn_to_imt_tn_co_channel_20MHz_overlap_200km",
-        "legend": "20MHz overlap - 200km",
-    },
-    {
-        "output_dir_prefix": "output_imt_ntn_to_imt_tn_co_channel_20MHz_overlap_300km",
-        "legend": "20MHz overlap - 300km",
-    },
-    {
-        "output_dir_prefix": "output_imt_ntn_to_imt_tn_co_channel_20MHz_overlap_400km",
-        "legend": "20MHz overlap - 400km",
-    },
-    {
-        "output_dir_prefix": "output_imt_ntn_to_imt_tn_co_channel_20MHz_overlap_500km",
-        "legend": "20MHz overlap - 500km",
-    }
-]
+post_processor.add_results(many_results)
 
-
-def get_date_from_dirname(dirname: str, prefix_length: int):
-    return dirname[prefix_length: prefix_length + len("yyyy-mm-dd")]
-
-
-def get_id_from_dirname(dirname: str):
-    return dirname.split("_")[-1]
-
-
-subfolders_filters = {}
-
-for subdir in subdirs:
-    for mapper in legends_mapper:
-        if mapper["output_dir_prefix"] in subdir:
-            subfolders_filters\
-                .setdefault(mapper["output_dir_prefix"], {"id": "0", "date": "2024-01-01"})
-
-            subfolders_filters[mapper["output_dir_prefix"]]["id"] = \
-                max(subfolders_filters[mapper["output_dir_prefix"]]["id"],
-                    get_id_from_dirname(subdir))
-            subfolders_filters[mapper["output_dir_prefix"]]["date"] = \
-                max(subfolders_filters[mapper["output_dir_prefix"]]["date"],
-                    get_date_from_dirname(subdir, 1 + len(mapper['output_dir_prefix'])))
-
-
-legend_and_subfolders = [
-    {
-        # "legend": f"{mapper['legend']} - ({get_date_from_dirname(d, 1 + len(mapper['output_dir_prefix']))}) {get_id_from_dirname(d)}",
-        "legend": f"{mapper['legend']}",
-        "subfolder": d,
-    }
-    for d in subdirs
-    # comment filters out if needed
-    for mapper in legends_mapper if mapper["output_dir_prefix"] in d and subfolders_filters[mapper["output_dir_prefix"]]["id"] == get_id_from_dirname(d) and subfolders_filters[mapper["output_dir_prefix"]]["date"] == get_date_from_dirname(d, len(mapper["output_dir_prefix"]) + 1)
-]
-
-# Example with specific subfolders and legends
-# Define legend names for the different subdirectories
-# legends = None
-legends = [x["legend"] for x in legend_and_subfolders]
-
-# Define specific subfolders if needed
-# subfolders = None
-subfolders = [x["subfolder"] for x in legend_and_subfolders]
-
-# Run the function with specific subfolders and legends
-all_plots(
-    name,
-    legends=legends,
-    subfolders=subfolders,
-    save_file=False,
-    show_plot=True,
+plots = post_processor.generate_cdf_plots_from_results(
+    many_results
 )
 
-# Example with all subfolders and no specific legends
-# This will include all subfolders that start with "output_imt_hibs_ras_2600_MHz_" in the base directory
-# and generate legends automatically based on the folder names
+post_processor.add_plots(plots)
 
-# Define legends and subfolders as None to include all automatically
-# legends = None
-# subpastas = None
+# # This function aggregates IMT downlink and uplink
+# aggregated_results = PostProcessor.aggregate_results(
+#     downlink_result=post_processor.get_results_by_output_dir("MHz_60deg_dl"),
+#     uplink_result=post_processor.get_results_by_output_dir("MHz_60deg_ul"),
+#     ul_tdd_factor=(3, 4),
+#     n_bs_sim=7 * 19 * 3 * 3,
+#     n_bs_actual=int
+# )
 
-# Run the function with all subfolders and auto-generated legends
-# all_plots(name, legends=legends, subpastas=subpastas, save_file=True, show_plot=False)
+# Add a protection criteria line:
+# protection_criteria = 160
+
+# post_processor\
+#     .get_plot_by_results_attribute_name("system_dl_interf_power")\
+#     .add_vline(protection_criteria, line_dash="dash")
+
+# Show a single plot:
+# post_processor\
+#     .get_plot_by_results_attribute_name("system_dl_interf_power")\
+#     .show()
+
+# Plot every plot:
+for plot in plots:
+    plot.show()
+
+for result in many_results:
+    # This generates the mean, median, variance, etc
+    stats = PostProcessor.generate_statistics(
+        result=result
+    ).write_to_results_dir()
+    # # do whatever you want here:
+    # if "fspl_45deg" in stats.results_output_dir:
+    #     get some stat and do something
+
+# # example on how to aggregate results and add it to plot:
+# dl_res = post_processor.get_results_by_output_dir("1_cluster")
+# aggregated_results = PostProcessor.aggregate_results(
+#     dl_samples=dl_res.system_dl_interf_power,
+#     ul_samples=ul_res.system_ul_interf_power,
+#     ul_tdd_factor=0.75,
+#     n_bs_sim=1 * 19 * 3 * 3,
+#     n_bs_actual=7 * 19 * 3 * 3
+# )
+
+# relevant = post_processor\
+#     .get_plot_by_results_attribute_name("system_ul_interf_power")
+
+# aggr_x, aggr_y = PostProcessor.cdf_from(aggregated_results)
+
+# relevant.add_trace(
+#     go.Scatter(x=aggr_x, y=aggr_y, mode='lines', name='Aggregate interference',),
+# )
+
+# relevant.show()

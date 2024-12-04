@@ -14,7 +14,7 @@ class ParametersMssSs(ParametersBase):
     """
     Simulation parameters for Mobile Satellite System - Space Station.
     """
-    section_name: str = "MSS_SS"
+    section_name: str = "mss_ss"
 
     is_space_to_earth: bool = True
 
@@ -128,9 +128,11 @@ class ParametersMssSs(ParametersBase):
 
         if self.spectral_mask.upper() not in ["IMT-2020", "3GPP E-UTRA"]:
             raise ValueError(f"""ParametersImt: Inavlid Spectral Mask Name {self.spectral_mask}""")
-        
-        self.antenna_s1528.set_external_parameters(self.frequency,
-                                                   self.bandwidth,
-                                                   self.antenna_gain,
-                                                   self.antenna_l_s,
-                                                   self.antenna_3_dB_bw)
+
+        self.antenna_s1528.set_external_parameters(frequency=self.frequency,
+                                                   bandwidth=self.bandwidth,
+                                                   antenna_gain=self.antenna_gain,
+                                                   antenna_l_s=self.antenna_l_s,
+                                                   antenna_3_dB_bw=self.antenna_3_dB_bw,
+                                                   a_deg=self.antenna_3_dB_bw / 2,
+                                                   b_deg=self.antenna_3_dB_bw / 2)

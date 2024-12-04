@@ -52,6 +52,11 @@ imt:
     # the lower
     guard_band_ratio: 0.14
     ###########################################################################
+    # Adjacent Interference model used when IMT is victim. Possible values are ACIR or SPECTRAL_MASK.
+    # When using ACIR the interfence power from the other system is calculted by using the ACLR and ACS.
+    # Whith the SPECTRAL_MASK the the interference power from the other system is calculated from it's spectral mask.
+    adjacent_interf_model: ACIR
+    ###########################################################################
     # Network topology parameters.
     topology:
         ###########################################################################
@@ -349,6 +354,10 @@ imt:
         ###########################################################################
         # User equipment body loss [dB]
         body_loss: 4
+        ###########################################################################
+        # Adjacent Channel Selectivity in dB
+        adjacent_ch_selectivity: 33
+        ###########################################################################
         antenna:
             ###########################################################################
             # If normalization of M2101 should be applied for UE

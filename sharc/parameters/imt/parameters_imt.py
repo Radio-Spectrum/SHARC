@@ -26,7 +26,10 @@ class ParametersImt(ParametersBase):
     spectral_mask: str = "IMT-2020"
     spurious_emissions: float = -13.0
     guard_band_ratio: float = 0.1
-
+    # Adjacent Interference model used when IMT is victim. Possible values are ACIR or SPECTRAL_MASK.
+    # When using ACIR the interfence power from the other system is calculted by using the ACLR and ACS.
+    # Whith the SPECTRAL_MASK the the interference power from the other system is calculated from it's spectral mask.
+    adjacent_interf_model: str = "ACIR"
     @dataclass
     class ParametersBS(ParametersBase):
         load_probability = 0.2
@@ -68,6 +71,7 @@ class ParametersImt(ParametersBase):
         noise_figure: float = 10.0
         ohmic_loss: float = 3.0
         body_loss: float = 4.0
+        adjacent_ch_selectivity: float = 33  # Adjacent Channel Selectivity in dB
         antenna: ParametersAntennaImt = field(default_factory=lambda: ParametersAntennaImt(downtilt=0.0,))
 
         def validate(self, ctx: str):

@@ -1170,11 +1170,11 @@ class StationFactory(object):
 
         # Elevation and azimuth at sensor wrt centre of the footprint
         # It is assumed the sensor is at y-axis, hence azimuth is 270 deg
-        space_station.azimuth = 270
-        space_station.elevation = -theta_grd_elev
+        space_station.azimuth = np.array([270])
+        space_station.elevation = np.array([-theta_grd_elev])
 
         space_station.active = np.array([True])
-        space_station.rx_interference = -500
+        space_station.rx_interference = np.array([-500])
 
         if param.antenna_pattern == "OMNI":
             space_station.antenna = np.array([AntennaOmni(param.antenna_gain)])
@@ -1196,10 +1196,10 @@ class StationFactory(object):
             )
             sys.exit(1)
 
-        space_station.bandwidth = param.bandwidth
+        space_station.bandwidth = np.array([param.bandwidth])
         # Noise temperature is not an input parameter for yet used systems.
         # It is included here to calculate the useless I/N values
-        space_station.noise_temperature = 500
+        space_station.noise_temperature = np.array([500.0])
 
         return space_station
     

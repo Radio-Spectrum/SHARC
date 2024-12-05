@@ -304,7 +304,8 @@ class Simulation(ABC, Observable):
             self.imt_system_antenna_gain,
         ) + additional_loss
 
-        return coupling_loss
+        # Simulator expects imt_stations x system_stations shape
+        return np.transpose(coupling_loss)
 
     def calculate_intra_imt_coupling_loss(
         self,
@@ -529,12 +530,7 @@ class Simulation(ABC, Observable):
         elif not station_1.is_imt_station():
 
             off_axis_angle = station_1.get_off_axis_angle(station_2)
-            distance = station_1.get_distance_to(station_2)
-            theta = np.degrees(
-                np.arctan2(
-                    (station_1.height - station_2.height), distance,
-                ),
-            ) + station_1.elevation
+            _, theta = station_1.get_pointing_vector_to(station_2)
             gains[0, station_2_active] = \
                 station_1.antenna[0].calculate_gain(
                     off_axis_angle_vec=off_axis_angle[0, station_2_active],

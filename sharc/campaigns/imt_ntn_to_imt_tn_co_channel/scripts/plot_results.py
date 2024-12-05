@@ -10,61 +10,132 @@ post_processor = PostProcessor()
 # This could easily come from a config file
 post_processor\
     .add_plot_legend_pattern(
-        dir_name_contains="_no_overlap_alt_500km_sep_0km",
-        legend="sep 0 Km"
+        dir_name_contains="_no_overlap_bessel_alt_500km_sep_0km",
+        legend="no-overlap bessel sep 0 Km"
     ).add_plot_legend_pattern(
-        dir_name_contains="_no_overlap_alt_500km_sep_100km",
-        legend="sep 100 Km"
+        dir_name_contains="_no_overlap_bessel_alt_500km_sep_100km",
+        legend="no-overlap bessel sep 100 Km"
     ).add_plot_legend_pattern(
-        dir_name_contains="_no_overlap_alt_500km_sep_200km",
-        legend="sep 200 Km"
+        dir_name_contains="_no_overlap_bessel_alt_500km_sep_200km",
+        legend="no-overlap bessel sep 200 Km"
     ).add_plot_legend_pattern(
-        dir_name_contains="_no_overlap_alt_500km_sep_400km",
-        legend="sep 400 Km"
+        dir_name_contains="_no_overlap_bessel_alt_500km_sep_400km",
+        legend="no-overlap bessel sep 400 Km"
     ).add_plot_legend_pattern(
-        dir_name_contains="_no_overlap_alt_500km_sep_600km",
-        legend="sep 600 Km"
+        dir_name_contains="_no_overlap_bessel_alt_500km_sep_600km",
+        legend="no-overlap bessel sep 600 Km"
     ).add_plot_legend_pattern(
-        dir_name_contains="_no_overlap_alt_500km_sep_700km",
-        legend="sep 700 Km"
+        dir_name_contains="_no_overlap_bessel_alt_500km_sep_700km",
+        legend="no-overlap bessel sep 700 Km"
     ).add_plot_legend_pattern(
-        dir_name_contains="_no_overlap_alt_500km_sep_1000km",
-        legend="sep 1000 Km"
+        dir_name_contains="_no_overlap_bessel_alt_500km_sep_1000km",
+        legend="no-overlap bessel sep 1000 Km"
+    )    .add_plot_legend_pattern(
+        dir_name_contains="_no_overlap_rec13_alt_500km_sep_0km",
+        legend="no-overlap Rec1.3 sep 0 Km"
+    ).add_plot_legend_pattern(
+        dir_name_contains="_no_overlap_rec13_alt_500km_sep_100km",
+        legend="no-overlap Rec1.3 sep 100 Km"
+    ).add_plot_legend_pattern(
+        dir_name_contains="_no_overlap_rec13_alt_500km_sep_200km",
+        legend="no-overlap Rec1.3 sep 200 Km"
+    ).add_plot_legend_pattern(
+        dir_name_contains="_no_overlap_rec13_alt_500km_sep_400km",
+        legend="no-overlap Rec1.3 sep 400 Km"
+    ).add_plot_legend_pattern(
+        dir_name_contains="_no_overlap_rec13_alt_500km_sep_600km",
+        legend="no-overlap Rec1.3 sep 600 Km"
+    ).add_plot_legend_pattern(
+        dir_name_contains="_no_overlap_rec13_alt_500km_sep_700km",
+        legend="no-overlap Rec1.3 sep 700 Km"
+    ).add_plot_legend_pattern(
+        dir_name_contains="_no_overlap_rec13_alt_500km_sep_1000km",
+        legend="no-overlap Rec1.3 sep 1000 Km"
+    ).add_plot_legend_pattern(  # 10MHz overlap
+        dir_name_contains="_10MHz_overlap_bessel_alt_500km_sep_0km",
+        legend="10MHz-overlap bessel sep 0 Km"
+    ).add_plot_legend_pattern(
+        dir_name_contains="_10MHz_overlap_bessel_alt_500km_sep_100km",
+        legend="10MHz-overlap bessel sep 100 Km"
+    ).add_plot_legend_pattern(
+        dir_name_contains="_10MHz_overlap_bessel_alt_500km_sep_200km",
+        legend="10MHz-overlap bessel sep 200 Km"
+    ).add_plot_legend_pattern(
+        dir_name_contains="_10MHz_overlap_bessel_alt_500km_sep_400km",
+        legend="10MHz-overlap bessel sep 400 Km"
+    ).add_plot_legend_pattern(
+        dir_name_contains="_10MHz_overlap_bessel_alt_500km_sep_600km",
+        legend="10MHz-overlap bessel sep 600 Km"
+    ).add_plot_legend_pattern(
+        dir_name_contains="_10MHz_overlap_bessel_alt_500km_sep_700km",
+        legend="10MHz-overlap bessel sep 700 Km"
+    ).add_plot_legend_pattern(
+        dir_name_contains="_10MHz_overlap_bessel_alt_500km_sep_1000km",
+        legend="10MHz-overlap bessel sep 1000 Km"
+    )    .add_plot_legend_pattern(
+        dir_name_contains="_10MHz_overlap_rec13_alt_500km_sep_0km",
+        legend="10MHz-overlap Rec1.3 sep 0 Km"
+    ).add_plot_legend_pattern(
+        dir_name_contains="_10MHz_overlap_rec13_alt_500km_sep_100km",
+        legend="10MHz-overlap Rec1.3 sep 100 Km"
+    ).add_plot_legend_pattern(
+        dir_name_contains="_10MHz_overlap_rec13_alt_500km_sep_200km",
+        legend="10MHz-overlap Rec1.3 sep 200 Km"
+    ).add_plot_legend_pattern(
+        dir_name_contains="_10MHz_overlap_rec13_alt_500km_sep_400km",
+        legend="10MHz-overlap Rec1.3 sep 400 Km"
+    ).add_plot_legend_pattern(
+        dir_name_contains="_10MHz_overlap_rec13_alt_500km_sep_600km",
+        legend="10MHz-overlap Rec1.3 sep 600 Km"
+    ).add_plot_legend_pattern(
+        dir_name_contains="_10MHz_overlap_rec13_alt_500km_sep_700km",
+        legend="10MHz-overlap Rec1.3 sep 700 Km"
+    ).add_plot_legend_pattern(
+        dir_name_contains="_10MHz_overlap_rec13_alt_500km_sep_1000km",
+        legend="10MHz-overlap Rec1.3 sep 1000 Km"
+    ).add_plot_legend_pattern(  # 20MHz overlap
+        dir_name_contains="_20MHz_overlap_bessel_alt_500km_sep_0km",
+        legend="20MHz-overlap bessel sep 0 Km"
+    ).add_plot_legend_pattern(
+        dir_name_contains="_20MHz_overlap_bessel_alt_500km_sep_100km",
+        legend="20MHz-overlap bessel sep 100 Km"
+    ).add_plot_legend_pattern(
+        dir_name_contains="_20MHz_overlap_bessel_alt_500km_sep_200km",
+        legend="20MHz-overlap bessel sep 200 Km"
+    ).add_plot_legend_pattern(
+        dir_name_contains="_20MHz_overlap_bessel_alt_500km_sep_400km",
+        legend="20MHz-overlap bessel sep 400 Km"
+    ).add_plot_legend_pattern(
+        dir_name_contains="_20MHz_overlap_bessel_alt_500km_sep_600km",
+        legend="20MHz-overlap bessel sep 600 Km"
+    ).add_plot_legend_pattern(
+        dir_name_contains="_20MHz_overlap_bessel_alt_500km_sep_700km",
+        legend="20MHz-overlap bessel sep 700 Km"
+    ).add_plot_legend_pattern(
+        dir_name_contains="_20MHz_overlap_bessel_alt_500km_sep_1000km",
+        legend="20MHz-overlap bessel sep 1000 Km"
+    )    .add_plot_legend_pattern(
+        dir_name_contains="_20MHz_overlap_rec13_alt_500km_sep_0km",
+        legend="20MHz-overlap Rec1.3 sep 0 Km"
+    ).add_plot_legend_pattern(
+        dir_name_contains="_20MHz_overlap_rec13_alt_500km_sep_100km",
+        legend="20MHz-overlap Rec1.3 sep 100 Km"
+    ).add_plot_legend_pattern(
+        dir_name_contains="_20MHz_overlap_rec13_alt_500km_sep_200km",
+        legend="20MHz-overlap Rec1.3 sep 200 Km"
+    ).add_plot_legend_pattern(
+        dir_name_contains="_20MHz_overlap_rec13_alt_500km_sep_400km",
+        legend="20MHz-overlap Rec1.3 sep 400 Km"
+    ).add_plot_legend_pattern(
+        dir_name_contains="_20MHz_overlap_rec13_alt_500km_sep_600km",
+        legend="20MHz-overlap Rec1.3 sep 600 Km"
+    ).add_plot_legend_pattern(
+        dir_name_contains="_20MHz_overlap_rec13_alt_500km_sep_700km",
+        legend="20MHz-overlap Rec1.3 sep 700 Km"
+    ).add_plot_legend_pattern(
+        dir_name_contains="_20MHz_overlap_rec13_alt_500km_sep_1000km",
+        legend="20MHz-overlap Rec1.3 sep 1000 Km"
     )
-# post_processor\
-#     .add_plot_legend_pattern(
-#         dir_name_contains="_no_overlap_alt_500km_sep_700km",
-#         legend="sep 700 Km"
-#     )
-# post_processor\
-#     .add_plot_legend_pattern(
-#         dir_name_contains="_no_overlap_alt_500km_sep_0km",
-#         legend="sep 0 Km"
-#     ).add_plot_legend_pattern(
-#         dir_name_contains="_no_overlap_alt_500km_sep_100km",
-#         legend="sep 100 Km"
-#     ).add_plot_legend_pattern(
-#         dir_name_contains="_no_overlap_alt_500km_sep_200km",
-#         legend="sep 200 Km"
-#     ).add_plot_legend_pattern(
-#         dir_name_contains="_no_overlap_alt_500km_sep_300km",
-#         legend="sep 300 Km"
-#     ).add_plot_legend_pattern(
-#         dir_name_contains="_no_overlap_alt_500km_sep_400km",
-#         legend="sep 400 Km"
-#     ).add_plot_legend_pattern(
-#         dir_name_contains="_no_overlap_alt_500km_sep_500km",
-#         legend="sep 500 Km"
-#     ).add_plot_legend_pattern(
-#         dir_name_contains="_no_overlap_alt_500km_sep_600km",
-#         legend="sep 600 Km"
-#     ).add_plot_legend_pattern(
-#         dir_name_contains="_no_overlap_alt_500km_sep_700km",
-#         legend="sep 700 Km"
-#     ).add_plot_legend_pattern(
-#         dir_name_contains="_no_overlap_alt_500km_sep_1000km",
-#         legend="sep 1000 Km"
-#     )
 
 campaign_base_dir = str((Path(__file__) / ".." / "..").resolve())
 
@@ -89,11 +160,11 @@ post_processor.add_plots(plots)
 # )
 
 # Add a protection criteria line:
-# protection_criteria = 160
+protection_criteria = -6
 
-# post_processor\
-#     .get_plot_by_results_attribute_name("system_dl_interf_power")\
-#     .add_vline(protection_criteria, line_dash="dash")
+post_processor\
+    .get_plot_by_results_attribute_name("imt_dl_inr")\
+    .add_vline(protection_criteria, line_dash="dash")
 
 # Show a single plot:
 # post_processor\
@@ -102,6 +173,7 @@ post_processor.add_plots(plots)
 
 # Plot every plot:
 for plot in plots:
+    plot.update_layout(legend_traceorder="normal")
     plot.show()
 
 for result in many_results:

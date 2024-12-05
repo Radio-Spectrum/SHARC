@@ -293,6 +293,8 @@ class PostProcessor:
     ) -> list[go.Figure]:
         figs: dict[str, list[go.Figure]] = {}
 
+        # Sort based on path name - TODO: sort alphabeticaly by legend
+        results.sort(key=lambda r: r.output_directory)
         for res in results:
             possible_legends_mapping = self.get_results_possible_legends(res)
 

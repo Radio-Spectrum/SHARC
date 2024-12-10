@@ -79,7 +79,7 @@ class ParametersMssSs(ParametersBase):
     antenna_s1528: ParametersAntennaS1528 = field(default_factory=ParametersAntennaS1528)
 
     # paramters for channel model
-    param_p619 = ParametersP619()
+    param_p619: ParametersP619 = field(default_factory=ParametersP619)
     space_station_alt_m: float = 35780000.0
     earth_station_alt_m: float = 0.0
     earth_station_lat_deg: float = 0.0
@@ -136,3 +136,16 @@ class ParametersMssSs(ParametersBase):
                                                    antenna_3_dB_bw=self.antenna_3_dB_bw,
                                                    a_deg=self.antenna_3_dB_bw / 2,
                                                    b_deg=self.antenna_3_dB_bw / 2)
+        
+        if self.channel_model.upper() not in ["FSPL", "P619", "SATELLITESIMPLE"]:
+            raise ValueError(f"Invalid channel model name {self.channel_model}")
+        
+        if self.channel_model == "P619":
+            self.param_p619.set_external_parameters(
+                space_station_alt_m=self.altitude,
+                earth_station_alt_m=self.earth_station_alt_m,
+                earth_station_lat_deg=self.earth_station_lat_deg,
+                earth_station_long_diff_deg=self.earth_station_long_diff_deg,
+                season=self.season
+            )
+

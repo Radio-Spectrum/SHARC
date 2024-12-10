@@ -367,10 +367,10 @@ imt:
             element_theta_3db: 90
             ###########################################################################
             # BS/UE number of rows in antenna array
-            n_rows: 4
+            n_rows: 1
             ###########################################################################
             # BS/UE number of columns in antenna array
-            n_columns: 4
+            n_columns: 1
             ###########################################################################
             # BS/UE array horizontal element spacing (d/lambda)
             element_horiz_spacing: 0.5
@@ -489,3 +489,19 @@ mss_ss:
     #                                    "SatelliteSimple" (FSPL + 4 + clutter loss)
     #                                    "P619"
     channel_model: P619
+    ###########################################################################
+    # P619 parameters
+    param_p619:
+        ###########################################################################
+        # altitude of ES system [m]
+        earth_station_alt_m: 0
+        ###########################################################################
+        # latitude of ES system [m]
+        earth_station_lat_deg: 0
+        ###########################################################################
+        # difference between longitudes of IMT-NTN station and FSS-ES system [deg]
+        #   (positive if space-station is to the East of earth-station)
+        earth_station_long_diff_deg: 9.744
+        ###########################################################################
+        # year season: SUMMER of WINTER
+        season: SUMMER

@@ -3,6 +3,7 @@
 """Parameters definitions for IMT systems
 """
 from dataclasses import dataclass
+import typing
 
 from sharc.parameters.parameters_base import ParametersBase
 
@@ -47,3 +48,15 @@ class ParametersP619(ParametersBase):
             raise ValueError(f"{self.__class__.__name__}: \
                              Invalid value for parameter season - {self.season}. \
                              Possible values are \"SUMMER\", \"WINTER\".")
+
+    def set_external_parameters(self, *,
+                                space_station_alt_m: float,
+                                earth_station_alt_m: float,
+                                earth_station_lat_deg: float,
+                                earth_station_long_diff_deg: float,
+                                season: typing.Literal["BEAMFORMING", "SINGLE_ELEMENT"]):
+        self.space_station_alt_m = space_station_alt_m
+        self.earth_station_alt_m = earth_station_alt_m
+        self.earth_station_lat_deg = earth_station_lat_deg
+        self.earth_station_long_diff_deg = earth_station_long_diff_deg
+        self.season = season

@@ -531,11 +531,12 @@ class Simulation(ABC, Observable):
 
             off_axis_angle = station_1.get_off_axis_angle(station_2)
             _, theta = station_1.get_pointing_vector_to(station_2)
-            gains[0, station_2_active] = \
-                station_1.antenna[0].calculate_gain(
-                    off_axis_angle_vec=off_axis_angle[0, station_2_active],
-                    theta_vec=theta[0, station_2_active],
-            )
+            for k in station_1_active:
+                gains[k, station_2_active] = \
+                    station_1.antenna[k].calculate_gain(
+                        off_axis_angle_vec=off_axis_angle[k, station_2_active],
+                        theta_vec=theta[k, station_2_active],
+                )
         else:  # for IMT <-> IMT
             for k in station_1_active:
                 gains[k, station_2_active] = station_1.antenna[k].calculate_gain(

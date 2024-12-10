@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+<Document>
+
+        <Style id="baseStation">
+            <IconStyle>
+                <Icon>
+                    <href>http://maps.google.com/mapfiles/kml/shapes/target.png</href>
+                </Icon>
+            </IconStyle>
+        </Style>
+        
+                <Placemark>
+                    <styleUrl>#baseStation</styleUrl>
+                    <Point>
+                        <coordinates>-47.9292,-15.7801,0</coordinates>
+                    </Point>
+                </Placemark>
+                
+                <Placemark>
+                    <styleUrl>#baseStation</styleUrl>
+                    <Point>
+                        <coordinates>45.52501598215824,-15.7801,0</coordinates>
+                    </Point>
+                </Placemark>
+                </Document>
+</kml>

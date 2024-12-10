@@ -1,0 +1,12 @@
+general:
+  seed: 1234
+
+imt:
+  type: macrocell
+  intersite_distance: 500
+  num_clusters: 7
+
+  ue:
+    antenna:
+      height: 1.5
+      pattern: omnidirectional

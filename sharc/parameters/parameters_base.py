@@ -1,15 +1,4 @@
-import yaml
 from dataclasses import dataclass
-
-
-# Register a tuple constructor with PyYAML
-def tuple_constructor(loader, node):
-    """Load the sequence of values from the YAML node and returns a tuple constructed from the sequence."""
-    values = loader.construct_sequence(node)
-    return tuple(values)
-
-
-yaml.SafeLoader.add_constructor('tag:yaml.org,2002:python/tuple', tuple_constructor)
 
 
 @dataclass
@@ -35,6 +24,12 @@ class ParametersBase:
         attr_list = [
             a for a in dir(self) if not a.startswith('_') and not callable(getattr(self, a)) and a not in
                     ["section_name", "nested_parameters_enabled",]]
+
+        for k in params.keys():
+            if k not in attr_list:
+                # Stop stupid errors on their tracks
+                print(f"ERROR: Attribute {ctx}.{k} does not exist, but has been assigned a value.")
+                exit()
 
         for attr_name in attr_list:
             default_attr_value = getattr(self, attr_name)
@@ -74,14 +69,14 @@ class ParametersBase:
         for attr in attr_list:
             getattr(self, attr).validate(f"{ctx}.{attr}")
 
-    def load_parameters_from_file(self, config_file: str, quiet=True):
+    def load_parameters_from_file(self, config: dict, quiet=True):
         """Load the parameters from file.
         The sanity check is child class reponsibility
 
         Parameters
         ----------
-        file_name : str
-            the path to the configuration file
+        config : dict
+            the configuration in dictionary format
         quiet: if True the parser will not warn about unset paramters
 
         Raises
@@ -89,10 +84,6 @@ class ParametersBase:
         ValueError
             if a parameter is not valid
         """
-
-        with open(config_file, 'r') as file:
-            config = yaml.safe_load(file)
-
         if self.section_name.lower() not in config.keys():
             if not quiet:
                 print(f"ParameterBase: section {self.section_name} not in parameter file.\

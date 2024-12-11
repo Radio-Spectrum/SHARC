@@ -30,11 +30,14 @@ class Model(Observable):
     def add_observer(self, observer: Observer):
         Observable.add_observer(self, observer)
 
-    def set_param_file(self, param_file):
+    def set_param_file(self, param_file, overwritten_parameters):
         self.param_file = param_file
+        self.overwritten_parameters = overwritten_parameters
         self.notify_observers(
             source=__name__,
-            message="Loading file:\n" + self.param_file,
+            message="Loading file:\n" + self.param_file
+                    + "\nAnd overwriting parameters\n\t"
+                    + "\n\t".join([" = ".join(par_val) for par_val in overwritten_parameters]),
         )
 
     def initialize(self):
@@ -44,6 +47,7 @@ class Model(Observable):
         """
         self.parameters = Parameters()
         self.parameters.set_file_name(self.param_file)
+        self.parameters.set_overwritten_parameters(self.overwritten_parameters)
         self.parameters.read_params()
 
         if self.parameters.general.imt_link == "DOWNLINK":

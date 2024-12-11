@@ -21,10 +21,11 @@ class ViewCli(Observer):
         super().__init__()
         self.parent = parent
 
-    def initialize(self, param_file):
+    def initialize(self, param_file, overwrite_parameters):
         self.controller.action(
             action=Action.START_SIMULATION_SINGLE_THREAD,
             param_file=param_file,
+            overwrite_parameters=overwrite_parameters
         )
 
     def set_controller(self, controller: Controller):

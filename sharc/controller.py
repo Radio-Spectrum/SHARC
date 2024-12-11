@@ -40,11 +40,11 @@ class Controller:
         action = kwargs["action"]
 
         if action is Action.START_SIMULATION:
-            self.model.set_param_file(kwargs["param_file"])
+            self.model.set_param_file(kwargs["param_file"], kwargs["overwrite_parameters"])
             self.simulation_thread = ThreadSimulation(self.model)
             self.simulation_thread.start()
         if action is Action.START_SIMULATION_SINGLE_THREAD:
-            self.model.set_param_file(kwargs["param_file"])
+            self.model.set_param_file(kwargs["param_file"], kwargs["overwrite_parameters"])
             self.simulation_thread = ThreadSimulation(self.model)
             # call run method directly, without starting a new thread
             self.simulation_thread.run()

@@ -20,12 +20,12 @@ class ParametersGeneral(ParametersBase):
     output_dir: str = "output"
     output_dir_prefix: str = "output"
 
-    def load_parameters_from_file(self, config_file: str):
+    def load_parameters_from_file(self, config: dict):
         """Load the parameters from file an run a sanity check
 
         Parameters
         ----------
-        file_name : str
+        config : str
             the path to the configuration file
 
         Raises
@@ -33,7 +33,7 @@ class ParametersGeneral(ParametersBase):
         ValueError
             if a parameter is not valid
         """
-        super().load_parameters_from_file(config_file)
+        super().load_parameters_from_file(config)
 
         # Now do the sanity check for some parameters
         if self.imt_link.upper() not in ["DOWNLINK", "UPLINK"]:

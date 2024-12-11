@@ -367,10 +367,10 @@ imt:
             element_theta_3db: 90
             ###########################################################################
             # BS/UE number of rows in antenna array
-            n_rows: 4
+            n_rows: 1
             ###########################################################################
             # BS/UE number of columns in antenna array
-            n_columns: 4
+            n_columns: 1
             ###########################################################################
             # BS/UE array horizontal element spacing (d/lambda)
             element_horiz_spacing: 0.5

@@ -179,9 +179,10 @@ class SimulationDownlink(Simulation):
                                       10**(-self.parameters.imt.ue.adjacent_ch_selectivity / 10))
                 oob_power = self.param_system.tx_power_density + \
                     10 * np.log10(self.param_system.bandwidth * 1e6) -  \
-                    acir + 30
+                    acir
                 oob_interf_lin = 10**(oob_power / 10)
 
+        # Total external interference into the UE in dBm
         ext_interference = 10 * np.log10(np.power(10, 0.1 * in_band_interf) + oob_interf_lin)
         ue_ext_int = ext_interference - self.coupling_loss_imt_system[ue, :][:, active_sys]
 
@@ -190,7 +191,13 @@ class SimulationDownlink(Simulation):
 
         self.ue.sinr_ext[ue] = self.ue.rx_power[ue] \
             - (10 * np.log10(np.power(10, 0.1 * self.ue.total_interference[ue]) + np.power(
-                10, 0.1 * self.ue.ext_interference[ue])))
+                10, 0.1 * (self.ue.ext_interference[ue] + 30))))
+
+        # Calculate INR in dB
+        self.ue.thermal_noise[ue] = \
+            10 * np.log10(BOLTZMANN_CONSTANT * self.parameters.imt.noise_temperature) + \
+            10 * np.log10(self.ue.bandwidth[ue] * 1e6)
+
         self.ue.inr[ue] = self.ue.ext_interference[ue] - \
             self.ue.thermal_noise[ue]
 
@@ -302,6 +309,7 @@ class SimulationDownlink(Simulation):
                 self.results.system_pfd.extend([self.system.pfd])
 
         bs_active = np.where(self.bs.active)[0]
+        sys_active = np.where(self.system.active)[0]
         for bs in bs_active:
             ue = self.link[bs]
             self.results.imt_path_loss.extend(self.path_loss_imt[bs, ue])
@@ -324,7 +332,8 @@ class SimulationDownlink(Simulation):
             )
             self.results.imt_dl_tput.extend(tput.tolist())
 
-            if self.parameters.imt.interfered_with:
+            # Results for IMT-SYSTEM
+            if self.parameters.imt.interfered_with:  # IMT suffers interference
                 tput_ext = self.calculate_imt_tput(
                     self.ue.sinr_ext[ue],
                     self.parameters.imt.downlink.sinr_min,
@@ -338,22 +347,24 @@ class SimulationDownlink(Simulation):
                 self.results.imt_dl_inr.extend(self.ue.inr[ue].tolist())
 
                 self.results.system_imt_antenna_gain.extend(
-                    self.system_imt_antenna_gain[0, ue],
+                    self.system_imt_antenna_gain[sys_active, :][:, ue].flatten(),
                 )
                 self.results.imt_system_antenna_gain.extend(
-                    self.imt_system_antenna_gain[0, ue],
+                    self.imt_system_antenna_gain[sys_active, :][:, ue].flatten(),
                 )
                 self.results.imt_system_path_loss.extend(
-                    self.imt_system_path_loss[0, ue],
+                    self.imt_system_path_loss[sys_active, :][:, ue].flatten(),
                 )
                 if self.param_system.channel_model == "HDFSS":
                     self.results.imt_system_build_entry_loss.extend(
-                        self.imt_system_build_entry_loss[0, ue],
+                        self.imt_system_build_entry_loss[sys_active, :][:, ue].flatten(),
                     )
                     self.results.imt_system_diffraction_loss.extend(
-                        self.imt_system_diffraction_loss[0, ue],
+                        self.imt_system_diffraction_loss[sys_active, :][:, ue].flatten(),
                     )
-            else:
+                self.results.sys_to_imt_coupling_loss.extend(
+                    self.coupling_loss_imt_system[ue, :][:, sys_active].flatten())
+            else:  # IMT is the interferer
                 active_beams = [
                     i for i in range(
                         bs *
@@ -362,13 +373,16 @@ class SimulationDownlink(Simulation):
                     )
                 ]
                 self.results.system_imt_antenna_gain.extend(
-                    self.system_imt_antenna_gain[0, active_beams],
+                    self.system_imt_antenna_gain[sys_active, :][:, ue],
                 )
                 self.results.imt_system_antenna_gain.extend(
-                    self.imt_system_antenna_gain[0, active_beams],
+                    self.imt_system_antenna_gain[sys_active, :][:, ue],
                 )
                 self.results.imt_system_path_loss.extend(
-                    self.imt_system_path_loss[0, active_beams],
+                    self.imt_system_path_loss[sys_active, :][:, ue],
+                )
+                self.results.sys_to_imt_coupling_loss.extend(
+                    self.coupling_loss_imt_system[sys_active, :][:, ue]
                 )
                 if self.param_system.channel_model == "HDFSS":
                     self.results.imt_system_build_entry_loss.extend(

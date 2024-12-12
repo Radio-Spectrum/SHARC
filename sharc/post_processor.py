@@ -178,6 +178,10 @@ class PostProcessor:
             "x_label": "Path Loss [dB]",
             "title": "[SYS] IMT to system path loss",
         },
+        "sys_to_imt_coupling_loss": {
+            "x_label": "Coupling Loss [dB]",
+            "title": "[SYS] IMT to system coupling loss",
+        },
         "system_dl_interf_power": {
             "x_label": "Interference Power [dBm/BMHz]",
             "title": "[SYS] system interference power from IMT DL",

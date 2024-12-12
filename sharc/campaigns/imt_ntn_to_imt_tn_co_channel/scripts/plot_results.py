@@ -161,14 +161,29 @@ post_processor.add_plots(plots)
 
 # Add a protection criteria line:
 protection_criteria = -6
-
 post_processor\
     .get_plot_by_results_attribute_name("imt_dl_inr")\
     .add_vline(protection_criteria, line_dash="dash")
 
 # Show a single plot:
 # post_processor\
-#     .get_plot_by_results_attribute_name("system_dl_interf_power")\
+#     .get_plot_by_results_attribute_name("imt_system_antenna_gain")\
+#     .show()
+
+# post_processor\
+#     .get_plot_by_results_attribute_name("system_imt_antenna_gain")\
+#     .show()
+
+# post_processor\
+#     .get_plot_by_results_attribute_name("sys_to_imt_coupling_loss")\
+#     .show()
+
+# post_processor\
+#     .get_plot_by_results_attribute_name("imt_system_path_loss")\
+#     .show()
+
+# post_processor\
+#     .get_plot_by_results_attribute_name("imt_dl_inr")\
 #     .show()
 
 # Plot every plot:

@@ -13,11 +13,11 @@ if __name__ == "__main__":
     # Input parameters for MSS_SS
     param_mss = ParametersMssSs()
     param_mss.frequency = 2100.0  # MHz
-    param_mss.bandwidth = 10.0  # MHz
-    param_mss.altitude = 600e3  # meters
+    param_mss.bandwidth = 20.0  # MHz
+    param_mss.altitude = 500e3  # meters
     param_mss.azimuth = 0
     param_mss.elevation = 90  # degrees
-    param_mss.cell_radius = 25e3  # meters
+    param_mss.cell_radius = 19e3  # meters
     param_mss.intersite_distance = param_mss.cell_radius * np.sqrt(3)
     param_mss.num_sectors = 19
     param_mss.antenna_gain = 30  # dBi
@@ -26,7 +26,7 @@ if __name__ == "__main__":
     # Parameters used for the S.1528 antenna
     param_mss.antenna_pattern = "ITU-R-S.1528-Taylor"
     # param_mss.antenna_pattern = "ITU-R-S.1528-LEO"
-    roll_off = 0
+    roll_off = 7
     param_mss.antenna_s1528.set_external_parameters(frequency=param_mss.frequency,
                                                     bandwidth=param_mss.bandwidth,
                                                     antenna_gain=param_mss.antenna_gain,
@@ -35,7 +35,7 @@ if __name__ == "__main__":
                                                     a_deg=param_mss.antenna_3_dB_bw / 2,
                                                     b_deg=param_mss.antenna_3_dB_bw / 2,
                                                     roll_off=roll_off)
-    beam_idx = 3  # beam index used for gain analysis
+    beam_idx = 15  # beam index used for gain analysis
 
     seed = 100
     rng = np.random.RandomState(seed)

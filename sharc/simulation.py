@@ -247,10 +247,7 @@ class Simulation(ABC, Observable):
             # define antenna gains
             gain_sys_to_imt = self.calculate_gains(system_station, imt_station)
             gain_imt_to_sys = np.transpose(
-                self.calculate_gains(
-                    imt_station, system_station, is_co_channel,
-                ),
-            )
+                self.calculate_gains(imt_station, system_station, is_co_channel))
             additional_loss = self.parameters.imt.ue.ohmic_loss \
                 + self.parameters.imt.ue.body_loss \
                 + self.polarization_loss

@@ -202,39 +202,21 @@ class SimulationDownlinkHapsTest(unittest.TestCase):
         npt.assert_allclose(self.simulation.ue.rx_power, rx_power, atol=1e-2)
 
         # check UE received interference
-        rx_interference = np.array([tx_power -
-                                    3 -
-                                    (97.55 -
-                                     2 -
-                                     10) -
-                                    4 -
-                                    3, tx_power -
-                                    3 -
-                                    (94.73 -
-                                     2 -
-                                     11) -
-                                    4 -
-                                    3, tx_power -
-                                    3 -
-                                    (93.28 -
-                                        1 -
-                                        22) -
-                                    4 -
-                                    3, tx_power -
-                                    3 -
-                                    (97.07 -
-                                        1 -
-                                        23) -
-                                    4 -
-                                    3])
+        rx_interference = np.array([tx_power - 3 - (97.55 - 2 - 10) - 4 - 3,
+                                    tx_power - 3 - (94.73 - 2 - 11) - 4 - 3,
+                                    tx_power - 3 - (93.28 - 1 - 22) - 4 - 3,
+                                    tx_power - 3 - (97.07 - 1 - 23) - 4 - 3])
         npt.assert_allclose(
             self.simulation.ue.rx_interference,
             rx_interference,
             atol=1e-2)
 
         # check UE thermal noise
+        ue_noise_fig = 9
+        self.simulation.ue.noise_figure = np.ones(self.simulation.ue.num_stations) * ue_noise_fig
         thermal_noise = 10 * \
-            np.log10(1.38064852e-23 * 290 * bandwidth_per_ue * 1e3 * 1e6) + 9
+            np.log10(1.38064852e-23 * 290 * bandwidth_per_ue * 1e3 * 1e6) + ue_noise_fig
+        # the simulator adds noise figure to total noise
         npt.assert_allclose(
             self.simulation.ue.thermal_noise,
             thermal_noise,
@@ -242,15 +224,7 @@ class SimulationDownlinkHapsTest(unittest.TestCase):
 
         # check UE thermal noise + interference
         total_interference = 10 * \
-            np.log10(
-                np.power(
-                    10,
-                    0.1 *
-                    rx_interference) +
-                np.power(
-                    10,
-                    0.1 *
-                    thermal_noise))
+            np.log10(np.power(10, 0.1 * rx_interference) + np.power(10, 0.1 * thermal_noise))
         npt.assert_allclose(
             self.simulation.ue.total_interference,
             total_interference,
@@ -264,15 +238,16 @@ class SimulationDownlinkHapsTest(unittest.TestCase):
 
         # check coupling loss between FSS_ES and IMT_UE
         coupling_loss_imt_system = np.array(
-            [148.47 - 28 - 10, 148.47 - 28 - 11, 148.47 - 28 - 22, 148.47 - 28 - 23])
+            [148.47 - 28 - 10, 148.47 - 28 - 11, 148.47 - 28 - 22, 148.47 - 28 - 23]).reshape((-1, 1))
+
         npt.assert_allclose(self.simulation.coupling_loss_imt_system,
                             coupling_loss_imt_system,
                             atol=1e-2)
 
         system_tx_power = (4.4 - 28 - 60) + 10 * \
-            math.log10(bandwidth_per_ue * 1e6) + 30
+            np.log10(bandwidth_per_ue * 1e6) + 30
 
-        ext_interference = system_tx_power - coupling_loss_imt_system
+        ext_interference = (system_tx_power - coupling_loss_imt_system).flatten()
         npt.assert_allclose(self.simulation.ue.ext_interference,
                             ext_interference,
                             atol=1e-2)

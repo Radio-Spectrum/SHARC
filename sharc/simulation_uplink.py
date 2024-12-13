@@ -158,11 +158,7 @@ class SimulationUplink(Simulation):
         self.coupling_loss_imt_system = \
             self.calculate_coupling_loss_system_imt(
                 self.system,
-                self.bs,
-            )
-
-        bs_active = np.where(self.bs.active)[0]
-        sys_active = np.where(self.system.active)[0]
+                self.bs)
 
         in_band_interf = -500
         if self.co_channel:
@@ -190,15 +186,17 @@ class SimulationUplink(Simulation):
         
         ext_interference = 10 * np.log10(np.power(10, 0.1 * in_band_interf) + oob_interf_lin)
 
+        bs_active = np.where(self.bs.active)[0]
+        sys_active = np.where(self.system.active)[0]
         for bs in bs_active:
-            active_beams = [i for i in range(
-                bs * self.parameters.imt.ue_k, (bs + 1) * self.parameters.imt.ue_k)]
+            active_beams = \
+                [i for i in range(bs * self.parameters.imt.ue.k, (bs + 1) * self.parameters.imt.ue.k)]
             
             # Interference for each active system transmitter
             bs_ext_interference = ext_interference - \
-                self.coupling_loss_imt_system[sys_active, :][:, active_beams]
+                self.coupling_loss_imt_system[active_beams, :][:, sys_active]
             # Sum all the interferers for each bs
-            self.bs.ext_interference[bs] = 10 * np.log10(np.sum(np.power(10, 0.1 * bs_ext_interference), axis=0))
+            self.bs.ext_interference[bs] = 10 * np.log10(np.sum(np.power(10, 0.1 * bs_ext_interference), axis=1))
 
             self.bs.sinr_ext[bs] = self.bs.rx_power[bs] \
                 - (10 * np.log10(np.power(10, 0.1 * self.bs.total_interference[bs]) +
@@ -231,6 +229,7 @@ class SimulationUplink(Simulation):
         rx_interference = 0
 
         bs_active = np.where(self.bs.active)[0]
+        sys_active = np.where(self.system.active)[0]
         for bs in bs_active:
             ue = self.link[bs]
 
@@ -247,7 +246,7 @@ class SimulationUplink(Simulation):
                     weights = np.ones(self.parameters.imt.ue.k)
 
                 interference_ue = self.ue.tx_power[ue] - \
-                    self.coupling_loss_imt_system[ue]
+                    self.coupling_loss_imt_system[ue, sys_active]
                 rx_interference += np.sum(
                     weights * np.power(
                         10,
@@ -263,17 +262,12 @@ class SimulationUplink(Simulation):
                 oob_power = self.ue.spectral_mask.power_calc(self.param_system.frequency, self.system.bandwidth)\
                     - self.ue_power_diff[ue] \
                     + self.parameters.imt.ue.ohmic_loss
-                oob_interference_array = oob_power - self.coupling_loss_imt_system_adjacent[ue] \
+                oob_interference_array = oob_power - self.coupling_loss_imt_system_adjacent[ue, sys_active] \
                     + 10 * np.log10(
                         (self.param_system.bandwidth - self.overlapping_bandwidth) /
-                        self.param_system.bandwidth,
-                    )
+                        self.param_system.bandwidth)
                 rx_interference += np.sum(
-                    np.power(
-                        10,
-                        0.1 * oob_interference_array,
-                    ),
-                )
+                    np.power(10, 0.1 * oob_interference_array,))
 
         self.system.rx_interference = 10 * np.log10(rx_interference)
         # calculate N

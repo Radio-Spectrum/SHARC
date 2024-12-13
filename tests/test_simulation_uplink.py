@@ -308,7 +308,7 @@ class SimulationUplinkTest(unittest.TestCase):
 
         # check coupling loss
         coupling_loss_imt_system = np.array(
-            [213.52 - 51 - 10, 213.52 - 51 - 11, 213.52 - 51 - 22, 213.52 - 51 - 23])
+            [213.52 - 51 - 10, 213.52 - 51 - 11, 213.52 - 51 - 22, 213.52 - 51 - 23]).reshape(-1, 1)
         npt.assert_allclose(self.simulation.coupling_loss_imt_system,
                             coupling_loss_imt_system,
                             atol=1e-2)
@@ -457,15 +457,15 @@ class SimulationUplinkTest(unittest.TestCase):
 
         # coupling loss FSS_ES <-> IMT BS
         coupling_loss_imt_system = np.array(
-            [124.47 - 50 - 1, 124.47 - 50 - 1, 125.29 - 50 - 2, 125.29 - 50 - 2])
+            [124.47 - 50 - 1, 124.47 - 50 - 1, 125.29 - 50 - 2, 125.29 - 50 - 2]).reshape(-1, 1)
         npt.assert_allclose(self.simulation.coupling_loss_imt_system,
                             coupling_loss_imt_system,
                             atol=1e-2)
 
         # external interference
-        system_tx_power = -60 + 10 * math.log10(bandwidth_per_ue * 1e6) + 30
-        ext_interference = {0: system_tx_power - coupling_loss_imt_system[0:2],
-                            1: system_tx_power - coupling_loss_imt_system[2:4]}
+        system_tx_power = -60 + 10 * math.log10(self.simulation.overlapping_bandwidth * 1e6) + 30
+        ext_interference = {0: system_tx_power - coupling_loss_imt_system[0:2, 0],
+                            1: system_tx_power - coupling_loss_imt_system[2:4, 0]}
         npt.assert_allclose(self.simulation.bs.ext_interference[0],
                             ext_interference[0],
                             atol=1e-2)
@@ -499,7 +499,7 @@ class SimulationUplinkTest(unittest.TestCase):
 
         # coupling loss
         coupling_loss_imt_system = np.array(
-            [128.55 - 50 - 10, 128.76 - 50 - 11, 128.93 - 50 - 22, 129.17 - 50 - 23])
+            [128.55 - 50 - 10, 128.76 - 50 - 11, 128.93 - 50 - 22, 129.17 - 50 - 23]).reshape(-1, 1)
         npt.assert_allclose(self.simulation.coupling_loss_imt_system,
                             coupling_loss_imt_system,
                             atol=1e-2)
@@ -607,7 +607,7 @@ class SimulationUplinkTest(unittest.TestCase):
         self.simulation.calculate_external_interference()
         npt.assert_allclose(self.simulation.coupling_loss_imt_system,
                             np.array([125.55 - 50 - 10, 125.76 - 50 - 11,
-                                     125.93 - 50 - 22, 126.17 - 50 - 23]),
+                                     125.93 - 50 - 22, 126.17 - 50 - 23]).reshape(-1, 1),
                             atol=1e-2)
 
         # Test RAS PFD

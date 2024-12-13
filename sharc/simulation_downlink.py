@@ -97,9 +97,7 @@ class SimulationDownlink(Simulation):
         # power from bs_1 to ue_2, etc
         bs_active = np.where(self.bs.active)[0]
         self.bs.tx_power = dict(
-            [(bs, tx_power * np.ones(self.parameters.imt.ue.k))
-             for bs in bs_active],
-        )
+            [(bs, tx_power * np.ones(self.parameters.imt.ue.k)) for bs in bs_active])
 
         # Update the spectral mask
         if self.adjacent_channel:
@@ -158,48 +156,62 @@ class SimulationDownlink(Simulation):
         ue = np.where(self.ue.active)[0]
         active_sys = np.where(self.system.active)[0]
 
-        in_band_interf = -500
-        if self.co_channel:
-            if self.overlapping_bandwidth > 0:
-                # Inteferer transmit power in dBm over the overlapping band (MHz)
-                in_band_interf = self.param_system.tx_power_density + \
-                    10 * np.log10(self.overlapping_bandwidth * 1e6) + 30
+        # All UEs are active on an active BS
+        bs_active = np.where(self.bs.active)[0]
+        for bs in bs_active:
+            ue = self.link[bs]
+            in_band_interf_power = -500
+            if self.co_channel:
+                if self.overlapping_bandwidth > 0:
+                    # Inteferer transmit power in dBm over the overlapping band (MHz) with UEs.
+                    # Get the weight factor for the system overlaping bandwidth in each UE band.
+                    weights = self.calculate_bw_weights(
+                        self.parameters.imt.bandwidth,
+                        self.overlapping_bandwidth,
+                        self.parameters.imt.ue.k)
+                    # in_band_interf_power = self.param_system.tx_power_density + \
+                    #     10 * np.log10(self.overlapping_bandwidth * 1e6) + 30
+                    in_band_interf_power = \
+                        self.param_system.tx_power_density + 10 * np.log10(self.ue.bandwidth[ue, np.newaxis] * 1e6) + \
+                        10 * np.log10(weights)[:, np.newaxis] - self.coupling_loss_imt_system[ue, :][:, active_sys]
 
-        oob_power = -500
-        oob_interf_lin = 0
-        if self.adjacent_channel:
-            if self.parameters.imt.adjacent_interf_model == "SPECTRAL_MASK":
-                # Out-of-band power in the adjacent channel.
-                oob_power = self.system.spectral_mask.power_calc(self.parameters.imt.frequency,
-                                                                 self.parameters.imt.bandwidth)
-                oob_interf_lin = np.power(10, 0.1 * oob_power) / \
-                    np.power(10, 0.1 * self.parameters.imt.ue.adjacent_ch_selectivity)
-            elif self.parameters.imt.adjacent_interf_model == "ACIR":
-                acir = -10 * np.log10(10**(-self.param_system.adjacent_ch_leak_ratio / 10) +
-                                      10**(-self.parameters.imt.ue.adjacent_ch_selectivity / 10))
-                oob_power = self.param_system.tx_power_density + \
-                    10 * np.log10(self.param_system.bandwidth * 1e6) -  \
-                    acir
-                oob_interf_lin = 10**(oob_power / 10)
+            oob_power = -500
+            oob_interf_lin = 0
+            if self.adjacent_channel:
+                if self.parameters.imt.adjacent_interf_model == "SPECTRAL_MASK":
+                    # Out-of-band power in the adjacent channel.
+                    oob_power = self.system.spectral_mask.power_calc(self.parameters.imt.frequency,
+                                                                     self.parameters.imt.bandwidth)
+                    oob_interf_lin = np.power(10, 0.1 * oob_power) / \
+                        np.power(10, 0.1 * self.parameters.imt.ue.adjacent_ch_selectivity)
+                elif self.parameters.imt.adjacent_interf_model == "ACIR":
+                    acir = -10 * np.log10(10**(-self.param_system.adjacent_ch_leak_ratio / 10) +
+                                          10**(-self.parameters.imt.ue.adjacent_ch_selectivity / 10))
+                    oob_power = self.param_system.tx_power_density + \
+                        10 * np.log10(self.param_system.bandwidth * 1e6) -  \
+                        acir
+                    oob_interf_lin = 10**(oob_power / 10)
+                # Out of band power
+                oob_power = 10 * np.log10(oob_interf_lin) - self.coupling_loss_imt_system[ue, :][:, active_sys]
 
-        # Total external interference into the UE in dBm
-        ext_interference = 10 * np.log10(np.power(10, 0.1 * in_band_interf) + oob_interf_lin)
-        ue_ext_int = ext_interference - self.coupling_loss_imt_system[ue, :][:, active_sys]
+            # Total external interference into the UE in dBm
+            ue_ext_int = 10 * np.log10(np.power(10, 0.1 * in_band_interf_power) + np.power(10, 0.1 * oob_power))
+            # ue_ext_int = ext_interference - self.coupling_loss_imt_system[ue, :][:, active_sys]
 
-        # Sum all the interferers for each UE
-        self.ue.ext_interference[ue] = 10 * np.log10(np.sum(np.power(10, 0.1 * ue_ext_int), axis=1))
+            # Sum all the interferers for each UE
+            self.ue.ext_interference[ue] = 10 * np.log10(np.sum(np.power(10, 0.1 * ue_ext_int), axis=1)) + 30
 
-        self.ue.sinr_ext[ue] = self.ue.rx_power[ue] \
-            - (10 * np.log10(np.power(10, 0.1 * self.ue.total_interference[ue]) + np.power(
-                10, 0.1 * (self.ue.ext_interference[ue] + 30))))
+            self.ue.sinr_ext[ue] = \
+                self.ue.rx_power[ue] - (10 * np.log10(np.power(10, 0.1 * self.ue.total_interference[ue]) +
+                                                      np.power(10, 0.1 * (self.ue.ext_interference[ue]))))
 
-        # Calculate INR in dB
-        self.ue.thermal_noise[ue] = \
-            10 * np.log10(BOLTZMANN_CONSTANT * self.parameters.imt.noise_temperature) + \
-            10 * np.log10(self.ue.bandwidth[ue] * 1e6)
+            # Calculate INR in dB
+            self.ue.thermal_noise[ue] = \
+                10 * np.log10(BOLTZMANN_CONSTANT * self.parameters.imt.noise_temperature * 1e3) + \
+                10 * np.log10(self.ue.bandwidth[ue] * 1e6) + self.parameters.imt.ue.noise_figure
 
-        self.ue.inr[ue] = self.ue.ext_interference[ue] - \
-            self.ue.thermal_noise[ue]
+            self.ue.inr[ue] = self.ue.ext_interference[ue] - \
+                self.ue.thermal_noise[ue]
 
     def calculate_external_interference(self):
         """
@@ -225,8 +237,8 @@ class SimulationDownlink(Simulation):
         rx_interference = 0
 
         bs_active = np.where(self.bs.active)[0]
+        sys_active = np.where(self.system.active)[0]
         for bs in bs_active:
-
             active_beams = [
                 i for i in range(
                     bs *
@@ -248,7 +260,7 @@ class SimulationDownlink(Simulation):
                     weights = np.ones(self.parameters.imt.ue.k)
 
                 interference = self.bs.tx_power[bs] - \
-                    self.coupling_loss_imt_system[active_beams]
+                    self.coupling_loss_imt_system[active_beams, sys_active]
                 rx_interference += np.sum(
                     weights * np.power(
                         10,
@@ -382,7 +394,9 @@ class SimulationDownlink(Simulation):
                     self.imt_system_path_loss[sys_active, :][:, ue],
                 )
                 self.results.sys_to_imt_coupling_loss.extend(
-                    self.coupling_loss_imt_system[sys_active, :][:, ue]
+                    self.coupling_loss_imt_system[ue]
+                    if self.coupling_loss_imt_system.ndim < 2 else
+                    self.coupling_loss_imt_system[ue, :][:, sys_active]
                 )
                 if self.param_system.channel_model == "HDFSS":
                     self.results.imt_system_build_entry_loss.extend(

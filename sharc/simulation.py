@@ -296,10 +296,8 @@ class Simulation(ABC, Observable):
         self.imt_system_antenna_gain = gain_imt_to_sys
 
         # calculate coupling loss
-        coupling_loss = np.squeeze(
-            self.imt_system_path_loss - self.system_imt_antenna_gain -
-            self.imt_system_antenna_gain,
-        ) + additional_loss
+        coupling_loss = \
+            self.imt_system_path_loss - self.system_imt_antenna_gain - self.imt_system_antenna_gain + additional_loss
 
         # Simulator expects imt_stations x system_stations shape
         return np.transpose(coupling_loss)

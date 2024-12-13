@@ -183,7 +183,7 @@ class AntennaS1528(Antenna):
             self.peak_gain + 5 * math.log10(self.z),
         )
         # one-half the 3 dB beamwidth in the plane of interest
-        self.psi_b = param.antenna_3_dB_bw / 2
+        self.psi_b = param.antenna_3_dB / 2
 
         if self.l_s == -15:
             self.a = 2.58 * math.sqrt(1 - 1.4 * math.log10(self.z))

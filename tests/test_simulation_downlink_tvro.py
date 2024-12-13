@@ -257,7 +257,7 @@ class SimulationDownlinkTvroTest(unittest.TestCase):
             + self.param.imt.bs.ohmic_loss
 
         npt.assert_allclose(self.simulation.coupling_loss_imt_system,
-                            coupling_loss_imt_system,
+                            coupling_loss_imt_system.reshape(-1, 1),
                             atol=1e-1)
 
         # check blocking signal

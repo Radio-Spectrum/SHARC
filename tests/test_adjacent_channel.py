@@ -224,7 +224,7 @@ class SimulationAdjacentTest(unittest.TestCase):
 
         # check coupling loss
         coupling_loss_imt_system_adj = np.array(
-            [209.52 - 51 - 1, 209.52 - 51 - 1, 209.52 - 51 - 2, 209.52 - 51 - 2])
+            [209.52 - 51 - 1, 209.52 - 51 - 1, 209.52 - 51 - 2, 209.52 - 51 - 2]).reshape(-1, 1)
         npt.assert_allclose(self.simulation.coupling_loss_imt_system_adjacent,
                             coupling_loss_imt_system_adj,
                             atol=1e-2)
@@ -327,7 +327,7 @@ class SimulationAdjacentTest(unittest.TestCase):
 
         # check coupling loss
         coupling_loss_imt_system_adj = np.array(
-            [213.52 - 51 - 10, 213.52 - 51 - 11, 213.52 - 51 - 22, 213.52 - 51 - 23])
+            [213.52 - 51 - 10, 213.52 - 51 - 11, 213.52 - 51 - 22, 213.52 - 51 - 23]).reshape(-1, 1)
         npt.assert_allclose(self.simulation.coupling_loss_imt_system_adjacent,
                             coupling_loss_imt_system_adj,
                             atol=1e-2)

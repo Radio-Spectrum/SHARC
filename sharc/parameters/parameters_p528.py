@@ -16,6 +16,8 @@ class ParametersP528(ParametersBase):
     polarization: Union[int, str] = "RANDOM"
     # Channel model, possible values are "P528"
     channel_model: str = "P528"
+
+
 @dataclass
 class ParametersP528(ParametersBase):
     """Dataclass containing the P.528 propagation model parameters"""

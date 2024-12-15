@@ -24,7 +24,6 @@ class ParametersTest(unittest.TestCase):
         self.assertEqual(self.parameters.imt.spectral_mask, "3GPP E-UTRA")
         self.assertEqual(self.parameters.imt.spurious_emissions, -13.1)
         self.assertEqual(self.parameters.imt.guard_band_ratio, 0.14)
-
         self.assertEqual(self.parameters.imt.bs.load_probability, 0.2)
         self.assertEqual(self.parameters.imt.bs.conducted_power, 11.1)
         self.assertEqual(self.parameters.imt.bs.height, 6.1)

@@ -39,6 +39,7 @@ from sharc.antenna.antenna_rs1861_9b import AntennaRS1861_9B
 from sharc.antenna.antenna_rs1861_9c import AntennaRS1861_9C
 from sharc.antenna.antenna_rs2043 import AntennaRS2043
 from sharc.antenna.antenna_s465 import AntennaS465
+from sharc.antenna.antenna_rra7_3 import AntennaReg_RR_A7_3
 from sharc.antenna.antenna_modified_s465 import AntennaModifiedS465
 from sharc.antenna.antenna_s580 import AntennaS580
 from sharc.antenna.antenna_s672 import AntennaS672
@@ -860,6 +861,10 @@ class StationFactory(object):
             case "ITU-R S.465":
                 single_earth_station.antenna = np.array(
                     [AntennaS465(param.antenna.itu_r_s_465)],
+                )
+            case "ITU-R Reg. RR. Appendice 7 Annex 3":
+                single_earth_station.antenna = np.array(
+                    [AntennaReg_RR_A7_3(param.antenna.itu_reg_rr_a7_3)],
                 )
             case "ITU-R S.1855":
                 single_earth_station.antenna = np.array(

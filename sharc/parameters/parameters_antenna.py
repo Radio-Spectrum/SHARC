@@ -11,11 +11,13 @@ class ParametersAntenna(ParametersBase):
     # available antenna radiation patterns
     __SUPPORTED_ANTENNA_PATTERNS = [
         "OMNI", "ITU-R F.699", "ITU-R S.465", "ITU-R S.580", "MODIFIED ITU-R S.465", "ITU-R S.1855",
+        "ITU-R Reg. RR. Appendice 7 Annex 3"
     ]
 
     # chosen antenna radiation pattern
     pattern: typing.Literal[
         "OMNI", "ITU-R F.699", "ITU-R S.465", "ITU-R S.580", "MODIFIED ITU-R S.465", "ITU-R S.1855",
+        "ITU-R Reg. RR. Appendice 7 Annex 3"
     ] = None
 
     # antenna gain [dBi]
@@ -39,6 +41,10 @@ class ParametersAntenna(ParametersBase):
 
     itu_r_s_465_modified: ParametersAntennaWithEnvelopeGain = field(
         default_factory=ParametersAntennaWithEnvelopeGain,
+    )
+
+    itu_reg_rr_a7_3: ParametersAntennaWithDiameter = field(
+        default_factory=ParametersAntennaWithDiameter,
     )
 
     def set_external_parameters(self, *, frequency):
@@ -84,6 +90,11 @@ class ParametersAntenna(ParametersBase):
                 )
             case "ITU-R S.580":
                 self.itu_r_s_580.validate(f"{ctx}.itu_r_s_580")
+            case "ITU-R Reg. RR. Appendice 7 Annex 3":
+                if self.itu_reg_rr_a7_3.diameter is None:
+                    # just hijacking validation since diameter is optional
+                    self.itu_reg_rr_a7_3.diameter = 0
+                self.itu_reg_rr_a7_3.validate(f"{ctx}.itu_reg_rr_a7_3")
             case _:
                 raise NotImplementedError(
                     "ParametersAntenna.validate does not implement this antenna validation!",

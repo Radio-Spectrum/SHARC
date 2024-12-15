@@ -1017,6 +1017,11 @@ single_earth_station:
             ###########################################################################
             # Antenna envelope gain [dBi]
             envelope_gain: -4
+        itu_reg_rr_a7_3:
+            ###########################################################################
+            # Antenna diameter [m]
+            # if no diameter is passed, a diameter will be assumed according to document
+            diameter: 2.12
     ###########################################################################
     # Selected channel model
     # Possible values are "P619", "P452", "TerrestrialSimple"

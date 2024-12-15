@@ -1127,7 +1127,8 @@ single_earth_station:
     antenna:
         ###########################################################################
         # Choose the antenna pattern. Can be one of:
-        # "OMNI", "ITU-R F.699", "ITU-R S.465", "ITU-R S.580", "MODIFIED ITU-R S.465", "ITU-R S.1855"
+        # "OMNI", "ITU-R F.699", "ITU-R S.465", "ITU-R S.580", "MODIFIED ITU-R S.465", "ITU-R S.1855",
+        # "ITU-R Reg. RR. Appendice 7 Annex 3"
         pattern: ITU-R S.465
         ###########################################################################
         # Earth station peak receive antenna gain [dBi]
@@ -1147,6 +1148,11 @@ single_earth_station:
         itu_r_s_1855:
             ###########################################################################
             # Antenna diameter [m]
+            diameter: 1.1
+        itu_reg_rr_a7_3:
+            ###########################################################################
+            # Antenna diameter [m]
+            # if no diameter is passed, a diameter will be assumed according to document
             diameter: 1.1
         itu_r_s_465_modified:
             ###########################################################################

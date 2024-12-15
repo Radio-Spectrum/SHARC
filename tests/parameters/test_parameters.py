@@ -60,8 +60,14 @@ class ParametersTest(unittest.TestCase):
         self.assertEqual(self.parameters.imt.adjacent_antenna_model, "BEAMFORMING")
         self.assertEqual(self.parameters.imt.bs.antenna.normalization, False)
         self.assertEqual(self.parameters.imt.ue.antenna.normalization, False)
-        self.assertEqual(self.parameters.imt.bs.antenna.normalization_file, "antenna/beamforming_normalization/bs_norm.npz")
-        self.assertEqual(self.parameters.imt.ue.antenna.normalization_file, "antenna/beamforming_normalization/ue_norm.npz")
+        self.assertEqual(
+            self.parameters.imt.bs.antenna.normalization_file,
+            "antenna/beamforming_normalization/bs_norm.npz",
+        )
+        self.assertEqual(
+            self.parameters.imt.ue.antenna.normalization_file,
+            "antenna/beamforming_normalization/ue_norm.npz",
+        )
         self.assertEqual(self.parameters.imt.bs.antenna.element_pattern, "F1336")
         self.assertEqual(self.parameters.imt.ue.antenna.element_pattern, "F1336")
         self.assertEqual(self.parameters.imt.bs.antenna.minimum_array_gain, -200)
@@ -123,12 +129,17 @@ class ParametersTest(unittest.TestCase):
         self.assertEqual(self.parameters.imt.topology.indoor.num_cells, 3)
         self.assertEqual(self.parameters.imt.topology.indoor.num_floors, 1)
         self.assertEqual(self.parameters.imt.topology.indoor.ue_indoor_percent, 0.95)
-        self.assertEqual(self.parameters.imt.topology.indoor.building_class, "THERMALLY_EFFICIENT")
+        self.assertEqual(
+            self.parameters.imt.topology.indoor.building_class, "THERMALLY_EFFICIENT"
+        )
 
-        self.assertEqual(self.parameters.imt.topology.ntn.bs_height, self.parameters.imt.bs.height)
+        self.assertEqual(
+            self.parameters.imt.topology.ntn.bs_height, self.parameters.imt.bs.height
+        )
         self.assertEqual(self.parameters.imt.topology.ntn.cell_radius, 123)
         self.assertEqual(
-            self.parameters.imt.topology.ntn.intersite_distance, self.parameters.imt.topology.ntn.cell_radius * np.sqrt(3)
+            self.parameters.imt.topology.ntn.intersite_distance,
+            self.parameters.imt.topology.ntn.cell_radius * np.sqrt(3),
         )
         self.assertEqual(self.parameters.imt.topology.ntn.bs_azimuth, 45)
         self.assertEqual(self.parameters.imt.topology.ntn.bs_elevation, 45)
@@ -155,12 +166,14 @@ class ParametersTest(unittest.TestCase):
         self.assertEqual(self.parameters.fss_ss.antenna_l_s, -20.1)
         self.assertEqual(self.parameters.fss_ss.antenna_3_dB, 0.65)
 
-        self.assertEqual(self.parameters.fss_ss.antenna_s1528.antenna_pattern, "ITU-R-S.1528-LEO")
+        self.assertEqual(
+            self.parameters.fss_ss.antenna_s1528.antenna_pattern, "ITU-R-S.1528-LEO"
+        )
         self.assertEqual(self.parameters.fss_ss.antenna_s1528.slr, 21)
         self.assertEqual(self.parameters.fss_ss.antenna_s1528.antenna_l_s, -20.1)
         self.assertEqual(self.parameters.fss_ss.antenna_s1528.n_side_lobes, 5)
-        self.assertEqual(self.parameters.fss_ss.antenna_s1528.l_r, .4)
-        self.assertEqual(self.parameters.fss_ss.antenna_s1528.l_t, .4)
+        self.assertEqual(self.parameters.fss_ss.antenna_s1528.l_r, 0.4)
+        self.assertEqual(self.parameters.fss_ss.antenna_s1528.l_t, 0.4)
         self.assertEqual(self.parameters.fss_ss.antenna_s1528.roll_off, 2)
 
     def test_parameters_fss_es(self):
@@ -202,7 +215,9 @@ class ParametersTest(unittest.TestCase):
         self.assertEqual(self.parameters.fss_es.building_loss_enabled, True)
         self.assertEqual(self.parameters.fss_es.same_building_enabled, False)
         self.assertEqual(self.parameters.fss_es.diffraction_enabled, False)
-        self.assertEqual(self.parameters.fss_es.bs_building_entry_loss_type, "P2109_FIXED")
+        self.assertEqual(
+            self.parameters.fss_es.bs_building_entry_loss_type, "P2109_FIXED"
+        )
         self.assertEqual(self.parameters.fss_es.bs_building_entry_loss_prob, 0.75)
         self.assertEqual(self.parameters.fss_es.bs_building_entry_loss_value, 35.0)
 
@@ -230,7 +245,8 @@ class ParametersTest(unittest.TestCase):
         self.assertEqual(self.parameters.haps.antenna_gain, 28.1)
         self.assertEqual(self.parameters.haps.eirp_density, 4.4)
         self.assertEqual(
-            self.parameters.haps.tx_power_density, self.parameters.haps.eirp_density - self.parameters.haps.antenna_gain - 60
+            self.parameters.haps.tx_power_density,
+            self.parameters.haps.eirp_density - self.parameters.haps.antenna_gain - 60,
         )
         self.assertEqual(self.parameters.haps.altitude, 20001.1)
         self.assertEqual(self.parameters.haps.lat_deg, 0.1)
@@ -283,62 +299,137 @@ class ParametersTest(unittest.TestCase):
         """Test ParametersSingleEarthStation"""
         self.assertEqual(self.parameters.single_earth_station.frequency, 8250)
         self.assertEqual(self.parameters.single_earth_station.bandwidth, 100)
-        self.assertEqual(self.parameters.single_earth_station.adjacent_ch_selectivity, 20.0)
+        self.assertEqual(
+            self.parameters.single_earth_station.adjacent_ch_selectivity, 20.0
+        )
         self.assertEqual(self.parameters.single_earth_station.tx_power_density, -65.0)
         self.assertEqual(self.parameters.single_earth_station.noise_temperature, 300)
         self.assertEqual(self.parameters.single_earth_station.geometry.height, 6)
-        self.assertEqual(self.parameters.single_earth_station.geometry.azimuth.type, "FIXED")
-        self.assertEqual(self.parameters.single_earth_station.geometry.azimuth.fixed, 0)
-        self.assertEqual(self.parameters.single_earth_station.geometry.azimuth.uniform_dist.min, -180)
-        self.assertEqual(self.parameters.single_earth_station.geometry.azimuth.uniform_dist.max, 180)
-        self.assertEqual(self.parameters.single_earth_station.geometry.elevation.type, "FIXED")
-        self.assertEqual(self.parameters.single_earth_station.geometry.elevation.fixed, 60)
-        self.assertEqual(self.parameters.single_earth_station.geometry.elevation.uniform_dist.min, 30)
-        self.assertEqual(self.parameters.single_earth_station.geometry.elevation.uniform_dist.max, 65)
-        self.assertEqual(self.parameters.single_earth_station.geometry.location.type, "CELL")
-        self.assertEqual(self.parameters.single_earth_station.geometry.location.fixed.x, 10)
-        self.assertEqual(self.parameters.single_earth_station.geometry.location.fixed.y, 100)
-        self.assertEqual(self.parameters.single_earth_station.geometry.location.uniform_dist.min_dist_to_center, 101)
-        self.assertEqual(self.parameters.single_earth_station.geometry.location.uniform_dist.max_dist_to_center, 102)
-        self.assertEqual(self.parameters.single_earth_station.geometry.location.cell.min_dist_to_bs, 100)
-        self.assertEqual(self.parameters.single_earth_station.geometry.location.network.min_dist_to_bs, 150)
-        self.assertEqual(self.parameters.single_earth_station.antenna.gain, 28)
-        self.assertEqual(self.parameters.single_earth_station.antenna.itu_r_f_699.diameter, 1.1)
         self.assertEqual(
-            self.parameters.single_earth_station.antenna.itu_r_f_699.frequency, self.parameters.single_earth_station.frequency
+            self.parameters.single_earth_station.geometry.azimuth.type, "FIXED"
+        )
+        self.assertEqual(self.parameters.single_earth_station.geometry.azimuth.fixed, 0)
+        self.assertEqual(
+            self.parameters.single_earth_station.geometry.azimuth.uniform_dist.min, -180
+        )
+        self.assertEqual(
+            self.parameters.single_earth_station.geometry.azimuth.uniform_dist.max, 180
+        )
+        self.assertEqual(
+            self.parameters.single_earth_station.geometry.elevation.type, "FIXED"
+        )
+        self.assertEqual(
+            self.parameters.single_earth_station.geometry.elevation.fixed, 60
+        )
+        self.assertEqual(
+            self.parameters.single_earth_station.geometry.elevation.uniform_dist.min, 30
+        )
+        self.assertEqual(
+            self.parameters.single_earth_station.geometry.elevation.uniform_dist.max, 65
+        )
+        self.assertEqual(
+            self.parameters.single_earth_station.geometry.location.type, "CELL"
+        )
+        self.assertEqual(
+            self.parameters.single_earth_station.geometry.location.fixed.x, 10
+        )
+        self.assertEqual(
+            self.parameters.single_earth_station.geometry.location.fixed.y, 100
+        )
+        self.assertEqual(
+            self.parameters.single_earth_station.geometry.location.uniform_dist.min_dist_to_center,
+            101,
+        )
+        self.assertEqual(
+            self.parameters.single_earth_station.geometry.location.uniform_dist.max_dist_to_center,
+            102,
+        )
+        self.assertEqual(
+            self.parameters.single_earth_station.geometry.location.cell.min_dist_to_bs,
+            100,
+        )
+        self.assertEqual(
+            self.parameters.single_earth_station.geometry.location.network.min_dist_to_bs,
+            150,
+        )
+        self.assertEqual(self.parameters.single_earth_station.antenna.gain, 28)
+        self.assertEqual(
+            self.parameters.single_earth_station.antenna.itu_r_f_699.diameter, 1.1
+        )
+        self.assertEqual(
+            self.parameters.single_earth_station.antenna.itu_r_f_699.frequency,
+            self.parameters.single_earth_station.frequency,
         )
         self.assertEqual(
             self.parameters.single_earth_station.antenna.itu_r_f_699.antenna_gain,
             self.parameters.single_earth_station.antenna.gain,
         )
 
-        self.assertEqual(self.parameters.single_earth_station.param_p619.earth_station_alt_m, 1200)
-        self.assertEqual(self.parameters.single_earth_station.param_p619.space_station_alt_m, 540000)
-        self.assertEqual(self.parameters.single_earth_station.param_p619.earth_station_lat_deg, 13)
-        self.assertEqual(self.parameters.single_earth_station.param_p619.earth_station_long_diff_deg, 10)
-
-        self.assertEqual(self.parameters.single_earth_station.param_p452.atmospheric_pressure, 1)
-        self.assertEqual(self.parameters.single_earth_station.param_p452.air_temperature, 2)
+        self.assertEqual(
+            self.parameters.single_earth_station.param_p619.earth_station_alt_m, 1200
+        )
+        self.assertEqual(
+            self.parameters.single_earth_station.param_p619.space_station_alt_m, 540000
+        )
+        self.assertEqual(
+            self.parameters.single_earth_station.param_p619.earth_station_lat_deg, 13
+        )
+        self.assertEqual(
+            self.parameters.single_earth_station.param_p619.earth_station_long_diff_deg,
+            10,
+        )
+        self.assertEqual(
+            self.parameters.single_earth_station.param_p452.atmospheric_pressure, 1
+        )
+        self.assertEqual(
+            self.parameters.single_earth_station.param_p452.air_temperature, 2
+        )
         self.assertEqual(self.parameters.single_earth_station.param_p452.N0, 3)
         self.assertEqual(self.parameters.single_earth_station.param_p452.delta_N, 4)
-        self.assertEqual(self.parameters.single_earth_station.param_p452.percentage_p, 5)
+        self.assertEqual(
+            self.parameters.single_earth_station.param_p452.percentage_p, 5
+        )
         self.assertEqual(self.parameters.single_earth_station.param_p452.Dct, 6)
         self.assertEqual(self.parameters.single_earth_station.param_p452.Dcr, 7)
         self.assertEqual(self.parameters.single_earth_station.param_p452.Hte, 8)
         self.assertEqual(self.parameters.single_earth_station.param_p452.Hre, 9)
         self.assertEqual(self.parameters.single_earth_station.param_p452.tx_lat, 10)
         self.assertEqual(self.parameters.single_earth_station.param_p452.rx_lat, 11)
-        self.assertEqual(self.parameters.single_earth_station.param_p452.polarization, "horizontal")
-        self.assertEqual(self.parameters.single_earth_station.param_p452.clutter_loss, True)
+        self.assertEqual(
+            self.parameters.single_earth_station.param_p452.polarization, "horizontal"
+        )
+        self.assertEqual(
+            self.parameters.single_earth_station.param_p452.clutter_loss, True
+        )
 
-        self.assertEqual(self.parameters.single_earth_station.param_hdfss.es_position, "BUILDINGSIDE")
-        self.assertEqual(self.parameters.single_earth_station.param_hdfss.shadow_enabled, False)
-        self.assertEqual(self.parameters.single_earth_station.param_hdfss.building_loss_enabled, False)
-        self.assertEqual(self.parameters.single_earth_station.param_hdfss.same_building_enabled, True)
-        self.assertEqual(self.parameters.single_earth_station.param_hdfss.diffraction_enabled, False)
-        self.assertEqual(self.parameters.single_earth_station.param_hdfss.bs_building_entry_loss_type, "FIXED_VALUE")
-        self.assertEqual(self.parameters.single_earth_station.param_hdfss.bs_building_entry_loss_prob, 0.19)
-        self.assertEqual(self.parameters.single_earth_station.param_hdfss.bs_building_entry_loss_value, 47)
+        self.assertEqual(
+            self.parameters.single_earth_station.param_hdfss.es_position, "BUILDINGSIDE"
+        )
+        self.assertEqual(
+            self.parameters.single_earth_station.param_hdfss.shadow_enabled, False
+        )
+        self.assertEqual(
+            self.parameters.single_earth_station.param_hdfss.building_loss_enabled,
+            False,
+        )
+        self.assertEqual(
+            self.parameters.single_earth_station.param_hdfss.same_building_enabled, True
+        )
+        self.assertEqual(
+            self.parameters.single_earth_station.param_hdfss.diffraction_enabled, False
+        )
+        self.assertEqual(
+            self.parameters.single_earth_station.param_hdfss.bs_building_entry_loss_type,
+            "FIXED_VALUE",
+        )
+        self.assertEqual(
+            self.parameters.single_earth_station.param_hdfss.bs_building_entry_loss_prob,
+            0.19,
+        )
+        self.assertEqual(
+            self.parameters.single_earth_station.param_hdfss.bs_building_entry_loss_value,
+            47,
+        )
 
         self.parameters.single_earth_station.geometry.azimuth.uniform_dist.max = None
         # this should still not throw, since azimuth is using fixed type

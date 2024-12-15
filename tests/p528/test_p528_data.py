@@ -105,7 +105,7 @@ def run_p528_tests():
                         if abs(delta) > 0.1:
                             cnt_fail += 1
                             print(
-                                f"{result[0]:20.1f} {tl_ref[i,j]:20.1f} {delta:20.1f} FAIL"
+                                f"{result[0]:20.1f} {tl_ref[i, j]:20.1f} {delta:20.1f} FAIL"
                             )
                         else:
                             cnt_pass += 1

@@ -70,7 +70,7 @@ class TopologySingleBaseStationSpherical(TopologySingleBaseStation):
             fig = plt.figure(figsize=(12, 12))
             ax = fig.add_subplot(111, projection="3d")
 
-        # Plot do globo
+        # Plot the globe
         u = np.linspace(0, 2 * np.pi, 100)
         v = np.linspace(0, np.pi, 100)
         x = self.earth_radius * np.outer(np.cos(u), np.sin(v))
@@ -78,37 +78,36 @@ class TopologySingleBaseStationSpherical(TopologySingleBaseStation):
         z = self.earth_radius * np.outer(np.ones(np.size(u)), np.cos(v))
         ax.plot_surface(x, y, z, color="lightblue", alpha=0.3)
 
-        # Plot das áreas de cobertura
+        # Plot the coverage areas
         for x, y, az in zip(self.planar_x, self.planar_y, self.planar_azimuth):
-            # Gera pontos para o arco de cobertura com mais resolução
-            angles = np.linspace(az - 60, az + 60, 100)  # 100 pontos no arco
+            # Generate points for the coverage arc with higher resolution
+            angles = np.linspace(az - 60, az + 60, 100)  # 100 points in the arc
             coverage_points = []
 
-            # Gera pontos em formato de setor circular
+            # Generate points in a circular sector format
             for angle in angles:
-                # Gera 10 pontos ao longo do raio para cada ângulo
+                # Generate 10 points along the radius for each angle
                 for r in np.linspace(0, self.cell_radius, 10):
                     rad = np.radians(angle)
                     px = x + r * np.cos(rad)
                     py = y + r * np.sin(rad)
                     coverage_points.append([px, py])
 
-            # Projeta os pontos para coordenadas esféricas
+            # Project the points to spherical coordinates
             coverage_sphere = [
                 self._cartesian_to_sphere(px, py) for px, py in coverage_points
             ]
             coverage_sphere = np.array(coverage_sphere)
 
-            # Desenha o setor de cobertura como uma superfície suave
-            ax.plot_trisurf(
-                coverage_sphere[:, 0],
-                coverage_sphere[:, 1],
-                coverage_sphere[:, 2],
-                color="green",
-                alpha=0.3,
-            )
+            # Reshape the coverage points for plot_surface
+            X = coverage_sphere[:, 0].reshape((100, 10))
+            Y = coverage_sphere[:, 1].reshape((100, 10))
+            Z = coverage_sphere[:, 2].reshape((100, 10))
 
-        # Plot das estações base
+            # Draw the coverage sector as a smooth surface
+            ax.plot_surface(X, Y, Z, color="green", alpha=0.3)
+
+        # Plot the base stations
         ax.scatter(
             self.x_sphere,
             self.y_sphere,
@@ -118,7 +117,7 @@ class TopologySingleBaseStationSpherical(TopologySingleBaseStation):
             label="Base Stations",
         )
 
-        # Configurações do plot
+        # Plot settings
         ax.set_box_aspect([1, 1, 1])
         limit = self.earth_radius * 1.2
         ax.set_xlim([-limit, limit])

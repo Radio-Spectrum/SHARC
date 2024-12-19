@@ -213,6 +213,14 @@ class SimulationDownlink(Simulation):
             self.ue.inr[ue] = self.ue.ext_interference[ue] - \
                 self.ue.thermal_noise[ue]
 
+        # TODO: Revise the pfd calculation
+        self.sys_imt_pfd = self.param_system.tx_power_density + 10 * np.log10(self.param_system.bandwidth * 1e6) + \
+            self.system_imt_antenna_gain - \
+            20 * np.log10(self.system.get_3d_distance_to(self.ue)) - 10.992098640220963
+        
+        self.sys_imt_epfd = 10 * np.log10(np.sum(np.power(10, 0.1 * self.sys_imt_pfd) *
+                                                 np.power(10, 0.1 * self.imt_system_antenna_gain), axis=0))
+
     def calculate_external_interference(self):
         """
         Calculates interference that IMT system generates on other system
@@ -356,23 +364,25 @@ class SimulationDownlink(Simulation):
                 self.results.imt_dl_inr.extend(self.ue.inr[ue].tolist())
 
                 self.results.system_imt_antenna_gain.extend(
-                    self.system_imt_antenna_gain[sys_active, ue],
+                    self.system_imt_antenna_gain[sys_active, :][:, ue].flatten(),
                 )
                 self.results.imt_system_antenna_gain.extend(
-                    self.imt_system_antenna_gain[sys_active, ue],
+                    self.imt_system_antenna_gain[sys_active, :][:, ue].flatten(),
                 )
                 self.results.imt_system_path_loss.extend(
-                    self.imt_system_path_loss[sys_active, ue],
+                    self.imt_system_path_loss[sys_active, :][:, ue].flatten(),
                 )
                 if self.param_system.channel_model == "HDFSS":
                     self.results.imt_system_build_entry_loss.extend(
-                        self.imt_system_build_entry_loss[sys_active, ue],
+                        self.imt_system_build_entry_loss[sys_active, :][:, ue].flatten(),
                     )
                     self.results.imt_system_diffraction_loss.extend(
-                        self.imt_system_diffraction_loss[sys_active, ue],
+                        self.imt_system_diffraction_loss[sys_active, :][:, ue].flatten(),
                     )
                 self.results.sys_to_imt_coupling_loss.extend(
-                    self.coupling_loss_imt_system[ue, sys_active])
+                    self.coupling_loss_imt_system[ue, :][:, sys_active].flatten())
+                self.results.system_imt_pfd.extend(self.sys_imt_pfd[sys_active, :][:, ue].flatten())
+                self.results.system_imt_epfd.extend(self.sys_imt_epfd[ue].flatten())
             else:  # IMT is the interferer
                 self.results.system_imt_antenna_gain.extend(
                     self.system_imt_antenna_gain[sys_active, ue],

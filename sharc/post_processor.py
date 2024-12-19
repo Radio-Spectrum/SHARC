@@ -229,6 +229,14 @@ class PostProcessor:
             "x_label": "Transmit power [dBm]",
             "title": "[IMT] DL transmit power",
         },
+        "system_imt_pfd": {  # different calculation from system_pfd above
+            "title": "[IMT] System PFD",
+            "x_label": "PFD [dBm/m^2]",
+        },
+        "system_imt_epfd": {  # different calculation from system_pfd above
+            "title": "[IMT] System EPFD",
+            "x_label": "PFD [dBm/m^2]",
+        },
         # these ones were not plotted already, so will continue to not be plotted:
         "imt_dl_tx_power_density": IGNORE_FIELD,
         "system_ul_coupling_loss": IGNORE_FIELD,

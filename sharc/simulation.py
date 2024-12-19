@@ -137,6 +137,8 @@ class Simulation(ABC, Observable):
             random_number_gen,
         )
 
+        self.sys_imt_pfd = np.empty(0)
+
     def add_observer_list(self, observers: list):
         for o in observers:
             self.add_observer(o)

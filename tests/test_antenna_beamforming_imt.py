@@ -20,9 +20,11 @@ class AntennaBeamformingImtTest(unittest.TestCase):
     def setUp(self):
         # Array parameters
         self.bs_param = ParametersAntennaImt()
+        self.bs_subarray_param = ParametersAntennaImt()
         self.ue_param = ParametersAntennaImt()
 
         self.bs_param.adjacent_antenna_model = "SINGLE_ELEMENT"
+        self.bs_subarray_param.adjacent_antenna_model = "SINGLE_ELEMENT"
         self.ue_param.adjacent_antenna_model = "SINGLE_ELEMENT"
         self.bs_param.normalization = False
         self.bs_param.normalization_file = None
@@ -56,6 +58,28 @@ class AntennaBeamformingImtTest(unittest.TestCase):
         self.ue_param.element_horiz_spacing = 0.5
         self.ue_param.element_vert_spacing = 0.5
         self.ue_param.multiplication_factor = 12
+
+        self.bs_subarray_param.normalization = False
+        self.bs_subarray_param.normalization_file = None
+        self.bs_subarray_param.element_pattern = "M2101"
+        self.bs_subarray_param.minimum_array_gain = -200
+        self.bs_subarray_param.downtilt = 0
+
+        self.bs_subarray_param.element_max_g = 5
+        self.bs_subarray_param.element_phi_3db = 80
+        self.bs_subarray_param.element_theta_3db = 60
+        self.bs_subarray_param.element_am = 30
+        self.bs_subarray_param.element_sla_v = 30
+        self.bs_subarray_param.n_rows = 16
+        self.bs_subarray_param.n_columns = 8
+        self.bs_subarray_param.element_horiz_spacing = 1
+        self.bs_subarray_param.element_vert_spacing = 1
+        self.bs_subarray_param.multiplication_factor = 12
+
+        self.bs_subarray_param.sub_array.is_enabled = True
+        self.bs_subarray_param.sub_array.element_vert_spacing = 0.7
+        self.bs_subarray_param.sub_array.eletrical_downtilt = 3
+        self.bs_subarray_param.sub_array.n_rows = 3
 
         # Create antenna objects
         par = self.bs_param.get_antenna_parameters()

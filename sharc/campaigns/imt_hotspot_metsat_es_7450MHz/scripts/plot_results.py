@@ -42,6 +42,9 @@ post_processor\
         dir_name_contains="es_gso_sat_Q_7475MHz_10km",
         legend="ES for Sat. GOMS with Elektro-L (10km)"
     ).add_plot_legend_pattern(
+        dir_name_contains="es_gso_sat_Q_7475MHz_10000m",
+        legend="ES for Sat. GOMS with Elektro-L (10000m)"
+    ).add_plot_legend_pattern(
         dir_name_contains="es_gso_sat_Q_7475MHz_11km",
         legend="ES for Sat. GOMS with Elektro-L (11km)"
     ).add_plot_legend_pattern(
@@ -237,10 +240,14 @@ if system_ul_interf_power_plot and system_dl_interf_power_plot:
 
 # Show a single plot:
 
-PostProcessor.save_plots(
-    os.path.join(campaign_base_dir, "output", "figs"),
-    post_processor.plots,
-)
+# PostProcessor.save_plots(
+#     os.path.join(campaign_base_dir, "output", "figs"),
+#     post_processor.plots,
+# )
+
+# Plot every plot:
+for plot in post_processor.plots:
+    plot.show()
 
 if aggregated_plot:
     aggregated_plot.show()
@@ -258,9 +265,6 @@ plot_antenna_imt = PlotAntennaPattern("")
 # plot_antenna_imt.plot_element_pattern(antenna_ue, "UE", "ELEMENT")
 # plot_antenna_imt.plot_element_pattern(antenna_ue, "UE", "ARRAY")
 
-# Plot every plot:
-# for plot in plots:
-#     plot.show()
 
 full_results = ""
 

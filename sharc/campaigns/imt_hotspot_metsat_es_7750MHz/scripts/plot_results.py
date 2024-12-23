@@ -91,7 +91,7 @@ all_results = [
 
 post_processor.add_plots(
     post_processor.generate_ccdf_plots_from_results(
-        all_results
+        all_results, cutoff_percentage=0.000016
     )
 )
 post_processor.add_plots(

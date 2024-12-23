@@ -12,6 +12,7 @@ import math
 
 from sharc.support.enumerations import StationType
 from sharc.parameters.parameters import Parameters
+from sharc.parameters.imt.parameters_imt_topology import ParametersImtTopology, ParametersHotspot
 from sharc.parameters.imt.parameters_imt import ParametersImt
 from sharc.parameters.imt.parameters_antenna_imt import ParametersAntennaImt
 from sharc.parameters.parameters_space_station import ParametersSpaceStation
@@ -142,6 +143,13 @@ class StationFactory(object):
             )
         elif param.spectral_mask == "3GPP E-UTRA":
             imt_base_stations.spectral_mask = SpectralMask3Gpp(
+                StationType.IMT_BS,
+                param.frequency,
+                param.bandwidth,
+                param.spurious_emissions,
+            )
+        elif param.spectral_mask == "3GPP E-UTRA NEW":
+            imt_base_stations.spectral_mask = SpectralMaskWP5D413_Annex_4_2(
                 StationType.IMT_BS,
                 param.frequency,
                 param.bandwidth,
@@ -357,6 +365,14 @@ class StationFactory(object):
 
         elif param.spectral_mask == "3GPP E-UTRA":
             imt_ue.spectral_mask = SpectralMask3Gpp(
+                StationType.IMT_UE,
+                param.frequency,
+                param.bandwidth,
+                param.spurious_emissions,
+            )
+
+        elif param.spectral_mask == "3GPP E-UTRA NEW":
+            imt_ue.spectral_mask = SpectralMaskWP5D413_Annex_4_2(
                 StationType.IMT_UE,
                 param.frequency,
                 param.bandwidth,
@@ -788,25 +804,25 @@ class StationFactory(object):
             case "UNIFORM_DIST":
                 # ES is randomly (uniform) created inside a circle of radius
                 # equal to param.max_dist_to_bs
-                if param.geometry.location.uniform_dist.min_dist_to_bs < 0:
+                if param.geometry.location.uniform_dist.min_dist_to_center < 0:
                     sys.stderr.write(
                         "ERROR\nInvalid minimum distance from Single ES to BS: {}".format(
-                            param.geometry.location.uniform_dist.min_dist_to_bs,
+                            param.geometry.location.uniform_dist.min_dist_to_center,
                         ),
                     )
                     sys.exit(1)
                 while (True):
                     dist_x = random_number_gen.uniform(
-                        -param.geometry.location.uniform_dist.max_dist_to_bs,
-                        param.geometry.location.uniform_dist.max_dist_to_bs,
+                        -param.geometry.location.uniform_dist.max_dist_to_center,
+                        param.geometry.location.uniform_dist.max_dist_to_center,
                     )
                     dist_y = random_number_gen.uniform(
-                        -param.geometry.location.uniform_dist.max_dist_to_bs,
-                        param.geometry.location.uniform_dist.max_dist_to_bs,
+                        -param.geometry.location.uniform_dist.max_dist_to_center,
+                        param.geometry.location.uniform_dist.max_dist_to_center,
                     )
                     radius = np.sqrt(dist_x**2 + dist_y**2)
-                    if (radius > param.geometry.location.uniform_dist.min_dist_to_bs) & \
-                       (radius < param.geometry.location.uniform_dist.max_dist_to_bs):
+                    if (radius > param.geometry.location.uniform_dist.min_dist_to_center) & \
+                       (radius < param.geometry.location.uniform_dist.max_dist_to_center):
                         break
                 single_earth_station.x[0] = dist_x
                 single_earth_station.y[0] = dist_y
@@ -1231,66 +1247,27 @@ if __name__ == '__main__':
     # plot uniform distribution in macrocell scenario
 
     factory = StationFactory()
-    topology = TopologyMacrocell(1000, 1)
+
+    # path_to_input_file = input(
+    #     "Enter the path (relative to root SHARC/) to your parameters file:\n"
+    #     + "\tExample: ./sharc/campaigns/some-camp/input/inp.yaml\n"
+    # )
+
+    path_to_input_file = "sharc/campaigns/imt_hotspot_metsat_es_7750MHz/input/parameter_non_gso_sat_C_and_S_5km_dl.yaml"
+
+    parameters = Parameters()
+    from pathlib import Path
+
+    parameters.set_file_name((Path(__file__) / ".." / ".." / path_to_input_file).resolve())
+    parameters.read_params()
+
+    from sharc.topology.topology_factory import TopologyFactory
+    topology = TopologyFactory.createTopology(parameters)
     topology.calculate_coordinates()
-
-    class ParamsAux(object):
-        def __init__(self):
-            self.spectral_mask = 'IMT-2020'
-            self.frequency = 10000
-            self.topology = 'MACROCELL'
-            self.ue_distribution_type = "UNIFORM_IN_CELL"
-            self.bs_height = 30
-            self.ue_height = 3
-            self.ue_indoor_percent = 0
-            self.ue_k = 3
-            self.ue_k_m = 1
-            self.bandwidth = np.random.rand()
-            self.ue_noise_figure = np.random.rand()
-            self.minimum_separation_distance_bs_ue = 200
-            self.spurious_emissions = -30
-            self.intersite_distance = 1000
-
-    params = ParamsAux()
-
-    bs_ant_param = ParametersAntennaImt()
-
-    bs_ant_param.adjacent_antenna_model = "SINGLE_ELEMENT"
-    bs_ant_param.element_pattern = "F1336"
-    bs_ant_param.element_max_g = 5
-    bs_ant_param.element_phi_3db = 65
-    bs_ant_param.element_theta_3db = 65
-    bs_ant_param.element_am = 30
-    bs_ant_param.element_sla_v = 30
-    bs_ant_param.n_rows = 8
-    bs_ant_param.n_columns = 8
-    bs_ant_param.element_horiz_spacing = 0.5
-    bs_ant_param.element_vert_spacing = 0.5
-    bs_ant_param.downtilt = 10
-    bs_ant_param.multiplication_factor = 12
-    bs_ant_param.minimum_array_gain = -200
-
-    ue_ant_param = ParametersAntennaImt()
-
-    ue_ant_param.element_pattern = "FIXED"
-    ue_ant_param.element_max_g = 5
-    ue_ant_param.element_phi_3db = 90
-    ue_ant_param.element_theta_3db = 90
-    ue_ant_param.element_am = 25
-    ue_ant_param.element_sla_v = 25
-    ue_ant_param.n_rows = 4
-    ue_ant_param.n_columns = 4
-    ue_ant_param.element_horiz_spacing = 0.5
-    ue_ant_param.element_vert_spacing = 0.5
-    ue_ant_param.multiplication_factor = 12
-    ue_ant_param.minimum_array_gain = -200
-
-    ue_ant_param.normalization = False
-    bs_ant_param.normalization = False
 
     rnd = np.random.RandomState(1)
 
-    imt_ue = factory.generate_imt_ue(params, ue_ant_param, topology, rnd)
+    imt_ue = factory.generate_imt_ue(parameters.imt, parameters.imt.ue.antenna, topology, rnd)
 
     fig = plt.figure(
         figsize=(8, 8), facecolor='w',
@@ -1300,12 +1277,39 @@ if __name__ == '__main__':
 
     topology.plot(ax)
 
+    plt.scatter(imt_ue.x, imt_ue.y, 3, label="UE", c="blue")
+
+    # sp_station = StationFactory.generate_eess_space_station(parameters.eess_ss)
+
+    # ax.scatter(
+    #     sp_station.y, sp_station.x, color='r', edgecolor="r",
+    #     linewidth=4, label="Satellite",
+    # )
+
+    ax.scatter(
+        [3375], [0], color='r', edgecolor="r",
+        linewidth=4, label="ES",
+    )
+    ax.plot(
+        [1125, 3375],
+        [-1000, -1000],
+        '|-', label="Protection Distance ($d$)"
+    )
+
     plt.axis('image')
-    plt.title("Macro cell topology")
+    plt.title("Topology")
     plt.xlabel("x-coordinate [m]")
     plt.ylabel("y-coordinate [m]")
+    plt.xticks([-1125, 0, 1125, 2250, 3375], [-1125, 0, 1125, "...", "$d+1125$"])
 
-    plt.plot(imt_ue.x, imt_ue.y, "r.")
+    # print(imt_ue.x)
 
+    # topology.plot(ax)
+
+    # plt.xlim(-300, 550)
+    # plt.ylim(-300, 300)
+    a=ax.get_xticks().tolist()
+    a[-1]="text"
+    plt.legend(loc="upper right", scatterpoints=1)
     plt.tight_layout()
-    plt.show()
+    plt.savefig("Topology.jpg")

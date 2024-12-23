@@ -70,7 +70,7 @@ if __name__ == '__main__':
     param = ParametersFssSs()
     param.antenna_gain = 50
     param.antenna_pattern = "ITU-R S.672-4"
-    param.antenna_3_dB = 2
+    param.antenna_3_dB = 20
     psi = np.linspace(1, 30, num=1000)
 
     param.antenna_l_s = -20
@@ -103,7 +103,7 @@ if __name__ == '__main__':
         "-g", label="$L_S = -30$ dB",
     )
 
-    plt.ylim((-33.8, 0))
+    plt.ylim((-33.8, 0.1))
     plt.xlim((1, 100))
     plt.title("ITU-R S.672-4 antenna radiation pattern")
     plt.xlabel(r"Relative off-axis angle, $\psi/\psi_0$")

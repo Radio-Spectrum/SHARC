@@ -94,11 +94,11 @@ if __name__ == '__main__':
 
     plt.semilogx(
         phi, gain27, "-b",
-        label="ES for Sat Q (ITU-R S.465-6)",
+        label="ES for Sat GOMS with Elektro-L (ITU-R S.465-6)",
     )
     plt.semilogx(
         phi, gain43, "-r",
-        label="ES for Sat P (ITU-R Reg. R.R. Appendix 7, Annex 3)",
+        label="ES for Sat FY-2 & FY-4 (ITU-R Reg. R.R. Appendix 7, Annex 3)",
     )
 
     plt.title("ES antenna radiation patterns")
@@ -113,4 +113,4 @@ if __name__ == '__main__':
     # ax.set_xticks(np.linspace(1, 9, 9).tolist() + np.linspace(10, 100, 10).tolist())
 
     plt.grid()
-    plt.show()
+    plt.savefig("System Radiation Pattern.jpg")

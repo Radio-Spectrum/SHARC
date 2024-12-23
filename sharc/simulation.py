@@ -408,10 +408,14 @@ class Simulation(ABC, Observable):
             if self.bs.active[bs]:
                 self.ue.active[self.link[bs]] = np.ones(K, dtype=bool)
                 for ue in self.link[bs]:
+                    beam_phi = self.bs_to_ue_phi[bs, ue]
+                    beam_theta = self.bs_to_ue_theta[bs, ue]
+                    # print("beam_phi", beam_phi)
+                    # print("beam_theta", beam_theta)
                     # add beam to BS antennas
                     self.bs.antenna[bs].add_beam(
-                        self.bs_to_ue_phi[bs, ue],
-                        self.bs_to_ue_theta[bs, ue],
+                        beam_phi,
+                        beam_theta,
                     )
                     # add beam to UE antennas
                     self.ue.antenna[ue].add_beam(

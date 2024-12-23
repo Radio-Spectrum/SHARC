@@ -111,10 +111,10 @@ class TopologyMacrocell(Topology):
             ax.add_patch(sector)
 
         # macro cell base stations
-        ax.scatter(
-            self.x, self.y, color='k', edgecolor="k",
-            linewidth=4, label="Macro cell",
-        )
+        # ax.scatter(
+        #     self.x, self.y, color='k', edgecolor="k",
+        #     linewidth=4, label="Macro cell BS",
+        # )
 
 
 if __name__ == '__main__':

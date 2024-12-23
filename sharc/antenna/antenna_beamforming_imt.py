@@ -18,6 +18,11 @@ from sharc.support.named_tuples import AntennaPar
 from sharc.parameters.imt.parameters_antenna_imt import ParametersAntennaImt, ParametersAntennaSubarrayImt
 
 
+mx_p = -500
+mn_p = 500
+mx_t = -500
+mn_t = 500
+
 class AntennaBeamformingImt(Antenna):
     """
     Implements an antenna array
@@ -43,7 +48,7 @@ class AntennaBeamformingImt(Antenna):
         minimum_array_gain (float): minimum array gain for beamforming
     """
 
-    def __init__(self, par: AntennaPar, azimuth: float, elevation: float, subarray: ParametersAntennaSubarrayImt):
+    def __init__(self, par: AntennaPar, azimuth: float, elevation: float, subarray: ParametersAntennaSubarrayImt = ParametersAntennaSubarrayImt(is_enabled=False)):
         """
         Constructs an AntennaBeamformingImt object.
         Does not receive angles in local coordinate system.
@@ -115,6 +120,22 @@ class AntennaBeamformingImt(Antenna):
             theta_etilt (float): elevation electrical tilt angle [degrees]
         """
         phi, theta = self.to_local_coord(phi_etilt, theta_etilt)
+        # global mx_p, mn_p, mx_t, mn_t
+        # mx_p = max(mx_p, phi)
+        # # print("mx_p", mx_p)
+        # mn_p = min(mn_p, phi)
+        # # print("mn_p", mn_p)
+        # mx_t = max(mx_t, theta)
+        # # print("mx_t", mx_t)
+        # mn_t = min(mn_t, theta)
+        # # print("mn_t", mn_t)
+        # phi[phi > 60] = 60
+        # phi[phi < -60] = -60
+        # theta[theta > 90] = 90
+        # theta[theta < 80] = 80
+        # print("phi, theta")
+        # print(phi, theta)
+
         self.beams_list.append(
             (np.ndarray.item(phi), np.ndarray.item(theta - 90)),
         )
@@ -152,6 +173,8 @@ class AntennaBeamformingImt(Antenna):
         """
         phi_vec = np.asarray(kwargs["phi_vec"])
         theta_vec = np.asarray(kwargs["theta_vec"])
+        print("phi_vec", phi_vec)
+        print("theta_vec", theta_vec)
 
         # Check if antenna gain has to be calculated on the co-channel or
         # on the adjacent channel
@@ -519,9 +542,11 @@ class PlotAntennaPattern(object):
             file_name = file_name + "element_pattern.png"
         elif plot_type == "ARRAY":
             file_name = file_name + "array_pattern.png"
+        elif plot_type == "SUBARRAY":
+            file_name = file_name + "subarray_pattern.png"
 
-        # plt.savefig(file_name)
-        plt.show()
+        plt.savefig(file_name)
+        # plt.show()
         return fig
 
 
@@ -541,44 +566,54 @@ if __name__ == '__main__':
     ue_param.minimum_array_gain = -200
 
     bs_param.element_pattern = "M2101"
-    bs_param.element_max_g = 5
-    bs_param.element_phi_3db = 65
+    bs_param.element_max_g = 6.4
+    bs_param.element_phi_3db = 90
     bs_param.element_theta_3db = 65
     bs_param.element_am = 30
     bs_param.element_sla_v = 30
-    bs_param.n_rows = 8
+    bs_param.n_rows = 16
     bs_param.n_columns = 8
+    bs_param.subarray.is_enabled = True
+    bs_param.subarray.element_vert_spacing = 0.7
+    bs_param.subarray.eletrical_downtilt = 3
+    bs_param.subarray.n_rows = 3
+    # bs_param.n_rows = 8
+    # bs_param.n_columns = 16
     bs_param.element_horiz_spacing = 0.5
-    bs_param.element_vert_spacing = 0.5
+    bs_param.element_vert_spacing = 2.1
     bs_param.multiplication_factor = 12
     bs_param.downtilt = 0
 
     ue_param.element_pattern = "M2101"
-    ue_param.element_max_g = 5
+    ue_param.element_max_g = 6.4
     ue_param.element_phi_3db = 90
-    ue_param.element_theta_3db = 90
-    ue_param.element_am = 25
-    ue_param.element_sla_v = 25
-    ue_param.n_rows = 4
-    ue_param.n_columns = 4
+    ue_param.element_theta_3db = 65
+    ue_param.element_am = 30
+    ue_param.element_sla_v = 30
+    ue_param.n_rows = 8
+    ue_param.n_columns = 8
     ue_param.element_horiz_spacing = 0.5
-    ue_param.element_vert_spacing = 0.5
+    ue_param.element_vert_spacing = 0.7
     ue_param.multiplication_factor = 12
+    ue_param.downtilt = 6
 
     plot = PlotAntennaPattern(figs_dir)
 
     # Plot BS TX radiation patterns
     par = bs_param.get_antenna_parameters()
-    bs_array = AntennaBeamformingImt(par, 0, 0, bs_param.sub_array)
-    f = plot.plot_element_pattern(bs_array, "BS", "ELEMENT")
+    bs_array = AntennaBeamformingImt(par, 0, 0, bs_param.subarray)
+    # f = plot.plot_element_pattern(bs_array, "BS", "ELEMENT")
     # f.savefig(figs_dir + "BS_element.pdf", bbox_inches='tight')
-    f = plot.plot_element_pattern(bs_array, "TX", "ARRAY")
+    # f = plot.plot_element_pattern(bs_array, "TX", "SUBARRAY")
+    # f = plot.plot_element_pattern(bs_array, "TX", "ARRAY")
     # f.savefig(figs_dir + "BS_array.pdf", bbox_inches='tight')
 
     # Plot UE TX radiation patterns
     par = ue_param.get_antenna_parameters()
-    ue_array = AntennaBeamformingImt(par, 0, 0, ue_param.sub_array)
-    plot.plot_element_pattern(ue_array, "UE", "ELEMENT")
-    plot.plot_element_pattern(ue_array, "UE", "ARRAY")
+    ue_array = AntennaBeamformingImt(par, 0, 0, ue_param.subarray)
+    plot.plot_element_pattern(ue_array, "BS", "ELEMENT")
+    plot.plot_element_pattern(ue_array, "BS", "ARRAY")
 
     print('END')
+    # ava = ue_array.to_local_coord(100, 110)
+    # print(ava)

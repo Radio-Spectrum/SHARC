@@ -105,8 +105,14 @@ class Results(object):
         overwrite_output: bool,
         output_dir="output",
         output_dir_prefix="output",
+        # keep_going_from_last=False
     ):
         self.output_dir_parent = output_dir
+
+        # self.snapshot_number = 0
+
+        # if keep_going_from_last:
+        #     self.overwrite_sample_files = False
 
         if not overwrite_output:
             today = datetime.date.today()
@@ -115,7 +121,9 @@ class Results(object):
             results_dir_head = (
                 output_dir_prefix + "_" + today.isoformat() + "_" + "{:02n}"
             )
-            self.create_dir(results_number, results_dir_head)
+            self.create_dir(results_number, results_dir_head,
+                            # keep_going_from_last
+                            )
             copy(parameters_filename, self.output_directory)
         else:
             self.output_directory = self.__sharc_dir / self.output_dir_parent
@@ -126,7 +134,9 @@ class Results(object):
 
         return self
 
-    def create_dir(self, results_number: int, dir_head: str):
+    def create_dir(self, results_number: int, dir_head: str,
+                   #keep_going_from_last: bool
+                   ) -> bool:
         """Creates the output directory if it doesn't exist.
 
         Parameters
@@ -147,10 +157,23 @@ class Results(object):
         )
 
         try:
+            # if keep_going_from_last and os.path.isdir(dir_head_complete):
+            #     raise FileExistsError()
+            # if not keep_going_from_last:
             os.makedirs(dir_head_complete)
             self.output_directory = dir_head_complete
+            # if results_number == 1 and keep_going_from_last:
+            #     raise ValueError("Cannot keep going if there wasnt anything to go by at all")
+            # return True
         except FileExistsError:
-            self.create_dir(results_number + 1, dir_head)
+            if self.create_dir(results_number + 1, dir_head,
+                               # keep_going_from_last
+                           ): # and keep_going_from_last:
+                self.output_directory = dir_head_complete
+                with open(self.output_directory / "system_inr.csv", "rb") as f:
+                    self.snapshot_number = sum(1 for _ in f) - 2
+                if self.snapshot_number >= 9999:
+                    exit()
 
     def get_relevant_attributes(self):
         """

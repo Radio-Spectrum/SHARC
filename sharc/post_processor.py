@@ -265,6 +265,15 @@ class PostProcessor:
                 self.plot_legend_patterns,
             )
         )
+
+    def get_str_possible_legends(self, s: str) -> list[dict]:
+        return list(
+            filter(
+                lambda pl: pl["dir_name_contains"]
+                in s,
+                self.plot_legend_patterns,
+            )
+        )
     
     def generate_cdf_plots_from_results(
         self, results: list[Results], *, n_bins=200

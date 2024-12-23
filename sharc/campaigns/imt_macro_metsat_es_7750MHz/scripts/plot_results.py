@@ -20,7 +20,7 @@ post_processor = PostProcessor()
 post_processor\
     .add_plot_legend_pattern(
         dir_name_contains="non_gso_sat_E_and_G_7780_5km",
-        legend="ES for Sat. E and G (7780 MHz) (5km)"
+        legend="ES for Sat. FY-3A & FY-3B (5km)"
     ).add_plot_legend_pattern(
         dir_name_contains="non_gso_sat_E_and_G_7780_0km",
         legend="ES for Sat. E and G (7780 MHz) (0km)"
@@ -53,7 +53,16 @@ post_processor\
         legend="ES for Sat. C and S (0km)"
     ).add_plot_legend_pattern(
         dir_name_contains="non_gso_sat_C_and_S_5km",
-        legend="ES for Sat. C and S (5km)"
+        legend="ES for Sat. JPSS & Suomi-NPP (5km)"
+    ).add_plot_legend_pattern(
+        dir_name_contains="non_gso_sat_AN_5km",
+        legend="ES for Sat. Metop-SG (5km)"
+    ).add_plot_legend_pattern(
+        dir_name_contains="non_gso_sat_BF_5km",
+        legend="ES for Sat. ARCTICA-M (5km)"
+    ).add_plot_legend_pattern(
+        dir_name_contains="non_gso_sat_F_5km",
+        legend="ES for Sat. Metop (5km)"
     )
 
 attributes_to_plot = [
@@ -139,44 +148,47 @@ for prop_name in plots_to_add_vline:
 # antenna_bs = None
 # antenna_ue = None
 
-# antenna_radiation_plot  = None
-# for result in all_results:
-#     if "_5000m_" not in result.output_directory and "_5km_" not in result.output_directory:
-#         continue
+antenna_radiation_plot  = None
+inputs_dir = os.path.join(campaign_base_dir, "input")
+inps = [
+    os.path.join(inputs_dir, f) for f in os.listdir(
+        inputs_dir,
+    ) if f.endswith('.yaml')
+]
+for inp in inps:
+    params = Parameters()
+    params.set_file_name(inp)
+    params.read_params()
 
-#     params_file = glob.glob(result.output_directory + "/*.yaml")[0]
-#     params = Parameters()
-#     params.set_file_name(params_file)
-#     params.read_params()
+    # TODO: use antenna factory here if it ever exists
+    legends = post_processor.get_str_possible_legends(inp)
+    legend = inp.split("/")[-1] if len(legends) == 0 else legends[0]["legend"][:-6]
+    if params.single_earth_station.antenna.pattern == "ITU-R S.465":
+        antenna = AntennaS465(params.single_earth_station.antenna.itu_r_s_465)
+    if params.single_earth_station.antenna.pattern == "ITU-R S.580":
+        antenna = AntennaS580(params.single_earth_station.antenna.itu_r_s_580)
+    antenna_radiation_plot = PostProcessor.generate_antenna_radiation_pattern_plot(
+        plot_title="Antenna Radiation Patterns",
+        antenna=antenna, legend=legend, plot=antenna_radiation_plot,
+    )
 
-#     # TODO: use antenna factory here if it ever exists
-#     legend = post_processor.get_results_possible_legends(result)[0]
-#     if params.single_earth_station.antenna.pattern == "ITU-R S.465":
-#         antenna = AntennaS465(params.single_earth_station.antenna.itu_r_s_465)
-#     if params.single_earth_station.antenna.pattern == "ITU-R S.580":
-#         antenna = AntennaS580(params.single_earth_station.antenna.itu_r_s_580)
-#     antenna_radiation_plot = PostProcessor.generate_antenna_radiation_pattern_plot(
-#         plot_title="Antenna Radiation Patterns",
-#         antenna=antenna, legend=legend["legend"][:-6], plot=antenna_radiation_plot,
-#     )
+    # if i == 0:
+    #     antenna_bs = AntennaBeamformingImt(
+    #         params.imt.bs.antenna.get_antenna_parameters(),
+    #         0,
+    #         0,
+    #         # -params.imt.bs.antenna.downtilt
+    #     )
+    #     antenna_ue = AntennaBeamformingImt(
+    #         params.imt.ue.antenna.get_antenna_parameters(),
+    #         0,
+    #         0
+    #     )
 
-#     if i == 0:
-#         antenna_bs = AntennaBeamformingImt(
-#             params.imt.bs.antenna.get_antenna_parameters(),
-#             0,
-#             0,
-#             # -params.imt.bs.antenna.downtilt
-#         )
-#         antenna_ue = AntennaBeamformingImt(
-#             params.imt.ue.antenna.get_antenna_parameters(),
-#             0,
-#             0
-#         )
-
-#     i += 1
-
-# antenna_radiation_plot.show()
-
+    # i += 1
+PostProcessor.save_plots(
+    "./", [antenna_radiation_plot]
+)
 # PostProcessor.save_plots(
 #     os.path.join(campaign_base_dir, "output", "figs"),
 #     post_processor.plots,

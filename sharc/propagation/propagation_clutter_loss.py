@@ -286,7 +286,7 @@ if __name__ == '__main__':
     plt.title("Median clutter loss for terrestrial paths")
     plt.xlabel("Distance [km]")
     plt.xlim((0.1, 100.0))
-    plt.ylim((15.0, 70.0))
+    plt.ylim((15.0, 35.0))
     plt.legend(loc="lower right")
     plt.tight_layout()
     plt.grid()

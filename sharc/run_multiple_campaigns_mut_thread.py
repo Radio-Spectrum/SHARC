@@ -25,9 +25,8 @@ def run_campaign(campaign_name):
             campaign_folder,
         ) if f.endswith('.yaml')
     ]
-
     # Number of threads (adjust as needed)
-    num_threads = min(len(parameter_files), os.cpu_count())
+    num_threads = min(len(parameter_files), os.cpu_count()-1)
 
     # Run the commands in parallel
     with ThreadPoolExecutor(max_workers=num_threads) as executor:

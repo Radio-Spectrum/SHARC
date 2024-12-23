@@ -74,7 +74,7 @@ class StationManagerTest(unittest.TestCase):
         self.station_manager2 = StationManager(2)
         self.station_manager2.x = np.array([100, 200])
         self.station_manager2.y = np.array([105, 250])
-        self.station_manager2.height = np.array([4, 5])
+        self.station_manager2.height = np.array([40, 50])
         self.station_manager2.intersite_dist = 100.0
         # this is for downlink
         self.station_manager2.tx_power = dict({0: [25], 1: [28, 35]})

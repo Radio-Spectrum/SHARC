@@ -166,14 +166,12 @@ if __name__ == '__main__':
     bs_param.element_theta_3db = 65
     bs_param.element_am = 30
     bs_param.element_sla_v = 30
-    bs_param.n_rows = 16
-    bs_param.n_columns = 8
     bs_param.subarray.is_enabled = True
     bs_param.subarray.element_vert_spacing = 0.7
     bs_param.subarray.eletrical_downtilt = 3
     bs_param.subarray.n_rows = 3
-    # bs_param.n_rows = 8
-    # bs_param.n_columns = 16
+    bs_param.n_rows = 8
+    bs_param.n_columns = 16
     bs_param.element_horiz_spacing = 0.5
     bs_param.element_vert_spacing = 2.1
     bs_param.multiplication_factor = 12

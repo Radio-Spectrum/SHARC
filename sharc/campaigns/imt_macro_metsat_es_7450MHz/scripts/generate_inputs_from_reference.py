@@ -45,7 +45,7 @@ for key in reference.keys():
                         "adjacent_antenna_model": "BEAMFORMING" if link == "dl" else "SINGLE_ELEMENT",
                         "output_dir_prefix":
                             base["general"]["output_dir_prefix"].replace(
-                                "<subs>", f"{key}_{int(d)}km"
+                                "<subs>", f"{key}_{int(d)-1}km"
                             ),
                             "output_dir": base["general"]["output_dir"].replace(
                                 "/output/", f"/output_{link}/"
@@ -65,6 +65,6 @@ except FileExistsError:
 
 for inp in inps:
     inp["definition"]["single_earth_station"]["geometry"]["location"]["fixed"]["x"] = inp["bs_x"]
-    with open(path_to_inputs / ("parameter_" + inp["key"] + ".yaml"), "w") as f:
+    with open(path_to_inputs / ("parameter3_" + inp["key"] + ".yaml"), "w") as f:
         yaml.dump(inp["definition"], f)
     

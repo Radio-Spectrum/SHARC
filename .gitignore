@@ -1,4 +1,5 @@
 /sharc/output/*.txt
+/sharc/output/*.csv
 /sharc/output/*.png
 /sharc/output_*/*
 /sharc/campaigns/*/output/

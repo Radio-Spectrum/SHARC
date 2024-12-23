@@ -240,14 +240,14 @@ if system_ul_interf_power_plot and system_dl_interf_power_plot:
 
 # Show a single plot:
 
-PostProcessor.save_plots(
-    os.path.join(campaign_base_dir, "output", "figs"),
-    post_processor.plots,
-)
+# PostProcessor.save_plots(
+#     os.path.join(campaign_base_dir, "output", "figs"),
+#     post_processor.plots,
+# )
 
 # Plot every plot:
-# for plot in post_processor.plots:
-#     plot.show()
+for plot in post_processor.plots:
+    plot.show()
 
 if aggregated_plot:
     aggregated_plot.show()

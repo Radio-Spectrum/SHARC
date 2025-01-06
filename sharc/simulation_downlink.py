@@ -217,9 +217,12 @@ class SimulationDownlink(Simulation):
         self.sys_imt_pfd = self.param_system.tx_power_density + 10 * np.log10(self.param_system.bandwidth * 1e6) + \
             self.system_imt_antenna_gain - \
             20 * np.log10(self.system.get_3d_distance_to(self.ue)) - 10.992098640220963
-        
+
+        ue_max_gain_lin = np.power(10, 0.1 * (self.parameters.imt.ue.antenna.element_max_g)) * \
+            self.parameters.imt.ue.antenna.n_columns * self.parameters.imt.ue.antenna.n_rows
         self.sys_imt_epfd = 10 * np.log10(np.sum(np.power(10, 0.1 * self.sys_imt_pfd) *
-                                                 np.power(10, 0.1 * self.imt_system_antenna_gain), axis=0))
+                                                 np.power(10, 0.1 * self.imt_system_antenna_gain) / ue_max_gain_lin,
+                                                 axis=0))
 
     def calculate_external_interference(self):
         """

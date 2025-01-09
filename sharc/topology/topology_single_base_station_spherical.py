@@ -2,7 +2,6 @@ from sharc.topology.topology_single_base_station import TopologySingleBaseStatio
 import numpy as np
 import matplotlib.pyplot as plt
 from sharc.station_manager import StationManager
-import math
 
 
 class TopologySingleBaseStationSpherical(TopologySingleBaseStation):
@@ -25,8 +24,8 @@ class TopologySingleBaseStationSpherical(TopologySingleBaseStation):
         mantendo a escala apropriada para a visualização.
         """
         # Ajusta a escala em relação ao raio da célula
-        # scale_factor = 1 / self.earth_radius # esse é o certo
-        scale_factor = self.cell_radius / (2 * self.earth_radius) * 10
+        scale_factor = 1 / self.earth_radius # esse é o certo
+        #scale_factor = self.cell_radius / (2 * self.earth_radius) * 10
 
         x_scaled = x * scale_factor
         y_scaled = y * scale_factor
@@ -70,7 +69,7 @@ class TopologySingleBaseStationSpherical(TopologySingleBaseStation):
             fig = plt.figure(figsize=(12, 12))
             ax = fig.add_subplot(111, projection="3d")
 
-        # Plot the globe
+        # Plota o globo
         u = np.linspace(0, 2 * np.pi, 100)
         v = np.linspace(0, np.pi, 100)
         x = self.earth_radius * np.outer(np.cos(u), np.sin(v))
@@ -78,46 +77,46 @@ class TopologySingleBaseStationSpherical(TopologySingleBaseStation):
         z = self.earth_radius * np.outer(np.ones(np.size(u)), np.cos(v))
         ax.plot_surface(x, y, z, color="lightblue", alpha=0.3)
 
-        # Plot the coverage areas
+        # Plota as áreas de cobertura
         for x, y, az in zip(self.planar_x, self.planar_y, self.planar_azimuth):
-            # Generate points for the coverage arc with higher resolution
-            angles = np.linspace(az - 60, az + 60, 100)  # 100 points in the arc
+            # Gera pontos para o arco de cobertura com maior resolução
+            angles = np.linspace(az - 60, az + 60, 100)  # 100 pontos no arco
             coverage_points = []
 
-            # Generate points in a circular sector format
+            # Gera pontos em formato de setor circular
             for angle in angles:
-                # Generate 10 points along the radius for each angle
+                # Gera 10 pontos ao longo do raio para cada ângulo
                 for r in np.linspace(0, self.cell_radius, 10):
                     rad = np.radians(angle)
                     px = x + r * np.cos(rad)
                     py = y + r * np.sin(rad)
                     coverage_points.append([px, py])
 
-            # Project the points to spherical coordinates
+            # Projeta os pontos para coordenadas esféricas
             coverage_sphere = [
                 self._cartesian_to_sphere(px, py) for px, py in coverage_points
             ]
             coverage_sphere = np.array(coverage_sphere)
 
-            # Reshape the coverage points for plot_surface
+            # Redimensiona os pontos de cobertura para plot_surface
             X = coverage_sphere[:, 0].reshape((100, 10))
             Y = coverage_sphere[:, 1].reshape((100, 10))
             Z = coverage_sphere[:, 2].reshape((100, 10))
 
-            # Draw the coverage sector as a smooth surface
+            # Desenha o setor de cobertura como uma superfície suave
             ax.plot_surface(X, Y, Z, color="green", alpha=0.3)
 
-        # Plot the base stations
+        # Plota as estações base
         ax.scatter(
             self.x_sphere,
             self.y_sphere,
             self.z_sphere,
             color="black",
             s=50,
-            label="Base Stations",
+            label="Estações Base",
         )
 
-        # Plot settings
+        # Configurações do plot
         ax.set_box_aspect([1, 1, 1])
         limit = self.earth_radius * 1.2
         ax.set_xlim([-limit, limit])
@@ -132,7 +131,7 @@ class TopologySingleBaseStationSpherical(TopologySingleBaseStation):
         ax.yaxis.pane.fill = False
         ax.zaxis.pane.fill = False
 
-        ax.set_title("Single Base Station Topology on Globe")
+        ax.set_title("Topologia de Estação Base Única no Globo")
         ax.legend()
 
         return ax

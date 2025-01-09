@@ -24,9 +24,7 @@ class TopologySingleBaseStationSpherical(TopologySingleBaseStation):
         mantendo a escala apropriada para a visualização.
         """
         # Ajusta a escala em relação ao raio da célula
-        scale_factor = 1 / self.earth_radius # esse é o certo
-        #scale_factor = self.cell_radius / (2 * self.earth_radius) * 10
-
+        scale_factor = 1 / self.earth_radius
         x_scaled = x * scale_factor
         y_scaled = y * scale_factor
 
@@ -182,11 +180,11 @@ class TopologySingleBaseStationSpherical(TopologySingleBaseStation):
         """
         # Converte as coordenadas dos UEs para coordenadas esféricas
         ue_points = [
-            self._cartesian_to_sphere(x, y) 
-            for x, y in zip(ue_list.x, ue_list.y)
+            self._cartesian_to_sphere(x, y) for x, y in zip(ue_list.x, ue_list.y)
         ]
+
         ue_points = np.array(ue_points)
-        
+
         ax.scatter(
             ue_points[:, 0],
             ue_points[:, 1],

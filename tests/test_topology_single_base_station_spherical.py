@@ -92,6 +92,7 @@ def test_topology_with_ues():
     plt.savefig("topology_with_ues.png")
     plt.close()
 
+
 def plot_ues_3d(self, ue_list: StationManager, ax):
     """
     Adiciona os UEs ao plot 3D existente.

@@ -179,19 +179,18 @@ class TopologySingleBaseStationSpherical(TopologySingleBaseStation):
     def plot_ues_3d(self, ue_list: StationManager, ax):
         """
         Adiciona os UEs ao plot 3D existente.
-
-        Parameters
-        ----------
-        ue_list : StationManager
-            Lista de UEs a serem plotados
-        ax : matplotlib.axes.Axes
-            Eixo onde plotar os UEs
         """
-        # Extrai as coordenadas dos UEs
+        # Converte as coordenadas dos UEs para coordenadas esféricas
+        ue_points = [
+            self._cartesian_to_sphere(x, y) 
+            for x, y in zip(ue_list.x, ue_list.y)
+        ]
+        ue_points = np.array(ue_points)
+        
         ax.scatter(
-            ue_list.x,
-            ue_list.y,
-            ue_list.height,
+            ue_points[:, 0],
+            ue_points[:, 1],
+            ue_points[:, 2],
             color="blue",
             s=30,
             label="UEs",

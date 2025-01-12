@@ -24,8 +24,10 @@ from sharc.parameters.parameters_haps import ParametersHaps
 from sharc.parameters.parameters_rns import ParametersRns
 from sharc.parameters.parameters_ras import ParametersRas
 from sharc.parameters.parameters_single_earth_station import ParametersSingleEarthStation
+from sharc.parameters.parameters_single_space_station import ParametersSingleSpaceStation
 from sharc.parameters.constants import EARTH_RADIUS
 from sharc.station_manager import StationManager
+from sharc.antenna_factory import AntennaFactory
 from sharc.mask.spectral_mask_imt import SpectralMaskImt
 from sharc.antenna.antenna import Antenna
 from sharc.antenna.antenna_fss_ss import AntennaFssSs
@@ -539,6 +541,8 @@ class StationFactory(object):
         elif parameters.general.system == "SINGLE_EARTH_STATION":
             return StationFactory.generate_single_earth_station(parameters.single_earth_station, random_number_gen,
                                                                 StationType.SINGLE_EARTH_STATION, topology)
+        elif parameters.general.system == "SINGLE_SPACE_STATION":
+            return StationFactory.generate_single_space_station(parameters.single_space_station)
         elif parameters.general.system == "RAS":
             return StationFactory.generate_ras_station(
                                                        parameters.ras, random_number_gen,
@@ -628,6 +632,64 @@ class StationFactory(object):
         fss_space_station.total_interference = -500
 
         return fss_space_station
+
+    @staticmethod
+    def generate_single_space_station(param: ParametersSingleSpaceStation):
+        space_station = StationManager(1)
+        space_station.station_type = StationType.SINGLE_SPACE_STATION
+        space_station.is_space_station = True
+
+        # now we set the coordinates according to
+        # ITU-R P619-1, Attachment A
+
+        # calculate distances to the centre of the Earth
+        dist_sat_centre_earth_km = (EARTH_RADIUS + param.geometry.altitude) / 1000
+        dist_imt_centre_earth_km = (
+            EARTH_RADIUS + param.geometry.es_altitude
+        ) / 1000
+
+        # calculate Cartesian coordinates of satellite, with origin at centre of the Earth
+        sat_lat_rad = param.geometry.location.fixed.lat_deg * np.pi / 180.
+        imt_long_diff_rad = (param.geometry.location.fixed.long_deg - param.geometry.es_long_deg) * np.pi / 180.
+        x1 = dist_sat_centre_earth_km * \
+            np.cos(sat_lat_rad) * np.cos(imt_long_diff_rad)
+        y1 = dist_sat_centre_earth_km * \
+            np.cos(sat_lat_rad) * np.sin(imt_long_diff_rad)
+        z1 = dist_sat_centre_earth_km * np.sin(sat_lat_rad)
+
+        # rotate axis and calculate coordinates with origin at IMT system
+        imt_lat_rad = param.geometry.es_lat_deg * np.pi / 180.
+        space_station.x = np.array(
+            [x1 * np.sin(imt_lat_rad) - z1 * np.cos(imt_lat_rad)],
+        ) * 1000
+        space_station.y = np.array([y1]) * 1000
+        space_station.height = np.array([
+            (
+                z1 * np.sin(imt_lat_rad) + x1 * np.cos(imt_lat_rad) -
+                dist_imt_centre_earth_km
+            ) * 1000,
+        ])
+
+        space_station.azimuth = param.geometry.azimuth.fixed
+        space_station.elevation = param.geometry.elevation.fixed
+
+        space_station.active = np.array([True])
+        space_station.tx_power = np.array(
+            [param.tx_power_density + 10 *
+                math.log10(param.bandwidth * 1e6) + 30],
+        )
+        space_station.rx_interference = -500
+
+        space_station.antenna = np.array([
+            AntennaFactory.generate_antenna(param.antenna)
+        ])
+
+        space_station.bandwidth = param.bandwidth
+        space_station.noise_temperature = param.noise_temperature
+        space_station.thermal_noise = -500
+        space_station.total_interference = -500
+
+        return space_station
 
     @staticmethod
     def generate_fss_earth_station(param: ParametersFssEs, random_number_gen: np.random.RandomState, *args):
@@ -853,36 +915,9 @@ class StationFactory(object):
                 [param.geometry.elevation.fixed],
             )
 
-        match param.antenna.pattern:
-            case "OMNI":
-                single_earth_station.antenna = np.array(
-                    [AntennaOmni(param.antenna.gain)],
-                )
-            case "ITU-R S.465":
-                single_earth_station.antenna = np.array(
-                    [AntennaS465(param.antenna.itu_r_s_465)],
-                )
-            case "ITU-R Reg. RR. Appendice 7 Annex 3":
-                single_earth_station.antenna = np.array(
-                    [AntennaReg_RR_A7_3(param.antenna.itu_reg_rr_a7_3)],
-                )
-            case "ITU-R S.1855":
-                single_earth_station.antenna = np.array(
-                    [AntennaS1855(param.antenna.itu_r_s_1855)],
-                )
-            case "MODIFIED ITU-R S.465":
-                single_earth_station.antenna = np.array(
-                    [AntennaModifiedS465(param.antenna.itu_r_s_465_modified)],
-                )
-            case "ITU-R S.580":
-                single_earth_station.antenna = np.array(
-                    [AntennaS580(param.antenna.itu_r_s_580)],
-                )
-            case _:
-                sys.stderr.write(
-                    "ERROR\nInvalid FSS ES antenna pattern: " + param.antenna_pattern,
-                )
-                sys.exit(1)
+        single_earth_station.antenna = np.array([
+            AntennaFactory.generate_antenna(param.antenna)
+        ])
 
         single_earth_station.active = np.array([True])
         single_earth_station.bandwidth = np.array([param.bandwidth])

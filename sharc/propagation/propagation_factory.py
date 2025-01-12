@@ -87,7 +87,6 @@ class PropagationFactory(object):
                 space_station_alt_m=param_system.param_p619.space_station_alt_m,
                 earth_station_alt_m=param_system.param_p619.earth_station_alt_m,
                 earth_station_lat_deg=param_system.param_p619.earth_station_lat_deg,
-                earth_station_long_diff_deg=param_system.param_p619.earth_station_lat_deg,
                 season=param_system.season,
             )
         elif channel_model == "P452":

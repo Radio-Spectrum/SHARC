@@ -11,13 +11,13 @@ class ParametersAntenna(ParametersBase):
     # available antenna radiation patterns
     __SUPPORTED_ANTENNA_PATTERNS = [
         "OMNI", "ITU-R F.699", "ITU-R S.465", "ITU-R S.580", "MODIFIED ITU-R S.465", "ITU-R S.1855",
-        "ITU-R Reg. RR. Appendice 7 Annex 3"
+        "ITU-R Reg. RR. Appendice 7 Annex 3", "ITU-R S.672"
     ]
 
     # chosen antenna radiation pattern
     pattern: typing.Literal[
         "OMNI", "ITU-R F.699", "ITU-R S.465", "ITU-R S.580", "MODIFIED ITU-R S.465", "ITU-R S.1855",
-        "ITU-R Reg. RR. Appendice 7 Annex 3"
+        "ITU-R Reg. RR. Appendice 7 Annex 3", "ITU-R S.672"
     ] = None
 
     # antenna gain [dBi]
@@ -45,6 +45,19 @@ class ParametersAntenna(ParametersBase):
 
     itu_reg_rr_a7_3: ParametersAntennaWithDiameter = field(
         default_factory=ParametersAntennaWithDiameter,
+    )
+
+    @dataclass
+    class ParametersAntenna672(ParametersBase):
+        antenna_l_s: float = -25
+        antenna_3_dB: float = None
+        antenna_gain: float = None
+        def validate(self, ctx):
+            if None in [self.antenna_gain, self.antenna_3_dB]:
+                raise ValueError(f"{ctx}.antenna_3_dB should be set to a number")
+    
+    itu_r_s_672: ParametersAntenna672 = field(
+        default_factory=ParametersAntenna672,
     )
 
     def set_external_parameters(self, *, frequency):
@@ -82,6 +95,8 @@ class ParametersAntenna(ParametersBase):
                 self.itu_r_f_699.validate(f"{ctx}.itu_r_f_699")
             case "ITU-R S.465":
                 self.itu_r_s_465.validate(f"{ctx}.itu_r_s_465")
+            case "ITU-R S.672":
+                self.itu_r_s_672.validate(f"{ctx}.itu_r_s_672")
             case "ITU-R S.1855":
                 self.itu_r_s_1855.validate(f"{ctx}.itu_r_s_1855")
             case "MODIFIED ITU-R S.465":

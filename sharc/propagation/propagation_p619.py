@@ -37,7 +37,6 @@ class PropagationP619(Propagation):
         space_station_alt_m: float,
         earth_station_alt_m: float,
         earth_station_lat_deg: float,
-        earth_station_long_diff_deg: float,
         season: str,
     ):
         """Implements the earth-to-space channel model from ITU-R P.619
@@ -52,9 +51,6 @@ class PropagationP619(Propagation):
             The Earth station altitude in meters
         earth_station_lat_deg : float
             The Earth station latitude in degrees
-        earth_station_long_diff_deg : float
-             The difference between longitudes of earth-station and and space-sation.
-             (positive if space-station is to the East of earth-station)
         season: str
             Possible values are "SUMMER" or "WINTER".
         """
@@ -81,7 +77,6 @@ class PropagationP619(Propagation):
         self.space_station_alt_m = space_station_alt_m
         self.earth_station_alt_m = earth_station_alt_m
         self.earth_station_lat_deg = earth_station_lat_deg
-        self.earth_station_long_diff_deg = earth_station_long_diff_deg
 
         if season.upper() not in ["SUMMER", "WINTER"]:
             raise ValueError(
@@ -496,7 +491,6 @@ if __name__ == '__main__':
     space_station_alt_m = 20000.0
     earth_station_alt_m = 1000.0
     earth_station_lat_deg = -15.7801
-    earth_station_long_diff_deg = 0.0
     season = "SUMMER"
 
     random_number_gen = np.random.RandomState(101)
@@ -505,7 +499,6 @@ if __name__ == '__main__':
         space_station_alt_m=space_station_alt_m,
         earth_station_alt_m=earth_station_alt_m,
         earth_station_lat_deg=earth_station_lat_deg,
-        earth_station_long_diff_deg=earth_station_long_diff_deg,
         season=season,
     )
 

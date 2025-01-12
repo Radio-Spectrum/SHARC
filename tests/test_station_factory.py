@@ -10,6 +10,7 @@ import numpy as np
 import numpy.testing as npt
 
 from sharc.parameters.imt.parameters_imt import ParametersImt
+from sharc.parameters.parameters_single_space_station import ParametersSingleSpaceStation
 from sharc.station_factory import StationFactory
 from sharc.topology.topology_ntn import TopologyNTN
 
@@ -91,6 +92,76 @@ class StationFactoryTest(unittest.TestCase):
         dist = np.sqrt(ntn_ue.x**2 + ntn_ue.y**2)
         # test if the maximum distance is close to the cell radius within a 100km range
         npt.assert_almost_equal(dist.max(), param_imt.topology.ntn.cell_radius, -2)
+
+    def test_generate_single_space_station(self):
+        """Basic test for space station generation."""
+        seed = 100
+        # rng = np.random.RandomState(seed)
+
+        # Parameters used for IMT-NTN and UE distribution
+        param = ParametersSingleSpaceStation()
+        # just passing required parameters:
+        param.frequency = 8000
+        param.bandwidth = 100
+        param.channel_model = "P619"
+        param.tx_power_density = -200
+        param.geometry.es_altitude = 0
+        param.geometry.azimuth.fixed = 0
+        param.antenna.pattern = "OMNI"
+        param.antenna.gain = 10
+
+        param.geometry.location.type = "FIXED"
+        param.geometry.altitude = 35786000.0
+        param.geometry.es_lat_deg = 0
+        param.geometry.es_long_deg = 0
+        param.geometry.location.fixed.lat_deg = 0
+        param.geometry.location.fixed.long_deg = 0
+
+        param.propagate_parameters()
+        # This should not error on this test:
+        param.validate()
+
+        # experimental from simulator
+        max_gso_fov = 81.30784
+
+        def get_ground_elevation(ss):
+            return np.rad2deg(np.arctan2(ss.height, np.sqrt(ss.x**2 + ss.y**2)))
+
+        space_station = StationFactory.generate_single_space_station(param)
+
+        # test if the maximum distance is close to the cell radius within a 100km range
+        npt.assert_almost_equal(space_station.height, param.geometry.altitude)
+        npt.assert_almost_equal(get_ground_elevation(space_station), 90)
+
+        param.geometry.es_lat_deg = max_gso_fov
+
+        space_station = StationFactory.generate_single_space_station(param)
+
+        npt.assert_almost_equal(get_ground_elevation(space_station), 0, 5)
+        npt.assert_almost_equal(space_station.height, 0, 0)
+
+        param.geometry.es_lat_deg = 0
+        param.geometry.es_long_deg = max_gso_fov
+
+        space_station = StationFactory.generate_single_space_station(param)
+
+        npt.assert_almost_equal(get_ground_elevation(space_station), 0, 5)
+        npt.assert_almost_equal(space_station.height, 0, 0)
+
+        param.geometry.es_long_deg = 0
+        param.geometry.location.fixed.lat_deg = max_gso_fov
+
+        space_station = StationFactory.generate_single_space_station(param)
+
+        npt.assert_almost_equal(get_ground_elevation(space_station), 0, 5)
+        npt.assert_almost_equal(space_station.height, 0, 0)
+
+        param.geometry.location.fixed.lat_deg = 0
+        param.geometry.location.fixed.long_deg = max_gso_fov
+
+        space_station = StationFactory.generate_single_space_station(param)
+        npt.assert_almost_equal(get_ground_elevation(space_station), 0, 5)
+        npt.assert_almost_equal(space_station.height, 0, 0)
 
 
 if __name__ == '__main__':

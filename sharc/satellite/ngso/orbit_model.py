@@ -105,72 +105,74 @@ class OrbitModel():
         return self.__get_satellite_positions(rng.random_sample(1) * 1000 * self.orbital_period_sec)
 
     def __get_satellite_positions(self, t: np.array) -> dict:
-        """Returns the Satellite positins (both lat long and ecef) for a given time vector within the orbit period.
+        """Returns satellite positions (lat, lon, ecef) at given time instants.
 
         Parameters
         ----------
         t : np.array
-            time instants inside the orbit period in seconds
+            Time instants inside the orbit period in seconds.
 
         Returns
         -------
         dict
-            A dictionary with satellite positions in spherical and ecef coordinates.
-                lat, lon, sx, sy, sz
+            A dictionary with satellite positions in spherical and ECEF coordinates:
+            - 'lat': Latitude in degrees
+            - 'lon': Longitude in degrees
+            - 'sx', 'sy', 'sz': ECEF coordinates (meters)
         """
-        # Mean anomaly (M)
+
+        # 1. Compute Mean Anomaly (M)
         mean_anomaly = (self._initial_mean_anomalies_flat[:, None] +
                         (2 * np.pi / self.orbital_period_sec) * t) % (2 * np.pi)
 
-        # Eccentric anomaly (E)
+        # 2. Compute Eccentric Anomaly (E)
         eccentric_anom = eccentric_anomaly(self.eccentricity, mean_anomaly)
 
-        # True anomaly (v)
+        # 3. Compute True Anomaly (v)
         v = 2 * np.arctan(np.sqrt((1 + self.eccentricity) / (1 - self.eccentricity)) * np.tan(eccentric_anom / 2))
-        v = np.mod(v, 2 * np.pi)
+        v = np.mod(v, 2 * np.pi)  # Keep within 0 to 2π
 
-        # Distance of the satellite to Earth's center (r)
+        # 4. Compute Distance from Earth's Center (r)
         r = self.semi_major_axis * (1 - self.eccentricity ** 2) / (1 + self.eccentricity * np.cos(v))
 
-        # True anomaly relative to the line of nodes (gamma)
-        # gamma = wrap2pi(v + np.radians(self.omega))  # gamma in the interval [-pi, pi]
+        # 5. Longitude of the Ascending Node (`OmegaG`) Evolution
+        OmegaG = wrap2pi(self.Omega0[:, None] + EARTH_ROTATION_RATE * t)
 
-        # Latitudes of the satellites, in radians (theta)
-        # theta = np.arcsin(np.sin(gamma) * np.sin(np.radians(self.delta)))
+        # 6. Compute Latitude (theta)
+        lat = np.degrees(np.arcsin(np.sin(v) * np.sin(np.radians(self.delta))))
 
-        # Longitude variation due to angular displacement, in radians (phiS)
-        # phiS = np.arccos(np.cos(gamma) / np.cos(theta)) * np.sign(gamma)
+        # 7. Compute Longitude (phi)
+        lon = np.degrees(OmegaG + np.arctan2(np.sin(v), np.cos(v)))
 
-        # Longitudes of the ascending node (OmegaG)
-        OmegaG = (self.Omega0[:, None] + EARTH_ROTATION_RATE * t)  # shape (Np*Nsp, len(t))
-        OmegaG = wrap2pi(OmegaG)
-
-        # POSITION CALCULATION IN ECEF COORDINATES - ITU-R S.1503
+        # 8. Convert to ECEF Coordinates (ITU-R S.1503)
         r_eci = keplerian2eci(self.semi_major_axis,
-                              self.eccentricity,
-                              self.delta,
-                              np.degrees(self.Omega0),
-                              self.omega,
-                              np.degrees(v))
+                            self.eccentricity,
+                            self.delta,
+                            np.degrees(self.Omega0),
+                            self.omega,
+                            np.degrees(v))
 
         r_ecef = eci2ecef(t, r_eci)
-        sx, sy, sz = r_ecef[0], r_ecef[1], r_ecef[2]
-        lat = np.degrees(np.arcsin(sz / r))
-        lon = np.degrees(np.arctan2(sy, sx))
-        # (lat, lon, _) = ecef2lla(sx, sy, sz)
 
-        pos_vector = {
+        # 9. Extract ECEF coordinates
+        sx, sy, sz = r_ecef[0], r_ecef[1], r_ecef[2]
+
+        # 10. Return Position Data
+        return {
             'lat': lat,
             'lon': lon,
             'sx': sx,
             'sy': sy,
             'sz': sz
         }
-        return pos_vector
+
+
+
+import plotly.graph_objects as go
 
 
 if __name__ == "__main__":
-    # Plot Global Star orbit using OrbitModel object
+    # Create an OrbitModel instance
     orbit = OrbitModel(
         Nsp=6,
         Np=8,
@@ -183,8 +185,84 @@ if __name__ == "__main__":
         Mo=0
     )
 
-    # pos_vec = orbit.get_orbit_positions_time_instant(time_instant_secs=10)
-    # pos_vec = orbit.get_orbit_positions_random_time(rng=np.random.RandomState(seed=6))
-    pos_vec = orbit.get_satellite_positions_time_interval()
-    
-    plot_ground_tracks(pos_vec['lat'], pos_vec['lon'], planes=[1, 2, 3, 4, 5, 6, 7, 8], satellites=[1])
+    # Get satellite positions at time t = 0
+    #positions = orbit.get_orbit_positions_time_instant(time_instant_secs=4)
+    positions = orbit.get_orbit_positions_random_time(rng=np.random.RandomState(seed=6)
+                                                      )
+    # Extract longitudes and reshape them into (Np, Nsp) for proper plane grouping
+    longitudes = np.sort(positions['lon']).reshape(orbit.Np, orbit.Nsp)
+
+    # Compute satellite spacing within each orbital plane (row-wise differences)
+    intra_plane_spacing = (np.diff(longitudes, axis=1)) % 360 # Differences within each plane
+
+    # Compute phasing between planes using the first satellite in each plane
+    first_sat_longitudes = longitudes[:, 0]  # First satellite in each plane
+    inter_plane_phasing = np.diff(first_sat_longitudes)  # Compute differences
+
+    # Ensure angles are wrapped within [-180, 180]
+    inter_plane_phasing = (inter_plane_phasing) % 360
+
+    # Print results
+    print("\n--- Satellite Spacing in Orbital Plane ---")
+    print(f"Expected: {360/orbit.Nsp:.2f}°")
+    print(f"Computed: {intra_plane_spacing}")
+
+    print("\n--- Phasing Between Orbital Planes ---")
+    print(f"Expected: {orbit.phasing}°")
+    print(f"Computed: {inter_plane_phasing}")
+
+    # Prepare Plotly figure
+    fig = go.Figure()
+
+    # Plot intra-plane spacing (satellite spacing in the same plane)
+    fig.add_trace(go.Scatter(
+        x=list(range(intra_plane_spacing.size)),
+        y=intra_plane_spacing.flatten(),
+        mode='markers+lines',
+        marker=dict(color='red', size=8),
+        name="Intra-plane spacing"
+    ))
+
+    # Expected intra-plane spacing as reference line
+    fig.add_trace(go.Scatter(
+        x=list(range(intra_plane_spacing.size)),
+        y=[360/orbit.Nsp] * intra_plane_spacing.size,
+        mode='lines',
+        line=dict(color='red', dash='dash'),
+        name="Expected intra-plane spacing"
+    ))
+
+    # Plot inter-plane phasing (spacing between orbital planes)
+    fig.add_trace(go.Scatter(
+        x=list(range(len(inter_plane_phasing))),
+        y=inter_plane_phasing,
+        mode='markers+lines',
+        marker=dict(color='blue', size=8),
+        name="Inter-plane phasing"
+    ))
+
+    # Expected phasing reference line
+    fig.add_trace(go.Scatter(
+        x=list(range(len(inter_plane_phasing))),
+        y=[orbit.phasing] * len(inter_plane_phasing),
+        mode='lines',
+        line=dict(color='blue', dash='dash'),
+        name="Expected inter-plane phasing"
+    ))
+
+    # Customize the layout
+    fig.update_layout(
+        title="Satellite Angle Differences",
+        xaxis_title="Satellite Index",
+        yaxis_title="Angle (degrees)",
+        legend=dict(x=0.1, y=1.1),
+        template="plotly_white"
+    )
+
+    # Show interactive plot
+    fig.show()
+
+
+    plot_ground_tracks(positions['lat'], positions['lon'], planes=[1, 2, 3, 4, 5, 6, 7, 8], satellites=[1])
+
+

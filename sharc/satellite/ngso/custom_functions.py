@@ -194,11 +194,15 @@ def plot_ground_tracks(theta_deg, phi_deg, planes=None, satellites=None, title="
             # Plot the ground track points for the selected satellite
             ax.scatter(
                 phi_deg[satellite_global_idx, :], theta_deg[satellite_global_idx, :],
-                label=f'Plane {plane_idx + 1}, Satellite {sat_idx + 1}', s=1,  # Size of each point
-                transform=ccrs.PlateCarree()
+                label=f'Plane {plane_idx + 1}, Satellite {sat_idx + 1}', s=5,  # Size of each point
+                transform=ccrs.PlateCarree(),marker='*',alpha=0.8
             )
 
     # Add legend and title
     ax.set_title(title)
     ax.legend(loc='upper right', markerscale=5, fontsize='small')
     plt.show()
+
+
+
+    

@@ -338,7 +338,6 @@ single_space_station:
     es_long_deg: -51.6424333
     # Azimuth angle
     azimuth:
-      # doesn't really matter for this case
       type: POINTING_AT_IMT
     # Elevation angle [degrees]
     # Is not elevation from ground, is elevation for satellite antenna pointing

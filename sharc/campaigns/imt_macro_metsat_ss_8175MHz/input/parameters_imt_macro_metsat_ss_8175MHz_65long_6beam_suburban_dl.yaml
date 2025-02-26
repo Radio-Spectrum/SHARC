@@ -338,16 +338,12 @@ single_space_station:
     es_long_deg: -51.6424333
     # Azimuth angle
     azimuth:
-      # doesn't really matter for this case
-      type: FIXED
-      fixed: 180
+      type: POINTING_AT_IMT
     # Elevation angle [degrees]
     # Is not elevation from ground, is elevation for satellite antenna pointing
     elevation:
       # Type of elevation. May be "FIXED"
-      type: FIXED
-      # Value of elevation when type == "FIXED" [deg]
-      fixed: 270
+      type: POINTING_AT_IMT
     # Station 2d location [meters]:
     location:
       type: FIXED

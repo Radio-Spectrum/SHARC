@@ -25,7 +25,7 @@ def legend_gen(dir_name):
         beam_deg = beam_deg.group(1)
     else:
         return "None"
-    long = re.search("_([1-6]0)long", dir_name)
+    long = re.search("_([0-9][0-9])long", dir_name)
     if long is not None:
         long = long.group(1)
     else:
@@ -52,8 +52,8 @@ attributes_to_plot = [
 ]
 
 def filter_fn(result_dir: str) -> bool:
-    return "beam" in result_dir
-    return True
+    return "14long" in result_dir or "65long" in result_dir
+    # return True
 
 dl_results = Results.load_many_from_dir(
     dl_dir, only_latest=True,
@@ -156,17 +156,20 @@ if system_ul_interf_power_plot and system_dl_interf_power_plot:
     for dl_r in dl_results:
         legend1 = post_processor.get_results_possible_legends(dl_r)[0]
         ul_r = None
+
         for maybe in ul_results:
             legend2 = post_processor.get_results_possible_legends(maybe)[0]
-            if legend1["legend"][:-3] == legend2["legend"][:-3]:
+            if legend1["legend"][:-4] in legend2["legend"][:-4]:
                 ul_r = maybe
                 break
-        if ul_r is None:
-            raise Exception(f"Cannot aggregate {legend1} and {legend2}")
-            # continue
-            
 
-        n_bs_sim = 19*3*3
+        if None in [ul_r]:
+            raise Exception(
+                f"Cannot aggregate {legend1} and {legend2}"
+            )
+            # continue
+
+        n_bs_sim = 19 * 3 * 3 * 7
 
         aggregated_results = PostProcessor.aggregate_results(
             dl_samples=dl_r.system_dl_interf_power_per_mhz,

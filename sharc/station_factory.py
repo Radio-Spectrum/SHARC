@@ -263,22 +263,28 @@ class StationFactory(object):
                 sys.exit(1)
 
             if param.ue.distribution_azimuth.upper() == "NORMAL":
-                # In case of the angles, we generate N times the number of UE's because
-                # the angle cutoff will discard 5% of the terminals whose angle is
-                # outside the angular sector defined by [-60, 60]. So, N = 1.4 seems to
-                # be a safe choice.
+                # Generate an initial larger number of samples (N = 1.4 * num_ue)
                 N = 1.4
                 angle_scale = 30
                 angle_mean = 0
+
+                # Generate normally distributed angles
                 angle_n = random_number_gen.normal(
-                    angle_mean, angle_scale, int(N * num_ue),
+                    angle_mean, angle_scale, int(N * num_ue)
                 )
 
-                angle_cutoff = np.max(azimuth_range)
-                idx = np.where((angle_n < angle_cutoff) & (
-                    angle_n > -angle_cutoff
-                ))[0][:num_ue]
-                angle = angle_n[idx]
+                # Keep only values within the range [-60, 60]
+                valid_angles = angle_n[(angle_n > -60) & (angle_n < 60)]
+
+                # If not enough samples, generate more
+                while len(valid_angles) < num_ue:
+                    extra_samples = random_number_gen.normal(angle_mean, angle_scale, int(0.5 * num_ue))
+                    extra_valid = extra_samples[(extra_samples > -60) & (extra_samples < 60)]
+                    valid_angles = np.concatenate((valid_angles, extra_valid))
+
+                # Ensure exactly `num_ue` elements
+                angle = valid_angles[:num_ue]
+
             elif param.ue.distribution_azimuth.upper() == "UNIFORM":
                 azimuth_range = (-60, 60)
                 angle = (azimuth_range[1] - azimuth_range[0]) * random_number_gen.random_sample(num_ue) \
@@ -296,6 +302,8 @@ class StationFactory(object):
                     )
                 ]
                 # theta is the horizontal angle of the UE wrt the serving BS
+                #print(idx)
+                #print(angle)
                 theta = topology.azimuth[bs] + angle[idx]
                 # calculate UE position in x-y coordinates
                 x = topology.x[bs] + radius[idx] * np.cos(np.radians(theta))

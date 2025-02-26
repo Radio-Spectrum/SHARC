@@ -5,6 +5,7 @@ from sharc.parameters.parameters_base import ParametersBase
 
 @dataclass
 class ParametersSingleBS(ParametersBase):
+    section_name: str = "single_bs"
     intersite_distance: int = None
     cell_radius: int = None
     num_clusters: int = 1

@@ -19,7 +19,6 @@ post_processor = PostProcessor()
 # This could easily come from a config file
 import re
 def legend_gen(dir_name):
-    print(dir_name)
     beam_deg = re.search("_([1-6])beam", dir_name)
     if beam_deg is not None:
         beam_deg = beam_deg.group(1)
@@ -28,6 +27,8 @@ def legend_gen(dir_name):
     long = re.search("_([0-9][0-9])long", dir_name)
     if long is not None:
         long = long.group(1)
+        if long == "14":
+            long = "14.5"
     else:
         return "None"
     link = re.search("_(dl|ul)", dir_name)
@@ -52,7 +53,11 @@ attributes_to_plot = [
 ]
 
 def filter_fn(result_dir: str) -> bool:
-    return "14long" in result_dir or "65long" in result_dir
+    return (
+        "14long" in result_dir
+        or
+        "65long" in result_dir
+    )
     # return True
 
 dl_results = Results.load_many_from_dir(
@@ -168,7 +173,10 @@ if system_ul_interf_power_plot and system_dl_interf_power_plot:
                 f"Cannot aggregate {legend1} and {legend2}"
             )
             # continue
-
+        print("############")
+        print("legend1", legend1)
+        print("legend2", legend2)
+        print("############")
         n_bs_sim = 19 * 3 * 3 * 7
 
         aggregated_results = PostProcessor.aggregate_results(
@@ -177,24 +185,22 @@ if system_ul_interf_power_plot and system_dl_interf_power_plot:
             ul_tdd_factor=0.25,
             n_bs_sim=n_bs_sim,
             # n_bs_actual=19*3*3*7
-            n_bs_actual=363300,
-            # n_bs_actual=1035900,
-            # n_bs_actual=723300,
-            # n_bs_actual=1364850,
-            # n_bs_actual=4391550,
-            # n_bs_actual=1904850
+            # Ra1Rb1
+            n_bs_actual=127736,
+            # Ra2Rb2
+            # n_bs_actual=766419,
         )
         # print(aggregated_results)
         # print("legend1['legend']",legend1["legend"])
         x, y = PostProcessor.cdf_from(aggregated_results)
 
         aggregated_plot.add_trace(
-            go.Scatter(x=x, y=y, mode='lines', name=f'{legend1["legend"]}',),
+            go.Scatter(x=x, y=y, mode='lines', name=f'{legend1["legend"][:-4]}',),
         )
 
         x, y = PostProcessor.ccdf_from(aggregated_results)
         aggregated_ccdf_plot.add_trace(
-            go.Scatter(x=x, y=y, mode='lines', name=f'{legend1["legend"]}',),
+            go.Scatter(x=x, y=y, mode='lines', name=f'{legend1["legend"][:-4]}',),
         )
         
 

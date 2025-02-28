@@ -10,29 +10,84 @@ post_processor = PostProcessor()
 # This could easily come from a config file
 post_processor\
     .add_plot_legend_pattern(
-        dir_name_contains="MHz_30deg",
-        legend="30 deg (P619)"
-    ).add_plot_legend_pattern(
-        dir_name_contains="MHz_45deg",
-        legend="45 deg (P619)"
-    ).add_plot_legend_pattern(
-        dir_name_contains="MHz_60deg",
-        legend="60 deg (P619)"
-    ).add_plot_legend_pattern(
-        dir_name_contains="MHz_90deg",
-        legend="90 deg (P619)"
-    ).add_plot_legend_pattern(
-        dir_name_contains="fspl_30deg",
-        legend="30 deg (FSPL)"
-    ).add_plot_legend_pattern(
-        dir_name_contains="fspl_45deg",
-        legend="45 deg (FSPL)"
-    ).add_plot_legend_pattern(
-        dir_name_contains="fspl_60deg",
-        legend="60 deg (FSPL)"
-    ).add_plot_legend_pattern(
-        dir_name_contains="fspl_90deg",
-        legend="90 deg (FSPL)"
+        dir_name_contains="y_100_elevation_3",
+        legend="Dist=100 and Elevation=3"
+    )\
+    .add_plot_legend_pattern(
+        dir_name_contains="y_100_elevation_5",
+        legend="Dist=100 and Elevation=5"
+    )\
+    .add_plot_legend_pattern(
+        dir_name_contains="y_200_elevation_3",
+        legend="Dist=200 and Elevation=3"
+    )\
+    .add_plot_legend_pattern(
+        dir_name_contains="y_200_elevation_5",
+        legend="Dist=200 and Elevation=5"
+    )\
+    .add_plot_legend_pattern(
+        dir_name_contains="y_300_elevation_3",
+        legend="Dist=300 and Elevation=3"
+    )\
+    .add_plot_legend_pattern(
+        dir_name_contains="y_300_elevation_5",
+        legend="Dist=300 and Elevation=5"
+    )\
+    .add_plot_legend_pattern(
+        dir_name_contains="y_400_elevation_3",
+        legend="Dist=400 and Elevation=3"
+    )\
+    .add_plot_legend_pattern(
+        dir_name_contains="y_400_elevation_5",
+        legend="Dist=400 and Elevation=5"
+    )\
+    .add_plot_legend_pattern(
+        dir_name_contains="y_500_elevation_3",
+        legend="Dist=500 and Elevation=3"
+    )\
+    .add_plot_legend_pattern(
+        dir_name_contains="y_500_elevation_5",
+        legend="Dist=500 and Elevation=5"
+    )\
+    .add_plot_legend_pattern(
+        dir_name_contains="y_600_elevation_3",
+        legend="Dist=600 and Elevation=3"
+    )\
+    .add_plot_legend_pattern(
+        dir_name_contains="y_600_elevation_5",
+        legend="Dist=600 and Elevation=5"
+    )\
+    .add_plot_legend_pattern(
+        dir_name_contains="y_700_elevation_3",
+        legend="Dist=700 and Elevation=3"
+    )\
+    .add_plot_legend_pattern(
+        dir_name_contains="y_700_elevation_5",
+        legend="Dist=700 and Elevation=5"
+    )\
+    .add_plot_legend_pattern(
+        dir_name_contains="y_800_elevation_3",
+        legend="Dist=800 and Elevation=3"
+    )\
+    .add_plot_legend_pattern(
+        dir_name_contains="y_800_elevation_5",
+        legend="Dist=800 and Elevation=5"
+    )\
+    .add_plot_legend_pattern(
+        dir_name_contains="y_900_elevation_3",
+        legend="Dist=900 and Elevation=3"
+    )\
+    .add_plot_legend_pattern(
+        dir_name_contains="y_900_elevation_5",
+        legend="Dist=900 and Elevation=5"
+    )\
+    .add_plot_legend_pattern(
+        dir_name_contains="y_1000_elevation_3",
+        legend="Dist=1000 and Elevation=3"
+    )\
+    .add_plot_legend_pattern(
+        dir_name_contains="y_1000_elevation_5",
+        legend="Dist=1000 and Elevation=5"
     )
 
 campaign_base_dir = str((Path(__file__) / ".." / "..").resolve())

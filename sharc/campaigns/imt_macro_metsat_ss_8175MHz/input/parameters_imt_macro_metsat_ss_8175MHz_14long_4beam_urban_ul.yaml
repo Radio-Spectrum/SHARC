@@ -80,7 +80,7 @@ imt:
             ###########################################################################
             # Maximum 2D distance between hotspot and UE [m]
             # This is the hotspot radius
-            max_dist_hotspot_ue: 300
+            max_dist_hotspot_ue: 400
             ###########################################################################
             # Minimum 2D distance between macro cell base station and hotspot [m]
             min_dist_bs_hotspot: 0
@@ -195,15 +195,15 @@ imt:
         #                                   given distributions for angle and
         #                                   distance. In this case, these must be
         #                                   defined later.
-        distribution_type: UNIFORM
+        distribution_type: ANGLE_AND_DISTANCE
         # Regarding the distribution of active UE's over the cell area, this
         # parameter models the distance between UE's and BS.
         # Possible values: RAYLEIGH, UNIFORM
-        distribution_distance: RAYLEIGH
+        distribution_distance: SQRT(UNIFORM)
         # Regarding the distribution of active UE's over the cell area, this
         # parameter models the azimuth between UE and BS (within ±60° range).
         # Possible values: NORMAL, UNIFORM
-        distribution_azimuth: NORMAL
+        distribution_azimuth: UNIFORM
         # Power control algorithm
         # tx_power_control = "ON",power control On
         # tx_power_control = "OFF",power control Off

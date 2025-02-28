@@ -30,11 +30,15 @@ imt:
         ###########################################################################
         # Network topology. Possible values are "MACROCEL", "HOTSPOT", "SINGLE_BS"
         # "INDOOR"
-        type: SINGLE_BS
-        single_bs:
+        type: MACROCELL
+        ###########################################################################
+        macrocell:
             ###########################################################################
-            # Cell radius in network topology [meters]
-            cell_radius: 2000
+            # Number of Cluster in the macrocell
+            num_clusters: 1
+            ###########################################################################
+            # Inter-site distance [m]
+            intersite_distance: 500
     ###########################################################################
     # Minimum 2D separation distance from BS to UE [m]
     minimum_separation_distance_bs_ue: 0.5
@@ -337,7 +341,7 @@ single_earth_station:
     geometry:
         ###########################################################################
         # Antenna height [meters]
-        height: 15
+        height: 1
         ###########################################################################
         # Azimuth angle [degrees]
         azimuth:
@@ -357,7 +361,7 @@ single_earth_station:
             type: FIXED
             fixed:
                 ###########################################################################
-                x: 0
+                x: 200
                 ###########################################################################
                 y: 0
     ###########################################################################

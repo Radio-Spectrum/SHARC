@@ -2,7 +2,7 @@ from sharc.run_multiple_campaigns_mut_thread import run_campaign
 
 # Set the campaign name
 # The name of the campaign to run. This should match the name of the campaign directory.
-name_campaign = "imt_mss_ras_2600_MHz"
+name_campaign = "imt_mss_hub_type_6_7300"
 
 # Run the campaigns
 # This function will execute the campaign with the given name.

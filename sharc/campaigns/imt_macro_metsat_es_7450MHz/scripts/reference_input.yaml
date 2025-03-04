@@ -70,8 +70,8 @@ imt:
         macrocell:
             # Inter-site distance in macrocell network topology [m]
             # NOTE: From Annex 4.2 to Document 5D/413-E, TABLE 6-1, Note 3
-            # 300 * 3 / 2 = 450
-            intersite_distance: 450
+            # 400 * 3 / 2 = 600
+            intersite_distance: 600
             # Enable wrap around.
             wrap_around: false
             # Number of clusters in macro cell topology
@@ -327,7 +327,7 @@ generic: &generic
 
     # NOTE: height of transmitter and receiver
     Hte: 18.0
-    Hre: 3
+    Hre: 7
     # -23.17889, -46.63881
     tx_lat: -23.10
     rx_lat: -23.17
@@ -335,7 +335,7 @@ generic: &generic
     clutter_loss: True
   geometry:
     # Antenna height [meters]
-    height: 3
+    height: 7
     azimuth:
       # Type of azimuth. May be "UNIFORM_DIST", "FIXED"
       type: FIXED

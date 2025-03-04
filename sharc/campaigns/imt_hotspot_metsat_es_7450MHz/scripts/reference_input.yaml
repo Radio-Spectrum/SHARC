@@ -30,7 +30,7 @@ general:
     output_dir  : campaigns/imt_hotspot_metsat_es_7450MHz/output/
     ###########################################################################
     # output folder prefix
-    output_dir_prefix  : output_imt_metsat_es_7450MHz_<subs>
+    output_dir_prefix  : output_imt_hotspot_<subs>
 
 imt:
     # Minimum 2D separation distance from BS to UE [m]
@@ -72,9 +72,9 @@ imt:
             # Inter-site distance in macrocell network topology [m]
             # NOTE: From Annex 4.2 to Document 5D/413-E, TABLE 6-1, Note 3
             # 300 * 3 / 2 = 450
-            intersite_distance: 450
+            intersite_distance: 600
             # Enable wrap around.
-            wrap_around: true
+            wrap_around: false
             # Number of clusters in macro cell topology
             num_clusters: 1
             ###########################################################################
@@ -83,7 +83,7 @@ imt:
             ###########################################################################
             # Maximum 2D distance between hotspot and UE [m]
             # This is the hotspot radius
-            max_dist_hotspot_ue: 60
+            max_dist_hotspot_ue: 70
             ###########################################################################
             # Minimum 2D distance between macro cell base station and hotspot [m]
             min_dist_bs_hotspot: 1
@@ -327,7 +327,7 @@ generic: &generic
 
     # NOTE: height of transmitter and receiver
     Hte: 20
-    Hre: 3
+    Hre: 7
     # -23.17889, -46.63881
     tx_lat: -23.10
     rx_lat: -23.17
@@ -335,7 +335,7 @@ generic: &generic
     clutter_loss: True
   geometry:
     # Antenna height [meters]
-    height: 3
+    height: 7
     azimuth:
       # Type of azimuth. May be "UNIFORM_DIST", "FIXED"
       type: FIXED

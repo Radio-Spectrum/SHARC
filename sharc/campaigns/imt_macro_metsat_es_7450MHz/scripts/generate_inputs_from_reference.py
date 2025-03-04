@@ -16,7 +16,10 @@ for key in CONST_KEYS:
     base[key] = reference[key]
 
 inps = []
-isd = 450
+
+isd = 3 * 400 / 2
+border = 2.5 * isd
+
 for key in reference.keys():
     if key in CONST_KEYS or key in IGNORE_KEYS:
         continue
@@ -24,37 +27,32 @@ for key in reference.keys():
         # "ul",
         "dl"
     ]:
-        for d in [5]:
-            inps.append({
-                "definition": {
-                    "single_earth_station": {
-                        **reference[key],
-                        "param_p452": {
-                            **reference[key]["param_p452"],
-                            "Hte": base["imt"]["bs"]["height"] if link == "dl" else base["imt"]["ue"]["height"]
-                        }
+        for load in [0.2, 0.5]:
+            for d in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]:
+                from copy import deepcopy
+                new_dic = {
+                    "definition": {
+                        "imt": deepcopy(reference["imt"]),
+                        "general": deepcopy(reference["general"]),
+                        "single_earth_station": deepcopy(reference[key]),
                     },
-                    "imt": {
-                        **base["imt"],
-                        "spurious_emissions": base["imt"]["spurious_emissions"] if link == "dl" else -25,
-                        "frequency": reference[key]["frequency"]
-                    },
-                    "general": {
-                        **base["general"],
-                        "imt_link": "DOWNLINK" if link == "dl" else "UPLINK",
-                        "adjacent_antenna_model": "BEAMFORMING" if link == "dl" else "SINGLE_ELEMENT",
-                        "output_dir_prefix":
-                            base["general"]["output_dir_prefix"].replace(
-                                "<subs>", f"{key}_{int(d)}km"
-                            ),
-                            "output_dir": base["general"]["output_dir"].replace(
-                                "/output/", f"/output_{link}/"
-                            )
-                    },
-                },
-                "key": f"{key}_{int(d)}km_{link}",
-                "bs_x": d * 1000
-            })
+                    "key": f"{key}_{load}load_{d}km"
+                }
+
+                new_dic["definition"]["single_earth_station"]["param_p452"]["Hte"] = base["imt"]["bs"]["height"] if link == "dl" else base["imt"]["ue"]["height"]
+                new_dic["definition"]["single_earth_station"]["geometry"]["location"]["fixed"]["x"] = border + d * 1000
+                new_dic["definition"]["imt"]["frequency"] = reference[key]["frequency"]
+                new_dic["definition"]["imt"]["bs"]["load_probability"] = load
+                new_dic["definition"]["general"]["imt_link"] = "DOWNLINK" if link == "dl" else "UPLINK"
+                new_dic["definition"]["general"]["adjacent_antenna_model"] = "BEAMFORMING" if link == "dl" else "SINGLE_ELEMENT"
+                new_dic["definition"]["general"]["output_dir_prefix"] = base["general"]["output_dir_prefix"].replace(
+                    "<subs>", f"{key}_{load}load_{d}km"
+                )
+                new_dic["definition"]["general"]["output_dir"] = base["general"]["output_dir"].replace(
+                    "/output/", f"/output_{link}/"
+                )
+
+                inps.append(new_dic)
 
 path_to_inputs = path_to_scripts / ".." / "input"
 
@@ -64,7 +62,6 @@ except FileExistsError:
     pass
 
 for inp in inps:
-    inp["definition"]["single_earth_station"]["geometry"]["location"]["fixed"]["x"] = inp["bs_x"]
     with open(path_to_inputs / ("parameter_" + inp["key"] + ".yaml"), "w") as f:
         yaml.dump(inp["definition"], f)
     

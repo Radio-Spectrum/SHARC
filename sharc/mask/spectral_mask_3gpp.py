@@ -5,11 +5,12 @@ Created on Tue Dec  5 11:06:56 2017
 @author: Calil
 """
 
-from sharc.support.enumerations import StationType
-from sharc.mask.spectral_mask import SpectralMask
+import sys
 
 import numpy as np
-import sys
+
+from sharc.mask.spectral_mask import SpectralMask
+from sharc.support.enumerations import StationType
 
 
 class SpectralMask3Gpp(SpectralMask):
@@ -39,7 +40,7 @@ class SpectralMask3Gpp(SpectralMask):
             sys.stderr.write(message)
             sys.exit(1)
 
-        if band_mhz not in [5, 10, 15, 20]:
+        if band_mhz not in [5, 10, 15, 20, 100]:
             message = "ERROR\nInvalid bandwidth for 3GPP mask: " + band_mhz
             sys.stderr.write(message)
             sys.exit(1)

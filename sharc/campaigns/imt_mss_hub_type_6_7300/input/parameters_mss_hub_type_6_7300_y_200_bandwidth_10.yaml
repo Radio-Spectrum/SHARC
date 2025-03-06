@@ -1,11 +1,3 @@
-import os
-from itertools import product
-
-# Obtém o diretório atual onde o script está
-current_dir = os.path.dirname(os.path.abspath(__file__))
-
-# Template YAML com comentários e placeholders para substituição
-base_yaml = """\
 general:
   num_snapshots: 1000                              # Número de snapshots da simulação
   imt_link: DOWNLINK                              # Link IMT que será simulado (DOWNLINK ou UPLINK)
@@ -15,7 +7,7 @@ general:
   seed: 101                                       # Semente para o gerador de números aleatórios
   overwrite_output: FALSE                         # Se FALSE, cria um novo diretório de saída
   output_dir: campaigns/imt_mss_hub_type_6_7300/output/   # Diretório de saída (relativo à pasta SHARC/sharc)
-  output_dir_prefix: output_imt_mss_hub_type_6_7300_y_{y}_sysbandwidth_{sys_bandwidth} # Prefixo do diretório de saída
+  output_dir_prefix: output_imt_mss_hub_type_6_7300_y_200_sysbandwidth_10 # Prefixo do diretório de saída
 imt:
   topology:
     type: SINGLE_BS                               # Topologia: SINGLE_BS, MACROCEL, HOTSPOT, INDOOR, etc.
@@ -101,7 +93,7 @@ imt:
   season: SUMMER                                # Estação do ano
 single_earth_station:
   frequency: 7300                               # Frequência [MHz]
-  bandwidth: {sys_bandwidth}                                 # Largura de banda [MHz]
+  bandwidth: 10                                 # Largura de banda [MHz]
   noise_temperature: 250                        # Temperatura de ruído [K]
   tx_power_density: 0                           # Densidade espectral de potência transmitida [dBW/Hz]
   adjacent_ch_selectivity: 20.0                  # Seletividade de canal adjacente [dB]
@@ -119,7 +111,7 @@ single_earth_station:
       type: FIXED
       fixed:
         x: 0
-        y: {y}                                    # Placeholder para o valor de y
+        y: 200                                    # Placeholder para o valor de y
   antenna:
     pattern: OMNI                               # Padrão de radiação da antena
     gain: 9.7                                   # Ganho da antena [dBi]
@@ -130,16 +122,3 @@ single_earth_station:
     earth_station_lat_deg: -15.7801
     earth_station_long_diff_deg: 0.0
   season: SUMMER
-"""
-
-# List of values for 'y' (distance) and 'elevation'
-y_values = [100, 200, 300, 400, 500, 600, 700, 800, 900, 1000,1100]  # Example values for 'y'
-sys_bandwidth = [1,5,10,20,30]  # Example values for 'elevation'
-
-# Generate the YAML files in the same folder as the script
-for y, bandwidth in product(y_values, sys_bandwidth):
-    filename = os.path.join(current_dir, f"parameters_mss_hub_type_6_7300_y_{y}_bandwidth_{bandwidth}.yaml")
-    content = base_yaml.format(y=y, sys_bandwidth=bandwidth)
-    with open(filename, 'w', encoding='utf-8') as file:
-        file.write(content)
-    print(f"Generated file: {filename}")

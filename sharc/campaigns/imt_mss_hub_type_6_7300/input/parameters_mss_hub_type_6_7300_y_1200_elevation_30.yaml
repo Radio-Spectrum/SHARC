@@ -1,11 +1,3 @@
-import os
-from itertools import product
-
-# Get the current directory where the script is located
-current_dir = os.path.dirname(os.path.abspath(__file__))
-
-# YAML template with comments and placeholders for substitution
-base_yaml = """\
 general:
   num_snapshots: 1000                             # Number of simulation snapshots
   imt_link: DOWNLINK                              # IMT link to be simulated (DOWNLINK or UPLINK)
@@ -15,7 +7,7 @@ general:
   seed: 101                                       # Seed for the random number generator
   overwrite_output: FALSE                         # If FALSE, creates a new output directory
   output_dir: campaigns/imt_mss_hub_type_6_7300/output/   # Output directory (relative to the SHARC/sharc folder)
-  output_dir_prefix: output_imt_mss_hub_type_6_7300_y_{y}_elevation_{elevation} # Output directory prefix
+  output_dir_prefix: output_imt_mss_hub_type_6_7300_y_1200_elevation_30 # Output directory prefix
 imt:
   topology:
     type: MACROCELL                               # Topology: SINGLE_BS, MACROCELL, HOTSPOT, INDOOR, etc.
@@ -134,25 +126,13 @@ single_earth_station:
         max: 180
     elevation:
       type: FIXED
-      fixed: {elevation}                          # Placeholder for elevation value
+      fixed: 30                          # Placeholder for elevation value
     location:
       type: FIXED
       fixed:
         x: 0
-        y: {y}                                    # Placeholder for y value
+        y: 1200                                    # Placeholder for y value
   antenna:
     pattern: OMNI                               # Antenna radiation pattern
     gain: 9.7                                   # Antenna gain [dBi]
   channel_model: P452
-"""
-
-y_values = [300, 400, 500, 600, 700, 800, 900, 1000, 1100, 1200, 1300, 1400, 1500, 1600]  # Values for 'y'
-elevations = [30]  # Values for 'elevation'
-
-# Generate the YAML files in the same folder as the script
-for y, elevation in product(y_values, elevations):
-    filename = os.path.join(current_dir, f"parameters_mss_hub_type_6_7300_y_{y}_elevation_{elevation}.yaml")
-    content = base_yaml.format(y=y, elevation=elevation)
-    with open(filename, 'w', encoding='utf-8') as file:
-        file.write(content)
-    print(f"Generated file: {filename}")

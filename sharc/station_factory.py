@@ -46,6 +46,7 @@ from sharc.antenna.antenna_s1528 import AntennaS1528
 from sharc.antenna.antenna_s1855 import AntennaS1855
 from sharc.antenna.antenna_sa509 import AntennaSA509
 from sharc.antenna.antenna_beamforming_imt import AntennaBeamformingImt
+from shrac.antenna.antenna_quasi_omni import AntennaQuasiOmni
 from sharc.topology.topology import Topology
 from sharc.topology.topology_macrocell import TopologyMacrocell
 from sharc.mask.spectral_mask_3gpp import SpectralMask3Gpp
@@ -856,6 +857,10 @@ class StationFactory(object):
             case "OMNI":
                 single_earth_station.antenna = np.array(
                     [AntennaOmni(param.antenna.gain)],
+                )
+            case "QUASI-OMNI":
+                single_earth_station.antenna = np.array(
+                    [AntennaQuasiOmni(param.antenna.gain)],
                 )
             case "ITU-R S.465":
                 single_earth_station.antenna = np.array(

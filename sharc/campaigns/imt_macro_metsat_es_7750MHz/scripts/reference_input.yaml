@@ -123,10 +123,10 @@ imt:
             element_theta_3db: 65
             # BS/UE number of rows in antenna array
             # NOTE: From Annex 4.2 to Doc 5D/413-E, Table 10
-            n_rows: 16
+            n_rows: 8
             # BS/UE number of columns in antenna array
             # NOTE: From Annex 4.2 to Doc 5D/413-E, Table 10
-            n_columns: 8
+            n_columns: 16
             # BS/UE array horizontal element spacing (d/lambda)
             # NOTE: From Annex 4.2 to Doc 5D/413-E, Table 10
             element_horiz_spacing: 0.5

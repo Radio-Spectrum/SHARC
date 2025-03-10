@@ -5,24 +5,24 @@ from sharc.post_processor import PostProcessor
 from sharc.results import Results
 
 # List of values for 'y' (distance) and 'elevation'
-y_values = [100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 1100]  # Example values for 'y'
-sys_bandwidth = [1]  # Example values for 'elevation'
+y_values = [300, 400, 500, 600, 700, 800, 900, 1000, 1100, 1200, 1300, 1400, 1500, 1600]  # Example values for 'y'
+elevations = [30]  # Example values for 'elevation'
 
 post_processor = PostProcessor()
 
 # Function to dynamically add legends
-def add_plot_legends(y_values, sys_bandwidth):
+def add_plot_legends(y_values, elevations):
     for y in y_values:
-        for bw in sys_bandwidth:
-            dir_pattern = f"y_{y}_sysbandwidth_{bw}"
-            legend = f"Dist(m)={y} and bandwidth(MHz)={bw}"
+        for elevation in elevations:
+            dir_pattern = f"y_{y}_elevation_{elevation}"
+            legend = f"Dist(m)={y} and elevation={elevation}"
             post_processor.add_plot_legend_pattern(
                 dir_name_contains=dir_pattern,
                 legend=legend
             )
 
 # Add legends dynamically
-add_plot_legends(y_values, sys_bandwidth)
+add_plot_legends(y_values, elevations)
 
 # Base directory for the results
 campaign_base_dir = str((Path(__file__) / ".." / "..").resolve())
@@ -36,8 +36,8 @@ for result in many_results:
     # Get the result directory name
     result_dir = os.path.basename(result.output_directory)
     for y in y_values:
-        for bw in sys_bandwidth:
-            dir_pattern = f"y_{y}_sysbandwidth_{bw}"
+        for elevation in elevations:
+            dir_pattern = f"y_{y}_elevation_{elevation}"
             if dir_pattern in result_dir:
                 filtered_results.append(result)
                 break

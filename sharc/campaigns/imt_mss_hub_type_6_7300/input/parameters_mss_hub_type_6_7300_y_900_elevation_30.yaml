@@ -12,11 +12,11 @@ imt:
   topology:
     type: MACROCELL                               # Topology: SINGLE_BS, MACROCELL, HOTSPOT, INDOOR, etc.
     macrocell:
-      intersite_distance: 692.8                   # Intersite distance [m] D = sqrt(3)*R, R = 400 m, D = 692.8 m (aproximado)
-      wrap_around: FALSE                          # Wrap-around topology
+      intersite_distance: 600                   # Intersite distance [m] D = sqrt(3)*R, R = 400 m, D = 692.8 m (aproximado)
+      wrap_around: TRUE                          # Wrap-around topology
       num_clusters: 1                             # Number of clusters     
                                                   # Cell radius in meters
-  minimum_separation_distance_bs_ue: 0.5          # Minimum 2D distance between BS and UE [m]
+  minimum_separation_distance_bs_ue: 35          # Minimum 2D distance between BS and UE [m]
   interfered_with: FALSE                          # Defines if IMT suffers interference (TRUE) or generates interference (FALSE) 
   frequency: 7300.0                               # IMT center frequency [MHz] ->(Attachament 6 Sharing between the mobile satellite service (space-to-Earth) (see No. 5.461) in the frequency band 7 250-7 375 MHz and IMT operating in the frequency band 7 125-8 400 MHz)
   bandwidth: 100                                  # IMT bandwidth [MHz]
@@ -27,14 +27,14 @@ imt:
   guard_band_ratio: 0.1                           # Guard band ratio relative to the total bandwidth
   bs:
     load_probability: 0.2                 # Load probability (BS activity factor) # NOTE: From Annex 4.2 to Doc 5D/413-E, Section 6 # For wide area, .2 # For smaller area, max. of .5
-    conducted_power: 37                           # Conducted power per antenna element [dBm/band]
+    conducted_power: 22                           # Conducted power per antenna element [dBm/band]
     height: 18                                    # BS height [m] 
     noise_figure: 6                               # BS noise figure [dB] (6 dB (Wide Area BS) 11 dB (Medium Range BS) 14 dB (Local Area BS)) from table 4 Annex 4.2 Doc 5D/413-E 15 october 2024
     noise_temperature: 290                        # Noise temperature [K]
     ohmic_loss: 0                                 # BS array ohmic loss [dB] NOTE: Table 10 Note 2 specifies element_gain already includes ohmic loss
     antenna:
       normalization: FALSE                        # Whether normalization should be applied
-      normalization_file: antenna/beamforming_normalization/bs_norm.npz
+      # normalization_file: antenna/beamforming_normalization/bs_norm.npz
       element_pattern: M2101                      # Element radiation pattern: M2101, F1336, FIXED
       minimum_array_gain: -200                    # Minimum array gain [dBi]
       downtilt: 6                                 # Mechanical downtilt [degrees]
@@ -42,7 +42,7 @@ imt:
       element_phi_3db: 90                         # Horizontal 3dB beamwidth [degrees]
       element_theta_3db: 65                       # Vertical 3dB beamwidth [degrees]
       n_rows: 8                                   # Number of rows in the array
-      n_columns: 8                                # Number of columns in the array
+      n_columns: 16                                # Number of columns in the array
       element_horiz_spacing: 0.5                  # Horizontal element spacing (d/lambda)
       element_vert_spacing: 2.1                   # Vertical element spacing (d/lambda)
       element_am: 30                              # Front-to-back ratio [dB]
@@ -58,10 +58,10 @@ imt:
                 element_vert_spacing: 0.7
                 # Sub array eletrical downtilt [deg]
                 eletrical_downtilt: 3.0
-  uplink:
-    attenuation_factor: 0.4                       # Uplink attenuation factor
-    sinr_min: -10                                 # Minimum uplink SINR [dB]
-    sinr_max: 22                                  # Maximum uplink SINR [dB]
+  # uplink:
+  #  attenuation_factor: 0.4                       # Uplink attenuation factor
+  #  sinr_min: -10                                 # Minimum uplink SINR [dB]
+  #  sinr_max: 22                                  # Maximum uplink SINR [dB]
   ue:
     k: 3                                          # Number of UEs allocated per cell (considering 3 sectors in macrocell)
     k_m: 1                                        # Multiplication factor to ensure UE distribution
@@ -94,7 +94,7 @@ imt:
       element_sla_v: 25                           # Vertical sidelobe attenuation [dB]
       multiplication_factor: 12                   # Multiplication factor for pattern adjustment
   downlink:
-    attenuation_factor: 0.8                        # Downlink attenuation factor
+    attenuation_factor: 0.6                       # Downlink attenuation factor
     sinr_min: -10                                 # Minimum downlink SINR [dB]
     sinr_max: 30                                  # Maximum downlink SINR [dB]
   uplink:
@@ -120,10 +120,8 @@ single_earth_station:
   geometry:
     height: 1                                  # Antenna height [m]
     azimuth:
-      type: UNIFORM_DIST                         # Azimuth distribution type
-      uniform_dist:
-        min: -180
-        max: 180
+      type: FIXED                             # Azimuth distribution type
+      fixed: 180                              # Azimuth angle [degrees]
     elevation:
       type: FIXED
       fixed: 30                          # Placeholder for elevation value
@@ -136,3 +134,19 @@ single_earth_station:
     pattern: OMNI                               # Antenna radiation pattern
     gain: 9.7                                   # Antenna gain [dBi]
   channel_model: P452
+  param_p425:
+    atmospheric_pressure: 1017                  # Total air pressure [hPa]
+    air_temperature: 293.15                      # Air temperature [K]
+    N0: 352.58                                # Sea-level surface refractivity 
+    delta_N: 60                               # Average radio-refractive
+    percentage_p: 0.2                         # percentage p. Float (0 to 100) or RANDOM
+    Dct: 101                                  # Distance over land from the transmit and receive antennas to the coast (km)
+    Dcr: 100                                  # Distance over sea from the transmit and receive antennas to the coast (km)
+    Hte: 18                                  # Effective height of interfering antenna
+    Hre: 1                                   # Effective height of interfered-with antenna (m)   
+    tx_lat: 10.0                              # Latitude of the transmitter (degrees)
+    rx_lat: 11.0                              # Latitude of the receiver (degrees)
+    polarization: horizontal                  # Antenna polarization. Possible values are "horizontal", "vertical"
+    clutter_loss: TRUE                        # Enable clutter loss
+
+

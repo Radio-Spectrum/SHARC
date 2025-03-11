@@ -5,7 +5,7 @@ from sharc.post_processor import PostProcessor
 from sharc.results import Results
 
 # List of values for 'y' (distance) and 'elevation'
-y_values = [300, 400, 500, 600, 700, 800, 900, 1000, 1100, 1200, 1300, 1400, 1500, 1600]  # Example values for 'y'
+y_values = list(range(1700, 3400, 100))  # Example values for 'y'
 elevations = [30]  # Example values for 'elevation'
 
 post_processor = PostProcessor()

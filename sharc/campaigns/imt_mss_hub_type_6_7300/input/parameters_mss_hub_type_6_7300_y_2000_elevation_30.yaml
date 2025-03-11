@@ -7,7 +7,7 @@ general:
   seed: 101                                       # Seed for the random number generator
   overwrite_output: FALSE                         # If FALSE, creates a new output directory
   output_dir: campaigns/imt_mss_hub_type_6_7300/output/   # Output directory (relative to the SHARC/sharc folder)
-  output_dir_prefix: output_imt_mss_hub_type_6_7300_y_600_elevation_30 # Output directory prefix
+  output_dir_prefix: output_imt_mss_hub_type_6_7300_y_2000_elevation_30 # Output directory prefix
 imt:
   topology:
     type: MACROCELL                               # Topology: SINGLE_BS, MACROCELL, HOTSPOT, INDOOR, etc.
@@ -129,7 +129,7 @@ single_earth_station:
       type: FIXED
       fixed:
         x: 0
-        y: 600                                    # Placeholder for y value
+        y: 2000                                    # Placeholder for y value
   antenna:
     pattern: OMNI                               # Antenna radiation pattern
     gain: 9.7                                   # Antenna gain [dBi]

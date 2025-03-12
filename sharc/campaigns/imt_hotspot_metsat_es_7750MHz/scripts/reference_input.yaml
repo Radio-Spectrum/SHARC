@@ -188,7 +188,7 @@ imt:
         # Regarding the distribution of active UE's over the cell area, this
         # parameter models the distance between UE's and BS.
         # Possible values: RAYLEIGH, UNIFORM
-        distribution_distance: UNIFORM
+        distribution_distance: RAYLEIGH
         # Regarding the distribution of active UE's over the cell area, this
         # parameter models the azimuth between UE and BS (within ±60° range).
         # Possible values: NORMAL, UNIFORM

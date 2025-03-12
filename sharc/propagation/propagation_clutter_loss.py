@@ -1,12 +1,13 @@
 # -*- coding: utf-8 -*-
 
-from sharc.propagation.propagation import Propagation
-from sharc.support.enumerations import StationType
+import math
 
+import matplotlib.pyplot as plt
 import numpy as np
 import scipy
-import math
-import matplotlib.pyplot as plt
+
+from sharc.propagation.propagation import Propagation
+from sharc.support.enumerations import StationType
 
 
 class PropagationClutterLoss(Propagation):
@@ -82,12 +83,17 @@ class PropagationClutterLoss(Propagation):
             f = f * np.ones(d.shape)
 
         if isinstance(loc_per, str) and loc_per.upper() == "RANDOM":
-            p = self.random_number_gen.random_sample(d.shape)
+            p  =  self.random_number_gen.random_sample(d.shape)
+            p2 =  self.random_number_gen.random_sample(d.shape)
         else:
-            p = loc_per * np.ones(d.shape)
+            p  = loc_per * np.ones(d.shape)
+            p2 = loc_per * np.ones(d.shape)
+            
+        
 
         if type is StationType.IMT_BS or type is StationType.IMT_UE or type is StationType.FSS_ES:
-            loss = self.get_terrestrial_clutter_loss(f, d, p)
+            loss = self.get_terrestrial_clutter_loss(f, d, p, True)
+            loss += self.get_terrestrial_clutter_loss(f, d, p2, False)
         else:
             theta = kwargs["elevation"]
             loss = self.get_spacial_clutter_loss(f, theta, p)
@@ -181,6 +187,8 @@ class PropagationClutterLoss(Propagation):
         f = frequency.reshape((-1, 1))
         p = loc_percentage.reshape((-1, 1))
 
+        
+
         sigma_l = 4.0
         sigma_s = 6.0
 
@@ -193,6 +201,8 @@ class PropagationClutterLoss(Propagation):
         else:
             # minimum path length for the correction to be applied at both ends of the path
             id_d = np.where(d >= 250)[0]
+            
+       
 
         if len(id_d):
             Ll = -2.0 * \
@@ -217,7 +227,7 @@ class PropagationClutterLoss(Propagation):
             id_max = np.where(loss >= loss_2km)[0]
             loss[id_max] = loss_2km[id_max]
 
-        loss *= 2
+        #loss *= 2
         loss = loss.reshape(distance.shape)
 
         return loss

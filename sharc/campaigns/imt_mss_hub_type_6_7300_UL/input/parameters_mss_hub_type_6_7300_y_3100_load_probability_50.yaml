@@ -1,0 +1,152 @@
+general:
+  num_snapshots: 1000                             # Number of simulation snapshots
+  imt_link: UPLINK                              # IMT link to be simulated (DOWNLINK or UPLINK)
+  system: SINGLE_EARTH_STATION                    # System chosen for the sharing study
+  enable_cochannel: TRUE                          # Enable co-channel interference
+  enable_adjacent_channel: FALSE                  # Enable adjacent channel interference
+  seed: 101                                       # Seed for the random number generator
+  overwrite_output: FALSE                         # If FALSE, creates a new output directory
+  output_dir: campaigns/imt_mss_hub_type_6_7300_UL/output/   # Output directory (relative to the SHARC/sharc folder)
+  output_dir_prefix: output_imt_mss_hub_type_6_UL_7300_y_3100_load_probability_50 # Output directory prefix
+imt:
+  topology:
+    type: MACROCELL                               # Topology: SINGLE_BS, MACROCELL, HOTSPOT, INDOOR, etc.
+    macrocell:
+      intersite_distance: 600                   # Intersite distance [m] D = sqrt(3)*R, R = 400 m, D = 692.8 m (aproximado)
+      wrap_around: TRUE                          # Wrap-around topology
+      num_clusters: 1                             # Number of clusters     
+                                                  # Cell radius in meters
+  minimum_separation_distance_bs_ue: 35          # Minimum 2D distance between BS and UE [m]
+  interfered_with: FALSE                          # Defines if IMT suffers interference (TRUE) or generates interference (FALSE) 
+  frequency: 7300.0                               # IMT center frequency [MHz] ->(Attachament 6 Sharing between the mobile satellite service (space-to-Earth) (see No. 5.461) in the frequency band 7 250-7 375 MHz and IMT operating in the frequency band 7 125-8 400 MHz)
+  bandwidth: 100                                  # IMT bandwidth [MHz]
+  rb_bandwidth: 0.180                             # Resource Block bandwidth [MHz]
+  adjacent_antenna_model: SINGLE_ELEMENT          # Antenna model for adjacent interference: SINGLE_ELEMENT or BEAMFORMING
+  spectral_mask: "IMT-2020"                    # Spectral mask: "IMT-2020" or "3GPP E-UTRA"
+  spurious_emissions: -13                         # Spurious emissions level [dBm/MHz]
+  guard_band_ratio: 0.1                           # Guard band ratio relative to the total bandwidth
+  bs:
+    load_probability: 0.5                # Load probability (BS activity factor) # NOTE: From Annex 4.2 to Doc 5D/413-E, Section 6 # For wide area, .2 # For smaller area, max. of .5
+    conducted_power: 22                           # Conducted power per antenna element [dBm/band]
+    height: 18                                    # BS height [m] 
+    noise_figure: 6                               # BS noise figure [dB] (6 dB (Wide Area BS) 11 dB (Medium Range BS) 14 dB (Local Area BS)) from table 4 Annex 4.2 Doc 5D/413-E 15 october 2024
+    noise_temperature: 290                        # Noise temperature [K]
+    ohmic_loss: 0                                 # BS array ohmic loss [dB] NOTE: Table 10 Note 2 specifies element_gain already includes ohmic loss
+    antenna:
+      normalization: FALSE                        # Whether normalization should be applied
+      # normalization_file: antenna/beamforming_normalization/bs_norm.npz
+      element_pattern: M2101                      # Element radiation pattern: M2101, F1336, FIXED
+      minimum_array_gain: -200                    # Minimum array gain [dBi]
+      downtilt: 6                                 # Mechanical downtilt [degrees]
+      element_max_g: 6.4                            # Maximum element gain [dBi]
+      element_phi_3db: 90                         # Horizontal 3dB beamwidth [degrees]
+      element_theta_3db: 65                       # Vertical 3dB beamwidth [degrees]
+      n_rows: 8                                   # Number of rows in the array
+      n_columns: 16                                # Number of columns in the array
+      element_horiz_spacing: 0.5                  # Horizontal element spacing (d/lambda)
+      element_vert_spacing: 2.1                   # Vertical element spacing (d/lambda)
+      element_am: 30                              # Front-to-back ratio [dB]
+      element_sla_v: 30                           # Vertical sidelobe attenuation [dB]
+      multiplication_factor: 12                   # Multiplication factor for pattern adjustment
+      subarray:
+                # NOTE: if subarray is enabled, element definition will mostly come from
+                # the above definitions
+                is_enabled: true
+                # Rows per subarray
+                n_rows: 3
+                # Sub array element spacing (d/lambda).
+                element_vert_spacing: 0.7
+                # Sub array eletrical downtilt [deg]
+                eletrical_downtilt: 3.0
+  # uplink:
+  #  attenuation_factor: 0.4                       # Uplink attenuation factor
+  #  sinr_min: -10                                 # Minimum uplink SINR [dB]
+  #  sinr_max: 22                                  # Maximum uplink SINR [dB]
+  ue:
+    k: 3                                          # Number of UEs allocated per cell (considering 3 sectors in macrocell)
+    k_m: 1                                        # Multiplication factor to ensure UE distribution
+    indoor_percent: 70                             # Percentage of indoor UEs [%]
+    distribution_type: UNIFORM                    # UE distribution type: UNIFORM or ANGLE_AND_DISTANCE
+    distribution_distance: RAYLEIGH               # Distance distribution: RAYLEIGH or UNIFORM
+    distribution_azimuth: NORMAL                  # Azimuth distribution: NORMAL or UNIFORM
+    tx_power_control: ON                          # UE power control: ON or OFF
+    p_o_pusch: -92.2                                # Target power per RB [dBm]
+    alpha: 0.8                                      # Balancing factor for UEs with good and bad channels
+    p_cmax: 23                                    # Maximum UE transmission power [dBm]
+    power_dynamic_range: 56                       # Power dynamic range [dB]
+    height: 1.5                                   # UE height [m]
+    noise_figure: 13                               # UE noise figure [dB] (from table 4 Annex 4.2 Doc 5D/413-E 15 october 2024)
+    ohmic_loss: 0                                 # UE ohmic loss [dB]
+    body_loss: 4                                  # UE body loss [dB]
+    antenna:
+      normalization: FALSE                        # Whether normalization should be applied for UE
+      normalization_file: antenna/beamforming_normalization/ue_norm.npz
+      element_pattern: FIXED                        # UE element radiation pattern
+      minimum_array_gain: -200                     # Minimum array gain [dBi]
+      element_max_g: -4                            # Maximum element gain [dBi]
+      element_phi_3db: 180                         # Horizontal 3dB beamwidth [degrees]
+      element_theta_3db: 360                         # Vertical 3dB beamwidth [degrees]
+      n_rows: 1                                   # Number of rows in the UE array
+      n_columns: 1                                # Number of columns in the UE array
+      element_horiz_spacing: 0.5                  # Horizontal element spacing (d/lambda)
+      element_vert_spacing: 0.5                   # Vertical element spacing (d/lambda)
+      element_am: 25                              # Front-to-back ratio [dB]
+      element_sla_v: 25                           # Vertical sidelobe attenuation [dB]
+      multiplication_factor: 12                   # Multiplication factor for pattern adjustment
+  downlink:
+    attenuation_factor: 0.6                       # Downlink attenuation factor
+    sinr_min: -10                                 # Minimum downlink SINR [dB]
+    sinr_max: 30                                  # Maximum downlink SINR [dB]
+  uplink:
+      # Uplink attenuation factor used in link-to-system mapping
+      # NOTE: From Annex 4.2 to Doc 5D/413-E, Table 3
+    attenuation_factor: 0.4
+      # Uplink minimum SINR of the code set [dB]
+      # NOTE: From Annex 4.2 to Doc 5D/413-E, Table 3
+    sinr_min: -10
+        # Uplink maximum SINR of the code set [dB]
+        # NOTE: From Annex 4.2 to Doc 5D/413-E, Table 3
+    sinr_max: 22
+    # Downlink parameters. Only needed when using donwlink on imt
+  channel_model: UMa                             # Channel model: FSPL, CI, UMa, UMi, etc.
+  shadowing: TRUE                                # Enable shadowing
+ 
+single_earth_station:
+  frequency: 7300                               # Frequency [MHz]
+  bandwidth: 1                                   # Bandwidth fixed at 1 MHz
+  noise_temperature: 250                        # Noise temperature [K]
+  tx_power_density: 0                           # Transmit power spectral density [dBW/Hz]
+  adjacent_ch_selectivity: 20.0                  # Adjacent channel selectivity [dB]
+  geometry:
+    height: 1                                  # Antenna height [m]
+    azimuth:
+      type: FIXED                             # Azimuth distribution type
+      fixed: 180                              # Azimuth angle [degrees]
+    elevation:
+      type: FIXED
+      fixed: 30                             # Placeholder for elevation value
+    location:
+      type: FIXED
+      fixed:
+        x: 0
+        y: 3100                                    # Placeholder for y value
+  antenna:
+    pattern: OMNI                               # Antenna radiation pattern
+    gain: 9.7                                   # Antenna gain [dBi]
+  channel_model: P452
+  param_p425:
+    atmospheric_pressure: 1017                  # Total air pressure [hPa]
+    air_temperature: 293.15                      # Air temperature [K]
+    N0: 352.58                                # Sea-level surface refractivity 
+    delta_N: 60                               # Average radio-refractive
+    percentage_p: 0.2                         # percentage p. Float (0 to 100) or RANDOM
+    Dct: 101                                  # Distance over land from the transmit and receive antennas to the coast (km)
+    Dcr: 100                                  # Distance over sea from the transmit and receive antennas to the coast (km)
+    Hte: 18                                  # Effective height of interfering antenna
+    Hre: 1                                   # Effective height of interfered-with antenna (m)   
+    tx_lat: 10.0                              # Latitude of the transmitter (degrees)
+    rx_lat: 11.0                              # Latitude of the receiver (degrees)
+    polarization: horizontal                  # Antenna polarization. Possible values are "horizontal", "vertical"
+    clutter_loss: TRUE                        # Enable clutter loss
+
+

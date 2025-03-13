@@ -21,7 +21,7 @@ imt:
     type: MACROCELL                               # Topology: SINGLE_BS, MACROCELL, HOTSPOT, INDOOR, etc.
     macrocell:
       intersite_distance: 600                   # Intersite distance [m] D = sqrt(3)*R, R = 400 m, D = 692.8 m (aproximado)
-      wrap_around: TRUE                          # Wrap-around topology
+      wrap_around: FALSE                          # Wrap-around topology
       num_clusters: 1                             # Number of clusters     
                                                   # Cell radius in meters
   minimum_separation_distance_bs_ue: 35          # Minimum 2D distance between BS and UE [m]
@@ -66,10 +66,10 @@ imt:
                 element_vert_spacing: 0.7
                 # Sub array eletrical downtilt [deg]
                 eletrical_downtilt: 3.0
-  # uplink:
-  #  attenuation_factor: 0.4                       # Uplink attenuation factor
-  #  sinr_min: -10                                 # Minimum uplink SINR [dB]
-  #  sinr_max: 22                                  # Maximum uplink SINR [dB]
+    uplink:
+     attenuation_factor: 0.4                       # Uplink attenuation factor
+     sinr_min: -10                                 # Minimum uplink SINR [dB]
+     sinr_max: 22                                  # Maximum uplink SINR [dB]
   ue:
     k: 3                                          # Number of UEs allocated per cell (considering 3 sectors in macrocell)
     k_m: 1                                        # Multiplication factor to ensure UE distribution

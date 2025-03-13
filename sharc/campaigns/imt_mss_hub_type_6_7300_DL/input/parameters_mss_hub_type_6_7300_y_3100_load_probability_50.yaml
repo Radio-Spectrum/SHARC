@@ -13,7 +13,7 @@ imt:
     type: MACROCELL                               # Topology: SINGLE_BS, MACROCELL, HOTSPOT, INDOOR, etc.
     macrocell:
       intersite_distance: 600                   # Intersite distance [m] D = sqrt(3)*R, R = 400 m, D = 692.8 m (aproximado)
-      wrap_around: TRUE                          # Wrap-around topology
+      wrap_around: FALSE                          # Wrap-around topology
       num_clusters: 1                             # Number of clusters     
                                                   # Cell radius in meters
   minimum_separation_distance_bs_ue: 35          # Minimum 2D distance between BS and UE [m]

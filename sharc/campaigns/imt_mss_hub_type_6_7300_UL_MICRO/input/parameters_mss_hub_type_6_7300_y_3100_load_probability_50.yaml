@@ -13,10 +13,10 @@ imt:
     type: HOTSPOT                               # Topology: SINGLE_BS, MACROCELL, HOTSPOT, INDOOR, etc.
     hotspot:
       intersite_distance: 600                   # Intersite distance [m] D = sqrt(3)*R, R = 400 m, D = 692.8 m (aproximado)
-      wrap_around: TRUE                          # Wrap-around topology
+      wrap_around: FALSE                          # Wrap-around topology
       num_clusters: 1                             # Number of clusters
-      num_hotspots_per_cell: 1                    # Number of hotspots per macro cell (sector)
-      max_dist_hotspot_ue: 400                   # Maximum 2D distance between hotspot and UE [m]
+      num_hotspots_per_cell: 3                    # Number of hotspots per macro cell (sector)
+      max_dist_hotspot_ue: 70                    # Maximum 2D distance between hotspot and UE [m]
       min_dist_bs_hotspot: 0                     # Minimum 2D distance between macro cell base station and hotspot [m]
                                                  
   minimum_separation_distance_bs_ue: 35           # Minimum 2D distance between BS and UE [m]
@@ -31,8 +31,8 @@ imt:
   bs:
     load_probability: 0.5                # Load probability (BS activity factor) # NOTE: From Annex 4.2 to Doc 5D/413-E, Section 6 # For wide area, .2 # For smaller area, max. of .5
     conducted_power: 22                           # Conducted power per antenna element [dBm/band]
-    height: 18                                    # BS height [m] 
-    noise_figure: 6                               # BS noise figure [dB] (6 dB (Wide Area BS) 11 dB (Medium Range BS) 14 dB (Local Area BS)) from table 4 Annex 4.2 Doc 5D/413-E 15 october 2024
+    height: 6                                    # BS height [m] 
+    noise_figure: 14                               # BS noise figure [dB] (6 dB (Wide Area BS) 11 dB (Medium Range BS) 14 dB (Local Area BS)) from table 4 Annex 4.2 Doc 5D/413-E 15 october 2024
     noise_temperature: 290                        # Noise temperature [K]
     ohmic_loss: 0                                 # BS array ohmic loss [dB] NOTE: Table 10 Note 2 specifies element_gain already includes ohmic loss
     antenna:

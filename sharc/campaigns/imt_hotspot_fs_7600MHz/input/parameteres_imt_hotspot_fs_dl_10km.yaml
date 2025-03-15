@@ -295,9 +295,9 @@ fs:
     ###########################################################################
     # x-coordinate of the center of the FS earth station [m]
     # NOTE: Assumed
-    x: 1000
+    x: 10000
     ###########################################################################
-    x: 1000
+    x: 10000
     # NOTE: Frequency for Cochanel interference
     # NOTE: From annex 4.2 to Doc 5D/563-E, Figure 4
     frequency: 7600

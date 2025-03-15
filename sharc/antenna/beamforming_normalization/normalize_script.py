@@ -95,7 +95,7 @@ if __name__ == "__main__":
     minimum_array_gain = -200
     downtilt = 0
 
-    file_names = ["bs_norm_8x8_050.npz"]
+    file_names = ["bs_norm_8x8_macro.npz", "bs_norm_8x8_hotspot.npz"]
     param_list = [
         AntennaPar(
             adjacent_antenna_model,
@@ -113,7 +113,25 @@ if __name__ == "__main__":
             element_vert_spacing,
             multiplication_factor,
             minimum_array_gain,
-            downtilt,
+            6,
+        ),
+        AntennaPar(
+            adjacent_antenna_model,
+            normalization,
+            normalization_data,
+            element_pattern,
+            element_max_g,
+            element_phi_3db,
+            element_theta_3db,
+            element_am,
+            element_sla_v,
+            n_rows,
+            n_columns,
+            element_horiz_spacing,
+            element_vert_spacing,
+            multiplication_factor,
+            minimum_array_gain,
+            10,
         ),
     ]
     ###########################################################################

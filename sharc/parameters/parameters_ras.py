@@ -11,4 +11,4 @@ class ParametersRas(ParametersSingleEarthStation):
     Simulation parameters for Radio Astronomy Service
     """
     section_name: str = "ras"
-    polarization_loss: float = 0.0
+    polarization_loss: float = 3.0

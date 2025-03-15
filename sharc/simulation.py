@@ -36,6 +36,8 @@ class Simulation(ABC, Observable):
             self.param_system = self.parameters.eess_ss
         elif self.parameters.general.system == "SINGLE_EARTH_STATION":
             self.param_system = self.parameters.single_earth_station
+        elif self.parameters.general.system == "SINGLE_SPACE_STATION":
+            self.param_system = self.parameters.single_space_station
         elif self.parameters.general.system == "FSS_SS":
             self.param_system = self.parameters.fss_ss
         elif self.parameters.general.system == "FSS_ES":

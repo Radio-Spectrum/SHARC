@@ -83,11 +83,12 @@ class PropagationClutterLoss(Propagation):
 
         if isinstance(loc_per, str) and loc_per.upper() == "RANDOM":
             p = self.random_number_gen.random_sample(d.shape)
+            p2 = self.random_number_gen.random_sample(d.shape)
         else:
             p = loc_per * np.ones(d.shape)
 
         if type is StationType.IMT_BS or type is StationType.IMT_UE or type is StationType.FSS_ES:
-            loss = self.get_terrestrial_clutter_loss(f, d, p)
+            loss = self.get_terrestrial_clutter_loss(f, d, p, False) + self.get_terrestrial_clutter_loss(f, d, p2, True) 
         else:
             theta = kwargs["elevation"]
             loss = self.get_spacial_clutter_loss(f, theta, p)
@@ -217,7 +218,7 @@ class PropagationClutterLoss(Propagation):
             id_max = np.where(loss >= loss_2km)[0]
             loss[id_max] = loss_2km[id_max]
 
-        loss *= 2
+        #loss *= 2
         loss = loss.reshape(distance.shape)
 
         return loss

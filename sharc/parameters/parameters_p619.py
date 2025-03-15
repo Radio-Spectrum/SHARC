@@ -24,10 +24,7 @@ class ParametersP619(ParametersBase):
     space_station_alt_m: float = 20000.0
     earth_station_alt_m: float = 0.0
     earth_station_lat_deg: float = 0.0
-    earth_station_long_diff_deg: float = 0.0
     season: str = "SUMMER"
-    shadowing: bool = True
-    noise_temperature: float = 290.0
 
     def load_from_paramters(self, param: ParametersBase):
         """Used to load parameters of P.619 from IMT or system parameters

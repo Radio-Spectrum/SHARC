@@ -266,7 +266,7 @@ if __name__ == '__main__':
     param.max_dist_hotspot_ue = 60
     param.min_dist_bs_hotspot = 0
 
-    intersite_distance = 339.81
+    intersite_distance = 450
 
     num_clusters = 1
     topology = TopologyHotspot(param, intersite_distance, num_clusters)
@@ -288,6 +288,6 @@ if __name__ == '__main__':
     plt.tight_layout()
 
     axes = plt.gca()
-    axes.set_xlim([-1500, 1000])
+    axes.set_xlim([-1500, 1500])
 
     plt.show()

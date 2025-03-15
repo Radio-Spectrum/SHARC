@@ -115,10 +115,19 @@ class TopologyMacrocell(Topology):
             self.x, self.y, color='k', edgecolor="k",
             linewidth=4, label="Macro cell",
         )
+        # ax.scatter(
+        #     [3000], [0], color='r', edgecolor="r",
+        #     linewidth=4, label="ES (Earth Station)",
+        # )
+        # ax.plot(
+        #     [0, 450], [-40, -40], color='b', marker='|'
+        # )
+        # ax.set_xticks([-450*2.5, -450*2, -450, 0, 450, 2*450, 2.5*450, (3000-2.5*400)/2+2.5*400, 3000], labels=[-450*2.5, -450*2, -450, 0, 450, 2*450, 2.5*450, "...", "d + 2.5*ISD"])
+        # ax.text((3000-2.5*400)/2+2.5*400 - (30*len("$d$ (Protection Distance)"))/2, -400, "$d$ (Protection Distance)")
 
 
 if __name__ == '__main__':
-    intersite_distance = 500
+    intersite_distance = 303
     num_clusters = 1
     topology = TopologyMacrocell(intersite_distance, num_clusters)
     topology.calculate_coordinates()

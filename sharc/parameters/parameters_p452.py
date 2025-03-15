@@ -3,6 +3,16 @@ from dataclasses import dataclass
 
 from sharc.parameters.parameters_base import ParametersBase
 
+# imt.topology.hotspot.num_clusters (ver se a distância de proteção aumenta, e por quanto)
+# imt.topology.hotspot.wrap_around (ver se algo muda)
+# imt.topology.hotspot.max_dist_hotspot_ue
+# imt.topology.hotspot.num_hotspots_per_cell
+# imt.bs.noise_figure ver de onde tira ou o que muda se altera
+# imt.minimum_separation_distance_bs_ue
+
+# possível teste: fazer simulação IMT DL e UL, agregar de acordo com o TDD de 75% DL, 25% UL
+
+# como que polarização altera como devemos fazer as simulações e considerar os resultados?
 
 @dataclass
 class ParametersP452(ParametersBase):

@@ -9,8 +9,28 @@ from sharc.support.named_tuples import AntennaPar
 from numpy import load
 import typing
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from sharc.parameters.parameters_base import ParametersBase
+
+
+@dataclass
+class ParametersAntennaSubarrayImt(ParametersBase):
+    """
+    Parameters for subarray as defined in R23-WP5D-C-0413, Annex 4.2
+    """
+    # to use subarray, set this to true
+    is_enabled: bool = False
+
+    # Number of rows in subarray
+    n_rows: int = 3
+
+    # BS array element vertical spacing (d/lambda).
+    element_vert_spacing: float = 0.5
+    # element_vert_spacing: float = 0.5
+
+    # notice that electrical tilt == -1 * downtilt
+    # Sub array eletrical downtilt [deg]
+    eletrical_downtilt: float = 3.0
 
 
 @dataclass
@@ -62,6 +82,8 @@ class ParametersAntennaImt(ParametersBase):
     multiplication_factor: int = 12
 
     adjacent_antenna_model: typing.Literal["BEAMFORMING", "SINGLE_ELEMENT"] = None
+
+    subarray: ParametersAntennaSubarrayImt = field(default_factory=ParametersAntennaSubarrayImt)
 
     def load_subparameters(self, ctx: str, params: dict, quiet=True):
         """

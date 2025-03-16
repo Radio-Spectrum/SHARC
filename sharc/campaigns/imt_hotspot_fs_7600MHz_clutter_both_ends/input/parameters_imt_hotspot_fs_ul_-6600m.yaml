@@ -2,10 +2,10 @@
 general:
     ###########################################################################
     # Number of simulation snapshots
-    num_snapshots: 3000
+    num_snapshots: 100
     ###########################################################################
     # IMT link that will be simulated (DOWNLINK or UPLINK)
-    imt_link: DOWNLINK
+    imt_link: UPLINK
     ###########################################################################
     # The chosen system for sharing study
     # EESS_PASSIVE, FSS_SS, FSS_ES, FS, RAS, SINGLE_EARTH_STATION
@@ -21,10 +21,10 @@ general:
     # if FALSE, then a new output directory is created
     overwrite_output: FALSE
     # output destination folder - this is relative SHARC/sharc directory
-    output_dir  : campaigns/imt_hotspot_fs_7600MHz/output_dl/
+    output_dir: campaigns/imt_hotspot_fs_7600MHz_clutter_both_ends/output/
     ###########################################################################
     # output folder prefix
-    output_dir_prefix  : output_imt_hotspot_fs_7600MHz_dl_1km
+    output_dir_prefix: output_imt_hotspot_fs_7600MHz_clutter_both_ends_ul_-6600m
 
 imt:
     # Minimum 2D separation distance from BS to UE [m]
@@ -85,7 +85,7 @@ imt:
         # NOTE: From Annex 4.2 to Doc 5D/413-E, Section 6
         # For wide area, .2
         # For smaller area, max. of .5
-        load_probability: .2
+        load_probability: .5
         # Conducted power per antenna element [dBm/bandwidth]
         # NOTE: From Annex 4.2 to Doc 5D/413-E, Table 10 (1.9)
         # Macro (sub)urban = 22
@@ -288,22 +288,22 @@ imt:
     shadowing: TRUE
     # Line of sight adjustment factor. Original value, per 3GPP, is 18
     los_adjustment_factor: 18
+    # receiver noise temperature [K]
+    noise_temperature: 290
 
 
 #### System Parameters
 fs:
     ###########################################################################
-    # x-coordinate of the center of the FS earth station [m]
+    # x-y coordinates of the center of the FS earth station [m]
     # NOTE: Assumed
-    x: 10000
-    ###########################################################################
-    x: 10000
+    x: -6600
+    y: 0
     # NOTE: Frequency for Cochanel interference
-    # NOTE: From annex 4.2 to Doc 5D/563-E, Figure 4
     frequency: 7600
     ###########################################################################
     # Bandwidth of the system [MHz]
-    # Note: from annex 4.2 to Doc 5D/563-E, Section 3.1.2
+    # Annex 4.4 to Document 5D/563-E - Table 1
     bandwidth: 40
     ###########################################################################
     # Antenna Height [m]
@@ -320,15 +320,15 @@ fs:
     ###########################################################################
     # System receive noise temperature [K]
     # NOTE: assumed
-    noise_temperature: 290
+    noise_temperature: 292
     ###########################################################################
     # Peak transmit power spectral density (clear sky) [dBW/Hz]
     # NOTE: From annex 4.2 to Doc 5D/563-E, Table 1
     # 3 - 60 - 10*log10(30) => -71
-    tx_power_density: -71
+    # tx_power_density: -71
     ###########################################################################
     # Adjacent channel selectivity [dB]
-    adjacent_ch_selectivity: 20.0
+    # adjacent_ch_selectivity: 20.0
     ###########################################################################
     # Antenna peak gain [dBi]
     # NOTE: From annex 4.2 to Doc 5D/563-E, Table 1
@@ -341,7 +341,7 @@ fs:
     # Diameter of the antenna [m]
     # NOTE: From annex 4.2 to Doc 5D/563-E, Table 1
     # 20*logD/lambda = 36 - 7.7 => D = 1.13964
-    antenna_diameter: 1.13964
+    antenna_diameter: 1.136
     ###########################################################################
     channel_model: P452
     param_p452:
@@ -368,21 +368,28 @@ fs:
       Dcr: 100
       ###########################################################################
       # Effective height of interfering antenna (m)
-      Hte: 18
+      Hte: 6
       ###########################################################################
       # Effective height of interfered-with antenna (m)
-      Hre: 7
+      Hre: 20
       ###########################################################################
-      # Latitude of transmitter
-      tx_lat: 10
+      ##Latitude of transmitter
+      tx_lat: -23.55028
       ###########################################################################
-      # Latitude of receiver
-      rx_lat: 11
+      #Latitude of receiver
+      rx_lat: -23.17889
       ###########################################################################
       # Antenna polarization. Possible values are "horizontal", "vertical"
       polarization: horizontal
       ###########################################################################
       # determine whether clutter loss following ITU-R P.2108 is added (TRUE/FALSE)
       clutter_loss: TRUE
+      ###########################################################################
+        # If clutter loss clutter = True define type: 'one_end','both_ends'
+      type_clutter: both_ends
+        # If clutter loss clutter = True define percentage of clutter in side 1 and 2
+      p_clutter_1: 100
+      p_clutter_2: 100
+
 
 

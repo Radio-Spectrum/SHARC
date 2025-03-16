@@ -1,5 +1,4 @@
 from sharc.results import Results
-from sharc.antenna.antenna import Antenna
 
 from dataclasses import dataclass, field
 import plotly.graph_objects as go
@@ -7,7 +6,6 @@ import os
 import numpy as np
 import scipy
 import typing
-import pathlib
 
 
 class FieldStatistics:
@@ -180,7 +178,7 @@ class PostProcessor:
             "title": "[SYS] IMT to system path loss",
         },
         "system_dl_interf_power": {
-            "x_label": "Interference Power [dBm/BMHz]",
+            "x_label": "Interference Power [dBm/MHz]",
             "title": "[SYS] system interference power from IMT DL",
         },
         "imt_system_diffraction_loss": {
@@ -213,15 +211,7 @@ class PostProcessor:
         },
         "system_ul_interf_power": {
             "title": "[SYS] system interference power from IMT UL",
-            "x_label": "Interference Power [dBm/BMHz]",
-        },
-        "system_ul_interf_power_per_mhz": {
-            "title": "[SYS] system interference power per MHz from IMT UL",
-            "x_label": "Interference Power [dBm/MHz]",
-        },
-        "system_dl_interf_power_per_mhz": {
-            "title": "[SYS] system interference power per MHz from IMT DL",
-            "x_label": "Interference Power [dBm/MHz]",
+            "x_label": "Interference Power [dBm]",
         },
         "system_inr": {
             "title": "[SYS] system INR",
@@ -257,22 +247,19 @@ class PostProcessor:
 
         return self
 
-    def get_results_possible_legends(self, result: Results) -> list[dict]:
-        return list(
-            filter(
-                lambda pl: pl["dir_name_contains"]
-                in os.path.basename(result.output_directory),
-                self.plot_legend_patterns,
-            )
-        )
-    
     def generate_cdf_plots_from_results(
         self, results: list[Results], *, n_bins=200
     ) -> list[go.Figure]:
         figs: dict[str, list[go.Figure]] = {}
 
         for res in results:
-            possible_legends_mapping = self.get_results_possible_legends(res)
+            possible_legends_mapping = list(
+                filter(
+                    lambda pl: pl["dir_name_contains"]
+                    in os.path.basename(res.output_directory),
+                    self.plot_legend_patterns,
+                )
+            )
 
             if len(possible_legends_mapping):
                 legend = possible_legends_mapping[0]["legend"]
@@ -305,81 +292,11 @@ class PostProcessor:
                         yaxis=dict(tickmode="array", tickvals=[0, 0.25, 0.5, 0.75, 1]),
                         xaxis=dict(tickmode="linear", dtick=5),
                         legend_title="Labels",
-                        meta={"related_results_attribute": attr_name, "plot_type": "cdf"},
+                        meta={"related_results_attribute": attr_name},
                     )
 
                 # TODO: take this fn as argument, to plot more than only cdf's
                 x, y = PostProcessor.cdf_from(attr_val, n_bins=n_bins)
-
-                fig = figs[attr_name]
-
-                fig.add_trace(
-                    go.Scatter(
-                        x=x,
-                        y=y,
-                        mode="lines",
-                        name=f"{legend}",
-                    ),
-                )
-
-        return figs.values()
-
-    def generate_ccdf_plots_from_results(
-        self, results: list[Results], *, n_bins=200, cutoff_percentage=0.01
-    ) -> list[go.Figure]:
-        """
-        Generates ccdf plots for results added to instance, in log scale
-        cutoff_percentage: useful for cutting off
-        """
-        figs: dict[str, list[go.Figure]] = {}
-
-        for res in results:
-            possible_legends_mapping = self.get_results_possible_legends(res)
-
-            if len(possible_legends_mapping):
-                legend = possible_legends_mapping[0]["legend"]
-            else:
-                legend = res.output_directory
-
-            attr_names = res.get_relevant_attributes()
-
-            next_tick = 1
-            ticks_at = []
-            while next_tick > cutoff_percentage:
-                ticks_at.append(next_tick)
-                next_tick /= 10
-            ticks_at.append(cutoff_percentage)
-            ticks_at.reverse()
-
-            for attr_name in attr_names:
-                attr_val = getattr(res, attr_name)
-                if not len(attr_val):
-                    continue
-                if attr_name not in PostProcessor.RESULT_FIELDNAME_TO_PLOT_INFO:
-                    print(
-                        f"[WARNING]: {attr_name} is not a plottable field, because it does not have a configuration set on PostProcessor."
-                    )
-                    continue
-                attr_plot_info = PostProcessor.RESULT_FIELDNAME_TO_PLOT_INFO[attr_name]
-                if attr_plot_info == PostProcessor.IGNORE_FIELD:
-                    print(
-                        f"[WARNING]: {attr_name} is currently being ignored on plots."
-                    )
-                    continue
-                if attr_name not in figs:
-                    figs[attr_name] = go.Figure()
-                    figs[attr_name].update_layout(
-                        title=f'CCDF Plot for {attr_plot_info["title"]}',
-                        xaxis_title=attr_plot_info["x_label"],
-                        yaxis_title="$\\text{P } I > X$",
-                        yaxis=dict(tickmode="array", tickvals=ticks_at, type="log", range=[np.log10(cutoff_percentage), 0]),
-                        xaxis=dict(tickmode="linear", dtick=5),
-                        legend_title="Labels",
-                        meta={"related_results_attribute": attr_name, "plot_type": "ccdf"},
-                    )
-
-                # TODO: take this fn as argument, to plot more than only cdf's
-                x, y = PostProcessor.ccdf_from(attr_val, n_bins=n_bins)
 
                 fig = figs[attr_name]
 
@@ -419,16 +336,14 @@ class PostProcessor:
 
         return filtered_results[0]
 
-    def get_plot_by_results_attribute_name(self, attr_name: str, *, plot_type="cdf") -> go.Figure:
+    def get_plot_by_results_attribute_name(self, attr_name: str) -> go.Figure:
         """
         You can get a plot using an attribute name from Results.
         See Results class to check what attributes exist.
-        plot_type: 'cdf', 'ccdf'
         """
         filtered = list(
             filter(
-                lambda x: x.layout.meta["related_results_attribute"] == attr_name and
-                    x.layout.meta["plot_type"] == plot_type,
+                lambda x: x.layout.meta["related_results_attribute"] == attr_name,
                 self.plots,
             )
         )
@@ -473,9 +388,6 @@ class PostProcessor:
                 + f"ul_tdd_factor must be in interval [0, 1], but is {ul_tdd_factor}"
             )
 
-        # % Define os fatores de segmento
-        # SF_LG = round(4*204248/(7*19*3*1));
-        # SF_SM = round(4*105/(7*19*3*1));
         segment_factor = round(n_bs_actual / n_bs_sim)
 
         dl_tdd_factor = 1 - ul_tdd_factor
@@ -491,11 +403,6 @@ class PostProcessor:
 
         for i in range(n_aggregate):
             # choose S random samples
-            # % Define os índices para o Monte Carlo
-            # Ind_DL_LG = round(rand(N,floor(SF_LG))*(N-1))+1;
-            # Ind_UL_LG = round(rand(N,floor(SF_LG))*(N-1))+1;
-            # Ind_DL_SM = round(rand(N,floor(SF_SM))*(N-1))+1;
-            # Ind_UL_SM = round(rand(N,floor(SF_SM))*(N-1))+1; 
             ul_random_indexes = np.floor(
                 random_number_gen.random(size=segment_factor)
                 * len(ul_samples)
@@ -509,14 +416,12 @@ class PostProcessor:
             if ul_tdd_factor:
                 for j in ul_random_indexes:  # random samples
                     aggregate_samples[i] += (
-                        # % Define as variáveis de INR (linear)
                         np.power(10, ul_samples[int(j)] / 10) * ul_tdd_factor
                     )
 
             if dl_tdd_factor:
                 for j in dl_random_indexes:  # random samples
                     aggregate_samples[i] += (
-                        # % Define as variáveis de INR (linear)
                         np.power(10, dl_samples[int(j)] / 10) * dl_tdd_factor
                     )
 
@@ -543,89 +448,9 @@ class PostProcessor:
         return (x, y)
 
     @staticmethod
-    def ccdf_from(data: list[float], *, n_bins=200) -> (list[float], list[float]):
-        """
-        Takes a dataset and returns both axis of a ccdf (x, y)
-        """
-        x, y = PostProcessor.cdf_from(data, n_bins=n_bins)
-
-        return (x, 1 - y)
-
-    @staticmethod
-    def save_plots(
-        dir: str,
-        plots: list[go.Figure],
-        *,
-        width=1200,
-        height=800
-    ) -> None:
-        """
-        dir: A directory path on which to save the plot files
-        plots: Figures to save. They are saved by their name
-        """
-        pathlib.Path(dir).mkdir(parents=True, exist_ok=True)
-
-        for plot in plots:
-            # TODO: check if reset to previous state is functional
-            # so much state used in this post processor, should def. migrate
-            # post processing to Haskell (obv. not rly)
-            prev_autosize = plot.layout.autosize
-            prev_width = plot.layout.width
-            prev_height = plot.layout.height
-
-            plot.update_layout(
-                autosize=False,
-                width=width,
-                height=height
-            )
-
-            plot.write_image(os.path.join(dir, f"{plot.layout.title.text}.jpg"))
-
-            plot.update_layout(
-                autosize=prev_autosize,
-                width=prev_width,
-                height=prev_height
-            )
-
-    @staticmethod
     def generate_statistics(result: Results) -> ResultsStatistics:
         return ResultsStatistics().load_from_results(result)
 
     @staticmethod
     def generate_sample_statistics(fieldname: str, sample: list[float]) -> ResultsStatistics:
         return FieldStatistics().load_from_sample(fieldname, sample)
-
-    @staticmethod
-    def generate_antenna_radiation_pattern_plot(
-        *,
-        antenna: Antenna,
-        legend: str,
-        plot_title: str,
-        plot: typing.Union[go.Figure, typing.Literal[None]] = None
-    ) -> go.Figure:
-        phi = np.linspace(0.1, 100, num=100000)
-        gain = antenna.calculate_gain(off_axis_angle_vec=phi)
-
-        if plot is None:
-            plot = go.Figure()
-            plot.update_layout(
-                title=plot_title,
-                xaxis_title=r"Off-axis angle &#934; [deg]",
-                yaxis_title="Gain [dBi]",
-                yaxis=dict(tickmode="linear", dtick=5),
-                xaxis=dict(type="log"),
-                legend_title="Labels",
-            )
-
-        trace = go.Scatter(
-                x=phi,
-                y=gain,
-                mode="lines",
-                name=legend
-            )
-
-        plot.add_trace(
-            trace,
-        )
-
-        return plot

@@ -1,0 +1,427 @@
+general:
+    ###########################################################################
+    # Number of simulation snapshots
+    num_snapshots: 5000
+    ###########################################################################
+    # IMT link that will be simulated (DOWNLINK or UPLINK)
+    imt_link: UPLINK
+    ###########################################################################
+    # The chosen system for sharing study
+    # EESS_PASSIVE, FSS_SS, FSS_ES, FS, RAS, SINGLE_EARTH_STATION
+    system: FS
+    ###########################################################################
+    # Compatibility scenario (co-channel and/or adjacent channel interference)
+    enable_cochannel: TRUE
+    enable_adjacent_channel: FALSE
+    ###########################################################################
+    # Seed for random number generator
+    seed: 101
+    ###########################################################################
+    # if FALSE, then a new output directory is created
+    overwrite_output: FALSE
+    
+    # output destination folder - this is relative SHARC/sharc directory
+    output_dir: campaigns/FS_var_dist_clutter_both_ends_statitics/output    ###########################################################################
+    # output folder prefix
+    output_dir_prefix: output_imt_macro_FS_var_dist_clutter_both_ends_statitics_ul_-11600m
+imt:
+    # Minimum 2D separation distance from BS to UE [m]
+    # NOTE: From 3GPP TS 38.104 v.18.6.0, based on BS class
+    minimum_separation_distance_bs_ue: 35
+    # Defines if IMT service is the interferer or interfered-with service
+    #   TRUE: IMT suffers interference
+    #   FALSE : IMT generates interference
+    interfered_with: FALSE
+    # IMT center frequency [MHz]
+    # NOTE: this parameter is updated by the script to be eq to system frequency
+    frequency: 7600
+    # IMT bandwidth [MHz]
+    # NOTE: From Annex 4.2 to Doc 5D/413-E, Table 4
+    bandwidth: 100
+    # IMT resource block bandwidth [MHz]
+    # NOTE: From Annex 4.2 to Doc 5D/413-E, Table 6-2, Note 3
+    rb_bandwidth: 0.180
+    # @important NOTE: if adjacent band is used, we need to implement other mask
+    spectral_mask: IMT-2020
+    # level of spurious emissions [dBm/MHz]
+    # NOTE: could be -13 (Class A) or -30 (class B)
+    # @important NOTE: if unwanted emissions are to be used,
+    # spurious emission start frequency needs to be set on the new spectral mask
+    spurious_emissions: -13
+    # Defines the antenna model to be used in compatibility studies between
+    # IMT and other services in adjacent band
+    # Possible values: SINGLE_ELEMENT, BEAMFORMING
+    adjacent_antenna_model: SINGLE_ELEMENT
+    # NOTE: assumed guard band ratio
+    guard_band_ratio: 0.1
+    # Network topology parameters.
+    topology:
+        # Topology Type. Possible values are "MACROCELL", "HOTSPOT", "SINGLE_BS"
+        # "INDOOR"
+        type: MACROCELL
+        # Macrocell Topology parameters. Relevant when imt.topology.type == "MACROCELL"
+        macrocell:
+            ###########################################################################
+            # Inter-site distance in macrocell network topology [m]
+            intersite_distance: 600
+            ###########################################################################
+            # Enable wrap around.
+            wrap_around: false
+            ###########################################################################
+            # Number of clusters in macro cell topology
+            num_clusters: 1
+        ###########################################################################
+    # Base station parameters
+    bs:
+        # NOTE: From Annex 4.2 to Doc 5D/413-E, Section 6
+        # For wide area, .2
+        # For smaller area, max. of .5
+        load_probability: .5
+        # Conducted power per antenna element [dBm/bandwidth]
+        # NOTE: From Annex 4.2 to Doc 5D/413-E, Table 10 (1.9)
+        # Macro (sub)urban = 22
+        # Small cell indoor/Micro urban = 16
+        conducted_power: 22
+        # Base station height [m]
+        # NOTE: From Annex 4.2 to Doc 5D/413-E, Table 6-1
+        # Urban/Suburban macro: 18m urban, 20m suburban
+        # Small cell (outdoor)/Micro cell: 6m
+        # Indoor (small cell): 3m
+        height: 18
+        # Base station noise figure [dB]
+        # NOTE: From Annex 4.2 to Doc 5D/413-E, Table 4
+        # Wide area: 6
+        # Medium: 11
+        # Local: 14
+        noise_figure: 11
+        # Base station array ohmic loss  [dB]
+        # NOTE: Table 10 Note 2 specifies element_gain already includes ohmic loss
+        ohmic_loss: 0
+        # Base Station Antenna parameters:
+        antenna:
+            # If normalization of M2101 should be applied for BS
+            normalization: FALSE
+            # Radiation pattern of each antenna element
+            # Possible values: "M2101", "F1336", "FIXED"
+            # TODO: use AAS extended model
+            element_pattern: M2101
+            # Minimum array gain for the beamforming antenna [dBi]
+            minimum_array_gain: -200
+            # mechanical downtilt [degrees]
+            # NOTE: From Annex 4.2 to Doc 5D/413-E, Table 10
+            downtilt: 3
+            # BS/UE maximum transmit/receive element gain [dBi]
+            # NOTE: From Annex 4.2 to Doc 5D/413-E, Table 10
+            element_max_g: 6.4
+            # BS/UE horizontal 3dB beamwidth of single element [degrees]
+            # NOTE: From Annex 4.2 to Doc 5D/413-E, Table 10
+            element_phi_3db: 90
+            # BS/UE vertical 3dB beamwidth of single element [degrees]
+            # NOTE: From Annex 4.2 to Doc 5D/413-E, Table 10
+            element_theta_3db: 65
+            # BS/UE number of rows in antenna array
+            # NOTE: From Annex 4.2 to Doc 5D/413-E, Table 10
+            n_rows: 8
+            # BS/UE number of columns in antenna array
+            # NOTE: From Annex 4.2 to Doc 5D/413-E, Table 10
+            n_columns: 16
+            # BS/UE array horizontal element spacing (d/lambda)
+            # NOTE: From Annex 4.2 to Doc 5D/413-E, Table 10
+            element_horiz_spacing: 0.5
+            # BS/UE array vertical element spacing (d/lambda)
+            # NOTE: From Annex 4.2 to Doc 5D/413-E, Table 10
+            # NOTE: Small cell outdoor/micro urban uses = 0.7
+            # NOTE: With new antenna model, macrocell should = 2.1
+            element_vert_spacing: 2.1
+            # BS/UE front to back ratio of single element [dB]
+            # NOTE: From Annex 4.2 to Doc 5D/413-E, Table 10
+            element_am: 30
+            # BS/UE single element vertical sidelobe attenuation [dB]
+            # NOTE: From Annex 4.2 to Doc 5D/413-E, Table 10
+            element_sla_v: 30
+            # Multiplication factor k that is used to adjust the single-element pattern.
+            # According to Report ITU-R M.[IMT.AAS], this may give a closer match of the 
+            # side lobes when beamforming is assumed in adjacent channel.
+            #       Original value: 12 (Rec. ITU-R M.2101)
+            # NOTE: assumed
+            multiplication_factor: 12
+           ###########################################################################
+            # Subarray for IMT as defined in R23-WP5D-C-0413, Annex 4.2
+            # Single column sub array
+            subarray:
+                # NOTE: if subarray is enabled, element definition will mostly come from
+                # the above definitions
+                is_enabled: true
+                # Rows per subarray
+                n_rows: 3
+                # Sub array element spacing (d/lambda).
+                element_vert_spacing: 0.7
+                # Sub array eletrical downtilt [deg]
+                eletrical_downtilt: 3.0
+             #######################################################################
+
+    ue:
+        # Number of UEs that are allocated to each cell within handover margin.
+        # Remember that in macrocell network each base station has 3 cells (sectors)
+        # NOTE: From Annex 4.2 to Doc 5D/413-E, Table 6-2
+        k: 3
+        # Multiplication factor that is used to ensure that the sufficient number
+        # of UE's will distributed throughout ths system area such that the number
+        # of K users is allocated to each cell. Normally, this values varies
+        # between 2 and 10 according to the user drop method
+        # NOTE: assumed
+        k_m: 1
+        # Percentage of indoor UE's [%]
+        # NOTE: From Annex 4.2 to Doc 5D/413-E, Table 6-2
+        indoor_percent: 70
+        # Regarding the distribution of active UE's over the cell area, this
+        # parameter states how the UEs will be distributed
+        # Possible values: UNIFORM : UEs will be uniformly distributed within the
+        #                            whole simulation area. Not applicable to
+        #                            hotspots.
+        #                  ANGLE_AND_DISTANCE : UEs will be distributed following
+        #                                   given distributions for angle and
+        #                                   distance. In this case, these must be
+        #                                   defined later.
+        distribution_type: UNIFORM
+        # Regarding the distribution of active UE's over the cell area, this
+        # parameter models the distance between UE's and BS.
+        # Possible values: RAYLEIGH, UNIFORM
+        distribution_distance: UNIFORM
+        # Regarding the distribution of active UE's over the cell area, this
+        # parameter models the azimuth between UE and BS (within ±60° range).
+        # Possible values: NORMAL, UNIFORM
+        distribution_azimuth: NORMAL
+        # Power control algorithm
+        # tx_power_control = "ON",power control On
+        # tx_power_control = "OFF",power control Off
+        # NOTE: From Annex 4.2 to Doc 5D/413-E, Table 6-2
+        tx_power_control: ON
+        # Power per RB used as target value [dBm]
+        # NOTE: From Annex 4.2 to Doc 5D/413-E, Table 6-2
+        # Macrocell: -92.2
+        # Micro/indoor: -87.2
+        p_o_pusch: -92.2
+        # Alfa is the balancing factor for UEs with bad channel
+        # and UEs with good channel
+        # NOTE: From Annex 4.2 to Doc 5D/413-E, Table 6-2
+        alpha: 0.8
+        # Maximum UE transmit power [dBm]
+        # NOTE: From Annex 4.2 to Doc 5D/413-E, Table 6-2
+        p_cmax: 23
+        # UE power dynamic range [dB]
+        # The minimum transmit power of a UE is (p_cmax - dynamic_range)
+        # NOTE: From Annex 4.2 to Doc 5D/413-E, Table 4
+        power_dynamic_range: 56
+        # UE height [m]
+        # NOTE: From Annex 4.2 to Doc 5D/413-E, Table 6-2
+        height: 1.5
+        # User equipment noise figure [dB]
+        # NOTE: From Annex 4.2 to Doc 5D/413-E, Table 4
+        noise_figure: 13
+        # User equipment feed loss [dB]
+        ohmic_loss: 0
+        # User equipment body loss [dB]
+        # NOTE: From Annex 4.2 to Doc 5D/413-E, Table 6-2
+        body_loss: 4
+        # NOTE: UE antenna radiation pattern is isotropic
+        antenna:
+            # If normalization of M2101 should be applied for UE
+            normalization: FALSE
+            # Radiation pattern of each antenna element
+            # Possible values: "M2101", "F1336", "FIXED"
+            element_pattern: FIXED
+            # Minimum array gain for the beamforming antenna [dBi]
+            minimum_array_gain: -200
+            # BS/UE maximum transmit/receive element gain [dBi]
+            #                           = 15, for M.2292
+            # default: element_max_g = 5, for M.2101
+            #                           = -3, for M.2292
+            # NOTE: From Annex 4.2 to Doc 5D/413-E, Table 6-2
+            element_max_g: -4
+            # BS/UE horizontal 3dB beamwidth of single element [degrees]
+            element_phi_3db: 180
+            # BS/UE vertical 3dB beamwidth of single element [degrees]
+            element_theta_3db: 360
+            # BS/UE number of rows in antenna array
+            n_rows: 1
+            # BS/UE number of columns in antenna array
+            n_columns: 1
+            # BS/UE front to back ratio of single element [dB]
+            element_am: 25
+            # BS/UE single element vertical sidelobe attenuation [dB]
+            element_sla_v: 25
+            # Multiplication factor k that is used to adjust the single-element pattern.
+            # According to Report ITU-R M.[IMT.AAS], this may give a closer match of the 
+            # side lobes when beamforming is assumed in adjacent channel.
+            #       Original value: 12 (Rec. ITU-R M.2101)
+            multiplication_factor: 12
+    # Uplink parameters. Only needed when using uplink on imt
+    uplink:
+        # Uplink attenuation factor used in link-to-system mapping
+        # NOTE: From Annex 4.2 to Doc 5D/413-E, Table 3
+        attenuation_factor: 0.4
+        # Uplink minimum SINR of the code set [dB]
+        # NOTE: From Annex 4.2 to Doc 5D/413-E, Table 3
+        sinr_min: -10
+        # Uplink maximum SINR of the code set [dB]
+        # NOTE: From Annex 4.2 to Doc 5D/413-E, Table 3
+        sinr_max: 22
+    # Downlink parameters. Only needed when using donwlink on imt
+    downlink:
+        # Downlink attenuation factor used in link-to-system mapping
+        # NOTE: From Annex 4.2 to Doc 5D/413-E, Table 3
+        attenuation_factor: 0.6
+        # Downlink minimum SINR of the code set [dB]
+        # NOTE: From Annex 4.2 to Doc 5D/413-E, Table 3
+        sinr_min: -10
+        # Downlink maximum SINR of the code set [dB]
+        # NOTE: From Annex 4.2 to Doc 5D/413-E, Table 3
+        sinr_max: 30
+    
+    ###########################################################################
+    # Uplink parameters. Only needed when using uplink on imt
+    uplink:
+        ###########################################################################
+        # Uplink attenuation factor used in link-to-system mapping
+        attenuation_factor: 0.4
+        ###########################################################################
+        # Uplink minimum SINR of the code set [dB]
+        sinr_min: -10
+        ###########################################################################
+        # Uplink maximum SINR of the code set [dB]
+        sinr_max: 22
+    ###########################################################################
+    # Downlink parameters. Only needed when using donwlink on imt
+    downlink:
+        ###########################################################################
+        # Downlink attenuation factor used in link-to-system mapping
+        attenuation_factor: 0.6
+        ###########################################################################
+        # Downlink minimum SINR of the code set [dB]
+        sinr_min: -10
+        ###########################################################################
+        # Downlink maximum SINR of the code set [dB]
+        sinr_max: 30
+    ###########################################################################
+    # Channel parameters
+    # channel model, possible values are "FSPL" (free-space path loss),
+    #                                    "CI" (close-in FS reference distance)
+    #                                    "UMa" (Urban Macro - 3GPP)
+    #                                    "UMi" (Urban Micro - 3GPP)
+    #                                    "TVRO-URBAN"
+    #                                    "TVRO-SUBURBAN"
+    #                                    "ABG" (Alpha-Beta-Gamma)
+    #                                    "P619"
+    channel_model: UMa
+    season: SUMMER
+    ###########################################################################
+    # Adjustment factor for LoS probability in UMi path loss model.
+    #       Original value: 18 (3GPP)
+    los_adjustment_factor: 18
+    ###########################################################################
+    # If shadowing should be applied or not.
+    # Used in propagation UMi, UMa, ABG, when topology == indoor and any 
+    shadowing: FALSE
+    ###########################################################################
+    # receiver noise temperature [K]
+    noise_temperature: 290
+    ###########################################################################
+    
+fs:
+    ###########################################################################
+    # x-y coordinates [m]
+    x: -11600
+    y: 0
+    ###########################################################################
+    # antenna height [m]
+    height: 20
+    ###########################################################################
+    # Elevation angle [deg]
+    elevation: 0
+    ###########################################################################
+    # Azimuth angle [deg]
+    azimuth: 0
+    ###########################################################################
+    # center frequency [MHz]
+    frequency: 7600
+    ###########################################################################
+    # bandwidth [MHz]
+    bandwidth: 40
+    ###########################################################################
+    # System receive noise temperature [K]
+    noise_temperature: 292
+    ###########################################################################
+    # adjacent channel selectivity (dB)
+    #adjacent_ch_selectivity: 20
+    ###########################################################################
+    # Peak transmit power spectral density (clear sky) [dBW/Hz]
+    #tx_power_density: -57
+    ###########################################################################
+    # antenna peak gain [dBi]
+    antenna_gain: 36
+    ###########################################################################
+    # Antenna pattern of the fixed wireless service
+    # Possible values: "ITU-R F.699", "OMNI"
+    antenna_pattern: ITU-R F.1245
+    ###########################################################################
+    # Diameter of antenna [m]
+    diameter: 1.136
+    ###########################################################################
+    # Channel parameters
+    # channel model, possible values are "FSPL" (free-space path loss),
+    #                                    "TerrestrialSimple" (FSPL + clutter loss)
+    channel_model: P452
+    ###########################################################################
+    # Constants
+    BOLTZMANN_CONSTANT: 1.38064852e-23
+    EARTH_RADIUS: 6371000
+# P452 parameters
+    ###########################################################################
+    # Total air pressure in hPa
+    atmospheric_pressure: 1017
+    ###########################################################################
+    # Temperature in Kelvin
+    air_temperature: 293.15
+    ###########################################################################
+    #Sea-level surface refractivity (use the map)
+    N0: 352.58
+    ###########################################################################
+    #Average radio-refractive (use the map)
+    delta_N: 60
+    ###########################################################################
+    #percentage p. Float (0 to 100) or RANDOM
+    percentage_p: 0.2
+    ###########################################################################
+    #Distance over land from the transmit and receive antennas to the coast (km)
+    Dct: 101
+    ###########################################################################
+    #Distance over land from the transmit and receive antennas to the coast (km)
+    Dcr: 100
+    ###########################################################################
+    ##Effective height of interfering antenna (m)
+    Hte: 18
+    ###########################################################################
+    #Effective height of interfered-with antenna (m)
+    Hre: 20
+    ###########################################################################
+    ##Latitude of transmitter
+    tx_lat: -23.55028
+    ###########################################################################
+    #Latitude of receiver
+    rx_lat: -23.17889
+    ###########################################################################
+    #Antenna polarization
+    polarization: horizontal
+    ###########################################################################
+    #determine whether clutter loss following ITU-R P.2108 is added (TRUE/FALSE)
+    clutter_loss: TRUE
+    ###########################################################################
+            # If clutter loss clutter = True define type: 'one_end','both_ends'
+    type_clutter: both_ends
+        # If clutter loss clutter = True define percentage of clutter in side 1 and 2
+    p_clutter_1: 65
+    p_clutter_2: 100
+    ###########################################################################
+    
+

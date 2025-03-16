@@ -43,7 +43,6 @@ class AntennaS672(Antenna):
 
     def calculate_gain(self, *args, **kwargs) -> np.array:
         psi = np.absolute(kwargs["off_axis_angle_vec"])
-        print("psi", psi)
 
         gain = np.zeros(len(psi))
 
@@ -71,7 +70,7 @@ if __name__ == '__main__':
     param = ParametersFssSs()
     param.antenna_gain = 50
     param.antenna_pattern = "ITU-R S.672-4"
-    param.antenna_3_dB = 20
+    param.antenna_3_dB = 2
     psi = np.linspace(1, 30, num=1000)
 
     param.antenna_l_s = -20

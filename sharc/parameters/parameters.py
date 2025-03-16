@@ -19,7 +19,6 @@ from sharc.parameters.parameters_haps import ParametersHaps
 from sharc.parameters.parameters_rns import ParametersRns
 from sharc.parameters.parameters_ras import ParametersRas
 from sharc.parameters.parameters_single_earth_station import ParametersSingleEarthStation
-from sharc.parameters.parameters_single_space_station import ParametersSingleSpaceStation
 
 
 class Parameters(object):
@@ -33,7 +32,6 @@ class Parameters(object):
         self.general = ParametersGeneral()
         self.imt = ParametersImt()
         self.eess_ss = ParametersEessSS()
-        self.single_space_station = ParametersSingleSpaceStation()
         self.fs = ParametersFs()
         self.fss_ss = ParametersFssSs()
         self.fss_es = ParametersFssEs()
@@ -80,7 +78,7 @@ class Parameters(object):
         #######################################################################
         # FSS earth station
         #######################################################################
-        self.fss_es.load_parameters_from_file(self.file_name)
+#        self.fss_es.load_parameters_from_file(self.file_name)
 
         #######################################################################
         # Fixed wireless service
@@ -100,7 +98,7 @@ class Parameters(object):
         #######################################################################
         # RAS station
         #######################################################################
-        self.ras.load_parameters_from_file(self.file_name)
+#        self.ras.load_parameters_from_file(self.file_name)
 
         #######################################################################
         # EESS passive
@@ -108,7 +106,6 @@ class Parameters(object):
         self.eess_ss.load_parameters_from_file(self.file_name)
 
         self.single_earth_station.load_parameters_from_file(self.file_name)
-        self.single_space_station.load_parameters_from_file(self.file_name)
 
 
 if __name__ == "__main__":

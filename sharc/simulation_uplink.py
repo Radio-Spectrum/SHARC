@@ -283,9 +283,6 @@ class SimulationUplink(Simulation):
             self.results.system_ul_interf_power.extend(
                 [self.system.rx_interference],
             )
-            self.results.system_ul_interf_power_per_mhz.extend(
-                [self.system.rx_interference - 10 * math.log10(self.system.bandwidth)],
-            )
             # TODO: generalize this a bit more if needed
             if hasattr(self.system.antenna[0], "effective_area") and self.system.num_stations == 1:
                 self.results.system_pfd.extend([self.system.pfd])

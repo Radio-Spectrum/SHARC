@@ -5,9 +5,8 @@ Created on Fri Apr 14 14:13:58 2017
 @author: Calil
 """
 
-import sys
-
 import numpy as np
+import sys
 
 from sharc.support.named_tuples import AntennaPar
 
@@ -162,10 +161,8 @@ class AntennaElementImtF1336(object):
 
 if __name__ == '__main__':
 
+    from sharc.parameters.imt.parameters_antenna_imt import ParametersAntennaImt
     from matplotlib import pyplot as plt
-
-    from sharc.parameters.imt.parameters_antenna_imt import \
-        ParametersAntennaImt
 
     param = ParametersAntennaImt()
 

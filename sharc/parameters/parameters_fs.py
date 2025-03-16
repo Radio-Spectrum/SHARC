@@ -1,7 +1,7 @@
 from dataclasses import dataclass
-
-from sharc.parameters.parameters_p452 import ParametersP452
 from sharc.parameters.parameters_base import ParametersBase
+from sharc.parameters.parameters_p452 import ParametersP452
+
 
 
 @dataclass
@@ -52,9 +52,9 @@ class ParametersFs(ParametersBase):
 
     # Channel model, possible values are "FSPL" (free-space path loss),
     # "TerrestrialSimple" (FSPL + clutter loss)
-    channel_model: str = "P452"
+    channel_model: str = "FSPL"
 
-    # P452 parameters
+# P452
     param_p452 = ParametersP452()
     # Total air pressure in hPa
     atmospheric_pressure: float = 935.0
@@ -82,6 +82,11 @@ class ParametersFs(ParametersBase):
     polarization: str = "horizontal"
     # Determine whether clutter loss following ITU-R P.2108 is added (TRUE/FALSE)
     clutter_loss: bool = True
+    type_clutter: str = "both_ends"
+    p_clutter_1 = 100
+    p_clutter_2 = 100
+
+
     def load_parameters_from_file(self, config_file: str):
         """
         Load the parameters from a file and run a sanity check.
@@ -108,15 +113,6 @@ class ParametersFs(ParametersBase):
             raise ValueError(
                 "Azimuth angle must be between 0 and 360 degrees.",
             )
+        if self.channel_model == "P452":
+            self.param_p452.load_from_paramters(self)
 
-       # if self.antenna_pattern not in ["ITU-R F.699", "OMNI"]:
-       #     raise ValueError(
-       #         f"Invalid antenna_pattern: {self.antenna_pattern}",
-       #     )
-
-        # Sanity check for channel model
-      #  if self.channel_model not in ["FSPL", "TerrestrialSimple"]:
-       #     raise ValueError(
-        #        "Invalid channel_model, must be either 'FSPL' or 'TerrestrialSimple'",
-          #  )
-        

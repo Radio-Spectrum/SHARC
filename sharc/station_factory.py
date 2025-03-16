@@ -5,58 +5,54 @@ Created on Thu Mar 23 16:37:32 2017
 @author: edgar
 """
 
-import math
-import sys
 from warnings import warn
-
 import numpy as np
+import sys
+import math
 
+from sharc.support.enumerations import StationType
+from sharc.parameters.parameters import Parameters
+from sharc.parameters.imt.parameters_imt import ParametersImt
+from sharc.parameters.imt.parameters_antenna_imt import ParametersAntennaImt
+from sharc.parameters.parameters_space_station import ParametersSpaceStation
+from sharc.parameters.parameters_eess_ss import ParametersEessSS
+from sharc.parameters.parameters_metsat_ss import ParametersMetSatSS
+from sharc.parameters.parameters_fs import ParametersFs
+from sharc.parameters.parameters_fss_ss import ParametersFssSs
+from sharc.parameters.parameters_fss_es import ParametersFssEs
+from sharc.parameters.parameters_haps import ParametersHaps
+from sharc.parameters.parameters_rns import ParametersRns
+from sharc.parameters.parameters_ras import ParametersRas
+from sharc.parameters.parameters_single_earth_station import ParametersSingleEarthStation
+from sharc.parameters.constants import EARTH_RADIUS
+from sharc.station_manager import StationManager
+from sharc.mask.spectral_mask_imt import SpectralMaskImt
 from sharc.antenna.antenna import Antenna
-from sharc.antenna.antenna_beamforming_imt import AntennaBeamformingImt
-from sharc.antenna.antenna_f699 import AntennaF699
-from sharc.antenna.antenna_f1245 import AntennaF1245
-from sharc.antenna.antenna_f1891 import AntennaF1891
 from sharc.antenna.antenna_fss_ss import AntennaFssSs
-from sharc.antenna.antenna_m1466 import AntennaM1466
-from sharc.antenna.antenna_modified_s465 import AntennaModifiedS465
 from sharc.antenna.antenna_omni import AntennaOmni
-from sharc.antenna.antenna_rra7_3 import AntennaReg_RR_A7_3
+from sharc.antenna.antenna_f699 import AntennaF699
+from sharc.antenna.antenna_f1891 import AntennaF1891
+from sharc.antenna.antenna_m1466 import AntennaM1466
 from sharc.antenna.antenna_rs1813 import AntennaRS1813
 from sharc.antenna.antenna_rs1861_9a import AntennaRS1861_9A
 from sharc.antenna.antenna_rs1861_9b import AntennaRS1861_9B
 from sharc.antenna.antenna_rs1861_9c import AntennaRS1861_9C
 from sharc.antenna.antenna_rs2043 import AntennaRS2043
 from sharc.antenna.antenna_s465 import AntennaS465
+from sharc.antenna.antenna_rra7_3 import AntennaReg_RR_A7_3
+from sharc.antenna.antenna_modified_s465 import AntennaModifiedS465
 from sharc.antenna.antenna_s580 import AntennaS580
 from sharc.antenna.antenna_s672 import AntennaS672
 from sharc.antenna.antenna_s1528 import AntennaS1528
 from sharc.antenna.antenna_s1855 import AntennaS1855
 from sharc.antenna.antenna_sa509 import AntennaSA509
-from sharc.antenna_factory import AntennaFactory
-from sharc.mask.spectral_mask_3gpp import SpectralMask3Gpp
-from sharc.mask.spectral_mask_imt import SpectralMaskImt
-from sharc.parameters.constants import EARTH_RADIUS, SPEED_OF_LIGHT
-from sharc.parameters.imt.parameters_antenna_imt import ParametersAntennaImt
-from sharc.parameters.imt.parameters_imt import ParametersImt
-from sharc.parameters.parameters import Parameters
-from sharc.parameters.parameters_eess_ss import ParametersEessSS
-from sharc.parameters.parameters_fs import ParametersFs
-from sharc.parameters.parameters_fss_es import ParametersFssEs
-from sharc.parameters.parameters_fss_ss import ParametersFssSs
-from sharc.parameters.parameters_haps import ParametersHaps
-from sharc.parameters.parameters_metsat_ss import ParametersMetSatSS
-from sharc.parameters.parameters_ras import ParametersRas
-from sharc.parameters.parameters_rns import ParametersRns
-from sharc.parameters.parameters_single_earth_station import \
-    ParametersSingleEarthStation
-from sharc.parameters.parameters_single_space_station import \
-    ParametersSingleSpaceStation
-from sharc.parameters.parameters_space_station import ParametersSpaceStation
-from sharc.station_manager import StationManager
-from sharc.support.enumerations import StationType
+from sharc.antenna.antenna_f1245 import AntennaF1245
+from sharc.antenna.antenna_beamforming_imt import AntennaBeamformingImt
 from sharc.topology.topology import Topology
-from sharc.topology.topology_factory import TopologyFactory
 from sharc.topology.topology_macrocell import TopologyMacrocell
+from sharc.mask.spectral_mask_3gpp import SpectralMask3Gpp
+
+from sharc.parameters.constants import SPEED_OF_LIGHT
 
 
 class StationFactory(object):
@@ -127,8 +123,7 @@ class StationFactory(object):
             imt_base_stations.antenna[i] = \
                 AntennaBeamformingImt(
                     param_ant, imt_base_stations.azimuth[i],
-                    imt_base_stations.elevation[i], param_ant_bs.subarray
-                )
+                    imt_base_stations.elevation[i],)
 
         # imt_base_stations.antenna = [AntennaOmni(0) for bs in range(num_bs)]
         imt_base_stations.bandwidth = param.bandwidth * np.ones(num_bs)
@@ -228,11 +223,11 @@ class StationFactory(object):
                 if param.ue.distribution_type.upper() == "CELL":
                     central_cell = True
 
-            # if not (type(topology) is TopologyMacrocell):
-            #    sys.stderr.write(
-            #        "ERROR\nUniform UE distribution is currently supported only with Macrocell topology",
-            #    )
-            #    sys.exit(1)
+            if not (type(topology) is TopologyMacrocell):
+                sys.stderr.write(
+                    "ERROR\nUniform UE distribution is currently supported only with Macrocell topology",
+                )
+                sys.exit(1)
 
             [ue_x, ue_y, theta, distance] = StationFactory.get_random_position(
                 num_ue, topology, random_number_gen,
@@ -343,7 +338,7 @@ class StationFactory(object):
         for i in range(num_ue):
             imt_ue.antenna[i] = AntennaBeamformingImt(
                 par, imt_ue.azimuth[i],
-                imt_ue.elevation[i], ue_param_ant.subarray
+                imt_ue.elevation[i],
             )
 
         # imt_ue.antenna = [AntennaOmni(0) for bs in range(num_ue)]
@@ -500,7 +495,7 @@ class StationFactory(object):
         for i in range(num_ue):
             imt_ue.antenna[i] = AntennaBeamformingImt(
                 par, imt_ue.azimuth[i],
-                imt_ue.elevation[i], ue_param_ant.subarray
+                imt_ue.elevation[i],
             )
 
         # imt_ue.antenna = [AntennaOmni(0) for bs in range(num_ue)]
@@ -545,8 +540,6 @@ class StationFactory(object):
         elif parameters.general.system == "SINGLE_EARTH_STATION":
             return StationFactory.generate_single_earth_station(parameters.single_earth_station, random_number_gen,
                                                                 StationType.SINGLE_EARTH_STATION, topology)
-        elif parameters.general.system == "SINGLE_SPACE_STATION":
-            return StationFactory.generate_single_space_station(parameters.single_space_station)
         elif parameters.general.system == "RAS":
             return StationFactory.generate_ras_station(
                                                        parameters.ras, random_number_gen,
@@ -636,91 +629,6 @@ class StationFactory(object):
         fss_space_station.total_interference = -500
 
         return fss_space_station
-
-    @staticmethod
-    def generate_single_space_station(param: ParametersSingleSpaceStation, simplify_dist_to_y=True):
-        """
-        Creates a single satellite based on parameters.
-        In case simplify_dist_to_y == True (default) satellite will be only on y axis
-        """
-        space_station = StationManager(1)
-        space_station.station_type = StationType.SINGLE_SPACE_STATION
-        space_station.is_space_station = True
-
-        # now we set the coordinates according to
-        # ITU-R P619-1, Attachment A
-
-        # calculate distances to the centre of the Earth
-        dist_sat_centre_earth_km = (EARTH_RADIUS + param.geometry.altitude) / 1000
-        dist_imt_centre_earth_km = (
-            EARTH_RADIUS + param.geometry.es_altitude
-        ) / 1000
-
-        # calculate Cartesian coordinates of satellite, with origin at centre of the Earth
-        sat_lat_rad = param.geometry.location.fixed.lat_deg * np.pi / 180.
-        imt_long_diff_rad = (param.geometry.location.fixed.long_deg - param.geometry.es_long_deg) * np.pi / 180.
-        x1 = dist_sat_centre_earth_km * \
-            np.cos(sat_lat_rad) * np.cos(imt_long_diff_rad)
-        y1 = dist_sat_centre_earth_km * \
-            np.cos(sat_lat_rad) * np.sin(imt_long_diff_rad)
-        z1 = dist_sat_centre_earth_km * np.sin(sat_lat_rad)
-
-        # rotate axis and calculate coordinates with origin at IMT system
-        imt_lat_rad = param.geometry.es_lat_deg * np.pi / 180.
-        space_station.x = np.array(
-            [x1 * np.sin(imt_lat_rad) - z1 * np.cos(imt_lat_rad)],
-        ) * 1000
-        space_station.y = np.array([y1]) * 1000
-        space_station.height = np.array([
-            (
-                z1 * np.sin(imt_lat_rad) + x1 * np.cos(imt_lat_rad) -
-                dist_imt_centre_earth_km
-            ) * 1000,
-        ])
-
-        # putting on y axis
-        if simplify_dist_to_y:
-            space_station.y = np.sqrt(space_station.x * space_station.x + space_station.y * space_station.y)
-            space_station.x = np.zeros_like(space_station.x)
-
-        if param.geometry.azimuth.type == "POINTING_AT_IMT":
-            if not simplify_dist_to_y:
-                space_station.azimuth = 180 + np.rad2deg(np.arctan2(space_station.y, space_station.x))
-            else:
-                space_station.azimuth = 270
-        elif param.geometry.azimuth.type == "FIXED":
-            space_station.azimuth = param.geometry.azimuth.fixed
-        else:
-            raise ValueError(f"Did not recognize azimuth type of {param.geometry.azimuth.type}")
-
-        if param.geometry.azimuth.type == "POINTING_AT_IMT":
-            gnd_elev = np.rad2deg(np.arctan2(
-                space_station.height,
-                np.sqrt(space_station.y * space_station.y + space_station.x * space_station.x)
-            ))
-            space_station.elevation = -gnd_elev
-        elif param.geometry.azimuth.type == "FIXED":
-            space_station.elevation = param.geometry.elevation.fixed
-        else:
-            raise ValueError(f"Did not recognize elevation type of {param.geometry.elevation.type}")
-
-        space_station.active = np.array([True])
-        space_station.tx_power = np.array(
-            [param.tx_power_density + 10 *
-                math.log10(param.bandwidth * 1e6) + 30],
-        )
-        space_station.rx_interference = -500
-
-        space_station.antenna = np.array([
-            AntennaFactory.generate_antenna(param.antenna)
-        ])
-
-        space_station.bandwidth = param.bandwidth
-        space_station.noise_temperature = param.noise_temperature
-        space_station.thermal_noise = -500
-        space_station.total_interference = -500
-
-        return space_station
 
     @staticmethod
     def generate_fss_earth_station(param: ParametersFssEs, random_number_gen: np.random.RandomState, *args):
@@ -946,9 +854,36 @@ class StationFactory(object):
                 [param.geometry.elevation.fixed],
             )
 
-        single_earth_station.antenna = np.array([
-            AntennaFactory.generate_antenna(param.antenna)
-        ])
+        match param.antenna.pattern:
+            case "OMNI":
+                single_earth_station.antenna = np.array(
+                    [AntennaOmni(param.antenna.gain)],
+                )
+            case "ITU-R S.465":
+                single_earth_station.antenna = np.array(
+                    [AntennaS465(param.antenna.itu_r_s_465)],
+                )
+            case "ITU-R Reg. RR. Appendice 7 Annex 3":
+                single_earth_station.antenna = np.array(
+                    [AntennaReg_RR_A7_3(param.antenna.itu_reg_rr_a7_3)],
+                )
+            case "ITU-R S.1855":
+                single_earth_station.antenna = np.array(
+                    [AntennaS1855(param.antenna.itu_r_s_1855)],
+                )
+            case "MODIFIED ITU-R S.465":
+                single_earth_station.antenna = np.array(
+                    [AntennaModifiedS465(param.antenna.itu_r_s_465_modified)],
+                )
+            case "ITU-R S.580":
+                single_earth_station.antenna = np.array(
+                    [AntennaS580(param.antenna.itu_r_s_580)],
+                )
+            case _:
+                sys.stderr.write(
+                    "ERROR\nInvalid FSS ES antenna pattern: " + param.antenna_pattern,
+                )
+                sys.exit(1)
 
         single_earth_station.active = np.array([True])
         single_earth_station.bandwidth = np.array([param.bandwidth])
@@ -1001,7 +936,7 @@ class StationFactory(object):
         elif param.antenna_pattern == "ITU-R F.699":
             fs_station.antenna = np.array([AntennaF699(param)])
         elif param.antenna_pattern == "ITU-R F.1245":
-            fs_station.antenna = np.array([AntennaF1245(param)])
+            fs_station.antenna = np.array([AntennaF1245(param,param)])
         else:
             sys.stderr.write(
                 "ERROR\nInvalid FS antenna pattern: " + param.antenna_pattern,
@@ -1298,42 +1233,81 @@ if __name__ == '__main__':
     # plot uniform distribution in macrocell scenario
 
     factory = StationFactory()
+    topology = TopologyMacrocell(1000, 1)
+    topology.calculate_coordinates()
 
-    file = "sharc/campaigns/imt_hotspot_metsat_es_7750MHz/input/parameter_non_gso_sat_C_and_S_5km_dl.yaml"
+    class ParamsAux(object):
+        def __init__(self):
+            self.spectral_mask = 'IMT-2020'
+            self.frequency = 10000
+            self.topology = 'MACROCELL'
+            self.ue_distribution_type = "UNIFORM_IN_CELL"
+            self.bs_height = 30
+            self.ue_height = 3
+            self.ue_indoor_percent = 0
+            self.ue_k = 3
+            self.ue_k_m = 1
+            self.bandwidth = np.random.rand()
+            self.ue_noise_figure = np.random.rand()
+            self.minimum_separation_distance_bs_ue = 200
+            self.spurious_emissions = -30
+            self.intersite_distance = 1000
 
-    params = Parameters()
-    params.set_file_name(file)
-    params.read_params()
+    params = ParamsAux()
 
-    random_number_gen = np.random.RandomState(1)
+    bs_ant_param = ParametersAntennaImt()
 
-    topology = TopologyFactory.createTopology(params)
-    topology.calculate_coordinates(random_number_gen)
+    bs_ant_param.adjacent_antenna_model = "SINGLE_ELEMENT"
+    bs_ant_param.element_pattern = "F1336"
+    bs_ant_param.element_max_g = 5
+    bs_ant_param.element_phi_3db = 65
+    bs_ant_param.element_theta_3db = 65
+    bs_ant_param.element_am = 30
+    bs_ant_param.element_sla_v = 30
+    bs_ant_param.n_rows = 8
+    bs_ant_param.n_columns = 8
+    bs_ant_param.element_horiz_spacing = 0.5
+    bs_ant_param.element_vert_spacing = 0.5
+    bs_ant_param.downtilt = 10
+    bs_ant_param.multiplication_factor = 12
+    bs_ant_param.minimum_array_gain = -200
 
-    imt_ue = StationFactory.generate_imt_ue(
-        params.imt,
-        params.imt.ue.antenna,
-        topology, random_number_gen,
-    )
+    ue_ant_param = ParametersAntennaImt()
+
+    ue_ant_param.element_pattern = "FIXED"
+    ue_ant_param.element_max_g = 5
+    ue_ant_param.element_phi_3db = 90
+    ue_ant_param.element_theta_3db = 90
+    ue_ant_param.element_am = 25
+    ue_ant_param.element_sla_v = 25
+    ue_ant_param.n_rows = 4
+    ue_ant_param.n_columns = 4
+    ue_ant_param.element_horiz_spacing = 0.5
+    ue_ant_param.element_vert_spacing = 0.5
+    ue_ant_param.multiplication_factor = 12
+    ue_ant_param.minimum_array_gain = -200
+
+    ue_ant_param.normalization = False
+    bs_ant_param.normalization = False
+
+    rnd = np.random.RandomState(1)
+
+    imt_ue = factory.generate_imt_ue(params, ue_ant_param, topology, rnd)
+
     fig = plt.figure(
         figsize=(8, 8), facecolor='w',
         edgecolor='k',
     )  # create a figure object
     ax = fig.add_subplot(1, 1, 1)  # create an axes object in the figure
 
-    ax.scatter(
-        imt_ue.x, imt_ue.y, color='b', edgecolor="b",
-        linewidth=1, label="UE",
-    )
-
     topology.plot(ax)
 
     plt.axis('image')
-    plt.title("topology")
+    plt.title("Macro cell topology")
     plt.xlabel("x-coordinate [m]")
     plt.ylabel("y-coordinate [m]")
 
-    # plt.plot(imt_ue.x, imt_ue.y, "r.")
+    plt.plot(imt_ue.x, imt_ue.y, "r.")
 
     plt.tight_layout()
     plt.show()

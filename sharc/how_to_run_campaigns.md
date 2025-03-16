@@ -21,10 +21,10 @@
     ```ini
     ###########################################################################
     # output destination folder - this is relative to the SHARC/sharc directory
-    output_dir = campaigns/imt_hibs_ras_2600_MHz/output/
+    output_dir = campaigns/FS_sim/output/
     ###########################################################################
     # output folder prefix
-    output_dir_prefix = output_imt_hibs_ras_2600_MHz_0km
+    output_dir_prefix = FS_sim_0
     ```
 4. You can create multiple simulation parameters:
    - Check the folder `sharc/campaigns/imt_hibs_ras_2600_MHz/input` for examples.

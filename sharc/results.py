@@ -84,14 +84,7 @@ class Results(object):
 
         self.system_dl_coupling_loss = SampleList()
         self.system_dl_interf_power = SampleList()
-        # Interference Power [dBm/MHz]
-        # NOTE: this may not be what you want for a correct
-        # protection criteria analysis since it is
-        # a mean value. If you have both cochannel
-        # and adjacent channel, the adjacent channel interference
-        # will always drag the mean down
-        self.system_dl_interf_power_per_mhz = SampleList()
-        self.system_ul_interf_power_per_mhz = SampleList()
+        # Interference Power [dBm]
 
         self.system_inr = SampleList()
         self.system_pfd = SampleList()
@@ -192,13 +185,7 @@ class Results(object):
             self.overwrite_sample_files = False
 
     @staticmethod
-    def load_many_from_dir(
-        root_dir: str,
-        *,
-        only_latest=True,
-        only_samples: list[str] = None,
-        filter_fn=None
-    ) -> list["Results"]:
+    def load_many_from_dir(root_dir: str, *, only_latest=True) -> list["Results"]:
         output_dirs = list(glob.glob(f"{root_dir}/output_*"))
 
         if len(output_dirs) == 0:
@@ -207,27 +194,21 @@ class Results(object):
         if only_latest:
             output_dirs = Results.get_most_recent_outputs_for_each_prefix(output_dirs)
 
-        if filter_fn:
-            output_dirs = filter(filter_fn, output_dirs)
-
         all_res = []
         for output_dir in output_dirs:
             res = Results()
-            res.load_from_dir(output_dir, only_samples=only_samples)
+            res.load_from_dir(output_dir)
             all_res.append(res)
 
         return all_res
 
-    def load_from_dir(self, abs_path: str, *, only_samples: list[str] = None) -> "Results":
+    def load_from_dir(self, abs_path: str) -> "Results":
         self.output_directory = abs_path
 
         self_dict = self.__dict__
-        if only_samples is not None:
-            results_relevant_attr_names = only_samples
-        else:
-            results_relevant_attr_names = filter(
-                lambda x: isinstance(getattr(self, x), SampleList), self_dict
-            )
+        results_relevant_attr_names = filter(
+            lambda x: isinstance(getattr(self, x), SampleList), self_dict
+        )
 
         for attr_name in results_relevant_attr_names:
             file_path = os.path.join(abs_path, f"{attr_name}.csv")

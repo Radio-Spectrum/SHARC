@@ -3,16 +3,6 @@ from dataclasses import dataclass
 
 from sharc.parameters.parameters_base import ParametersBase
 
-# imt.topology.hotspot.num_clusters (ver se a distância de proteção aumenta, e por quanto)
-# imt.topology.hotspot.wrap_around (ver se algo muda)
-# imt.topology.hotspot.max_dist_hotspot_ue
-# imt.topology.hotspot.num_hotspots_per_cell
-# imt.bs.noise_figure ver de onde tira ou o que muda se altera
-# imt.minimum_separation_distance_bs_ue
-
-# possível teste: fazer simulação IMT DL e UL, agregar de acordo com o TDD de 75% DL, 25% UL
-
-# como que polarização altera como devemos fazer as simulações e considerar os resultados?
 
 @dataclass
 class ParametersP452(ParametersBase):
@@ -44,7 +34,9 @@ class ParametersP452(ParametersBase):
     polarization: str = "horizontal"
     # determine whether clutter loss following ITU-R P.2108 is added (TRUE/FALSE)
     clutter_loss: bool = True
-
+    type_clutter: str = "both_ends"
+    p_clutter_1 = 100
+    p_clutter_2 = 100
     def load_from_paramters(self, param: ParametersBase):
         """Used to load parameters of P.452 from IMT or system parameters
 
@@ -66,3 +58,6 @@ class ParametersP452(ParametersBase):
         self.rx_lat = param.rx_lat
         self.polarization = param.polarization
         self.clutter_loss = param.clutter_loss
+        self.type_clutter = param.type_clutter
+        self.p_clutter_1 = param.p_clutter_1
+        self.p_clutter_2 = param.p_clutter_2

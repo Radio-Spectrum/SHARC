@@ -75,7 +75,9 @@ class PropagationClutterLoss(Propagation):
         f = kwargs["frequency"]
         loc_per = kwargs.pop("loc_percentage", "RANDOM")
         type = kwargs["station_type"]
-
+        type_clutter = kwargs["type_clutter"]
+        p_clutter_1 = kwargs["p_clutter_1"]
+        p_clutter_2 = kwargs["p_clutter_2"]
         d = kwargs["distance"]
 
         if f.size == 1:
@@ -88,7 +90,30 @@ class PropagationClutterLoss(Propagation):
             p = loc_per * np.ones(d.shape)
 
         if type is StationType.IMT_BS or type is StationType.IMT_UE or type is StationType.FSS_ES:
-            loss = self.get_terrestrial_clutter_loss(f, d, p, False) + self.get_terrestrial_clutter_loss(f, d, p2, True) 
+            if type_clutter == "one_end":
+                loss = self.get_terrestrial_clutter_loss(f, d, p, False) 
+                mult_1 = np.zeros(d.shape)
+                num_ones = int(np.round(mult_1.size * p_clutter_1 / 100))
+                indices = np.random.choice(mult_1.size, size=num_ones, replace=False)
+                mult_1.flat[indices] = 1
+                loss *= mult_1
+            else:
+                if type_clutter == "both_ends":
+                    loss1 = self.get_terrestrial_clutter_loss(f, d, p, False) 
+                    loss2 = self.get_terrestrial_clutter_loss(f, d, p2, True)
+                    mult_1 = np.zeros(d.shape)
+                    mult_2 = np.zeros(d.shape)
+                    num_ones_1 = int(np.round(mult_1.size * p_clutter_1 / 100))
+                    num_ones_2 = int(np.round(mult_2.size * p_clutter_2 / 100))
+                    indices_1 = np.random.choice(mult_1.size, size=num_ones_1, replace=False)
+                    indices_2 = np.random.choice(mult_2.size, size=num_ones_2, replace=False)
+                    mult_1.flat[indices_1] = 1
+                    mult_2.flat[indices_2] = 1
+                    loss1 *= mult_1
+                    loss2 *= mult_2
+                    loss = loss1+loss2
+
+
         else:
             theta = kwargs["elevation"]
             loss = self.get_spacial_clutter_loss(f, theta, p)

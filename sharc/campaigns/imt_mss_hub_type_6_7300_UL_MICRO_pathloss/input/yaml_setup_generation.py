@@ -1,13 +1,21 @@
+import os
+from itertools import product
+
+# Get the current directory where the script is located
+current_dir = os.path.dirname(os.path.abspath(__file__))
+
+# YAML template with comments and placeholders for substitution
+base_yaml = """\
 general:
-  num_snapshots: 1000                             # Number of simulation snapshots
-  imt_link: DOWNLINK                              # IMT link to be simulated (DOWNLINK or UPLINK)
+  num_snapshots: 3000                             # Number of simulation snapshots
+  imt_link: UPLINK                              # IMT link to be simulated (DOWNLINK or UPLINK)
   system: SINGLE_EARTH_STATION                    # System chosen for the sharing study
   enable_cochannel: TRUE                          # Enable co-channel interference
   enable_adjacent_channel: FALSE                  # Enable adjacent channel interference
   seed: 101                                       # Seed for the random number generator
   overwrite_output: FALSE                         # If FALSE, creates a new output directory
-  output_dir: campaigns/imt_mss_hub_type_6_7300_DL_MICRO/output/   # Output directory (relative to the SHARC/sharc folder)
-  output_dir_prefix: output_imt_mss_hub_type_6_7300_DL_MICRO_y_6600_load_probability_20 # Output directory prefix
+  output_dir: campaigns/imt_mss_hub_type_6_7300_UL_MICRO_pathloss/output/   # Output directory (relative to the SHARC/sharc folder)
+  output_dir_prefix: output_imt_mss_hub_type_6_7300_UL_MICRO_pathloss_y_{y}_load_probability_{load_probability_per} # Output directory prefix
 imt:
   topology:
     type: HOTSPOT                               # Topology: SINGLE_BS, MACROCELL, HOTSPOT, INDOOR, etc.
@@ -19,7 +27,7 @@ imt:
       max_dist_hotspot_ue: 70                    # Maximum 2D distance between hotspot and UE [m]
       min_dist_bs_hotspot: 0                     # Minimum 2D distance between macro cell base station and hotspot [m]
                                                  
-  minimum_separation_distance_bs_ue: 35           # Minimum 2D distance between BS and UE [m]
+  minimum_separation_distance_bs_ue: 5           # Minimum 2D distance between BS and UE [m]
   interfered_with: FALSE                          # Defines if IMT suffers interference (TRUE) or generates interference (FALSE) 
   frequency: 7300.0                               # IMT center frequency [MHz] ->(Attachament 6 Sharing between the mobile satellite service (space-to-Earth) (see No. 5.461) in the frequency band 7 250-7 375 MHz and IMT operating in the frequency band 7 125-8 400 MHz)
   bandwidth: 100                                  # IMT bandwidth [MHz]
@@ -29,8 +37,8 @@ imt:
   spurious_emissions: -13                         # Spurious emissions level [dBm/MHz]
   guard_band_ratio: 0.1                           # Guard band ratio relative to the total bandwidth
   bs:
-    load_probability: 0.2                # Load probability (BS activity factor) # NOTE: From Annex 4.2 to Doc 5D/413-E, Section 6 # For wide area, .2 # For smaller area, max. of .5
-    conducted_power: 22                           # Conducted power per antenna element [dBm/band]
+    load_probability: {load_probability}                # Load probability (BS activity factor) # NOTE: From Annex 4.2 to Doc 5D/413-E, Section 6 # For wide area, .2 # For smaller area, max. of .5
+    conducted_power: 16                           # Conducted power per antenna element [dBm/band]
     height: 6                                    # BS height [m] 
     noise_figure: 14                               # BS noise figure [dB] (6 dB (Wide Area BS) 11 dB (Medium Range BS) 14 dB (Local Area BS)) from table 4 Annex 4.2 Doc 5D/413-E 15 october 2024
     noise_temperature: 290                        # Noise temperature [K]
@@ -40,27 +48,18 @@ imt:
       # normalization_file: antenna/beamforming_normalization/bs_norm.npz
       element_pattern: M2101                      # Element radiation pattern: M2101, F1336, FIXED
       minimum_array_gain: -200                    # Minimum array gain [dBi]
-      downtilt: 6                                 # Mechanical downtilt [degrees]
+      downtilt: 10                                 # Mechanical downtilt [degrees]
       element_max_g: 6.4                            # Maximum element gain [dBi]
       element_phi_3db: 90                         # Horizontal 3dB beamwidth [degrees]
       element_theta_3db: 65                       # Vertical 3dB beamwidth [degrees]
       n_rows: 8                                   # Number of rows in the array
-      n_columns: 16                                # Number of columns in the array
+      n_columns: 8                                # Number of columns in the array
       element_horiz_spacing: 0.5                  # Horizontal element spacing (d/lambda)
-      element_vert_spacing: 2.1                   # Vertical element spacing (d/lambda)
+      element_vert_spacing: 0.7                   # Vertical element spacing (d/lambda)
       element_am: 30                              # Front-to-back ratio [dB]
       element_sla_v: 30                           # Vertical sidelobe attenuation [dB]
       multiplication_factor: 12                   # Multiplication factor for pattern adjustment
-      subarray:
-                # NOTE: if subarray is enabled, element definition will mostly come from
-                # the above definitions
-                is_enabled: true
-                # Rows per subarray
-                n_rows: 3
-                # Sub array element spacing (d/lambda).
-                element_vert_spacing: 0.7
-                # Sub array eletrical downtilt [deg]
-                eletrical_downtilt: 3.0
+  
 
   ue:
     k: 3                                          # Number of UEs allocated per cell (considering 3 sectors in macrocell)
@@ -70,7 +69,7 @@ imt:
     distribution_distance: RAYLEIGH               # Distance distribution: RAYLEIGH or UNIFORM
     distribution_azimuth: NORMAL                  # Azimuth distribution: NORMAL or UNIFORM
     tx_power_control: ON                          # UE power control: ON or OFF
-    p_o_pusch: -92.2                                # Target power per RB [dBm]
+    p_o_pusch: -87.2                                # Target power per RB [dBm]
     alpha: 0.8                                      # Balancing factor for UEs with good and bad channels
     p_cmax: 23                                    # Maximum UE transmission power [dBm]
     power_dynamic_range: 56                       # Power dynamic range [dB]
@@ -89,7 +88,7 @@ imt:
       n_rows: 1                                   # Number of rows in the UE array
       n_columns: 1                                # Number of columns in the UE array
       element_horiz_spacing: 0.5                  # Horizontal element spacing (d/lambda)
-      element_vert_spacing: 0.5                   # Vertical element spacing (d/lambda)
+      element_vert_spacing: 0.7                   # Vertical element spacing (d/lambda)
       element_am: 25                              # Front-to-back ratio [dB]
       element_sla_v: 25                           # Vertical sidelobe attenuation [dB]
       multiplication_factor: 12                   # Multiplication factor for pattern adjustment
@@ -129,7 +128,7 @@ single_earth_station:
       type: FIXED
       fixed:
         x: 0
-        y: 6600                                    # Placeholder for y value
+        y: {y}                                    # Placeholder for y value
   antenna:
     pattern: OMNI                               # Antenna radiation pattern
     gain: 9.7                                   # Antenna gain [dBi]
@@ -142,11 +141,23 @@ single_earth_station:
     percentage_p: 0.2                         # percentage p. Float (0 to 100) or RANDOM
     Dct: 101                                  # Distance over land from the transmit and receive antennas to the coast (km)
     Dcr: 100                                  # Distance over sea from the transmit and receive antennas to the coast (km)
-    Hte: 18                                  # Effective height of interfering antenna
+    Hte: 1.5                                  # Effective height of interfering antenna
     Hre: 1                                   # Effective height of interfered-with antenna (m)   
-    tx_lat: 10.0                              # Latitude of the transmitter (degrees)
-    rx_lat: 11.0                              # Latitude of the receiver (degrees)
+    tx_lat: -15,79                             # Latitude of the transmitter (degrees)
+    rx_lat: -15.85                             # Latitude of the receiver (degrees)
     polarization: horizontal                  # Antenna polarization. Possible values are "horizontal", "vertical"
     clutter_loss: TRUE                        # Enable clutter loss
 
 
+"""
+Ro = 1600 
+y_values = [Ro - 600, Ro - 300, Ro, Ro + 300, Ro + 600, Ro + 900, Ro + 1200, Ro + 1500]  # Values for 'y'
+load_probabilities = [20,50]  # Values for 'elevation'
+
+# Generate the YAML files in the same folder as the script
+for y, load_probability in product(y_values, load_probabilities):
+    filename = os.path.join(current_dir, f"parameters_mss_hub_type_6_7300_y_{y}_load_probability_{load_probability}.yaml")
+    content = base_yaml.format(y=y, load_probability=load_probability/100,load_probability_per=load_probability)
+    with open(filename, 'w', encoding='utf-8') as file:
+        file.write(content)
+    print(f"Generated file: {filename}")

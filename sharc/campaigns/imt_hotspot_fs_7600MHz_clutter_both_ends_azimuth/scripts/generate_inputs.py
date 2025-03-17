@@ -24,7 +24,7 @@ for azim in [0, 0.5, 1, 5, 10, 15, 20, 25, 30]:
 
         # Alterar linhas 24 e 27 sufixo do nome do arquivo
         modified_text[23] = f"    output_dir: campaigns/imt_hotspot_fs_7600MHz_clutter_both_ends_azimuth/output/\n"
-        modified_text[26] = f"    output_dir_prefix: output_imt_hotspot_fs_7600MHz_clutter_both_ends_{link_type}_{azim}°\n"
+        modified_text[26] = f"    output_dir_prefix: output_imt_hotspot_fs_7600MHz_clutter_both_ends_{link_type}_{azim}deg\n"
         
         # Alterar linha 300 para a distância da estação correta
         modified_text[299] = f"    x: {dista}\n"
@@ -33,7 +33,7 @@ for azim in [0, 0.5, 1, 5, 10, 15, 20, 25, 30]:
         modified_text[318] = f"    azimuth: {azim}\n"
         
         # Criar nome do arquivo de saída
-        output_filename = f"parameters_imt_hotspot_fs_{link_type}_{azim}°.yaml"
+        output_filename = f"parameters_imt_hotspot_fs_{link_type}_{azim}deg.yaml"
         output_path = output_dir / output_filename
         
         # Escrever o novo arquivo mantendo a estrutura original

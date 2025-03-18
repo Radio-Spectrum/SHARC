@@ -7,7 +7,7 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 # YAML template with comments and placeholders for substitution
 base_yaml = """\
 general:
-  num_snapshots: 1000                             # Number of simulation snapshots
+  num_snapshots: 3000                             # Number of simulation snapshots
   imt_link: UPLINK                              # IMT link to be simulated (DOWNLINK or UPLINK)
   system: SINGLE_EARTH_STATION                    # System chosen for the sharing study
   enable_cochannel: TRUE                          # Enable co-channel interference
@@ -150,17 +150,16 @@ single_earth_station:
     percentage_p: 0.2                         # percentage p. Float (0 to 100) or RANDOM
     Dct: 101                                  # Distance over land from the transmit and receive antennas to the coast (km)
     Dcr: 100                                  # Distance over sea from the transmit and receive antennas to the coast (km)
-    Hte: 18                                  # Effective height of interfering antenna
+    Hte: 1.5                                  # Effective height of interfering antenna
     Hre: 1                                   # Effective height of interfered-with antenna (m)   
-    tx_lat: 10.0                              # Latitude of the transmitter (degrees)
-    rx_lat: 11.0                              # Latitude of the receiver (degrees)
+    tx_lat: -15.79                              # Latitude of the transmitter (degrees)
+    rx_lat: -15.85                             # Latitude of the receiver (degrees)
     polarization: horizontal                  # Antenna polarization. Possible values are "horizontal", "vertical"
     clutter_loss: TRUE                        # Enable clutter loss
 
 
 """
-Ro = 1600 
-y_values = [Ro - Ro, Ro - 400, Ro + 1500, Ro + 5000, Ro + 10000]  # Values for 'y'
+Ro = 1600 y_values = [Ro - 600, Ro - 300, Ro, Ro + 300, Ro + 600, Ro + 900, Ro + 1200, Ro + 1500]  # Values for 'y'
 load_probabilities = [20,50]  # Values for 'elevation'
 
 # Generate the YAML files in the same folder as the script

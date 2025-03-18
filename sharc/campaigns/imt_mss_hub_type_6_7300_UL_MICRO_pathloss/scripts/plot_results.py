@@ -8,7 +8,7 @@ from sharc.results import Results
 
 # List of values for 'y' (distance) and 'elevation'
 Ro = 1600
-y_values = [Ro - Ro, Ro - 400, Ro + 1500, Ro + 5000, Ro + 10000]  # Example values for 'y'
+y_values = [Ro - 600, Ro - 300, Ro, Ro + 300, Ro + 600, Ro + 900, Ro + 1200, Ro + 1500] # Example values for 'y'
 load_probabilities = [20,50]  # Example values for 'elevation'
 
 post_processor = PostProcessor()

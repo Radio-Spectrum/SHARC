@@ -2,13 +2,14 @@ import os
 from pathlib import Path
 
 import numpy as np
+import plotly.io as pio  # Adicionado para exibição no navegador
 
 from sharc.post_processor import PostProcessor
 from sharc.results import Results
 
 # --- USER CONFIGURATION ---
-#apply_shift = True  # Set to True to apply shift, False to disable
-apply_shift = False  # Set to True to apply shift, False to disable
+save_plot_flag = False  # True para salvar, False para exibir no navegador
+apply_shift = True  # Backoff
 mode = "DL"  # "DL" for Downlink, "UL" for Uplink
 output_filename = "CCDF_plot_MICRO"  # Base filename without extension
 
@@ -21,9 +22,8 @@ shift_value = -10 * np.log10(0.75) if mode == "DL" else -10 * np.log10(0.25)
 
 # List of values for 'y' (distance) and 'load_probability'
 Ro = 1600
-y_values = [Ro - Ro, Ro - 400, Ro + 1500, Ro + 5000, Ro + 10000]
+y_values = [Ro - 600, Ro - 300, Ro, Ro + 300, Ro + 600, Ro + 900, Ro + 1200, Ro + 1500]
 load_probabilities = [20, 50]
-SHARC/sharc/campaigns/imt_mss_hub_type_6_7300_DL_MICRO_pathloss
 post_processor = PostProcessor()
 
 # Function to dynamically add legends
@@ -78,13 +78,13 @@ for plot in cdf_plots:
 
         ccdf_plot.update_layout(
             title="CCDF Plot for [SYS] System INR",
-            xaxis_title="INR (dB)",  # Make sure INR is labeled correctly
+            xaxis_title="INR (dB)",
             yaxis_title="CCDF",
-            yaxis_type="log",  # **Set log scale on Y-axis**
+            yaxis_type="log",
             yaxis=dict(
-                tickvals=[1, 1e-1, 1e-2, 1e-3, 1e-4],  # Define tick positions
-                ticktext=["$10^0$", "$10^{-1}$", "$10^{-2}$", "$10^{-3}$", "$10^{-4}$"],  # Tick labels
-                range=[-4, 0]  # 🔹 Force Y-axis limits from 10^-4 to 10^0
+                tickvals=[1, 1e-1, 1e-2, 1e-3, 1e-4],
+                ticktext=["$10^0$", "$10^{-1}$", "$10^{-2}$", "$10^{-3}$", "$10^{-4}$"],
+                range=[-4, 0]
             )
         )
 
@@ -102,17 +102,20 @@ for plot in cdf_plots:
 # Add CCDF plots to the post_processor
 post_processor.add_plots(ccdf_plots)
 
-# Function to save the plot
-def save_plot(plot, filename):
-    """Save plot as PNG with the given filename."""
-    plot.write_image(filename, width=image_width, height=image_height, scale=2)
-    print(f"Plot saved as: {filename}")
+# Function to save or show the plot
+def handle_plot(plot, filename):
+    """Save or display plot based on flag."""
+    if save_plot_flag:
+        plot.write_image(filename, width=image_width, height=image_height, scale=2)
+        print(f"Plot saved as: {filename}")
+    else:
+        plot.show()  # Exibir no navegador
 
-# Main function to handle plot saving
+# Main function to handle plot processing
 def main():
     final_filename = f"{output_filename}_{mode}_bck.png" if apply_shift else f"{output_filename}_{mode}.png"
     for plot in ccdf_plots:
-        save_plot(plot, final_filename)
+        handle_plot(plot, final_filename)
 
 # Run the main function
 if __name__ == "__main__":

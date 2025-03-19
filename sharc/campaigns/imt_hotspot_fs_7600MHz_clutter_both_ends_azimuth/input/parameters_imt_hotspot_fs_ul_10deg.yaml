@@ -368,7 +368,7 @@ fs:
       Dcr: 100
       ###########################################################################
       # Effective height of interfering antenna (m)
-      Hte: 6
+      hte: 1.5
       ###########################################################################
       # Effective height of interfered-with antenna (m)
       Hre: 20

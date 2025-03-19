@@ -1,0 +1,85 @@
+[C:\Users\fabcb\git\SHARC\sharc\campaigns\imt_hotspot_fs_7600MHz_clutter_both_ends\output\output_imt_hotspot_fs_7600MHz_clutter_both_ends_ul_-11600m_2025-03-16_01]
+imt_ul_tx_power_density:
+	confidence_interval: (-103.41486314310893, -67.11540323551276)
+	mean: -85.26513318931084
+	median: -87.39356735469602
+	standard_deviation: 9.260236461976266
+	variance: 85.75197933171472
+imt_ul_tx_power:
+	confidence_interval: (-28.661057211675306, 7.638402695920874)
+	mean: -10.511327257877216
+	median: -12.63976142326242
+	standard_deviation: 9.260236461976264
+	variance: 85.7519793317147
+imt_ul_sinr:
+	confidence_interval: (4.853855563285706, 14.257351862157751)
+	mean: 9.555603712721728
+	median: 10.113316373615191
+	standard_deviation: 2.3988951769128475
+	variance: 5.754698069815722
+imt_ul_snr:
+	confidence_interval: (5.031179959958083, 14.163738228842336)
+	mean: 9.59745909440021
+	median: 10.132674228990451
+	standard_deviation: 2.329777062466634
+	variance: 5.427861160795659
+imt_ul_tput:
+	confidence_interval: (0.8107584230537802, 1.8693806730650464)
+	mean: 1.3400695480594134
+	median: 1.3974770884222163
+	standard_deviation: 0.27006165887780176
+	variance: 0.07293329959583017
+imt_path_loss:
+	confidence_interval: (60.15862843067656, 106.42841893215784)
+	mean: 83.2935236814172
+	median: 80.84414416001108
+	standard_deviation: 11.803734881470142
+	variance: 139.32815715203495
+imt_coupling_loss:
+	confidence_interval: (45.40199839687831, 90.82319444391517)
+	mean: 68.11259642039674
+	median: 65.44894712042128
+	standard_deviation: 11.587252726405552
+	variance: 134.26442574559292
+imt_bs_antenna_gain:
+	confidence_interval: (20.12377026141367, 26.238084260627193)
+	mean: 23.180927261020432
+	median: 23.742034035875363
+	standard_deviation: 1.5598026411307686
+	variance: 2.4329842792785215
+imt_ue_antenna_gain:
+	confidence_interval: (nan, nan)
+	mean: -4.0
+	median: -4.0
+	standard_deviation: 0.0
+	variance: 0.0
+system_imt_antenna_gain:
+	confidence_interval: (30.95416997945135, 37.67165755672333)
+	mean: 34.31291376808734
+	median: 34.900324883673
+	standard_deviation: 1.7136762793241787
+	variance: 2.9366863903183607
+imt_system_antenna_gain:
+	confidence_interval: (nan, nan)
+	mean: -4.0
+	median: -4.0
+	standard_deviation: 0.0
+	variance: 0.0
+imt_system_path_loss:
+	confidence_interval: (181.66196812882035, 226.9566756673141)
+	mean: 204.30932189806722
+	median: 203.923566686032
+	standard_deviation: 11.554984656803038
+	variance: 133.5176704189536
+system_ul_interf_power:
+	confidence_interval: (-156.7900070149861, -140.63125344086671)
+	mean: -148.7106302279264
+	median: -149.00779378762167
+	standard_deviation: 4.122206760322522
+	variance: 16.992588574848696
+system_inr:
+	confidence_interval: (-58.86526675965252, -42.70651318553316)
+	mean: -50.78588997259284
+	median: -51.083053532288105
+	standard_deviation: 4.122206760322522
+	variance: 16.992588574848696

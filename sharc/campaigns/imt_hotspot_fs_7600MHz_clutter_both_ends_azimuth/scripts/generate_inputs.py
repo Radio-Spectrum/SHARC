@@ -15,7 +15,7 @@ with open(input_file, "r") as f:
 
 # Gerar arquivos para cada ângulo de azimute
 dista = -2600
-for azim in [0, 0.5, 1, 5, 10, 15, 20, 25, 30]:
+for azim in [0, 0.5, 1, 5, 10, 15, 20, 25, 30, 60, 80]:
     for link_type in ["dl", "ul"]:
         modified_text = reference_text[:]
         
@@ -31,6 +31,12 @@ for azim in [0, 0.5, 1, 5, 10, 15, 20, 25, 30]:
 
         # Alterar linha 319 para o azimute correto
         modified_text[318] = f"    azimuth: {azim}\n"
+
+        # Alterar linha 371 para a altura da antena correta
+        if link_type == "dl":
+            modified_text[370] = f"      hte: 6\n"
+        else:
+            modified_text[370] = f"      hte: 1.5\n"
         
         # Criar nome do arquivo de saída
         output_filename = f"parameters_imt_hotspot_fs_{link_type}_{azim}deg.yaml"

@@ -29,7 +29,7 @@ post_processor\
         legend= "UL - D = 1km"
     ).add_plot_legend_pattern(
         dir_name_contains="output_imt_hotspot_fs_7600MHz_clutter_both_ends_ul_-6600m",
-        legend= "UL - D = 6km"
+        legend= "UL - D = 5km"
     ).add_plot_legend_pattern(
         dir_name_contains="output_imt_hotspot_fs_7600MHz_clutter_both_ends_ul_-11600m",
         legend="UL - D = 10km"
@@ -52,7 +52,29 @@ plots = post_processor.generate_cdf_plots_from_results(
     many_results
 )
 
+
 post_processor.add_plots(plots)
+
+plots_to_add_vline = [
+    "system_inr"
+]
+
+# Add a protection criteria line:
+interf_protection_criteria0 = -127
+interf_protection_criteria1 = -148
+
+for prop_name in plots_to_add_vline:
+    plt = post_processor\
+        .get_plot_by_results_attribute_name(prop_name)
+    if plt:
+        plt.add_vline(
+            -10, line_dash="dash",
+            name="20% criteria"
+        )
+        plt.add_hline(
+            0.2, line_dash="dash",
+            name="20% criteria y"
+        )
 
 # # This function aggregates IMT downlink and uplink
 # aggregated_results = PostProcessor.aggregate_results(

@@ -389,6 +389,7 @@ fs:
       type_clutter: one_end
         # If clutter loss clutter = True define percentage of clutter in side 1 and 2
       p_clutter_1: 100
+      p_clutter_2: 0
 
 
 

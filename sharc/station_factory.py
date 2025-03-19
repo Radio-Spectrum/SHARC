@@ -341,6 +341,49 @@ class StationFactory(object):
         imt_ue.y = np.array(ue_y)
         imt_ue.z = np.array(ue_z) + param.ue.height
 
+        if topology.is_space_station:
+            # translate ue so that center of earth is in (0,0,0), and we can rotate around earth center
+            imt_ue.z += topology.geometry_converter.get_translation()
+
+            imt_ue.x = np.reshape(imt_ue.x, (topology.num_satellites, topology.num_sectors * num_ue_per_bs))
+            imt_ue.y = np.reshape(imt_ue.y, (topology.num_satellites, topology.num_sectors * num_ue_per_bs))
+            imt_ue.z = np.reshape(imt_ue.z, (topology.num_satellites, topology.num_sectors * num_ue_per_bs))
+
+            # around y axis
+            around_y = np.arctan2(
+                    np.sqrt(
+                        topology.space_station_x ** 2 +
+                        topology.space_station_y ** 2
+                    ),
+                    # we assume space station is transformed so that other system is in (0,0,0)
+                    topology.space_station_z + topology.geometry_converter.get_translation()
+                )
+
+            # around z axis
+            around_z = np.arctan2(topology.space_station_y, topology.space_station_x)
+            n = len(around_y)
+            around_y = np.repeat(around_y, topology.num_sectors * num_ue_per_bs).reshape((n, topology.num_sectors * num_ue_per_bs))
+            around_z = np.repeat(around_z, topology.num_sectors * num_ue_per_bs).reshape((n, topology.num_sectors * num_ue_per_bs))
+
+            # rotating around y
+            nx = imt_ue.x * np.cos(around_y) + imt_ue.z * np.sin(around_y)
+            nz = imt_ue.x * -np.sin(around_y) + imt_ue.z * np.cos(around_y)
+            imt_ue.x = nx
+            imt_ue.z = nz
+
+            # rotating around z
+            nx = imt_ue.x * np.cos(around_z) + imt_ue.y * -np.sin(around_z)
+            ny = imt_ue.x * np.sin(around_z) + imt_ue.y * np.cos(around_z)
+            imt_ue.x = nx
+            imt_ue.y = ny
+
+            # translate ue back so other system is in (0,0,0)
+            imt_ue.z -= topology.geometry_converter.get_translation()
+
+            imt_ue.x = np.reshape(imt_ue.x, (topology.num_satellites * topology.num_sectors * num_ue_per_bs))
+            imt_ue.y = np.reshape(imt_ue.y, (topology.num_satellites * topology.num_sectors * num_ue_per_bs))
+            imt_ue.z = np.reshape(imt_ue.z, (topology.num_satellites * topology.num_sectors * num_ue_per_bs))
+
         imt_ue.active = np.zeros(num_ue, dtype=bool)
         imt_ue.indoor = random_number_gen.random_sample(
             num_ue,

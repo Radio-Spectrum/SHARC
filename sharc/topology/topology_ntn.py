@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 import matplotlib.axes
 import geopandas as gpd
 from shapely.geometry import Polygon, MultiPolygon
+from sharc.support.sharc_geom import GeometryConverter
 
 
 class TopologyNTN(Topology):
@@ -17,7 +18,9 @@ class TopologyNTN(Topology):
 
     def __init__(
         self, intersite_distance: float, cell_radius: int, bs_height: float, bs_azimuth: float,
-        bs_elevation: float, num_sectors=7,
+        bs_elevation: float,
+        geometry_converter: GeometryConverter,
+        num_sectors=7,
     ):
         """
         Initializes the NTN topology with specific network settings.
@@ -30,6 +33,7 @@ class TopologyNTN(Topology):
         bs_elevation: Elevation angle of the base station in degrees.
         num_sectors: Number of sectors for the topology (default is 7).
         """
+        self.geometry_converter = geometry_converter
 
         if num_sectors not in self.ALLOWED_NUM_SECTORS:
             raise ValueError(
@@ -48,9 +52,34 @@ class TopologyNTN(Topology):
         self.num_sectors = num_sectors
 
         # Calculate the base station coordinates
-        self.space_station_x = self.bs_radius * np.cos(self.bs_elevation) * np.cos(self.bs_azimuth)
-        self.space_station_y = self.bs_radius * np.cos(self.bs_elevation) * np.sin(self.bs_azimuth)
-        self.space_station_z = bs_height
+        self.space_station_x = np.array([-1572999.71735159  ,-444173.79613363 ,-1207666.87236393  ,-133594.92291146
+           ,945611.0045076    ,306847.39664537  ,1304744.85067502  ,1956287.38117162
+           ,972423.80448146   ,-48809.47367562   ,615023.45937184  ,-480904.64156018
+         ,-1558351.84681033])
+        self.space_station_y = np.array([ 1058434.53645751  ,1804714.8727735   ,-825167.91498618   ,-16769.86418019
+           ,792272.6431016  ,-1778574.93376541  ,-866498.00733512  ,-148033.2260463
+           ,764884.23576604  ,1648407.62535199  ,-944850.49671014  ,-154449.89382577
+           ,641886.131861  ,])
+        self.space_station_z = np.array([259912.49873966 ,270474.47859223 ,368642.3694843  ,524064.038039
+             ,414252.1814905  ,285259.09545921 ,345344.0994955  ,240724.27685915
+             ,413605.8160008  ,325498.6775672  ,432695.85726119 ,506873.62179657
+             ,316478.47928479])
+
+        # self.space_station_x = self.space_station_x[0:2]
+        # self.space_station_y = self.space_station_y[0:2]
+        # self.space_station_z = self.space_station_z[0:2]
+
+        # # a direita
+        # self.space_station_x = np.array([1.])
+        # self.space_station_y = np.array([0.])
+        # self.space_station_z = np.array([0.])
+        # self.space_station_z -= geometry_converter.get_translation()
+
+        # # a esquerda
+        # self.space_station_x = np.array([-1.])
+        # self.space_station_y = np.array([0.])
+        # self.space_station_z = np.array([0.])
+        # self.space_station_z -= geometry_converter.get_translation()
 
         self.calculate_coordinates()
 
@@ -98,6 +127,12 @@ class TopologyNTN(Topology):
         # Assuming all points are at ground level
         self.z = np.zeros_like(self.x)
 
+        self.num_satellites = len(self.space_station_x)
+
+        self.x = np.resize(self.x, self.num_satellites * len(self.x))
+        self.y = np.resize(self.y, self.num_satellites * len(self.y))
+        self.z = np.resize(self.z, self.num_satellites * len(self.z))
+
         # Rotate the anchor points by 30 degrees
         theta = np.radians(30)
         cos_theta = np.cos(theta)
@@ -105,21 +140,28 @@ class TopologyNTN(Topology):
         self.x_rotated = self.x * cos_theta - self.y * sin_theta
         self.y_rotated = self.x * sin_theta + self.y * cos_theta
 
-        # Calculate azimuth and elevation for each point
-        self.azimuth = np.arctan2(
-            self.y_rotated - self.space_station_y,
-            self.x_rotated - self.space_station_x,
-        ) * 180 / np.pi
-        distance_xy = np.sqrt(
-            (self.x_rotated - self.space_station_x) **
-            2 + (self.y_rotated - self.space_station_y)**2,
-        )
-        self.elevation = np.arctan2(
-            self.z - self.space_station_z, distance_xy,
-        ) * 180 / np.pi
+        self.azimuth = np.zeros_like(self.x)
+        self.elevation = np.zeros_like(self.x)
+
+        for i in range(self.num_satellites):
+            # Calculate azimuth and elevation for each point
+            stri = i*self.num_sectors
+            endi = stri + self.num_sectors
+            self.azimuth[stri:endi] = np.arctan2(
+                self.y_rotated[stri:endi] - self.space_station_y[i],
+                self.x_rotated[stri:endi] - self.space_station_x[i],
+            ) * 180 / np.pi
+            distance_xy = np.sqrt(
+                (self.x_rotated[stri:endi] - self.space_station_x[i]) **
+                2 + (self.y_rotated[stri:endi] - self.space_station_y[i])**2,
+            )
+            self.elevation[stri:endi] = np.arctan2(
+                self.z[stri:endi] - self.space_station_z[i], distance_xy,
+            ) * 180 / np.pi
 
         # Update the number of base stations after setup
         self.num_base_stations = len(self.x)
+        # actually num_of_sectors * num_of_satellites
         self.indoor = np.zeros(self.num_base_stations, dtype=bool)
 
         self.x = self.x_rotated

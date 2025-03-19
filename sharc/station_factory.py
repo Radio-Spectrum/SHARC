@@ -1591,86 +1591,109 @@ class StationFactory(object):
 
 
 if __name__ == '__main__':
-    from matplotlib import pyplot as plt
+    rand_gen = np.random.RandomState(101)
+    geometry_converter = GeometryConverter()
 
-    # plot uniform distribution in macrocell scenario
+    # somente vou utilizar a translação que o satélite teoricamente sofreu:
+    ref_lat = -14.1
+    ref_long = -45.1
+    ref_alt = 1200
+    geometry_converter.set_reference(ref_lat, ref_long, ref_alt)
 
-    factory = StationFactory()
-    topology = TopologyMacrocell(1000, 1)
-    topology.calculate_coordinates()
+    topology = TopologyNTN(
+        1000*np.sqrt(3),
+        1000,
+        545 * 1e3,
+        90,
+        45,
+        geometry_converter,
+        num_sectors=19,
+    )
 
-    class ParamsAux(object):
-        def __init__(self):
-            self.spectral_mask = 'IMT-2020'
-            self.frequency = 10000
-            self.topology = 'MACROCELL'
-            self.ue_distribution_type = "UNIFORM_IN_CELL"
-            self.bs_height = 30
-            self.ue_height = 3
-            self.ue_indoor_percent = 0
-            self.ue_k = 3
-            self.ue_k_m = 1
-            self.bandwidth = np.random.rand()
-            self.ue_noise_figure = np.random.rand()
-            self.minimum_separation_distance_bs_ue = 200
-            self.spurious_emissions = -30
-            self.intersite_distance = 1000
+    topology.calculate_coordinates(rand_gen)
 
-    params = ParamsAux()
+    topology.calculate_coordinates(rand_gen)
 
-    bs_ant_param = ParametersAntennaImt()
+    parameters = ParametersImt()
+    parameters.ue.k = 3
+    parameters.ue.k_m = 1
+    parameters.ue.azimuth_range = (-180, 180)
+    parameters.ue.distribution_distance = "RAYLEIGH"
+    parameters.ue.distribution_type = "ANGLE_AND_DISTANCE"
+    parameters.ue.distribution_azimuth = "NORMAL"
+    parameters.ue.height = 1.5
+    parameters.ue.indoor_percent = 0
+    parameters.bandwidth = 10
+    parameters.frequency = 10
+    parameters.ue.noise_figure = 0
 
-    bs_ant_param.adjacent_antenna_model = "SINGLE_ELEMENT"
-    bs_ant_param.element_pattern = "F1336"
-    bs_ant_param.element_max_g = 5
-    bs_ant_param.element_phi_3db = 65
-    bs_ant_param.element_theta_3db = 65
-    bs_ant_param.element_am = 30
-    bs_ant_param.element_sla_v = 30
-    bs_ant_param.n_rows = 8
-    bs_ant_param.n_columns = 8
-    bs_ant_param.element_horiz_spacing = 0.5
-    bs_ant_param.element_vert_spacing = 0.5
-    bs_ant_param.downtilt = 10
-    bs_ant_param.multiplication_factor = 12
-    bs_ant_param.minimum_array_gain = -200
+    imt_ue = StationFactory.generate_imt_ue_outdoor(
+        parameters,
+        parameters.ue.antenna,
+        rand_gen,
+        topology
+    )
 
-    ue_ant_param = ParametersAntennaImt()
+    from sharc.satellite.scripts.plot_3d_param_file import plot_globe_with_borders
+    fig = plot_globe_with_borders(True, geometry_converter)
 
-    ue_ant_param.element_pattern = "FIXED"
-    ue_ant_param.element_max_g = 5
-    ue_ant_param.element_phi_3db = 90
-    ue_ant_param.element_theta_3db = 90
-    ue_ant_param.element_am = 25
-    ue_ant_param.element_sla_v = 25
-    ue_ant_param.n_rows = 4
-    ue_ant_param.n_columns = 4
-    ue_ant_param.element_horiz_spacing = 0.5
-    ue_ant_param.element_vert_spacing = 0.5
-    ue_ant_param.multiplication_factor = 12
-    ue_ant_param.minimum_array_gain = -200
+    import plotly.graph_objects as go
 
-    ue_ant_param.normalization = False
-    bs_ant_param.normalization = False
+    fig.add_trace(go.Scatter3d(
+        x=topology.space_station_x,
+        y=topology.space_station_y,
+        z=topology.space_station_z,
+        mode='markers',
+        marker=dict(size=3, color='green', opacity=0.8),
+        showlegend=False
+    ))
 
-    rnd = np.random.RandomState(1)
+    fig.add_trace(
+        go.Scatter3d(
+            x=imt_ue.x,
+            y=imt_ue.y,
+            z=imt_ue.z,
+            mode='markers',
+            marker=dict(size=1, color='red', opacity=1),
+            showlegend=False
+        )
+    )
+    fig.add_trace(
+        go.Scatter3d(
+            x=[0],
+            y=[0],
+            z=[0],
+            mode='markers',
+            marker=dict(size=3, color='black', opacity=1),
+            showlegend=False
+        )
+    )
+    ref_x = imt_ue.x[11]
+    ref_y = imt_ue.y[11]
+    ref_z = imt_ue.z[11]
+    range_scale = 5000
 
-    imt_ue = factory.generate_imt_ue(params, ue_ant_param, topology, rnd)
+    # range_scale = 5000
+    # ref_x = 0
+    # ref_y = 0
+    # ref_z = 0
+    fig.update_layout(
+        scene=dict(
+            zaxis=dict(
+                range=(-1e3*range_scale+ref_z, 1e3*range_scale+ ref_z)
+            ),
+            yaxis=dict(
+                range=(-1e3*range_scale+ref_y, 1e3*range_scale+ ref_y)
+            ),
+            xaxis=dict(
+                range=(-1e3*range_scale+ref_x, 1e3*range_scale+ ref_x)
+            ),
+        )
+    )
 
-    fig = plt.figure(
-        figsize=(8, 8), facecolor='w',
-        edgecolor='k',
-    )  # create a figure object
-    ax = fig.add_subplot(1, 1, 1)  # create an axes object in the figure
+    # fig.tight_layout()
+    fig.show()
 
-    topology.plot(ax)
 
-    plt.axis('image')
-    plt.title("Macro cell topology")
-    plt.xlabel("x-coordinate [m]")
-    plt.ylabel("y-coordinate [m]")
 
-    plt.plot(imt_ue.x, imt_ue.y, "r.")
 
-    plt.tight_layout()
-    plt.show()

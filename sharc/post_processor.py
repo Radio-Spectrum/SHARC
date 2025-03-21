@@ -345,8 +345,7 @@ class PostProcessor:
                             x=0.83,  # Define a posição horizontal (mais para a direita)
                             y=0.96,  # Define a posição vertical (meio do gráfico)
                             bgcolor="rgba(255, 255, 255, 0.5)"  # Fundo branco semi-transparente
-                        ),
-                        yaxis_type="log"  # Aqui está a configuração da escala logarítmica
+                        )
                     )
 
         return figs.values()

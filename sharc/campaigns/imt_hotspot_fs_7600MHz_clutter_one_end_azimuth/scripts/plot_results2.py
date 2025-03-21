@@ -11,70 +11,70 @@ post_processor = PostProcessor()
 post_processor\
     .add_plot_legend_pattern(
         dir_name_contains="output_imt_hotspot_fs_7600MHz_clutter_one_end_dl_0deg",
-        legend= "DL - b = 0°"
+        legend= "DL - Az = 0°"
     ).add_plot_legend_pattern(
         dir_name_contains="output_imt_hotspot_fs_7600MHz_clutter_one_end_dl_0.5deg",
-        legend= "DL - b = 0.5°"
+        legend= "DL - Az = 0.5°"
     ).add_plot_legend_pattern(
         dir_name_contains="output_imt_hotspot_fs_7600MHz_clutter_one_end_dl_1deg",
-        legend="DL - b = 1°"
+        legend="DL - Az = 1°"
     ).add_plot_legend_pattern(
         dir_name_contains="output_imt_hotspot_fs_7600MHz_clutter_one_end_dl_5deg",
-        legend="DL - b = 5°"
+        legend="DL - Az = 5°"
     ).add_plot_legend_pattern(
         dir_name_contains="output_imt_hotspot_fs_7600MHz_clutter_one_end_dl_10deg",
-        legend="DL - b = 10°"
+        legend="DL - Az = 10°"
     ).add_plot_legend_pattern(
         dir_name_contains="output_imt_hotspot_fs_7600MHz_clutter_one_end_dl_15deg",
-        legend= "DL - b = 15°"
+        legend= "DL - Az = 15°"
     ).add_plot_legend_pattern(
         dir_name_contains="output_imt_hotspot_fs_7600MHz_clutter_one_end_dl_20deg",
-        legend= "DL - b = 20°"
+        legend= "DL - Az = 20°"
     ).add_plot_legend_pattern(
         dir_name_contains="output_imt_hotspot_fs_7600MHz_clutter_one_end_dl_25deg",
-        legend="DL - b = 25°"
+        legend="DL - Az = 25°"
     ).add_plot_legend_pattern(
         dir_name_contains="output_imt_hotspot_fs_7600MHz_clutter_one_end_dl_30deg",
-        legend="DL - b = 30°"
+        legend="DL - Az = 30°"
     ).add_plot_legend_pattern(
         dir_name_contains="output_imt_hotspot_fs_7600MHz_clutter_one_end_dl_60deg",
-        legend="DL - b = 60°"
+        legend="DL - Az = 60°"
     ).add_plot_legend_pattern(
         dir_name_contains="output_imt_hotspot_fs_7600MHz_clutter_one_end_dl_80deg",
-        legend="DL - b = 80°"
+        legend="DL - Az = 80°"
     ).add_plot_legend_pattern(
         dir_name_contains="output_imt_hotspot_fs_7600MHz_clutter_one_end_ul_0deg",
-        legend= "UL - b = 0°"
+        legend= "UL - Az = 0°"
     ).add_plot_legend_pattern(
         dir_name_contains="output_imt_hotspot_fs_7600MHz_clutter_one_end_ul_0.5deg",
-        legend= "UL - b = 0.5°"
+        legend= "UL - Az = 0.5°"
     ).add_plot_legend_pattern(
         dir_name_contains="output_imt_hotspot_fs_7600MHz_clutter_one_end_ul_1deg",
-        legend="UL - b = 1°"
+        legend="UL - Az = 1°"
     ).add_plot_legend_pattern(
         dir_name_contains="output_imt_hotspot_fs_7600MHz_clutter_one_end_ul_5deg",
-        legend="UL - b = 5°"
+        legend="UL - Az = 5°"
     ).add_plot_legend_pattern(
         dir_name_contains="output_imt_hotspot_fs_7600MHz_clutter_one_end_ul_10deg",
-        legend="UL - b = 10°"
+        legend="UL - Az = 10°"
     ).add_plot_legend_pattern(
         dir_name_contains="output_imt_hotspot_fs_7600MHz_clutter_one_end_ul_15deg",
-        legend= "UL - b = 15°"
+        legend= "UL - Az = 15°"
     ).add_plot_legend_pattern(
         dir_name_contains="output_imt_hotspot_fs_7600MHz_clutter_one_end_ul_20deg",
-        legend= "UL - b = 20°"
+        legend= "UL - Az = 20°"
     ).add_plot_legend_pattern(
         dir_name_contains="output_imt_hotspot_fs_7600MHz_clutter_one_end_ul_25deg",
-        legend="UL - b = 25°"
+        legend="UL - Az = 25°"
     ).add_plot_legend_pattern(
         dir_name_contains="output_imt_hotspot_fs_7600MHz_clutter_one_end_ul_30deg",
-        legend="UL - b = 30°"
+        legend="UL - Az = 30°"
     ).add_plot_legend_pattern(
         dir_name_contains="output_imt_hotspot_fs_7600MHz_clutter_one_end_ul_60deg",
-        legend="UL - b = 60°"
+        legend="UL - Az = 60°"
     ).add_plot_legend_pattern(
         dir_name_contains="output_imt_hotspot_fs_7600MHz_clutter_one_end_ul_80deg",
-        legend="UL - b = 80°"
+        legend="UL - Az = 80°"
     )
 
 campaign_base_dir = str((Path(__file__) / ".." / "..").resolve())
@@ -85,7 +85,7 @@ many_results = Results.load_many_from_dir(os.path.join(campaign_base_dir, "outpu
 
 post_processor.add_results(many_results)
 
-plots = post_processor.generate_ccdf_plots_from_results(
+plots = post_processor.generate_cdf_plots_from_results(
     many_results
 )
 

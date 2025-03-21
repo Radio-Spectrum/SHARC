@@ -21,10 +21,10 @@ general:
     # if FALSE, then a new output directory is created
     overwrite_output: FALSE
     # output destination folder - this is relative SHARC/sharc directory
-    output_dir: campaigns/imt_hotspot_fs_7600MHz_clutter_one_end/output/
+    output_dir: campaigns/imt_hotspot_fs_7600MHz_clutter_both_ends/output/
     ###########################################################################
     # output folder prefix
-    output_dir_prefix: output_imt_hotspot_fs_7600MHz_clutter_one_end_dl_-2600m
+    output_dir_prefix: output_imt_hotspot_fs_7600MHz_clutter_both_ends_dl_-2600m
 
 imt:
     # Minimum 2D separation distance from BS to UE [m]
@@ -348,7 +348,7 @@ fs:
     # Constants
     BOLTZMANN_CONSTANT: 1.38064852e-23
     EARTH_RADIUS: 6371000   
-    #param_p452:
+    # param_p452:
     ###########################################################################
     # Total air pressure [hPa]
     atmospheric_pressure: 1017
@@ -390,11 +390,10 @@ fs:
     clutter_loss: TRUE
     ###########################################################################
     # If clutter loss clutter = True define type: 'one_end','both_ends'
-    type_clutter: one_end
+    type_clutter: both_ends
     # If clutter loss clutter = True define percentage of clutter in side 1 and 2
     p_clutter_1: 100
-    p_clutter_2: 0
-
+    p_clutter_2: 100
 
 
 

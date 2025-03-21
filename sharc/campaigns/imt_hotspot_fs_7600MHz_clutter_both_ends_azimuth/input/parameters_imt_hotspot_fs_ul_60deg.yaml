@@ -5,7 +5,7 @@ general:
     num_snapshots: 5000
     ###########################################################################
     # IMT link that will be simulated (DOWNLINK or UPLINK)
-    imt_link: DOWNLINK
+    imt_link: UPLINK
     ###########################################################################
     # The chosen system for sharing study
     # EESS_PASSIVE, FSS_SS, FSS_ES, FS, RAS, SINGLE_EARTH_STATION
@@ -21,10 +21,10 @@ general:
     # if FALSE, then a new output directory is created
     overwrite_output: FALSE
     # output destination folder - this is relative SHARC/sharc directory
-    output_dir: campaigns/imt_hotspot_fs_7600MHz_clutter_one_end/output/
+    output_dir: campaigns/imt_hotspot_fs_7600MHz_clutter_both_ends_azimuth/output/
     ###########################################################################
     # output folder prefix
-    output_dir_prefix: output_imt_hotspot_fs_7600MHz_clutter_one_end_dl_-2600m
+    output_dir_prefix: output_imt_hotspot_fs_7600MHz_clutter_both_ends_ul_60deg
 
 imt:
     # Minimum 2D separation distance from BS to UE [m]
@@ -316,7 +316,7 @@ fs:
     ###########################################################################
     # Azimuth angle [degrees]
     # NOTE: Range from 0 to 180 with 30 degree steps
-    azimuth: 0
+    azimuth: 60
     ###########################################################################
     # System receive noise temperature [K]
     # NOTE: assumed
@@ -372,7 +372,7 @@ fs:
     Dcr: 100
     ###########################################################################
     # Effective height of interfering antenna (m)
-    Hte: 6
+    Hte: 1.5
     ###########################################################################
     # Effective height of interfered-with antenna (m)
     Hre: 20
@@ -390,11 +390,10 @@ fs:
     clutter_loss: TRUE
     ###########################################################################
     # If clutter loss clutter = True define type: 'one_end','both_ends'
-    type_clutter: one_end
+    type_clutter: both_ends
     # If clutter loss clutter = True define percentage of clutter in side 1 and 2
     p_clutter_1: 100
-    p_clutter_2: 0
-
+    p_clutter_2: 100
 
 
 

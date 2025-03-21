@@ -344,51 +344,56 @@ fs:
     antenna_diameter: 1.136
     ###########################################################################
     channel_model: P452
-    param_p452:
-      ###########################################################################
-      # Total air pressure [hPa]
-      atmospheric_pressure: 1017
-      ###########################################################################
-      # Temperature [K]
-      air_temperature: 293.15
-      ###########################################################################
-      # Sea-level surface refractivity (use the map)
-      N0: 352.58
-      ###########################################################################
-      # Average radio-refractive (use the map)
-      delta_N: 60
-      ###########################################################################
-      # percentage p. Float (0 to 100) or RANDOM
-      percentage_p: 0.2
-      ###########################################################################
-      # Distance over land from the transmit and receive antennas to the coast (km)
-      Dct: 101
-      ###########################################################################
-      # Distance over land from the transmit and receive antennas to the coast (km)
-      Dcr: 100
-      ###########################################################################
-      # Effective height of interfering antenna (m)
-      Hte: 6
-      ###########################################################################
-      # Effective height of interfered-with antenna (m)
-      Hre: 20
-      ###########################################################################
-      ##Latitude of transmitter
-      tx_lat: -23.55028
-      ###########################################################################
-      #Latitude of receiver
-      rx_lat: -23.17889
-      ###########################################################################
-      # Antenna polarization. Possible values are "horizontal", "vertical"
-      polarization: horizontal
-      ###########################################################################
-      # determine whether clutter loss following ITU-R P.2108 is added (TRUE/FALSE)
-      clutter_loss: TRUE
-      ###########################################################################
-        # If clutter loss clutter = True define type: 'one_end','both_ends'
-      type_clutter: one_end
-        # If clutter loss clutter = True define percentage of clutter in side 1 and 2
-      p_clutter_1: 100
+    ###########################################################################
+    # Constants
+    BOLTZMANN_CONSTANT: 1.38064852e-23
+    EARTH_RADIUS: 6371000   
+    #param_p452:
+    ###########################################################################
+    # Total air pressure [hPa]
+    atmospheric_pressure: 1017
+    ###########################################################################
+    # Temperature [K]
+    air_temperature: 293.15
+    ###########################################################################
+    # Sea-level surface refractivity (use the map)
+    N0: 352.58
+    ###########################################################################
+    # Average radio-refractive (use the map)
+    delta_N: 60
+    ###########################################################################
+    # percentage p. Float (0 to 100) or RANDOM
+    percentage_p: 0.2
+    ###########################################################################
+    # Distance over land from the transmit and receive antennas to the coast (km)
+    Dct: 101
+    ###########################################################################
+    # Distance over land from the transmit and receive antennas to the coast (km)
+    Dcr: 100
+    ###########################################################################
+    # Effective height of interfering antenna (m)
+    Hte: 6
+    ###########################################################################
+    # Effective height of interfered-with antenna (m)
+    Hre: 20
+    ###########################################################################
+    ##Latitude of transmitter
+    tx_lat: -23.55028
+    ###########################################################################
+    #Latitude of receiver
+    rx_lat: -23.17889
+    ###########################################################################
+    # Antenna polarization. Possible values are "horizontal", "vertical"
+    polarization: horizontal
+    ###########################################################################
+    # determine whether clutter loss following ITU-R P.2108 is added (TRUE/FALSE)
+    clutter_loss: TRUE
+    ###########################################################################
+    # If clutter loss clutter = True define type: 'one_end','both_ends'
+    type_clutter: one_end
+    # If clutter loss clutter = True define percentage of clutter in side 1 and 2
+    p_clutter_1: 100
+    p_clutter_2: 0
 
 
 

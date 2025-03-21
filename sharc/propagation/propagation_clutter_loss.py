@@ -89,7 +89,7 @@ class PropagationClutterLoss(Propagation):
         else:
             p = loc_per * np.ones(d.shape)
 
-        if type is StationType.IMT_BS or type is StationType.IMT_UE or type is StationType.FSS_ES:
+        if type is StationType.IMT_BS or type is StationType.IMT_UE or type is StationType.FSS_ES or type is StationType.FS:
             if type_clutter == "one_end":
                 loss = self.get_terrestrial_clutter_loss(f, d, p, False) 
                 mult_1 = np.zeros(d.shape)
@@ -97,6 +97,8 @@ class PropagationClutterLoss(Propagation):
                 indices = np.random.choice(mult_1.size, size=num_ones, replace=False)
                 mult_1.flat[indices] = 1
                 loss *= mult_1
+                print("Passou one_end")
+                print(loss[0][0])
             else:
                 if type_clutter == "both_ends":
                     loss1 = self.get_terrestrial_clutter_loss(f, d, p, False) 
@@ -112,6 +114,8 @@ class PropagationClutterLoss(Propagation):
                     loss1 *= mult_1
                     loss2 *= mult_2
                     loss = loss1+loss2
+                    print("Passou both_end")
+                    print(loss[0][0])
 
 
         else:
@@ -317,3 +321,5 @@ if __name__ == '__main__':
     plt.tight_layout()
     plt.grid()
     plt.show()
+
+

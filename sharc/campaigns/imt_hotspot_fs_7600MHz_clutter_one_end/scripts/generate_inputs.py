@@ -27,6 +27,12 @@ for dista in [-2600, -6600, -11600, -16600, -21600]:
         
         # Alterar linha 300 para a distância da estação correta
         modified_text[299] = f"    x: {dista}\n"
+
+        # Alterar linha 375 para a altura da antena correta
+        if link_type == "dl":
+            modified_text[374] = f"    Hte: 6\n"
+        else:
+            modified_text[374] = f"    Hte: 1.5\n"
         
         # Criar nome do arquivo de saída
         output_filename = f"parameters_imt_hotspot_fs_{link_type}_{dista}m.yaml"

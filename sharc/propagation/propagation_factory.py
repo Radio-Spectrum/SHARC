@@ -22,6 +22,7 @@ from sharc.propagation.propagation_clear_air_452 import PropagationClearAir
 from sharc.propagation.propagation_tvro import PropagationTvro
 from sharc.propagation.propagation_indoor import PropagationIndoor
 from sharc.propagation.propagation_hdfss import PropagationHDFSS
+from sharc.propagation.propagation_p528 import PropagationP528
 
 
 class PropagationFactory(object):
@@ -68,6 +69,15 @@ class PropagationFactory(object):
             return PropagationSatSimple(random_number_gen)
         elif channel_model == "TerrestrialSimple":
             return PropagationTerSimple(random_number_gen)
+        elif channel_model == "P528":
+            # Check IF ther's P528 parameters
+            if not hasattr(param_system, 'param_p528'):
+                raise AttributeError("param_system does not have an attribute named 'param_p528'")
+            return PropagationP528(
+                random_number_gen=random_number_gen,
+                time_percentage=param_system.param_p528.time_percentage,
+                polarization=param_system.param_p528.polarization,
+            )
         elif channel_model == "P619":
             if isinstance(param_system, ParametersImt):
                 if param_system.topology.type != "NTN":
@@ -77,11 +87,13 @@ class PropagationFactory(object):
             else:
                 # P.619 model is used only for space-to-earth links
                 if param.imt.topology.type != "NTN" and not param_system.is_space_to_earth:
-                    raise ValueError((
-                        "PropagationFactory: Channel model P.619 is invalid"
-                        f"for system {param.general.system} and IMT "
-                        f"topology {param.imt.topology.type}"
-                    ))
+                    raise ValueError(
+                        (
+                            "PropagationFactory: Channel model P.619 is invalid"
+                            f"for system {param.general.system} and IMT "
+                            f"topology {param.imt.topology.type}"
+                        )
+                    )
             return PropagationP619(
                 random_number_gen=random_number_gen,
                 space_station_alt_m=param_system.param_p619.space_station_alt_m,

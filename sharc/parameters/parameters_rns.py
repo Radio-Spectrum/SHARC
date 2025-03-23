@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
-from dataclasses import dataclass
-
+from dataclasses import dataclass, field
 from sharc.parameters.parameters_base import ParametersBase
+from sharc.parameters.parameters_p528 import ParametersP528
 
 
 @dataclass
@@ -9,6 +9,8 @@ class ParametersRns(ParametersBase):
     """
     Simulation parameters for radionavigation service
     """
+    # whether to enable recursive parameters setting on .yaml file
+    nested_parameters_enabled: bool = True
     section_name: str = "rns"
     # x-y coordinates [m]
     x: float = 660.0
@@ -31,7 +33,7 @@ class ParametersRns(ParametersBase):
     # Channel parameters
     # channel model, possible values are "FSPL" (free-space path loss),
     #                                    "SatelliteSimple" (FSPL + 4 dB + clutter loss)
-    #                                    "P619"
+    #                                    "P619", "P528"
     channel_model: str = "P619"
     # Parameters for the P.619 propagation model
     #    earth_station_alt_m - altitude of IMT system (in meters)
@@ -45,6 +47,8 @@ class ParametersRns(ParametersBase):
     season: str = "SUMMER"
     # Adjacent channel selectivity [dB]
     acs: float = 30.0
+    # Parameters for P528 model
+    param_p528: ParametersP528 = field(default_factory=ParametersP528)
 
     def load_parameters_from_file(self, config_file: str):
         """Load the parameters from file an run a sanity check
@@ -61,14 +65,20 @@ class ParametersRns(ParametersBase):
         """
         super().load_parameters_from_file(config_file)
         if self.antenna_pattern not in ["ITU-R M.1466", "OMNI"]:
-            raise ValueError(f"ParametersRns: \
+            raise ValueError(
+                f'ParametersRns: \
                              Invalid value for parameter {self.antenna_pattern}. \
-                             Allowed values are \"ITU-R M.1466\", \"OMNI\".")
-        if self.channel_model.upper() not in ["FSPL", "SatelliteSimple", "P619"]:
-            raise ValueError(f"ParametersRns: \
+                             Allowed values are "ITU-R M.1466", "OMNI".'
+            )
+        if self.channel_model.upper() not in ["FSPL", "SatelliteSimple", "P619", "P528"]:
+            raise ValueError(
+                f'ParametersRns: \
                              Invalid value for paramter channel_model = {self.channel_model}. \
-                             Possible values are \"FSPL\", \"SatelliteSimple\", \"P619\".")
+                             Possible values are "FSPL", "SatelliteSimple", "P619", "P528".'
+            )
         if self.season.upper() not in ["SUMMER", "WINTER"]:
-            raise ValueError(f"ParametersRns: \
+            raise ValueError(
+                f'ParametersRns: \
                              Invalid value for parameter season - {self.season}. \
-                             Possible values are \"SUMMER\", \"WINTER\".")
+                             Possible values are "SUMMER", "WINTER".'
+            )

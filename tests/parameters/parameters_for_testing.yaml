@@ -778,44 +778,48 @@ haps:
 rns:
     ###########################################################################
     # x-y coordinates [m]
-    x  : 660.1
-    y  : -370.1
+    x: 660.1
+    y: -370.1
     ###########################################################################
     # altitude [m]
-    altitude  : 150.1
+    altitude: 150.1 
     ###########################################################################
     # center frequency [MHz]
-    frequency  : 32000.1
+    frequency: 32000.1
     ###########################################################################
     # bandwidth [MHz]
-    bandwidth  : 60.1
+    bandwidth: 60.1
     ###########################################################################
     # System receive noise temperature [K]
-    noise_temperature  : 1154.1
+    noise_temperature: 1154.1
     ###########################################################################
     # Peak transmit power spectral density (clear sky) [dBW/Hz]
-    tx_power_density  : -70.79
+    tx_power_density: -70.79
     ###########################################################################
     # antenna peak gain [dBi]
-    antenna_gain  : 30.1
+    antenna_gain: 30.1
     ###########################################################################
     # Adjacent channel selectivity [dB]
-    acs  : 30.1
+    acs: 30.1
     ###########################################################################
     # Antenna pattern of the fixed wireless service
     # Possible values: "ITU-R M.1466", "OMNI"
-    antenna_pattern  : ITU-R M.1466
+    antenna_pattern: ITU-R M.1466
     ###########################################################################
     # Channel parameters
     # channel model, possible values are "FSPL" (free-space path loss),
     #                                    "SatelliteSimple" (FSPL + 4 dB + clutter loss)
-    #                                    "P619"
-    channel_model  : P619
+    #                                    "P528"
+    channel_model: P528
     ###########################################################################
-    # Specific parameters for P619
-    season  : SUMMER
-    earth_station_alt_m  : 0
-    earth_station_lat_deg  : 0
+    # P528 propagation parameters
+    param_p528:
+        ###########################################################################
+        # Time percentage between 1-99 or "RANDOM"  
+        time_percentage: 53
+        ###########################################################################
+        # Polarization: 0 (horizontal), 1 (vertical) or "RANDOM"
+        polarization: 1
 ras:
     ###########################################################################
     # frequency [MHz]

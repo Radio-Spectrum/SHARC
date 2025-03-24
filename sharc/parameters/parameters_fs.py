@@ -116,7 +116,7 @@ class ParametersFs(ParametersBase):
             )
 
         # Sanity check for channel model
-        if self.channel_model not in ["FSPL", "TerrestrialSimple","P452"]:
+        if self.channel_model not in ["FSPL", "TerrestrialSimple", "P452"]:
             raise ValueError(
                 "Invalid channel_model, must be either 'FSPL', 'TerrestrialSimple', or 'P452'",
             )

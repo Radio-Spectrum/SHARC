@@ -92,7 +92,7 @@ class PropagationClutterLoss(Propagation):
             loss = self.get_terrestrial_clutter_loss(f, d, p1, True) + self.get_terrestrial_clutter_loss(f, d, p2, False)
         else:
             theta = kwargs["elevation"]
-            loss = self.get_spacial_clutter_loss(f, theta, p)
+            loss = self.get_spacial_clutter_loss(f, theta, p1)
         return loss
 
     def get_spacial_clutter_loss(

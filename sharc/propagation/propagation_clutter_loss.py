@@ -85,7 +85,8 @@ class PropagationClutterLoss(Propagation):
             p1 = self.random_number_gen.random_sample(d.shape)
             p2 = self.random_number_gen.random_sample(d.shape)
         else:
-            p = loc_per * np.ones(d.shape)
+            p1 = loc_per * np.ones(d.shape)
+            p2 = loc_per * np.ones(d.shape)
 
         if type is StationType.IMT_BS or type is StationType.IMT_UE or type is StationType.FSS_ES:
             loss = self.get_terrestrial_clutter_loss(f, d, p1, True) + self.get_terrestrial_clutter_loss(f, d, p2, False)

@@ -1,11 +1,3 @@
-import os
-from itertools import product
-
-# Get the current directory where the script is located
-current_dir = os.path.dirname(os.path.abspath(__file__))
-
-# YAML template with comments and placeholders for substitution
-base_yaml = """\
 general:
   num_snapshots: 3000                             # Number of simulation snapshots
   imt_link: UPLINK                              # IMT link to be simulated (DOWNLINK or UPLINK)
@@ -15,7 +7,7 @@ general:
   seed: 101                                       # Seed for the random number generator
   overwrite_output: FALSE                         # If FALSE, creates a new output directory
   output_dir: campaigns/imt_mss_hub_type_6_7300_UL/output/   # Output directory (relative to the SHARC/sharc folder)
-  output_dir_prefix: output_imt_mss_hub_type_6_UL_7300_y_{y}_load_probability_{load_probability_per} # Output directory prefix
+  output_dir_prefix: output_imt_mss_hub_type_6_UL_7300_y_2500_load_probability_50 # Output directory prefix
 imt:
   topology:
     type: MACROCELL                               # Topology: SINGLE_BS, MACROCELL, HOTSPOT, INDOOR, etc.
@@ -34,7 +26,7 @@ imt:
   spurious_emissions: -13                         # Spurious emissions level [dBm/MHz]
   guard_band_ratio: 0.1                           # Guard band ratio relative to the total bandwidth
   bs:
-    load_probability: {load_probability}                # Load probability (BS activity factor) # NOTE: From Annex 4.2 to Doc 5D/413-E, Section 6 # For wide area, .2 # For smaller area, max. of .5
+    load_probability: 0.5                # Load probability (BS activity factor) # NOTE: From Annex 4.2 to Doc 5D/413-E, Section 6 # For wide area, .2 # For smaller area, max. of .5
     conducted_power: 22                           # Conducted power per antenna element [dBm/band]
     height: 18                                    # BS height [m] 
     noise_figure: 6                               # BS noise figure [dB] (6 dB (Wide Area BS) 11 dB (Medium Range BS) 14 dB (Local Area BS)) from table 4 Annex 4.2 Doc 5D/413-E 15 october 2024
@@ -137,7 +129,7 @@ single_earth_station:
       type: FIXED
       fixed:
         x: 0
-        y: {y}                                    # Placeholder for y value
+        y: 2500                                    # Placeholder for y value
   antenna:
     pattern: OMNI                               # Antenna radiation pattern
     gain: 9.7                                   # Antenna gain [dBi]
@@ -158,15 +150,3 @@ single_earth_station:
     clutter_loss: TRUE                        # Enable clutter loss
 
 
-"""
-Ro = 1600 
-y_values = [Ro - 600, Ro - 300, Ro, Ro + 300, Ro + 600, Ro + 900, Ro + 1200, Ro + 1500]  # Values for 'y'
-load_probabilities = [20,50]  # Values for 'elevation'
-
-# Generate the YAML files in the same folder as the script
-for y, load_probability in product(y_values, load_probabilities):
-    filename = os.path.join(current_dir, f"parameters_mss_hub_type_6_7300_y_{y}_load_probability_{load_probability}.yaml")
-    content = base_yaml.format(y=y, load_probability=load_probability/100,load_probability_per=load_probability)
-    with open(filename, 'w', encoding='utf-8') as file:
-        file.write(content)
-    print(f"Generated file: {filename}")

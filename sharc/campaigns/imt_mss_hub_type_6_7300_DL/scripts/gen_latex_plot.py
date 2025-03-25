@@ -4,55 +4,58 @@ from pathlib import Path
 
 import pandas as pd
 
-# Base directory for simulation results
+# Diretório base para os resultados da simulação
 campaign_base_dir = Path(__file__).resolve().parent.parent / "output"
 latex_dir = campaign_base_dir / "latex"
 
-# Create the 'latex' folder if it does not exist
+# Cria a pasta 'latex' se ela não existir
 latex_dir.mkdir(exist_ok=True)
 
-# Prefix for simulation output directories
+# Prefixo para os diretórios de saída da simulação
 prefix = "output_imt_mss_hub_type_6_DL_7300"
 
-# Regex pattern to extract distance (y) and load probability values
+# Regex para extrair os valores de distância (y) e load probability
 pattern = re.compile(rf"{prefix}_y_(\d+)_load_probability_(\d+)")
 
-# Dictionary to store simulation data
+# Dicionário para armazenar os dados das simulações
 data_dict = {}
 
-# Iterate through all subdirectories in 'output'
+# Itera por todas as subpastas em 'output'
 for subdir in campaign_base_dir.iterdir():
     if subdir.is_dir():
         match = pattern.search(subdir.name)
         if match:
             y_value, load_probability = match.groups()
 
-            # Expected path of the data file
+            # Caminho esperado para o arquivo de dados
             original_file = subdir / "system_inr.csv"
 
-            # Check if the file exists before processing
+            # Verifica se o arquivo existe antes de processar
             if original_file.exists():
-                # Read CSV, assuming it contains a single column of INR values
+                # Lê o CSV assumindo que contém uma única coluna de valores INR
                 df = pd.read_csv(original_file, names=["INR [dB]"])
-
-                # Column name for this simulation
+                
+                # Remove as linhas que contêm a palavra "sample" (caso exista)
+                df = df[~df["INR [dB]"].astype(str).str.contains("sample", case=False, na=False)]
+                
+                # Nome da coluna para identificar a simulação
                 column_name = f"Dist_{y_value}m_Load_{load_probability}"
 
-                # Add data to the dictionary
+                # Adiciona os dados ao dicionário
                 data_dict[column_name] = df["INR [dB]"]
 
-                print(f"Processed: {original_file}")
+                print(f"Processado: {original_file}")
             else:
-                print(f"File not found: {original_file}")
+                print(f"Arquivo não encontrado: {original_file}")
 
-# Create a final DataFrame combining all data
+# Cria um DataFrame final combinando todos os dados
 if data_dict:
     combined_df = pd.DataFrame(dict(sorted(data_dict.items())))
 
-    # Save the combined CSV file
+    # Salva o CSV combinado
     output_csv_path = latex_dir / "combined_system_inr.csv"
     combined_df.to_csv(output_csv_path, index=False)
 
-    print(f"Combined file saved at: {output_csv_path}")
+    print(f"Arquivo combinado salvo em: {output_csv_path}")
 else:
-    print("No CSV files found to combine.")
+    print("Nenhum arquivo CSV encontrado para combinar.")

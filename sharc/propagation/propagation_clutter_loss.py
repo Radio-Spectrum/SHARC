@@ -219,7 +219,6 @@ class PropagationClutterLoss(Propagation):
             id_max = np.where(loss >= loss_2km)[0]
             loss[id_max] = loss_2km[id_max]
 
-        loss *= 2
         loss = loss.reshape(distance.shape)
 
         return loss

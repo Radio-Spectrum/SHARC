@@ -1,10 +1,13 @@
+from dataclasses import asdict, dataclass, field
+
 import numpy as np
-from dataclasses import dataclass, field, asdict
+
+from sharc.parameters.antenna.parameters_antenna_s1528 import \
+    ParametersAntennaS1528
 from sharc.parameters.parameters_base import ParametersBase
 from sharc.parameters.parameters_orbit import ParametersOrbit
 #from satellite.parameters.parameters_ngso_constellation import ParametersNgsoConstellation
 from sharc.parameters.parameters_p619 import ParametersP619
-from sharc.parameters.antenna.parameters_antenna_s1528 import ParametersAntennaS1528
 
 
 @dataclass
@@ -52,6 +55,11 @@ class ParametersMssD2d(ParametersBase):
 
     # Satellite Tx max Gain in dBi
     antenna_gain: float = 30.0
+    
+    # Minimum and maximum elevation angle [degrees]
+    min_elevation_angle_deg: float = 5.0
+    max_elevation_angle_deg: float = 90.0
+
 
     # Number of beams per satellite
     num_sectors: int = 19

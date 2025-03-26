@@ -5,64 +5,66 @@ Created on Thu Mar 23 16:37:32 2017
 @author: edgar
 """
 
-from warnings import warn
-import numpy as np
-import sys
 import math
+import sys
+from warnings import warn
 
-from sharc.support.enumerations import StationType
-from sharc.parameters.parameters import Parameters
-from sharc.parameters.imt.parameters_imt import ParametersImt
-from sharc.parameters.imt.parameters_antenna_imt import ParametersAntennaImt
-from sharc.parameters.parameters_space_station import ParametersSpaceStation
-from sharc.parameters.parameters_eess_ss import ParametersEessSS
-from sharc.parameters.parameters_metsat_ss import ParametersMetSatSS
-from sharc.parameters.parameters_fs import ParametersFs
-from sharc.parameters.parameters_fss_ss import ParametersFssSs
-from sharc.parameters.parameters_fss_es import ParametersFssEs
-from sharc.parameters.parameters_haps import ParametersHaps
-from sharc.parameters.parameters_rns import ParametersRns
-from sharc.parameters.parameters_ras import ParametersRas
-from sharc.parameters.parameters_single_earth_station import ParametersSingleEarthStation
-from sharc.parameters.parameters_mss_ss import ParametersMssSs
-from sharc.parameters.parameters_mss_d2d import ParametersMssD2d
-#from sharc.parameters.parameters_ngso_constellation import ParametersNgsoConstellation
-from sharc.parameters.constants import EARTH_RADIUS
-from sharc.station_manager import StationManager
-from sharc.mask.spectral_mask_imt import SpectralMaskImt
+import numpy as np
+
 from sharc.antenna.antenna import Antenna
-from sharc.antenna.antenna_fss_ss import AntennaFssSs
-from sharc.antenna.antenna_omni import AntennaOmni
+from sharc.antenna.antenna_beamforming_imt import AntennaBeamformingImt
 from sharc.antenna.antenna_f699 import AntennaF699
 from sharc.antenna.antenna_f1891 import AntennaF1891
+from sharc.antenna.antenna_fss_ss import AntennaFssSs
 from sharc.antenna.antenna_m1466 import AntennaM1466
+from sharc.antenna.antenna_modified_s465 import AntennaModifiedS465
+from sharc.antenna.antenna_multiple_transceiver import \
+    AntennaMultipleTransceiver
+from sharc.antenna.antenna_omni import AntennaOmni
+from sharc.antenna.antenna_rra7_3 import AntennaReg_RR_A7_3
 from sharc.antenna.antenna_rs1813 import AntennaRS1813
 from sharc.antenna.antenna_rs1861_9a import AntennaRS1861_9A
 from sharc.antenna.antenna_rs1861_9b import AntennaRS1861_9B
 from sharc.antenna.antenna_rs1861_9c import AntennaRS1861_9C
 from sharc.antenna.antenna_rs2043 import AntennaRS2043
 from sharc.antenna.antenna_s465 import AntennaS465
-from sharc.antenna.antenna_rra7_3 import AntennaReg_RR_A7_3
-from sharc.antenna.antenna_modified_s465 import AntennaModifiedS465
 from sharc.antenna.antenna_s580 import AntennaS580
 from sharc.antenna.antenna_s672 import AntennaS672
-from sharc.antenna.antenna_s1528 import AntennaS1528
+from sharc.antenna.antenna_s1528 import (AntennaS1528, AntennaS1528Leo,
+                                         AntennaS1528Taylor)
 from sharc.antenna.antenna_s1855 import AntennaS1855
 from sharc.antenna.antenna_sa509 import AntennaSA509
-from sharc.antenna.antenna_s1528 import AntennaS1528, AntennaS1528Leo, AntennaS1528Taylor
-from sharc.antenna.antenna_beamforming_imt import AntennaBeamformingImt
-from sharc.antenna.antenna_multiple_transceiver import AntennaMultipleTransceiver
-from sharc.topology.topology import Topology
-from sharc.topology.topology_ntn import TopologyNTN
-from sharc.topology.topology_macrocell import TopologyMacrocell
-from sharc.topology.topology_imt_mss_dc import TopologyImtMssDc
 from sharc.mask.spectral_mask_3gpp import SpectralMask3Gpp
+from sharc.mask.spectral_mask_imt import SpectralMaskImt
 from sharc.mask.spectral_mask_mss import SpectralMaskMSS
+#from sharc.parameters.parameters_ngso_constellation import ParametersNgsoConstellation
+from sharc.parameters.constants import EARTH_RADIUS, SPEED_OF_LIGHT
+from sharc.parameters.imt.parameters_antenna_imt import ParametersAntennaImt
+from sharc.parameters.imt.parameters_imt import ParametersImt
+from sharc.parameters.parameters import Parameters
+from sharc.parameters.parameters_eess_ss import ParametersEessSS
+from sharc.parameters.parameters_fs import ParametersFs
+from sharc.parameters.parameters_fss_es import ParametersFssEs
+from sharc.parameters.parameters_fss_ss import ParametersFssSs
+from sharc.parameters.parameters_haps import ParametersHaps
+from sharc.parameters.parameters_metsat_ss import ParametersMetSatSS
+from sharc.parameters.parameters_mss_d2d import ParametersMssD2d
+from sharc.parameters.parameters_mss_ss import ParametersMssSs
+from sharc.parameters.parameters_ras import ParametersRas
+from sharc.parameters.parameters_rns import ParametersRns
+from sharc.parameters.parameters_single_earth_station import \
+    ParametersSingleEarthStation
+from sharc.parameters.parameters_space_station import ParametersSpaceStation
 from sharc.satellite.ngso.orbit_model import OrbitModel
 from sharc.satellite.utils.sat_utils import calc_elevation, lla2ecef
-from sharc.support.sharc_geom import rotate_angles_based_on_new_nadir, GeometryConverter
-
-from sharc.parameters.constants import SPEED_OF_LIGHT
+from sharc.station_manager import StationManager
+from sharc.support.enumerations import StationType
+from sharc.support.sharc_geom import (GeometryConverter,
+                                      rotate_angles_based_on_new_nadir)
+from sharc.topology.topology import Topology
+from sharc.topology.topology_imt_mss_dc import TopologyImtMssDc
+from sharc.topology.topology_macrocell import TopologyMacrocell
+from sharc.topology.topology_ntn import TopologyNTN
 
 
 class StationFactory(object):
@@ -1235,7 +1237,8 @@ class StationFactory(object):
         """
         geometry_converter.validate()
 
-        MIN_ELEV_ANGLE_DEG = 5.0  # Minimum elevation angle for satellite visibility
+        MIN_ELEV_ANGLE_DEG = params.min_elevation_angle_deg  # Minimum elevation angle for satellite visibility
+        MAX_ELEV_ANGLE_DEG = params.max_elevation_angle_deg  # Minimum elevation angle for satellite visibility
         MAX_ITER = 100  # Maximum iterations to find at least one visible satellite
 
         # Calculate the total number of satellites across all orbits
@@ -1333,7 +1336,8 @@ class StationFactory(object):
 
                 # Determine visible satellites based on minimum elevation angle
                 visible_sat_idxs = [
-                    current_sat_idx + idx for idx, elevation in enumerate(elev_from_bs) if elevation >= MIN_ELEV_ANGLE_DEG
+                    current_sat_idx + idx for idx, elevation in enumerate(elev_from_bs)
+                    if MIN_ELEV_ANGLE_DEG <= elevation <= MAX_ELEV_ANGLE_DEG
                 ]
                 active_satellite_idxs.extend(visible_sat_idxs)
 
@@ -1604,7 +1608,8 @@ if __name__ == '__main__':
         topology
     )
 
-    from sharc.satellite.scripts.plot_3d_param_file import plot_globe_with_borders
+    from sharc.satellite.scripts.plot_3d_param_file import \
+        plot_globe_with_borders
     fig = plot_globe_with_borders(True, geometry_converter)
 
     import plotly.graph_objects as go
@@ -1655,6 +1660,7 @@ if __name__ == '__main__':
     )
 
     from sharc.support.sharc_geom import polar_to_cartesian
+
     # Plot beam boresight vectors
     boresight_length = 100*1e3  # Length of the boresight vectors for visualization
     boresight_x, boresight_y, boresight_z = polar_to_cartesian(

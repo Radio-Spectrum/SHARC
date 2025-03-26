@@ -1,11 +1,12 @@
-from sharc.results import Results
-
-from dataclasses import dataclass, field
-import plotly.graph_objects as go
 import os
-import numpy as np
-import scipy
 import typing
+from dataclasses import dataclass, field
+
+import numpy as np
+import plotly.graph_objects as go
+import scipy
+
+from sharc.results import Results
 
 
 class FieldStatistics:
@@ -101,7 +102,9 @@ class ResultsStatistics:
         return stats_found[0]
 
     def __str__(self):
-        return f"[{self.results_output_dir}]\n{'\n'.join(list(map(str, self.fields_statistics)))}"
+        joined_stats = '\n'.join(list(map(str, self.fields_statistics)))
+        return f"[{self.results_output_dir}]\n{joined_stats}"
+
 
 
 @dataclass

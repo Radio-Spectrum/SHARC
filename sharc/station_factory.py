@@ -31,6 +31,7 @@ from sharc.parameters.constants import EARTH_RADIUS
 from sharc.station_manager import StationManager
 from sharc.mask.spectral_mask_imt import SpectralMaskImt
 from sharc.antenna.antenna import Antenna
+from sharc.antenna.antenna_factory import AntennaFactory
 from sharc.antenna.antenna_fss_ss import AntennaFssSs
 from sharc.antenna.antenna_omni import AntennaOmni
 from sharc.antenna.antenna_f699 import AntennaF699
@@ -50,7 +51,6 @@ from sharc.antenna.antenna_s1528 import AntennaS1528
 from sharc.antenna.antenna_s1855 import AntennaS1855
 from sharc.antenna.antenna_sa509 import AntennaSA509
 from sharc.antenna.antenna_s1528 import AntennaS1528, AntennaS1528Leo, AntennaS1528Taylor
-from sharc.antenna.antenna_beamforming_imt import AntennaBeamformingImt
 from sharc.antenna.antenna_multiple_transceiver import AntennaMultipleTransceiver
 from sharc.topology.topology import Topology
 from sharc.topology.topology_ntn import TopologyNTN
@@ -134,13 +134,13 @@ class StationFactory(object):
         )
 
         imt_base_stations.antenna = np.empty(
-            num_bs, dtype=AntennaBeamformingImt,
+            num_bs, dtype=Antenna,
         )
 
         for i in range(num_bs):
             imt_base_stations.antenna[i] = \
-                AntennaBeamformingImt(
-                    param_ant, imt_base_stations.azimuth[i],
+                AntennaFactory.create_antenna(
+                    param.bs.antenna, imt_base_stations.azimuth[i],
                     imt_base_stations.elevation[i],)
 
         # imt_base_stations.antenna = [AntennaOmni(0) for bs in range(num_bs)]
@@ -299,7 +299,7 @@ class StationFactory(object):
 
                 # FIXME: The angle cutoff ignores the lower range of azimuth_range
                 angle_cutoff = np.max(azimuth_range)
-                idx = np.where((angle_n < angle_cutoff) & (angle_n > -angle_cutoff))[0][:num_ue]
+                idx = np.where((angle_n < azimuth_range[1]) & (angle_n > azimuth_range[0]))[0][:num_ue]
                 angle = angle_n[idx]
             elif param.ue.distribution_azimuth.upper() == "UNIFORM":
                 angle = (azimuth_range[1] - azimuth_range[0]) * random_number_gen.random_sample(num_ue) \
@@ -362,8 +362,8 @@ class StationFactory(object):
         # TODO: this piece of code works only for uplink
         par = ue_param_ant.get_antenna_parameters()
         for i in range(num_ue):
-            imt_ue.antenna[i] = AntennaBeamformingImt(
-                par, imt_ue.azimuth[i],
+            imt_ue.antenna[i] = AntennaFactory.create_antenna(
+                param.ue.antenna, imt_ue.azimuth[i],
                 imt_ue.elevation[i],
             )
 
@@ -519,8 +519,8 @@ class StationFactory(object):
         # TODO: this piece of code works only for uplink
         par = ue_param_ant.get_antenna_parameters()
         for i in range(num_ue):
-            imt_ue.antenna[i] = AntennaBeamformingImt(
-                par, imt_ue.azimuth[i],
+            imt_ue.antenna[i] = AntennaFactory.create_antenna(
+                param.ue.antenna, imt_ue.azimuth[i],
                 imt_ue.elevation[i],
             )
 

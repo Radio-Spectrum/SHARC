@@ -37,7 +37,7 @@ imt:
             cell_radius: 90000
             ###########################################################################
             # Number of clusters in macro cell topology
-            num_clusters: 1
+            num_sectors: 1
             bs_elevation: 90
     ###########################################################################
     # Minimum 2D separation distance from BS to UE [m]
@@ -91,69 +91,68 @@ imt:
         # Base station noise figure [dB]
         noise_figure: 5
         ###########################################################################
-        # User equipment noise temperature [K]
-        noise_temperature: 290
-        ###########################################################################
         # Base station array ohmic loss  [dB]
         ohmic_loss: 2
 
         antenna:
-            ###########################################################################
-            # If normalization of M2101 should be applied for BS
-            normalization: FALSE
-            ###########################################################################
-            # File to be used in the BS beamforming normalization
-            # Normalization files can be generated with the
-            # antenna/beamforming_normalization/normalize_script.py script
-            normalization_file: antenna/beamforming_normalization/bs_norm.npz
-            ###########################################################################
-            # Radiation pattern of each antenna element
-            # Possible values: "M2101", "F1336", "FIXED"
-            element_pattern: M2101
-            ###########################################################################
-            # Minimum array gain for the beamforming antenna [dBi]
-            minimum_array_gain: -200
-            ###########################################################################
-            # mechanical downtilt [degrees]
-            # NOTE: consider defining it to 90 degrees in case of indoor or NTN simulations
-            downtilt: 90
-            ###########################################################################
-            # BS/UE maximum transmit/receive element gain [dBi]
-            # default: element_max_g = 5, for M.2101
-            #                           = 15, for M.2292
-            #                           = -3, for M.2292
-            element_max_g: 5
-            ###########################################################################
-            # BS/UE horizontal 3dB beamwidth of single element [degrees]
-            element_phi_3db: 65
-            ###########################################################################
-            # BS/UE vertical 3dB beamwidth of single element [degrees]
-            # For F1336: if equal to 0, then beamwidth is calculated automaticaly
-            element_theta_3db: 65
-            ###########################################################################
-            # BS/UE number of rows in antenna array
-            n_rows: 8
-            ###########################################################################
-            # BS/UE number of columns in antenna array
-            n_columns: 8
-            ###########################################################################
-            # BS/UE array horizontal element spacing (d/lambda)
-            element_horiz_spacing: 0.5
-            ###########################################################################
-            # BS/UE array vertical element spacing (d/lambda)
-            element_vert_spacing: 0.5
-            ###########################################################################
-            # BS/UE front to back ratio of single element [dB]
-            element_am: 30
-            ###########################################################################
-            # BS/UE single element vertical sidelobe attenuation [dB]
-            element_sla_v: 30
-            ###########################################################################
-            # Multiplication factor k that is used to adjust the single-element pattern.
-            # According to Report ITU-R M.[IMT.AAS], this may give a closer match of the
-            # side lobes when beamforming is assumed in adjacent channel.
-            #       Original value: 12 (Rec. ITU-R M.2101)
-            multiplication_factor: 12
+            pattern: ARRAY
+            array:
+                ###########################################################################
+                # If normalization of M2101 should be applied for BS
+                normalization: FALSE
+                ###########################################################################
+                # File to be used in the BS beamforming normalization
+                # Normalization files can be generated with the
+                # antenna/beamforming_normalization/normalize_script.py script
+                normalization_file: antenna/beamforming_normalization/bs_norm.npz
+                ###########################################################################
+                # Radiation pattern of each antenna element
+                # Possible values: "M2101", "F1336", "FIXED"
+                element_pattern: M2101
+                ###########################################################################
+                # Minimum array gain for the beamforming antenna [dBi]
+                minimum_array_gain: -200
+                ###########################################################################
+                # mechanical downtilt [degrees]
+                # NOTE: consider defining it to 90 degrees in case of indoor or NTN simulations
+                downtilt: 90
+                ###########################################################################
+                # BS/UE maximum transmit/receive element gain [dBi]
+                # default: element_max_g = 5, for M.2101
+                #                           = 15, for M.2292
+                #                           = -3, for M.2292
+                element_max_g: 5
+                ###########################################################################
+                # BS/UE horizontal 3dB beamwidth of single element [degrees]
+                element_phi_3db: 65
+                ###########################################################################
+                # BS/UE vertical 3dB beamwidth of single element [degrees]
+                # For F1336: if equal to 0, then beamwidth is calculated automaticaly
+                element_theta_3db: 65
+                ###########################################################################
+                # BS/UE number of rows in antenna array
+                n_rows: 8
+                ###########################################################################
+                # BS/UE number of columns in antenna array
+                n_columns: 8
+                ###########################################################################
+                # BS/UE array horizontal element spacing (d/lambda)
+                element_horiz_spacing: 0.5
+                ###########################################################################
+                # BS/UE array vertical element spacing (d/lambda)
+                element_vert_spacing: 0.5
+                ###########################################################################
+                # BS/UE front to back ratio of single element [dB]
+                element_am: 30
+                ###########################################################################
+                # BS/UE single element vertical sidelobe attenuation [dB]
+                element_sla_v: 30
+                ###########################################################################
+                # Multiplication factor k that is used to adjust the single-element pattern.
+                # According to Report ITU-R M.[IMT.AAS], this may give a closer match of the
+                # side lobes when beamforming is assumed in adjacent channel.
+                #       Original value: 12 (Rec. ITU-R M.2101)
+                multiplication_factor: 12
 
     uplink:
         ###########################################################################
@@ -233,58 +232,60 @@ imt:
         body_loss: 4
 
         antenna:
-            ###########################################################################
-            # If normalization of M2101 should be applied for UE
-            normalization: FALSE
-            ###########################################################################
-            # File to be used in the UE beamforming normalization
-            # Normalization files can be generated with the
-            # antenna/beamforming_normalization/normalize_script.py script
-            normalization_file: antenna/beamforming_normalization/ue_norm.npz
-            ###########################################################################
-            # Radiation pattern of each antenna element
-            # Possible values: "M2101", "F1336", "FIXED"
-            element_pattern: M2101
-            ###########################################################################
-            # Minimum array gain for the beamforming antenna [dBi]
-            minimum_array_gain: -200
-            ###########################################################################
-            # BS/UE maximum transmit/receive element gain [dBi]
-            #                           = 15, for M.2292
-            # default: element_max_g = 5, for M.2101
-            #                           = -3, for M.2292
-            element_max_g: 5
-            ###########################################################################
-            # BS/UE horizontal 3dB beamwidth of single element [degrees]
-            element_phi_3db: 90
-            ###########################################################################
-            # BS/UE vertical 3dB beamwidth of single element [degrees]
-            # For F1336: if equal to 0, then beamwidth is calculated automaticaly
-            element_theta_3db: 90
-            ###########################################################################
-            # BS/UE number of rows in antenna array
-            n_rows: 4
-            ###########################################################################
-            # BS/UE number of columns in antenna array
-            n_columns: 4
-            ###########################################################################
-            # BS/UE array horizontal element spacing (d/lambda)
-            element_horiz_spacing: 0.5
-            ###########################################################################
-            # BS/UE array vertical element spacing (d/lambda)
-            element_vert_spacing: 0.5
-            ###########################################################################
-            # BS/UE front to back ratio of single element [dB]
-            element_am: 25
-            ###########################################################################
-            # BS/UE single element vertical sidelobe attenuation [dB]
-            element_sla_v: 25
-            ###########################################################################
-            # Multiplication factor k that is used to adjust the single-element pattern.
-            # According to Report ITU-R M.[IMT.AAS], this may give a closer match of the
-            # side lobes when beamforming is assumed in adjacent channel.
-            #       Original value: 12 (Rec. ITU-R M.2101)
-            multiplication_factor: 12
+            pattern: ARRAY
+            array:
+                ###########################################################################
+                # If normalization of M2101 should be applied for UE
+                normalization: FALSE
+                ###########################################################################
+                # File to be used in the UE beamforming normalization
+                # Normalization files can be generated with the
+                # antenna/beamforming_normalization/normalize_script.py script
+                normalization_file: antenna/beamforming_normalization/ue_norm.npz
+                ###########################################################################
+                # Radiation pattern of each antenna element
+                # Possible values: "M2101", "F1336", "FIXED"
+                element_pattern: M2101
+                ###########################################################################
+                # Minimum array gain for the beamforming antenna [dBi]
+                minimum_array_gain: -200
+                ###########################################################################
+                # BS/UE maximum transmit/receive element gain [dBi]
+                #                           = 15, for M.2292
+                # default: element_max_g = 5, for M.2101
+                #                           = -3, for M.2292
+                element_max_g: 5
+                ###########################################################################
+                # BS/UE horizontal 3dB beamwidth of single element [degrees]
+                element_phi_3db: 90
+                ###########################################################################
+                # BS/UE vertical 3dB beamwidth of single element [degrees]
+                # For F1336: if equal to 0, then beamwidth is calculated automaticaly
+                element_theta_3db: 90
+                ###########################################################################
+                # BS/UE number of rows in antenna array
+                n_rows: 4
+                ###########################################################################
+                # BS/UE number of columns in antenna array
+                n_columns: 4
+                ###########################################################################
+                # BS/UE array horizontal element spacing (d/lambda)
+                element_horiz_spacing: 0.5
+                ###########################################################################
+                # BS/UE array vertical element spacing (d/lambda)
+                element_vert_spacing: 0.5
+                ###########################################################################
+                # BS/UE front to back ratio of single element [dB]
+                element_am: 25
+                ###########################################################################
+                # BS/UE single element vertical sidelobe attenuation [dB]
+                element_sla_v: 25
+                ###########################################################################
+                # Multiplication factor k that is used to adjust the single-element pattern.
+                # According to Report ITU-R M.[IMT.AAS], this may give a closer match of the
+                # side lobes when beamforming is assumed in adjacent channel.
+                #       Original value: 12 (Rec. ITU-R M.2101)
+                multiplication_factor: 12
 
     downlink:
         ###########################################################################

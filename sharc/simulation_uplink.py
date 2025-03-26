@@ -32,25 +32,31 @@ class SimulationUplink(Simulation):
         # In case of hotspots, base stations coordinates have to be calculated
         # on every snapshot. Anyway, let topology decide whether to calculate
         # or not
+        num_stations_before = self.topology.num_base_stations
+
         self.topology.calculate_coordinates(random_number_gen)
+
+        if num_stations_before != self.topology.num_base_stations:
+            self.initialize_topology_dependant_variables()
 
         # Create the base stations (remember that it takes into account the
         # network load factor)
         self.bs = StationFactory.generate_imt_base_stations(
             self.parameters.imt,
-            self.parameters.imt.bs.antenna,
+            self.parameters.imt.bs.antenna.array,
             self.topology, random_number_gen,
         )
 
         # Create the other system (FSS, HAPS, etc...)
         self.system = StationFactory.generate_system(
             self.parameters, self.topology, random_number_gen,
+            geometry_converter=self.geometry_converter
         )
 
         # Create IMT user equipments
         self.ue = StationFactory.generate_imt_ue(
             self.parameters.imt,
-            self.parameters.imt.ue.antenna,
+            self.parameters.imt.ue.antenna.array,
             self.topology, random_number_gen,
         )
         # self.plot_scenario()

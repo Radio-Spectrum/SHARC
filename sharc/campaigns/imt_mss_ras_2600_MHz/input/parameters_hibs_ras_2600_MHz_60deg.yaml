@@ -91,9 +91,6 @@ imt:
         # Base station noise figure [dB]
         noise_figure: 5
         ###########################################################################
-        # User equipment noise temperature [K]
-        noise_temperature: 290
-        ###########################################################################
         # Base station array ohmic loss  [dB]
         ohmic_loss: 2
 

@@ -21,7 +21,7 @@ general:
     overwrite_output: FALSE
     ###########################################################################
     # output destination folder - this is relative SHARC/sharc directory
-    output_dir: campaigns/mss_d2d_to_imt/output/
+    output_dir: campaigns/mss_d2d_to_imt/output2/
     ###########################################################################
     # output folder prefix
     output_dir_prefix: output_mss_d2d_to_imt_co_channel_system_A

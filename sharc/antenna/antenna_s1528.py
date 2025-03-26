@@ -22,6 +22,11 @@ class AntennaS1528Taylor(Antenna):
     diagram.
     """
 
+    beams_list = []
+
+    def add_beam(self, _2, _1):
+        self.beams_list.append((0, 0))
+
     def __init__(self, param: ParametersAntennaS1528):
         # Gmax
         self.peak_gain = param.antenna_gain

@@ -184,9 +184,9 @@ if __name__ == "__main__":
     # plot ground station
     groud_sta_pos = lla2ecef(GROUND_STA_LAT, GROUND_STA_LON, 0.0)
     fig.add_trace(go.Scatter3d(
-        x=np.array(groud_sta_pos[0] / 1e3),
-        y=np.array(groud_sta_pos[1] / 1e3),
-        z=np.array(groud_sta_pos[2] / 1e3),
+        x=np.array(groud_sta_pos[0] / 1),
+        y=np.array(groud_sta_pos[1] / 1),
+        z=np.array(groud_sta_pos[2] / 1),
         mode='markers',
         marker=dict(size=4,
                     color='blue',

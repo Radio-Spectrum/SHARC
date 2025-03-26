@@ -7,4 +7,4 @@ name_campaign = "imt_mss_dc_metsat_es"
 # Run the campaign in single-thread mode
 # This function will execute the campaign with the given name in a single-threaded manner.
 # It will look for the campaign directory under the specified name and start the necessary processes.
-run_campaign_re(name_campaign, r'^parameters_mss_d2d_to_imt_co_channel_system_A.yaml')
+run_campaign_re(name_campaign, r'^parameters_imt_mss_dc.*')

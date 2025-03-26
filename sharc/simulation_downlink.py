@@ -5,6 +5,8 @@ Created on Wed Jan 11 19:06:41 2017
 @author: edgar
 """
 
+i = 0
+
 import numpy as np
 import math
 
@@ -12,6 +14,7 @@ from sharc.simulation import Simulation
 from sharc.parameters.parameters import Parameters
 from sharc.station_factory import StationFactory
 from sharc.parameters.constants import BOLTZMANN_CONSTANT
+import plotly.graph_objects as go
 
 
 class SimulationDownlink(Simulation):
@@ -32,13 +35,19 @@ class SimulationDownlink(Simulation):
         # In case of hotspots, base stations coordinates have to be calculated
         # on every snapshot. Anyway, let topology decide whether to calculate
         # or not
+        num_stations_before = self.topology.num_base_stations
+
         self.topology.calculate_coordinates(random_number_gen)
+
+        if num_stations_before != self.topology.num_base_stations:
+            self.initialize_topology_dependant_variables()
 
         # Create the base stations (remember that it takes into account the
         # network load factor)
         self.bs = StationFactory.generate_imt_base_stations(
             self.parameters.imt,
-            self.parameters.imt.bs.antenna,
+            # TODO: remove this from function call
+            self.parameters.imt.bs.antenna.array,
             self.topology, random_number_gen,
         )
 
@@ -51,9 +60,60 @@ class SimulationDownlink(Simulation):
         # Create IMT user equipments
         self.ue = StationFactory.generate_imt_ue(
             self.parameters.imt,
-            self.parameters.imt.ue.antenna,
+            self.parameters.imt.ue.antenna.array,
             self.topology, random_number_gen,
         )
+
+        # from sharc.satellite.scripts.plot_3d_param_file import plot_globe_with_borders
+
+        # fig = plot_globe_with_borders(True, self.geometry_converter)
+
+        # fig.add_trace(go.Scatter3d(
+        #     x=self.bs.x / 1,
+        #     y=self.bs.y / 1,
+        #     z=self.bs.z / 1,
+        #     mode='markers',
+        #     marker=dict(size=2, color='red', opacity=0.5),
+        #     showlegend=False
+        # ))
+        # fig.add_trace(go.Scatter3d(
+        #     x=self.ue.x / 1,
+        #     y=self.ue.y / 1,
+        #     z=self.ue.z / 1,
+        #     mode='markers',
+        #     marker=dict(size=2, color='blue', opacity=0.5),
+        #     showlegend=False
+        # ))
+        # fig.add_trace(go.Scatter3d(
+        #     x=self.system.x / 1,
+        #     y=self.system.y / 1,
+        #     z=self.system.z / 1,
+        #     mode='markers',
+        #     marker=dict(size=2, color='black', opacity=0.5),
+        #     showlegend=False
+        # ))
+        # fig.update_layout(
+        #     scene=dict(
+        #         zaxis=dict(
+        #             range=(-1e3*5000, 1e3*5000)
+        #         ),
+        #         yaxis=dict(
+        #             range=(-1e3*5000, 1e3*5000)
+        #         ),
+        #         xaxis=dict(
+        #             range=(-1e3*5000, 1e3*5000)
+        #         ),
+        #     )
+        # )
+        # fig.show()
+        # global i
+        # i+=1
+        # if i ==5:
+        #     exit()
+
+        # print("self.ue.num_stations", self.ue.num_stations)
+        # print("self.bs.num_stations", self.bs.num_stations)
+        # print("self.system.num_stations", self.system.num_stations)
 
         # self.plot_scenario()
 

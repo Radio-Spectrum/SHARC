@@ -18,6 +18,8 @@ campaign_base_dir = str((Path(__file__) / ".." / "..").resolve())
 many_results = Results.load_many_from_dir(os.path.join(campaign_base_dir, "output"), only_latest=True)
 # ^: typing.List[Results]
 
+print(many_results)
+
 post_processor.add_results(many_results)
 
 plots = post_processor.generate_cdf_plots_from_results(
@@ -36,30 +38,34 @@ post_processor.add_plots(plots)
 # )
 
 # Add a protection criteria line:
-protection_criteria = -6
-post_processor\
-    .get_plot_by_results_attribute_name("imt_dl_inr")\
-    .add_vline(protection_criteria, line_dash="dash")
+# protection_criteria = -6
+# post_processor\
+#     .get_plot_by_results_attribute_name("imt_dl_inr")\
+#     .add_vline(protection_criteria, line_dash="dash")
 
 # Show a single plot:
+# post_processor\
+#     .get_plot_by_results_attribute_name("imt_system_antenna_gain")\
+#     .show()
+
+# post_processor\
+#     .get_plot_by_results_attribute_name("system_imt_antenna_gain")\
+#     .show()
+
+# post_processor\
+#     .get_plot_by_results_attribute_name("sys_to_imt_coupling_loss")\
+#     .show()
+
+# post_processor\
+#     .get_plot_by_results_attribute_name("imt_system_path_loss")\
+#     .show()
+
 post_processor\
-    .get_plot_by_results_attribute_name("imt_system_antenna_gain")\
+    .get_plot_by_results_attribute_name("imt_ul_inr")\
     .show()
 
 post_processor\
-    .get_plot_by_results_attribute_name("system_imt_antenna_gain")\
-    .show()
-
-post_processor\
-    .get_plot_by_results_attribute_name("sys_to_imt_coupling_loss")\
-    .show()
-
-post_processor\
-    .get_plot_by_results_attribute_name("imt_system_path_loss")\
-    .show()
-
-post_processor\
-    .get_plot_by_results_attribute_name("imt_dl_inr")\
+    .get_plot_by_results_attribute_name("system_inr")\
     .show()
 
 # Plot every plot:

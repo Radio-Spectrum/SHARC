@@ -35,6 +35,13 @@ class ParametersBase:
         attr_list = [
             a for a in dir(self) if not a.startswith('_') and not callable(getattr(self, a)) and a not in
                     ["section_name", "nested_parameters_enabled",]]
+        params_keys = params.keys()
+
+        for k in params_keys:
+            if k not in attr_list:
+                raise ValueError(
+                    f"The parameter {ctx}.{k} was passed, but it doesn't exist on parameters definitions!"
+                )
 
         for attr_name in attr_list:
             default_attr_value = getattr(self, attr_name)
@@ -121,6 +128,14 @@ class ParametersBase:
             a for a in dir(self) if not a.startswith('_') and not
             callable(getattr(self, a)) and a != "section_name"
         ]
+
+        params_keys = config[self.section_name].keys()
+
+        for k in params_keys:
+            if k not in attr_list:
+                raise ValueError(
+                    f"The parameter {ctx}.{k} was passed, but it doesn't exist on parameters definitions!"
+                )
 
         for attr_name in attr_list:
             try:

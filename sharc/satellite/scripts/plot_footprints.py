@@ -218,7 +218,41 @@ if __name__ == "__main__":
     rng = np.random.RandomState(seed=42)
 
     # Number of iterations (drops)
-    NUM_DROPS = 128
+    NUM_DROPS = 1
+    param_file = "sharc/campaigns/imt_mss_dc_metsat_es/input/parameters_imt_mss_dc_to_earth_station_omni.yaml"
+    # param_file = "sharc/campaigns/imt_mss_dc_metsat_es/input/parameters_imt_omni_to_mss_d2d.yaml"
+    from sharc.parameters.parameters import Parameters
+    parameters = Parameters()
+    parameters.set_file_name(param_file)
+    parameters.read_params()
+
+    geoconv.set_reference(
+        parameters.imt.topology.central_latitude,
+        parameters.imt.topology.central_longitude,
+        parameters.imt.topology.central_altitude,
+    )
+
+    import random
+    random.seed(parameters.general.seed)
+
+    secondary_seeds = [None] * parameters.general.num_snapshots
+
+    max_seed = 2**32 - 1
+
+    for index in range(parameters.general.num_snapshots):
+        secondary_seeds[index] = random.randint(1, max_seed)
+
+    seed = secondary_seeds[0]
+
+    from sharc.topology.topology_factory import TopologyFactory
+    topology = TopologyFactory.createTopology(parameters, geoconv)
+
+    random_number_gen = np.random.RandomState(seed)
+
+    # In case of hotspots, base stations coordinates have to be calculated
+    # on every snapshot. Anyway, let topology decide whether to calculate
+    # or not
+    topology.calculate_coordinates(random_number_gen)
 
     # Lists to store satellite positions (all and visible)
     all_positions = {'x': [], 'y': [], 'z': []}
@@ -240,7 +274,14 @@ if __name__ == "__main__":
     options = []
     for drop in range(NUM_DROPS):
         # Generate satellite positions using the StationFactory
-        mss_d2d_manager = StationFactory.generate_mss_d2d(params, rng, geoconv)
+        # mss_d2d_manager = StationFactory.generate_mss_d2d(params, rng, geoconv)
+        # mss_d2d_manager = StationFactory.generate_mss_d2d(parameters.mss_d2d, rng, geoconv)
+        mss_d2d_manager = StationFactory.generate_imt_base_stations(
+            parameters.imt,
+            # TODO: remove this from function call
+            parameters.imt.bs.antenna.array,
+            topology, rng,
+        )
         managers.append(mss_d2d_manager)
 
         # Extract satellite positions
@@ -270,7 +311,7 @@ if __name__ == "__main__":
         vis_elevation.extend(mss_d2d_manager.elevation[vis_sat_idxs])
     print("options", options)
     print("len(options)", len(options))
-    select_i = 656
+    select_i = 0
     station_1 = managers[options[select_i][0]]
     mss_active = np.where(station_1.active)[0]
     # consider satellite footprint
@@ -299,41 +340,41 @@ if __name__ == "__main__":
                           visible_positions['y'][options[select_i][2]]**2 +
                           visible_positions['z'][options[select_i][2]]**2)
     eye = dict(
-        # x=0,
-        # y=0,
-        # z=0
-        x=visible_positions['x'][options[select_i][2]] * scale,
-        y=visible_positions['y'][options[select_i][2]] * scale,
-        z=visible_positions['z'][options[select_i][2]] * scale
+        x=0,
+        y=0,
+        z=1
+        # x=visible_positions['x'][options[select_i][2]] * scale,
+        # y=visible_positions['y'][options[select_i][2]] * scale,
+        # z=visible_positions['z'][options[select_i][2]] * scale
     )
     print("eye", eye)
 
     # Set the camera position in Plotly
     # print(center_of_earth.z[0])
-    # fig.update_layout(
-    #     scene=dict(
-    #         zaxis=dict(
-    #             range=(-1400, 10000-1400)
-    #         ),
-    #         yaxis=dict(
-    #             range=(-5000, 5000)
-    #         ),
-    #         xaxis=dict(
-    #             range=(-5000, 5000)
-    #         ),
-    #         camera=dict(
-    #             eye=eye,   # Camera position
-    #             center=dict(x=0, y=0, z=center_of_earth.z[0]/1e3/10000),  # Look at Earth's center
-    #             # center=dict(x=0, y=0, z=0),  # Look at Earth's center
-    #             # up=dict(x=0, y=0, z=1)  # Ensure the up direction is correct
-    #         )
-    #     )
-    # )
+    fig.update_layout(
+        scene=dict(
+            zaxis=dict(
+                range=(-5000, 5000)
+            ),
+            yaxis=dict(
+                range=(-5000, 5000)
+            ),
+            xaxis=dict(
+                range=(-5000, 5000)
+            ),
+            camera=dict(
+                eye=eye,   # Camera position
+                # center=dict(x=0, y=0, z=center_of_earth.z[0]/1e3/10000),  # Look at Earth's center
+                # center=dict(x=0, y=0, z=0),  # Look at Earth's center
+                # up=dict(x=0, y=0, z=1)  # Ensure the up direction is correct
+            )
+        )
+    )
 
     # 50 latitude points from -90 to 90 degrees.
-    lat_vals = np.linspace(sat_lat - 5.0, sat_lat + 5.0, 50)
+    lat_vals = np.linspace(sat_lat - 3.0, sat_lat + 3.0, 50)
     # 50 longitude points for the front half.
-    lon_vals = np.linspace(sat_long - 5.0, sat_long + 5.0, 50)
+    lon_vals = np.linspace(sat_long - 3.0, sat_long + 3.0, 50)
     # lon and lat will be 2D arrays.
     lon, lat = np.meshgrid(lon_vals, lat_vals)
 

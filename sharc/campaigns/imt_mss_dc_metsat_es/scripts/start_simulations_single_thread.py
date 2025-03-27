@@ -8,3 +8,4 @@ name_campaign = "imt_mss_dc_metsat_es"
 # This function will execute the campaign with the given name in a single-threaded manner.
 # It will look for the campaign directory under the specified name and start the necessary processes.
 run_campaign_re(name_campaign, r'^parameters_imt_mss_dc.*')
+# run_campaign_re(name_campaign, r'^parameters_imt_omni.*')

@@ -10,6 +10,7 @@ from multipledispatch import dispatch
 from sharc.propagation.propagation import Propagation
 from sharc.station_manager import StationManager
 from sharc.parameters.parameters import Parameters
+# i=0
 
 
 class PropagationFreeSpace(Propagation):
@@ -48,6 +49,23 @@ class PropagationFreeSpace(Propagation):
         """
         distance_3d = station_a.get_3d_distance_to(station_b)
         loss = self.get_free_space_loss(frequency=frequency, distance=distance_3d)
+
+        # print("station_a.x[station_a.active]", station_a.x[station_a.active])
+        # print("station_a.y[station_a.active]", station_a.y[station_a.active])
+        # print("station_a.z[station_a.active]", station_a.z[station_a.active])
+        # print("station_b.x[station_b.active]", station_b.x[station_b.active])
+        # print("station_b.y[station_b.active]", station_b.y[station_b.active])
+        # print("station_b.z[station_b.active]", station_b.z[station_b.active])
+        # d = {
+        #     "distance_3d": distance_3d[station_a.active, station_b.active],
+        #     "frequency": frequency,
+        #     "loss": loss[station_a.active, station_b.active],
+        # }
+        # print(d)
+        # global i
+        # i += 1
+        # if i ==1:
+        #     exit()
 
         return loss
 

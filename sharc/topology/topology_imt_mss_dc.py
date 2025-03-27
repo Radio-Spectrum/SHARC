@@ -56,6 +56,8 @@ class TopologyImtMssDc(Topology):
         self.orbits = []
 
         # Iterate through each orbit defined in the parameters
+        # print("self.orbit_params.orbits", self.orbit_params.orbits)
+        # exit()
         for param in self.orbit_params.orbits:
             # Instantiate an OrbitModel for the current orbit
             orbit = OrbitModel(

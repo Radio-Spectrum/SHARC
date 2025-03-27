@@ -117,6 +117,26 @@ class PostProcessor:
             "x_label": "Transmit power density [dBm/Hz]",
             "title": "[IMT] UE transmit power density",
         },
+        "system_to_bs_dist": {
+            "x_label": "Distance [100km]",
+            "title": "Distance from Satellite to Earth Station",
+        },
+        "visible_sats": {
+            "x_label": "Visible Satellites from Earth Station",
+            "title": "Number of Visible Sats",
+        },
+        "sat_elevation": {
+            "x_label": "Elevation [deg]",
+            "title": "Elevation for Visible Sats",
+        },
+        "sat_gain": {
+            "x_label": "Gain [dBi]",
+            "title": "Gain for Visible Sats towards ES",
+        },
+        "sat_es_off_axis": {
+            "x_label": "Off Axis angle [deg]",
+            "title": "Off Axis angle for Visible Sats",
+        },
         "imt_ul_tx_power": {
             "x_label": "Transmit power [dBm]",
             "title": "[IMT] UE transmit power",

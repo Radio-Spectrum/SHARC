@@ -1,7 +1,8 @@
 import os
 from pathlib import Path
 from sharc.results import Results
-# import plotly.graph_objects as go
+import plotly.graph_objects as go
+import numpy as np
 from sharc.post_processor import PostProcessor
 
 post_processor = PostProcessor()
@@ -17,16 +18,74 @@ campaign_base_dir = str((Path(__file__) / ".." / "..").resolve())
 
 many_results = Results.load_many_from_dir(os.path.join(campaign_base_dir, "output"), only_latest=True)
 # ^: typing.List[Results]
-
-print(many_results)
-
-post_processor.add_results(many_results)
-
 plots = post_processor.generate_cdf_plots_from_results(
     many_results
 )
 
 post_processor.add_plots(plots)
+
+
+# print(many_results)
+
+# for res in many_results:
+#     from sharc.results import SampleList
+#     res.system_to_bs_dist = SampleList(np.array(res.system_to_bs_dist) / 1e5)
+
+import plotly.figure_factory as ff
+
+# fig = ff.create_distplot([
+#     many_results[0].system_to_bs_dist,
+#     many_results[1].system_to_bs_dist
+# ], group_labels=[
+#     many_results[0].output_directory,
+#     many_results[1].output_directory,
+# ], show_hist=False, show_rug=False)
+
+# # Customize the layout
+# fig.update_layout(title="PSD for distance",
+#                   xaxis_title="Value",
+#                   yaxis_title="Density",
+#                   template="plotly_white")
+
+# # Show the plot
+# fig.show()
+
+# fig = ff.create_distplot([
+#     many_results[0].visible_sats,
+#     many_results[1].visible_sats
+# ], group_labels=[
+#     many_results[0].output_directory,
+#     many_results[1].output_directory,
+# ], show_hist=False, show_rug=False)
+
+# # Customize the layout
+# fig.update_layout(title="PSD for visible sats",
+#                   xaxis_title="Value",
+#                   yaxis_title="Density",
+#                   template="plotly_white")
+
+# # Show the plot
+# fig.show()
+
+# fig = ff.create_distplot([
+#     many_results[0].sat_es_off_axis,
+#     many_results[1].sat_es_off_axis
+# ], group_labels=[
+#     many_results[0].output_directory,
+#     many_results[1].output_directory,
+# ], show_hist=False, show_rug=False)
+
+# # Customize the layout
+# fig.update_layout(title="PSD for Off Axis Angle from visible sats to ES",
+#                   xaxis_title="Value",
+#                   yaxis_title="Density",
+#                   template="plotly_white")
+
+# Show the plot
+# fig.show()
+# exit()
+
+# post_processor.add_results(many_results)
 
 # # This function aggregates IMT downlink and uplink
 # aggregated_results = PostProcessor.aggregate_results(
@@ -45,7 +104,11 @@ post_processor.add_plots(plots)
 
 # Show a single plot:
 # post_processor\
-#     .get_plot_by_results_attribute_name("imt_system_antenna_gain")\
+#     .get_plot_by_results_attribute_name("sat_es_off_axis")\
+#     .show()
+
+# post_processor\
+#     .get_plot_by_results_attribute_name("sat_gain")\
 #     .show()
 
 # post_processor\
@@ -57,12 +120,20 @@ post_processor.add_plots(plots)
 #     .show()
 
 # post_processor\
+#     .get_plot_by_results_attribute_name("visible_sats")\
+#     .show()
+
+# post_processor\
+#     .get_plot_by_results_attribute_name("system_to_bs_dist")\
+#     .show()
+
+# post_processor\
 #     .get_plot_by_results_attribute_name("imt_system_path_loss")\
 #     .show()
 
-post_processor\
-    .get_plot_by_results_attribute_name("imt_ul_inr")\
-    .show()
+# post_processor\
+#     .get_plot_by_results_attribute_name("imt_ul_inr")\
+#     .show()
 
 post_processor\
     .get_plot_by_results_attribute_name("system_inr")\

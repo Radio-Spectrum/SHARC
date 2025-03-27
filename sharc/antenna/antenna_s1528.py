@@ -28,6 +28,8 @@ class AntennaS1528Taylor(Antenna):
         self.beams_list.append((0, 0))
 
     def __init__(self, param: ParametersAntennaS1528):
+        # print("param.antenna_gain", param.antenna_gain)
+        # exit()
         # Gmax
         self.peak_gain = param.antenna_gain
         self.frequency_mhz = param.frequency

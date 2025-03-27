@@ -84,7 +84,6 @@ imt:
             num_beams: 19
             # Orbit parameters
             orbits:
-                # Number of planes
               - n_planes: 20
                 # Inclination in degrees
                 inclination_deg: 54.5
@@ -112,7 +111,11 @@ imt:
         load_probability: 1.0
         ###########################################################################
         # Conducted power per antenna element [dBm/bandwidth]
-        tx_power_density: -24.2
+        # conducted_power: 28.0
+        # tx_power_density: -54.2 dB/Hz
+        # /Hz -> /5MHz => + 66.9897
+        # dB -> dBm => +30
+        conducted_power: 42.7897
         ###########################################################################
         # Base station height [m]
         height: 20.0
@@ -125,8 +128,12 @@ imt:
         # Base Station Antenna parameters:
         antenna:
             pattern: ITU-R-S.1528-Taylor
-            gain: -3
+            gain: 30
             itu_r_s_1528:
+                antenna_3_dB_bw: 4.4127
+                a_deg: 2.20635
+                b_deg: 2.20635
+                antenna_l_s: -6.75
                 ### The following parameters are used for S.1528-Taylor antenna pattern
                 # SLR is the side-lobe ratio of the pattern (dB), the difference in gain between the maximum
                 # gain and the gain at the peak of the first side lobe.
@@ -143,7 +150,7 @@ imt:
         ###########################################################################
         # Number of UEs that are allocated to each cell within handover margin.
         # Remember that in macrocell network each base station has 3 cells (sectors)
-        k: 3
+        k: 1
         ###########################################################################
         # Multiplication factor that is used to ensure that the sufficient number
         # of UE's will distributed throughout ths system area such that the number

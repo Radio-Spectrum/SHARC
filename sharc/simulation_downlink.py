@@ -5,7 +5,6 @@ Created on Wed Jan 11 19:06:41 2017
 @author: edgar
 """
 
-i = 0
 
 import numpy as np
 import math
@@ -13,9 +12,11 @@ import math
 from sharc.simulation import Simulation
 from sharc.parameters.parameters import Parameters
 from sharc.station_factory import StationFactory
+from sharc.station_manager import StationManager
 from sharc.parameters.constants import BOLTZMANN_CONSTANT
 import plotly.graph_objects as go
 
+testasnoasa2 = 0
 
 class SimulationDownlink(Simulation):
     """
@@ -73,7 +74,7 @@ class SimulationDownlink(Simulation):
         #     y=self.bs.y / 1,
         #     z=self.bs.z / 1,
         #     mode='markers',
-        #     marker=dict(size=2, color='red', opacity=0.5),
+        #     marker=dict(size=8, color='red', opacity=0.5),
         #     showlegend=False
         # ))
         # fig.add_trace(go.Scatter3d(
@@ -92,6 +93,7 @@ class SimulationDownlink(Simulation):
         #     marker=dict(size=2, color='black', opacity=0.5),
         #     showlegend=False
         # ))
+        # global testasnoasa2
         # fig.update_layout(
         #     scene=dict(
         #         zaxis=dict(
@@ -103,12 +105,58 @@ class SimulationDownlink(Simulation):
         #         xaxis=dict(
         #             range=(-1e3*5000, 1e3*5000)
         #         ),
-        #     )
+        #         camera=dict(
+        #             eye=dict(x=0,y=0,z=1),
+        #             # up=dict(x=-1, y=0., z=0),
+        #         )
+        #     ),
+        #     title=f"MSS as IMT ({testasnoasa2})"
         # )
-        # fig.show()
-        # global i
-        # i+=1
-        # if i ==5:
+        # mss_d2d = self.bs
+        # from sharc.support.sharc_geom import polar_to_cartesian
+        # boresight_length = 100*1e3  # Length of the boresight vectors for visualization
+        # boresight_x, boresight_y, boresight_z = polar_to_cartesian(
+        #     boresight_length,
+        #     mss_d2d.azimuth[mss_d2d.active],
+        #     mss_d2d.elevation[mss_d2d.active],
+        # )
+        # # Add arrow heads to the end of the boresight vectors
+        # for x, y, z, bx, by, bz in zip(mss_d2d.x[mss_d2d.active] / 1,
+        #                                mss_d2d.y[mss_d2d.active] / 1,
+        #                                mss_d2d.z[mss_d2d.active] / 1,
+        #                                boresight_x,
+        #                                boresight_y,
+        #                                boresight_z):
+        #     fig.add_trace(go.Cone(
+        #         x=[x + bx],
+        #         y=[y + by],
+        #         z=[z + bz],
+        #         u=[bx],
+        #         v=[by],
+        #         w=[bz],
+        #         colorscale=[[0, 'orange'], [1, 'orange']],
+        #         sizemode='absolute',
+        #         sizeref=40*1e3,
+        #         showscale=False
+        #     ))
+        # for x, y, z, bx, by, bz in zip(mss_d2d.x[mss_d2d.active] / 1,
+        #                                mss_d2d.y[mss_d2d.active] / 1,
+        #                                mss_d2d.z[mss_d2d.active] / 1,
+        #                                boresight_x,
+        #                                boresight_y,
+        #                                boresight_z):
+        #     fig.add_trace(go.Scatter3d(
+        #         x=[x, x + bx],
+        #         y=[y, y + by],
+        #         z=[z, z + bz],
+        #         mode='lines',
+        #         line=dict(color='orange', width=2),
+        #         name='Boresight'
+        #     ))
+        # testasnoasa2+=1
+        # if testasnoasa2 ==1:
+        #     # fig.write_image(f"imgs/MSS_as_IMT/{testasnoasa2}.webp", width=1200, height=1200)
+        #     fig.show()
         #     exit()
 
         # print("self.ue.num_stations", self.ue.num_stations)
@@ -400,6 +448,7 @@ class SimulationDownlink(Simulation):
 
                 interference = self.bs.tx_power[bs] - \
                     self.coupling_loss_imt_system[active_beams, sys_active]
+                # print("self.coupling_loss_imt_system[active_beams, sys_active]", self.coupling_loss_imt_system[active_beams, sys_active])
                 rx_interference += np.sum(
                     weights * np.power(
                         10,
@@ -436,6 +485,17 @@ class SimulationDownlink(Simulation):
         self.system.inr = np.array(
             [self.system.rx_interference - self.system.thermal_noise],
         )
+        # print("self.bs.tx_power", self.bs.tx_power)
+        # print("self.system.inr", self.system.inr)
+        # # print("self.coupling_loss_imt_system", self.coupling_loss_imt_system)
+        # print("self.system.rx_interference", self.system.rx_interference)
+        # print("self.system.thermal_noise", self.system.thermal_noise)
+        # print("## ended dl")
+        # global testasnoasa2
+        # testasnoasa2 += 1
+        # if testasnoasa2 == 5:
+        # exit()
+
 
         # Calculate PFD at the system
         # TODO: generalize this a bit more if needed
@@ -449,6 +509,7 @@ class SimulationDownlink(Simulation):
     def collect_results(self, write_to_file: bool, snapshot_number: int):
         if not self.parameters.imt.interfered_with and np.any(self.bs.active):
             self.results.system_inr.extend(self.system.inr.tolist())
+            # self.results.system_inr.append(self.system.thermal_noise)
             self.results.system_dl_interf_power.extend(
                 [self.system.rx_interference],
             )
@@ -456,8 +517,26 @@ class SimulationDownlink(Simulation):
             if hasattr(self.system.antenna[0], "effective_area") and self.system.num_stations == 1:
                 self.results.system_pfd.extend([self.system.pfd])
 
+        self.results.system_to_bs_dist.extend(self.dist_from_imt_to_sys.flatten())
+        self.results.visible_sats.append(np.sum(self.bs.active)/19)
+        # print(self.system.active, self.bs.active)
+
         bs_active = np.where(self.bs.active)[0]
         sys_active = np.where(self.system.active)[0]
+        self.results.sat_elevation.extend(
+            self.system.get_elevation(self.bs)[np.ix_(sys_active, bs_active)].flatten()
+        )
+        center_earth = StationManager(1)
+        center_earth.x = np.array([0.])
+        center_earth.y = np.array([0.])
+        center_earth.z = np.array([-self.geometry_converter.get_translation()])
+        bs_center_beam = np.where((self.bs.get_off_axis_angle(center_earth) < 0.1) & (self.bs.active))[0]
+        # print("bs_center_beam", bs_center_beam)
+        # print("sys_active", sys_active)
+        self.results.sat_es_off_axis.extend(
+            self.bs.get_off_axis_angle(self.system)[np.ix_(bs_center_beam, sys_active)].flatten()
+        )
+
         for bs in bs_active:
             ue = self.link[bs]
             self.results.imt_path_loss.extend(self.path_loss_imt[bs, ue])
@@ -514,13 +593,17 @@ class SimulationDownlink(Simulation):
                     self.coupling_loss_imt_system[np.array(ue)[:, np.newaxis], sys_active].flatten())
             else:  # IMT is the interferer
                 self.results.system_imt_antenna_gain.extend(
-                    self.system_imt_antenna_gain[sys_active[:, np.newaxis], ue].flatten(),
+                    self.system_imt_antenna_gain[sys_active[:, np.newaxis], bs].flatten(),
                 )
+
                 self.results.imt_system_antenna_gain.extend(
-                    self.imt_system_antenna_gain[sys_active[:, np.newaxis], ue].flatten(),
+                    self.imt_system_antenna_gain[sys_active[:, np.newaxis], bs].flatten(),
                 )
+                # print("self.results.sat_gain", self.results.sat_gain)
+                # print("self.results.system_imt_antenna_gain", self.results.system_imt_antenna_gain)
+                self.results.sat_gain = self.results.imt_system_antenna_gain
                 self.results.imt_system_path_loss.extend(
-                    self.imt_system_path_loss[sys_active[:, np.newaxis], ue].flatten(),
+                    self.imt_system_path_loss[sys_active[:, np.newaxis], bs].flatten(),
                 )
                 if self.param_system.channel_model == "HDFSS":
                     self.results.imt_system_build_entry_loss.extend(

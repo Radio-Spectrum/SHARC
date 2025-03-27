@@ -44,6 +44,12 @@ class Results(object):
         # Throughput [bits/s/Hz]
         self.imt_ul_tput = SampleList()
 
+        self.system_to_bs_dist = SampleList()
+        self.visible_sats = SampleList()
+        self.sat_elevation = SampleList()
+        self.sat_es_off_axis = SampleList()
+        self.sat_gain = SampleList()
+
         self.imt_path_loss = SampleList()
         self.imt_coupling_loss = SampleList()
         # Antenna gain [dBi]

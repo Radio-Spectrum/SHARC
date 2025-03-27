@@ -107,7 +107,7 @@ imt:
         height: 20.0
         ###########################################################################
         # Base station noise figure [dB]
-        noise_figure: 5.0
+        noise_figure: 0.0
         ###########################################################################
         # Base station array ohmic loss  [dB]
         ohmic_loss: 2.0
@@ -141,7 +141,7 @@ imt:
         ###########################################################################
         # Number of UEs that are allocated to each cell within handover margin.
         # Remember that in macrocell network each base station has 3 cells (sectors)
-        k: 3
+        k: 1
         ###########################################################################
         # Multiplication factor that is used to ensure that the sufficient number
         # of UE's will distributed throughout ths system area such that the number

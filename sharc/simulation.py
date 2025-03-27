@@ -314,6 +314,12 @@ class Simulation(ABC, Observable):
         #     gain_imt_to_sys,
         # )
         # path_loss[np.ix_(system_station.active, imt_station.active)] = actv_path_loss
+        # print("imt_station.station_type", imt_station.station_type)
+        # print("system_station.station_type", system_station.station_type)
+        # exit()
+        # print("freq", freq)
+        # print("imt_station.station_type", imt_station.station_type)
+        # print("system_station.station_type", system_station.station_type)
         path_loss = self.propagation_system.get_loss(
             self.parameters,
             freq,
@@ -322,6 +328,7 @@ class Simulation(ABC, Observable):
             gain_sys_to_imt,
             gain_imt_to_sys,
         )
+        self.dist_from_imt_to_sys = system_station.get_3d_distance_to(imt_station)[system_station.active, imt_station.active]
         # Store antenna gains and path loss samples
         if self.param_system.channel_model == "HDFSS":
             self.imt_system_build_entry_loss = path_loss[1]
@@ -375,6 +382,12 @@ class Simulation(ABC, Observable):
             values.
         """
         # Calculate the antenna gains
+        r = np.transpose(np.repeat(0., imt_ue_station.num_stations * imt_bs_station.num_stations).reshape((imt_ue_station.num_stations, imt_bs_station.num_stations)))
+        # print(r.shape)
+        self.path_loss_imt = np.copy(r)
+        self.imt_bs_antenna_gain = np.copy(r)
+        self.imt_ue_antenna_gain = np.copy(r)
+        return r
 
         ant_gain_bs_to_ue = self.calculate_gains(
             imt_bs_station, imt_ue_station,

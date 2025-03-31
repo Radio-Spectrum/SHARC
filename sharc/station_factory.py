@@ -1239,7 +1239,7 @@ class StationFactory(object):
 
         MIN_ELEV_ANGLE_DEG = params.min_elevation_angle_deg  # Minimum elevation angle for satellite visibility
         MAX_ELEV_ANGLE_DEG = params.max_elevation_angle_deg  # Minimum elevation angle for satellite visibility
-        MAX_ITER = 100  # Maximum iterations to find at least one visible satellite
+        MAX_ITER = 10000  # Maximum iterations to find at least one visible satellite
 
         # Calculate the total number of satellites across all orbits
         total_satellites = sum(orbit.n_planes * orbit.sats_per_plane for orbit in params.orbits)
@@ -1277,78 +1277,83 @@ class StationFactory(object):
 
         # List to store indices of active satellites
         active_satellite_idxs = []
-        current_sat_idx = 0  # Index tracker for satellites across all orbits
 
         i = 0  # Iteration counter for ensuring satellite visibility
         while len(active_satellite_idxs) == 0:
-            # Iterate through each orbit defined in the parameters
+            current_sat_idx = 0  # Reset satellite index for this iteration
+
+            # Temporary buffers
+            tmp_all_positions = {'lat': [], 'lon': [], 'sx': [], 'sy': [], 'sz': [], 'R': []}
+            tmp_all_elevations = []
+            tmp_all_azimuths = []
+            tmp_idx_orbit = np.zeros_like(mss_d2d.idx_orbit)
+            tmp_active_satellite_idxs = []
+
             for orbit_idx, param in enumerate(params.orbits):
-                # Instantiate an OrbitModel for the current orbit
                 orbit = OrbitModel(
-                    Nsp=param.sats_per_plane,  # Satellites per plane
-                    Np=param.n_planes,  # Number of orbital planes
-                    phasing=param.phasing_deg,  # Phasing angle in degrees
-                    long_asc=param.long_asc_deg,  # Longitude of ascending node in degrees
-                    omega=param.omega_deg,  # Argument of perigee in degrees
-                    delta=param.inclination_deg,  # Orbital inclination in degrees
-                    hp=param.perigee_alt_km,  # Perigee altitude in kilometers
-                    ha=param.apogee_alt_km,  # Apogee altitude in kilometers
-                    Mo=param.initial_mean_anomaly  # Initial mean anomaly in degrees
+                    Nsp=param.sats_per_plane,
+                    Np=param.n_planes,
+                    phasing=param.phasing_deg,
+                    long_asc=param.long_asc_deg,
+                    omega=param.omega_deg,
+                    delta=param.inclination_deg,
+                    hp=param.perigee_alt_km,
+                    ha=param.apogee_alt_km,
+                    Mo=param.initial_mean_anomaly
                 )
 
-                # Generate random positions for satellites in this orbit
                 pos_vec = orbit.get_orbit_positions_random_time(rng=random_number_gen)
-
-                # Determine the number of satellites in this orbit
                 num_satellites = len(pos_vec["sx"])
 
-                # Assign orbit index to satellites
-                mss_d2d.idx_orbit[current_sat_idx:current_sat_idx + num_satellites] = orbit_idx
-
-                # Extract satellite positions and calculate distances
-                sx, sy, sz = pos_vec['sx'], pos_vec['sy'], pos_vec['sz']
-                r = np.sqrt(sx**2 + sy**2 + sz**2)  # Distance from Earth's center
-
-                # When getting azimuth and elevation, we need to consider sx, sy and sz points
-                # from the center of earth to the satellite, and we need to point the satellite
-                # towards the center of earth
-                elevations = np.degrees(np.arcsin(-sz / r))  # Calculate elevation angles
-                azimuths = np.degrees(np.arctan2(-sy, -sx))  # Calculate azimuth angles
-
-                # Append satellite positions and angles to global lists
-                all_positions['lat'].extend(pos_vec['lat'])  # Latitudes
-                all_positions['lon'].extend(pos_vec['lon'])  # Longitudes
-                all_positions['sx'].extend(sx)  # X-coordinates
-                all_positions['sy'].extend(sy)  # Y-coordinates
-                all_positions['sz'].extend(sz)  # Z-coordinates
-                all_positions["R"].extend(r)
-                all_elevations.extend(elevations)  # Elevation angles
-                all_azimuths.extend(azimuths)  # Azimuth angles
-
-                # Calculate satellite visibility from base stations
+                # Calculate satellite visibility
                 elev_from_bs = calc_elevation(
-                    geometry_converter.ref_lat,  # Latitude of base station
-                    pos_vec['lat'],  # Latitude of satellites
-                    geometry_converter.ref_long,  # Longitude of base station
-                    pos_vec['lon'],  # Longitude of satellites
-                    orbit.perigee_alt_km  # Perigee altitude in kilometers
+                    geometry_converter.ref_lat,
+                    pos_vec['lat'],
+                    geometry_converter.ref_long,
+                    pos_vec['lon'],
+                    orbit.perigee_alt_km
                 )
 
-                # Determine visible satellites based on minimum elevation angle
                 visible_sat_idxs = [
                     current_sat_idx + idx for idx, elevation in enumerate(elev_from_bs)
                     if MIN_ELEV_ANGLE_DEG <= elevation <= MAX_ELEV_ANGLE_DEG
                 ]
-                active_satellite_idxs.extend(visible_sat_idxs)
 
-                # Update the index tracker for the next orbit
-                current_sat_idx += len(sx)
+                # Save orbit index info
+                tmp_idx_orbit[current_sat_idx:current_sat_idx + num_satellites] = orbit_idx
 
-            i += 1  # Increment iteration counter
-            if i >= MAX_ITER:  # Check if maximum iterations reached
+                # Extract positions and compute az/el
+                sx, sy, sz = pos_vec['sx'], pos_vec['sy'], pos_vec['sz']
+                r = np.sqrt(sx**2 + sy**2 + sz**2)
+                elevations = np.degrees(np.arcsin(-sz / r))
+                azimuths = np.degrees(np.arctan2(-sy, -sx))
+
+                # Save into temporary buffers
+                tmp_all_positions['lat'].extend(pos_vec['lat'])
+                tmp_all_positions['lon'].extend(pos_vec['lon'])
+                tmp_all_positions['sx'].extend(sx)
+                tmp_all_positions['sy'].extend(sy)
+                tmp_all_positions['sz'].extend(sz)
+                tmp_all_positions["R"].extend(r)
+                tmp_all_elevations.extend(elevations)
+                tmp_all_azimuths.extend(azimuths)
+                tmp_active_satellite_idxs.extend(visible_sat_idxs)
+
+                current_sat_idx += num_satellites
+
+            i += 1
+            if i >= MAX_ITER:
                 raise RuntimeError(
                     "Maximum iterations reached, and no satellite was selected within the minimum elevation criteria."
                 )
+
+            # Append only after finding visible satellites
+            if len(tmp_active_satellite_idxs) > 0:
+                all_positions = tmp_all_positions
+                all_elevations = tmp_all_elevations
+                all_azimuths = tmp_all_azimuths
+                mss_d2d.idx_orbit = tmp_idx_orbit
+                active_satellite_idxs = tmp_active_satellite_idxs
 
         # Configure satellite positions in the StationManager
         mss_d2d.x = np.squeeze(np.array(all_positions['sx'])) * 1e3  # Convert X-coordinates to meters

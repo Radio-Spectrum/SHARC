@@ -1,1 +1,0 @@
-[/home/araujo/Documentos/Git/Projetos/Anatel/SHARC/sharc/campaigns/mss_d2d_to_imt_elev_study/output/output_mss_d2d_to_imt_co_channel_system_A_min_80_max_85_2025-03-26_01]

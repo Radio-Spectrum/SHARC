@@ -2,7 +2,8 @@
 /sharc/output/*.csv
 /sharc/output/*.png
 /sharc/output_*/*
-*.csv/sharc/campaigns/*/output/
+/sharc/campaigns/*/output/*/*.csv
+
 
 
 __pycache__

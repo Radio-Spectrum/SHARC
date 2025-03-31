@@ -1,0 +1,91 @@
+[/home/araujo/Documentos/Git/Projetos/Anatel/SHARC/sharc/campaigns/mss_d2d_to_imt_elev_study/output/output_mss_d2d_to_imt_co_channel_system_A_min_45_max_50_2025-03-31_01]
+imt_path_loss:
+	confidence_interval: (74.62214041592264, 123.5953261950894)
+	mean: 99.10873330550602
+	median: 103.87555302906948
+	standard_deviation: 12.49338920650099
+	variance: 156.0847738651154
+imt_coupling_loss:
+	confidence_interval: (71.4958657710789, 113.80479018140848)
+	mean: 92.65032797624369
+	median: 96.44348518317025
+	standard_deviation: 10.793291291079067
+	variance: 116.49513689408323
+imt_bs_antenna_gain:
+	confidence_interval: (6.601961540145307, 30.31484911837938)
+	mean: 18.458405329262344
+	median: 20.49014871163402
+	standard_deviation: 6.049317172478246
+	variance: 36.5942382532402
+imt_ue_antenna_gain:
+	confidence_interval: (nan, nan)
+	mean: -3.0
+	median: -3.0
+	standard_deviation: 0.0
+	variance: 0.0
+system_imt_antenna_gain:
+	confidence_interval: (-7.0019409064875635, -2.2580133808049023)
+	mean: -4.629977143646233
+	median: -4.428267061628974
+	standard_deviation: 1.2102078311392854
+	variance: 1.464602994550853
+imt_system_antenna_gain:
+	confidence_interval: (nan, nan)
+	mean: -3.0
+	median: -3.0
+	standard_deviation: 0.0
+	variance: 0.0
+imt_system_path_loss:
+	confidence_interval: (156.04772110678428, 160.97038858592194)
+	mean: 158.5090548463531
+	median: 158.42586769850308
+	standard_deviation: 1.255805595910695
+	variance: 1.5770476947206158
+sys_to_imt_coupling_loss:
+	confidence_interval: (172.58334653293082, 179.6947174470679)
+	mean: 176.13903198999935
+	median: 176.18486495285808
+	standard_deviation: 1.8141585687876605
+	variance: 3.2911713127056923
+imt_dl_tx_power:
+	confidence_interval: (nan, nan)
+	mean: 38.28028723600244
+	median: 38.28028723600244
+	standard_deviation: 0.0
+	variance: 0.0
+imt_dl_sinr_ext:
+	confidence_interval: (21.712515999224884, 64.02142357401897)
+	mean: 42.86696978662192
+	median: 39.07365506307943
+	standard_deviation: 10.793286996220681
+	variance: 116.49504418278644
+imt_dl_sinr:
+	confidence_interval: (21.71282130888983, 64.02174571921941)
+	mean: 42.86728351405462
+	median: 39.074126307128026
+	standard_deviation: 10.793291291079067
+	variance: 116.49513689408323
+imt_dl_snr:
+	confidence_interval: (21.712821308889815, 64.0217457192194)
+	mean: 42.867283514054606
+	median: 39.07412630712801
+	standard_deviation: 10.793291291079067
+	variance: 116.49513689408323
+imt_dl_inr:
+	confidence_interval: (-99.82623445818479, -26.533527451262792)
+	mean: -63.179880954723785
+	median: -73.80889567241623
+	standard_deviation: 18.697462704683737
+	variance: 349.59511159303923
+imt_dl_tput_ext:
+	confidence_interval: (7.469015755839436, 8.444329492531933)
+	mean: 7.956672624185685
+	median: 7.973781007068794
+	standard_deviation: 0.24880909659199035
+	variance: 0.06190596654692238
+imt_dl_tput:
+	confidence_interval: (7.469025195812987, 8.444321459699236)
+	mean: 7.9566733277561115
+	median: 7.973781007068794
+	standard_deviation: 0.2488046391615513
+	variance: 0.06190374846830975

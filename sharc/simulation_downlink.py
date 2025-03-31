@@ -5,13 +5,14 @@ Created on Wed Jan 11 19:06:41 2017
 @author: edgar
 """
 
-import numpy as np
 import math
 
-from sharc.simulation import Simulation
-from sharc.parameters.parameters import Parameters
-from sharc.station_factory import StationFactory
+import numpy as np
+
 from sharc.parameters.constants import BOLTZMANN_CONSTANT
+from sharc.parameters.parameters import Parameters
+from sharc.simulation import Simulation
+from sharc.station_factory import StationFactory
 
 
 class SimulationDownlink(Simulation):
@@ -176,6 +177,7 @@ class SimulationDownlink(Simulation):
                 if self.overlapping_bandwidth > 0:
                     # in_band_interf_power = self.param_system.tx_power_density + \
                     #     10 * np.log10(self.overlapping_bandwidth * 1e6) + 30
+                    weights = np.where(weights>0,weights,1e-20)
                     in_band_interf_power = \
                         self.param_system.tx_power_density + 10 * np.log10(
                             self.ue.bandwidth[ue, np.newaxis] * 1e6
@@ -206,6 +208,7 @@ class SimulationDownlink(Simulation):
 
                 # Unless we never use ACS..?
                 if self.parameters.imt.adjacent_ch_reception == "ACS":
+                    non_overlap_bw = self.param_system.bandwidth - self.overlapping_bandwidth
                     if self.overlapping_bandwidth:
                         if not hasattr(self, "ALREADY_WARNED_ABOUT_ACS_WHEN_OVERLAPPING_BAND"):
                             print(
@@ -214,12 +217,11 @@ class SimulationDownlink(Simulation):
                             )
                             self.ALREADY_WARNED_ABOUT_ACS_WHEN_OVERLAPPING_BAND = True
                     # only apply ACS over non overlapping bw
-                    p_tx = self.param_system.tx_power_density \
-                            + 10 * np.log10(
-                                (self.param_system.bandwidth - self.overlapping_bandwidth) * 1e6
-                            )
-
-                    rx_oob[::] = p_tx - self.parameters.imt.ue.adjacent_ch_selectivity
+                    if non_overlap_bw > 0:
+                        p_tx = self.param_system.tx_power_density + 10 * np.log10(non_overlap_bw * 1e6)
+                        rx_oob[::] = p_tx - self.parameters.imt.ue.adjacent_ch_selectivity
+                    else:
+                        rx_oob[::] = -500.  # or another conservative value for full overlap
                 elif self.parameters.imt.adjacent_ch_reception ==  "OFF":
                     pass
                 else:

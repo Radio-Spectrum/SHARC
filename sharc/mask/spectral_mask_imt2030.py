@@ -20,8 +20,8 @@ class SpectralMaskImt2030(SpectralMask):
         freq_mhz: float,
         band_mhz: float,
         spurious_emissions: float,
-        scenario: str = "OUTDOOR",
         category: str = "CatA",
+        scenario: str = "OUTDOOR",
     ):
         """
         Implements spectral emission mask:
@@ -127,14 +127,14 @@ class SpectralMaskImt2030(SpectralMask):
                     emission_limits, np.array([-4, -15]),
                 )
         else:
-            if bandwidth >= 50:
+            if bandwidth <= 50:
                 if bandwidth == 5:
                     limit_r1 = np.array([-13])
                 elif bandwidth == 10:
                     limit_r1 = np.array([-13])
                 elif bandwidth == 15:
                     limit_r1 = np.array([-13])
-                elif bandwidth == 20:
+                else:
                     limit_r1 = np.array([-13])
                 emission_limits = np.append(
                     limit_r1 + 10 * np.log10(1 / (0.01 * bandwidth)),

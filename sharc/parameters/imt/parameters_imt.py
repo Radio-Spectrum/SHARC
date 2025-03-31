@@ -23,9 +23,10 @@ class ParametersImt(ParametersBase):
     frequency: float = 24350.0
     bandwidth: float = 200.0
     rb_bandwidth: float = 0.180
-    spectral_mask: str = "IMT-2020"
+    spectral_mask: str = "IMT-2030"
     spurious_emissions: float = -13.0
     guard_band_ratio: float = 0.1
+    category: str = "CatA"
 
     @dataclass
     class ParametersBS(ParametersBase):
@@ -132,7 +133,7 @@ class ParametersImt(ParametersBase):
         """
         super().load_parameters_from_file(config_file)
 
-        if self.spectral_mask not in ["IMT-2020", "3GPP E-UTRA"]:
+        if self.spectral_mask not in ["IMT-2020", "3GPP E-UTRA", "IMT-2030"]:
             raise ValueError(
                 f"""ParametersImt: Inavlid Spectral Mask Name {self.spectral_mask}""",
             )

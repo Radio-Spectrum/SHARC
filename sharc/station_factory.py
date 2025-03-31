@@ -50,6 +50,7 @@ from sharc.antenna.antenna_beamforming_imt import AntennaBeamformingImt
 from sharc.topology.topology import Topology
 from sharc.topology.topology_macrocell import TopologyMacrocell
 from sharc.mask.spectral_mask_3gpp import SpectralMask3Gpp
+from sharc.mask.spectral_mask_imt2030 import SpectralMaskImt2030
 
 from sharc.parameters.constants import SPEED_OF_LIGHT
 
@@ -147,7 +148,15 @@ class StationFactory(object):
                 param.bandwidth,
                 param.spurious_emissions,
             )
-
+        elif param.spectral_mask == "IMT-2030":
+            imt_base_stations.spectral_mask = SpectralMaskImt2030(
+                StationType.IMT_BS,
+                param.frequency,
+                param.bandwidth,
+                param.spurious_emissions,
+                param.category,
+                scenario=param.topology.type,
+            )
         if param.topology.type == 'MACROCELL':
             imt_base_stations.intersite_dist = param.topology.macrocell.intersite_distance
         elif param.topology.type == 'HOTSPOT':
@@ -363,6 +372,14 @@ class StationFactory(object):
                 param.spurious_emissions,
             )
 
+        elif param.spectral_mask == "IMT-2030":
+            imt_ue.spectral_mask = SpectralMaskImt2030(
+                StationType.IMT_UE,
+                param.frequency,
+                param.bandwidth,
+                param.spurious_emissions,
+                param.category
+            )
         imt_ue.spectral_mask.set_mask()
 
         if param.topology.type == 'MACROCELL':
@@ -518,6 +535,16 @@ class StationFactory(object):
                 param.frequency,
                 param.bandwidth,
                 param.spurious_emissions,
+            )
+
+        elif param.spectral_mask == "IMT-2030":
+            imt_ue.spectral_mask = SpectralMaskImt2030(
+                StationType.IMT_UE,
+                param.frequency,
+                param.bandwidth,
+                param.spurious_emissions,
+                param.category,
+                scenario="INDOOR"
             )
 
         imt_ue.spectral_mask.set_mask()
@@ -1236,7 +1263,7 @@ if __name__ == '__main__':
 
     class ParamsAux(object):
         def __init__(self):
-            self.spectral_mask = 'IMT-2020'
+            self.spectral_mask = 'IMT-2030'
             self.frequency = 10000
             self.topology = 'MACROCELL'
             self.ue_distribution_type = "UNIFORM_IN_CELL"

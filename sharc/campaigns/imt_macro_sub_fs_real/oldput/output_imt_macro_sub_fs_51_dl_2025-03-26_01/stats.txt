@@ -1,0 +1,13 @@
+[C:\Users\fabcb\git\SHARC\sharc\campaigns\imt_macro_sub_fs_real\output\output_imt_macro_sub_fs_51_dl_2025-03-26_01]
+imt_system_path_loss:
+	confidence_interval: (189.81946909476852, 212.09854888551706)
+	mean: 200.9590089901428
+	median: 200.9563504247534
+	standard_deviation: 5.683543158569011
+	variance: 32.3026628353166
+system_inr:
+	confidence_interval: (-32.762991474272226, 0.07196565788698805)
+	mean: -16.345512908192617
+	median: -16.07068009761197
+	standard_deviation: 8.376418493185886
+	variance: 70.1643867729865

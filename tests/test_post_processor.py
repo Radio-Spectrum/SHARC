@@ -2,7 +2,7 @@
 import unittest
 
 from sharc.results import Results
-from sharc.post_processor import PostProcessor
+from sharc.post_processorJ import PostProcessor
 
 
 class StationTest(unittest.TestCase):

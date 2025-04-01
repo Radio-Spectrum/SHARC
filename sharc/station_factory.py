@@ -906,6 +906,10 @@ class StationFactory(object):
                 single_earth_station.antenna = np.array(
                     [AntennaS580(param.antenna.itu_r_s_580)],
                 )
+            case "ITU-R SA.509":
+                single_earth_station.antenna = np.array(
+                    [AntennaSA509(param.antenna.itu_r_sa_509)],
+                )
             case _:
                 sys.stderr.write(
                     "ERROR\nInvalid FSS ES antenna pattern: " + param.antenna_pattern,

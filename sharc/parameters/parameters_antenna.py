@@ -10,13 +10,13 @@ import typing
 class ParametersAntenna(ParametersBase):
     # available antenna radiation patterns
     __SUPPORTED_ANTENNA_PATTERNS = [
-        "OMNI", "ITU-R F.699", "ITU-R S.465", "ITU-R S.580", "MODIFIED ITU-R S.465", "ITU-R S.1855",
+        "OMNI", "ITU-R F.699", "ITU-R S.465", "ITU-R S.580", "MODIFIED ITU-R S.465", "ITU-R S.1855", "ITU-R SA.509",
         "ITU-R Reg. RR. Appendice 7 Annex 3"
     ]
 
     # chosen antenna radiation pattern
     pattern: typing.Literal[
-        "OMNI", "ITU-R F.699", "ITU-R S.465", "ITU-R S.580", "MODIFIED ITU-R S.465", "ITU-R S.1855",
+        "OMNI", "ITU-R F.699", "ITU-R S.465", "ITU-R S.580", "MODIFIED ITU-R S.465", "ITU-R S.1855", "ITU-R SA.509",
         "ITU-R Reg. RR. Appendice 7 Annex 3"
     ] = None
 
@@ -44,6 +44,10 @@ class ParametersAntenna(ParametersBase):
     )
 
     itu_reg_rr_a7_3: ParametersAntennaWithDiameter = field(
+        default_factory=ParametersAntennaWithDiameter,
+    )
+
+    itu_r_sa_509: ParametersAntennaWithDiameter = field(
         default_factory=ParametersAntennaWithDiameter,
     )
 
@@ -90,6 +94,8 @@ class ParametersAntenna(ParametersBase):
                 )
             case "ITU-R S.580":
                 self.itu_r_s_580.validate(f"{ctx}.itu_r_s_580")
+            case "ITU-R SA.509":
+                self.itu_r_sa_509.validate(f"{ctx}.itu_r_s_509")
             case "ITU-R Reg. RR. Appendice 7 Annex 3":
                 if self.itu_reg_rr_a7_3.diameter is None:
                     # just hijacking validation since diameter is optional

@@ -21,8 +21,9 @@ class AntennaSA509(Antenna):
         super().__init__()
         # Set basic attributes
         self.diameter = param.diameter
-        self.efficiency = param.antenna_efficiency
+        self.gain = param.antenna_gain
         self.wavelength = SPEED_OF_LIGHT / (param.frequency * 1e6)
+        self.efficiency = 10 ** (self.gain / 10) / ((np.pi * param.diameter / self.wavelength) ** 2)
 
         # Effective area
         self.effective_area = self.efficiency * (np.pi * self.diameter**2) / 4

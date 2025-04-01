@@ -178,7 +178,7 @@ class PostProcessor:
             "title": "[SYS] IMT to system path loss",
         },
         "system_dl_interf_power": {
-            "x_label": "Interference Power [dBm/MHz]",
+            "x_label": "Interference Power [dBW/Hz]",
             "title": "[SYS] system interference power from IMT DL",
         },
         "imt_system_diffraction_loss": {
@@ -230,6 +230,18 @@ class PostProcessor:
         "system_ul_coupling_loss": IGNORE_FIELD,
         "system_dl_coupling_loss": IGNORE_FIELD,
         "system_rx_interf": IGNORE_FIELD,
+        "imt_dl_tx_power": IGNORE_FIELD,
+        "system_pfd": IGNORE_FIELD,
+        "system_inr": IGNORE_FIELD,
+        "system_ul_interf_power": IGNORE_FIELD,
+        "imt_dl_tput": IGNORE_FIELD,
+        "imt_dl_tput_ext": IGNORE_FIELD,
+        "imt_dl_inr": IGNORE_FIELD,
+        "imt_dl_snr": IGNORE_FIELD,
+        "imt_dl_sinr": IGNORE_FIELD,
+        "imt_dl_sinr_ext": IGNORE_FIELD,
+        "imt_system_diffraction_loss": IGNORE_FIELD,
+        "imt_dl_tput_ext": IGNORE_FIELD,
     }
 
     plot_legend_patterns: list = field(default_factory=list)
@@ -284,30 +296,51 @@ class PostProcessor:
                     )
                     continue
                 if attr_name not in figs:
-                    figs[attr_name] = go.Figure()
-                    figs[attr_name].update_layout(
-                        title=f'CDF Plot for {attr_plot_info["title"]}',
-                        xaxis_title=attr_plot_info["x_label"],
-                        yaxis_title="CDF",
-                        yaxis=dict(tickmode="array", tickvals=[0, 0.25, 0.5, 0.75, 1]),
-                        xaxis=dict(tickmode="linear", dtick=5),
-                        legend_title="Labels",
-                        meta={"related_results_attribute": attr_name},
-                    )
+                    if attr_name == "system_dl_interf_power":
+                        figs[attr_name] = go.Figure()
+                        figs[attr_name].update_layout(
+                            title=f'CCDF Plot for {attr_plot_info["title"]}',
+                            xaxis_title=attr_plot_info["x_label"],
+                            yaxis_title="CCDF",
+                            yaxis=dict(type="log", range=[-3, 0], tickmode="array", tickvals=np.concatenate((np.linspace(1, 0.1, 10), np.linspace(.1, 0.01, 10), np.linspace(.01, 0.001, 10), np.linspace(.001, 0.0001, 10), np.linspace(.0001, 0.00001, 10)))),
+                            xaxis=dict(tickmode="linear", dtick=5),
+                            legend_title="Labels",
+                            meta={"related_results_attribute": attr_name},
+                        )
+                    else:
+                        figs[attr_name] = go.Figure()
+                        figs[attr_name].update_layout(
+                            title=f'CDF Plot for {attr_plot_info["title"]}',
+                            xaxis_title=attr_plot_info["x_label"],
+                            yaxis_title="CDF",
+                            yaxis=dict(tickmode="array", tickvals=[0, 0.25, 0.5, 0.75, 1]),
+                            xaxis=dict(tickmode="linear", dtick=5),
+                            legend_title="Labels",
+                            meta={"related_results_attribute": attr_name}, 
+                        )
 
                 # TODO: take this fn as argument, to plot more than only cdf's
                 x, y = PostProcessor.cdf_from(attr_val, n_bins=n_bins)
 
                 fig = figs[attr_name]
-
-                fig.add_trace(
-                    go.Scatter(
-                        x=x,
-                        y=y,
-                        mode="lines",
-                        name=f"{legend}",
-                    ),
-                )
+                if attr_name == "system_dl_interf_power":
+                    fig.add_trace(
+                        go.Scatter(
+                            x=x - 90,
+                            y=1 - y,
+                            mode="lines",
+                            name=f"{legend}",
+                        ),
+                    )
+                else:
+                    fig.add_trace(
+                        go.Scatter(
+                            x=x,
+                            y=y,
+                            mode="lines",
+                            name=f"{legend}",
+                        ),
+                    )
 
         return figs.values()
 

@@ -21,7 +21,7 @@ class SpectralMaskImt2030(SpectralMask):
         band_mhz: float,
         spurious_emissions: float,
         category: str = "CatA",
-        scenario: str = "OUTDOOR",
+        scenario: str = "MACROCELL",
     ):
         """
         Implements spectral emission mask:
@@ -54,7 +54,7 @@ class SpectralMaskImt2030(SpectralMask):
         self.freq_mhz = freq_mhz
         self.BScategory = category
 
-        delta_f_lim = self.get_frequency_limits(self.sta_type, self.band_mhz)
+        delta_f_lim = self.get_frequency_limits(self.sta_type, self.band_mhz, self.scenario)
         # delta_f_lim_flipped = np.flip(self.delta_f_lim,0)
         delta_f_lim_flipped = delta_f_lim[::-1]
 
@@ -67,6 +67,7 @@ class SpectralMaskImt2030(SpectralMask):
         self,
         sta_type: StationType,
         bandwidth: float,
+        scenario: str
     ) -> np.array:
         """
         Calculates the frequency limits of the spectrum emission masks. This
@@ -74,9 +75,13 @@ class SpectralMaskImt2030(SpectralMask):
         """
 
         if sta_type is StationType.IMT_BS:
-            # Mask delta f breaking limits [MHz]
-            delta_f_lim = np.arange(0, 50, .1)
-            delta_f_lim = np.append(delta_f_lim, 100)
+            if scenario == "MACROCELL":
+                # Mask delta f breaking limits [MHz]
+                delta_f_lim = np.arange(0, 50, .1)
+                delta_f_lim = np.append(delta_f_lim, 100)
+            else:
+                delta_f_lim = np.arange(0, 20, .1)
+                delta_f_lim = np.append(delta_f_lim, 40)
         else:
             delta_f_lim = np.array([0, 1, 5])
             if bandwidth == 5:
@@ -96,7 +101,8 @@ class SpectralMaskImt2030(SpectralMask):
             self.sta_type,
             self.band_mhz,
             self.spurious_emissions,
-            self.BScategory
+            self.BScategory,
+            self.scenario
         )
         self.p_tx = p_tx - 10 * np.log10(self.band_mhz)
         # emission_limits = np.flip(emission_limits, 0)
@@ -112,20 +118,34 @@ class SpectralMaskImt2030(SpectralMask):
         sta_type: StationType,
         bandwidth: float,
         spurious_emissions: float,
-        category: float
+        category: float,
+        scenario: str
     ) -> np.array:
         if sta_type is StationType.IMT_BS:
-            if category == "CatA":
-                # emission limits in dBm/MHz
-                emission_limits = 3 - 7 / 20 * (np.arange(.05, 50, .1) - .05)
-                emission_limits = np.append(
-                    emission_limits, np.array([-4, -13]),
-                )
+            if scenario == "MACROCELL":
+                if category == "CatA":
+                    # emission limits in dBm/MHz
+                    emission_limits = 12 - 7 / 50 * (np.arange(.05, 50, .1) - .05)
+                    emission_limits = np.append(
+                        emission_limits, np.array([5, -4, -13]),
+                    )
+                else:
+                    emission_limits = 3 - 7 / 50 * (np.arange(.05, 50, .1) - .05)
+                    emission_limits = np.append(
+                        emission_limits, np.array([-4, -15, -30]),
+                    )
             else:
-                emission_limits = 3 - 7 / 50 * (np.arange(.05, 50, .1) - .05)
-                emission_limits = np.append(
-                    emission_limits, np.array([-4, -15]),
-                )
+                if category == "CatA":
+                    # emission limits in dBm/MHz
+                    emission_limits = 3 - 7 / 20 * (np.arange(.05, 20, .1) - .05)
+                    emission_limits = np.append(
+                        emission_limits, np.array([-4, -13, -13]),
+                    )
+                else:
+                    emission_limits = -3 - 7 / 20 * (np.arange(.05, 20, .1) - .05)
+                    emission_limits = np.append(
+                        emission_limits, np.array([-4, -15, -30]),
+                    )
         else:
             if bandwidth <= 50:
                 if bandwidth == 5:

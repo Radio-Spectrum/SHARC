@@ -47,13 +47,12 @@ for result in many_results:
 
 post_processor.add_results(many_results)
 
-plot = post_processor.generate_ccdf_plots_from_results(
+post_processor.add_plots(
+    post_processor.generate_ccdf_plots_from_results(
     many_results
+    )
 )
 
-
-
-post_processor.add_plots(plot)
 
 plots_to_add_vline = [
     "system_inr"
@@ -77,6 +76,11 @@ for prop_name in plots_to_add_vline:
             name="20% criteria y"
         )
 
+post_processor.add_plots(
+    post_processor.generate_cdf_plots_from_results(
+        many_results
+    )
+)
 # # This function aggregates IMT downlink and uplink
 # aggregated_results = PostProcessor.aggregate_results(
 #     downlink_result=post_processor.get_results_by_output_dir("MHz_60deg_dl"),

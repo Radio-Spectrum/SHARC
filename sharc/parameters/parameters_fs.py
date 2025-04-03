@@ -110,7 +110,7 @@ class ParametersFs(ParametersBase):
                 "Azimuth angle must be between 0 and 360 degrees.",
             )
 
-        if self.antenna_pattern not in ["ITU-R F.699", "OMNI"]:
+        if self.antenna_pattern not in ["ITU-R F.699", "OMNI", "ITU-R F.1245"]:
             raise ValueError(
                 f"Invalid antenna_pattern: {self.antenna_pattern}",
             )

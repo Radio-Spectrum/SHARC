@@ -31,6 +31,7 @@ from sharc.antenna.antenna import Antenna
 from sharc.antenna.antenna_fss_ss import AntennaFssSs
 from sharc.antenna.antenna_omni import AntennaOmni
 from sharc.antenna.antenna_f699 import AntennaF699
+from sharc.antenna.antenna_f1245 import AntennaF1245
 from sharc.antenna.antenna_f1891 import AntennaF1891
 from sharc.antenna.antenna_m1466 import AntennaM1466
 from sharc.antenna.antenna_rs1813 import AntennaRS1813
@@ -935,6 +936,8 @@ class StationFactory(object):
             fs_station.antenna = np.array([AntennaOmni(param.antenna_gain)])
         elif param.antenna_pattern == "ITU-R F.699":
             fs_station.antenna = np.array([AntennaF699(param)])
+        elif param.antenna_pattern == "ITU-R F.1245":
+            fs_station.antenna = np.array([AntennaF1245(param,param)])
         else:
             sys.stderr.write(
                 "ERROR\nInvalid FS antenna pattern: " + param.antenna_pattern,

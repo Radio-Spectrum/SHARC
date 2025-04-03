@@ -10,28 +10,28 @@ post_processor = PostProcessor()
 # This could easily come from a config file
 post_processor\
     .add_plot_legend_pattern(
-        dir_name_contains="output_imt_macro_FS_example_dl-6600m",
+        dir_name_contains="output_imt_macro_FS_example_dl_-6600m",
         legend= "DL - D = 5km"
     ).add_plot_legend_pattern(
-        dir_name_contains="output_imt_macro_FS_example_dl-16600m",
+        dir_name_contains="output_imt_macro_FS_example_dl_-16600m",
         legend= "DL - D = 15km"
     ).add_plot_legend_pattern(
-        dir_name_contains="output_imt_macro_FS_example_dl-26600m",
+        dir_name_contains="output_imt_macro_FS_example_dl_-26600m",
         legend="DL - D = 25km"
     ).add_plot_legend_pattern(
-        dir_name_contains="output_imt_macro_FS_example_dl-41600m",
+        dir_name_contains="output_imt_macro_FS_example_dl_-41600m",
         legend="DL - D = 40km"
     ).add_plot_legend_pattern(
-        dir_name_contains="output_imt_macro_FS_example_ul-6600m",
+        dir_name_contains="output_imt_macro_FS_example_ul_-6600m",
         legend= "UL - D = 5km"
     ).add_plot_legend_pattern(
-        dir_name_contains="output_imt_macro_FS_example_ul-16600m",
+        dir_name_contains="output_imt_macro_FS_example_ul_-16600m",
         legend= "UL - D = 15km"
     ).add_plot_legend_pattern(
-        dir_name_contains="output_imt_macro_FS_example_ul-26600m",
+        dir_name_contains="output_imt_macro_FS_example_ul_-26600m",
         legend="UL - D = 25km"
     ).add_plot_legend_pattern(
-        dir_name_contains="output_imt_macro_FS_example_ul-41600m",
+        dir_name_contains="output_imt_macro_FS_example_ul_-41600m",
         legend="UL - D = 40km"
     )
 campaign_base_dir = str((Path(__file__) / ".." / "..").resolve())

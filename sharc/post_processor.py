@@ -246,6 +246,22 @@ class PostProcessor:
         self.plot_legend_patterns.sort(key=lambda p: -len(p["dir_name_contains"]))
 
         return self
+    
+    def get_results_possible_legends(self, result: Results) -> list[dict]:
+        possible = list(
+            filter(
+                lambda pl: pl["dir_name_contains"]
+                in os.path.basename(result.output_directory),
+                self.plot_legend_patterns,
+            )
+        )
+
+        # if len(possible) == 0 and self.legends_generator is not None:
+            # return [
+            #     {"legend": self.legends_generator(os.path.basename(result.output_directory))}
+            # ]
+
+        return possible
 
     def generate_cdf_plots_from_results(
         self, results: list[Results], *, n_bins=200
@@ -310,6 +326,125 @@ class PostProcessor:
                 )
 
         return figs.values()
+    
+    
+    def generate_ccdf_plots_from_results(
+        self, results: list[Results], *, n_bins=200, cutoff_percentage=0.01, get_res_group=lambda x, l: 0
+    ) -> list[go.Figure]:
+        """
+        Generates ccdf plots for results added to instance, in log scale
+        cutoff_percentage: useful for cutting off
+        """
+        figs: dict[str, list[go.Figure]] = {}
+        attr_colors = {}
+
+        for k in self.RESULT_FIELDNAME_TO_PLOT_INFO.keys():
+            attr_colors[k] = {
+                'g1': 0,
+                'g2': 0,
+                'g3': 0
+            }
+
+        for res in results:
+            possible_legends_mapping = self.get_results_possible_legends(res)
+
+            if len(possible_legends_mapping):
+                legend = possible_legends_mapping[0]["legend"]
+            else:
+                legend = res.output_directory
+
+            attr_names = res.get_relevant_attributes()
+
+            next_tick = 1
+            ticks_at = []
+            while next_tick > cutoff_percentage:
+                ticks_at.append(next_tick)
+                next_tick /= 10
+            ticks_at.append(cutoff_percentage)
+            ticks_at.reverse()
+
+            for attr_name in attr_names:
+                attr_val = getattr(res, attr_name)
+                if not len(attr_val):
+                    continue
+                if attr_name not in self.RESULT_FIELDNAME_TO_PLOT_INFO:
+                    print(
+                        f"[WARNING]: {attr_name} is not a plottable field, because it does not have a configuration set on PostProcessor."
+                    )
+                    continue
+                attr_plot_info = self.RESULT_FIELDNAME_TO_PLOT_INFO[attr_name]
+                if attr_plot_info == PostProcessor.IGNORE_FIELD:
+                    print(
+                        f"[WARNING]: {attr_name} is currently being ignored on plots."
+                    )
+                    continue
+                if attr_name not in figs:
+                    figs[attr_name] = go.Figure()
+                    figs[attr_name].update_layout(
+                        title=f'CCDF Plot for {attr_plot_info["title"]}',
+                        xaxis_title=attr_plot_info["x_label"],
+                        yaxis_title="P(X > x)",
+                        yaxis=dict(tickmode="array", tickvals=ticks_at, type="log", range=[np.log10(cutoff_percentage), 0]),
+                        xaxis=dict(tickmode="linear", dtick=5),
+                        meta={"related_results_attribute": attr_name, "plot_type": "ccdf"},
+                    )
+
+                # TODO: take this fn as argument, to plot more than only cdf's
+                x, y = PostProcessor.ccdf_from(attr_val, n_bins=n_bins)
+                # Criando os dois intervalos
+                valores1 = np.arange(0.01, 0.11, 0.01)  # De 0.01 a 0.1 com passo de 0.01
+                valores2 = np.arange(0.1, 1.1, 0.1)    # De 0.1 a 1 com passo de 0.1
+
+                # Concatenando as listas
+                values = np.concatenate((valores1, valores2))
+
+                fig = figs[attr_name]
+
+                res_group = get_res_group(res, legend)
+                if res_group == 0:
+                    fig.add_trace(
+                        go.Scatter(
+                            x=x,
+                            y=y,
+                            mode="lines",
+                            name=f"{legend}"
+                        ),
+                    )
+                    fig.update_layout(
+                        legend=dict(
+                            x=0.83,  # Define a posição horizontal (mais para a direita)
+                            y=1,  # Define a posição vertical (meio do gráfico)
+                            bgcolor="rgba(255, 255, 255, 0.5)"  # Fundo branco semi-transparente
+                        ),
+                        yaxis_tickvals= values,
+                        yaxis_type="log"  # Aqui está a configuração da escala logarítmica
+                    )
+                    attr_colors[attr_name]['g1'] += 1
+                elif res_group == 1:
+                    fig.add_trace(
+                        go.Scatter(
+                            x=x,
+                            y=y,
+                            mode="lines",
+                            name=f"{legend}"
+                        ),
+                    )
+                    attr_colors[attr_name]['g2'] += 1
+                else:
+                    fig.add_trace(
+                        go.Scatter(
+                            x=x,
+                            y=y,
+                            mode="lines",
+                            name=f"{legend}"
+                            # line=dict(dash="dot", color=DEFAULT_PLOTLY_COLORS[attr_colors[attr_name]['g3']])
+                        ),
+                    )
+                    attr_colors[attr_name]['g3'] += 1
+
+        return figs.values()
+
+
 
     def add_plots(self, plots: list[go.Figure]) -> None:
         self.plots.extend(plots)
@@ -352,6 +487,15 @@ class PostProcessor:
             return None
 
         return filtered[0]
+    
+    @staticmethod
+    def ccdf_from(data: list[float], *, n_bins=200) -> (list[float], list[float]):
+        """
+        Takes a dataset and returns both axis of a ccdf (x, y)
+        """
+        x, y = PostProcessor.cdf_from(data, n_bins=n_bins)
+
+        return (x, 1 - y)
 
     @staticmethod
     def aggregate_results(

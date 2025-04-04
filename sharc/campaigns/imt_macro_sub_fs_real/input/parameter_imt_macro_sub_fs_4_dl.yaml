@@ -11,20 +11,20 @@ general:
     system: FS
     ###########################################################################
     # Compatibility scenario (co-channel and/or adjacent channel interference)
-    enable_cochannel: TRUE
-    enable_adjacent_channel: FALSE
+    enable_cochannel: true
+    enable_adjacent_channel: false
     ###########################################################################
     # Seed for random number generator
-    seed: 101
+    seed: 47
     ###########################################################################
     # if FALSE, then a new output directory is created
     overwrite_output: FALSE
-    
     # output destination folder - this is relative SHARC/sharc directory
-    output_dir  : campaigns/FS/output/
+    output_dir: campaigns/imt_macro_sub_fs_real/output/
     ###########################################################################
     # output folder prefix
-    output_dir_prefix  : output_FS_1
+    output_dir_prefix: output_imt_macro_sub_fs_4_dl
+
 imt:
     # Minimum 2D separation distance from BS to UE [m]
     # NOTE: From 3GPP TS 38.104 v.18.6.0, based on BS class
@@ -35,7 +35,7 @@ imt:
     interfered_with: FALSE
     # IMT center frequency [MHz]
     # NOTE: this parameter is updated by the script to be eq to system frequency
-    frequency: 7600
+    frequency: 8147.97
     # IMT bandwidth [MHz]
     # NOTE: From Annex 4.2 to Doc 5D/413-E, Table 4
     bandwidth: 100
@@ -64,7 +64,8 @@ imt:
         macrocell:
             ###########################################################################
             # Inter-site distance in macrocell network topology [m]
-            intersite_distance: 600
+            # ISD = 1.5 * 800
+            intersite_distance: 1200
             ###########################################################################
             # Enable wrap around.
             wrap_around: false
@@ -88,7 +89,7 @@ imt:
         # Urban/Suburban macro: 18m urban, 20m suburban
         # Small cell (outdoor)/Micro cell: 6m
         # Indoor (small cell): 3m
-        height: 18
+        height: 20
         # Base station noise figure [dB]
         # NOTE: From Annex 4.2 to Doc 5D/413-E, Table 4
         # Wide area: 6
@@ -280,7 +281,7 @@ imt:
         # NOTE: From Annex 4.2 to Doc 5D/413-E, Table 3
         sinr_max: 30
     
-    ###########################################################################
+   #####################################################
     # Channel parameters
     # channel model, possible values are "FSPL" (free-space path loss),
     #                                    "CI" (close-in FS reference distance)
@@ -305,94 +306,103 @@ imt:
     noise_temperature: 290
     ###########################################################################
     
+
+#### System Parameters
 fs:
     ###########################################################################
-    # x-y coordinates [m]
-    x: -2400
+    # x-y coordinates of the center of the FS earth station [m]
+    # NOTE: Assumed
+    x: -14400
     y: 0
+    # NOTE: Frequency for Cochanel interference
+    frequency: 8147.97
     ###########################################################################
-    # antenna height [m]
-    height: 60
+    # Bandwidth of the system [MHz]
+    # Annex 4.4 to Document 5D/563-E - Table 1
+    bandwidth: 28
     ###########################################################################
-    # Elevation angle [deg]
-    elevation: 0
+    # Antenna Height [m]
+    # NOTE: From annex 4.2 to Doc 5D/563-E, Table 1
+    height: 76
     ###########################################################################
-    # Azimuth angle [deg]
-    azimuth: 0
+    # Elevation angle [degrees]
+    # NOTE: Assumed
+    elevation: -0.228
     ###########################################################################
-    # center frequency [MHz]
-    frequency: 7600
-    ###########################################################################
-    # bandwidth [MHz]
-    bandwidth: 40
+    # Azimuth angle [degrees]
+    # NOTE: Range from 0 to 180 with 30 degree steps
+    azimuth: 17.0
     ###########################################################################
     # System receive noise temperature [K]
+    # NOTE: assumed
     noise_temperature: 513
     ###########################################################################
-    # adjacent channel selectivity (dB)
-    #adjacent_ch_selectivity: 20
-    ###########################################################################
     # Peak transmit power spectral density (clear sky) [dBW/Hz]
-    #tx_power_density: -57
+    # NOTE: From annex 4.2 to Doc 5D/563-E, Table 1
+    # 3 - 60 - 10*log10(30) => -71
+    # tx_power_density: -71
     ###########################################################################
-    # antenna peak gain [dBi]
-    antenna_gain: 35
+    # Adjacent channel selectivity [dB]
+    # adjacent_ch_selectivity: 20.0
     ###########################################################################
-    # Antenna pattern of the fixed wireless service
-    # Possible values: "ITU-R F.699", "OMNI" or "ITU-R F.1245"
+    # Antenna peak gain [dBi]
+    # NOTE: From annex 4.2 to Doc 5D/563-E, Table 1
+    antenna_gain: 37.0
+    ###########################################################################
+    # Antenna pattern
+    # NOTE: from annex 4.2 to Doc 5D/563-E, Table 1
     antenna_pattern: ITU-R F.1245
     ###########################################################################
-    # Diameter of antenna [m]
-    diameter: 1.136
+    # Diameter of the antenna [m]
+    # NOTE: From annex 4.2 to Doc 5D/563-E, Table 1
+    # 20*logD/lambda = 36 - 7.7 => D = 1.13964
+    antenna_diameter: 1.136
     ###########################################################################
-    # Channel parameters
-    # channel model, possible values are "FSPL" (free-space path loss),
-    #                                    "TerrestrialSimple" (FSPL + clutter loss)
     channel_model: P452
     ###########################################################################
     # Constants
     BOLTZMANN_CONSTANT: 1.38064852e-23
-    EARTH_RADIUS: 6371000
-# P452 parameters
+    EARTH_RADIUS: 6371000   
+    # param_p452:
     ###########################################################################
-    # Total air pressure in hPa
+    # Total air pressure [hPa]
     atmospheric_pressure: 1017
     ###########################################################################
-    # Temperature in Kelvin
+    # Temperature [K]
     air_temperature: 293.15
     ###########################################################################
-    #Sea-level surface refractivity (use the map)
+    # Sea-level surface refractivity (use the map)
     N0: 352.58
     ###########################################################################
-    #Average radio-refractive (use the map)
+    # Average radio-refractive (use the map)
     delta_N: 60
     ###########################################################################
-    #percentage p. Float (0 to 100) or RANDOM
+    # percentage p. Float (0 to 100) or RANDOM
     percentage_p: 0.2
     ###########################################################################
-    #Distance over land from the transmit and receive antennas to the coast (km)
+    # Distance over land from the transmit and receive antennas to the coast (km)
     Dct: 101
     ###########################################################################
-    #Distance over land from the transmit and receive antennas to the coast (km)
+    # Distance over land from the transmit and receive antennas to the coast (km)
     Dcr: 100
     ###########################################################################
-    ##Effective height of interfering antenna (m)
-    Hte: 18
+    # Effective height of interfering antenna (m)
+    Hte: 20
     ###########################################################################
-    #Effective height of interfered-with antenna (m)
-    Hre: 60
+    # Effective height of interfered-with antenna (m)
+    Hre: 76
     ###########################################################################
     ##Latitude of transmitter
-    tx_lat: -23.55028
+    tx_lat: -27.8732
     ###########################################################################
     #Latitude of receiver
-    rx_lat: -23.17889
+    rx_lat: -27.8694
     ###########################################################################
-    #Antenna polarization
+    # Antenna polarization. Possible values are "horizontal", "vertical"
     polarization: horizontal
     ###########################################################################
-    #determine whether clutter loss following ITU-R P.2108 is added (TRUE/FALSE)
+    # determine whether clutter loss following ITU-R P.2108 is added (TRUE/FALSE)
     clutter_loss: TRUE
-    ###########################################################################
-    
+
+
 

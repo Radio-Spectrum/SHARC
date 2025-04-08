@@ -38,6 +38,7 @@ class PropagationP619(Propagation):
         earth_station_alt_m: float,
         earth_station_lat_deg: float,
         season: str,
+        percent_clutter: float = 1.0,
     ):
         """Implements the earth-to-space channel model from ITU-R P.619
 
@@ -59,6 +60,7 @@ class PropagationP619(Propagation):
 
         self.is_earth_space_model = True
         self.clutter = PropagationClutterLoss(self.random_number_gen)
+        self.percent_clutter = percent_clutter
         self.free_space = PropagationFreeSpace(self.random_number_gen)
         self.building_entry = PropagationBuildingEntryLoss(
             self.random_number_gen,
@@ -457,6 +459,7 @@ class PropagationP619(Propagation):
                     distance=distance,
                     elevation=elevation["free_space"],
                     station_type=StationType.FSS_SS,
+                    percent_clutter=self.percent_clutter,
                 )
             building_loss = self.building_entry.get_loss(
                 frequency, elevation["apparent"],

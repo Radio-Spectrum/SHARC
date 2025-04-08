@@ -26,6 +26,9 @@ class ParametersP619(ParametersBase):
     earth_station_lat_deg: float = 0.0
     season: str = "SUMMER"
 
+    # Indicates the percentage of links that have clutter loss
+    percent_clutter: float = 1.0
+
     def load_from_paramters(self, param: ParametersBase):
         """Used to load parameters of P.619 from IMT or system parameters
 
@@ -39,8 +42,15 @@ class ParametersP619(ParametersBase):
         self.earth_station_lat_deg = param.earth_station_lat_deg
         self.earth_station_long_diff_deg = param.earth_station_long_diff_deg
         self.season = param.season
+        self.percent_clutter = param.percent_clutter
 
         if self.season.upper() not in ["SUMMER", "WINTER"]:
             raise ValueError(f"{self.__class__.__name__}: \
                              Invalid value for parameter season - {self.season}. \
                              Possible values are \"SUMMER\", \"WINTER\".")
+
+        if self.percent_clutter < 0 or self.percent_clutter > 1:
+            raise ValueError(
+                f"{self.__class__.__name__}.percent_clutter should be between 0 and 1",
+            )
+

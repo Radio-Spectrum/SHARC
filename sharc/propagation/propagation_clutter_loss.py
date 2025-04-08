@@ -67,6 +67,9 @@ class PropagationClutterLoss(Propagation):
                 one terminal is within the clutter and the other is a satellite,
                 aeroplane or other platform above the surface of the Earth.
 
+            percent_clutter (float) : percentage of links that have clutter loss
+                (0 < percent_clutter < 1) (Default = 1.0)
+
         Returns
         -------
             array with clutter loss values with dimensions of distance
@@ -75,8 +78,24 @@ class PropagationClutterLoss(Propagation):
         f = kwargs["frequency"]
         loc_per = kwargs.pop("loc_percentage", "RANDOM")
         type = kwargs["station_type"]
-
         d = kwargs["distance"]
+        percent_clutter = kwargs.pop("percent_clutter", 1.0)
+        if percent_clutter < 0.0 or percent_clutter > 1.0:
+            raise ValueError("percent_clutter must be between 0 and 1")
+        if percent_clutter == 0.0:
+            return np.zeros(d.shape)
+
+        # Apply clutter only to a subset of the links
+        # according to the percentage of clutter.
+        orig_shape = d.shape
+        clutter_idxs = np.where(np.random.random(d.shape) < percent_clutter)[0]
+
+        if len(clutter_idxs) == 0:
+            return np.zeros(d.shape)
+
+        d = d[clutter_idxs]
+        f = f[clutter_idxs]
+        loc_per = loc_per[clutter_idxs]
 
         if f.size == 1:
             f = f * np.ones(d.shape)
@@ -87,10 +106,13 @@ class PropagationClutterLoss(Propagation):
             p = loc_per * np.ones(d.shape)
 
         if type is StationType.IMT_BS or type is StationType.IMT_UE or type is StationType.FSS_ES:
-            loss = self.get_terrestrial_clutter_loss(f, d, p)
+            clutter_loss = self.get_terrestrial_clutter_loss(f, d, p1, True) + self.get_terrestrial_clutter_loss(f, d, p2, False)
         else:
             theta = kwargs["elevation"]
-            loss = self.get_spacial_clutter_loss(f, theta, p)
+            clutter_loss = self.get_spacial_clutter_loss(f, theta, p1)
+
+        loss = np.zeros(orig_shape)
+        loss[clutter_idxs] = clutter_loss
         return loss
 
     def get_spacial_clutter_loss(

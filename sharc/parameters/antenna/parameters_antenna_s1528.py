@@ -41,7 +41,7 @@ class ParametersAntennaS1528(ParametersBase):
     n_side_lobes: int = 4
 
     # beam roll-off (difference between the maximum gain and the gain at the edge of the illuminated beam)
-    # Possible values are 0, 3, 5 and 7. The value 0 (zero) means that the first J1 root of the bessel function 
+    # Possible values are 0, 3, 5 and 7. The value 0 (zero) means that the first J1 root of the bessel function
     # sits at the edge of the beam
     roll_off: int = 7
 

@@ -45,4 +45,4 @@ class StationType(Enum):
     METSAT_SS = 10  # MetSat Space Station
     SINGLE_EARTH_STATION = 11
     SINGLE_SPACE_STATION = 12
-    MSS_SS = 12 # Mobile Satellite Service - Space Station
+    MSS_SS = 12  # Mobile Satellite Service - Space Station

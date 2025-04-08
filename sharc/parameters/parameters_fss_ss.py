@@ -106,4 +106,3 @@ class ParametersFssSs(ParametersBase):
                                                    antenna_3_dB_bw=self.antenna_3_dB,
                                                    a_deg=self.antenna_3_dB / 2,
                                                    b_deg=self.antenna_3_dB / 2)
-

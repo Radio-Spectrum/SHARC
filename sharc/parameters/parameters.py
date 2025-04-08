@@ -45,7 +45,6 @@ class Parameters(object):
         self.metsat_ss = ParametersMetSatSS()
         self.mss_ss = ParametersMssSs()
 
-
     def set_file_name(self, file_name: str):
         """sets the configuration file name
 

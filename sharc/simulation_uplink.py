@@ -183,7 +183,7 @@ class SimulationUplink(Simulation):
                     10 * np.log10(self.param_system.bandwidth * 1e6) -  \
                     acir + 30
                 oob_interf_lin = 10**(oob_power / 10)
-        
+
         ext_interference = 10 * np.log10(np.power(10, 0.1 * in_band_interf) + oob_interf_lin)
 
         bs_active = np.where(self.bs.active)[0]
@@ -191,7 +191,7 @@ class SimulationUplink(Simulation):
         for bs in bs_active:
             active_beams = \
                 [i for i in range(bs * self.parameters.imt.ue.k, (bs + 1) * self.parameters.imt.ue.k)]
-            
+
             # Interference for each active system transmitter
             bs_ext_interference = ext_interference - \
                 self.coupling_loss_imt_system[active_beams, :][:, sys_active]

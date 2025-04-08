@@ -30,6 +30,7 @@ class ParametersImt(ParametersBase):
     # When using ACIR the interfence power from the other system is calculted by using the ACLR and ACS.
     # Whith the SPECTRAL_MASK the the interference power from the other system is calculated from it's spectral mask.
     adjacent_interf_model: str = "ACIR"
+
     @dataclass
     class ParametersBS(ParametersBase):
         load_probability = 0.2

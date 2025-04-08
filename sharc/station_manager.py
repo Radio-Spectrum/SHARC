@@ -12,6 +12,7 @@ from sharc.station import Station
 from sharc.antenna.antenna import Antenna
 from sharc.mask.spectral_mask import SpectralMask
 
+
 class StationManager(object):
     """
     This is the base class that manages an array of stations that will be
@@ -41,8 +42,8 @@ class StationManager(object):
         self.snr = np.empty(n)
         self.sinr = np.empty(n)
         self.sinr_ext = np.empty(n)
-        self.inr = np.empty(n) # INR in dBm/MHz
-        self.pfd = np.empty(n) # Powerflux density in dBm/m^2
+        self.inr = np.empty(n)  # INR in dBm/MHz
+        self.pfd = np.empty(n)  # Powerflux density in dBm/m^2
         self.spectral_mask = np.empty(n, dtype=SpectralMask)
         self.center_freq = np.empty(n)
         self.station_type = StationType.NONE

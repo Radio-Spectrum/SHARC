@@ -1202,7 +1202,7 @@ class StationFactory(object):
         space_station.noise_temperature = np.array([500.0])
 
         return space_station
-    
+
     @staticmethod
     def generate_mss_ss(param_mss: ParametersMssSs):
         # We borrow the TopologyNTN geometry as it's the same for MSS_SS
@@ -1213,7 +1213,7 @@ class StationFactory(object):
                                    param_mss.elevation,
                                    param_mss.num_sectors)
         ntn_topology.calculate_coordinates()
-        
+
         num_bs = ntn_topology.num_base_stations
         mss_ss = StationManager(n=num_bs)
         mss_ss.station_type = StationType.MSS_SS

@@ -38,6 +38,7 @@ def run_campaign(campaign_name):
             ] * len(parameter_files),
         )
 
+
 def run_campaign_re(campaign_name, param_name_regex):
     # Path to the working directory
     workfolder = os.path.dirname(os.path.abspath(__file__))
@@ -66,6 +67,7 @@ def run_campaign_re(campaign_name, param_name_regex):
                 main_cli_path,
             ] * len(parameter_files),
         )
+
 
 if __name__ == "__main__":
     # Example usage

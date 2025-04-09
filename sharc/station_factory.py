@@ -1240,7 +1240,9 @@ class StationFactory(object):
         MIN_ELEV_ANGLE_DEG = params.min_elevation_angle_deg  # Minimum elevation angle for satellite visibility
         MAX_ELEV_ANGLE_DEG = params.max_elevation_angle_deg  # Minimum elevation angle for satellite visibility
         MAX_ITER = 10000  # Maximum iterations to find at least one visible satellite
-
+        
+        ELVATION_EARTH_STATION = params.elevation
+        
         # Calculate the total number of satellites across all orbits
         total_satellites = sum(orbit.n_planes * orbit.sats_per_plane for orbit in params.orbits)
 
@@ -1313,6 +1315,8 @@ class StationFactory(object):
                     pos_vec['lon'],
                     orbit.perigee_alt_km
                 )
+                
+                REFERENCE = 90 - ELVATION_EARTH_STATION
 
                 visible_sat_idxs = [
                     current_sat_idx + idx for idx, elevation in enumerate(elev_from_bs)

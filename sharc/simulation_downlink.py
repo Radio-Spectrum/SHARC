@@ -157,6 +157,29 @@ class SimulationDownlink(Simulation):
         # calculate interference only to active UE's
         ue = np.where(self.ue.active)[0]
         active_sys = np.where(self.system.active)[0]
+        
+        # Distance from each system transmitter to each UE receiver (in meters)
+        d3 = self.system.get_3d_distance_to(self.ue)  # shape: [n_tx, n_ue]
+        
+        # EIRP in dBW/MHz per transmitter
+        eirp_dBW_MHz = self.param_system.tx_power_density + 60 +self.system_imt_antenna_gain
+                 
+        # PFD formula (dBW/m²/MHz)
+        # EIRP - 10log10(4π) - 20log10(distance) ,
+        self.ue.pfd_external = eirp_dBW_MHz \
+             - 10.992098640220963 - 20 * np.log10(d3)             
+        # Total PFD per UE (sum of PFDs from each transmitter)
+        
+        # Convert PFD from dB to linear scale (W/m²/MHz)
+        pfd_linear = 10 ** (self.ue.pfd_external / 10)
+
+        # Sum PFDs from all transmitters for each UE (axis=0 assumes shape [n_tx, n_ue])
+        pfd_agg_linear = np.sum(pfd_linear[active_sys][:, ue], axis=0)
+
+        # Convert back to dBW
+        self.ue.pfd_external_aggregated = 10 * np.log10(pfd_agg_linear)
+                    
+        
 
         # All UEs are active on an active BS
         bs_active = np.where(self.bs.active)[0]
@@ -189,7 +212,7 @@ class SimulationDownlink(Simulation):
                 # due to oob emissions on tx side
                 tx_oob = np.resize(-500., len(ue))
 
-                # emissions outside of rx bw and inside of tx bw
+                # emissions outside of rx bw and inside of tx fbw
                 # due to non ideal filtering on rx side
                 # will be the same for all UE's, only considering
                 rx_oob = np.resize(-500., len(ue))
@@ -435,7 +458,11 @@ class SimulationDownlink(Simulation):
                     self.ue.sinr_ext[ue].tolist(),
                 )
                 self.results.imt_dl_inr.extend(self.ue.inr[ue].tolist())
-
+                
+                self.results.imt_dl_pfd_external.extend(self.ue.pfd_external[sys_active[:, np.newaxis], ue].flatten())
+                
+                self.results.imt_dl_pfd_external_aggregated.extend(self.ue.pfd_external_aggregated[ue].tolist())
+            
                 self.results.system_imt_antenna_gain.extend(
                     self.system_imt_antenna_gain[sys_active[:, np.newaxis], ue].flatten(),
                 )

@@ -7,10 +7,11 @@ Created on Fri Feb  3 15:29:48 2017
 
 import numpy as np
 
-from sharc.support.enumerations import StationType
-from sharc.station import Station
 from sharc.antenna.antenna import Antenna
 from sharc.mask.spectral_mask import SpectralMask
+from sharc.station import Station
+from sharc.support.enumerations import StationType
+
 
 class StationManager(object):
     """
@@ -40,6 +41,8 @@ class StationManager(object):
         self.noise_temperature = np.empty(n)
         self.thermal_noise = np.empty(n)
         self.total_interference = np.empty(n)
+        self.pfd_external = np.empty(n) # External PFD in dBW/m²/MHz
+        self.pfd_external_aggregated = np.empty(n) # Aggregated External PFD in dBW/m²/MHz
         self.snr = np.empty(n)
         self.sinr = np.empty(n)
         self.sinr_ext = np.empty(n)

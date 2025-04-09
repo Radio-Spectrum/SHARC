@@ -34,6 +34,14 @@ class ParametersMssD2d(ParametersBase):
     # Adjacent channel emissions type
     # Possible values are "ACLR", "SPECTRAL_MASK" and "OFF"
     adjacent_ch_emissions: str = "OFF"
+    
+    # Earth station elevation w.r.t. simulation xy-plane (horizon)
+    elevation: float = 90.0
+    
+    # Minimum and maximum elevation angle [degrees]
+    min_elevation_angle_deg: float = 5.0
+    max_elevation_angle_deg: float = 90.0
+
 
     # Transmitter spectral mask
     spectral_mask: str = "MSS"
@@ -56,10 +64,7 @@ class ParametersMssD2d(ParametersBase):
     # Satellite Tx max Gain in dBi
     antenna_gain: float = 30.0
     
-    # Minimum and maximum elevation angle [degrees]
-    min_elevation_angle_deg: float = 5.0
-    max_elevation_angle_deg: float = 90.0
-
+    
 
     # Number of beams per satellite
     num_sectors: int = 19

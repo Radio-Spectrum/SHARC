@@ -7,4 +7,4 @@ name_campaign = "mss_d2d_to_imt_elev_study"
 # Run the campaign in single-thread mode
 # This function will execute the campaign with the given name in a single-threaded manner.
 # It will look for the campaign directory under the specified name and start the necessary processes.
-run_campaign_re(name_campaign, r'^mss_d2d_to_imt_co_channel_system_A_min_25_max_30.yaml')
+run_campaign_re(name_campaign, r'^mss_d2d_to_imt_co_channel_system_A_min_5_max_10.yaml')

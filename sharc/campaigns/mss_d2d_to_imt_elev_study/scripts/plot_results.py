@@ -64,11 +64,13 @@ if fig:
 
 # Show key plots safely
 key_attributes = [
-    "imt_system_antenna_gain",
-    "system_imt_antenna_gain",
-    "sys_to_imt_coupling_loss",
-    "imt_system_path_loss",
-    "imt_dl_inr",
+    #"imt_system_antenna_gain",
+    #"system_imt_antenna_gain",
+    #"sys_to_imt_coupling_loss",
+    #"imt_system_path_loss",
+    #"imt_dl_inr",
+    "imt_dl_pfd_external",
+    "imt_dl_pfd_external_aggregated"
 ]
 
 for attr in key_attributes:

@@ -5,13 +5,14 @@ Created on Thu Mar 23 08:47:46 2017
 @author: edgar
 """
 
+import datetime
 import glob
 import os
-import datetime
-import re
 import pathlib
-import pandas as pd
+import re
 from shutil import copy
+
+import pandas as pd
 
 
 class SampleList(list):
@@ -79,6 +80,9 @@ class Results(object):
         self.imt_dl_tput_ext = SampleList()
         # Throughput [bits/s/Hz]
         self.imt_dl_tput = SampleList()
+        # PFD
+        self.imt_dl_pfd_external = SampleList()
+        self.imt_dl_pfd_external_aggregated = SampleList()
 
         self.system_ul_coupling_loss = SampleList()
         self.system_ul_interf_power = SampleList()

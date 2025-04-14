@@ -117,3 +117,4 @@ wcwidth==0.2.13
 geopandas==1.0.1
 multipledispatch==1.0.0
 area==1.1.1
+streamlit==1.37.1

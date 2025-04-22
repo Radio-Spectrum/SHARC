@@ -13,12 +13,6 @@ post_processor = PostProcessor()
 # Define campaign base path
 campaign_base_dir = str((Path(__file__) / ".." / "..").resolve())
 
-# Add legend for matching results
-post_processor.add_plot_legend_pattern(
-    dir_name_contains="_mss_d2d_to_imt_co_channel_system_A",
-    legend="SystemA MSS-D2D"
-)
-
 # Load simulation results (only latest result per folder)
 many_results = Results.load_many_from_dir(
     os.path.join(campaign_base_dir, "output"),

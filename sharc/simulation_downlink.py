@@ -157,29 +157,6 @@ class SimulationDownlink(Simulation):
         # calculate interference only to active UE's
         ue = np.where(self.ue.active)[0]
         active_sys = np.where(self.system.active)[0]
-        
-        # Distance from each system transmitter to each UE receiver (in meters)
-        d3 = self.system.get_3d_distance_to(self.ue)  # shape: [n_tx, n_ue]
-        
-        # EIRP in dBW/MHz per transmitter
-        eirp_dBW_MHz = self.param_system.tx_power_density + 60 +self.system_imt_antenna_gain
-                 
-        # PFD formula (dBW/m²/MHz)
-        # EIRP - 10log10(4π) - 20log10(distance) ,
-        self.ue.pfd_external = eirp_dBW_MHz \
-             - 10.992098640220963 - 20 * np.log10(d3)             
-        # Total PFD per UE (sum of PFDs from each transmitter)
-        
-        # Convert PFD from dB to linear scale (W/m²/MHz)
-        pfd_linear = 10 ** (self.ue.pfd_external / 10)
-
-        # Sum PFDs from all transmitters for each UE (axis=0 assumes shape [n_tx, n_ue])
-        pfd_agg_linear = np.sum(pfd_linear[active_sys][:, ue], axis=0)
-
-        # Convert back to dBW
-        self.ue.pfd_external_aggregated = 10 * np.log10(pfd_agg_linear)
-                    
-        
 
         # All UEs are active on an active BS
         bs_active = np.where(self.bs.active)[0]
@@ -198,9 +175,7 @@ class SimulationDownlink(Simulation):
             if self.co_channel:
                 # Inteferer transmit power in dBm over the overlapping band (MHz) with UEs.
                 if self.overlapping_bandwidth > 0:
-                    # in_band_interf_power = self.param_system.tx_power_density + \
-                    #     10 * np.log10(self.overlapping_bandwidth * 1e6) + 30
-                    weights = np.where(weights>0,weights,1e-20)
+                    weights = np.where(weights > 0, weights, 1e-20)
                     in_band_interf_power = \
                         self.param_system.tx_power_density + 10 * np.log10(
                             self.ue.bandwidth[ue, np.newaxis] * 1e6
@@ -314,6 +289,27 @@ class SimulationDownlink(Simulation):
 
             self.ue.inr[ue] = self.ue.ext_interference[ue] - \
                 self.ue.thermal_noise[ue]
+
+        # Calculate PFD at the UE
+
+        # Distance from each system transmitter to each UE receiver (in meters)
+        dist_sys_to_imt = self.system.get_3d_distance_to(self.ue)  # shape: [n_tx, n_ue]
+
+        # EIRP in dBW/MHz per transmitter
+        eirp_dBW_MHz = self.param_system.tx_power_density + 60 + self.system_imt_antenna_gain
+
+        # PFD formula (dBW/m²/MHz)
+        # PFD = EIRP - 10log10(4π) - 20log10(distance)
+        # Store the PFD for each transmitter and each UE
+        self.ue.pfd_external = eirp_dBW_MHz - 10.992098640220963 - 20 * np.log10(dist_sys_to_imt)
+
+        # Total PFD per UE (sum of PFDs from each transmitter)
+        # Convert PFD from dB to linear scale (W/m²/MHz)
+        pfd_linear = 10 ** (self.ue.pfd_external / 10)
+        # Sum PFDs from all transmitters for each UE (axis=0 assumes shape [n_tx, n_ue])
+        pfd_agg_linear = np.sum(pfd_linear[active_sys][:, ue], axis=0)
+        # Convert back to dBW
+        self.ue.pfd_external_aggregated = 10 * np.log10(pfd_agg_linear)
 
     def calculate_external_interference(self):
         """

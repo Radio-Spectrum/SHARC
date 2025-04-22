@@ -14,7 +14,7 @@ from sharc.station_manager import StationManager
 class AntennaAntennaMultipleTransceiverTest(unittest.TestCase):
     def setUp(self):
         param = ParametersAntennaS1528()
-        param.antenna_gain
+        param.antenna_gain = 30
         param.frequency = 2170.0
         param.bandwidth = 5.0
         param.antenna_3_dB_bw = 4.4127

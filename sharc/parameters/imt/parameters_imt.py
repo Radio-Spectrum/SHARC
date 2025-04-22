@@ -7,6 +7,7 @@ import typing
 from sharc.parameters.parameters_base import ParametersBase
 from sharc.parameters.parameters_p619 import ParametersP619
 from sharc.parameters.imt.parameters_antenna_imt import ParametersAntennaImt
+from sharc.parameters.parameters_antenna import ParametersAntenna
 from sharc.parameters.imt.parameters_imt_topology import ParametersImtTopology
 
 
@@ -35,8 +36,9 @@ class ParametersImt(ParametersBase):
         height: float = 6.0
         noise_figure: float = 10.0
         ohmic_loss: float = 3.0
-        antenna: ParametersAntennaImt = field(default_factory=ParametersAntennaImt)
-
+        antenna: ParametersAntenna = field(default_factory=lambda:ParametersAntenna(
+            pattern="ARRAY", array=ParametersAntennaImt(downtilt=0.0)
+        ))
     bs: ParametersBS = field(default_factory=ParametersBS)
 
     topology: ParametersImtTopology = field(default_factory=ParametersImtTopology)
@@ -70,11 +72,13 @@ class ParametersImt(ParametersBase):
         ohmic_loss: float = 3.0
         body_loss: float = 4.0
         adjacent_ch_selectivity: float = 33  # Adjacent Channel Selectivity in dB
-        antenna: ParametersAntennaImt = field(default_factory=lambda: ParametersAntennaImt(downtilt=0.0,))
+        antenna: ParametersAntenna = field(default_factory=lambda:ParametersAntenna(
+            pattern="ARRAY"
+        ))
 
         def validate(self, ctx: str):
-            if self.antenna.horizontal_beamsteering_range != (-180., 180.)\
-                    or self.antenna.vertical_beamsteering_range != (0., 180.):
+            if self.antenna.array.horizontal_beamsteering_range != (-180., 180.)\
+                    or self.antenna.array.vertical_beamsteering_range != (0., 180.):
                 raise NotImplementedError(
                     "UE antenna beamsteering limit has not been implemented. Default values of\n"
                     "horizontal = (-180., 180.), vertical = (0., 180.) should not be changed"
@@ -170,11 +174,15 @@ class ParametersImt(ParametersBase):
         )
 
         self.bs.antenna.set_external_parameters(
-            adjacent_antenna_model=self.adjacent_antenna_model
+            adjacent_antenna_model=self.adjacent_antenna_model,
+            frequency=self.frequency,
+            bandwidth=self.bandwidth,
         )
 
         self.ue.antenna.set_external_parameters(
-            adjacent_antenna_model=self.adjacent_antenna_model
+            adjacent_antenna_model=self.adjacent_antenna_model,
+            frequency=self.frequency,
+            bandwidth=self.bandwidth,
         )
 
         self.validate("imt")

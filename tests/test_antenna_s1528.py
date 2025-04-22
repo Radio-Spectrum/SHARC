@@ -8,7 +8,7 @@ Created on Tue Aug 15 17:07:07 2017
 import unittest
 
 from sharc.antenna.antenna_s1528 import AntennaS1528
-from sharc.parameters.parameters_fss_ss import ParametersFssSs
+from sharc.parameters.antenna.parameters_antenna_s1528 import ParametersAntennaS1528
 
 import numpy as np
 import numpy.testing as npt
@@ -17,10 +17,10 @@ import numpy.testing as npt
 class AntennaS1528Test(unittest.TestCase):
 
     def setUp(self):
-        param = ParametersFssSs()
+        param = ParametersAntennaS1528()
         param.antenna_gain = 39
         param.antenna_pattern = "ITU-R S.1528-0"
-        param.antenna_3_dB = 2
+        param.antenna_3_dB_bw = 2
 
         param.antenna_l_s = -20
         self.antenna20 = AntennaS1528(param)

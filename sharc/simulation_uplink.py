@@ -32,25 +32,33 @@ class SimulationUplink(Simulation):
         # In case of hotspots, base stations coordinates have to be calculated
         # on every snapshot. Anyway, let topology decide whether to calculate
         # or not
+        num_stations_before = self.topology.num_base_stations
+
         self.topology.calculate_coordinates(random_number_gen)
+
+        if num_stations_before != self.topology.num_base_stations:
+            self.initialize_topology_dependant_variables()
 
         # Create the base stations (remember that it takes into account the
         # network load factor)
         self.bs = StationFactory.generate_imt_base_stations(
             self.parameters.imt,
-            self.parameters.imt.bs.antenna,
+            # TODO: remove this:
+            self.parameters.imt.bs.antenna.array,
             self.topology, random_number_gen,
         )
 
         # Create the other system (FSS, HAPS, etc...)
         self.system = StationFactory.generate_system(
             self.parameters, self.topology, random_number_gen,
+            geometry_converter=self.geometry_converter
         )
 
         # Create IMT user equipments
         self.ue = StationFactory.generate_imt_ue(
             self.parameters.imt,
-            self.parameters.imt.ue.antenna,
+            # TODO: remove this:
+            self.parameters.imt.ue.antenna.array,
             self.topology, random_number_gen,
         )
         # self.plot_scenario()
@@ -303,6 +311,7 @@ class SimulationUplink(Simulation):
             if hasattr(self.system.antenna[0], "effective_area") and self.system.num_stations == 1:
                 self.results.system_pfd.extend([self.system.pfd])
 
+        sys_active = np.where(self.system.active)[0]
         bs_active = np.where(self.bs.active)[0]
         for bs in bs_active:
             ue = self.link[bs]
@@ -339,43 +348,43 @@ class SimulationUplink(Simulation):
                 )
                 self.results.imt_ul_inr.extend(self.bs.inr[bs].tolist())
 
-                active_beams = [
+                active_beams = np.array([
                     i for i in range(
                     bs * self.parameters.imt.ue.k, (bs + 1) * self.parameters.imt.ue.k,
                     )
-                ]
+                ])
                 self.results.system_imt_antenna_gain.extend(
-                    self.system_imt_antenna_gain[0, active_beams],
+                    self.system_imt_antenna_gain[np.ix_(sys_active, active_beams)].flatten(),
                 )
                 self.results.imt_system_antenna_gain.extend(
-                    self.imt_system_antenna_gain[0, active_beams],
+                    self.imt_system_antenna_gain[np.ix_(sys_active, active_beams)].flatten(),
                 )
                 self.results.imt_system_path_loss.extend(
-                    self.imt_system_path_loss[0, active_beams],
+                    self.imt_system_path_loss[np.ix_(sys_active, active_beams)],
                 )
                 if self.param_system.channel_model == "HDFSS":
                     self.results.imt_system_build_entry_loss.extend(
-                        self.imt_system_build_entry_loss[:, bs],
+                        self.imt_system_build_entry_loss[np.ix_(sys_active, active_beams)],
                     )
                     self.results.imt_system_diffraction_loss.extend(
-                        self.imt_system_diffraction_loss[:, bs],
+                        self.imt_system_diffraction_loss[np.ix_(sys_active, active_beams)],
                     )
             else:
                 self.results.system_imt_antenna_gain.extend(
-                    self.system_imt_antenna_gain[0, ue],
+                    self.system_imt_antenna_gain[np.ix_(sys_active, ue)],
                 )
                 self.results.imt_system_antenna_gain.extend(
-                    self.imt_system_antenna_gain[0, ue],
+                    self.imt_system_antenna_gain[np.ix_(sys_active, ue)],
                 )
                 self.results.imt_system_path_loss.extend(
-                    self.imt_system_path_loss[0, ue],
+                    self.imt_system_path_loss[np.ix_(sys_active, ue)],
                 )
                 if self.param_system.channel_model == "HDFSS":
                     self.results.imt_system_build_entry_loss.extend(
-                        self.imt_system_build_entry_loss[:, ue],
+                        self.imt_system_build_entry_loss[np.ix_(sys_active, ue)],
                     )
                     self.results.imt_system_diffraction_loss.extend(
-                        self.imt_system_diffraction_loss[:, ue],
+                        self.imt_system_diffraction_loss[np.ix_(sys_active, ue)],
                     )
 
             self.results.imt_ul_tx_power.extend(self.ue.tx_power[ue].tolist())

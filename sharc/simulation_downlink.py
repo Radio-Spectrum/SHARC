@@ -33,13 +33,19 @@ class SimulationDownlink(Simulation):
         # In case of hotspots, base stations coordinates have to be calculated
         # on every snapshot. Anyway, let topology decide whether to calculate
         # or not
+        num_stations_before = self.topology.num_base_stations
+
         self.topology.calculate_coordinates(random_number_gen)
+
+        if num_stations_before != self.topology.num_base_stations:
+            self.initialize_topology_dependant_variables()
 
         # Create the base stations (remember that it takes into account the
         # network load factor)
         self.bs = StationFactory.generate_imt_base_stations(
             self.parameters.imt,
-            self.parameters.imt.bs.antenna,
+            # TODO: remove this:
+            self.parameters.imt.bs.antenna.array,
             self.topology, random_number_gen,
         )
 
@@ -52,7 +58,8 @@ class SimulationDownlink(Simulation):
         # Create IMT user equipments
         self.ue = StationFactory.generate_imt_ue(
             self.parameters.imt,
-            self.parameters.imt.ue.antenna,
+            # TODO: remove this:
+            self.parameters.imt.ue.antenna.array,
             self.topology, random_number_gen,
         )
 
@@ -479,13 +486,13 @@ class SimulationDownlink(Simulation):
                     self.coupling_loss_imt_system[np.array(ue)[:, np.newaxis], sys_active].flatten())
             else:  # IMT is the interferer
                 self.results.system_imt_antenna_gain.extend(
-                    self.system_imt_antenna_gain[sys_active[:, np.newaxis], ue].flatten(),
+                    self.system_imt_antenna_gain[sys_active[:, np.newaxis], bs].flatten(),
                 )
                 self.results.imt_system_antenna_gain.extend(
-                    self.imt_system_antenna_gain[sys_active[:, np.newaxis], ue].flatten(),
+                    self.imt_system_antenna_gain[sys_active[:, np.newaxis], bs].flatten(),
                 )
                 self.results.imt_system_path_loss.extend(
-                    self.imt_system_path_loss[sys_active[:, np.newaxis], ue].flatten(),
+                    self.imt_system_path_loss[sys_active[:, np.newaxis], bs].flatten(),
                 )
                 if self.param_system.channel_model == "HDFSS":
                     self.results.imt_system_build_entry_loss.extend(

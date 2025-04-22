@@ -175,3 +175,70 @@ class OrbitModel():
             'sz': sz
         }
         return pos_vector
+
+
+def main():
+    """Main function to test the OrbitModel class and plot ground tracks.
+
+    This function creates an instance of the OrbitModel class with specified parameters,
+    retrieves satellite positions over a specified time interval, and plots the ground tracks
+    of the satellites using Plotly.
+    """
+    import plotly.graph_objects as go
+    
+    orbit_params = {
+        "Nsp": 120,
+        "Np": 28,
+        "phasing": 1.5,
+        "long_asc": 0,
+        "omega": 0,
+        "delta": 53,
+        "hp": 525,
+        "ha": 525,
+        "Mo": 0
+    }
+
+    print("Orbit parameters:")
+    print(orbit_params)
+
+    # Instantiate the OrbitModel
+    orbit_model = OrbitModel(**orbit_params)
+
+    # Get satellite positions over time
+    positions = orbit_model.get_satellite_positions_time_interval(n_periods=1)
+
+    # Extract latitude and longitude
+    latitudes = positions['lat']
+    longitudes = positions['lon']
+
+    # Create a plotly figure
+    fig = go.Figure()
+
+    # Add traces for each satellite
+    for i in range(latitudes.shape[0]):
+    # for i in range(10, 20):
+        fig.add_trace(go.Scattergeo(
+            lon=longitudes[i],
+            lat=latitudes[i],
+            mode='lines',
+            name=f'Satellite {i + 1}'
+        ))
+
+    # Update layout for better visualization
+    fig.update_layout(
+        title="Satellite Ground Tracks",
+        showlegend=False,
+        geo=dict(
+            projection_type="equirectangular",
+            showland=True,
+            landcolor="rgb(243, 243, 243)",
+            countrycolor="rgb(204, 204, 204)"
+        )
+    )
+
+    # Show the plot
+    fig.show()
+
+
+if __name__ == "__main__":
+    main()

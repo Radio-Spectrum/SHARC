@@ -12,7 +12,9 @@ from warnings import warn
 import numpy as np
 
 from sharc.antenna.antenna import Antenna
-from sharc.antenna.antenna_beamforming_imt import AntennaBeamformingImt
+from sharc.antenna.antenna_factory import AntennaFactory
+from sharc.antenna.antenna_fss_ss import AntennaFssSs
+from sharc.antenna.antenna_omni import AntennaOmni
 from sharc.antenna.antenna_f699 import AntennaF699
 from sharc.antenna.antenna_f1891 import AntennaF1891
 from sharc.antenna.antenna_fss_ss import AntennaFssSs
@@ -136,13 +138,13 @@ class StationFactory(object):
         )
 
         imt_base_stations.antenna = np.empty(
-            num_bs, dtype=AntennaBeamformingImt,
+            num_bs, dtype=Antenna,
         )
 
         for i in range(num_bs):
             imt_base_stations.antenna[i] = \
-                AntennaBeamformingImt(
-                    param_ant, imt_base_stations.azimuth[i],
+                AntennaFactory.create_antenna(
+                    param.bs.antenna, imt_base_stations.azimuth[i],
                     imt_base_stations.elevation[i],)
 
         # imt_base_stations.antenna = [AntennaOmni(0) for bs in range(num_bs)]
@@ -364,8 +366,8 @@ class StationFactory(object):
         # TODO: this piece of code works only for uplink
         par = ue_param_ant.get_antenna_parameters()
         for i in range(num_ue):
-            imt_ue.antenna[i] = AntennaBeamformingImt(
-                par, imt_ue.azimuth[i],
+            imt_ue.antenna[i] = AntennaFactory.create_antenna(
+                param.ue.antenna, imt_ue.azimuth[i],
                 imt_ue.elevation[i],
             )
 

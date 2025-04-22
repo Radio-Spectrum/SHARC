@@ -53,6 +53,9 @@ class StationFactoryNgsoTest(unittest.TestCase):
             antenna_gain=30.0,                 # Maximum antenna gain in dBi
             orbits=[orbit_1, orbit_2]                   # List of orbital parameters
         )
+        self.param.antenna_s1528.frequency = 43000.0
+        self.param.antenna_s1528.bandwidth = 500.0
+        self.param.antenna_s1528.antenna_gain = 46.6
 
         # Creating an IMT topology
         imt_topology = TopologySingleBaseStation(

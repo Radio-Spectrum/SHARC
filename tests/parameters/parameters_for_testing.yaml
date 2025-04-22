@@ -174,16 +174,16 @@ imt:
             num_sectors  : 19
             ###########################################################################
             # Conducted power per element [dBm/bandwidth]
-            bs_conducted_power  : 37
-            ###########################################################################
-            # Backoff Power [Layer 2] [dB]. Allowed: 7 sector topology - Layer 2
-            bs_backoff_power  : 3
-            ###########################################################################
-            # NTN Antenna configuration
-            bs_n_rows_layer1   : 2
-            bs_n_columns_layer1  : 2
-            bs_n_rows_layer2   : 4
-            bs_n_columns_layer2  : 2
+            # bs_conducted_power  : 37
+            # ###########################################################################
+            # # Backoff Power [Layer 2] [dB]. Allowed: 7 sector topology - Layer 2
+            # bs_backoff_power  : 3
+            # ###########################################################################
+            # # NTN Antenna configuration
+            # bs_n_rows_layer1   : 2
+            # bs_n_columns_layer1  : 2
+            # bs_n_rows_layer2   : 4
+            # bs_n_columns_layer2  : 2
     ###########################################################################
     # Defines the antenna model to be used in compatibility studies between
     # IMT and other services in adjacent band
@@ -604,9 +604,6 @@ fss_es:
     #                                    "HDFSS"
     channel_model  : P452
     ###########################################################################
-    # Constants
-    BOLTZMANN_CONSTANT  : 1.38064852e-23
-    EARTH_RADIUS  : 6371000
     ###########################################################################
     # P452 parameters
     ###########################################################################
@@ -776,9 +773,6 @@ haps:
     # design, and has a maximum value of −25 dB
     antenna_l_n  : -25
     ###########################################################################
-    # Constants
-    BOLTZMANN_CONSTANT  : 1.38064852e-23
-    EARTH_RADIUS  : 6371000
 rns:
     ###########################################################################
     # x-y coordinates [m]
@@ -914,10 +908,6 @@ eess_passive:
     earth_station_alt_m  : 20.1
     earth_station_lat_deg  : -22.9
     season  : WINTER
-    ###########################################################################
-    # Constants
-    BOLTZMANN_CONSTANT  : 1.38064852e-23
-    EARTH_RADIUS  : 6371000
 
 single_earth_station:
     ###########################################################################

@@ -61,11 +61,6 @@ class ParametersMssD2d(ParametersBase):
     # Satellite tx power density in dBW/MHz
     tx_power_density: float = 40.0
 
-    # Satellite Tx max Gain in dBi
-    antenna_gain: float = 30.0
-    
-    
-
     # Number of beams per satellite
     num_sectors: int = 19
 
@@ -132,7 +127,6 @@ class ParametersMssD2d(ParametersBase):
         self.antenna_s1528.set_external_parameters(antenna_pattern=self.antenna_pattern,
                                                    frequency=self.frequency,
                                                    bandwidth=self.bandwidth,
-                                                   antenna_gain=self.antenna_gain,
                                                    antenna_l_s=self.antenna_l_s,
                                                    antenna_3_dB_bw=self.antenna_3_dB_bw,
                                                    a_deg=self.antenna_3_dB_bw / 2,

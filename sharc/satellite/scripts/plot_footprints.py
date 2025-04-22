@@ -343,9 +343,8 @@ if __name__ == "__main__":
 
     # Convert the lat/lon grid to transformed Cartesian coordinates.
     # Ensure your converter function can handle vectorized (numpy array) inputs.
-    x_flat, y_flat, z_flat = geoconv.convert_lla_to_transformed_cartesian(
-        lat_flat, lon_flat, 0)
-    # x_flat, y_flat, z_flat = geoconv.convert_lla_to_transformed_cartesian(lat_flat, lon_flat, 0)
+    x_flat, y_flat, z_flat = geoconv.convert_lla_to_transformed_cartesian(lat_flat, lon_flat, 0)
+
     surf_manager = StationManager(len(x_flat))
     surf_manager.x = x_flat
     surf_manager.y = y_flat
@@ -355,41 +354,44 @@ if __name__ == "__main__":
     station_2 = surf_manager
     station_2_active = np.where(station_2.active)[0]
 
+    # Calculate vector and apointment off_axis
     phi, theta = station_1.get_pointing_vector_to(station_2)
-    gains = np.zeros(phi.shape)
     off_axis_angle = station_1.get_off_axis_angle(station_2)
-    phi, theta = station_1.get_pointing_vector_to(station_2)
-    for k in mss_active:
-        gains[k, station_2_active] = \
-            station_1.antenna[k].calculate_gain(
-                off_axis_angle_vec=off_axis_angle[k, station_2_active],
-                theta_vec=theta[k, station_2_active],
-                phi_vec=phi[k, station_2_active],
-        )
-    lin_gains = 10 ** (gains / 10)
-    lin_gains = np.sum(lin_gains, axis=0)
-    # lin_gains = gains
-    print("lin_gains")
-    print(lin_gains)
-    print(mss_active)
-    print("considering ", mss_to_consider)
-    print("considering z", station_1.z[mss_to_consider])
 
-    # Reshape the converted coordinates back to the 2D grid shape.
     world_surf_x = x_flat.reshape(lat.shape)
     world_surf_y = y_flat.reshape(lat.shape)
     world_surf_z = z_flat.reshape(lat.shape)
-    reshaped_gain = (lin_gains).reshape(lat.shape)
+
     clor = 'rgb(220, 220, 220)'
-    fig.add_surface(
-        x=world_surf_x / 1e3, y=world_surf_y / 1e3, z=world_surf_z / 1e3,
-        surfacecolor=reshaped_gain,
-        # Uniform color scale for a solid color.
-        colorscale=[[0, clor], [0.1, "blue"], [1, "red"]],
-        opacity=1.0,
-        showlegend=False,
-        lighting=dict(diffuse=0.1)
-    )
+
+    for k in mss_active:
+        gain_k = station_1.antenna[k].calculate_gain(
+            off_axis_angle_vec=off_axis_angle[k, station_2_active],
+            theta_vec=theta[k, station_2_active],
+            phi_vec=phi[k, station_2_active],
+        )
+
+        lin_gain_k = 10 ** (gain_k / 10)
+        reshaped_gain_k = lin_gain_k.reshape(lat.shape)
+        # lin_gains = gains
+        # print("lin_gains")
+        # print(lin_gains)
+        # print(mss_active)
+        # print("considering ", mss_to_consider)
+        # print("considering z", station_1.z[mss_to_consider])
+
+
+        fig.add_surface(
+            x=world_surf_x / 1e3,
+            y=world_surf_y / 1e3,
+            z=world_surf_z / 1e3,
+            surfacecolor=reshaped_gain_k,
+            colorscale=[[0, clor], [0.1, "blue"], [1, "red"]],
+            opacity=0.6, 
+            showlegend=False,
+            lighting=dict(diffuse=0.1),
+        )
+
 
     # Plot all satellites (red markers)
     print("adding sats")

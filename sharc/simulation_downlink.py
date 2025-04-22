@@ -280,7 +280,6 @@ class SimulationDownlink(Simulation):
 
             # Total external interference into the UE in dBm
             ue_ext_int = 10 * np.log10(np.power(10, 0.1 * in_band_interf_power) + np.power(10, 0.1 * oob_power))
-            # ue_ext_int = ext_interference - self.coupling_loss_imt_system[ue, :][:, active_sys]
 
             # Sum all the interferers for each UE
             self.ue.ext_interference[ue] = 10 * np.log10(np.sum(np.power(10, 0.1 * ue_ext_int), axis=1)) + 30

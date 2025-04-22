@@ -131,6 +131,9 @@ class Simulation(ABC, Observable):
         if self.overlapping_bandwidth < 0:
             self.overlapping_bandwidth = 0
 
+        if self.co_channel and self.overlapping_bandwidth == 0:
+            raise ValueError("Co-channel interference is not possible with no overlapping bandwidth")
+
         if (self.overlapping_bandwidth == self.param_system.bandwidth and not self.parameters.imt.interfered_with) or \
                 (self.overlapping_bandwidth == self.parameters.imt.bandwidth and self.parameters.imt.interfered_with):
 

@@ -595,6 +595,10 @@ class StationFactory(object):
         # calculate Cartesian coordinates of satellite, with origin at centre of the Earth
         sat_lat_rad = param.geometry.location.fixed.lat_deg * np.pi / 180.
         imt_long_diff_rad = (long - param.geometry.es_long_deg) * np.pi / 180.
+
+        # NOTE: DO NOT COMMIT THIS GAMBIARRA to development
+        param.param_p619.earth_station_long_diff_deg = long - param.geometry.es_long_deg
+
         x1 = dist_sat_centre_earth_km * \
             np.cos(sat_lat_rad) * np.cos(imt_long_diff_rad)
         y1 = dist_sat_centre_earth_km * \

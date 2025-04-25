@@ -28,6 +28,8 @@ class ParametersP619(ParametersBase):
     season: str = "SUMMER"
     shadowing: bool = True
     noise_temperature: float = 290.0
+    # Indicates the percentage of links that have clutter loss
+    percent_clutter: float = 1.0
 
     def load_from_paramters(self, param: ParametersBase):
         """Used to load parameters of P.619 from IMT or system parameters

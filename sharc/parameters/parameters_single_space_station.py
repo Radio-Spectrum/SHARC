@@ -41,6 +41,9 @@ class ParametersSingleSpaceStation(ParametersBase):
     # before adding loss here
     polarization_loss: float = 0.0
 
+    # Indicates the percentage of links that have clutter loss
+    percent_clutter: float = 1.0
+
     # Channel model, possible values are "FSPL" (free-space path loss), "P619"
     channel_model: typing.Literal[
         "FSPL", "P619"
@@ -183,7 +186,7 @@ class ParametersSingleSpaceStation(ParametersBase):
         self.param_p619.space_station_alt_m = self.geometry.altitude
         self.param_p619.earth_station_alt_m = self.geometry.es_altitude
         self.param_p619.earth_station_lat_deg = self.geometry.es_lat_deg
-
+        self.param_p619.percent_clutter = self.percent_clutter
         if self.geometry.location.type == "FIXED":
             self.param_p619.earth_station_long_diff_deg = self.geometry.location.fixed.long_deg - self.geometry.es_long_deg
         else:

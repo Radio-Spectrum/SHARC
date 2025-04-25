@@ -388,6 +388,7 @@ class PropagationP619(Propagation):
             is_earth_to_space_link,
             earth_station_antenna_gain,
             is_single_entry_interf,
+            percent_clutter = params.single_space_station.percent_clutter
         )
 
         return loss
@@ -402,6 +403,7 @@ class PropagationP619(Propagation):
         earth_to_space: bool,
         earth_station_antenna_gain: np.array,
         single_entry: bool,
+        percent_clutter: float
     ) -> np.array:
         """
         Calculates path loss for earth-space link
@@ -462,6 +464,7 @@ class PropagationP619(Propagation):
                     distance=distance,
                     elevation=elevation["free_space"],
                     station_type=StationType.FSS_SS,
+                    percent_clutter=percent_clutter
                 )
             building_loss = self.building_entry.get_loss(
                 frequency, elevation["apparent"],

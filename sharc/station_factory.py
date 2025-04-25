@@ -546,7 +546,7 @@ class StationFactory(object):
             return StationFactory.generate_single_earth_station(parameters.single_earth_station, random_number_gen,
                                                                 StationType.SINGLE_EARTH_STATION, topology)
         elif parameters.general.system == "SINGLE_SPACE_STATION":
-            return StationFactory.generate_single_space_station(parameters.single_space_station)
+            return StationFactory.generate_single_space_station(parameters.single_space_station, random_number_gen)
         elif parameters.general.system == "RAS":
             return StationFactory.generate_ras_station(
                                                        parameters.ras, random_number_gen,
@@ -568,7 +568,7 @@ class StationFactory(object):
             sys.exit(1)
 
     @staticmethod
-    def generate_single_space_station(param: ParametersSingleSpaceStation, simplify_dist_to_y=True):
+    def generate_single_space_station(param: ParametersSingleSpaceStation, random_number_gen, simplify_dist_to_y=True):
         """
         Creates a single satellite based on parameters.
         In case simplify_dist_to_y == True (default) satellite will be only on y axis
@@ -586,9 +586,15 @@ class StationFactory(object):
             EARTH_RADIUS + param.geometry.es_altitude
         ) / 1000
 
+        long = param.geometry.location.fixed.long_deg
+        if param.geometry.location.type == "LONG_DIST_LAT_FIXED":
+            center = param.geometry.location.fixed.long_deg
+            delta = param.geometry.location.long_dist_delta
+            long = random_number_gen.uniform(-delta, delta) + center
+
         # calculate Cartesian coordinates of satellite, with origin at centre of the Earth
         sat_lat_rad = param.geometry.location.fixed.lat_deg * np.pi / 180.
-        imt_long_diff_rad = (param.geometry.location.fixed.long_deg - param.geometry.es_long_deg) * np.pi / 180.
+        imt_long_diff_rad = (long - param.geometry.es_long_deg) * np.pi / 180.
         x1 = dist_sat_centre_earth_km * \
             np.cos(sat_lat_rad) * np.cos(imt_long_diff_rad)
         y1 = dist_sat_centre_earth_km * \

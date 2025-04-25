@@ -827,4 +827,102 @@ single_space_station:
     # season - season of the year.
     #   Useful for P.619
     season: SUMMER
+single_space_station:
+    ###########################################################################
+    # Sensor center frequency [MHz]
+    frequency: 1234
+    ###########################################################################
+    # Sensor bandwidth [MHz]
+    bandwidth: 456
+    ###########################################################################
+    # System receive noise temperature [K]
+    noise_temperature: 300
+    ###########################################################################
+    # Peak transmit power spectral density (clear sky) [dBW/Hz]
+    tx_power_density: -65
+    # Adjacent channel selectivity [dB]
+    adjacent_ch_selectivity: 13.1
+    geometry:
+        ###########################################################################
+        # Satellite altitude [meters]
+        altitude: 6
+        ###########################################################################
+        # earth station altitude [meters]
+        es_altitude: 33
+        ###########################################################################
+        # earth station lat long [deg]
+        es_lat_deg: 11
+        ###########################################################################
+        # earth station lat long [deg]
+        es_long_deg: 3.9
+        ###########################################################################
+        # Azimuth angle [degrees]
+        azimuth:
+            ###########################################################################
+            # Type of azimuth. May be "FIXED" or "POINTING_AT_IMT"
+            type: POINTING_AT_IMT
+            ###########################################################################
+            # Value of azimuth when type == "FIXED" [deg]
+            fixed: 0
+        ###########################################################################
+        # Elevation angle [degrees]
+        elevation:
+            # Type of elevation. May be "FIXED" or "POINTING_AT_IMT"
+            type: POINTING_AT_IMT
+            # Value of elevation when type == "FIXED" [deg]
+            fixed: 60
+        ###########################################################################
+        # Station 2d location [meters]:
+        location:
+            ###########################################################################
+            # location.type == FIXED means that the ES will be always at SAME fixed location
+            type: LONG_DIST_LAT_FIXED
+            ###########################################################################
+            # Value of position (x,y) when type == "FIXED" [(m, m)]
+            fixed:
+                lat_deg: 10
+                long_deg: 20
+            long_dist_delta: 20
+
+    antenna:
+        ###########################################################################
+        # Choose the antenna pattern. Can be one of:
+        # "OMNI", "ITU-R F.699", "ITU-R S.465", "ITU-R S.580", "MODIFIED ITU-R S.465", "ITU-R S.1855"
+        pattern: ITU-R S.465
+        ###########################################################################
+        # Earth station peak receive antenna gain [dBi]
+        gain: 28
+        itu_r_f_699:
+            ###########################################################################
+            # Antenna diameter [m]
+            diameter: 1.1
+        itu_r_s_465:
+            ###########################################################################
+            # Antenna diameter [m]
+            diameter: 1.1
+        itu_r_s_580:
+            ###########################################################################
+            # Antenna diameter [m]
+            diameter: 1.1
+        itu_r_s_1855:
+            ###########################################################################
+            # Antenna diameter [m]
+            diameter: 1.1
+        itu_r_s_465_modified:
+            ###########################################################################
+            # Antenna envelope gain [dBi]
+            envelope_gain: -4
+        itu_reg_rr_a7_3:
+            ###########################################################################
+            # Antenna diameter [m]
+            # if no diameter is passed, a diameter will be assumed according to document
+            diameter: 2.12
+    ###########################################################################
+    # Selected channel model
+    channel_model: "P619"
+
+    ###########################################################################
+    # season - season of the year.
+    #   Only actually useful for P619, but we can't put it inside param_p619 without changing more code
+    season: SUMMER
 

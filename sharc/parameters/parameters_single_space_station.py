@@ -92,8 +92,8 @@ class ParametersSingleSpaceStation(ParametersBase):
 
         @dataclass
         class Location(ParametersBase):
-            __EXISTING_TYPES = ["FIXED"]
-            type: typing.Literal["FIXED"] = None
+            __EXISTING_TYPES = ["FIXED", "LONG_DIST_LAT_FIXED"]
+            type: typing.Literal["FIXED", "LONG_DIST_LAT_FIXED"] = None
 
             @dataclass
             class LocationFixed(ParametersBase):
@@ -108,11 +108,16 @@ class ParametersSingleSpaceStation(ParametersBase):
                         raise ValueError(f"{ctx}.long_deg needs to be a number")
 
             fixed: LocationFixed = field(default_factory=LocationFixed)
+            long_dist_delta: float = None
 
             def validate(self, ctx):
                 match self.type:
                     case "FIXED":
                         self.fixed.validate(f"{ctx}.fixed")
+                    case "LONG_DIST_LAT_FIXED":
+                        self.fixed.validate(f"{ctx}.fixed")
+                        if self.long_dist_delta is None:
+                            raise ValueError(f"You need to pass {ctx}.long_dist_delta for sat long variation")
                     case _:
                         raise NotImplementedError(
                             f"ParametersSingleSpaceStation.Location.type = {self.type} has no validation implemented!",

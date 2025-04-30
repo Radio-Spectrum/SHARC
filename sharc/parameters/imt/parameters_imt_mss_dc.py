@@ -191,14 +191,18 @@ class ParametersSelectActiveSatellite(ParametersBase):
     __ALLOWED_CONDITIONS = [
         "LAT_LONG_INSIDE_COUNTRY",
         "MINIMUM_ELEVATION_FROM_ES",
+        "MAXIMUM_ELEVATION_FROM_ES",
     ]
 
     conditions: list[typing.Literal[
         "LAT_LONG_INSIDE_COUNTRY",
         "MINIMUM_ELEVATION_FROM_ES",
+        "MAXIMUM_ELEVATION_FROM_ES",
     ]] = field(default_factory=lambda: list([""]))
 
     minimum_elevation_from_es: float = None
+
+    maximum_elevation_from_es: float = None
 
     lat_long_inside_country: ParametersLatLongInsideCountry = field(default_factory=ParametersLatLongInsideCountry)
 
@@ -211,10 +215,25 @@ class ParametersSelectActiveSatellite(ParametersBase):
                 raise ValueError(
                     f"{ctx}.minimum_elevation_from_es is not a number!"
                 )
-            if self.minimum_elevation_from_es < 0:
+            if not (self.minimum_elevation_from_es >= 0 and self.minimum_elevation_from_es < 90):
                 raise ValueError(
-                    f"{ctx}.minimum_elevation_from_es needs to be a positive number!"
+                    f"{ctx}.minimum_elevation_from_es needs to be a number in interval [0, 90]"
                 )
+
+        if "MAXIMUM_ELEVATION_FROM_ES" in self.conditions:
+            if not isinstance(self.maximum_elevation_from_es, float) and not isinstance(self.maximum_elevation_from_es, int):
+                raise ValueError(
+                    f"{ctx}.maximum_elevation_from_es is not a number!"
+                )
+            if not (self.maximum_elevation_from_es >= 0 and self.maximum_elevation_from_es < 90):
+                raise ValueError(
+                    f"{ctx}.maximum_elevation_from_es needs to be a number in interval [0, 90]"
+                )
+            if "MINIMUM_ELEVATION_FROM_ES" in self.conditions:
+                if self.maximum_elevation_from_es < self.minimum_elevation_from_es:
+                    raise ValueError(
+                        f"{ctx}.maximum_elevation_from_es needs to be >= {ctx}.minimum_elevation_from_es"
+                    )
 
         if len(self.conditions) == 1 and self.conditions[0] == "":
             self.conditions.pop()

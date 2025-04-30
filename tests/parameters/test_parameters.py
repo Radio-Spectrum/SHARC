@@ -491,11 +491,12 @@ class ParametersTest(unittest.TestCase):
 
         self.assertEqual(
             self.parameters.mss_d2d.sat_is_active_if.conditions,
-            ["LAT_LONG_INSIDE_COUNTRY", "MINIMUM_ELEVATION_FROM_ES"]
+            ["LAT_LONG_INSIDE_COUNTRY", "MINIMUM_ELEVATION_FROM_ES", "MAXIMUM_ELEVATION_FROM_ES"]
         )
         self.assertEqual(self.parameters.mss_d2d.sat_is_active_if.lat_long_inside_country.country_name, "BRAZIL")
         self.assertEqual(self.parameters.mss_d2d.sat_is_active_if.lat_long_inside_country.margin_from_border, 11.1241)
         self.assertEqual(self.parameters.mss_d2d.sat_is_active_if.minimum_elevation_from_es, 1.112)
+        self.assertEqual(self.parameters.mss_d2d.sat_is_active_if.maximum_elevation_from_es, 1.113)
         self.assertEqual(self.parameters.mss_d2d.param_p619.season, 'SUMMER')
         self.assertTrue(isinstance(self.parameters.mss_d2d.orbits, list))
         expected_orbit_params = [

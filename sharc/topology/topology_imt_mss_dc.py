@@ -168,7 +168,26 @@ class TopologyImtMssDc(Topology):
                     )
 
                     # Determine visible satellites based on minimum elevation angle
-                    active_sats_mask = active_sats_mask & (elev_from_bs.flatten() >= orbit_params.sat_is_active_if.minimum_elevation_from_es)
+                    active_sats_mask = active_sats_mask & (
+                        elev_from_bs.flatten() >= orbit_params.sat_is_active_if.minimum_elevation_from_es
+                    )
+
+                if "MAXIMUM_ELEVATION_FROM_ES" in orbit_params.sat_is_active_if.conditions:
+                    # no need to recalculate if already calculated above
+                    if not "MINIMUM_ELEVATION_FROM_ES" in orbit_params.sat_is_active_if.conditions:
+                        # Calculate satellite visibility from base stations
+                        elev_from_bs = calc_elevation(
+                            geometry_converter.ref_lat,  # Latitude of base station
+                            pos_vec['lat'],  # Latitude of satellites
+                            geometry_converter.ref_long,  # Longitude of base station
+                            pos_vec['lon'],  # Longitude of satellites
+                            orbit.perigee_alt_km  # Perigee altitude in kilometers
+                        )
+
+                    # Determine visible satellites based on minimum elevation angle
+                    active_sats_mask = active_sats_mask & (
+                        elev_from_bs.flatten() <= orbit_params.sat_is_active_if.maximum_elevation_from_es
+                    )
 
                 # NOTE/WARN: some of the calc inside here is expensive, so it should be the last condition
                 if "LAT_LONG_INSIDE_COUNTRY" in orbit_params.sat_is_active_if.conditions:

@@ -297,6 +297,27 @@ class SimulationDownlink(Simulation):
             self.ue.inr[ue] = self.ue.ext_interference[ue] - \
                 self.ue.thermal_noise[ue]
 
+        # Calculate PFD at the UE
+
+        # Distance from each system transmitter to each UE receiver (in meters)
+        dist_sys_to_imt = self.system.get_3d_distance_to(self.ue)  # shape: [n_tx, n_ue]
+
+        # EIRP in dBW/MHz per transmitter
+        eirp_dBW_MHz = self.param_system.tx_power_density + 60 + self.system_imt_antenna_gain
+
+        # PFD formula (dBW/m²/MHz)
+        # PFD = EIRP - 10log10(4π) - 20log10(distance)
+        # Store the PFD for each transmitter and each UE
+        self.ue.pfd_external = eirp_dBW_MHz - 10.992098640220963 - 20 * np.log10(dist_sys_to_imt)
+
+        # Total PFD per UE (sum of PFDs from each transmitter)
+        # Convert PFD from dB to linear scale (W/m²/MHz)
+        pfd_linear = 10 ** (self.ue.pfd_external / 10)
+        # Sum PFDs from all transmitters for each UE (axis=0 assumes shape [n_tx, n_ue])
+        pfd_agg_linear = np.sum(pfd_linear[active_sys][:, ue], axis=0)
+        # Convert back to dBW
+        self.ue.pfd_external_aggregated = 10 * np.log10(pfd_agg_linear)
+
     def calculate_external_interference(self):
         """
         Calculates interference that IMT system generates on other system
@@ -440,6 +461,10 @@ class SimulationDownlink(Simulation):
                     self.ue.sinr_ext[ue].tolist(),
                 )
                 self.results.imt_dl_inr.extend(self.ue.inr[ue].tolist())
+
+                self.results.imt_dl_pfd_external.extend(self.ue.pfd_external[sys_active[:, np.newaxis], ue].flatten())
+
+                self.results.imt_dl_pfd_external_aggregated.extend(self.ue.pfd_external_aggregated[ue].tolist())
 
                 self.results.system_imt_antenna_gain.extend(
                     self.system_imt_antenna_gain[sys_active[:, np.newaxis], ue].flatten(),

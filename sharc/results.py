@@ -80,6 +80,10 @@ class Results(object):
         # Throughput [bits/s/Hz]
         self.imt_dl_tput = SampleList()
 
+        # PFD
+        self.imt_dl_pfd_external = SampleList()
+        self.imt_dl_pfd_external_aggregated = SampleList()
+
         self.system_ul_coupling_loss = SampleList()
         self.system_ul_interf_power = SampleList()
         # Interference Power [dBm]

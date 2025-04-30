@@ -238,6 +238,14 @@ class PostProcessor:
             "x_label": "Transmit power [dBm]",
             "title": "[IMT] DL transmit power",
         },
+        "imt_dl_pfd_external": {
+            "title": "[IMT] DL external Power Flux Density (PFD) ",
+            "x_label": "PFD [dBW/m²/MHz]",
+        },
+        "imt_dl_pfd_external_aggregated": {
+            "title": "[IMT] Aggregated DL external Power Flux Density (PFD)",
+            "x_label": "PFD [dBW/m²/MHz]",
+        },
         # these ones were not plotted already, so will continue to not be plotted:
         "imt_dl_tx_power_density": IGNORE_FIELD,
         "system_ul_coupling_loss": IGNORE_FIELD,

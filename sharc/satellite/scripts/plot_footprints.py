@@ -111,8 +111,7 @@ def plot_front(fig):
     )
 
 
-def plot_polygon(poly):
-
+def plot_polygon(poly, div=1, alt=0):
     xy_coords = poly.exterior.coords.xy
     lon = np.array(xy_coords[0])
     lat = np.array(xy_coords[1])
@@ -121,10 +120,15 @@ def plot_polygon(poly):
     # lat = lat * np.pi / 180
 
     # R = EARTH_RADIUS_KM
-    x, y, z = geoconv.convert_lla_to_transformed_cartesian(lat, lon, 0)
+    x, y, z = geoconv.convert_lla_to_transformed_cartesian(lat, lon, alt)
 
-    return x, y, z
+    return x/div, y/div, z/div
 
+def plot_mult_polygon(mult_poly, div=1e3):
+    if mult_poly.geom_type == 'Polygon':
+        return [plot_polygon(mult_poly, div=div, alt=1000)]
+    elif mult_poly.geom_type == 'MultiPolygon':
+        return [plot_polygon(poly, div=div, alt=1000) for poly in mult_poly.geoms]
 
 def plot_globe_with_borders():
     # Read the shapefile.  Creates a DataFrame object
@@ -227,7 +231,7 @@ if __name__ == "__main__":
         "LAT_LONG_INSIDE_COUNTRY",
     ]
     params.sat_is_active_if.minimum_elevation_from_es = 5.0
-    params.sat_is_active_if.lat_long_inside_country.country_name = "Brazil"
+    params.sat_is_active_if.lat_long_inside_country.country_names = ["Brazil"]
     # params.beams_load_factor = 0.1
     # params.center_beam_positioning.type = "ANGLE_AND_DISTANCE_FROM_SUBSATELLITE"
     # params.center_beam_positioning.angle_from_subsatellite_phi.type = "~U(MIN,MAX)"
@@ -381,10 +385,10 @@ if __name__ == "__main__":
     station_2_active = np.where(station_2.active)[0]
 
     # Calculate vector and apointment off_axis
+    gains = np.zeros((len(mss_active), len(station_2_active)))
     phi, theta = station_1.get_pointing_vector_to(station_2)
     off_axis_angle = station_1.get_off_axis_angle(station_2)
     phi, theta = station_1.get_pointing_vector_to(station_2)
-    gains = np.zeros((len(mss_active), len(station_2_active)))
     for k in mss_active:
         gains[k, station_2_active] = \
             station_1.antenna[k].calculate_gain(
@@ -489,6 +493,27 @@ if __name__ == "__main__":
         marker=dict(size=5, color='blue', opacity=1.0),
         showlegend=False
     ))
+
+    polygons_lim = plot_mult_polygon(
+        params.sat_is_active_if.lat_long_inside_country.filter_polygon
+    )
+    from functools import reduce
+
+    lim_x, lim_y, lim_z = reduce(
+        lambda acc, it: (list(it[0]) + [None] + acc[0], list(it[1]) + [None] + acc[1], list(it[2]) + [None] + acc[2]),
+        polygons_lim,
+        ([], [], [])
+    )
+
+    fig.add_trace(go.Scatter3d(
+        x=lim_x ,
+        y=lim_y ,
+        z=lim_z ,
+        mode='lines',
+        line=dict(color='rgb(0, 0, 255)'),
+        showlegend=False
+    ))
+
 
     # fig.add_trace(go.Scatter3d(
     #     x=center_of_earth.x / 1e3,

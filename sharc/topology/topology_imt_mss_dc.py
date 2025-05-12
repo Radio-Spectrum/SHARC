@@ -57,9 +57,6 @@ class TopologyImtMssDc(Topology):
         self.lon = None
         self.orbits = []
 
-        params.sat_is_active_if.validate("params.sat_is_active_if")
-        self.country_proj = params.sat_is_active_if.lat_long_inside_country.country_geometry
-
         # Iterate through each orbit defined in the parameters
         for param in self.orbit_params.orbits:
             # Instantiate an OrbitModel for the current orbit
@@ -189,7 +186,6 @@ class TopologyImtMssDc(Topology):
                         elev_from_bs.flatten() <= orbit_params.sat_is_active_if.maximum_elevation_from_es
                     )
 
-                # NOTE/WARN: some of the calc inside here is expensive, so it should be the last condition
                 if "LAT_LONG_INSIDE_COUNTRY" in orbit_params.sat_is_active_if.conditions:
                     flat_active_lon = pos_vec["lon"].flatten()[active_sats_mask]
                     flat_active_lat = pos_vec["lat"].flatten()[active_sats_mask]
@@ -200,35 +196,8 @@ class TopologyImtMssDc(Topology):
                     # Check if the satellite is inside the country polygon
                     polygon_mask = np.zeros_like(active_sats_mask)
                     polygon_mask[active_sats_mask] = sats_points.within(
-                        orbit_params.sat_is_active_if.lat_long_inside_country.country_geometry
+                        orbit_params.sat_is_active_if.lat_long_inside_country.filter_polygon
                     )
-
-                    if orbit_params.sat_is_active_if.lat_long_inside_country.margin_from_border != 0.0:
-                        geod = pyproj.Geod(ellps="WGS84")
-
-                        # TODO: maybe optimize this by creating bounding box before closest point calc?
-                        border_nearest = shp.ops.nearest_points(
-                            sats_points,
-                            orbit_params.sat_is_active_if.lat_long_inside_country.country_geometry.boundary
-                        )[1]
-                        border_nearest_lon = np.array([p.x for p in border_nearest])
-                        border_nearest_lat = np.array([p.y for p in border_nearest])
-
-                        _, __, active_dist = geod.inv(
-                            flat_active_lon, flat_active_lat,
-                            border_nearest_lon, border_nearest_lat
-                        )
-                        dist = np.ones_like(active_sats_mask) * np.inf
-                        dist[active_sats_mask] = active_dist
-
-                        if orbit_params.sat_is_active_if.lat_long_inside_country.margin_from_border > 0:
-                            polygon_mask = polygon_mask & (
-                                dist > orbit_params.sat_is_active_if.lat_long_inside_country.margin_from_border * 1e3
-                            )
-                        else:
-                            polygon_mask = polygon_mask | (
-                                dist < -orbit_params.sat_is_active_if.lat_long_inside_country.margin_from_border * 1e3
-                            )
 
                     active_sats_mask = active_sats_mask & polygon_mask
 

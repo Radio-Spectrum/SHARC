@@ -4,7 +4,9 @@ import numpy as np
 import typing
 from pathlib import Path
 import geopandas as gpd
+import shapely as shp
 
+from sharc.support.sharc_geom import shrink_countries_by_km
 from sharc.parameters.parameters_base import ParametersBase
 from sharc.parameters.parameters_orbit import ParametersOrbit
 
@@ -138,14 +140,14 @@ class ParametersSelectActiveSatellite(ParametersBase):
             "EPSG:4326"
         ]
 
-        country_name: str = None
+        country_names: list[str] = field(default_factory=lambda: list([""]))
         # margin from inside of border [km]
         # if positive, makes border smaller by x km
         # if negative, makes border bigger by x km
         margin_from_border: float = 0.0
 
         # geometry after file processing
-        country_geometry = None
+        filter_polygon = None
 
         already_validated = False
 
@@ -154,10 +156,9 @@ class ParametersSelectActiveSatellite(ParametersBase):
                 return
             self.already_validated = True
 
-            if self.country_name is None:
-                raise ValueError(
-                    f"{ctx}.country_name was not set, but is needed!"
-                )
+            # conditional is weird due to suboptimal way of working with nested array parameters
+            if len(self.country_names) == 1 and self.country_names[0] == "":
+                raise ValueError(f"You need to pass at least one country name to {ctx}.country_names")
 
             f = gpd.read_file(self.country_shapes_filename, columns=["NAME"])
             if f.geometry.crs not in self.__ALLOWED_COORDINATE_REFERENCES:
@@ -175,18 +176,20 @@ class ParametersSelectActiveSatellite(ParametersBase):
                 )
             self.__ALLOWED_COUNTRY_NAMES = list(f["NAME"])
 
-            # preload country projection
-            country_proj = f[f["NAME"] == self.country_name]
+            for country_name in self.country_names:
+                if country_name not in self.__ALLOWED_COUNTRY_NAMES:
+                    raise ValueError(
+                        f"{ctx}.country_names has {country_name} but shapefile only contains data on\n"
+                        f"{self.__ALLOWED_COUNTRY_NAMES}"
+                    )
 
-            # NOTE: if country_proj is a GeoDataFrame instead of a polygon undesired behaviour will follow
-            # for that reason we can use union_all()
-            self.country_geometry = country_proj["geometry"].geometry.union_all()
+            filtered_gdf = f[f["NAME"].isin(self.country_names)]
 
-            if self.country_name not in self.__ALLOWED_COUNTRY_NAMES:
-                raise ValueError(
-                    f"{ctx}.country_name == {self.country_name} but shapefile only contains data on\n"
-                    f"{self.__ALLOWED_COUNTRY_NAMES}"
-                )
+            # shrink countries and unite
+            # them into a single MultiPolygon
+            self.filter_polygon = shp.ops.unary_union(shrink_countries_by_km(
+                filtered_gdf.geometry.values, self.margin_from_border
+            ))
 
     __ALLOWED_CONDITIONS = [
         "LAT_LONG_INSIDE_COUNTRY",

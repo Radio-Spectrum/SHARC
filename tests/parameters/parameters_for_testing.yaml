@@ -1156,7 +1156,9 @@ mss_d2d:
         lat_long_inside_country:
             # You may specify another shp file for country borders reference
             # country_shapes_filename: sharc/topology/countries/ne_110m_admin_0_countries.shp
-            country_name: BRAZIL
+            country_names:
+                - Brazil
+                - Ecuador
             # margin from inside of border [km]
             # if positive, makes border smaller by x km
             # if negative, makes border bigger by x km

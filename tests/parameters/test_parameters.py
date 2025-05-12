@@ -2,7 +2,14 @@ from pathlib import Path
 import unittest
 from sharc.parameters.parameters import Parameters
 import numpy as np
+from contextlib import contextmanager
 
+@contextmanager
+def assertDoesNotRaise(test_case):
+    try:
+        yield
+    except Exception as e:
+        test_case.fail(f"Unexpected exception raised: {type(e).__name__}:\n{e}")
 
 class ParametersTest(unittest.TestCase):
     """Run Parameter class tests.
@@ -468,6 +475,8 @@ class ParametersTest(unittest.TestCase):
     def test_parametes_mss_d2d(self):
         """Test ParametersRas
         """
+        with assertDoesNotRaise(self):
+            self.parameters.mss_d2d.validate("mss_d2d")
         self.assertEqual(self.parameters.mss_d2d.name, 'SystemA')
         self.assertEqual(self.parameters.mss_d2d.frequency, 2170.0)
         self.assertEqual(self.parameters.mss_d2d.bandwidth, 5.0)
@@ -493,7 +502,10 @@ class ParametersTest(unittest.TestCase):
             self.parameters.mss_d2d.sat_is_active_if.conditions,
             ["LAT_LONG_INSIDE_COUNTRY", "MINIMUM_ELEVATION_FROM_ES", "MAXIMUM_ELEVATION_FROM_ES"]
         )
-        self.assertEqual(self.parameters.mss_d2d.sat_is_active_if.lat_long_inside_country.country_name, "BRAZIL")
+        self.assertEqual(len(self.parameters.mss_d2d.sat_is_active_if.lat_long_inside_country.country_names), 2)
+        self.assertEqual(self.parameters.mss_d2d.sat_is_active_if.lat_long_inside_country.country_names[0], "Brazil")
+        self.assertEqual(self.parameters.mss_d2d.sat_is_active_if.lat_long_inside_country.country_names[1], "Ecuador")
+
         self.assertEqual(self.parameters.mss_d2d.sat_is_active_if.lat_long_inside_country.margin_from_border, 11.1241)
         self.assertEqual(self.parameters.mss_d2d.sat_is_active_if.minimum_elevation_from_es, 1.112)
         self.assertEqual(self.parameters.mss_d2d.sat_is_active_if.maximum_elevation_from_es, 1.113)

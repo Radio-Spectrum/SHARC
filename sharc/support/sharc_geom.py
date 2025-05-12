@@ -1,4 +1,8 @@
 import numpy as np
+import shapely as shp
+import typing
+import pyproj
+
 from sharc.satellite.utils.sat_utils import lla2ecef, ecef2lla
 from sharc.station_manager import StationManager
 
@@ -387,6 +391,77 @@ class GeometryConverter():
             station.azimuth[idx] = azimuth
             station.elevation[idx] = elevation
 
+
+def get_lambert_equal_area_crs(polygon: shp.geometry.Polygon):
+    centroid = polygon.centroid
+    return pyproj.CRS.from_user_input(
+        f"+proj=laea +lat_0={centroid.y} +lon_0={centroid.x} +x_0=0 +y_0=0 +datum=WGS84 +units=m +no_defs"
+    )
+
+def shrink_country_polygon_by_km(
+    polygon: shp.geometry.Polygon, km: float
+) -> shp.geometry.Polygon:
+    """
+    Projects a Polygon in "EPSG:4326" to Lambert Azimuthal Equal Area projection,
+    shrinks the polygon by x km,
+    projects the polygon back to EPSG:4326.
+
+    Hint:
+        Check for polygon validity after transformation:
+        if poly.is_valid: raise Exception("bad polygon")
+        if not poly.is_empty and poly.area > 0: continue # ignore
+        ...
+    """
+    # Lambert is more precise, but could prob. get UTM projection
+    # Didn't see any practical difference for current use cases
+    proj_crs = get_lambert_equal_area_crs(polygon)
+
+    # Create transformer objects
+    # NOTE: important always_xy=True to not mix lat lon up order
+    to_proj = pyproj.Transformer.from_crs("EPSG:4326", proj_crs, always_xy=True).transform
+    from_proj = pyproj.Transformer.from_crs(proj_crs, "EPSG:4326", always_xy=True).transform
+
+    # Transform to projection where unit is meters
+    polygon_proj = shp.ops.transform(to_proj, polygon)
+
+    # Shrink (negative buffer in meters)
+    polygon_proj_shrunk = polygon_proj.buffer(-km * 1000)
+
+    # Return to EPSG:4326
+    return shp.ops.transform(from_proj, polygon_proj_shrunk)
+
+def shrink_countries_by_km(
+    countries: list[shp.geometry.MultiPolygon],
+    km: float
+) -> list[shp.geometry.MultiPolygon]:
+    """
+    Receives a MultiPolygon containing multiple countries
+    and diminishes
+    """
+    polys = []
+
+    for ext_poly in countries:
+        if ext_poly.geom_type == 'Polygon':
+            polys.append(shrink_country_polygon_by_km(ext_poly, km))
+        elif ext_poly.geom_type == 'MultiPolygon':
+            polys.append(shp.ops.unary_union([
+              shrink_country_polygon_by_km(poly, km)
+                  for poly in ext_poly.geoms
+            ]))
+
+    for poly in polys:
+        if not poly.is_valid:
+            # may be ignorable..?
+            # TODO: check if this error can be safely removed
+            # If you need to look into this, plot the erroring scenario
+            # drops and check to see if unexpected behavior occurs
+            raise ValueError("SOME BAD POLYGON")
+
+    return [
+        poly
+            for poly in polys
+            if poly.is_valid and not poly.is_empty and poly.area > 0
+    ]
 
 if __name__ == "__main__":
     # baixo, direita, frente, esquerda, atrás, cima, cima

@@ -8,44 +8,60 @@ post_processor = PostProcessor()
 
 # Add a legend to results in folder that match the pattern
 # This could easily come from a config file
-post_processor\
-    .add_plot_legend_pattern(
-        dir_name_contains="_base",
-        legend="Base (19 sectors)"
-    ).add_plot_legend_pattern(
-        dir_name_contains="_random_beam",
-        legend="19 sectors, load of 1/19"
-    ).add_plot_legend_pattern(
-        dir_name_contains="_random_pointing_1beam",
-        legend="1 sector random pointing"
-    )
+
+prefixes = ["157.9km", "213.4km", "268.9km", "324.4km", "border"]
+for prefix in prefixes:
+    if prefix == "border":
+        km = "0km"
+    else:
+        km = prefix
+    post_processor\
+        .add_plot_legend_pattern(
+            dir_name_contains=f"{prefix}_base",
+            legend=f"19 sectors ({km})"
+        ).add_plot_legend_pattern(
+            dir_name_contains=f"{prefix}_activate_random_beam_5p",
+            legend=f"19 sectors, load=1/19 ({km})"
+        ).add_plot_legend_pattern(
+            dir_name_contains=f"{prefix}_activate_random_beam_30p",
+            legend=f"19 sectors, load=30% ({km})"
+        ).add_plot_legend_pattern(
+            dir_name_contains=f"{prefix}_random_pointing_1beam",
+            legend=f"1 sector random pointn ({km})"
+        )
 
 campaign_base_dir = str((Path(__file__) / ".." / "..").resolve())
 
-many_results = Results.load_many_from_dir(os.path.join(campaign_base_dir, "output"), only_latest=True)
+results_dl = Results.load_many_from_dir(os.path.join(campaign_base_dir, "output_base_dl"), only_latest=True)
+results_ul = Results.load_many_from_dir(os.path.join(campaign_base_dir, "output_base_ul"), only_latest=True)
 # ^: typing.List[Results]
+all_results = [*results_ul, *results_dl]
 
-post_processor.add_results(many_results)
+post_processor.add_results(all_results)
+
+styles = ["solid", "dot", "dash", "longdash", "dashdot", "longdashdot"]
+def linestyle_getter(result: Results):
+    for i in range(len(prefixes)):
+        if prefixes[i] in result.output_directory:
+            return styles[i]
+    return "solid"
+
+post_processor.add_results_linestyle_getter(linestyle_getter)
 
 plots = post_processor.generate_cdf_plots_from_results(
-    many_results
+    all_results
 )
 
 post_processor.add_plots(plots)
-
-# # This function aggregates IMT downlink and uplink
-# aggregated_results = PostProcessor.aggregate_results(
-#     downlink_result=post_processor.get_results_by_output_dir("MHz_60deg_dl"),
-#     uplink_result=post_processor.get_results_by_output_dir("MHz_60deg_ul"),
-#     ul_tdd_factor=(3, 4),
-#     n_bs_sim=7 * 19 * 3 * 3,
-#     n_bs_actual=int
-# )
 
 # Add a protection criteria line:
 protection_criteria = -6
 post_processor\
     .get_plot_by_results_attribute_name("imt_dl_inr")\
+    .add_vline(protection_criteria, line_dash="dash")
+
+post_processor\
+    .get_plot_by_results_attribute_name("imt_ul_inr")\
     .add_vline(protection_criteria, line_dash="dash")
 
 # Add a protection criteria line:
@@ -55,66 +71,22 @@ post_processor\
     .add_vline(pfd_protection_criteria, line_dash="dash")
 
 
-# # Show a single plot:
-# post_processor\
-#     .get_plot_by_results_attribute_name("imt_system_antenna_gain")\
-#     .show()
+attributes_to_plot = [
+    # "imt_system_antenna_gain",
+    # "system_imt_antenna_gain",
+    # "sys_to_imt_coupling_loss",
+    # "imt_system_path_loss",
+    "imt_dl_pfd_external",
+    "imt_dl_pfd_external_aggregated",
+    "imt_dl_inr",
+    "imt_ul_inr",
+]
 
-post_processor\
-    .get_plot_by_results_attribute_name("system_imt_antenna_gain")\
-    .show()
+for attr in attributes_to_plot:
+    post_processor\
+        .get_plot_by_results_attribute_name(attr)\
+        .show()
+    # post_processor\
+    #     .get_plot_by_results_attribute_name(attr)\
+    #     .write_html(f"htmls/{attr}.html")
 
-# post_processor\
-#     .get_plot_by_results_attribute_name("sys_to_imt_coupling_loss")\
-#     .show()
-
-# post_processor\
-#     .get_plot_by_results_attribute_name("imt_system_path_loss")\
-#     .show()
-
-post_processor\
-    .get_plot_by_results_attribute_name("imt_dl_pfd_external")\
-    .show()
-
-post_processor\
-    .get_plot_by_results_attribute_name("imt_dl_pfd_external_aggregated")\
-    .show()
-
-post_processor\
-    .get_plot_by_results_attribute_name("imt_dl_inr")\
-    .show()
-
-# Plot every plot:
-# for plot in plots:
-#     plot.update_layout(legend_traceorder="normal")
-#     plot.show()
-
-for result in many_results:
-    # This generates the mean, median, variance, etc
-    stats = PostProcessor.generate_statistics(
-        result=result
-    ).write_to_results_dir()
-    # # do whatever you want here:
-    # if "fspl_45deg" in stats.results_output_dir:
-    #     get some stat and do something
-
-# # example on how to aggregate results and add it to plot:
-# dl_res = post_processor.get_results_by_output_dir("1_cluster")
-# aggregated_results = PostProcessor.aggregate_results(
-#     dl_samples=dl_res.system_dl_interf_power,
-#     ul_samples=ul_res.system_ul_interf_power,
-#     ul_tdd_factor=0.75,
-#     n_bs_sim=1 * 19 * 3 * 3,
-#     n_bs_actual=7 * 19 * 3 * 3
-# )
-
-# relevant = post_processor\
-#     .get_plot_by_results_attribute_name("system_ul_interf_power")
-
-# aggr_x, aggr_y = PostProcessor.cdf_from(aggregated_results)
-
-# relevant.add_trace(
-#     go.Scatter(x=aggr_x, y=aggr_y, mode='lines', name='Aggregate interference',),
-# )
-
-# relevant.show()

@@ -111,9 +111,9 @@ class ParametersMssD2d(ParametersBase):
         """
         super().load_parameters_from_file(config_file)
 
-        self.validate(self.section_name)
-
         self.propagate_parameters()
+
+        self.validate(self.section_name)
 
     def __post_init__(self):
         self.beam_radius = self.cell_radius
@@ -142,6 +142,8 @@ class ParametersMssD2d(ParametersBase):
 
         if self.beams_load_factor < 0.0 or self.beams_load_factor > 1.0:
             raise ValueError(f"{ctx}.beams_load_factor must be in interval [0.0, 1.0]")
+
+        super().validate(ctx)
 
     def propagate_parameters(self):
         self.antenna_s1528.set_external_parameters(antenna_pattern=self.antenna_pattern,

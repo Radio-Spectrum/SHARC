@@ -497,7 +497,7 @@ mss_d2d:
         # for a satellite to be active, it needs to respect ALL conditions
         conditions:
             - LAT_LONG_INSIDE_COUNTRY
-            # - MINIMUM_ELEVATION_FROM_ES
+            - MINIMUM_ELEVATION_FROM_ES
         minimum_elevation_from_es: 5
         lat_long_inside_country:
             # You may specify another shp file for country borders reference

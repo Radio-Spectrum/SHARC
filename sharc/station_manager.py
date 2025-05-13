@@ -245,7 +245,7 @@ class StationManager(object):
         -------
         tuple
             phi, theta (phi is calculated with respect to x counter-clock-wise and
-            theta is calculated with respect to z counter-clock-wise)
+            theta is calculated with respect to z clock-wise)
         """
 
         point_vec_x = station.x - self.x[:, np.newaxis]

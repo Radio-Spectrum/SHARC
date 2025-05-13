@@ -31,7 +31,8 @@ if __name__ == "__main__":
     scenario = args.scenario
     print(f"Running scenario {scenario}...")
     if scenario == 0:
-        regex_pattern = r'^parameters_mss_d2d_to_imt_(dl|ul)_co_channel_system_A.yaml'
+        # regex_pattern = r'^parameters_mss_d2d_to_imt_(dl|ul)_co_channel_system_A.yaml'
+        regex_pattern = r'^parameters_mss_d2d_to_imt_dl_co_channel_system_A.yaml'
     elif scenario == 1:
         print("Generating parameters for varying latitude campaign...")
         subprocess.run(["python", "parameter_gen_lat_variation.py"],

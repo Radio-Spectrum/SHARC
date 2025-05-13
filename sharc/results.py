@@ -96,6 +96,8 @@ class Results(object):
         self.system_pfd = SampleList()
         self.system_rx_interf = SampleList()
 
+        self.off_axis_angle = SampleList()
+
         self.__sharc_dir = pathlib.Path(__file__).parent.resolve()
 
     def prepare_to_write(

@@ -1,6 +1,9 @@
-# Description: This script is used to analyze the orbit model of an NGSO constellation.
-# The script calculates the number of visible satellites from a ground station and the elevation angles of the satellites.
-# The script uses the OrbitModel class from the sharc.satellite.ngso.orbit_model module to calculate the satellite positions.
+"""
+This script analyzes the orbit model of an NGSO constellation.
+
+It calculates the number of visible satellites from a ground station and their elevation angles.
+The script uses the OrbitModel class from the sharc.satellite.ngso.orbit_model module to compute satellite positions.
+"""
 import numpy as np
 from pathlib import Path
 import plotly.graph_objects as go
@@ -30,7 +33,7 @@ if __name__ == "__main__":
     TIME_DURATION_HOURS = 72
 
     # Random samples
-    N_DROPS = 50000
+    N_DROPS = 20000
 
     # Random seed for reproducibility
     SEED = 6

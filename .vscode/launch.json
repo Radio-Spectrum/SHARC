@@ -2,6 +2,17 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "MSS-D2D to IMT-DL",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/sharc/main_cli.py",
+            "console": "integratedTerminal",
+            "args": [
+                "-p",
+                "${workspaceFolder}/sharc/campaigns/mss_d2d_to_imt/input/parameters_mss_d2d_to_imt_dl_co_channel_system_A.yaml"
+            ]
+        },
+        {
             "name": "Python Debugger: SHARC main_cli.py",
             "type": "python",
             "request": "launch",

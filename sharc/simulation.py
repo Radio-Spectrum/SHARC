@@ -230,7 +230,7 @@ class Simulation(ABC, Observable):
         if hasattr(self.param_system, "polarization_loss"):
             self.polarization_loss = self.param_system.polarization_loss
         else:
-            self.polarization_loss = 3.0
+            self.polarization_loss = 0.0
 
     def finalize(self, *args, **kwargs):
         """
@@ -587,6 +587,7 @@ class Simulation(ABC, Observable):
                         theta_vec=theta[k, station_2_active],
                         phi_vec=phi[k, station_2_active],
                 )
+            self.off_axis_angle = off_axis_angle
         else:  # for IMT <-> IMT
             off_axis_angle = station_1.get_off_axis_angle(station_2)
             for k in station_1_active:

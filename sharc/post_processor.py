@@ -247,6 +247,10 @@ class PostProcessor:
             "title": "[IMT] Aggregated DL external Power Flux Density (PFD)",
             "x_label": "PFD [dBW/m²/MHz]",
         },
+        "off_axis_angle": {
+            "x_label": "Off axis angle [degrees]",
+            "title": "[SYS] Off axis angle",
+        },
         # these ones were not plotted already, so will continue to not be plotted:
         "imt_dl_tx_power_density": IGNORE_FIELD,
         "system_ul_coupling_loss": IGNORE_FIELD,
@@ -586,13 +590,9 @@ class PostProcessor:
         """
         Takes a dataset and returns both axis of a cdf (x, y)
         """
-        values, base = np.histogram(
-            data,
-            bins=n_bins,
-        )
-        cumulative = np.cumsum(values)
-        x = base[:-1]
-        y = cumulative / cumulative[-1]
+        x = np.sort(data)
+        n = len(x)
+        y = np.arange(1, n + 1) / n
 
         return (x, y)
 

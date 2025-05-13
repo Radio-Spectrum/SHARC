@@ -484,6 +484,8 @@ class SimulationDownlink(Simulation):
                     )
                 self.results.sys_to_imt_coupling_loss.extend(
                     self.coupling_loss_imt_system[np.array(ue)[:, np.newaxis], sys_active].flatten())
+                
+                self.results.off_axis_angle.extend(self.off_axis_angle[sys_active[:, np.newaxis], ue].flatten())
             else:  # IMT is the interferer
                 self.results.system_imt_antenna_gain.extend(
                     self.system_imt_antenna_gain[sys_active[:, np.newaxis], bs].flatten(),

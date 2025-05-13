@@ -85,10 +85,10 @@ class AntennaS1528Taylor(Antenna):
         # Local theta is simulator off_axis_angle and local phi is simulator theta_vec
         if 'off_axis_angle_vec' not in kwargs:
             raise ValueError("off_axis_angle_vec vector must be given")
-        if 'theta_vec' not in kwargs:
-            raise ValueError("theta vector must be given")
+        # if 'theta_vec' not in kwargs:
+        #     raise ValueError("theta vector must be given")
         theta = np.abs(np.radians(kwargs.get('off_axis_angle_vec', 0)))
-        phi = np.abs(np.radians(kwargs.get('theta_vec', 0)))
+        phi = np.zeros_like(theta)
 
         u = (np.pi / self.lamb) * np.sqrt((self.l_r * np.sin(theta) * np.cos(phi)) ** 2 +
                                           (self.l_t * np.sin(theta) * np.sin(phi)) ** 2)

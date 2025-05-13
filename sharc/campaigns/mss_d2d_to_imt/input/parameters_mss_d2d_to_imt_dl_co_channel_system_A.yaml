@@ -1,7 +1,7 @@
 general:
     ###########################################################################
     # Number of simulation snapshots
-    num_snapshots: 50000
+    num_snapshots: 20000
     ###########################################################################
     # IMT link that will be simulated (DOWNLINK or UPLINK)
     imt_link: DOWNLINK
@@ -58,7 +58,7 @@ imt:
     # Amount of guard band wrt total bandwidth. Setting this parameter to 0.1
     # means that 10% of the total bandwidth will be used as guard band: 5% in
     # the lower
-    guard_band_ratio: 0.1
+    guard_band_ratio: 0.0
     ###########################################################################
     # Network topology parameters.
     topology:
@@ -69,7 +69,7 @@ imt:
         # The longitude position
         central_longitude: -47.9292  # Brasília
         ##########################
-        central_altitude: 1200
+        central_altitude: 0
         ###########################################################################
         # Topology Type. Possible values are "MACROCELL", "HOTSPOT", "SINGLE_BS"
         # "INDOOR"
@@ -351,7 +351,8 @@ imt:
     shadowing: FALSE
     ###########################################################################
     # receiver noise temperature [K]
-    noise_temperature: 290
+    # noise_temperature: 290
+    noise_temperature: 273
     ###########################################################################
     # P619 parameters
     param_p619:

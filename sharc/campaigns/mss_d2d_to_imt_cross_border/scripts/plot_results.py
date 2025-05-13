@@ -82,11 +82,15 @@ attributes_to_plot = [
     "imt_ul_inr",
 ]
 
-for attr in attributes_to_plot:
-    post_processor\
-        .get_plot_by_results_attribute_name(attr)\
-        .show()
-    # post_processor\
-    #     .get_plot_by_results_attribute_name(attr)\
-    #     .write_html(f"htmls/{attr}.html")
+# for attr in attributes_to_plot:
+  post_processor\
+       .get_plot_by_results_attribute_name(attr)\
+       .show()
 
+# Ensure the "htmls" directory exists relative to the script directory
+# htmls_dir = Path(__file__).parent / "htmls"
+# htmls_dir.mkdir(exist_ok=True)
+# for attr in attributes_to_plot:
+#     post_processor\
+#         .get_plot_by_results_attribute_name(attr)\
+#         .write_html(htmls_dir / f"{attr}.html")

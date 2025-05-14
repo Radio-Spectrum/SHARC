@@ -210,8 +210,7 @@ if __name__ == "__main__":
         slr=slr,
         n_side_lobes=n_side_lobes,
         l_r=l_r,
-        l_t=l_t,
-        roll_off=None
+        l_t=l_t
     )
 
     spotbeam_radius = 39475  # meters

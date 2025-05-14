@@ -26,15 +26,17 @@ if __name__ == "__main__":
     # Parameters used for the S.1528 antenna
     param_mss.antenna_pattern = "ITU-R-S.1528-Taylor"
     # param_mss.antenna_pattern = "ITU-R-S.1528-LEO"
-    roll_off = 7
+    wavelength = 3e8 / (param_mss.frequency * 1e6)  # in meters
+    # assuming 7dB roll-off factor and circular antenna
+    l_r = 0.74 * wavelength / np.sin(param_mss.antenna_3_dB_bw / 2)  # in meters
+    l_t = l_r
     param_mss.antenna_s1528.set_external_parameters(frequency=param_mss.frequency,
                                                     bandwidth=param_mss.bandwidth,
                                                     antenna_gain=param_mss.antenna_gain,
                                                     antenna_l_s=param_mss.antenna_l_s,
                                                     antenna_3_dB_bw=param_mss.antenna_3_dB_bw,
-                                                    a_deg=param_mss.antenna_3_dB_bw / 2,
-                                                    b_deg=param_mss.antenna_3_dB_bw / 2,
-                                                    roll_off=roll_off)
+                                                    l_r=l_r,
+                                                    l_t=l_t)
     beam_idx = 15  # beam index used for gain analysis
 
     seed = 100

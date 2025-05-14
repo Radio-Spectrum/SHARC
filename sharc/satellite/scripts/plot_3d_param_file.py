@@ -155,7 +155,7 @@ if __name__ == "__main__":
     SELECTED_SNAPSHOT_NUMBER = 0
     OPAQUE_GLOBE = True
 
-    param_file = "sharc/campaigns/mss_d2d_to_imt_cross_border/input/parameters_mss_d2d_to_imt_cross_border_base_ul.yaml"
+    param_file = "sharc/campaigns/mss_d2d_to_imt_cross_border/input/parameters_mss_d2d_to_imt_cross_border_random_pointing_1beam_dl.yaml"
     # param_file = "sharc/campaigns/mss_d2d_to_imt_cross_border/input/parameters_mss_d2d_to_imt_cross_border_activate_random_beam_5p.yaml"
     # param_file = "sharc/campaigns/mss_d2d_to_imt_cross_border/input/parameters_mss_d2d_to_imt_cross_border_random_pointing_1beam.yaml"
 

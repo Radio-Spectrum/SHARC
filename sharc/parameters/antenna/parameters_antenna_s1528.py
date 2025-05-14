@@ -24,31 +24,19 @@ class ParametersAntennaS1528(ParametersBase):
     # 3 dB beamwidth angle (3 dB below maximum gain) [degrees]
     antenna_3_dB_bw: float = 0.65
 
+    #####################################################################
     # The following parameters are used for S.1528-Taylor antenna pattern
 
     # SLR is the side-lobe ratio of the pattern (dB), the difference in gain between the maximum
     # gain and the gain at the peak of the first side lobe.
     slr: float = 20.0
 
-    # half-radial axis distance of the illuminated beam (degrees) (subtended at the satellite)
-    a_deg: float = 0.4
-
-    # half-transverse axis distance of the illuminated beam (degrees) (subtended at the satellite)
-    b_deg: float = 0.4
-
     # Number of secondary lobes considered in the diagram (coincide with the roots of the Bessel function)
-    n_side_lobes: int = 4
+    n_side_lobes: int = 2
 
     # Radial (l_r) and transverse (l_t) sizes of the effective radiating area of the satellite transmitt antenna (m)
-    # Only used if roll_off = None.
     l_r: float = 1.6
     l_t: float = 1.6
-
-    # beam roll-off (difference between the maximum gain and the gain at the edge of the illuminated beam)
-    # Possible values are 0, 3, 5 and 7. The value 0 (zero) means that the first J1 root of the bessel function 
-    # sits at the edge of the beam
-    # If None, the roll_off is not used for calculation of the antenna pattern
-    roll_off: int | None = None
 
     def load_parameters_from_file(self, config_file: str):
         """Load the parameters from file an run a sanity check.
@@ -83,9 +71,6 @@ class ParametersAntennaS1528(ParametersBase):
         self.antenna_3_dB_bw = param.antenna_3_dB_bw
         self.slr = param.slr
         self.n_side_lobes = param.n_side_lobes
-        self.roll_off = param.roll_off
-        self.a_deg = param.a_deg
-        self.b_deg = param.b_deg
         return self
 
     def set_external_parameters(self, **kwargs):
@@ -115,8 +100,3 @@ class ParametersAntennaS1528(ParametersBase):
                              invalid value for parameter antenna_pattern - {self.antenna_pattern}. \
                              Possible values \
                              are \"ITU-R-S.1528-Section1.2\", \"ITU-R-S.1528-LEO\", \"ITU-R-S.1528-Taylor\"")
-
-        if self.roll_off is not None:
-            if int(self.roll_off) not in [0, 3, 5, 7]:
-                raise ValueError(
-                    f"{ctx}: Invalid value for roll_off factor {self.roll_off}")

@@ -12,6 +12,8 @@ import math
 import numpy as np
 from scipy.special import jn, jn_zeros
 
+NUM_OF_BESSEL_ROOTS = 3
+
 
 class AntennaS1528Taylor(Antenna):
     """
@@ -39,46 +41,15 @@ class AntennaS1528Taylor(Antenna):
         # Number of secondary lobes considered in the diagram (coincide with the roots of the Bessel function)
         self.n_side_lobes = param.n_side_lobes
 
-        # half-radial axis distance of the illuminated beam (degrees) (subtended at the satellite)
-        self.a_deg = param.a_deg
-
-        # half-transverse axis distance of the illuminated beam (degrees) (subtended at the satellite)
-        self.b_deg = param.b_deg
-
         # Radial (l_r) and transverse (l_t) sizes of the effective radiating area of the satellite transmitt antenna (m)
         self.l_r = param.l_r
         self.l_t = param.l_t
-
-        # Beam roll-off (difference between the maximum gain and the gain at the edge of the illuminated beam)
-        # Possible values are 0, 3, 5 and 7.
-        # The value 0 (zero) means that the first J1 root of the bessel function
-        # sits at the edge of the beam.
-        self.roll_off = param.roll_off
-        if param.roll_off is not None:
-            if int(param.roll_off) not in [0, 3, 5, 7]:
-                raise ValueError(
-                    f"AntennaS1528Taylor: Invalid value for roll_off factor {self.roll_off}")
-            self.roll_off = int(param.roll_off)
-
-        # Radial (l_r) and transverse (l_t) sizes of the effective radiating area of the satellite transmitt antenna (m)
-        # Lr and Lt can be derived from S.1528 Table 2 if a and b are given. Otherwise, they must be given.
-        if self.roll_off is not None:
-            if self.roll_off == 0:
-                k = 1.2
-            elif self.roll_off == 3:
-                k = 0.51
-            elif self.roll_off == 5:
-                k = 0.64
-            elif self.roll_off == 7:
-                k = 0.74
-            self.l_r = self.lamb * k / np.sin(np.radians(self.a_deg))
-            self.l_t = self.lamb * k / np.sin(np.radians(self.b_deg))
 
         # Intermediary variables
         self.A = (1 / np.pi) * np.arccosh(10 ** (self.slr / 20))
         self.j1_roots = jn_zeros(1, self.n_side_lobes) / np.pi
         self.sigma = self.j1_roots[-1] / np.sqrt(self.A ** 2 + (self.n_side_lobes - 1 / 2) ** 2)
-        self.mu = jn_zeros(1, self.n_side_lobes - 1) / np.pi
+        self.mu = jn_zeros(1, NUM_OF_BESSEL_ROOTS) / np.pi
 
     def calculate_gain(self, *args, **kwargs) -> np.array:
         # The reference angles for the simulator and the antenna realisation are switched.
@@ -93,7 +64,7 @@ class AntennaS1528Taylor(Antenna):
         u = (np.pi / self.lamb) * np.sqrt((self.l_r * np.sin(theta) * np.cos(phi)) ** 2 +
                                           (self.l_t * np.sin(theta) * np.sin(phi)) ** 2)
 
-        v = np.ones(u.shape + (self.n_side_lobes - 1,))
+        v = np.ones(u.shape + (NUM_OF_BESSEL_ROOTS,))
 
         for i, ui in enumerate(self.mu):
             v[..., i] = (1 - u ** 2 / (np.pi ** 2 * self.sigma ** 2 *
@@ -331,39 +302,47 @@ if __name__ == '__main__':
     plt.grid()
 
     # Section 1.4 (Taylor) - Compare to Fig 6
+    frequency = 12000  # MHz
+    bandwidth = 10  # MHz
+    antenna_gain = 0  # dBi
+    slr = 20  # dB
+    n_side_lobes = 4
+    lamb = (SPEED_OF_LIGHT / 1e6) / (frequency - bandwidth / 2)
     beam_radius = 350  # km
     sat_altitude = 1446  # km
-    a_deg = np.degrees(np.arctan(beam_radius / sat_altitude))
+    a = np.arctan(beam_radius / (sat_altitude))  # radians
+    l_r = 0.74 * lamb / np.sin(a)
+    l_t = l_r
     params_rolloff_7 = ParametersAntennaS1528(
         antenna_gain=0,
         frequency=12000,
         bandwidth=10,
         slr=20,
         n_side_lobes=4,
-        roll_off=7,
-        a_deg=a_deg,
-        b_deg=a_deg
+        l_r=l_r,
+        l_t=l_t,
     )
 
     # Create an instance of AntennaS1528Taylor
     antenna_rolloff_7 = AntennaS1528Taylor(params_rolloff_7)
 
     # Define phi angles from 0 to 60 degrees for plotting
-    theta_angles = np.linspace(0, 60, 600)
+    theta_angles = np.arange(0, 60.1, 0.1)
 
     # Calculate gains for each phi angle at a fixed theta angle (e.g., theta=0)
     gain_rolloff_7 = antenna_rolloff_7.calculate_gain(off_axis_angle_vec=theta_angles,
                                                       theta_vec=np.zeros_like(theta_angles))
 
+    l_r = 0.64 * lamb / np.sin(a)
+    l_t = l_r
     params_rolloff_5 = ParametersAntennaS1528(
         antenna_gain=0,
         frequency=12000,
         bandwidth=10,
         slr=20,
         n_side_lobes=4,
-        roll_off=5,
-        a_deg=a_deg,
-        b_deg=a_deg
+        l_r=l_r,
+        l_t=l_t,
     )
 
     # Create an instance of AntennaS1528Taylor
@@ -372,15 +351,16 @@ if __name__ == '__main__':
     gain_rolloff_5 = antenna_rolloff_5.calculate_gain(off_axis_angle_vec=theta_angles,
                                                       theta_vec=np.zeros_like(theta_angles))
 
+    l_r = 0.51 * lamb / np.sin(a)
+    l_t = l_r
     params_rolloff_3 = ParametersAntennaS1528(
         antenna_gain=0,
         frequency=12000,
         bandwidth=10,
         slr=20,
         n_side_lobes=4,
-        roll_off=3,
-        a_deg=a_deg,
-        b_deg=a_deg
+        l_r=l_r,
+        l_t=l_t,
     )
 
     # Create an instance of AntennaS1528Taylor
@@ -398,7 +378,9 @@ if __name__ == '__main__':
     plt.ylabel('Gain (dB)')
     plt.title('Normalized Antenna - Section 1.4')
     plt.legend()
-    plt.xticks(np.linspace(0, 60, 31))
+    plt.xticks(np.arange(0, 60, 10))
+    plt.minorticks_on()
+    plt.gca().xaxis.set_minor_locator(plt.MultipleLocator(2))
     plt.grid(True, which='both')
 
     plt.show()

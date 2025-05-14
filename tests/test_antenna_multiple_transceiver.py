@@ -18,14 +18,12 @@ class AntennaAntennaMultipleTransceiverTest(unittest.TestCase):
         param.frequency = 2170.0
         param.bandwidth = 5.0
         param.antenna_3_dB_bw = 4.4127
-        param.a_deg = param.antenna_3_dB_bw / 2
-        param.b_deg = param.antenna_3_dB_bw / 2
 
         self.base_antenna = AntennaS1528Taylor(param)
 
         self.single_antenna = AntennaMultipleTransceiver(
             azimuths=np.array([0.0]),
-            elevations=np.array([0.0]), # so we point at horizon for test
+            elevations=np.array([0.0]),  # so we point at horizon for test
             num_beams=1,
             transceiver_radiation_pattern=self.base_antenna
         )

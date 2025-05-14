@@ -56,28 +56,24 @@ class AntennaS1528Test(unittest.TestCase):
 
     def test_calculate_params_bessel(self):
         """Compare the parameteres calculated by the class with the reference values present in the Recommendation
-        S.1528-5 - Annex II - Examples for recommends 1.4 
+        S.1528-5 - Annex II - Examples for recommends 1.4
         """
-        a_deg = np.degrees(350 / 1469)  # beam radius over the satellite altitude
         params_rolloff_7 = ParametersAntennaS1528(
             antenna_gain=0,
             frequency=12000,
-            bandwidth=10,
+            bandwidth=0,
             slr=20,
             n_side_lobes=4,
-            roll_off=7,
-            a_deg=a_deg,
-            b_deg=a_deg
         )
 
         # Create an instance of AntennaS1528Taylor
         antenna_rolloff_7 = AntennaS1528Taylor(params_rolloff_7)
-        ref_primary_roots = np.array([1.2, 2.233, 3.238])
+        ref_primary_roots = np.array([1.219, 2.233, 3.238])
         ref_A = 0.95277
         ref_sigma = 1.1692
-        npt.assert_allclose(antenna_rolloff_7.mu, ref_primary_roots, atol=1e-1)
-        npt.assert_allclose(antenna_rolloff_7.A, ref_A, atol=1e-2)
-        npt.assert_allclose(antenna_rolloff_7.sigma, ref_sigma, atol=1e-2)
+        npt.assert_allclose(antenna_rolloff_7.mu, ref_primary_roots, atol=1e-3)
+        npt.assert_allclose(antenna_rolloff_7.A, ref_A, atol=1e-5)
+        npt.assert_allclose(antenna_rolloff_7.sigma, ref_sigma, atol=1e-4)
 
 
 

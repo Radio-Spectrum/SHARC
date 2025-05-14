@@ -131,9 +131,7 @@ class ParametersMssSs(ParametersBase):
                                                    bandwidth=self.bandwidth,
                                                    antenna_gain=self.antenna_gain,
                                                    antenna_l_s=self.antenna_l_s,
-                                                   antenna_3_dB_bw=self.antenna_3_dB_bw,
-                                                   a_deg=self.antenna_3_dB_bw / 2,
-                                                   b_deg=self.antenna_3_dB_bw / 2)
+                                                   antenna_3_dB_bw=self.antenna_3_dB_bw,)
         
         if self.channel_model.upper() not in ["FSPL", "P619", "SATELLITESIMPLE"]:
             raise ValueError(f"Invalid channel model name {self.channel_model}")

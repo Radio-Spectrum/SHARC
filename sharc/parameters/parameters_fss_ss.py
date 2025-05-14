@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 from dataclasses import dataclass, field
+import numpy as np
 
 from sharc.parameters.parameters_base import ParametersBase
 from sharc.parameters.parameters_p619 import ParametersP619
@@ -103,7 +104,5 @@ class ParametersFssSs(ParametersBase):
                                                    bandwidth=self.bandwidth,
                                                    antenna_gain=self.antenna_gain,
                                                    antenna_l_s=self.antenna_l_s,
-                                                   antenna_3_dB_bw=self.antenna_3_dB,
-                                                   a_deg=self.antenna_3_dB / 2,
-                                                   b_deg=self.antenna_3_dB / 2)
+                                                   antenna_3_dB_bw=self.antenna_3_dB,)
 

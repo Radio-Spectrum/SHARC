@@ -512,8 +512,6 @@ fss_ss:
         # Radial and transverse sizes of the effective radiating area of the satellite transmit antenna (m).
         l_r : 0.4
         l_t : 0.4
-        # Roll-off factor
-        roll_off : 5
     # IMT parameters relevant to the satellite system
     #    altitude of IMT system (in meters)
     #    latitude of IMT system (in degrees)

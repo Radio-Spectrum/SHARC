@@ -533,8 +533,6 @@ fss_ss:
         # Radial and transverse sizes of the effective radiating area of the satellite transmit antenna (m).
         l_r : 0.5
         l_t : 0.5
-        # Roll-off factor
-        roll_off : 3
     ###########################################################################
     # Parameters for the P.619 propagation model
     #    earth_station_alt_m - altitude of IMT system (in meters)

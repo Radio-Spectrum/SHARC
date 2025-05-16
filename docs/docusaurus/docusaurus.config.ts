@@ -67,7 +67,7 @@ const config: Config = {
 
   themeConfig: {
     // Replace with your project's social card
-    image: 'img/sharc-social-card.png',
+    image: 'img/sharc-social-card.jpg',
     navbar: {
       title: 'Radio-Spectrum SHARC',
       logo: {

@@ -2,7 +2,8 @@ import os
 from pathlib import Path
 from sharc.results import Results
 from sharc.post_processor import PostProcessor
-import argparse
+
+auto_open = False  # set to True if you want to open the plots automatically
 
 
 local_dir = os.path.dirname(os.path.abspath(__file__))
@@ -60,19 +61,19 @@ imt_dl_inr.update_layout(title_text="CCDF Plot for IMT Downlink and Uplink INR",
                          legend_title="Legend")
 
 file = os.path.join(campaign_base_dir, "output", "imt_dl_ul_inr.html")
-imt_dl_inr.write_html(file=file, include_plotlyjs="cdn", auto_open=True)
+imt_dl_inr.write_html(file=file, include_plotlyjs="cdn", auto_open=auto_open)
 
 file = os.path.join(campaign_base_dir, "output", "imt_system_antenna_gain.html")
-imt_system_antenna_gain = post_processor.get_plot_by_results_attribute_name("imt_system_antenna_gain")
-imt_system_antenna_gain.write_html(file=file, include_plotlyjs="cdn", auto_open=True)
+imt_system_antenna_gain = post_processor.get_plot_by_results_attribute_name("imt_system_antenna_gain", plot_type="ccdf")
+imt_system_antenna_gain.write_html(file=file, include_plotlyjs="cdn", auto_open=auto_open)
 
 file = os.path.join(campaign_base_dir, "output", "system_imt_antenna_gain.html")
-system_imt_antenna_gain = post_processor.get_plot_by_results_attribute_name("system_imt_antenna_gain")
-system_imt_antenna_gain.write_html(file=file, include_plotlyjs="cdn", auto_open=True)
+system_imt_antenna_gain = post_processor.get_plot_by_results_attribute_name("system_imt_antenna_gain", plot_type="ccdf")
+system_imt_antenna_gain.write_html(file=file, include_plotlyjs="cdn", auto_open=auto_open)
 
 file = os.path.join(campaign_base_dir, "output", "sys_to_imt_coupling_loss.html")
-imt_system_path_loss = post_processor.get_plot_by_results_attribute_name("imt_system_path_loss")
-imt_system_path_loss.write_html(file=file, include_plotlyjs="cdn", auto_open=True)
+imt_system_path_loss = post_processor.get_plot_by_results_attribute_name("imt_system_path_loss", plot_type="ccdf")
+imt_system_path_loss.write_html(file=file, include_plotlyjs="cdn", auto_open=auto_open)
 
 for result in many_results:
     # This generates the mean, median, variance, etc

@@ -315,7 +315,7 @@ class PostProcessor:
         return possible
 
     def generate_cdf_plots_from_results(
-        self, results: list[Results], *, n_bins=200
+        self, results: list[Results], *, n_bins=None
     ) -> list[go.Figure]:
         figs: dict[str, list[go.Figure]] = {}
         COLORS = DEFAULT_PLOTLY_COLORS
@@ -583,13 +583,13 @@ class PostProcessor:
         return aggregate_samples
 
     @staticmethod
-    def cdf_from(data: list[float], *, n_bins=200) -> (list[float], list[float]):
+    def cdf_from(data: list[float], *, n_bins=None) -> (list[float], list[float]):
         """
         Takes a dataset and returns both axis of a cdf (x, y)
         """
         values, base = np.histogram(
             data,
-            bins=n_bins,
+            bins='auto' if n_bins is None else n_bins,
         )
         cumulative = np.cumsum(values)
         x = base[:-1]
@@ -598,7 +598,7 @@ class PostProcessor:
         return (x, y)
 
     @staticmethod
-    def ccdf_from(data: list[float], *, n_bins=200) -> (list[float], list[float]):
+    def ccdf_from(data: list[float], *, n_bins=None) -> (list[float], list[float]):
         """
         Takes a dataset and returns both axis of a ccdf (x, y)
         """

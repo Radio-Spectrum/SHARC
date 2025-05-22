@@ -81,7 +81,7 @@ imt:
             # Inter-site distance or Cell Radius in single Base Station network topology [m]
             # You can either provide 'cell_radius' or 'intersite_distance' for this topology
             # The relationship used is cell_radius = intersite_distance * 2 / 3
-            cell_radius: 250
+            cell_radius: 100
             # intersite_distance: 1
             ###########################################################################
             # Number of clusters in single base station topology
@@ -247,7 +247,7 @@ imt:
         noise_figure: 9
         ###########################################################################
         # User equipment feed loss [dB]
-        ohmic_loss: 3
+        ohmic_loss: 0
         ###########################################################################
         # User equipment body loss [dB]
         body_loss: 4
@@ -387,7 +387,23 @@ mss_d2d:
     tx_power_density: -52.2
     # Number of sectors
     num_sectors: 1
-    # conditional to select active satellites
+    # Satellite antenna pattern
+    # Antenna pattern from ITU-R S.1528
+    # Possible values: "ITU-R-S.1528-Section1.2", "ITU-R-S.1528-LEO"
+    antenna_pattern: ITU-R-S.1528-Taylor
+    antenna_s1528:
+        ### The following parameters are used for S.1528-Taylor antenna pattern
+        # Maximum Antenna gain in dBi
+        antenna_gain: 34.1
+        # SLR is the side-lobe ratio of the pattern (dB), the difference in gain between the maximum
+        # gain and the gain at the peak of the first side lobe.
+        slr: 20.0
+        # Number of secondary lobes considered in the diagram (coincide with the roots of the Bessel function)
+        n_side_lobes: 2
+        # Radial (l_r) and transverse (l_t) sizes of the effective radiating area of the satellite transmitt antenna (m)
+        l_r: 1.6
+        l_t: 1.6
+     # conditional to select active satellites
     # in simulation we sample uniformly from time
     # if no active satellites are active on that time
     # we resample
@@ -406,42 +422,26 @@ mss_d2d:
         #     # if positive, makes border smaller by x km
         #     # if negative, makes border bigger by x km
         #     margin_from_border: 0
-    # Satellite antenna pattern
-    # Antenna pattern from ITU-R S.1528
-    # Possible values: "ITU-R-S.1528-Section1.2", "ITU-R-S.1528-LEO"
-    antenna_pattern: ITU-R-S.1528-Taylor
-    antenna_s1528:
-        ### The following parameters are used for S.1528-Taylor antenna pattern
-        # Maximum Antenna gain in dBi
-        antenna_gain: 34.1
-        # SLR is the side-lobe ratio of the pattern (dB), the difference in gain between the maximum
-        # gain and the gain at the peak of the first side lobe.
-        slr: 20.0
-        # Number of secondary lobes considered in the diagram (coincide with the roots of the Bessel function)
-        n_side_lobes: 2
-        # Radial (l_r) and transverse (l_t) sizes of the effective radiating area of the satellite transmitt antenna (m)
-        l_r: 1.6
-        l_t: 1.6
     # channel model, possible values are "FSPL" (free-space path loss),
     #                                    "SatelliteSimple" (FSPL + 4 + clutter loss)
     #                                    "P619"
     channel_model: FSPL
     ###########################################################################
     # P619 parameters
-    param_p619:
-        ###########################################################################
-        # altitude of ES system [m]
-        earth_station_alt_m: 1200
-        ###########################################################################
-        # latitude of ES system [m]
-        earth_station_lat_deg: -15.7801
-        ###########################################################################
-        # difference between longitudes of IMT-NTN station and FSS-ES system [deg]
-        #   (positive if space-station is to the East of earth-station)
-        earth_station_long_diff_deg: 0.0
-        ###########################################################################
-        # year season: SUMMER of WINTER
-        season: SUMMER
+    # param_p619:
+    #     ###########################################################################
+    #     # altitude of ES system [m]
+    #     earth_station_alt_m: 1200
+    #     ###########################################################################
+    #     # latitude of ES system [m]
+    #     earth_station_lat_deg: -15.7801
+    #     ###########################################################################
+    #     # difference between longitudes of IMT-NTN station and FSS-ES system [deg]
+    #     #   (positive if space-station is to the East of earth-station)
+    #     earth_station_long_diff_deg: 0.0
+    #     ###########################################################################
+    #     # year season: SUMMER of WINTER
+    #     season: SUMMER
     # Orbit parameters
     orbits:
         # Number of planes
@@ -458,4 +458,3 @@ mss_d2d:
         long_asc_deg: 0.0
         # Phasing in degrees
         phasing_deg: 1.5
-

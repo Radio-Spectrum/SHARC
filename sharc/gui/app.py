@@ -54,8 +54,6 @@ except FileNotFoundError:
 
 if selected_page != "home":
 
-    render_notebook_terminal()
-
     project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
     folder_path = os.path.join(project_root, selected_page)
 
@@ -75,3 +73,5 @@ if selected_page != "home":
     
     for script in script_files:
         script_path = os.path.join(folder_path, script)
+
+    render_notebook_terminal()

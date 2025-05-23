@@ -54,7 +54,7 @@ def get_system_info():
 
 
 def render_notebook_terminal():
-    with st.expander("🧪 Jupyter Terminal / SHARC Shell", expanded=True):
+    with st.expander("🧪 Jupyter Terminal / SHARC Shell", expanded=False):
         st.markdown("""
             <style>
                 .terminal-box textarea {

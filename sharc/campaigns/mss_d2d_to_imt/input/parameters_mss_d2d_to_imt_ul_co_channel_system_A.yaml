@@ -247,7 +247,7 @@ imt:
         noise_figure: 9
         ###########################################################################
         # User equipment feed loss [dB]
-        ohmic_loss: 3
+        ohmic_loss: 0
         ###########################################################################
         # User equipment body loss [dB]
         body_loss: 4

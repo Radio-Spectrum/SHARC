@@ -159,10 +159,11 @@ class TopologyImtMssDc(Topology):
                     # Calculate satellite visibility from base stations
                     elev_from_bs = calc_elevation(
                         geometry_converter.ref_lat,  # Latitude of base station
-                        pos_vec['geod_lat'],  # Latitude of satellites
+                        np.ravel(pos_vec['geod_lat']),  # Latitude of satellites
                         geometry_converter.ref_long,  # Longitude of base station
-                        pos_vec['geod_lon'],  # Longitude of satellites
-                        orbit.perigee_alt_km  # Perigee altitude in kilometers
+                        np.ravel(pos_vec['geod_lon']),  # Longitude of satellites
+                        earth_station_altitude=geometry_converter.ref_alt,
+                        space_station_altitude=np.ravel(pos_vec['geod_alt'])
                     )
 
                     # Determine visible satellites based on minimum elevation angle
@@ -176,10 +177,11 @@ class TopologyImtMssDc(Topology):
                         # Calculate satellite visibility from base stations
                         elev_from_bs = calc_elevation(
                             geometry_converter.ref_lat,  # Latitude of base station
-                            pos_vec['geod_lat'],  # Latitude of satellites
+                            np.ravel(pos_vec['geod_lat']),  # Latitude of satellites
                             geometry_converter.ref_long,  # Longitude of base station
-                            pos_vec['geod_lon'],  # Longitude of satellites
-                            orbit.perigee_alt_km  # Perigee altitude in kilometers
+                            np.ravel(pos_vec['geod_lon']),  # Longitude of satellites
+                            earth_station_altitude=geometry_converter.ref_alt,
+                            space_station_altitude=np.ravel(pos_vec['geod_alt'])
                         )
 
                     # Determine visible satellites based on minimum elevation angle

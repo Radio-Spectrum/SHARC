@@ -147,7 +147,8 @@ if __name__ == "__main__":
     NUM_DROPS = 1000
     rng = np.random.RandomState(seed=6)
     pos_vec = orbit.get_orbit_positions_random(rng=rng, n_samples=NUM_DROPS)
-    look_angles = calc_elevation(GROUND_STA_LAT, pos_vec['lat'], GROUND_STA_LON, pos_vec['lon'], orbit.apogee_alt_km)
+    look_angles = calc_elevation(GROUND_STA_LAT, pos_vec['lat'], GROUND_STA_LON, pos_vec['lon'],
+                                 space_station_altitude=orbit.apogee_alt_km * 1e3, earth_station_altitude=0)
     elevation_angles_per_drop = look_angles[np.where(np.array(look_angles) > 0)]
     num_of_visible_sats_per_drop = np.sum(look_angles > MIN_ELEV_ANGLE_DEG, axis=0)
 

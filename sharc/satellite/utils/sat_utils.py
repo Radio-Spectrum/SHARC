@@ -74,46 +74,70 @@ def lla2ecef(lat: np.ndarray, lng: np.ndarray, alt: np.ndarray) -> tuple:
     return x, y, z
 
 
-def calc_elevation(Le: np.ndarray,
-                   Ls: np.ndarray,
-                   le: np.ndarray,
-                   ls: np.ndarray,
-                   sat_height: np.ndarray) -> np.ndarray:
-    """Calculates the elevation angle from the earth station
-    to space station, given earth and space station coordinates.
-    Negative elevation angles means the space stations is not visible from Earth station.
-
-    Parameters
-    ----------
-    Le : (ndarray)
-        latitudes of the earth station
-    Ls : (ndarray)
-        latitudes of the space station
-    le : (ndarray)
-        longitudes of the earth station
-    ls : (ndarray)
-        latitudes of the space station
-    sat_height : (ndarray)
-        space station altitudes
-
-    Returns
-    -------
-    (ndarray)
-        array of elevation angles from the earth station in degrees.
+def calc_elevation(
+        earth_station_lat: np.ndarray,
+        space_station_lat: np.ndarray,
+        earth_station_long: np.ndarray,
+        space_station_long: np.ndarray,
+        *,
+        earth_station_altitude: np.ndarray,
+        space_station_altitude: np.ndarray,
+) -> np.ndarray:
     """
-    Le = np.radians(Le)
-    Ls = np.radians(Ls)
-    le = np.radians(le)
-    ls = np.radians(ls)
-    gamma = np.arccos(
-        np.cos(Le) * np.cos(Ls) * np.cos(ls - le) + np.sin(Le) * np.sin(Ls)
-    )
-    rs = EARTH_RADIUS_KM + sat_height
-    slant = np.sqrt(rs**2 + EARTH_RADIUS_KM**2 - 2 * rs * EARTH_RADIUS_KM * np.cos(gamma))
-    elev_angle = np.arccos((slant**2 + EARTH_RADIUS_KM**2 - rs**2) / \
-                           (2 * slant * EARTH_RADIUS_KM)) - np.pi / 2
+    Calculates the elevation angle from an Earth station to a space station using geodesic coordinates.
+    The function converts latitude, longitude, and altitude (LLA) coordinates of both the Earth station and the space station
+    to Earth-Centered, Earth-Fixed (ECEF) coordinates, computes the line-of-sight (LOS) vector, and gets its projection
+    on local zenith and xy
+    Args:
+        earth_station_lat (np.ndarray): Geodetic Latitude(s) of the Earth station(s) in degrees.
+        earth_station_long (np.ndarray): Geodetic Longitude(s) of the Earth station(s) in degrees.
+        earth_station_altitude (np.ndarray): Altitude(s) of the Earth station(s) in meters.
+        space_station_lat (np.ndarray): Geodetic Latitude(s) of the space station(s) in degrees.
+        space_station_long (np.ndarray): Geodetic Longitude(s) of the space station(s) in raddegreesians.
+        space_station_altitude (np.ndarray): Altitude(s) of the space station(s) in m.
+    Returns:
+        float or np.ndarray: Elevation angle(s) in degrees from the Earth station(s) to the space station(s).
+    """
+    # Convert inputs to arrays if they are scalars
+    earth_station_lat = np.atleast_1d(earth_station_lat)
+    space_station_lat = np.atleast_1d(space_station_lat)
+    earth_station_long = np.atleast_1d(earth_station_long)
+    space_station_long = np.atleast_1d(space_station_long)
+    earth_station_altitude = np.atleast_1d(earth_station_altitude)
+    space_station_altitude = np.atleast_1d(space_station_altitude)
 
-    return np.degrees(elev_angle)
+    # Convert LLA to ECEF coordinates
+    e_ecef = lla2ecef(
+        earth_station_lat, earth_station_long, earth_station_altitude
+    )
+    e_ecef = np.array(e_ecef)
+    s_ecef = lla2ecef(
+        space_station_lat, space_station_long, space_station_altitude
+    )
+    s_ecef = np.array(s_ecef)
+
+    # los_vector shape: (3, N)
+    los_vector = s_ecef - e_ecef
+    # get its norm
+    los_norm = np.linalg.norm(los_vector, axis=0)
+
+    # unit vector representing local earth station zenith
+    # NOTE: lat, lon represents the zenith pointing in geodesic, but not if geocentric lat lon
+    zenith_unit = np.stack([
+        np.cos(np.deg2rad(earth_station_lat)) * np.cos(np.deg2rad(earth_station_long)),
+        np.cos(np.deg2rad(earth_station_lat)) * np.sin(np.deg2rad(earth_station_long)),
+        np.sin(np.deg2rad(earth_station_lat))
+    ])
+
+    # get los projection at zenith vector (same as local coords z diff)
+    los_z_projection = np.sum(zenith_unit * los_vector, axis=0)
+
+    # get los xy plane projection with pythagoras
+    los_xy_dist_proj = np.sqrt(los_norm ** 2 - los_z_projection ** 2)
+
+    elevation_angles = np.arctan2(los_z_projection, los_xy_dist_proj)
+
+    return np.degrees(elevation_angles)
 
 
 if __name__ == "__main__":

@@ -15,12 +15,16 @@ scenario = args.scenario
 auto_open = args.auto_open
 
 local_dir = os.path.dirname(os.path.abspath(__file__))
+campaign_base_dir = str((Path(__file__) / ".." / "..").resolve())
 
 post_processor = PostProcessor()
 
 # Add a legend to results in folder that match the pattern
 # This could easily come from a config file
 if scenario == 0:
+    many_results = Results.load_many_from_dir(os.path.join(campaign_base_dir, "output"),
+                                              filter_fn=lambda x: "_co_channel_system_A" in x,
+                                              only_latest=True)
     post_processor\
         .add_plot_legend_pattern(
             dir_name_contains="_mss_d2d_to_imt_ul_co_channel_system_A",
@@ -33,17 +37,18 @@ if scenario == 0:
             legend="MSS-D2D to IMT-DL"
         )
 elif scenario == 1:
-    for i in range(0, 70, 10):
-        post_processor.add_plot_legend_pattern(
-            dir_name_contains="_lat_" + str(i) + "_deg",
-            legend="latitude=" + str(i) + "deg"
-        )
+    many_results = Results.load_many_from_dir(os.path.join(campaign_base_dir, "output"),
+                                              filter_fn=lambda x: "_lat_" in x,
+                                              only_latest=True)
+    for link in ["ul", "dl"]:
+        for i in range(0, 70, 10):
+            post_processor.add_plot_legend_pattern(
+                dir_name_contains="_lat_" + link + "_" + str(i) + "_deg",
+                legend="IMT-Link=" + link.upper() + " latitude=" + str(i) + "deg"
+            )
 else:
     raise ValueError("Invalid scenario. Choose 0 or 1.")
 
-campaign_base_dir = str((Path(__file__) / ".." / "..").resolve())
-
-many_results = Results.load_many_from_dir(os.path.join(campaign_base_dir, "output"), only_latest=True)
 # ^: typing.List[Results]
 
 post_processor.add_results(many_results)
@@ -63,8 +68,13 @@ post_processor.add_plots(plots)
 # Add a protection criteria line:
 protection_criteria = -6
 imt_dl_inr = post_processor.get_plot_by_results_attribute_name("imt_dl_inr", plot_type="ccdf")
-imt_dl_inr.add_vline(protection_criteria, line_dash="dash")
-
+imt_dl_inr.add_vline(protection_criteria, line_dash="dash", annotation=dict(
+    text="Protection Criteria: " + str(protection_criteria) + " dB",
+    xref="x", yref="y",
+    x=protection_criteria + 0.5, y=0.8,
+    font=dict(size=12, color="red")
+))
+imt_dl_inr.update_layout(template="plotly_white")
 imt_ul_inr = post_processor.get_plot_by_results_attribute_name("imt_ul_inr", plot_type="ccdf")
 imt_ul_inr.add_vline(protection_criteria, line_dash="dash")
 

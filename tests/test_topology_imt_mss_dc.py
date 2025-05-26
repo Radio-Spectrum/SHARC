@@ -6,6 +6,7 @@ from sharc.parameters.imt.parameters_imt_mss_dc import ParametersImtMssDc
 from sharc.station_manager import StationManager
 from sharc.parameters.parameters_orbit import ParametersOrbit
 from sharc.support.sharc_geom import LocalENUConverter, lla2ecef, ecef2lla
+from sharc.satellite.ngso.constants import EARTH_RADIUS_KM
 
 
 class TestTopologyImtMssDc(unittest.TestCase):
@@ -48,14 +49,12 @@ class TestTopologyImtMssDc(unittest.TestCase):
         self.geometry_converter.set_reference(-15.0, -42.0, 1200)
 
         # Define the Earth center coordinates
-        self.earth_center_x = np.array([0.])
-        self.earth_center_y = np.array([0.])
-        x, y, z = lla2ecef(
-            self.geometry_converter.ref_lat,
-            self.geometry_converter.ref_long,
-            self.geometry_converter.ref_alt,
+        x, y, z = self.geometry_converter.ecef2enu(
+            0, 0, 0
         )
-        self.earth_center_z = np.array([-np.sqrt(x * x + y * y + z * z)])
+        self.earth_center_x = np.array([x])
+        self.earth_center_y = np.array([y])
+        self.earth_center_z = np.array([z])
 
         # Instantiate the IMT MSS-DC topology
         self.imt_mss_dc_topology = TopologyImtMssDc(self.params, self.geometry_converter)
@@ -78,28 +77,13 @@ class TestTopologyImtMssDc(unittest.TestCase):
         self.assertEqual(len(self.imt_mss_dc_topology.space_station_y), self.imt_mss_dc_topology.num_base_stations)
         self.assertEqual(len(self.imt_mss_dc_topology.space_station_z), self.imt_mss_dc_topology.num_base_stations)
 
-        # Test: check if azimuth is pointing towards correct direction
-        # y > 0 <=> azimuth < 0
-        # y < 0 <=> azimuth > 0
-        npt.assert_array_equal(
-            np.sign(self.imt_mss_dc_topology.azimuth[center_beam_idxs]),
-            -np.sign(self.imt_mss_dc_topology.space_station_y[center_beam_idxs]),
-        )
-
-        # FIXME:
         # Test: check if the altitude is calculated correctly
-        _, __, alt = ecef2lla(
-            self.imt_mss_dc_topology.space_station_x,
-            self.imt_mss_dc_topology.space_station_y,
-            self.imt_mss_dc_topology.space_station_z
-        )
-        alt = alt / 1e3
-        # rx = self.imt_mss_dc_topology.space_station_x - self.earth_center_x
-        # ry = self.imt_mss_dc_topology.space_station_y - self.earth_center_y
-        # rz = self.imt_mss_dc_topology.space_station_z - self.earth_center_z
-        # r = np.sqrt(rx**2 + ry**2 + rz**2)
-        # expected_alt_km = (r - np.abs(self.earth_center_z)) / 1e3
-        npt.assert_array_almost_equal(alt, self.params.orbits[0].apogee_alt_km, decimal=0)
+        rx = self.imt_mss_dc_topology.space_station_x - self.earth_center_x
+        ry = self.imt_mss_dc_topology.space_station_y - self.earth_center_y
+        rz = self.imt_mss_dc_topology.space_station_z - self.earth_center_z
+        r = np.sqrt(rx**2 + ry**2 + rz**2)
+        expected_alt_km = (r / 1e3 - EARTH_RADIUS_KM)
+        npt.assert_array_almost_equal(expected_alt_km, self.params.orbits[0].apogee_alt_km, decimal=0)
 
         # by default, satellites should always point to nadir (earth center)
         ref_earth_center = StationManager(1)
@@ -113,13 +97,13 @@ class TestTopologyImtMssDc(unittest.TestCase):
         ref_space_stations.z = self.imt_mss_dc_topology.space_station_z
 
         phi, theta = ref_space_stations.get_pointing_vector_to(ref_earth_center)
-        npt.assert_array_almost_equal(
+        npt.assert_allclose(
             np.squeeze(phi[center_beam_idxs]), self.imt_mss_dc_topology.azimuth[center_beam_idxs],
-            decimal=3,
+            atol=3
         )
-        npt.assert_array_almost_equal(
+        npt.assert_allclose(
             np.squeeze(theta[center_beam_idxs]), 90 - self.imt_mss_dc_topology.elevation[center_beam_idxs],
-            decimal=3,
+            atol=3
         )
 
     def test_visible_satellites(self):

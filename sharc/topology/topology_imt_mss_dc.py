@@ -104,7 +104,7 @@ class TopologyImtMssDc(Topology):
         i = 0  # Iteration counter for ensuring satellite visibility
         while len(active_satellite_idxs) == 0:
             # Initialize arrays to store satellite positions, angles and distance from center of earth
-            all_positions = {"R": [], "lat": [], "lon": [], "sx": [], "sy": [], "sz": []}
+            all_positions = {"R": [], "lat": [], "lon": [], "sx": [], "sy": [], "sz": [], "alt": []}
             all_elevations = []  # Store satellite elevations
             all_azimuths = []  # Store satellite azimuths
 
@@ -139,12 +139,13 @@ class TopologyImtMssDc(Topology):
                 # When getting azimuth and elevation, we need to consider sx, sy and sz points
                 # from the center of earth to the satellite, and we need to point the satellite
                 # towards the center of earth
-                elevations = np.degrees(np.arcsin(-sz / r))  # Calculate elevation angles
-                azimuths = np.degrees(np.arctan2(-sy, -sx))  # Calculate azimuth angles
+                elevations = -1 * pos_vec['geod_lat']
+                azimuths = (pos_vec['geod_lon'] + 360) % 360 - 180.
 
                 # Append satellite positions and angles to global lists
-                all_positions['lat'].extend(pos_vec['lat'])  # Latitudes
-                all_positions['lon'].extend(pos_vec['lon'])  # Longitudes
+                all_positions['lat'].extend(pos_vec['geod_lat'])  # Latitudes
+                all_positions['lon'].extend(pos_vec['geod_lon'])  # Longitudes
+                all_positions['alt'].extend(pos_vec['geod_alt'])
                 all_positions['sx'].extend(sx)  # X-coordinates
                 all_positions['sy'].extend(sy)  # Y-coordinates
                 all_positions['sz'].extend(sz)  # Z-coordinates
@@ -152,15 +153,15 @@ class TopologyImtMssDc(Topology):
                 all_elevations.extend(elevations)  # Elevation angles
                 all_azimuths.extend(azimuths)  # Azimuth angles
 
-                active_sats_mask = np.ones(len(pos_vec['lat']), dtype=bool)
+                active_sats_mask = np.ones(len(pos_vec['geod_lat']), dtype=bool)
 
                 if "MINIMUM_ELEVATION_FROM_ES" in orbit_params.sat_is_active_if.conditions:
                     # Calculate satellite visibility from base stations
                     elev_from_bs = calc_elevation(
                         geometry_converter.ref_lat,  # Latitude of base station
-                        pos_vec['lat'],  # Latitude of satellites
+                        pos_vec['geod_lat'],  # Latitude of satellites
                         geometry_converter.ref_long,  # Longitude of base station
-                        pos_vec['lon'],  # Longitude of satellites
+                        pos_vec['geod_lon'],  # Longitude of satellites
                         orbit.perigee_alt_km  # Perigee altitude in kilometers
                     )
 
@@ -175,9 +176,9 @@ class TopologyImtMssDc(Topology):
                         # Calculate satellite visibility from base stations
                         elev_from_bs = calc_elevation(
                             geometry_converter.ref_lat,  # Latitude of base station
-                            pos_vec['lat'],  # Latitude of satellites
+                            pos_vec['geod_lat'],  # Latitude of satellites
                             geometry_converter.ref_long,  # Longitude of base station
-                            pos_vec['lon'],  # Longitude of satellites
+                            pos_vec['geod_lon'],  # Longitude of satellites
                             orbit.perigee_alt_km  # Perigee altitude in kilometers
                         )
 
@@ -187,8 +188,8 @@ class TopologyImtMssDc(Topology):
                     )
 
                 if "LAT_LONG_INSIDE_COUNTRY" in orbit_params.sat_is_active_if.conditions:
-                    flat_active_lon = pos_vec["lon"].flatten()[active_sats_mask]
-                    flat_active_lat = pos_vec["lat"].flatten()[active_sats_mask]
+                    flat_active_lon = pos_vec["geod_lon"].flatten()[active_sats_mask]
+                    flat_active_lat = pos_vec["geod_lat"].flatten()[active_sats_mask]
 
                     # create points(lon, lat) to compare to country
                     sats_points = gpd.points_from_xy(flat_active_lon, flat_active_lat, crs="EPSG:4326")
@@ -202,7 +203,7 @@ class TopologyImtMssDc(Topology):
                     active_sats_mask = active_sats_mask & polygon_mask
 
                 visible_sat_idxs = np.arange(
-                    current_sat_idx, current_sat_idx + len(pos_vec['lat']), dtype=int
+                    current_sat_idx, current_sat_idx + len(pos_vec['geod_lat']), dtype=int
                 )[active_sats_mask]
                 active_satellite_idxs.extend(visible_sat_idxs)
 
@@ -218,35 +219,26 @@ class TopologyImtMssDc(Topology):
         # reference.
         if only_active:
             total_active_satellites = len(active_satellite_idxs)
-            space_station_x = np.squeeze(np.array(all_positions['sx']))[active_satellite_idxs] * 1e3  # Convert X-coordinates to meters
-            space_station_y = np.squeeze(np.array(all_positions['sy']))[active_satellite_idxs] * 1e3  # Convert Y-coordinates to meters
-            space_station_z = np.squeeze(np.array(all_positions['sz']))[active_satellite_idxs] * 1e3  # Convert Z-coordinates to meters
-            elevation = np.squeeze(np.array(all_elevations))[active_satellite_idxs]  # Elevation angles
-            azimuth = np.squeeze(np.array(all_azimuths))[active_satellite_idxs]  # Azimuth angles
+            space_station_x = np.ravel(np.array(all_positions['sx']))[active_satellite_idxs]  # Convert X-coordinates to meters
+            space_station_y = np.ravel(np.array(all_positions['sy']))[active_satellite_idxs]  # Convert Y-coordinates to meters
+            space_station_z = np.ravel(np.array(all_positions['sz']))[active_satellite_idxs]  # Convert Z-coordinates to meters
+            elevation = np.ravel(np.array(all_elevations))[active_satellite_idxs]  # Elevation angles
+            azimuth = np.ravel(np.array(all_azimuths))[active_satellite_idxs]  # Azimuth angles
             # Store the latitude and longitude of the visible satellites for later use
-            lat = np.squeeze(np.array(all_positions['lat']))[active_satellite_idxs]
-            lon = np.squeeze(np.array(all_positions['lon']))[active_satellite_idxs]
+            lat = np.ravel(np.array(all_positions['lat']))[active_satellite_idxs]
+            lon = np.ravel(np.array(all_positions['lon']))[active_satellite_idxs]
+            sat_altitude = np.ravel(np.array(all_positions['alt']))[active_satellite_idxs]
         else:
             total_active_satellites = total_satellites
-            space_station_x = np.squeeze(np.array(all_positions['sx'])) * 1e3  # Convert X-coordinates to meters
-            space_station_y = np.squeeze(np.array(all_positions['sy'])) * 1e3  # Convert Y-coordinates to meters
-            space_station_z = np.squeeze(np.array(all_positions['sz'])) * 1e3  # Convert Z-coordinates to meters
-            elevation = np.squeeze(np.array(all_elevations))  # Elevation angles
-            azimuth = np.squeeze(np.array(all_azimuths))  # Azimuth angles
+            space_station_x = np.ravel(np.array(all_positions['sx']))  # Convert X-coordinates to meters
+            space_station_y = np.ravel(np.array(all_positions['sy']))  # Convert Y-coordinates to meters
+            space_station_z = np.ravel(np.array(all_positions['sz']))  # Convert Z-coordinates to meters
+            elevation = np.ravel(np.array(all_elevations))  # Elevation angles
+            azimuth = np.ravel(np.array(all_azimuths))  # Azimuth angles
             # Store the latitude and longitude of the visible satellites for later use
-            lat = np.squeeze(np.array(all_positions['lat']))
-            lon = np.squeeze(np.array(all_positions['lon']))
-
-        rx, ry, rz = lla2ecef(
-            np.squeeze(lat),
-            np.squeeze(lon),
-            0
-        )
-        earth_radius = np.sqrt(rx * rx + ry * ry + rz * rz)
-        all_r = np.squeeze(np.array(all_positions['R'])) * 1e3
-        if only_active:
-            all_r = all_r[active_satellite_idxs]
-        sat_altitude = np.array(all_r - earth_radius)
+            lat = np.ravel(np.array(all_positions['lat']))
+            lon = np.ravel(np.array(all_positions['lon']))
+            sat_altitude = np.ravel(np.array(all_positions['alt']))
 
         # Convert the ECEF coordinates to the transformed cartesian coordinates and set the Space Station positions
         # used to generetate the IMT Base Stations

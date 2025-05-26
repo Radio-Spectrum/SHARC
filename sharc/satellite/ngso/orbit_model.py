@@ -6,6 +6,7 @@ import numpy as np
 from sharc.satellite.ngso.custom_functions import wrap2pi, eccentric_anomaly, keplerian2eci, eci2ecef, plot_ground_tracks
 from sharc.satellite.utils.sat_utils import ecef2lla
 from sharc.satellite.ngso.constants import EARTH_RADIUS_KM, KEPLER_CONST, EARTH_ROTATION_RATE
+from sharc.support.sharc_geom import cartesian_to_polar
 
 
 class OrbitModel():
@@ -161,13 +162,18 @@ class OrbitModel():
 
         r_ecef = eci2ecef(2 * np.pi * rng.random_sample(n_samples) / EARTH_ROTATION_RATE, r_eci)
         sx, sy, sz = r_ecef[0], r_ecef[1], r_ecef[2]
-        lat = np.degrees(np.arcsin(sz / r))
-        lon = np.degrees(np.arctan2(sy, sx))
-        # (lat, lon, _) = ecef2lla(sx, sy, sz)
+        sx, sy, sz = sx*1e3, sy*1e3, sz*1e3
+        lat, lon, alt = ecef2lla(sx, sy, sz)
+
+        gc_r, gc_azim, gc_elev = cartesian_to_polar(sx, sy, sz)
 
         pos_vector = {
-            'lat': lat,
-            'lon': lon,
+            'geod_lat': lat,
+            'geod_lon': lon,
+            'geod_alt': alt,
+            'polar_azim': gc_azim,
+            'polar_elev': gc_elev,
+            'polar_r': gc_r,
             'sx': sx,
             'sy': sy,
             'sz': sz

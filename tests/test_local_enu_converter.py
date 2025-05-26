@@ -112,15 +112,20 @@ class TestLocalEnuConverter(unittest.TestCase):
             n_samples = 100
             stations = StationManager(n_samples)
             # place stations randomly with ecef
-            xyz_bef = lla2ecef(
+            lla_bef = (
                 rng.uniform(-90, 90, n_samples),
                 rng.uniform(-180, 180, n_samples),
                 rng.uniform(0, 35e3, n_samples),
             )
+            lla_bef[0][0] = conv.ref_lat
+            lla_bef[1][0] = conv.ref_long
+            lla_bef[2][0] = conv.ref_alt
+            xyz_bef = lla2ecef(
+                lla_bef[0],
+                lla_bef[1],
+                lla_bef[2],
+            )
             # set first station to be the reference
-            xyz_bef[0][0] = conv.ref_x
-            xyz_bef[1][0] = conv.ref_y
-            xyz_bef[2][0] = conv.ref_z
             # point them randomly
             azim_bef = rng.uniform(-180, 180, n_samples)
             elev_bef = rng.uniform(-90, 90, n_samples)
@@ -190,11 +195,26 @@ class TestLocalEnuConverter(unittest.TestCase):
 
             # check if their position is the same as at the start
             # some precision error occurs, so "almost equal" is needed
-            npt.assert_almost_equal(stations.x, xyz_bef[0])
-            npt.assert_almost_equal(stations.y, xyz_bef[1])
-            npt.assert_almost_equal(stations.z, xyz_bef[2])
-            npt.assert_almost_equal(stations.azimuth, azim_bef)
-            npt.assert_almost_equal(stations.elevation, elev_bef)
+            npt.assert_allclose(stations.x, xyz_bef[0], atol=1e-500)
+            npt.assert_allclose(stations.y, xyz_bef[1], atol=1e-500)
+            npt.assert_allclose(stations.z, xyz_bef[2], atol=1e-500)
+            npt.assert_allclose(stations.azimuth, azim_bef, atol=1e-500)
+            npt.assert_allclose(stations.elevation, elev_bef, atol=1e-500)
+
+            earth_center = StationManager(1)
+
+            earth_center.x = np.array([0.])
+            earth_center.y = np.array([0.])
+            earth_center.z = np.array([0.])
+
+            # point stations downwards
+            stations.azimuth = (lla_bef[1] + 360.) % 360 - 180
+            stations.elevation = -1 * lla_bef[0]
+            off_axis_angle = stations.get_off_axis_angle(earth_center)
+
+            # when station is pointing at nadir, it should have a maximum off axis
+            # of 0.2deg from earth center
+            npt.assert_allclose(off_axis_angle, 0.0, atol=0.2)
 
 
 if __name__ == '__main__':

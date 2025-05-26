@@ -5,9 +5,9 @@ import geopandas as gpd
 import numpy as np
 import plotly.graph_objects as go
 
-from sharc.support.sharc_geom import GeometryConverter
+from sharc.support.sharc_geom import LocalENUConverter
 from sharc.station_manager import StationManager
-geoconv = GeometryConverter()
+geoconv = LocalENUConverter()
 
 sys_lat = -14.5
 sys_long = -45
@@ -39,7 +39,7 @@ def plot_back(fig):
 
     # Convert the lat/lon grid to transformed Cartesian coordinates.
     # Ensure your converter function can handle vectorized (numpy array) inputs.
-    x_flat, y_flat, z_flat = geoconv.convert_lla_to_transformed_cartesian(lat_flat, lon_flat, 0)
+    x_flat, y_flat, z_flat = geoconv.lla2enu(lat_flat, lon_flat, 0)
 
     # Reshape the converted coordinates back to the 2D grid shape.
     x = x_flat.reshape(lat.shape)
@@ -72,7 +72,7 @@ def plot_front(fig):
 
     # Convert the lat/lon grid to transformed Cartesian coordinates.
     # Ensure your converter function can handle vectorized (numpy array) inputs.
-    x_flat, y_flat, z_flat = geoconv.convert_lla_to_transformed_cartesian(lat_flat, lon_flat, 0)
+    x_flat, y_flat, z_flat = geoconv.lla2enu(lat_flat, lon_flat, 0)
 
     # Reshape the converted coordinates back to the 2D grid shape.
     x = x_flat.reshape(lat.shape)
@@ -99,7 +99,7 @@ def plot_polygon(poly):
     # lat = lat * np.pi / 180
 
     # R = EARTH_RADIUS_KM
-    x, y, z = geoconv.convert_lla_to_transformed_cartesian(lat, lon, 0)
+    x, y, z = geoconv.lla2enu(lat, lon, 0)
 
     return x, y, z
 
@@ -208,18 +208,18 @@ if __name__ == "__main__":
 
     # Plot the ground station (blue marker)
     # ground_sta_pos = lla2ecef(sys_lat, sys_long, sys_alt)
-    ground_sta_pos = geoconv.convert_lla_to_transformed_cartesian(sys_lat, sys_long, 1200.0)
+    ground_sta_pos = geoconv.lla2enu(sys_lat, sys_long, 1200.0)
 
     center_of_earth = StationManager(1)
     # rotated and then translated center of earth
     center_of_earth.x = np.array([0.0])
     center_of_earth.y = np.array([0.0])
-    center_of_earth.z = np.array([-geoconv.get_translation()])
+    center_of_earth.z = np.array([-np.linalg.norm(geoconv.translation)])
 
     vis_elevation = []
     for _ in range(NUM_DROPS):
         # Generate satellite positions using the StationFactory
-        mss_d2d_manager = StationFactory.generate_mss_d2d(params, rng, geoconv)
+        mss_d2d_manager = StationFactory.generate_mss_d2d(params, rng, geoconv, also_generate_inactive=True)
 
         # Extract satellite positions
         x_vec = mss_d2d_manager.x / 1e3  # (Km)
@@ -235,9 +235,6 @@ if __name__ == "__main__":
 
         # should be pointing at nadir
         off_axis = mss_d2d_manager.get_off_axis_angle(center_of_earth)
-        if len(np.where(off_axis > 0.01)[0]):
-            print("AOPA, off axis parece estar errado")
-            print("onde?: ", np.where(off_axis > 0.01))
 
         visible_positions['x'].extend(x_vec[vis_sat_idxs])
         visible_positions['y'].extend(y_vec[vis_sat_idxs])

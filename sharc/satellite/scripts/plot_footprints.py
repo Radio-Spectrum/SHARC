@@ -7,13 +7,13 @@ import plotly.graph_objects as go
 
 from sharc.station_factory import StationFactory
 from sharc.parameters.parameters_mss_d2d import ParametersOrbit, ParametersMssD2d
-from sharc.support.sharc_geom import GeometryConverter
+from sharc.support.sharc_geom import LocalENUConverter
 from sharc.satellite.utils.sat_utils import ecef2lla
 from sharc.station_manager import StationManager
 from sharc.parameters.antenna.parameters_antenna_s1528 import ParametersAntennaS1528
 
 
-geoconv = GeometryConverter()
+geoconv = LocalENUConverter()
 
 sys_lat = -14.5
 sys_long = -45
@@ -42,7 +42,7 @@ def plot_back(fig):
 
     # Convert the lat/lon grid to transformed Cartesian coordinates.
     # Ensure your converter function can handle vectorized (numpy array) inputs.
-    x_flat, y_flat, z_flat = geoconv.convert_lla_to_transformed_cartesian(
+    x_flat, y_flat, z_flat = geoconv.lla2enu(
         lat_flat, lon_flat, 0)
 
     # Reshape the converted coordinates back to the 2D grid shape.
@@ -86,7 +86,7 @@ def plot_front(fig):
 
     # Convert the lat/lon grid to transformed Cartesian coordinates.
     # Ensure your converter function can handle vectorized (numpy array) inputs.
-    x_flat, y_flat, z_flat = geoconv.convert_lla_to_transformed_cartesian(
+    x_flat, y_flat, z_flat = geoconv.lla2enu(
         lat_flat, lon_flat, 0)
 
     # Reshape the converted coordinates back to the 2D grid shape.
@@ -120,7 +120,7 @@ def plot_polygon(poly, div=1, alt=0):
     # lat = lat * np.pi / 180
 
     # R = EARTH_RADIUS_KM
-    x, y, z = geoconv.convert_lla_to_transformed_cartesian(lat, lon, alt)
+    x, y, z = geoconv.lla2enu(lat, lon, alt)
 
     return x / div, y / div, z / div
 
@@ -259,14 +259,14 @@ if __name__ == "__main__":
     # Lists to store satellite positions (all and visible)
     # Plot the ground station (blue marker)
     # ground_sta_pos = lla2ecef(sys_lat, sys_long, sys_alt)
-    ground_sta_pos = geoconv.convert_lla_to_transformed_cartesian(
+    ground_sta_pos = geoconv.lla2enu(
         sys_lat, sys_long, sys_alt)
 
     center_of_earth = StationManager(1)
     # rotated and then translated center of earth
     center_of_earth.x = np.array([0.0])
     center_of_earth.y = np.array([0.0])
-    center_of_earth.z = np.array([-geoconv.get_translation()])
+    center_of_earth.z = np.array([-np.linalg.norm(geoconv.translation)])
 
     mss_d2d_manager = StationFactory.generate_mss_d2d(params, rng, geoconv)
 
@@ -301,7 +301,7 @@ if __name__ == "__main__":
     # # Satellite as fp center
     # center_fp_at_sat = 0
     # # get original sat xyz
-    # orx, ory, orz = geoconv.revert_transformed_cartesian_to_cartesian(
+    # orx, ory, orz = geoconv.enu2ecef(
     #     station_1.x[center_fp_at_sat],
     #     station_1.y[center_fp_at_sat],
     #     station_1.z[center_fp_at_sat],
@@ -328,7 +328,7 @@ if __name__ == "__main__":
 
     # Convert the lat/lon grid to transformed Cartesian coordinates.
     # Ensure your converter function can handle vectorized (numpy array) inputs.
-    x_flat, y_flat, z_flat = geoconv.convert_lla_to_transformed_cartesian(lat_flat, lon_flat, 0)
+    x_flat, y_flat, z_flat = geoconv.lla2enu(lat_flat, lon_flat, 0)
 
     # creates a StationManager to calculate the gains on
     surf_manager = StationManager(len(x_flat))

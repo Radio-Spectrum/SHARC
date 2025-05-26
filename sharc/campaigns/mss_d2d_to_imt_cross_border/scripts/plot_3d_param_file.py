@@ -5,7 +5,7 @@ import numpy as np
 import plotly.graph_objects as go
 from pathlib import Path
 
-from sharc.support.sharc_geom import GeometryConverter
+from sharc.support.sharc_geom import LocalENUConverter
 from sharc.parameters.parameters import Parameters
 from sharc.topology.topology_factory import TopologyFactory
 from sharc.station_factory import StationFactory
@@ -26,7 +26,7 @@ def plot_back(fig, geoconv):
 
     # Convert the lat/lon grid to transformed Cartesian coordinates.
     # Ensure your converter function can handle vectorized (numpy array) inputs.
-    x_flat, y_flat, z_flat = geoconv.convert_lla_to_transformed_cartesian(lat_flat, lon_flat, 0)
+    x_flat, y_flat, z_flat = geoconv.lla2enu(lat_flat, lon_flat, 0)
 
     # Reshape the converted coordinates back to the 2D grid shape.
     x = x_flat.reshape(lat.shape)
@@ -59,7 +59,7 @@ def plot_front(fig, geoconv):
 
     # Convert the lat/lon grid to transformed Cartesian coordinates.
     # Ensure your converter function can handle vectorized (numpy array) inputs.
-    x_flat, y_flat, z_flat = geoconv.convert_lla_to_transformed_cartesian(lat_flat, lon_flat, 0)
+    x_flat, y_flat, z_flat = geoconv.lla2enu(lat_flat, lon_flat, 0)
 
     # Reshape the converted coordinates back to the 2D grid shape.
     x = x_flat.reshape(lat.shape)
@@ -86,7 +86,7 @@ def plot_polygon(poly, geoconv):
     # lat = lat * np.pi / 180
 
     # R = EARTH_RADIUS_KM
-    x, y, z = geoconv.convert_lla_to_transformed_cartesian(lat, lon, 0)
+    x, y, z = geoconv.lla2enu(lat, lon, 0)
 
     return x, y, z
 
@@ -150,7 +150,7 @@ def plot_globe_with_borders(opaque_globe: bool, geoconv):
 
 
 if __name__ == "__main__":
-    geoconv = GeometryConverter()
+    geoconv = LocalENUConverter()
     SELECTED_SNAPSHOT_NUMBER = 0
     OPAQUE_GLOBE = True
     print(f"Plotting drop {SELECTED_SNAPSHOT_NUMBER}")
@@ -303,7 +303,7 @@ if __name__ == "__main__":
                 range=(-range, range)
             ),
             camera=dict(
-                center=dict(x=0, y=0, z=-geoconv.get_translation() / (2 * range)),  # Look at Earth's center
+                center=dict(x=0, y=0, z=-np.linalg.norm(geoconv.translation) / (2 * range)),  # Look at Earth's center
                 # eye=eye,   # Camera position
                 # center=dict(x=0, y=0, z=0),  # Look at Earth's center
                 # up=dict(x=0, y=0, z=1)  # Ensure the up direction is correct

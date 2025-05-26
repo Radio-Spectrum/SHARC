@@ -14,13 +14,13 @@ from sharc.topology.topology_indoor import TopologyIndoor
 from sharc.topology.topology_ntn import TopologyNTN
 from sharc.topology.topology_single_base_station import TopologySingleBaseStation
 from sharc.parameters.parameters import Parameters
-from sharc.support.sharc_geom import GeometryConverter
+from sharc.support.sharc_geom import LocalENUConverter
 
 
 class TopologyFactory(object):
 
     @staticmethod
-    def createTopology(parameters: Parameters, geometry_converter: GeometryConverter) -> Topology:
+    def createTopology(parameters: Parameters, geometry_converter: LocalENUConverter) -> Topology:
         if parameters.imt.topology.type == "SINGLE_BS":
             return TopologySingleBaseStation(
                 parameters.imt.topology.single_bs.cell_radius,

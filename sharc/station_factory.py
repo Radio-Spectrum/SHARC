@@ -61,7 +61,7 @@ from sharc.mask.spectral_mask_3gpp import SpectralMask3Gpp
 from sharc.mask.spectral_mask_mss import SpectralMaskMSS
 from sharc.satellite.ngso.orbit_model import OrbitModel
 from sharc.satellite.utils.sat_utils import calc_elevation, lla2ecef
-from sharc.support.sharc_geom import rotate_angles_based_on_new_nadir, GeometryConverter
+from sharc.support.sharc_geom import rotate_angles_based_on_new_nadir, LocalENUConverter
 
 from sharc.parameters.constants import SPEED_OF_LIGHT
 
@@ -556,7 +556,7 @@ class StationFactory(object):
         parameters: Parameters,
         topology: Topology,
         random_number_gen: np.random.RandomState,
-        geometry_converter=GeometryConverter()
+        geometry_converter=LocalENUConverter()
     ):
         if parameters.imt.topology.type == 'MACROCELL':
             intersite_dist = parameters.imt.topology.macrocell.intersite_distance
@@ -1299,7 +1299,7 @@ class StationFactory(object):
     def generate_mss_d2d(
         params: ParametersMssD2d,
         random_number_gen: np.random.RandomState,
-        geometry_converter: GeometryConverter,
+        geometry_converter: LocalENUConverter,
         also_generate_inactive: bool = False
     ):
         """
@@ -1311,7 +1311,7 @@ class StationFactory(object):
             Parameters for the MSS D2D system, including orbits and antenna configuration.
         random_number_gen : np.random.RandomState
             Random number generator for generating satellite positions.
-        geometry_converter : GeometryConverter
+        geometry_converter : LocalENUConverter
             A converter that has already set a reference for coordinates transformation
 
         Returns
@@ -1513,7 +1513,7 @@ class StationFactory(object):
 
 if __name__ == '__main__':
     rand_gen = np.random.RandomState(101)
-    geometry_converter = GeometryConverter()
+    geometry_converter = LocalENUConverter()
 
     # somente vou utilizar a translação que o satélite teoricamente sofreu:
     ref_lat = -14.1

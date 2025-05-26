@@ -6,7 +6,7 @@ It consists of a group of NGSO satellites that provide direct connectivity to us
 The Space Stations positions are generated from the Keplerian elements of the orbits in the OrbitModel class.
 Only a subset of Space Stations are used, which are the ones that are visible to the UE.
 After satellite visibility is calculated, the ECEF coordinates are transformed to a new cartesian coordinate system
-centered at the reference point defined in the GeometryConverter object.
+centered at the reference point defined in the LocalENUConverter object.
 The azimuth and elevation angles are also rotated to the new coordinate system.
 The visible Space Stations are then used to generate the IMT Base Stations.
 """
@@ -20,23 +20,23 @@ from sharc.topology.topology import Topology
 from sharc.parameters.imt.parameters_imt_mss_dc import ParametersImtMssDc
 from sharc.parameters.parameters_orbit import ParametersOrbit
 from sharc.satellite.ngso.orbit_model import OrbitModel
-from sharc.support.sharc_geom import GeometryConverter, rotate_angles_based_on_new_nadir
+from sharc.support.sharc_geom import LocalENUConverter, rotate_angles_based_on_new_nadir
 from sharc.topology.topology_ntn import TopologyNTN
 from sharc.satellite.utils.sat_utils import calc_elevation
 from sharc.support.sharc_geom import lla2ecef, cartesian_to_polar, polar_to_cartesian
 
 
 class TopologyImtMssDc(Topology):
-    def __init__(self, params: ParametersImtMssDc, geometry_converter: GeometryConverter):
+    def __init__(self, params: ParametersImtMssDc, geometry_converter: LocalENUConverter):
         """Implements a IMT Mobile Satellite Service (MSS) for Direct Connectivity (D2D) topology.
 
         Parameters
         ----------
         params : ParametersImtMssDc
             Input parameters for the IMT MSS-DC topology
-        geometry_converter : GeometryConverter
-            GeometryConverter object that converts the ECEF coordintate system to one
-            centered at GeometryConverter.reference.
+        geometry_converter : LocalENUConverter
+            LocalENUConverter object that converts the ECEF coordintate system to one
+            centered at LocalENUConverter.reference.
         """
         # That means the we need to pass the groud reference points to the base stations generator
         self.is_space_station = True
@@ -75,7 +75,7 @@ class TopologyImtMssDc(Topology):
 
     @staticmethod
     def get_coordinates(
-        geometry_converter: GeometryConverter,
+        geometry_converter: LocalENUConverter,
         orbit_params: ParametersImtMssDc,
         random_number_gen=np.random.RandomState(),
         only_active=True,
@@ -251,14 +251,14 @@ class TopologyImtMssDc(Topology):
         # Convert the ECEF coordinates to the transformed cartesian coordinates and set the Space Station positions
         # used to generetate the IMT Base Stations
         space_station_x, space_station_y, space_station_z = \
-            geometry_converter.convert_cartesian_to_transformed_cartesian(space_station_x, space_station_y, space_station_z)
+            geometry_converter.ecef2enu(space_station_x, space_station_y, space_station_z)
 
         # Rotate the azimuth and elevation angles off the center beam the new transformed cartesian coordinates
         r = 1
         # transform pointing vectors, without considering geodesical earth coord system
         pointing_vec_x, pointing_vec_y, pointing_vec_z = polar_to_cartesian(r, azimuth, elevation)
         pointing_vec_x, pointing_vec_y, pointing_vec_z = \
-            geometry_converter.convert_cartesian_to_transformed_cartesian(
+            geometry_converter.ecef2enu(
                 pointing_vec_x, pointing_vec_y, pointing_vec_z, translate=0)
         _, azimuth, elevation = cartesian_to_polar(pointing_vec_x, pointing_vec_y, pointing_vec_z)
 
@@ -484,6 +484,7 @@ class TopologyImtMssDc(Topology):
                     self.space_station_x[bs_i] ** 2 +
                     self.space_station_y[bs_i] ** 2
                 ),
+                # FIXME: fix this
                 self.space_station_z[bs_i] + self.geometry_converter.get_translation()
             )
 
@@ -512,7 +513,7 @@ class TopologyImtMssDc(Topology):
 # Example usage
 if __name__ == '__main__':
     from sharc.parameters.imt.parameters_imt_mss_dc import ParametersImtMssDc
-    from sharc.support.sharc_geom import GeometryConverter
+    from sharc.support.sharc_geom import LocalENUConverter
 
     # Define the parameters for the IMT MSS-DC topology
     # SystemA Orbit parameters
@@ -538,7 +539,7 @@ if __name__ == '__main__':
     params.sat_is_active_if.lat_long_inside_country.country_names = ["Brazil"]
 
     # Define the geometry converter
-    geometry_converter = GeometryConverter()
+    geometry_converter = LocalENUConverter()
     geometry_converter.set_reference(-15.0, -42.0, 1200)
 
     # Instantiate the IMT MSS-DC topology

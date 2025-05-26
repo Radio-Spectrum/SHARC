@@ -15,7 +15,7 @@ import matplotlib.pyplot as plt
 
 from sharc.support.enumerations import StationType
 from sharc.topology.topology_factory import TopologyFactory
-from sharc.support.sharc_geom import GeometryConverter
+from sharc.support.sharc_geom import LocalENUConverter
 from sharc.parameters.parameters import Parameters
 from sharc.station_manager import StationManager, copy_active_stations
 from sharc.results import Results
@@ -73,7 +73,7 @@ class Simulation(ABC, Observable):
         self.co_channel = self.parameters.general.enable_cochannel
         self.adjacent_channel = self.parameters.general.enable_adjacent_channel
 
-        geometry_converter = GeometryConverter()
+        geometry_converter = LocalENUConverter()
 
         if self.parameters.imt.topology.central_latitude is not None:
             geometry_converter.set_reference(

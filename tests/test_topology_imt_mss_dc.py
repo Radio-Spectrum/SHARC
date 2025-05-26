@@ -5,7 +5,7 @@ from sharc.topology.topology_imt_mss_dc import TopologyImtMssDc
 from sharc.parameters.imt.parameters_imt_mss_dc import ParametersImtMssDc
 from sharc.station_manager import StationManager
 from sharc.parameters.parameters_orbit import ParametersOrbit
-from sharc.support.sharc_geom import GeometryConverter, lla2ecef
+from sharc.support.sharc_geom import LocalENUConverter, lla2ecef, ecef2lla
 
 
 class TestTopologyImtMssDc(unittest.TestCase):
@@ -44,7 +44,7 @@ class TestTopologyImtMssDc(unittest.TestCase):
         self.params.sat_is_active_if.minimum_elevation_from_es = 5.0
 
         # Define the geometry converter
-        self.geometry_converter = GeometryConverter()
+        self.geometry_converter = LocalENUConverter()
         self.geometry_converter.set_reference(-15.0, -42.0, 1200)
 
         # Define the Earth center coordinates
@@ -86,13 +86,20 @@ class TestTopologyImtMssDc(unittest.TestCase):
             -np.sign(self.imt_mss_dc_topology.space_station_y[center_beam_idxs]),
         )
 
+        # FIXME:
         # Test: check if the altitude is calculated correctly
-        rx = self.imt_mss_dc_topology.space_station_x - self.earth_center_x
-        ry = self.imt_mss_dc_topology.space_station_y - self.earth_center_y
-        rz = self.imt_mss_dc_topology.space_station_z - self.earth_center_z
-        r = np.sqrt(rx**2 + ry**2 + rz**2)
-        expected_alt_km = (r - np.abs(self.earth_center_z)) / 1e3
-        npt.assert_array_almost_equal(expected_alt_km, self.params.orbits[0].apogee_alt_km, decimal=0)
+        _, __, alt = ecef2lla(
+            self.imt_mss_dc_topology.space_station_x,
+            self.imt_mss_dc_topology.space_station_y,
+            self.imt_mss_dc_topology.space_station_z
+        )
+        alt = alt / 1e3
+        # rx = self.imt_mss_dc_topology.space_station_x - self.earth_center_x
+        # ry = self.imt_mss_dc_topology.space_station_y - self.earth_center_y
+        # rz = self.imt_mss_dc_topology.space_station_z - self.earth_center_z
+        # r = np.sqrt(rx**2 + ry**2 + rz**2)
+        # expected_alt_km = (r - np.abs(self.earth_center_z)) / 1e3
+        npt.assert_array_almost_equal(alt, self.params.orbits[0].apogee_alt_km, decimal=0)
 
         # by default, satellites should always point to nadir (earth center)
         ref_earth_center = StationManager(1)

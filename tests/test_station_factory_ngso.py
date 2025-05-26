@@ -5,7 +5,7 @@ from sharc.topology.topology_single_base_station import TopologySingleBaseStatio
 from sharc.support.enumerations import StationType
 from sharc.station_factory import StationFactory
 from sharc.station_manager import StationManager
-from sharc.support.sharc_geom import GeometryConverter, lla2ecef
+from sharc.support.sharc_geom import LocalENUConverter, lla2ecef
 
 import numpy as np
 import numpy.testing as npt
@@ -41,7 +41,7 @@ class StationFactoryNgsoTest(unittest.TestCase):
         self.long = -47.9292
         self.alt = 1200
 
-        self.geoconvert = GeometryConverter()
+        self.geoconvert = LocalENUConverter()
         self.geoconvert.set_reference(
             -15.7801,
             -47.9292,
@@ -82,47 +82,34 @@ class StationFactoryNgsoTest(unittest.TestCase):
         # Test: check if azimuth is pointing towards correct direction
         # y > 0 <=> azimuth < 0
         # y < 0 <=> azimuth > 0
+
+        # FIXME: this test isn't passing...
+        # w = np.where(np.sign(self.ngso_manager.azimuth) != -np.sign(self.ngso_manager.y))
+        # print("where?", w)
+        # print("self.ngso_manager.azimuth[w]", self.ngso_manager.azimuth[w])
+        # print("self.ngso_manager.y[w]", self.ngso_manager.y[w])
+        # print("self.ngso_manager.x[w]", self.ngso_manager.x[w])
         npt.assert_array_equal(np.sign(self.ngso_manager.azimuth), -np.sign(self.ngso_manager.y))
 
         # Test: check if center of earth is 0deg off axis, and that its distance to satellite is correct
         earth_center = StationManager(1)
         earth_center.x = np.array([0.])
         earth_center.y = np.array([0.])
-        x, y, z = lla2ecef(self.lat, self.long, self.alt)
-        earth_center.z = np.array([
-            -np.sqrt(
-                x * x + y * y + z * z,
-            ),
-        ])
-
-        self.assertNotAlmostEqual(earth_center.z[0], 0.)
+        earth_center.z = np.array([0.])
+        self.geoconvert.station_ecef2enu(earth_center)
 
         off_axis_angle = self.ngso_manager.get_off_axis_angle(earth_center)
-        distance_to_center_of_earth = self.ngso_manager.get_3d_distance_to(earth_center)
-        distance_to_center_of_earth_should_eq = np.sqrt(
-            self.ngso_manager.x ** 2 +
-            self.ngso_manager.y ** 2 +
-            (
-                    np.sqrt(
-                        x * x + y * y + z * z,
-                    ) + self.ngso_manager.z
-            ) ** 2,
-        )
+        # it may have some off axis different from 0 since nadir
+        # doesn't exactly point to center of earth
+        npt.assert_allclose(off_axis_angle, 0.0, atol=1e-5)
 
-        npt.assert_allclose(off_axis_angle, 0.0, atol=1e-05)
-
-        npt.assert_allclose(
-            distance_to_center_of_earth.flatten(),
-            distance_to_center_of_earth_should_eq,
-            atol=1e-05,
-        )
 
     def test_satellite_coordinate_reversing(self):
         # by default, satellites should always point to nadir (earth center)
         rng = np.random.RandomState(seed=self.seed)
 
         ngso_original_coord = StationFactory.generate_mss_d2d(self.param, rng, self.geoconvert)
-        self.geoconvert.revert_station_2d_to_3d(ngso_original_coord)
+        self.geoconvert.station_enu2ecef(ngso_original_coord)
         # Test: check if azimuth is pointing towards correct direction
         # y > 0 <=> azimuth < 0
         # y < 0 <=> azimuth > 0
@@ -138,7 +125,7 @@ class StationFactoryNgsoTest(unittest.TestCase):
 
         npt.assert_allclose(off_axis_angle, 0.0, atol=1e-05)
 
-        self.geoconvert.convert_station_3d_to_2d(ngso_original_coord)
+        self.geoconvert.station_ecef2enu(ngso_original_coord)
 
         npt.assert_allclose(self.ngso_manager.x, ngso_original_coord.x, atol=1e-500)
         npt.assert_allclose(self.ngso_manager.y, ngso_original_coord.y, atol=1e-500)

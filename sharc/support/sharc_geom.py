@@ -2,6 +2,7 @@ import numpy as np
 import shapely as shp
 import typing
 import pyproj
+import scipy.spatial.transform
 
 from sharc.satellite.utils.sat_utils import lla2ecef, ecef2lla
 from sharc.station_manager import StationManager
@@ -145,14 +146,10 @@ def rotate_angles_based_on_new_nadir(elev, azim, nadir_elev, nadir_azim):
     return res_elev, rotated_phi
 
 
-class GeometryConverter():
+class LocalENUConverter():
     """
-    This is a Singleton. set_reference should be called once per simulation/snapshot.
-
-    Alert:
-        Every conversion between polar and geodesic should be intermediated by cartesian.
-        Every transformation should be done either at cartesian or polar.
-        Ignore at your own risk (and sadness)
+    This class receives a reference lat, lon, alt and may transform other coordinate types
+    to local ENU
     """
     def __init__(self):
         # geodesical
@@ -165,16 +162,12 @@ class GeometryConverter():
         self.ref_y = None
         self.ref_z = None
 
-        # polar
-        self.ref_r = None
-        self.ref_azim = None
-        self.ref_elev = None
-
-    def get_translation(self):
-        return self.ref_r
+        # rotation matrix used
+        self.translation = np.array([self.ref_x, self.ref_y, self.ref_z])
+        self.rotation = None
 
     def validate(self):
-        if None in [self.ref_elev, self.ref_azim, self.ref_r]:
+        if None in [self.ref_lat, self.ref_long, self.ref_alt]:
             raise ValueError("You need to set a reference for coordinate transformation before using it")
 
     def set_reference(self, ref_lat: float, ref_long: float, ref_alt: float):
@@ -186,60 +179,64 @@ class GeometryConverter():
         self.ref_y = ref_y
         self.ref_z = ref_z
 
-        # polar coordinates
-        # geodesic doesn't necessarily translate one to one here
-        # so we use cartesian as intermediary
-        self.ref_r, self.ref_azim, self.ref_elev = cartesian_to_polar(ref_x, ref_y, ref_z)
+        # ECEF considers xy plane with x axis pointing at lon = 0,
+        # local coords considers x axis pointing towards East
+        # and y pointing towards North
 
-    def convert_cartesian_to_transformed_cartesian(
+        # translate everything so ES is at (0, 0, 0)
+        self.translation = np.array([self.ref_x, self.ref_y, self.ref_z])
+
+        # considering:
+        # - that by definition the vector pointing East
+        #     is already orthogonal to ECEF z axis,
+        #     in other words, it is fully contained in the ECEF xy plane;
+        # Then, a single rotation around ECEF z can align local East and positive x
+        # Local east and ECEF x axis are parallel and with same direction at long=-90
+        # rotation around ECEF z = -90 - ref_lon
+        rotation_around_z = -self.ref_long - 90
+
+        # considering:
+        # - that the local zenith is orthogonal to local east;
+        # - that the local zenith unit vector can be found by using geodetic (lat, lon)
+        #    as polar coordinates (as follows from geodetic lat, lon definition)
+        # - that the local east is now fully contained in the x axis;
+        # Then the local zenith is fully contained in the yz plane,
+        # and a single rotation around the x axis aligns it with global z
+        # More specifically, z_vec = polar(lat, ref_long - ref_long) = polar(lat, 0)
+        # and so a rotation of 90 - lat is what is necessary
+        rotation_around_x = self.ref_lat - 90
+
+        # since ECEF follows left hand rule and local coordinates also do,
+        # x axis points to local East and z points to local zenith,
+        # y axis already is aligned with local North after transformation
+        self.rotation = scipy.spatial.transform.Rotation.from_euler(
+            'zx', [rotation_around_z, rotation_around_x], degrees=True
+        )
+        # can also be confirmed comparing to here:
+        # https://gssc.esa.int/navipedia/index.php/Transformations_between_ECEF_and_ENU_coordinates
+
+    def ecef2enu(
         self, x, y, z, *, translate=None
     ):
         """
         Transforms points by the same transformation required to bring reference to (0,0,0)
         You can only rotate by specifying translate=0
         """
-        ref_elev = self.ref_elev
-        ref_azim = self.ref_azim
-        ref_r = self.ref_r
-
         self.validate()
+        
+        translate_val = self.translation
+        if translate is not None:
+            translate_val = np.atleast_1d(translate)
 
-        # calculate distances to the centre of the Earth
-        dist_sat_centre_earth_km, azim, elev = cartesian_to_polar(x, y, z)
+        # broadcast translate to have same number of dimensions as expected
+        xyz = np.stack([x,y,z], axis=-1) # Nx3
 
-        dist_imt_centre_earth = translate
-        if translate is None:
-            dist_imt_centre_earth = ref_r
+        xyz = xyz - translate_val[np.newaxis, :]
 
-        # calculate Cartesian coordinates of , with origin at centre of the Earth,
-        # but considering the x axis at same longitude as the ref_long
-        # so that we can rotate around y to bring reference to top
-        sat_lat_rad = np.deg2rad(elev)
-        # consider coordinates rotating ref_long clockwise around z axis
-        imt_long_diff_rad = np.deg2rad(azim - ref_azim)
-        x1 = dist_sat_centre_earth_km * \
-            np.cos(sat_lat_rad) * np.cos(imt_long_diff_rad)
-        y1 = dist_sat_centre_earth_km * \
-            np.cos(sat_lat_rad) * np.sin(imt_long_diff_rad)
+        # rotate so axis are same as ENU
+        return self.rotation.apply(xyz).T
 
-        # didn't transform, shoud eq height
-        z1 = dist_sat_centre_earth_km * np.sin(sat_lat_rad)
-
-        # rotate axis and calculate coordinates with origin at IMT system
-        imt_lat_rad = np.deg2rad(ref_elev)
-        x2 = (
-            x1 * np.sin(imt_lat_rad) - z1 * np.cos(imt_lat_rad)
-        )
-
-        y2 = y1
-
-        z2 = (
-            z1 * np.sin(imt_lat_rad) + x1 * np.cos(imt_lat_rad)
-        ) - dist_imt_centre_earth
-
-        return (x2, y2, z2)
-
-    def revert_transformed_cartesian_to_cartesian(
+    def enu2ecef(
         self, x2, y2, z2, *, translate=None
     ):
         """
@@ -247,42 +244,23 @@ class GeometryConverter():
         You can only rotate by specifying translate=0. You need to use the same 'translate' value used
         in transformation if you wish to reverse the transformation correctly
         """
-        ref_elev = self.ref_elev
-        ref_azim = self.ref_azim
-        ref_r = self.ref_r
-
         self.validate()
+        
+        # translate everything so ES is at (0, 0, 0)
+        translate_val = self.translation
+        if translate is not None:
+            translate_val = np.atleast_1d(translate)
 
-        # rotate axis and calculate coordinates with origin at IMT system
-        imt_lat_rad = np.deg2rad(ref_elev)
+        # broadcast translate to have same number of dimensions as expected
+        xyz = np.stack([x2,y2,z2], axis=-1) # Nx3
 
-        dist_imt_centre_earth = translate
-        if translate is None:
-            dist_imt_centre_earth = ref_r
+        # rotate xyz back to ecef coord system
+        xyz = self.rotation.apply(xyz, inverse=True)
 
-        # transposed transformation matrix
-        z2 = z2 + dist_imt_centre_earth
-        y1 = y2
-        x1 = x2 * np.sin(imt_lat_rad) + z2 * np.cos(imt_lat_rad)
-        z1 = z2 * np.sin(imt_lat_rad) - x2 * np.cos(imt_lat_rad)
+        # translate earth reference back to its original ecef coord
+        return (xyz + translate_val[np.newaxis, :]).T
 
-        dist_sat_centre_earth_km = np.sqrt(x1 * x1 + z1 * z1 + y1 * y1)
-        sat_lat_rad = np.arcsin(z1 / dist_sat_centre_earth_km)
-
-        imt_long_diff_rad = np.arctan2(
-            y1, x1
-        )
-
-        # calculate distances to the centre of the Earth
-        x, y, z = polar_to_cartesian(
-            dist_sat_centre_earth_km,
-            np.rad2deg(imt_long_diff_rad) + ref_azim,
-            np.rad2deg(sat_lat_rad)
-        )
-
-        return (x, y, z)
-
-    def convert_lla_to_transformed_cartesian(
+    def lla2enu(
         self, lat: np.array, long: np.array, alt: np.array
     ):
         """
@@ -293,9 +271,9 @@ class GeometryConverter():
         # get cartesian position by geodesical
         x, y, z = lla2ecef(lat, long, alt)
 
-        return self.convert_cartesian_to_transformed_cartesian(x, y, z)
+        return self.ecef2enu(x, y, z)
 
-    def convert_station_3d_to_2d(
+    def station_ecef2enu(
         self, station: StationManager, idx=None
     ) -> None:
         """
@@ -305,12 +283,10 @@ class GeometryConverter():
 
         if idx is specified, only stations[idx] will be converted
         """
-        # transform positions
-        # print("(station.x, station.y, station.z)", (station.x[idx], station.y[idx], station.z[idx]))
         if idx is None:
-            nx, ny, nz = self.convert_cartesian_to_transformed_cartesian(station.x, station.y, station.z)
+            nx, ny, nz = self.ecef2enu(station.x, station.y, station.z)
         else:
-            nx, ny, nz = self.convert_cartesian_to_transformed_cartesian(station.x[idx], station.y[idx], station.z[idx])
+            nx, ny, nz = self.ecef2enu(station.x[idx], station.y[idx], station.z[idx])
 
         if idx is None:
             azim = station.azimuth
@@ -324,7 +300,7 @@ class GeometryConverter():
         pointing_vec_x, pointing_vec_y, pointing_vec_z = polar_to_cartesian(r, azim, elev)
 
         # transform pointing vectors, without considering geodesical earth coord system
-        pointing_vec_x, pointing_vec_y, pointing_vec_z = self.convert_cartesian_to_transformed_cartesian(
+        pointing_vec_x, pointing_vec_y, pointing_vec_z = self.ecef2enu(
             pointing_vec_x, pointing_vec_y, pointing_vec_z, translate=0
         )
 
@@ -344,7 +320,7 @@ class GeometryConverter():
             station.azimuth[idx] = azimuth
             station.elevation[idx] = elevation
 
-    def revert_station_2d_to_3d(
+    def station_enu2ecef(
         self, station: StationManager, idx=None
     ) -> None:
         """
@@ -357,9 +333,9 @@ class GeometryConverter():
         # transform positions
         # print("(station.x, station.y, station.z)", (station.x[idx], station.y[idx], station.z[idx]))
         if idx is None:
-            nx, ny, nz = self.revert_transformed_cartesian_to_cartesian(station.x, station.y, station.z)
+            nx, ny, nz = self.enu2ecef(station.x, station.y, station.z)
         else:
-            nx, ny, nz = self.revert_transformed_cartesian_to_cartesian(station.x[idx], station.y[idx], station.z[idx])
+            nx, ny, nz = self.enu2ecef(station.x[idx], station.y[idx], station.z[idx])
 
         if idx is None:
             azim = station.azimuth
@@ -373,7 +349,7 @@ class GeometryConverter():
         pointing_vec_x, pointing_vec_y, pointing_vec_z = polar_to_cartesian(r, azim, elev)
 
         # transform pointing vectors, without considering geodesical earth coord system
-        pointing_vec_x, pointing_vec_y, pointing_vec_z = self.revert_transformed_cartesian_to_cartesian(
+        pointing_vec_x, pointing_vec_y, pointing_vec_z = self.enu2ecef(
             pointing_vec_x, pointing_vec_y, pointing_vec_z, translate=0
         )
 
@@ -487,7 +463,7 @@ if __name__ == "__main__":
 
     # print(get_rotation_matrix_between_vecs(np.array([0,1,0]), np.array([0,0,1])))
 
-    geoconv = GeometryConverter()
+    geoconv = LocalENUConverter()
 
     sys_lat = 89
     sys_long = 0
@@ -512,7 +488,7 @@ if __name__ == "__main__":
     # print("stat.azimuth", stat.azimuth)
     # print("stat.elevation", stat.elevation)
     # print("#########")
-    # geoconv.convert_station_3d_to_2d(stat)
+    # geoconv.station_enu2ecef(stat)
     # print("#########")
 
     # print("stat.x", stat.x)

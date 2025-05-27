@@ -3,7 +3,7 @@ import streamlit as st
 from ui.sidebar_folders import sidebar_style
 from ui.terminal_component import render_notebook_terminal
 from ui.explorer import render_file_explorer  
-from ui.manage_campaigns import render_campaign_buttons
+import ui.manage_campaigns as mng_cp
 
 
 st.set_page_config(page_title="SHARC", layout="wide")
@@ -47,7 +47,7 @@ selected_page = sidebar_style()
 st.title(f"{selected_page.capitalize()}")
 
 if selected_page == "campaigns":
-    start_sim, edit_camp, create_camp = render_campaign_buttons()
+    start_sim, edit_camp, create_camp = mng_cp.render_campaign_buttons()
 
     if start_sim:
         st.write("Simulation started!")
@@ -57,6 +57,7 @@ if selected_page == "campaigns":
 
     if create_camp:
         st.write("Creating a new campaign...")
+        mng_cp.create_campaign()
 
 docs_path = os.path.join(os.path.dirname(__file__), "docs", f"{selected_page}.md")
 try:

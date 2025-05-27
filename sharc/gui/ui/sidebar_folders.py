@@ -1,25 +1,27 @@
 import streamlit as st
-from PIL import Image 
+from PIL import Image
 import os
 
 def sidebar_style():
-    folders = [
-        "home", "antenna", "campaigns", "mask", 
-        "parameters", "propagation", "topology"
+    main_folders = ["home", "campaigns"]
+    dev_folders = [
+        "antenna", "input", "mask", 
+        "parameters", "plots", "propagation", "topology"
     ]
 
     icons = {
-        "home": "",
-        "antenna": "",
-        "campaigns": "",
-        "input": "",
-        "mask": "",
-        "parameters": "",
-        "plots": "",
-        "propagation": "",
-        "topology": ""
+        "home": "🦈",
+        "antenna": "📡",
+        "campaigns": "🗂️",
+        "input": "📥",
+        "mask": "📉",
+        "parameters": "⚙️",
+        "plots": "📊",
+        "propagation": "📶",
+        "topology": "🧭"
     }
 
+    # Estilo customizado
     st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap');
@@ -29,7 +31,6 @@ def sidebar_style():
         background: linear-gradient(to bottom, #f3f4f6, #e5e7eb);
         color: #1c1c1e;
     }
-                
 
     [data-testid="stSidebar"] {
         background: rgba(255, 255, 255, 0.75);
@@ -47,7 +48,7 @@ def sidebar_style():
     .block-container {
         padding: 1rem 2rem;
     }
-                
+
     .header {
         font-size: 24px;
         font-weight: 600;
@@ -124,13 +125,6 @@ def sidebar_style():
         transform: scale(1.01);
     }
 
-    button.selected {
-        background-color: #007aff !important;
-        color: white !important;
-        font-weight: 600;
-        box-shadow: 0 0 0 1.5px rgba(0, 122, 255, 0.5);
-    }
-
     .bottom-footer {
         font-size: 13px;
         color: #666;
@@ -138,52 +132,74 @@ def sidebar_style():
         padding-top: 1rem;
         border-top: 1px solid #ddd;
     }
-
     </style>
     """, unsafe_allow_html=True)
 
+    # Header
     st.sidebar.markdown('<div class="header">Radio-Spectrum SHARC</div>', unsafe_allow_html=True)
 
-    icon = os.path.join(os.path.dirname(__file__), "img", "sharc_logo_1.0.png")
-    image = Image.open(icon)
-    st.sidebar.markdown('<div class="sidebar-logo">', unsafe_allow_html=True)
-    st.sidebar.image(image, use_column_width=False, width=120)
-    st.sidebar.markdown('</div>', unsafe_allow_html=True)
+    # Logo
+    try:
+        icon = os.path.join(os.path.dirname(__file__), "img", "sharc_logo_1.0.png")
+        image = Image.open(icon)
+        st.sidebar.markdown('<div class="sidebar-logo">', unsafe_allow_html=True)
+        st.sidebar.image(image, use_column_width=False, width=120)
+        st.sidebar.markdown('</div>', unsafe_allow_html=True)
+    except Exception as e:
+        st.sidebar.markdown('<div class="sidebar-logo"><i>Logo not found</i></div>', unsafe_allow_html=True)
 
     st.sidebar.markdown('<div class="custom-title">Navigation</div>', unsafe_allow_html=True)
 
+    # Search box
     st.sidebar.markdown('<div class="search-box">', unsafe_allow_html=True)
     search_query = st.sidebar.text_input("", "", key="sidebar_search", placeholder="Search...").lower()
     st.sidebar.markdown('</div>', unsafe_allow_html=True)
 
+    # Estado inicial
     if "selected_folder" not in st.session_state:
         st.session_state.selected_folder = "home"
 
-    filtered_folders = [f for f in folders if search_query in f.lower()]
-    for folder in filtered_folders:
+    # Função para renderizar botão
+    def render_button(folder):
         label = f"{icons.get(folder, '')} {folder.capitalize()}"
         button_key = f"btn_{folder}"
-        clicked = st.sidebar.button(label, key=button_key)
-        selected = (st.session_state.selected_folder == folder)
-
-        # Add selected class dynamically via JS after button is rendered
+        clicked = st.button(label, key=button_key)
         if clicked:
             st.session_state.selected_folder = folder
+        if st.session_state.selected_folder == folder:
+            st.markdown(
+                f"""
+                <style>
+                button[data-testid="baseButton"][aria-label="{label}"] {{
+                    background-color: #007aff !important;
+                    color: white !important;
+                    font-weight: 600 !important;
+                    box-shadow: 0 0 0 1.5px rgba(0, 122, 255, 0.5) !important;
+                }}
+                </style>
+                """,
+                unsafe_allow_html=True
+            )
 
-        if selected:
-            st.markdown(f"""
-            <style>
-            button[data-testid="{button_key}"] {{
-                background-color: #007aff !important;
-                color: white !important;
-                font-weight: 600 !important;
-                box-shadow: 0 0 0 1.5px rgba(0, 122, 255, 0.5) !important;
-            }}
-            </style>
-            """, unsafe_allow_html=True)
+    # Main folders (sempre visíveis)
+    with st.sidebar.expander("Simulator", expanded=True):
+        for folder in main_folders:
+            render_button(folder)
 
+
+    # Dev Tools (filtradas pela busca)
+    dev_folders_filtered = [f for f in dev_folders if search_query in f.lower()]
+    if dev_folders_filtered:
+        with st.sidebar.expander("🧰 Dev Tools", expanded=False):
+            dev_container = st.container()
+            for folder in dev_folders_filtered:
+                with dev_container:
+                    render_button(folder)
+
+    # Rodapé
+    st.sidebar.markdown("---")
     st.sidebar.markdown(f'[**Documentation**](https://projectsharc.vercel.app/)', unsafe_allow_html=True)
-    st.sidebar.markdown(f'[**ITU-Resolutions**](www.itu.int/en/about/Pages/default.aspx)', unsafe_allow_html=True)
+    st.sidebar.markdown(f'[**ITU-Resolutions**](https://www.itu.int/en/about/Pages/default.aspx)', unsafe_allow_html=True)
     st.sidebar.markdown('<div class="bottom-footer">Copyright © 2025<br>Radio-Spectrum SHARC</div>', unsafe_allow_html=True)
 
     return st.session_state.selected_folder

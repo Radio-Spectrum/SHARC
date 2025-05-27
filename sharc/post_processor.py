@@ -503,7 +503,7 @@ class PostProcessor:
                         for j in range(1, 10):
                             yticks.append(j * (10**(-i)))
                     yticks = yticks + [1.0]
-                    major_yticks = [10**(-i) for i in range(4)]
+                    major_yticks = [10**(-i) for i in range(n_right_zeros)]
                     ytick_text = [str(v) if v in major_yticks else "" for v in yticks]
                     fig.update_yaxes(tickvals=yticks, ticktext=ytick_text)
 

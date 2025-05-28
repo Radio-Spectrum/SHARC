@@ -280,7 +280,20 @@ imt:
                     element_vert_spacing: 0.05
                     # Sub array eletrical downtilt [deg]
                     eletrical_downtilt: 9.0
-
+                subarray:
+                    ###########################################################################
+                    # to use subarray, set this to true
+                    is_enabled: True
+                    ###########################################################################
+                    # Number of rows in subarray
+                    n_rows: 3
+                    ###########################################################################
+                    # BS array element vertical spacing (d/lambda).
+                    element_vert_spacing: 0.5
+                    ###########################################################################
+                    # Sub array eletrical downtilt [deg]
+                    # notice that electrical tilt == -1 * downtilt
+                    eletrical_downtilt: 3.0
     ###########################################################################
     # User Equipment parameters:
     ue:
@@ -408,6 +421,20 @@ imt:
                 # side lobes when beamforming is assumed in adjacent channel.
                 #       Original value: 12 (Rec. ITU-R M.2101)
                 multiplication_factor  : 12
+                subarray:
+                    ###########################################################################
+                    # to use subarray, set this to true
+                    is_enabled: True
+                    ###########################################################################
+                    # Number of rows in subarray
+                    n_rows: 3
+                    ###########################################################################
+                    # BS array element vertical spacing (d/lambda).
+                    element_vert_spacing: 0.5
+                    ###########################################################################
+                    # Sub array eletrical downtilt [deg]
+                    # notice that electrical tilt == -1 * downtilt
+                    eletrical_downtilt: 3.0
     ###########################################################################
     # Uplink parameters. Only needed when using uplink on imt
     uplink:

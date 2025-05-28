@@ -151,20 +151,32 @@ class ParametersTest(unittest.TestCase):
         """
         # testing default value not enabled
         self.assertEqual(
-            self.parameters.imt.ue.antenna.array.subarray.is_enabled, False,
+            self.parameters.imt.ue.antenna.array.subarray.is_enabled, True,
+        )
+        self.assertEqual(
+            self.parameters.imt.ue.antenna.array.subarray.is_enabled, True,
+        )
+        self.assertEqual(
+            self.parameters.imt.ue.antenna.array.subarray.eletrical_downtilt, 3,
+        )
+        self.assertEqual(
+            self.parameters.imt.ue.antenna.array.subarray.n_rows, 3,
+        )
+        self.assertEqual(
+            self.parameters.imt.ue.antenna.array.subarray.element_vert_spacing, 0.5,
         )
         # testing a fictitious configuration
         self.assertEqual(
             self.parameters.imt.bs.antenna.array.subarray.is_enabled, True,
         )
         self.assertEqual(
-            self.parameters.imt.bs.antenna.array.subarray.eletrical_downtilt, 9,
+            self.parameters.imt.bs.antenna.array.subarray.eletrical_downtilt, 3,
         )
         self.assertEqual(
-            self.parameters.imt.bs.antenna.array.subarray.n_rows, 10,
+            self.parameters.imt.bs.antenna.array.subarray.n_rows, 3,
         )
         self.assertEqual(
-            self.parameters.imt.bs.antenna.array.subarray.element_vert_spacing, 0.05,
+            self.parameters.imt.bs.antenna.array.subarray.element_vert_spacing, 0.5,
         )
         """Test ParametersHotspot
         """

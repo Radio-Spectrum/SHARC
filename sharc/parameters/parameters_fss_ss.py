@@ -105,4 +105,3 @@ class ParametersFssSs(ParametersBase):
                                                    antenna_gain=self.antenna_gain,
                                                    antenna_l_s=self.antenna_l_s,
                                                    antenna_3_dB_bw=self.antenna_3_dB,)
-

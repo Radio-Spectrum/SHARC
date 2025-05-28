@@ -27,7 +27,8 @@ class TopologyHotspotTest(unittest.TestCase):
         intersite_distance = 1000
         num_clusters = 1
         self.topology = TopologyHotspot(
-            param, intersite_distance, num_clusters)
+            param, intersite_distance, num_clusters,
+        )
 
     def test_overlapping_hotspots(self):
         candidate_x = np.array([300])
@@ -37,13 +38,17 @@ class TopologyHotspotTest(unittest.TestCase):
         set_y = np.array([0, 0])
         set_azimuth = np.array([0, -180])
         radius = 100
-        self.assertFalse(self.topology.overlapping_hotspots(candidate_x,
-                                                            candidate_y,
-                                                            candidate_azimuth,
-                                                            set_x,
-                                                            set_y,
-                                                            set_azimuth,
-                                                            radius))
+        self.assertFalse(
+            self.topology.overlapping_hotspots(
+                candidate_x,
+                candidate_y,
+                candidate_azimuth,
+                set_x,
+                set_y,
+                set_azimuth,
+                radius,
+            ),
+        )
 
         candidate_x = np.array([0])
         candidate_y = np.array([0])
@@ -52,13 +57,17 @@ class TopologyHotspotTest(unittest.TestCase):
         set_y = np.array([150, 400])
         set_azimuth = np.array([270, 270])
         radius = 100
-        self.assertTrue(self.topology.overlapping_hotspots(candidate_x,
-                                                           candidate_y,
-                                                           candidate_azimuth,
-                                                           set_x,
-                                                           set_y,
-                                                           set_azimuth,
-                                                           radius))
+        self.assertTrue(
+            self.topology.overlapping_hotspots(
+                candidate_x,
+                candidate_y,
+                candidate_azimuth,
+                set_x,
+                set_y,
+                set_azimuth,
+                radius,
+            ),
+        )
 
         candidate_x = np.array([0])
         candidate_y = np.array([0])
@@ -67,13 +76,17 @@ class TopologyHotspotTest(unittest.TestCase):
         set_y = np.array([0, 0])
         set_azimuth = np.array([180, 0])
         radius = 100
-        self.assertFalse(self.topology.overlapping_hotspots(candidate_x,
-                                                            candidate_y,
-                                                            candidate_azimuth,
-                                                            set_x,
-                                                            set_y,
-                                                            set_azimuth,
-                                                            radius))
+        self.assertFalse(
+            self.topology.overlapping_hotspots(
+                candidate_x,
+                candidate_y,
+                candidate_azimuth,
+                set_x,
+                set_y,
+                set_azimuth,
+                radius,
+            ),
+        )
 
         candidate_x = np.array([1])
         candidate_y = np.array([0])
@@ -82,13 +95,17 @@ class TopologyHotspotTest(unittest.TestCase):
         set_y = np.array([1])
         set_azimuth = np.array([90])
         radius = 100
-        self.assertTrue(self.topology.overlapping_hotspots(candidate_x,
-                                                           candidate_y,
-                                                           candidate_azimuth,
-                                                           set_x,
-                                                           set_y,
-                                                           set_azimuth,
-                                                           radius))
+        self.assertTrue(
+            self.topology.overlapping_hotspots(
+                candidate_x,
+                candidate_y,
+                candidate_azimuth,
+                set_x,
+                set_y,
+                set_azimuth,
+                radius,
+            ),
+        )
 
 
 if __name__ == '__main__':

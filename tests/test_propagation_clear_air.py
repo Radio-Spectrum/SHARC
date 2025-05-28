@@ -27,7 +27,8 @@ class PropagationClearAirTest(unittest.TestCase):
         # param_p452.clutter_loss = False
 
         self.prop_clear_air = PropagationClearAir(
-            np.random.RandomState(), param_p452)
+            np.random.RandomState(), param_p452,
+        )
 
     def test_loss(self):
 
@@ -46,7 +47,8 @@ class PropagationClearAirTest(unittest.TestCase):
             indoor_stations,
             elevations,
             tx_gain,
-            rx_gain)
+            rx_gain,
+        )
         # npt.assert_allclose(158.491, loss, atol=1e-3)
 
     #    Ld50, Ldbeta, Ldb = self.__Diffraction.get_loss(beta = Beta, distance=d, frequency=f, atmospheric_pressure=Ph,

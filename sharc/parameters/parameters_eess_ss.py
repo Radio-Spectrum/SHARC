@@ -101,7 +101,6 @@ class ParametersEessSS(ParametersSpaceStation):
         ]:
             raise ValueError(f"Invalid antenna_pattern: {self.antenna_pattern}")
 
-
         if self.antenna_pattern == "ITU-R RS.2043" and \
                 (self.frequency <= 9000.0 or self.frequency >= 10999.0):
             raise ValueError(

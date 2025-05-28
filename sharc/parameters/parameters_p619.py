@@ -54,7 +54,7 @@ class ParametersP619(ParametersBase):
                                 earth_station_alt_m: float,
                                 earth_station_lat_deg: float,
                                 earth_station_long_diff_deg: float,
-                                season: typing.Literal["BEAMFORMING", "SINGLE_ELEMENT"]):
+                                season: typing.Literal["SUMMER", "WINTER"]):
         self.space_station_alt_m = space_station_alt_m
         self.earth_station_alt_m = earth_station_alt_m
         self.earth_station_lat_deg = earth_station_lat_deg

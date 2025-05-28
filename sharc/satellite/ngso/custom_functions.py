@@ -2,6 +2,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature
+from scipy.special import jv
+
 
 def wrap2pi(angle_rad):
     """
@@ -103,7 +105,7 @@ def keplerian2eci(a, e, delta, Omega, omega, nu):
 
     # Stack to form the ECI position vector with shape (3, N, length(t))
     r_eci = np.array([x, y, z])
-    
+
     return r_eci
 
 
@@ -133,7 +135,7 @@ def eci2ecef(t, r_eci):
     # Create the rotation matrices for each θ in the array
     cos_θ = np.cos(θ)
     sin_θ = np.sin(θ)
-    
+
     # Rotation matrices for each time step `t`, shape (T, 3, 3)
     S = np.array([
         [cos_θ, sin_θ, np.zeros_like(θ)],

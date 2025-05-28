@@ -59,7 +59,8 @@ class SpectalMaskImtTest(unittest.TestCase):
 
         # Create mask for BS at 9 GHz and spurious emission at -30dBm/MHz
         self.mask_bs_9GHz_30_spurious = SpectralMaskImt(
-            sta_type, freq, band, -30)
+            sta_type, freq, band, -30,
+        )
         self.mask_bs_9GHz_30_spurious.set_mask(p_tx)
 
     def test_power_calc(self):

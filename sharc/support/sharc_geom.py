@@ -6,6 +6,7 @@ import pyproj
 from sharc.satellite.utils.sat_utils import lla2ecef, ecef2lla
 from sharc.station_manager import StationManager
 
+
 def cartesian_to_polar(x: np.ndarray, y: np.ndarray, z: np.ndarray) -> tuple:
     """
     Converts cartesian coordinates to polar coordinates.
@@ -62,6 +63,7 @@ def polar_to_cartesian(r: np.ndarray, azimuth: np.ndarray, elevation: np.ndarray
 
     return x, y, z
 
+
 def get_rotation_matrix(around_z, around_y):
     """
     Rotates with the right hand rule around the z axis (similar to simulator azimuth)
@@ -82,6 +84,7 @@ def get_rotation_matrix(around_z, around_y):
     ])
 
     return rz * ry
+
 
 def rotate_angles_based_on_new_nadir(elev, azim, nadir_elev, nadir_azim):
     """
@@ -107,7 +110,7 @@ def rotate_angles_based_on_new_nadir(elev, azim, nadir_elev, nadir_azim):
     # first rotate around y axis nadir_theta-180 to reach new theta
     # since nadir_theta in (0,180), rotation will end up to azimuth=0
     # so we rotate it around z axis nadir_phi
-    rotation_matrix = get_rotation_matrix(nadir_phi, nadir_theta-180)
+    rotation_matrix = get_rotation_matrix(nadir_phi, nadir_theta - 180)
 
     theta = 90 - elev
     phi = azim
@@ -341,7 +344,6 @@ class GeometryConverter():
             station.azimuth[idx] = azimuth
             station.elevation[idx] = elevation
 
-
     def revert_station_2d_to_3d(
         self, station: StationManager, idx=None
     ) -> None:
@@ -398,6 +400,7 @@ def get_lambert_equal_area_crs(polygon: shp.geometry.Polygon):
         f"+proj=laea +lat_0={centroid.y} +lon_0={centroid.x} +x_0=0 +y_0=0 +datum=WGS84 +units=m +no_defs"
     )
 
+
 def shrink_country_polygon_by_km(
     polygon: shp.geometry.Polygon, km: float
 ) -> shp.geometry.Polygon:
@@ -430,6 +433,7 @@ def shrink_country_polygon_by_km(
     # Return to EPSG:4326
     return shp.ops.transform(from_proj, polygon_proj_shrunk)
 
+
 def shrink_countries_by_km(
     countries: list[shp.geometry.MultiPolygon],
     km: float
@@ -445,8 +449,7 @@ def shrink_countries_by_km(
             polys.append(shrink_country_polygon_by_km(ext_poly, km))
         elif ext_poly.geom_type == 'MultiPolygon':
             polys.append(shp.ops.unary_union([
-              shrink_country_polygon_by_km(poly, km)
-                  for poly in ext_poly.geoms
+                shrink_country_polygon_by_km(poly, km) for poly in ext_poly.geoms
             ]))
 
     for poly in polys:
@@ -458,10 +461,9 @@ def shrink_countries_by_km(
             raise ValueError("SOME BAD POLYGON")
 
     return [
-        poly
-            for poly in polys
-            if poly.is_valid and not poly.is_empty and poly.area > 0
+        poly for poly in polys if poly.is_valid and not poly.is_empty and poly.area > 0
     ]
+
 
 if __name__ == "__main__":
     # baixo, direita, frente, esquerda, atrás, cima, cima
@@ -519,4 +521,3 @@ if __name__ == "__main__":
 
     # print("stat.azimuth", stat.azimuth)
     # print("stat.elevation", stat.elevation)
-

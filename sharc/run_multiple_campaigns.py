@@ -28,7 +28,15 @@ def run_campaign(campaign_name):
         command = [sys.executable, main_cli_path, "-p", param_file]
         subprocess.run(command)
 
+
 def run_campaign_re(campaign_name, param_name_regex):
+    """
+    Run a campaign for parameter files matching a given regular expression.
+
+    Args:
+        campaign_name (str): Name of the campaign.
+        param_name_regex (str): Regular expression to filter parameter files.
+    """
     # Get the current working directory
     workfolder = os.path.dirname(os.path.abspath(__file__))
 

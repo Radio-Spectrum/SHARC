@@ -39,8 +39,10 @@ class PropagationFreeSpaceTest(unittest.TestCase):
         d = np.array([[10, 20, 30], [40, 50, 60]])
         f = np.array([100])
         loss = self.freeSpace.get_loss(d, f)
-        ref_loss = np.array([[32.45, 38.47, 41.99],
-                             [44.49, 46.42, 48.01]])
+        ref_loss = np.array([
+            [32.45, 38.47, 41.99],
+            [44.49, 46.42, 48.01],
+        ])
         npt.assert_allclose(ref_loss, loss, atol=1e-2)
 
 

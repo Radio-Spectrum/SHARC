@@ -223,11 +223,12 @@ if __name__ == '__main__':
     ## Plot gains for ITU-R-S.1528-SECTION1.2
     # initialize antenna parameters
     param = ParametersAntennaS1528()
-    param.antenna_gain = 30
+    param.antenna_gain = 37
     param.antenna_pattern = "ITU-R-S.1528-SECTION1.2"
     param.antenna_3_dB_bw = 4.4127
 
-    psi = np.linspace(0, 30, num=1000)
+    max_psi = 30 * param.antenna_3_dB_bw / 2
+    psi = np.linspace(0, max_psi, num=100)
 
     param.antenna_l_s = -15
     antenna = AntennaS1528(param)
@@ -246,12 +247,7 @@ if __name__ == '__main__':
     gain30 = antenna.calculate_gain(off_axis_angle_vec=psi)
 
     ## Plot gains for ITU-R-S.1528-LEO
-    # initialize antenna parameters
-    param = ParametersAntennaS1528()
-    param.antenna_gain = 30
     param.antenna_pattern = "ITU-R-S.1528-LEO"
-    param.antenna_3_dB_bw = 1.6
-    psi = np.linspace(0, 20, num=1000)
 
     param.antenna_l_s = -6.75
     antenna = AntennaS1528Leo(param)
@@ -268,8 +264,9 @@ if __name__ == '__main__':
     plt.plot(psi_norm, gain_leo - param.antenna_gain, "-c", label="$L_S = -6.75$ dB (R1.3 - LEO)")
 
     plt.ylim((-40, 10))
+    plt.yticks(np.arange(-40, 11, 5))
     plt.xlim((0, np.max(psi_norm)))
-    plt.xticks(np.arange(np.floor(np.max(psi_norm))))
+    plt.xticks(np.arange(0, 35, 5))
     plt.title("ITU-R S.1528-0 antenna radiation pattern")
     plt.xlabel(r"Relative off-axis angle, $\psi/\psi_{3dB}$")
     plt.ylabel(r"Gain relative to $G_{max}$ [dB]")

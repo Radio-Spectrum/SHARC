@@ -8,7 +8,7 @@ general:
     ###########################################################################
     # The chosen system for sharing study
     # EESS_PASSIVE, FSS_SS, FSS_ES, FS, RAS,
-    system: RAS
+    system: SINGLE_EARTH_STATION
     ###########################################################################
     # Compatibility scenario (co-channel and/or adjacent channel interference)
     enable_cochannel: FALSE
@@ -329,7 +329,14 @@ imt:
 
     season: SUMMER
 #### System Parameters
-ras:
+single_earth_station:
+    ###########################################################################
+    # NOTE: when using P.619 it is suggested that polarization loss = 3dB is normal
+    # also,
+    # NOTE: Verification needed:
+    # polarization mismatch between IMT BS and linear polarization = 3dB in earth P2P case?
+    # = 0 is safer choice
+    polarization_loss: 0.0
     ###########################################################################
     frequency: 2695
     ###########################################################################

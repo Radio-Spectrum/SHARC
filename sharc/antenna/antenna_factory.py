@@ -21,13 +21,17 @@ from sharc.antenna.antenna_sa509 import AntennaSA509
 from sharc.antenna.antenna_s1528 import AntennaS1528, AntennaS1528Leo, AntennaS1528Taylor
 from sharc.antenna.antenna_beamforming_imt import AntennaBeamformingImt
 
+
 class AntennaFactory():
+    """Factory class for creating antenna instances based on pattern parameters."""
+
     @staticmethod
     def create_antenna(
         antenna_params: ParametersAntenna,
         azimuth: float,
         elevation: float,
     ):
+        """Create and return an antenna instance based on the provided parameters, azimuth, and elevation."""
         match antenna_params.pattern:
             case "OMNI":
                 return AntennaOmni(antenna_params.gain)

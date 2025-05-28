@@ -7,8 +7,8 @@ general:
     imt_link: DOWNLINK
     ###########################################################################
     # The chosen system for sharing study
-    # EESS_PASSIVE, FSS_SS, FSS_ES, FS, RAS, SINGLE_EARTH_STATION
-    system: FSS_ES
+    # SINGLE_EARTH_STATION, SINGLE_SPACE_STATION
+    system: SINGLE_EARTH_STATION
     ###########################################################################
     # Compatibility scenario (co-channel and/or adjacent channel interference)
     enable_cochannel: FALSE
@@ -233,6 +233,10 @@ imt:
             # The range considers the horizon as 90deg, 0 as zenith
             vertical_beamsteering_range: !!python/tuple [90., 100.]
             ###########################################################################
+            # Base station horizontal beamsteering range. [deg]
+            # The range considers the horizon as 90deg, 0 as zenith
+            vertical_beamsteering_range: !!python/tuple [90., 100.]
+            ###########################################################################
             # File to be used in the BS beamforming normalization
             # Normalization files can be generated with the
             # antenna/beamforming_normalization/normalize_script.py script
@@ -289,6 +293,19 @@ imt:
             # side lobes when beamforming is assumed in adjacent channel.
             #       Original value: 12 (Rec. ITU-R M.2101)
             multiplication_factor: 12
+            ###########################################################################
+            # Subarray for IMT as defined in R23-WP5D-C-0413, Annex 4.2
+            # Single column sub array
+            subarray:
+                # NOTE: if subarray is enabled, element definition will mostly come from
+                # the above definitions
+                is_enabled: false
+                # Rows per subarray
+                n_rows: 3
+                # Sub array element spacing (d/lambda).
+                element_vert_spacing: 0.7
+                # Sub array eletrical downtilt [deg]
+                eletrical_downtilt: 3.0
 
     ###########################################################################
     # User Equipment parameters:
@@ -320,7 +337,7 @@ imt:
         ###########################################################################
         # Regarding the distribution of active UE's over the cell area, this
         # parameter models the distance between UE's and BS.
-        # Possible values: RAYLEIGH, UNIFORM
+        # Possible values: RAYLEIGH, UNIFORM, SQRT(UNIFORM)
         distribution_distance: UNIFORM
         ###########################################################################
         # Regarding the distribution of active UE's over the cell area, this
@@ -478,618 +495,32 @@ imt:
         # difference between longitudes of IMT-NTN station and FSS-ES system [deg]
         #   (positive if space-station is to the East of earth-station)
         earth_station_long_diff_deg: 0
-fss_ss:
-    ###########################################################################
-    # satellite center frequency [MHz]
-    frequency: 43000
-    ###########################################################################
-    # satellite bandwidth [MHz]
-    bandwidth: 200
-    ###########################################################################
-    # satellite altitude [m] and latitude [deg]
-    altitude: 35780000
-    lat_deg: 10
-    ###########################################################################
-    # Elevation angle [deg]
-    elevation: 270
-    ###########################################################################
-    # Azimuth angle [deg]
-    azimuth: 0
-    ###########################################################################
-    # Peak transmit power spectral density (clear sky) [dBW/Hz]
-    tx_power_density: -5
-    ###########################################################################
-    # System receive noise temperature [K]
-    noise_temperature: 950
-    ###########################################################################
-    # adjacent channel selectivity (dB)
-    adjacent_ch_selectivity: 0
-    ###########################################################################
-    # Antenna pattern of the FSS space station
-    # Possible values: "ITU-R S.672", "ITU-R S.1528", "FSS_SS", "OMNI"
-    antenna_pattern: FSS_SS
-    ###########################################################################
-    # The required near-in-side-lobe level (dB) relative to peak gain
-    # according to ITU-R S.672-4
-    antenna_l_s: -20
-    ###########################################################################
-    # 3 dB beamwidth angle (3 dB below maximum gain) [degrees]
-    antenna_3_dB: 0.65
-    ###########################################################################
-    # Satellite peak receive antenna gain [dBi]
-    antenna_gain: 46.6
-    ###########################################################################
-    # Paramters for the Antenna ITU-R S.1528
-    antenna_s1528:
-        # Antenna pattern according to ITU-R-S.1528. Possible values are
-        # "ITU-R-S.1528-Section1.2", "ITU-R-S.1528-LEO", "ITU-R-S.1528-Taylor"
-        antenna_pattern: "ITU-R-S.1528-LEO"
-        ###########################################################################
-        # SLR is the side-lobe ratio of the pattern (dB), the difference in gain between the maximum
-        # gain and the gain at the peak of the first side lobe.
-        slr: 20
-        # Number of secondary lobes considered in the diagram (coincide with the roots of the Bessel function)
-        n_side_lobes : 4
-        # Radial and transverse sizes of the effective radiating area of the satellite transmit antenna (m).
-        l_r : 0.5
-        l_t : 0.5
-    ###########################################################################
-    # Parameters for the P.619 propagation model
-    #    earth_station_alt_m - altitude of IMT system (in meters)
-    #    earth_station_lat_deg - latitude of IMT system (in degrees)
-    #    earth_station_long_diff_deg - difference between longitudes of IMT and satellite system
-    #      (positive if space-station is to the East of earth-station)
-    #    season - season of the year.
-    earth_station_alt_m: 0
-    earth_station_lat_deg: 0
-    earth_station_long_diff_deg: 0
-    season: SUMMER
-    ###########################################################################
-    # Channel parameters
-    # channel model, possible values are "FSPL" (free-space path loss),
-    #                                    "SatelliteSimple" (FSPL + 4 + clutter loss)
-    #                                    "P619"
-    channel_model: P619
-fss_es:
-    ###########################################################################
-    # type of FSS-ES location:
-    # FIXED - position must be given
-    # CELL - random within central cell
-    # NETWORK - random within whole network
-    # UNIFORM_DIST - uniform distance from cluster centre,
-    #                between min_dist_to_bs and max_dist_to_bs
-    location: UNIFORM_DIST
-    ###########################################################################
-    # x-y coordinates [m] (only if FIXED location is chosen)
-    x: 10000
-    y: 0
-    ###########################################################################
-    # minimum distance from BSs [m]
-    min_dist_to_bs: 10
-    ###########################################################################
-    # maximum distance from centre BSs [m] (only if UNIFORM_DIST is chosen)
-    max_dist_to_bs: 600
-    ###########################################################################
-    # antenna height [m]
-    height: 6
-    ###########################################################################
-    # Elevation angle [deg], minimum and maximum, values
-    elevation_min: 48
-    elevation_max: 80
-    ###########################################################################
-    # Azimuth angle [deg]
-    # either a specific angle or string 'RANDOM'
-    azimuth: RANDOM
-    ###########################################################################
-    # center frequency [MHz]
-    frequency: 43000
-    ###########################################################################
-    # bandwidth [MHz]
-    bandwidth: 6
-    ###########################################################################
-    # System receive noise temperature [K]
-    noise_temperature: 950
-    ###########################################################################
-    # adjacent channel selectivity (dB)
-    adjacent_ch_selectivity: 0
-    ###########################################################################
-    # Peak transmit power spectral density (clear sky) [dBW/Hz]
-    tx_power_density: -68.3
-    ###########################################################################
-    # antenna peak gain [dBi]
-    antenna_gain: 32
-    ###########################################################################
-    # Antenna pattern of the FSS Earth station
-    # Possible values: "ITU-R S.1855", "ITU-R S.465", "ITU-R S.580", "OMNI",
-    #                  "Modified ITU-R S.465"
-    antenna_pattern: Modified ITU-R S.465
-    ###########################################################################
-    # Diameter of antenna [m]
-    diameter: 1.8
-    ###########################################################################
-    # Antenna envelope gain (dBi) - only relevant for "Modified ITU-R S.465" model
-    antenna_envelope_gain: 0
-    ###########################################################################
-    # Channel parameters
-    # channel model, possible values are "FSPL" (free-space path loss),
-    #                                    "TerrestrialSimple" (FSPL + clutter loss)
-    #                                    "P452"
-    #                                    "TVRO-URBAN"
-    #                                    "TVRO-SUBURBAN"
-    #                                    "HDFSS"
-    #                                    "UMa"
-    #                                    "UMi"
-    channel_model: P452
-    ###########################################################################
-    # Constants
-    BOLTZMANN_CONSTANT: 1.38064852e-23
-    EARTH_RADIUS: 6371000
-    ###########################################################################
-    # P452 parameters
-    ###########################################################################
-    # Total air pressure in hPa
-    atmospheric_pressure: 935
-    ###########################################################################
-    # Temperature in Kelvin
-    air_temperature: 300
-    ###########################################################################
-    #Sea-level surface refractivity (use the map)
-    N0: 352.58
-    ###########################################################################
-    #Average radio-refractive (use the map)
-    delta_N: 43.127
-    ###########################################################################
-    #percentage p. Float (0 to 100) or RANDOM
-    percentage_p: 0.2
-    ###########################################################################
-    #Distance over land from the transmit and receive antennas to the coast (km)
-    Dct: 70
-    ###########################################################################
-    #Distance over land from the transmit and receive antennas to the coast (km)
-    Dcr: 70
-    ###########################################################################
-    ##Effective height of interfering antenna (m)
-    Hte: 20
-    ###########################################################################
-    #Effective height of interfered-with antenna (m)
-    Hre: 3
-    ###########################################################################
-    ##Latitude of transmitter
-    tx_lat: -23.55028
-    ###########################################################################
-    #Latitude of receiver
-    rx_lat: -23.17889
-    ###########################################################################
-    #Antenna polarization
-    polarization: horizontal
-    ###########################################################################
-    #determine whether clutter loss following ITU-R P.2108 is added (TRUE/FALSE)
-    clutter_loss: TRUE
-    ###########################################################################
-    # HDFSS propagation parameters
-    ###########################################################################
-    # HDFSS position relative to building it is on. Possible values are
-    # ROOFTOP and BUILDINGSIDE
-    es_position: ROOFTOP
-    ###########################################################################
-    # Enable shadowing loss
-    shadow_enabled: TRUE
-    ###########################################################################
-    # Enable building entry loss
-    building_loss_enabled: TRUE
-    ###########################################################################
-    # Enable interference from IMT stations at the same building as the HDFSS
-    same_building_enabled: FALSE
-    ###########################################################################
-    # Enable diffraction loss
-    diffraction_enabled: TRUE
-    ###########################################################################
-    # Building entry loss type applied between BSs and HDFSS ES. Options are:
-    # P2109_RANDOM: random probability at P.2109 model, considering elevation
-    # P2109_FIXED: fixed probability at P.2109 model, considering elevation.
-    #              Probability must be specified in bs_building_entry_loss_prob.
-    # FIXED_VALUE: fixed value per BS. Value must be specified in
-    #              bs_building_entry_loss_value.
-    bs_building_entry_loss_type: P2109_FIXED
-    ###########################################################################
-    # Probability of building entry loss not exceeded if
-    # bs_building_entry_loss_type = P2109_FIXED
-    bs_building_entry_loss_prob: 0.75
-    ###########################################################################
-    # Value in dB of building entry loss if
-    # bs_building_entry_loss_type = FIXED_VALUE
-    bs_building_entry_loss_value: 35
-fs:
-    ###########################################################################
-    # x-y coordinates [m]
-    x: 1000
-    y: 0
-    ###########################################################################
-    # antenna height [m]
-    height: 15
-    ###########################################################################
-    # Elevation angle [deg]
-    elevation: -10
-    ###########################################################################
-    # Azimuth angle [deg]
-    azimuth: 180
-    ###########################################################################
-    # center frequency [MHz]
-    frequency: 27250
-    ###########################################################################
-    # bandwidth [MHz]
-    bandwidth: 112
-    ###########################################################################
-    # System receive noise temperature [K]
-    noise_temperature: 290
-    ###########################################################################
-    # adjacent channel selectivity (dB)
-    adjacent_ch_selectivity: 20
-    ###########################################################################
-    # Peak transmit power spectral density (clear sky) [dBW/Hz]
-    tx_power_density: -68.3
-    ###########################################################################
-    # antenna peak gain [dBi]
-    antenna_gain: 36.9
-    ###########################################################################
-    # Antenna pattern of the fixed wireless service
-    # Possible values: "ITU-R F.699", "OMNI"
-    antenna_pattern: ITU-R F.699
-    ###########################################################################
-    # Diameter of antenna [m]
-    diameter: 0.3
-    ###########################################################################
-    # Channel parameters
-    # channel model, possible values are "FSPL" (free-space path loss),
-    #                                    "TerrestrialSimple" (FSPL + clutter loss)
-    channel_model: FSPL
-    ###########################################################################
-    # Constants
-    BOLTZMANN_CONSTANT: 1.38064852e-23
-    EARTH_RADIUS: 6371000
-haps:
-    ###########################################################################
-    # HAPS center frequency [MHz]
-    frequency: 27250
-    ###########################################################################
-    # HAPS bandwidth [MHz]
-    bandwidth: 200
-    ###########################################################################
-    # HAPS altitude [m] and latitude [deg]
-    altitude: 20000
-    lat_deg: 0
-    ###########################################################################
-    # Elevation angle [deg]
-    elevation: 270
-    ###########################################################################
-    # Azimuth angle [deg]
-    azimuth: 0
-    ###########################################################################
-    # EIRP spectral density [dBW/MHz]
-    eirp_density: 4.4
-    ###########################################################################
-    # HAPS peak antenna gain [dBi]
-    antenna_gain: 28.1
-    ###########################################################################
-    # Adjacent channel selectivity [dB]
-    acs: 30
-    ###########################################################################
-    # Antenna pattern of the HAPS (airbone) station
-    # Possible values: "ITU-R F.1891", "OMNI"
-    antenna_pattern: ITU-R F.1891
-    # Parameters for the P.619 propagation model
-    #    earth_station_alt_m - altitude of IMT system (in meters)
-    #    earth_station_lat_deg - latitude of IMT system (in degrees)
-    #    earth_station_long_diff_deg - difference between longitudes of IMT and satellite system
-    #      (positive if space-station is to the East of earth-station)
-    #    season - season of the year.
-    earth_station_alt_m: 0
-    earth_station_lat_deg: 0
-    earth_station_long_diff_deg: 0
-    season: SUMMER
-    ###########################################################################
-    # Channel parameters
-    # channel model, possible values are "FSPL" (free-space path loss),
-    #                                    "SatelliteSimple" (FSPL + 4 + clutter loss)
-    #                                    "P619"
-    channel_model: P619
-    ###########################################################################
-    # Near side-lobe level (dB) relative to the peak gain required by the system
-    # design, and has a maximum value of −25 dB
-    antenna_l_n: -25
-    ###########################################################################
-    # Constants
-    BOLTZMANN_CONSTANT: 1.38064852e-23
-    EARTH_RADIUS: 6371000
-rns:
-    ###########################################################################
-    # x-y coordinates [m]
-    x: 660
-    y: -370
-    ###########################################################################
-    # altitude [m]
-    altitude: 150
-    ###########################################################################
-    # center frequency [MHz]
-    frequency: 32000
-    ###########################################################################
-    # bandwidth [MHz]
-    bandwidth: 60
-    ###########################################################################
-    # System receive noise temperature [K]
-    noise_temperature: 1154
-    ###########################################################################
-    # Peak transmit power spectral density (clear sky) [dBW/Hz]
-    tx_power_density: -70.79
-    ###########################################################################
-    # antenna peak gain [dBi]
-    antenna_gain: 30
-    ###########################################################################
-    # Adjacent channel selectivity [dB]
-    acs: 30
-    ###########################################################################
-    # Antenna pattern of the fixed wireless service
-    # Possible values: "ITU-R M.1466", "OMNI"
-    antenna_pattern: ITU-R M.1466
-    ###########################################################################
-    # Channel parameters
-    # channel model, possible values are "FSPL" (free-space path loss),
-    #                                    "SatelliteSimple" (FSPL + 4 dB + clutter loss)
-    #                                    "P619"
-    channel_model: P619
-    ###########################################################################
-    # Parameters for the P.619 propagation model
-    #    earth_station_alt_m - altitude of IMT system (in meters)
-    #    earth_station_lat_deg - latitude of IMT system (in degrees)
-    #    earth_station_long_diff_deg - difference between longitudes of IMT and satellite system
-    #      (positive if space-station is to the East of earth-station)
-    #    season - season of the year.
-    earth_station_alt_m: 0
-    earth_station_lat_deg: 0
-    earth_station_long_diff_deg: 0
-    season: SUMMER
-    ###########################################################################
-    # Constants
-    BOLTZMANN_CONSTANT: 1.38064852e-23
-    EARTH_RADIUS: 6371000
-ras:
-    ###########################################################################
-    # x-y coordinates [m]
-    x: 81000
-    y: 0
-    ###########################################################################
-    # antenna height [m]
-    height: 15
-    ###########################################################################
-    # Elevation angle [deg]
-    elevation: 45
-    ###########################################################################
-    # Azimuth angle [deg]
-    azimuth: -90
-    ###########################################################################
-    # center frequency [MHz]
-    frequency: 43000
-    ###########################################################################
-    # bandwidth [MHz]
-    bandwidth: 1000
-    ###########################################################################
-    # Antenna noise temperature [K]
-    antenna_noise_temperature: 25
-    ###########################################################################
-    # Receiver noise temperature [K]
-    receiver_noise_temperature: 65
-    ###########################################################################
-    # adjacent channel selectivity (dB)
-    adjacent_ch_selectivity: 20
-    ###########################################################################
-    # Antenna efficiency
-    antenna_efficiency: 1
-    ###########################################################################
-    # Antenna pattern of the FSS Earth station
-    # Possible values: "ITU-R SA.509", "OMNI"
-    antenna_pattern: ITU-R SA.509
-    ###########################################################################
-    # Antenna gain for "OMNI" pattern
-    antenna_gain: 0
-    ###########################################################################
-    # Diameter of antenna [m]
-    diameter: 15
-    ###########################################################################
-    # Constants
-    BOLTZMANN_CONSTANT: 1.38064852e-23
-    EARTH_RADIUS: 6371000
-    SPEED_OF_LIGHT: 299792458
-    ###########################################################################
-    # Channel parameters
-    # channel model, possible values are "FSPL" (free-space path loss),
-    #                                    "TerrestrialSimple" (FSPL + clutter loss)
-    #                                    "P452"
-    channel_model: P452
-    ###########################################################################
-    # P452 parameters
-    ###########################################################################
-    # Total air pressure in hPa
-    atmospheric_pressure: 935
-    ###########################################################################
-    # Temperature in Kelvin
-    air_temperature: 300
-    ###########################################################################
-    #Sea-level surface refractivity (use the map)
-    N0: 352.58
-    ###########################################################################
-    #Average radio-refractive (use the map)
-    delta_N: 43.127
-    ###########################################################################
-    #percentage p. Float (0 to 100) or RANDOM
-    percentage_p: 0.2
-    ###########################################################################
-    #Distance over land from the transmit and receive antennas to the coast (km)
-    Dct: 70
-    ###########################################################################
-    #Distance over land from the transmit and receive antennas to the coast (km)
-    Dcr: 70
-    ###########################################################################
-    ##Effective height of interfering antenna (m)
-    Hte: 20
-    ###########################################################################
-    #Effective height of interfered-with antenna (m)
-    Hre: 3
-    ###########################################################################
-    ##Latitude of transmitter
-    tx_lat: -23.55028
-    ###########################################################################
-    #Latitude of receiver
-    rx_lat: -23.17889
-    ###########################################################################
-    #Antenna polarization
-    polarization: horizontal
-    ###########################################################################
-    #determine whether clutter loss following ITU-R P.2108 is added (TRUE/FALSE)
-    clutter_loss: TRUE
-    # Parameters for the P.619 propagation model
-    # Used between IMT space station and another terrestrial system.
-    #    space_station_alt_m - altitude of IMT space station (BS) (in meters)
-    #    earth_station_alt_m - altitude of the system's earth station (in meters)
-    #    earth_station_lat_deg - latitude of the system's earth station (in degrees)
-    #    earth_station_long_diff_deg - difference between longitudes of IMT space station and system's earth station
-    #      (positive if space-station is to the East of earth-station)
-    #    season - season of the year.
-    # Enter the IMT space station heigh
-    space_station_alt_m: 20000.0
-    # Enter the RAS antenna heigh
-    earth_station_alt_m: 15.0
-    # The RAS station lat
-    earth_station_lat_deg: -23.17889
-    # This parameter is ignored as it will be calculated from x,y positions in run time
-    earth_station_long_diff_deg: 0.0
-    season: SUMMER
-eess_ss:
-    ###########################################################################
-    # sensor center frequency [MHz]
-    frequency: 23900
-    ###########################################################################
-    # sensor bandwidth [MHz]
-    bandwidth: 200
-    ###########Creates a statistical distribution of nadir angle###############
-    ##############following variables nadir_angle_distribution#################
-    # if distribution_enable = ON, nadir_angle will vary statistically#########
-    # if distribution_enable = OFF, nadir_angle follow nadir_angle variable ###
-    # distribution_type = UNIFORM
-    # UNIFORM = UNIFORM distribution in nadir_angle
-    # - nadir_angle_distribution = initial nadir angle, final nadir angle
-    distribution_enable: OFF
-    distribution_type: UNIFORM
-    nadir_angle_distribution: 18.6,49.4
-    ###########################################################################
-    # Off-nadir pointing angle [deg]
-    nadir_angle: 46.6
-    ###########################################################################
-    # sensor altitude [m]
-    altitude: 828000
-    ###########################################################################
-    # Antenna pattern of the sensor
-    # Possible values: "ITU-R RS.1813"
-    #                  "ITU-R RS.1861 9a"
-    #                  "ITU-R RS.1861 9b"
-    #                  "ITU-R RS.1861 9c"
-    #                  "OMNI"
-    antenna_pattern: ITU-R RS.1813
-    # Antenna efficiency for pattern described in ITU-R RS.1813 [0-1]
-    antenna_efficiency: 0.6
-    # Antenna diameter for ITU-R RS.1813 [m]
-    antenna_diameter: 2.2
-    ###########################################################################
-    # receive antenna gain - applicable for 9a, 9b and OMNI [dBi]
-    antenna_gain: 52
-    ###########################################################################
-    # Channel parameters
-    # channel model, possible values are "FSPL" (free-space path loss),
-    #                                    "P619"
-    channel_model: FSPL
-    # Parameters for the P.619 propagation model
-    #    earth_station_alt_m - altitude of IMT system (in meters)
-    #    earth_station_lat_deg - latitude of IMT system (in degrees)
-    #    earth_station_long_diff_deg - difference between longitudes of IMT and satellite system
-    #      (positive if space-station is to the East of earth-station)
-    #    season - season of the year.
-    earth_station_alt_m: 0
-    earth_station_lat_deg: 0
-    earth_station_long_diff_deg: 0
-    season: "SUMMER"
-metsat_ss:
-    ###########################################################################
-    # sensor center frequency [MHz]
-    frequency: 8195
-    ###########################################################################
-    # sensor bandwidth [MHz]
-    bandwidth: 20
-    ###########Creates a statistical distribution of nadir angle###############
-    ##############following variables nadir_angle_distribution#################
-    # if distribution_enable = ON, nadir_angle will vary statistically#########
-    # if distribution_enable = OFF, nadir_angle follow nadir_angle variable ###
-    # distribution_type = UNIFORM
-    # UNIFORM = UNIFORM distribution in nadir_angle
-    # - nadir_angle_distribution = initial nadir angle, final nadir angle
-    distribution_enable: OFF
-    distribution_type: UNIFORM
-    nadir_angle_distribution: 18.6,49.4
-    ###########################################################################
-    # Elevation angle [deg]
-    elevation: 3
-    ###########################################################################
-    # sensor altitude [m]
-    altitude: 35786000
-    ###########################################################################
-    # Antenna pattern of the sensor
-    antenna_pattern: ITU-R S.672
-    ###########################################################################
-    # receive antenna gain [dBi]
-    antenna_gain: 52
-    # The required near-in-side-lobe level (dB) relative to peak gain
-    # according to ITU-R S.672-4
-    antenna_l_s: -20.0
-    # 3 dB beamwidth angle (3 dB below maximum gain) [degrees]
-    antenna_3_dB: 0.65
-    ###########################################################################
-    # Channel parameters
-    # channel model, possible values are "FSPL" (free-space path loss),
-    #                                    "P619"
-    channel_model: FSPL
-    # Parameters for the P.619 propagation model
-    #    earth_station_alt_m - altitude of IMT system (in meters)
-    #    earth_station_lat_deg - latitude of IMT system (in degrees)
-    #    earth_station_long_diff_deg - difference between longitudes of IMT and satellite system
-    #      (positive if space-station is to the East of earth-station)
-    #    season - season of the year.
-    earth_station_alt_m: 0
-    earth_station_lat_deg: 0
-    earth_station_long_diff_deg: 0
-    season: "SUMMER"
-    # Constants
-    BOLTZMANN_CONSTANT: 1.38064852e-23
-    EARTH_RADIUS: 6371000
-
-
-
 single_earth_station:
     ###########################################################################
     # Sensor center frequency [MHz]
-    frequency: 8250
+    frequency: 1
     ###########################################################################
     # Sensor bandwidth [MHz]
-    bandwidth: 100
+    bandwidth: 1
+    ###########################################################################
+    # NOTE: when using P.619 it is suggested that polarization loss = 3dB is normal
+    # also,
+    # NOTE: Verification needed:
+    # polarization mismatch between IMT BS and linear polarization = 3dB in earth P2P case?
+    # = 0 is safer choice
+    polarization_loss: 0.0
     ###########################################################################
     # System receive noise temperature [K]
-    noise_temperature: 300
+    noise_temperature: 1
     ###########################################################################
     # Peak transmit power spectral density (clear sky) [dBW/Hz]
     tx_power_density: -65
     # Adjacent channel selectivity [dB]
-    adjacent_ch_selectivity: 20.0
+    adjacent_ch_selectivity: 1.0
     geometry:
         ###########################################################################
         # Antenna height [meters]
-        height: 6
+        height: 1
         ###########################################################################
         # Azimuth angle [degrees]
         azimuth:
@@ -1325,6 +756,107 @@ single_earth_station:
         # Value in dB of building entry loss if
         # bs_building_entry_loss_type = FIXED_VALUE
         bs_building_entry_loss_value: 35
+single_space_station:
+    ###########################################################################
+    # Sensor center frequency [MHz]
+    frequency: 1
+    ###########################################################################
+    # Sensor bandwidth [MHz]
+    bandwidth: 1
+    ###########################################################################
+    # System receive noise temperature [K]
+    noise_temperature: 1
+    ###########################################################################
+    # Peak transmit power spectral density (clear sky) [dBW/Hz]
+    tx_power_density: 1
+    # Adjacent channel selectivity [dB]
+    adjacent_ch_selectivity: 1
+    geometry:
+        ###########################################################################
+        # Satellite altitude [meters]
+        altitude: 1
+        ###########################################################################
+        # earth station altitude [meters]
+        es_altitude: 1
+        ###########################################################################
+        # earth station lat long [deg]
+        es_lat_deg: 1
+        ###########################################################################
+        # earth station lat long [deg]
+        es_long_deg: 1
+        ###########################################################################
+        # Antenna azimuth angle [degrees]
+        azimuth:
+            ###########################################################################
+            # Type of azimuth. May be "FIXED" or "POINTING_AT_IMT"
+            type: POINTING_AT_IMT
+            ###########################################################################
+            # Arbitrary value of azimuth when type == "FIXED" [deg]
+            fixed: 0
+        ###########################################################################
+        # Antenna elevation angle [degrees]
+        elevation:
+            ###########################################################################
+            # Type of elevation. May be "FIXED" or "POINTING_AT_IMT"
+            type: POINTING_AT_IMT
+            ###########################################################################
+            # Arbitrary value of elevation when type == "FIXED" [deg]
+            fixed: -90
+        ###########################################################################
+        # Station location:
+        location:
+            ###########################################################################
+            # type may be "FIXED"
+            # location.type == FIXED means that the SS will be always at SAME fixed location
+            type: FIXED
+            ###########################################################################
+            # Value of position (lat, long) when type == "FIXED" [(deg, deg)]
+            fixed:
+                lat_deg: 0
+                long_deg: 0
+    antenna:
+        ###########################################################################
+        # Choose the antenna pattern. Can be one of:
+        # "OMNI", "ITU-R F.699", "ITU-R S.465", "ITU-R S.580", "MODIFIED ITU-R S.465", "ITU-R S.1855",
+        # "ITU-R Reg. RR. Appendice 7 Annex 3"
+        pattern: ITU-R S.465
+        ###########################################################################
+        # Earth station peak receive antenna gain [dBi]
+        gain: 28
+        itu_r_f_699:
+            ###########################################################################
+            # Antenna diameter [m]
+            diameter: 1
+        itu_r_s_465:
+            ###########################################################################
+            # Antenna diameter [m]
+            diameter: 1
+        itu_r_s_580:
+            ###########################################################################
+            # Antenna diameter [m]
+            diameter: 1
+        itu_r_s_1855:
+            ###########################################################################
+            # Antenna diameter [m]
+            diameter: 1
+        itu_r_s_465_modified:
+            ###########################################################################
+            # Antenna envelope gain [dBi]
+            envelope_gain: 1
+        itu_reg_rr_a7_3:
+            ###########################################################################
+            # Antenna diameter [m]
+            # if no diameter is passed, a diameter will be assumed according to document
+            diameter: 1
+
+    ###########################################################################
+    # Selected channel model. May be "FSPL" or "P619"
+    channel_model: "P619"
+
+    ###########################################################################
+    # season - season of the year.
+    #   Useful for P.619
+    season: SUMMER
 
 mss_d2d:
     # MSS_D2D system name

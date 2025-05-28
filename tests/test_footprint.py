@@ -80,12 +80,14 @@ class FootprintTest(unittest.TestCase):
         # Verify properties of fa3
         self.assertEqual(self.fa3.bore_lat_deg, 0)
         self.assertAlmostEqual(
-            self.fa3.bore_subsat_long_deg, 61.84, delta=0.01)
+            self.fa3.bore_subsat_long_deg, 61.84, delta=0.01,
+        )
 
         # Verify properties of fa4
         self.assertEqual(self.fa4.bore_lat_deg, 0)
         self.assertAlmostEqual(
-            self.fa4.bore_subsat_long_deg, 13.22, delta=0.01)
+            self.fa4.bore_subsat_long_deg, 13.22, delta=0.01,
+        )
 
         # Verify properties of fa5
         self.assertEqual(self.fa5.bore_lat_deg, 0)
@@ -101,17 +103,24 @@ class FootprintTest(unittest.TestCase):
         self.fa2.set_elevation(20)
         self.assertEqual(self.fa2.bore_lat_deg, 0)
         self.assertAlmostEqual(
-            self.fa2.bore_subsat_long_deg, 61.84, delta=0.01)
+            self.fa2.bore_subsat_long_deg, 61.84, delta=0.01,
+        )
 
     def test_calc_footprint(self):
         """
         Test the calc_footprint method to verify the coordinates of the generated footprint polygon.
         """
         fp_long, fp_lat = self.fa1.calc_footprint(4)
-        npt.assert_allclose(fp_long, np.array(
-            [0.0, 0.487, -0.487, 0.0]), atol=1e-2)
-        npt.assert_allclose(fp_lat, np.array(
-            [-0.562, 0.281, 0.281, -0.562]), atol=1e-2)
+        npt.assert_allclose(
+            fp_long, np.array(
+            [0.0, 0.487, -0.487, 0.0],
+            ), atol=1e-2,
+        )
+        npt.assert_allclose(
+            fp_lat, np.array(
+            [-0.562, 0.281, 0.281, -0.562],
+            ), atol=1e-2,
+        )
 
     def test_calc_area(self):
         """
@@ -129,7 +138,8 @@ class FootprintTest(unittest.TestCase):
         for height in self.sat_heights:
             beam_deg = 0.325
             footprint = Footprint(
-                beam_deg, elevation_deg=90, sat_height=height)
+                beam_deg, elevation_deg=90, sat_height=height,
+            )
             cone_radius_in_km = height * np.tan(np.deg2rad(beam_deg)) / 1000
             cone_base_area_in_km2 = np.pi * (cone_radius_in_km**2)
             footprint_area_in_km2 = footprint.calc_area(1000)

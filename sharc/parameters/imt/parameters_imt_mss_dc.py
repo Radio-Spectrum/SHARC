@@ -12,8 +12,11 @@ from sharc.parameters.parameters_orbit import ParametersOrbit
 
 SHARC_ROOT_DIR = (Path(__file__) / ".." / ".." / ".." / "..").resolve()
 
+
 @dataclass
 class ParametersSectorPositioning(ParametersBase):
+    """Dataclass for sector positioning parameters in the IMT MSS-DC topology."""
+
     @dataclass
     class ParametersSectorValue(ParametersBase):
         @dataclass
@@ -125,11 +128,13 @@ class ParametersSectorPositioning(ParametersBase):
                     f"No validation implemented for {ctx}.type = {self.type}"
                 )
 
+
 @dataclass
 class ParametersSelectActiveSatellite(ParametersBase):
     @dataclass
     class ParametersLatLongInsideCountry(ParametersBase):
-        country_shapes_filename: Path = SHARC_ROOT_DIR / "sharc"/"topology"/"countries"/"ne_110m_admin_0_countries.shp"
+        country_shapes_filename: Path = \
+            SHARC_ROOT_DIR / "sharc" / "data" / "countries" / "ne_110m_admin_0_countries.shp"
 
         # may load automatically for different shapefiles
         __ALLOWED_COUNTRY_NAMES = []
@@ -296,4 +301,3 @@ class ParametersImtMssDc(ParametersBase):
             self.intersite_distance = np.sqrt(3) * self.cell_radius
 
         super().validate(ctx)
-

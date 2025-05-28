@@ -227,7 +227,7 @@ class SimulationDownlink(Simulation):
                             )
 
                     rx_oob[::] = p_tx - self.parameters.imt.ue.adjacent_ch_selectivity
-                elif self.parameters.imt.adjacent_ch_reception ==  "OFF":
+                elif self.parameters.imt.adjacent_ch_reception == "OFF":
                     pass
                 else:
                     raise ValueError(
@@ -253,7 +253,7 @@ class SimulationDownlink(Simulation):
                         10 * np.log10(self.param_system.bandwidth * 1e6) -  \
                         self.param_system.adjacent_ch_leak_ratio + \
                         10 * np.log10(1. - weights)
-                elif self.param_system.adjacent_ch_emissions ==  "OFF":
+                elif self.param_system.adjacent_ch_emissions == "OFF":
                     pass
                 else:
                     raise ValueError(
@@ -419,6 +419,9 @@ class SimulationDownlink(Simulation):
             self.results.system_inr.extend(self.system.inr.tolist())
             self.results.system_dl_interf_power.extend(
                 [self.system.rx_interference],
+            )
+            self.results.system_dl_interf_power_per_mhz.extend(
+                [self.system.rx_interference - 10 * math.log10(self.system.bandwidth)],
             )
             # TODO: generalize this a bit more if needed (same conditional as above)
             if hasattr(self.system.antenna[0], "effective_area") and self.system.num_stations == 1:

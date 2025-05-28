@@ -15,7 +15,8 @@ class TestPropagationBuildingEntryLoss(unittest.TestCase):
 
     def setUp(self):
         self.building_entry_loss = PropagationBuildingEntryLoss(
-            np.random.RandomState())
+            np.random.RandomState(),
+        )
 
     def test_building_entry_loss(self):
         # compare with benchmark from ITU-R P-2109-0 Fig. 1
@@ -27,7 +28,8 @@ class TestPropagationBuildingEntryLoss(unittest.TestCase):
         loss_upper = np.array([10, 12, 15, 17, 18, 21, 25])
 
         loss = self.building_entry_loss.get_loss(
-            f_GHz_vec * 1000, 0, prob=.5, test=True)
+            f_GHz_vec * 1000, 0, prob=.5, test=True,
+        )
         npt.assert_array_less(loss_lower, loss)
         npt.assert_array_less(loss, loss_upper)
 
@@ -35,8 +37,10 @@ class TestPropagationBuildingEntryLoss(unittest.TestCase):
         loss_lower = [39, 30, 25, 30, 32, 40, 55]
         loss_upper = [40, 35, 30, 31, 35, 43, 57]
 
-        loss = self.building_entry_loss.get_loss(f_GHz_vec * 1000, 0, prob=.5, test=True,
-                                                 building_class="THERMALLY_EFFICIENT")
+        loss = self.building_entry_loss.get_loss(
+            f_GHz_vec * 1000, 0, prob=.5, test=True,
+            building_class="THERMALLY_EFFICIENT",
+        )
         npt.assert_array_less(loss_lower, loss)
         npt.assert_array_less(loss, loss_upper)
 

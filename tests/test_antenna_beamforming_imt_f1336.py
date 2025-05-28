@@ -58,7 +58,8 @@ class AntennaBeamformingImtF1336Test(unittest.TestCase):
 
     def test_theta_3db(self):
         self.assertAlmostEqual(
-            self.antenna1.element.theta_3db, 7.55, delta=1e-2)
+            self.antenna1.element.theta_3db, 7.55, delta=1e-2,
+        )
 
     def test_n_rows(self):
         self.assertEqual(self.antenna1.n_rows, 1)
@@ -77,100 +78,136 @@ class AntennaBeamformingImtF1336Test(unittest.TestCase):
         theta = 0
         v_vec = self.antenna1._super_position_vector(phi, theta)
         expected_v_vec = np.array([[1]])
-        npt.assert_allclose(np.real(v_vec),
-                            np.real(expected_v_vec),
-                            atol=1e-2)
-        npt.assert_allclose(np.imag(v_vec),
-                            np.imag(expected_v_vec),
-                            atol=1e-2)
+        npt.assert_allclose(
+            np.real(v_vec),
+            np.real(expected_v_vec),
+            atol=1e-2,
+        )
+        npt.assert_allclose(
+            np.imag(v_vec),
+            np.imag(expected_v_vec),
+            atol=1e-2,
+        )
 
         phi = 90
         theta = 90
         v_vec = self.antenna1._super_position_vector(phi, theta)
         expected_v_vec = np.array([[1]])
-        npt.assert_allclose(np.real(v_vec),
-                            np.real(expected_v_vec),
-                            atol=1e-2)
-        npt.assert_allclose(np.imag(v_vec),
-                            np.imag(expected_v_vec),
-                            atol=1e-2)
+        npt.assert_allclose(
+            np.real(v_vec),
+            np.real(expected_v_vec),
+            atol=1e-2,
+        )
+        npt.assert_allclose(
+            np.imag(v_vec),
+            np.imag(expected_v_vec),
+            atol=1e-2,
+        )
         phi = 45
         theta = 45
         v_vec = self.antenna1._super_position_vector(phi, theta)
         expected_v_vec = np.array([[1]])
-        npt.assert_allclose(np.real(v_vec),
-                            np.real(expected_v_vec),
-                            atol=1e-2)
-        npt.assert_allclose(np.imag(v_vec),
-                            np.imag(expected_v_vec),
-                            atol=1e-2)
+        npt.assert_allclose(
+            np.real(v_vec),
+            np.real(expected_v_vec),
+            atol=1e-2,
+        )
+        npt.assert_allclose(
+            np.imag(v_vec),
+            np.imag(expected_v_vec),
+            atol=1e-2,
+        )
 
         phi = 60
         theta = 90
         v_vec = self.antenna1._super_position_vector(phi, theta)
         expected_v_vec = np.array([[1]])
-        npt.assert_allclose(np.real(v_vec),
-                            np.real(expected_v_vec),
-                            atol=1e-2)
-        npt.assert_allclose(np.imag(v_vec),
-                            np.imag(expected_v_vec),
-                            atol=1e-2)
+        npt.assert_allclose(
+            np.real(v_vec),
+            np.real(expected_v_vec),
+            atol=1e-2,
+        )
+        npt.assert_allclose(
+            np.imag(v_vec),
+            np.imag(expected_v_vec),
+            atol=1e-2,
+        )
 
     def test_weight_vector(self):
         phi_scan = 0
         theta_tilt = 0
         w_vec = self.antenna1._weight_vector(phi_scan, theta_tilt)
         expected_w_vec = np.array([[1]])
-        npt.assert_allclose(np.real(w_vec),
-                            np.real(expected_w_vec),
-                            atol=1e-2)
-        npt.assert_allclose(np.imag(w_vec),
-                            np.imag(expected_w_vec),
-                            atol=1e-2)
+        npt.assert_allclose(
+            np.real(w_vec),
+            np.real(expected_w_vec),
+            atol=1e-2,
+        )
+        npt.assert_allclose(
+            np.imag(w_vec),
+            np.imag(expected_w_vec),
+            atol=1e-2,
+        )
 
         phi_scan = 90
         theta_tilt = 90
         w_vec = self.antenna1._weight_vector(phi_scan, theta_tilt)
         expected_w_vec = np.array([[1]])
-        npt.assert_allclose(np.real(w_vec),
-                            np.real(expected_w_vec),
-                            atol=1e-2)
-        npt.assert_allclose(np.imag(w_vec),
-                            np.imag(expected_w_vec),
-                            atol=1e-2)
+        npt.assert_allclose(
+            np.real(w_vec),
+            np.real(expected_w_vec),
+            atol=1e-2,
+        )
+        npt.assert_allclose(
+            np.imag(w_vec),
+            np.imag(expected_w_vec),
+            atol=1e-2,
+        )
 
         phi_scan = 45
         theta_tilt = 45
         w_vec = self.antenna1._weight_vector(phi_scan, theta_tilt)
         expected_w_vec = np.array([[1]])
-        npt.assert_allclose(np.real(w_vec),
-                            np.real(expected_w_vec),
-                            atol=1e-2)
-        npt.assert_allclose(np.imag(w_vec),
-                            np.imag(expected_w_vec),
-                            atol=1e-2)
+        npt.assert_allclose(
+            np.real(w_vec),
+            np.real(expected_w_vec),
+            atol=1e-2,
+        )
+        npt.assert_allclose(
+            np.imag(w_vec),
+            np.imag(expected_w_vec),
+            atol=1e-2,
+        )
 
         phi_scan = 0
         theta_tilt = 90
         w_vec = self.antenna1._weight_vector(phi_scan, theta_tilt)
         expected_w_vec = np.array([[1]])
-        npt.assert_allclose(np.real(w_vec),
-                            np.real(expected_w_vec),
-                            atol=1e-2)
-        npt.assert_allclose(np.imag(w_vec),
-                            np.imag(expected_w_vec),
-                            atol=1e-2)
+        npt.assert_allclose(
+            np.real(w_vec),
+            np.real(expected_w_vec),
+            atol=1e-2,
+        )
+        npt.assert_allclose(
+            np.imag(w_vec),
+            np.imag(expected_w_vec),
+            atol=1e-2,
+        )
 
         phi_scan = 45
         theta_tilt = 30
         w_vec = self.antenna1._weight_vector(phi_scan, theta_tilt)
         expected_w_vec = np.array([[1]])
-        npt.assert_allclose(np.real(w_vec),
-                            np.real(expected_w_vec),
-                            atol=1e-2)
-        npt.assert_allclose(np.imag(w_vec),
-                            np.imag(expected_w_vec),
-                            atol=1e-2)
+        npt.assert_allclose(
+            np.real(w_vec),
+            np.real(expected_w_vec),
+            atol=1e-2,
+        )
+        npt.assert_allclose(
+            np.imag(w_vec),
+            np.imag(expected_w_vec),
+            atol=1e-2,
+        )
 
     def test_add_beam(self):
         eps = 1e-5
@@ -200,12 +237,16 @@ class AntennaBeamformingImtF1336Test(unittest.TestCase):
 
         w_vec = self.antenna1.w_vec_list[0]
         expected_w_vec = np.array([[1]])
-        npt.assert_allclose(np.real(w_vec),
-                            np.real(expected_w_vec),
-                            atol=1e-2)
-        npt.assert_allclose(np.imag(w_vec),
-                            np.imag(expected_w_vec),
-                            atol=1e-2)
+        npt.assert_allclose(
+            np.real(w_vec),
+            np.real(expected_w_vec),
+            atol=1e-2,
+        )
+        npt.assert_allclose(
+            np.imag(w_vec),
+            np.imag(expected_w_vec),
+            atol=1e-2,
+        )
 
         # Test second beam
         self.assertEqual(self.antenna1.beams_list[1][0], 90)
@@ -213,12 +254,16 @@ class AntennaBeamformingImtF1336Test(unittest.TestCase):
 
         w_vec = self.antenna1.w_vec_list[1]
         expected_w_vec = np.array([[1]])
-        npt.assert_allclose(np.real(w_vec),
-                            np.real(expected_w_vec),
-                            atol=1e-2)
-        npt.assert_allclose(np.imag(w_vec),
-                            np.imag(expected_w_vec),
-                            atol=1e-2)
+        npt.assert_allclose(
+            np.real(w_vec),
+            np.real(expected_w_vec),
+            atol=1e-2,
+        )
+        npt.assert_allclose(
+            np.imag(w_vec),
+            np.imag(expected_w_vec),
+            atol=1e-2,
+        )
 
         # Reset beams and test
         self.antenna1.reset_beams()
@@ -266,8 +311,10 @@ class AntennaBeamformingImtF1336Test(unittest.TestCase):
         # Test 1
         phi_vec = np.array([0, 30])
         theta_vec = np.array([90, 100])
-        gains = self.antenna1.calculate_gain(phi_vec=phi_vec,
-                                             theta_vec=theta_vec)
+        gains = self.antenna1.calculate_gain(
+            phi_vec=phi_vec,
+            theta_vec=theta_vec,
+        )
         npt.assert_allclose(gains, np.array([18, 4.52]), atol=eps)
 
         # Test 2
@@ -277,17 +324,21 @@ class AntennaBeamformingImtF1336Test(unittest.TestCase):
         theta_tilt = 180
         self.antenna1.add_beam(phi_scan, theta_tilt)
         beams_l = np.zeros_like(phi_vec, dtype=int)
-        gains = self.antenna1.calculate_gain(phi_vec=phi,
-                                             theta_vec=theta,
-                                             beams_l=beams_l)
+        gains = self.antenna1.calculate_gain(
+            phi_vec=phi,
+            theta_vec=theta,
+            beams_l=beams_l,
+        )
         npt.assert_allclose(gains, np.array([12.74]), atol=eps)
 
         # Test 3
         phi = 5
         theta = 98
-        gains = self.antenna1.calculate_gain(phi_vec=phi,
-                                             theta_vec=theta,
-                                             co_channel=False)
+        gains = self.antenna1.calculate_gain(
+            phi_vec=phi,
+            theta_vec=theta,
+            co_channel=False,
+        )
         npt.assert_allclose(gains, np.array([6.81]), atol=eps)
 
 

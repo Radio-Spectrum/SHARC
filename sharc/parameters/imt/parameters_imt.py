@@ -29,14 +29,17 @@ class ParametersImt(ParametersBase):
     guard_band_ratio: float = 0.1
     # Adjacent Interference filter reception used when IMT is victim. Possible values is ACS and OFF
     adjacent_ch_reception: str = "OFF"
+
     @dataclass
     class ParametersBS(ParametersBase):
+        """Dataclass containing the IMT Base Station (BS) parameters."""
+
         load_probability = 0.2
         conducted_power = 10.0
         height: float = 6.0
         noise_figure: float = 10.0
         ohmic_loss: float = 3.0
-        antenna: ParametersAntenna = field(default_factory=lambda:ParametersAntenna(
+        antenna: ParametersAntenna = field(default_factory=lambda: ParametersAntenna(
             pattern="ARRAY", array=ParametersAntennaImt(downtilt=0.0)
         ))
     bs: ParametersBS = field(default_factory=ParametersBS)
@@ -45,6 +48,8 @@ class ParametersImt(ParametersBase):
 
     @dataclass
     class ParametersUL(ParametersBase):
+        """Dataclass containing the IMT Uplink (UL) parameters."""
+
         attenuation_factor: float = 0.4
         sinr_min: float = -10.0
         sinr_max: float = 22.0
@@ -55,6 +60,8 @@ class ParametersImt(ParametersBase):
 
     @dataclass
     class ParametersUE(ParametersBase):
+        """Dataclass containing the IMT User Equipment (UE) parameters."""
+
         k: int = 3
         k_m: int = 1
         indoor_percent: int = 5.0
@@ -72,11 +79,12 @@ class ParametersImt(ParametersBase):
         ohmic_loss: float = 3.0
         body_loss: float = 4.0
         adjacent_ch_selectivity: float = 33  # Adjacent Channel Selectivity in dB
-        antenna: ParametersAntenna = field(default_factory=lambda:ParametersAntenna(
+        antenna: ParametersAntenna = field(default_factory=lambda: ParametersAntenna(
             pattern="ARRAY"
         ))
 
         def validate(self, ctx: str):
+            """Validate the UE antenna beamsteering range parameters."""
             if self.antenna.array.horizontal_beamsteering_range != (-180., 180.)\
                     or self.antenna.array.vertical_beamsteering_range != (0., 180.):
                 raise NotImplementedError(

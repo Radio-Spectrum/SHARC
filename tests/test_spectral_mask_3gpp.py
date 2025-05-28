@@ -22,7 +22,8 @@ class SpectalMask3GppTest(unittest.TestCase):
         bandwidth = 20
         spurious = -13
         self.mask_bs_a = SpectralMask3Gpp(
-            sta_type, frequency, bandwidth, spurious)
+            sta_type, frequency, bandwidth, spurious,
+        )
         self.mask_bs_a.set_mask(p_tx)
 
         # Initialize variables for BS Cat-B mask (3.5 GHz)
@@ -32,7 +33,8 @@ class SpectalMask3GppTest(unittest.TestCase):
         bandwidth = 20
         spurious = -30
         self.mask_bs_b = SpectralMask3Gpp(
-            sta_type, frequency, bandwidth, spurious)
+            sta_type, frequency, bandwidth, spurious,
+        )
         self.mask_bs_b.set_mask(p_tx)
 
         # Initialize variables for UE mask (3.5 GHz)
@@ -42,7 +44,8 @@ class SpectalMask3GppTest(unittest.TestCase):
         bandwidth = 20
         spurious = -30
         self.mask_ue = SpectralMask3Gpp(
-            sta_type, frequency, bandwidth, spurious)
+            sta_type, frequency, bandwidth, spurious,
+        )
         self.mask_ue.set_mask(p_tx)
 
     def test_power_calc_bs_a(self):
@@ -142,47 +145,75 @@ class SpectalMask3GppTest(unittest.TestCase):
         fc = 3502.5
         bandwidth = 5
         poob = self.mask_ue.power_calc(fc, bandwidth)
-        self.assertAlmostEqual(poob,
-                               10 * np.log10(np.power(10,
-                                                      0.1 * (-21 + 10 * np.log10(1 / 0.03))) + np.power(10,
-                                                                                                        0.1 * (-10 + 10 * np.log10(4)))),
-                               delta=1e-2)
+        self.assertAlmostEqual(
+            poob,
+            10 * np.log10(
+                np.power(
+                    10,
+                    0.1 * (-21 + 10 * np.log10(1 / 0.03)),
+                ) + np.power(
+                    10,
+                    0.1 * (-10 + 10 * np.log10(4)),
+                ),
+            ),
+            delta=1e-2,
+        )
 
         #######################################################################
         fc = 3510
         bandwidth = 10
         poob = self.mask_ue.power_calc(fc, bandwidth)
-        self.assertAlmostEqual(poob,
-                               -13 + 10 * np.log10(10),
-                               delta=1e-2)
+        self.assertAlmostEqual(
+            poob,
+            -13 + 10 * np.log10(10),
+            delta=1e-2,
+        )
 
         ######################################################################
         fc = 3520
         bandwidth = 10
         poob = self.mask_ue.power_calc(fc, bandwidth)
-        self.assertAlmostEqual(poob,
-                               10 * np.log10(np.power(10,
-                                                      0.1 * (-13 + 10 * np.log10(5))) + np.power(10,
-                                                                                                 0.1 * (-25 + 10 * np.log10(5)))),
-                               delta=1e-2)
+        self.assertAlmostEqual(
+            poob,
+            10 * np.log10(
+                np.power(
+                    10,
+                    0.1 * (-13 + 10 * np.log10(5)),
+                ) + np.power(
+                    10,
+                    0.1 * (-25 + 10 * np.log10(5)),
+                ),
+            ),
+            delta=1e-2,
+        )
 
         #######################################################################
         fc = 3525
         bandwidth = 10
         poob = self.mask_ue.power_calc(fc, bandwidth)
-        self.assertAlmostEqual(poob,
-                               10 * np.log10(np.power(10,
-                                                      0.1 * (-25 + 10 * np.log10(5))) + np.power(10,
-                                                                                                 0.1 * (-30 + 10 * np.log10(5)))),
-                               delta=1e-2)
+        self.assertAlmostEqual(
+            poob,
+            10 * np.log10(
+                np.power(
+                    10,
+                    0.1 * (-25 + 10 * np.log10(5)),
+                ) + np.power(
+                    10,
+                    0.1 * (-30 + 10 * np.log10(5)),
+                ),
+            ),
+            delta=1e-2,
+        )
 
         #######################################################################
         fc = 3600
         bandwidth = 50
         poob = self.mask_ue.power_calc(fc, bandwidth)
-        self.assertAlmostEqual(poob,
-                               -30 + 10 * np.log10(50),
-                               delta=1e-2)
+        self.assertAlmostEqual(
+            poob,
+            -30 + 10 * np.log10(50),
+            delta=1e-2,
+        )
 
 
 if __name__ == '__main__':

@@ -44,6 +44,6 @@ class ParametersImtTopology(ParametersBase):
             case "NTN":
                 self.ntn.validate(f"{ctx}.ntn")
             case "MSS_DC":
-                self.mss_dc.validate(f"{ctx}.ntn")
+                self.mss_dc.validate(f"{ctx}.mss_dc")
             case _:
                 raise NotImplementedError(f"{ctx}.type == '{self.type}' may not be implemented")

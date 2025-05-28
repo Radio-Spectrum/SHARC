@@ -1,6 +1,7 @@
 from dataclasses import dataclass, field
 from sharc.parameters.parameters_base import ParametersBase
 
+
 @dataclass
 class ParametersOrbit(ParametersBase):
     n_planes: int = 8

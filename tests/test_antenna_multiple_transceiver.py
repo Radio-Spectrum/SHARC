@@ -25,13 +25,13 @@ class AntennaAntennaMultipleTransceiverTest(unittest.TestCase):
             azimuths=np.array([0.0]),
             elevations=np.array([0.0]),  # so we point at horizon for test
             num_beams=1,
-            transceiver_radiation_pattern=self.base_antenna
+            transceiver_radiation_pattern=self.base_antenna,
         )
         self.double_antenna_pointing_same_way = AntennaMultipleTransceiver(
             azimuths=np.array([0.0, 0.0]),
-            elevations=np.array([0.0, 0.0]), # so we point at horizon for test
+            elevations=np.array([0.0, 0.0]),  # so we point at horizon for test
             num_beams=2,
-            transceiver_radiation_pattern=self.base_antenna
+            transceiver_radiation_pattern=self.base_antenna,
         )
 
         altitude = 1000
@@ -48,7 +48,7 @@ class AntennaAntennaMultipleTransceiverTest(unittest.TestCase):
             azimuths=self.sectors7_azimuth,
             elevations=self.sectors7_elevation,
             num_beams=7,
-            transceiver_radiation_pattern=self.base_antenna
+            transceiver_radiation_pattern=self.base_antenna,
         )
 
     def test_calculate_gain(self):
@@ -70,7 +70,7 @@ class AntennaAntennaMultipleTransceiverTest(unittest.TestCase):
         off_axis_angle = np.array([0.0, 30.0, 60.0])
         expected = self.base_antenna.calculate_gain(
             off_axis_angle_vec=off_axis_angle,
-            theta_vec=theta
+            theta_vec=theta,
         )
         actual = self.single_antenna.calculate_gain(
             phi_vec=phi,
@@ -105,10 +105,10 @@ class AntennaAntennaMultipleTransceiverTest(unittest.TestCase):
 
         expected_gains = self.base_antenna.calculate_gain(
                 theta_vec=theta,
-                off_axis_angle_vec=off_axis_angle
-            )
+                off_axis_angle_vec=off_axis_angle,
+        )
 
-        expected = np.array([10 * np.log10(np.sum(10**(expected_gains/10)))])
+        expected = np.array([10 * np.log10(np.sum(10**(expected_gains / 10)))])
 
         self.assertEqual(actual7_sec.shape, expected.shape)
         npt.assert_allclose(actual7_sec, expected)
@@ -116,4 +116,3 @@ class AntennaAntennaMultipleTransceiverTest(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
-

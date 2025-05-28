@@ -31,27 +31,32 @@ class AntennaS1528Test(unittest.TestCase):
     def test_calculate_gain(self):
         psi = np.array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 80, 100])
 
-        ref_gain20 = np.array([0, -
-                               3, -
-                               8.48, -
-                               20, -
-                               20, -
-                               20, -
-                               20, -
-                               21.10, -
-                               22.55, -
-                               23.83, -
-                               24.98, -
-                               39, -
-                               34.25])
+        ref_gain20 = np.array([
+            0, -
+            3, -
+            8.48, -
+            20, -
+            20, -
+            20, -
+            20, -
+            21.10, -
+            22.55, -
+            23.83, -
+            24.98, -
+            39, -
+            34.25,
+        ])
         gain20 = self.antenna20.calculate_gain(
-            off_axis_angle_vec=psi) - self.antenna20.peak_gain
+            off_axis_angle_vec=psi,
+        ) - self.antenna20.peak_gain
         npt.assert_allclose(gain20, ref_gain20, atol=1e-2)
 
         ref_gain30 = np.array(
-            [0, -3, -8.48, -30, -30, -30, -30, -31.10, -32.55, -33.83, -34.98, -39, -39])
+            [0, -3, -8.48, -30, -30, -30, -30, -31.10, -32.55, -33.83, -34.98, -39, -39],
+        )
         gain30 = self.antenna30.calculate_gain(
-            off_axis_angle_vec=psi) - self.antenna30.peak_gain
+            off_axis_angle_vec=psi,
+        ) - self.antenna30.peak_gain
         npt.assert_allclose(gain30, ref_gain30, atol=1e-2)
 
     def test_calculate_params_bessel(self):
@@ -74,7 +79,6 @@ class AntennaS1528Test(unittest.TestCase):
         npt.assert_allclose(antenna_rolloff_7.mu, ref_primary_roots, atol=1e-3)
         npt.assert_allclose(antenna_rolloff_7.A, ref_A, atol=1e-5)
         npt.assert_allclose(antenna_rolloff_7.sigma, ref_sigma, atol=1e-4)
-
 
 
 if __name__ == '__main__':

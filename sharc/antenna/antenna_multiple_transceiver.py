@@ -42,17 +42,16 @@ class AntennaMultipleTransceiver(Antenna):
         off_axis_angles = self.get_off_axis_angle(self.theta, self.phi, theta_vec, phi_vec)
 
         gains = self.transceiver_radiation_pattern.calculate_gain(
-                off_axis_angle_vec=off_axis_angles,
-                theta_vec=theta_vec
-            )
+            off_axis_angle_vec=off_axis_angles,
+            theta_vec=theta_vec
+        )
 
         return 10 * np.log10(
             np.sum(
-                10**(gains/10),
-                axis=0 # only sum each antenna results from the same angle used
+                10**(gains / 10),
+                axis=0  # only sum each antenna results from the same angle used
             )
         )
-        
 
     @staticmethod
     def get_off_axis_angle(

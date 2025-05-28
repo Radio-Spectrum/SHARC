@@ -42,4 +42,3 @@ for dist in border_distances_array:
     print(f'Parameters saved to {parameter_file_name} file.')
 
     del params
-

@@ -3,7 +3,6 @@ from dataclasses import dataclass, field, asdict
 from sharc.parameters.parameters_base import ParametersBase
 from sharc.parameters.parameters_orbit import ParametersOrbit
 from sharc.parameters.imt.parameters_imt_mss_dc import ParametersSelectActiveSatellite, ParametersSectorPositioning
-#from satellite.parameters.parameters_ngso_constellation import ParametersNgsoConstellation
 from sharc.parameters.parameters_p619 import ParametersP619
 from sharc.parameters.antenna.parameters_antenna_s1528 import ParametersAntennaS1528
 

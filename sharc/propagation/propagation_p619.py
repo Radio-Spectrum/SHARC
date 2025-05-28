@@ -489,7 +489,7 @@ if __name__ == '__main__':
 
     # propagation_path = os.getcwd()
     # sharc_path = os.path.dirname(propagation_path)
-    # param_file = os.path.join(sharc_path, "parameters", "parameters.ini")
+    # param_file = os.path.join(sharc_path, "parameters", "parameters.ini") deprecated
 
     # params.set_file_name(param_file)
     # params.read_params()

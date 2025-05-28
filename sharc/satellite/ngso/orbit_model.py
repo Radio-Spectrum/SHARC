@@ -132,7 +132,7 @@ class OrbitModel():
         # True anomaly (v)
         self.true_anomaly = 2 * np.arctan(np.sqrt((1 + self.eccentricity) / (1 - self.eccentricity)) *
                                           np.tan(self.eccentric_anom / 2))
-        
+
         self.true_anomaly = np.mod(self.true_anomaly, 2 * np.pi)
 
         # Distance of the satellite to Earth's center (r)
@@ -196,7 +196,7 @@ class OrbitModel():
         self.eccentric_anom = eccentric_anomaly(self.eccentricity, self.mean_anomaly)
 
         # True anomaly (v)
-        self.true_anomaly = 2 * np.arctan(np.sqrt((1 + self.eccentricity) / (1 - self.eccentricity)) * 
+        self.true_anomaly = 2 * np.arctan(np.sqrt((1 + self.eccentricity) / (1 - self.eccentricity)) *
                                           np.tan(self.eccentric_anom / 2))
         self.true_anomaly = np.mod(self.true_anomaly, 2 * np.pi)
 
@@ -248,7 +248,7 @@ def main():
     of the satellites using Plotly.
     """
     import plotly.graph_objects as go
-    
+
     orbit_params = {
         "Nsp": 1,
         "Np": 28,

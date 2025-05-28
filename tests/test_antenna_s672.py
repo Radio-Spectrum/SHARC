@@ -32,15 +32,19 @@ class AntennaS672Test(unittest.TestCase):
         psi = np.array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 100])
 
         ref_gain20 = np.array(
-            [0, -3, -12, -20, -20, -20, -20, -21.12, -22.57, -23.85, -25, -50])
+            [0, -3, -12, -20, -20, -20, -20, -21.12, -22.57, -23.85, -25, -50],
+        )
         gain20 = self.antenna20.calculate_gain(
-            off_axis_angle_vec=psi) - self.antenna20.peak_gain
+            off_axis_angle_vec=psi,
+        ) - self.antenna20.peak_gain
         npt.assert_allclose(gain20, ref_gain20, atol=1e-2)
 
         ref_gain30 = np.array(
-            [0, -3, -12, -27, -30, -30, -30, -31.12, -32.57, -33.85, -35, -50])
+            [0, -3, -12, -27, -30, -30, -30, -31.12, -32.57, -33.85, -35, -50],
+        )
         gain30 = self.antenna30.calculate_gain(
-            off_axis_angle_vec=psi) - self.antenna30.peak_gain
+            off_axis_angle_vec=psi,
+        ) - self.antenna30.peak_gain
         npt.assert_allclose(gain30, ref_gain30, atol=1e-2)
 
 

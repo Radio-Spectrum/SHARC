@@ -15,7 +15,7 @@ from sharc.mask.spectral_mask_mss import SpectralMaskMSS
 class SpectalMaskMSSTest(unittest.TestCase):
     def test_power_calc(self):
         # Test 1
-        p_tx_density = -30 # dBW / Hz
+        p_tx_density = -30  # dBW / Hz
         freq = 2190
         band = 1
         p_tx = p_tx_density + 10 * np.log10(band * 1e6)
@@ -27,7 +27,7 @@ class SpectalMaskMSSTest(unittest.TestCase):
         spurious_emissions = -30
 
         mask = SpectralMaskMSS(
-            freq, band, spurious_emissions
+            freq, band, spurious_emissions,
         )
         mask.set_mask(p_tx)
 
@@ -40,13 +40,13 @@ class SpectalMaskMSSTest(unittest.TestCase):
         for i in range(N):
             f_offset = band / 2 + i * 4e-3
 
-            F = (f_offset - band/2) / band * 100
+            F = (f_offset - band / 2) / band * 100
 
-            should_eq[2*i] = p_tx_over_4khz - 40 * np.log10(F/50 + 1) + 30
-            eq[2*i] = mask.power_calc(freq + f_offset + 0.5 * 4e-3, 4e-3)
+            should_eq[2 * i] = p_tx_over_4khz - 40 * np.log10(F / 50 + 1) + 30
+            eq[2 * i] = mask.power_calc(freq + f_offset + 0.5 * 4e-3, 4e-3)
 
-            should_eq[2*i + 1] = should_eq[2*i]
-            eq[2*i + 1] = mask.power_calc(freq - f_offset - 0.5 * 4e-3, 4e-3)
+            should_eq[2 * i + 1] = should_eq[2 * i]
+            eq[2 * i + 1] = mask.power_calc(freq - f_offset - 0.5 * 4e-3, 4e-3)
 
         # substitute last should eq with spurious emissions instead of formula
         should_eq[-1] = spurious_emissions + 10 * np.log10(4e-3)
@@ -57,11 +57,11 @@ class SpectalMaskMSSTest(unittest.TestCase):
         npt.assert_equal(
             -np.inf,
             mask.power_calc(
-                freq, band
-            )
+                freq, band,
+            ),
         )
 
-        fll = mask.power_calc(freq + 1.5 * band,  2*band)
+        fll = mask.power_calc(freq + 1.5 * band, 2 * band)
 
         # this test only passes when considering 0 decimal places...
         # there is a noticeable difference in result from continous integration (by hand)
@@ -72,4 +72,3 @@ class SpectalMaskMSSTest(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
-

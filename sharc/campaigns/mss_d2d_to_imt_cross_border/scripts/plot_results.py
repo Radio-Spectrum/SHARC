@@ -1,3 +1,5 @@
+"""Script to process and plot results for MSS D2D to IMT cross-border campaign."""
+
 import os
 from pathlib import Path
 from sharc.results import Results
@@ -9,7 +11,7 @@ post_processor = PostProcessor()
 # Add a legend to results in folder that match the pattern
 # This could easily come from a config file
 
-prefixes = ["157.9km", "213.4km", "268.9km", "324.4km", "border"]
+prefixes = ["0km", "157.9km", "213.4km", "268.9km", "324.4km", "379.9km", "border"]
 for prefix in prefixes:
     if prefix == "border":
         km = "0km"
@@ -40,11 +42,17 @@ all_results = [*results_ul, *results_dl]
 post_processor.add_results(all_results)
 
 styles = ["solid", "dot", "dash", "longdash", "dashdot", "longdashdot"]
+
+
 def linestyle_getter(result: Results):
+    """
+    Returns a line style string based on the prefix found in the result's output directory.
+    """
     for i in range(len(prefixes)):
         if prefixes[i] in result.output_directory:
             return styles[i]
     return "solid"
+
 
 post_processor.add_results_linestyle_getter(linestyle_getter)
 
@@ -83,10 +91,12 @@ attributes_to_plot = [
 ]
 
 for attr in attributes_to_plot:
-    post_processor\
-        .get_plot_by_results_attribute_name(attr)\
-        .show()
-    # post_processor\
-    #     .get_plot_by_results_attribute_name(attr)\
-    #     .write_html(f"htmls/{attr}.html")
+    post_processor.get_plot_by_results_attribute_name(attr).show()
 
+# Ensure the "htmls" directory exists relative to the script directory
+# htmls_dir = Path(__file__).parent / "htmls"
+# htmls_dir.mkdir(exist_ok=True)
+# for attr in attributes_to_plot:
+#     post_processor\
+#         .get_plot_by_results_attribute_name(attr)\
+#         .write_html(htmls_dir / f"{attr}.html")

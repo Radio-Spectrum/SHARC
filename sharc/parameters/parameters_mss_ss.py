@@ -132,10 +132,10 @@ class ParametersMssSs(ParametersBase):
                                                    antenna_gain=self.antenna_gain,
                                                    antenna_l_s=self.antenna_l_s,
                                                    antenna_3_dB_bw=self.antenna_3_dB_bw,)
-        
+
         if self.channel_model.upper() not in ["FSPL", "P619", "SATELLITESIMPLE"]:
             raise ValueError(f"Invalid channel model name {self.channel_model}")
-        
+
         if self.channel_model == "P619":
             self.param_p619.set_external_parameters(
                 space_station_alt_m=self.altitude,
@@ -144,4 +144,3 @@ class ParametersMssSs(ParametersBase):
                 earth_station_long_diff_deg=self.earth_station_long_diff_deg,
                 season=self.season
             )
-

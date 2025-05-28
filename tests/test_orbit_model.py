@@ -2,6 +2,7 @@ import unittest
 import numpy as np
 from sharc.satellite.ngso.orbit_model import OrbitModel
 
+
 class TestOrbitModel(unittest.TestCase):
 
     def setUp(self):
@@ -14,7 +15,7 @@ class TestOrbitModel(unittest.TestCase):
             delta=52,
             hp=1414,
             ha=1414,
-            Mo=0
+            Mo=0,
         )
 
     def test_initialization(self):
@@ -53,7 +54,9 @@ class TestOrbitModel(unittest.TestCase):
 
         # Check phasing between satellites in the same plane
         r = np.ones((ma_deg.shape[0] - 1, ma_deg.shape[1])) * self.orbit.phasing
-        np.testing.assert_array_almost_equal(np.diff(ma_deg, axis=0), r, decimal=4)
+        phasing_diff = np.diff(ma_deg, axis=0)
+        phasing_diff[phasing_diff < 0] += 360
+        np.testing.assert_array_almost_equal(phasing_diff, r, decimal=4)
 
         # Check phase between planes
         r = np.ones((ma_deg.shape[0], ma_deg.shape[1] - 1)) * self.orbit.sat_sep_angle_deg

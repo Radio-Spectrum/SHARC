@@ -2,6 +2,7 @@ import yaml
 from dataclasses import dataclass
 from copy import deepcopy
 
+
 # Register a tuple constructor with PyYAML
 def tuple_constructor(loader, node):
     """Load the sequence of values from the YAML node and returns a tuple constructed from the sequence."""

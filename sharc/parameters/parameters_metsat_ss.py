@@ -63,7 +63,6 @@ class ParametersMetSatSS(ParametersSpaceStation):
         if self.antenna_pattern not in ["ITU-R S.672"]:
             raise ValueError(f"Invalid antenna_pattern: {self.antenna_pattern}")
 
-
         # Check channel model
         if self.channel_model not in ["FSPL", "P619"]:
             raise ValueError(

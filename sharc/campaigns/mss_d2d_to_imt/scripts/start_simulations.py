@@ -42,4 +42,3 @@ if __name__ == "__main__":
     # Run the campaign with the updated regex pattern
     print("Executing campaign with regex pattern:", regex_pattern)
     run_campaign_re(name_campaign, regex_pattern)
-

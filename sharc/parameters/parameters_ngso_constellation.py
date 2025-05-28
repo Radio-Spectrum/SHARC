@@ -6,6 +6,7 @@ from sharc.parameters.parameters_orbit import ParametersOrbit
 from sharc.parameters.antenna.parameters_antenna_s1528 import ParametersAntennaS1528
 from sharc.parameters.parameters_p619 import ParametersP619
 
+
 @dataclass
 class ParametersNgsoConstellation(ParametersBase):
     """
@@ -117,8 +118,10 @@ class ParametersNgsoConstellation(ParametersBase):
                 earth_station_long_diff_deg=self.earth_station_long_diff_deg,
                 season=self.season
             )
+
+
 if __name__ == "__main__":
-    
+
     try:
         # Create orbital parameters for the first orbit
         orbit_1 = ParametersOrbit(

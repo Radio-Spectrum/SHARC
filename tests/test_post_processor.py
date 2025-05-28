@@ -12,7 +12,7 @@ class StationTest(unittest.TestCase):
         # before preparing to read or loading from previous results
         self.results = Results().prepare_to_write(
             None,
-            True
+            True,
         )
 
     def test_generate_and_add_cdf_plots_from_results(self):
@@ -24,8 +24,8 @@ class StationTest(unittest.TestCase):
 
         self.post_processor.add_plots(
             self.post_processor.generate_cdf_plots_from_results(
-                [self.results]
-            )
+                [self.results],
+            ),
         )
 
         self.assertEqual(len(self.post_processor.plots), 2)

@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 import matplotlib.axes
 import geopandas as gpd
 from shapely.geometry import Polygon, MultiPolygon
+from pathlib import Path
 
 
 class TopologyNTN(Topology):
@@ -161,8 +162,9 @@ class TopologyNTN(Topology):
 
         if map:
             # Load the map of Brazil using GeoPandas
+            workspace_root = Path(__file__).resolve().parent.parent.parent
             brazil = gpd.read_file(
-                "${workspaceFolder}\\sharc\\topology\\countries\\ne_110m_admin_0_countries.shp",
+                workspace_root / "sharc" / "data" / "countries" / "ne_110m_admin_0_countries.shp",
             )
             brazil = brazil[brazil['NAME'] == "Brazil"]
 
@@ -265,7 +267,7 @@ if __name__ == '__main__':
     cell_radius = bs_height * \
         math.tan(np.radians(beamwidth)) / math.cos(np.radians(bs_elevation))
     intersite_distance = cell_radius * np.sqrt(3)  # meters
-    map = False
+    map = True
 
     # Test for 1 sector
     ntn_topology_1 = TopologyNTN(

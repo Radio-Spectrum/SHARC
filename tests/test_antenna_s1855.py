@@ -33,8 +33,10 @@ class AntennaS1855Test(unittest.TestCase):
         off_axis_angle = np.array([7, 8, 15, 100])
         theta = np.array([90, 45, 45, 45])
         expected_result = np.array([10.87, 8.71, 2.59, -10])
-        gain = self.antenna.calculate_gain(off_axis_angle_vec=off_axis_angle,
-                                           theta_vec=theta)
+        gain = self.antenna.calculate_gain(
+            off_axis_angle_vec=off_axis_angle,
+            theta_vec=theta,
+        )
         npt.assert_allclose(gain, expected_result, atol=1e-2)
 
 

@@ -33,7 +33,8 @@ class TopologyNTNTest(unittest.TestCase):
             self.bs_height,
             self.bs_azimuth,
             self.bs_elevation,
-            num_sectors=1)
+            num_sectors=1,
+        )
         topology.calculate_coordinates()
         expected_x = expected_y = expected_z = [0]
         self.assertListEqual(list(topology.x), expected_x)
@@ -41,12 +42,14 @@ class TopologyNTNTest(unittest.TestCase):
         self.assertListEqual(list(topology.z), expected_z)
         expected_azimuth = [-135.0]
         for actual_azi, expected_azi in zip(
-                topology.azimuth, expected_azimuth):
+                topology.azimuth, expected_azimuth,
+        ):
             # cannot check asserListEqual because of float precision
             self.assertAlmostEqual(actual_azi, expected_azi, places=3)
         expected_elevation = [-45.0]
         for expected_elev, actual_elev in zip(
-                topology.elevation, expected_elevation):
+                topology.elevation, expected_elevation,
+        ):
             # cannot check asserListEqual because of float precision
             self.assertAlmostEqual(actual_elev, expected_elev, places=3)
 
@@ -57,7 +60,8 @@ class TopologyNTNTest(unittest.TestCase):
             self.bs_height,
             self.bs_azimuth,
             self.bs_elevation,
-            num_sectors=7)
+            num_sectors=7,
+        )
         topology.calculate_coordinates()
 
         d = self.intersite_distance
@@ -87,21 +91,26 @@ class TopologyNTNTest(unittest.TestCase):
         # tests
         expected_azimuth = np.arctan2(
             expected_y - space_y,
-            expected_x - space_x) * 180 / np.pi
+            expected_x - space_x,
+        ) * 180 / np.pi
         expected_dist_xy = np.sqrt(
-            (expected_x - space_x)**2 + (expected_y - space_y)**2)
+            (expected_x - space_x)**2 + (expected_y - space_y)**2,
+        )
         # using expected_z so this test is independent of other tests
         expected_elevation = np.arctan2(
             expected_z - space_z,
-            expected_dist_xy) * 180 / np.pi
+            expected_dist_xy,
+        ) * 180 / np.pi
 
         # testing expected azimuth and elevation
         for actual_azi, expected_azi in zip(
-                topology.azimuth, expected_azimuth):
+                topology.azimuth, expected_azimuth,
+        ):
             # cannot check asserListEqual because of float precision
             self.assertAlmostEqual(actual_azi, expected_azi, places=3)
         for expected_elev, actual_elev in zip(
-                topology.elevation, expected_elevation):
+                topology.elevation, expected_elevation,
+        ):
             # cannot check asserListEqual because of float precision
             self.assertAlmostEqual(actual_elev, expected_elev, places=3)
 
@@ -112,7 +121,8 @@ class TopologyNTNTest(unittest.TestCase):
             self.bs_height,
             self.bs_azimuth,
             self.bs_elevation,
-            num_sectors=19)
+            num_sectors=19,
+        )
         topology.calculate_coordinates()
 
         d = self.intersite_distance
@@ -148,21 +158,26 @@ class TopologyNTNTest(unittest.TestCase):
         # tests
         expected_azimuth = np.arctan2(
             expected_y - space_y,
-            expected_x - space_x) * 180 / np.pi
+            expected_x - space_x,
+        ) * 180 / np.pi
         expected_distance_xy = np.sqrt(
-            (expected_x - space_x)**2 + (expected_y - space_y)**2)
+            (expected_x - space_x)**2 + (expected_y - space_y)**2,
+        )
         # using expected_z so this test is independent of other tests
         expected_elevation = np.arctan2(
             expected_z - space_z,
-            expected_distance_xy) * 180 / np.pi
+            expected_distance_xy,
+        ) * 180 / np.pi
 
         # testing expected azimuth and elevation
         for actual_azi, expected_azi in zip(
-                topology.azimuth, expected_azimuth):
+                topology.azimuth, expected_azimuth,
+        ):
             # cannot check asserListEqual because of float precision
             self.assertAlmostEqual(actual_azi, expected_azi, places=3)
         for expected_elev, actual_elev in zip(
-                topology.elevation, expected_elevation):
+                topology.elevation, expected_elevation,
+        ):
             # cannot check asserListEqual because of float precision
             self.assertAlmostEqual(actual_elev, expected_elev, places=3)
 

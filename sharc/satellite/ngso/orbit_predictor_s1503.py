@@ -42,7 +42,7 @@ a = (hp + ha + 2 * EARTH_RADIUS_KM) / 2  # semi-major axis, in km
 e = (ha + EARTH_RADIUS_KM - a) / a  # orbital eccentricity (e)
 P = 2 * np.pi * np.sqrt(a ** 3 / KEPLER_CONST)  # orbital period, in seconds
 beta = 360 / Nsp  # satellite separation angle in the plane (degrees)
-psi = 360 / Np  # angle between plane intersections with the equatorial plane (degrees)  
+psi = 360 / Np  # angle between plane intersections with the equatorial plane (degrees)
 
 # Initial mean anomalies for all the satellites
 M_o = (Mo + np.arange(Nsp) * beta + np.arange(Np)[:, None] * phasing) % 360  # shape (Np, Nsp)
@@ -59,10 +59,10 @@ lat_es = [0, -10]  # latitudes of stations, in degrees
 lon_es = [0, -30]  # longitudes of stations, in degrees
 alt_es = [0, 0]  # altitudes of stations, in meters
 rx = EARTH_RADIUS_KM + alt_es[0] * 10**-3
-px = rx * np.cos(np.radians(lat_es[0])) * np.cos(np.radians(lon_es[0])) 
-py = rx * np.cos(np.radians(lat_es[0])) * np.sin(np.radians(lon_es[0])) 
-pz = rx * np.sin(np.radians(lat_es[0])) 
-p = np.array([px, py, pz])  
+px = rx * np.cos(np.radians(lat_es[0])) * np.cos(np.radians(lon_es[0]))
+py = rx * np.cos(np.radians(lat_es[0])) * np.sin(np.radians(lon_es[0]))
+pz = rx * np.sin(np.radians(lat_es[0]))
+p = np.array([px, py, pz])
 
 # INPUT - TIME OF SIMULATION
 
@@ -173,7 +173,7 @@ def keplerian2eci(a, e, delta, Omega, omega, nu):
 
     # Stack to form the ECI position vector with shape (3, N, length(t))
     r_eci = np.array([x, y, z])
-    
+
     return r_eci
 
 
@@ -203,7 +203,7 @@ def eci2ecef(t, r_eci):
     # Create the rotation matrices for each θ in the array
     cos_θ = np.cos(θ)
     sin_θ = np.sin(θ)
-    
+
     # Rotation matrices for each time step `t`, shape (T, 3, 3)
     S = np.array([
         [cos_θ, sin_θ, np.zeros_like(θ)],

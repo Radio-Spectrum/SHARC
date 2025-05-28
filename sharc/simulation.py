@@ -37,6 +37,8 @@ class Simulation(ABC, Observable):
             self.param_system = self.parameters.eess_ss
         elif self.parameters.general.system == "SINGLE_EARTH_STATION":
             self.param_system = self.parameters.single_earth_station
+        elif self.parameters.general.system == "SINGLE_SPACE_STATION":
+            self.param_system = self.parameters.single_space_station
         elif self.parameters.general.system == "FSS_SS":
             self.param_system = self.parameters.fss_ss
         elif self.parameters.general.system == "FSS_ES":
@@ -497,10 +499,9 @@ class Simulation(ABC, Observable):
             self.ue.bandwidth[ue] = self.num_rb_per_ue * \
                 self.parameters.imt.rb_bandwidth
             self.ue.center_freq[ue] = np.array([
-                    self.parameters.imt.frequency
-                    + self.num_rb_per_ue * self.parameters.imt.rb_bandwidth * (i - (len(ue) - 1)/2)
-                    for i in range(len(ue))
-                ])
+                self.parameters.imt.frequency +
+                self.num_rb_per_ue * self.parameters.imt.rb_bandwidth * (i - (len(ue) - 1) / 2) for i in range(len(ue))
+            ])
 
     def calculate_gains(
         self,
@@ -642,24 +643,16 @@ class Simulation(ABC, Observable):
         -------
             K-dimentional array of weights
         """
-        ue_min_f = fc_ue - bw_ue/2
-        ue_max_f = fc_ue + bw_ue/2
+        ue_min_f = fc_ue - bw_ue / 2
+        ue_max_f = fc_ue + bw_ue / 2
 
-        sys_min_f = fc_sys - bw_sys/2
-        sys_max_f = fc_sys + bw_sys/2
-
-        # print("ue_min_f", ue_min_f)
-        # print("ue_max_f", ue_max_f)
-        # print("sys_min_f", sys_min_f)
-        # print("sys_max_f", sys_max_f)
+        sys_min_f = fc_sys - bw_sys / 2
+        sys_max_f = fc_sys + bw_sys / 2
 
         overlap = np.maximum(
             0,
             np.minimum(ue_max_f, sys_max_f) - np.maximum(ue_min_f, sys_min_f)
         ) / bw_ue
-        # print("fc_ue", fc_ue)
-        # print("overlap", overlap)
-        # exit()
 
         return overlap
 

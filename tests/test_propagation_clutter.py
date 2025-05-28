@@ -19,7 +19,7 @@ class TestPropagationClutterLoss(unittest.TestCase):
             frequency=frequency,
             elevation=elevation,
             loc_percentage=loc_percentage,
-            station_type=StationType.FSS_SS
+            station_type=StationType.FSS_SS,
         )
 
         # Check the shape of the output
@@ -38,7 +38,7 @@ class TestPropagationClutterLoss(unittest.TestCase):
             frequency=frequency,
             distance=distance,
             loc_percentage=loc_percentage,
-            station_type=StationType.IMT_BS
+            station_type=StationType.IMT_BS,
         )
 
         self.assertEqual(loss.shape, (2,))
@@ -53,7 +53,7 @@ class TestPropagationClutterLoss(unittest.TestCase):
             frequency=frequency,
             distance=distance,
             loc_percentage="RANDOM",
-            station_type=StationType.IMT_UE
+            station_type=StationType.IMT_UE,
         )
 
         self.assertTrue(0 <= loss <= 100)

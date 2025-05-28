@@ -2,7 +2,7 @@
 /sharc/output/*.csv
 /sharc/output/*.png
 /sharc/output_*/*
-*.csv/sharc/campaigns/*/output/
+/sharc/campaigns/*/output/
 
 
 __pycache__
@@ -98,6 +98,6 @@ SYS_*.txt
 # Ignores campaigns output
 
 /sharc/campaigns/imt_*/output/output_imt*/*.csv
-/sharc/campaigns/imt_*/output/output_imt*/*.ini
+/sharc/campaigns/imt_*/output/output_imt*/*.yaml
 /sharc/campaigns/imt_*/output/Figs/*.png
 sharc/campaigns/mss_d2d_to_imt/output/*.yaml

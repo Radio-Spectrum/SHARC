@@ -31,6 +31,7 @@ class SpectralMaskMSS(SpectralMask):
     """
 
     ALREADY_WARNED_AGAINST_LONG_CALCULATIONS = False
+
     def __init__(
         self,
         freq_mhz: float,
@@ -74,8 +75,7 @@ class SpectralMaskMSS(SpectralMask):
 
     def set_mask(self, p_tx):
         """
-        Sets the spectral mask (mask_dbm attribute) based on station type,
-        operating frequency and transmit power.
+        Set the spectral mask (mask_dbm attribute) based on station type, operating frequency and transmit power.
 
         Parameters:
             p_tx (float): station transmit power.

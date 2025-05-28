@@ -77,16 +77,18 @@ class PropagationHDFSSBuildingSideTest(unittest.TestCase):
         imt_y = np.array([15.0, 80.0, 25.0])
         imt_z = np.array([1.5, 6.0, 7.5])
 
-        loss = self.propagation.get_loss(distance_3D=d,
-                                         frequency=f,
-                                         elevation=ele,
-                                         imt_sta_type=StationType.IMT_BS,
-                                         imt_x=imt_x,
-                                         imt_y=imt_y,
-                                         imt_z=imt_z,
-                                         es_x=es_x,
-                                         es_y=es_y,
-                                         es_z=es_z)
+        loss = self.propagation.get_loss(
+            distance_3D=d,
+            frequency=f,
+            elevation=ele,
+            imt_sta_type=StationType.IMT_BS,
+            imt_x=imt_x,
+            imt_y=imt_y,
+            imt_z=imt_z,
+            es_x=es_x,
+            es_y=es_y,
+            es_z=es_z,
+        )
         loss = loss[0]
 
         expected_loss = np.array([[84.48, 103.35, 140.05]])
@@ -101,40 +103,52 @@ class PropagationHDFSSBuildingSideTest(unittest.TestCase):
 
         # Test 1: fixed value
         expected_build_loss = 50.0
-        build_loss = self.propagation_fixed_value.get_building_loss(sta_type,
-                                                                    f,
-                                                                    ele)
+        build_loss = self.propagation_fixed_value.get_building_loss(
+            sta_type,
+            f,
+            ele,
+        )
         self.assertEqual(build_loss, expected_build_loss)
 
         # Test 2: fixed probability
         expected_build_loss = np.array([[24.4, 33.9, 43.4]])
-        build_loss = self.propagation_fixed_prob.get_building_loss(sta_type,
-                                                                   f,
-                                                                   ele)
+        build_loss = self.propagation_fixed_prob.get_building_loss(
+            sta_type,
+            f,
+            ele,
+        )
         npt.assert_allclose(build_loss, expected_build_loss, atol=1e-1)
 
         # Test 3: random probability
         expected_build_loss = np.array([[21.7, 32.9, 15.9]])
-        build_loss = self.propagation_random_prob.get_building_loss(sta_type,
-                                                                    f,
-                                                                    ele)
+        build_loss = self.propagation_random_prob.get_building_loss(
+            sta_type,
+            f,
+            ele,
+        )
         npt.assert_allclose(build_loss, expected_build_loss, atol=1e-1)
 
         # Test 4: UE station
         sta_type = StationType.IMT_UE
         expected_build_loss = np.array([[21.7, 32.9, 15.9]])
-        build_loss = self.propagation_fixed_value.get_building_loss(sta_type,
-                                                                    f,
-                                                                    ele)
+        build_loss = self.propagation_fixed_value.get_building_loss(
+            sta_type,
+            f,
+            ele,
+        )
         npt.assert_allclose(build_loss, expected_build_loss, atol=1e-1)
-        build_loss = self.propagation_fixed_prob.get_building_loss(sta_type,
-                                                                   f,
-                                                                   ele)
+        build_loss = self.propagation_fixed_prob.get_building_loss(
+            sta_type,
+            f,
+            ele,
+        )
         npt.assert_allclose(build_loss, expected_build_loss, atol=1e-1)
         expected_build_loss = np.array([[10.1, 36.8, 52.6]])
-        build_loss = self.propagation_random_prob.get_building_loss(sta_type,
-                                                                    f,
-                                                                    ele)
+        build_loss = self.propagation_random_prob.get_building_loss(
+            sta_type,
+            f,
+            ele,
+        )
         npt.assert_allclose(build_loss, expected_build_loss, atol=1e-1)
 
     def test_is_same_build(self):
@@ -145,10 +159,12 @@ class PropagationHDFSSBuildingSideTest(unittest.TestCase):
         imt_y = np.array([1.0, 30.0, 0.0, -29.3, -3.6])
 
         expected_in_build = np.array([True, False, False, False, True])
-        in_build = self.propagation.is_same_building(imt_x,
-                                                     imt_y,
-                                                     es_x,
-                                                     es_y)
+        in_build = self.propagation.is_same_building(
+            imt_x,
+            imt_y,
+            es_x,
+            es_y,
+        )
         npt.assert_array_equal(in_build, expected_in_build)
 
     def test_is_next_build(self):
@@ -159,10 +175,12 @@ class PropagationHDFSSBuildingSideTest(unittest.TestCase):
         imt_y = np.array([1.0, 30.0, 0.0, -29.3, -3.6]) + 80.0
 
         expected_in_build = np.array([True, False, False, False, True])
-        in_build = self.propagation.is_next_building(imt_x,
-                                                     imt_y,
-                                                     es_x,
-                                                     es_y)
+        in_build = self.propagation.is_next_building(
+            imt_x,
+            imt_y,
+            es_x,
+            es_y,
+        )
         npt.assert_array_equal(in_build, expected_in_build)
 
 

@@ -60,7 +60,7 @@ def plot_polygon(poly):
 def plot_globe_with_borders():
     # Read the shapefile.  Creates a DataFrame object
     countries_borders_shp_file = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                                              "../data/ne_110m_admin_0_countries/ne_110m_admin_0_countries.shp")
+                                              "../../data/countries/ne_110m_admin_0_countries.shp")
     gdf = gpd.read_file(countries_borders_shp_file)
     fig = go.Figure()
     plot_front(fig)

@@ -122,7 +122,8 @@ def plot_polygon(poly, div=1, alt=0):
     # R = EARTH_RADIUS_KM
     x, y, z = geoconv.convert_lla_to_transformed_cartesian(lat, lon, alt)
 
-    return x/div, y/div, z/div
+    return x / div, y / div, z / div
+
 
 def plot_mult_polygon(mult_poly, div=1e3):
     if mult_poly.geom_type == 'Polygon':
@@ -130,10 +131,11 @@ def plot_mult_polygon(mult_poly, div=1e3):
     elif mult_poly.geom_type == 'MultiPolygon':
         return [plot_polygon(poly, div=div, alt=1000) for poly in mult_poly.geoms]
 
+
 def plot_globe_with_borders():
     # Read the shapefile.  Creates a DataFrame object
     countries_borders_shp_file = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                                              "../data/ne_110m_admin_0_countries/ne_110m_admin_0_countries.shp")
+                                              "../../data/countries/ne_110m_admin_0_countries.shp")
     gdf = gpd.read_file(countries_borders_shp_file)
     fig = go.Figure()
     fig.update_layout(
@@ -157,22 +159,22 @@ def plot_globe_with_borders():
 
         if polys.geom_type == 'Polygon':
             x, y, z = plot_polygon(polys)
-            x_all.extend(x/1e3)
+            x_all.extend(x / 1e3)
             x_all.extend([None])  # None separates different polygons
-            y_all.extend(y/1e3)
+            y_all.extend(y / 1e3)
             y_all.extend([None])
-            z_all.extend(z/1e3)
+            z_all.extend(z / 1e3)
             z_all.extend([None])
 
         elif polys.geom_type == 'MultiPolygon':
 
             for poly in polys.geoms:
                 x, y, z = plot_polygon(poly)
-                x_all.extend(x/1e3)
+                x_all.extend(x / 1e3)
                 x_all.extend([None])  # None separates different polygons
-                y_all.extend(y/1e3)
+                y_all.extend(y / 1e3)
                 y_all.extend([None])
-                z_all.extend(z/1e3)
+                z_all.extend(z / 1e3)
                 z_all.extend([None])
 
     fig.add_trace(go.Scatter3d(x=x_all, y=y_all, z=z_all, mode='lines',
@@ -182,13 +184,19 @@ def plot_globe_with_borders():
 
 
 if __name__ == "__main__":
-    colors = ['#fff7ec','#fee8c8','#fdd49e','#fdbb84','#fc8d59','#7f0000']
-    step = [3, 17, 20, 20] # dB
-    SUM_GAINS = False
-    # Number of iterations (drops)
-    NUM_DROPS = 1
+    colors = ['#fff7ec', '#fee8c8', '#fdd49e', '#fdbb84', '#fc8d59', '#7f0000']
+    # steps from previous section
+    # e.g. [3, 3, 14] means that 1st clr will be for -3 dB, 2nd for -6dB and 3rd for -20dB
+    # from normalized gains
+    step = [3, 17, 20, 20]  # dB
+    # choose a seed to use for getting the satellites
+    # if seed is different, different random numbers are taken
+    SEED = 31
+    # choose if colors appear continuously or in discrete steps
     DISCRETIZE = True
-    select_i = 0
+    # choose if a surface point received gain should be all sat gains summed
+    # or if only max gain will be considered
+    SUM_GAINS = False
 
     # Define the orbit parameters for two satellite constellations
     orbit_1 = ParametersOrbit(
@@ -220,7 +228,6 @@ if __name__ == "__main__":
         name="Example-MSS-D2D",
         antenna_pattern="ITU-R-S.1528-Taylor",
         num_sectors=19,
-        # antenna_gain=g_max,
         antenna_s1528=antenna_params,
         intersite_distance=np.sqrt(3) * spotbeam_radius,
         orbits=[orbit_1]
@@ -239,6 +246,7 @@ if __name__ == "__main__":
     # params.center_beam_positioning.distance_from_subsatellite.type = "~SQRT(U(0,1))*MAX"
     # params.center_beam_positioning.distance_from_subsatellite.distribution.max = 1111000.0
 
+    print("instantiating stations")
     # Create a topology with a single base station
     from sharc.topology.topology_single_base_station import TopologySingleBaseStation
     imt_topology = TopologySingleBaseStation(
@@ -246,16 +254,13 @@ if __name__ == "__main__":
     )
 
     # Create a random number generator
-    rng = np.random.RandomState(seed=42)
+    rng = np.random.RandomState(seed=SEED)
 
     # Lists to store satellite positions (all and visible)
-    all_positions = {'x': [], 'y': [], 'z': []}
-    visible_positions = {'x': [], 'y': [], 'z': []}
-
     # Plot the ground station (blue marker)
     # ground_sta_pos = lla2ecef(sys_lat, sys_long, sys_alt)
     ground_sta_pos = geoconv.convert_lla_to_transformed_cartesian(
-        sys_lat, sys_long, 1200.0)
+        sys_lat, sys_long, sys_alt)
 
     center_of_earth = StationManager(1)
     # rotated and then translated center of earth
@@ -263,104 +268,55 @@ if __name__ == "__main__":
     center_of_earth.y = np.array([0.0])
     center_of_earth.z = np.array([-geoconv.get_translation()])
 
-    vis_elevation = []
-    managers = []
-    options = []
-    for drop in range(NUM_DROPS):
-        # Generate satellite positions using the StationFactory
-        mss_d2d_manager = StationFactory.generate_mss_d2d(params, rng, geoconv)
-        managers.append(mss_d2d_manager)
+    mss_d2d_manager = StationFactory.generate_mss_d2d(params, rng, geoconv)
 
-        # Extract satellite positions
-        x_vec = mss_d2d_manager.x / 1e3  # (Km)
-        y_vec = mss_d2d_manager.y / 1e3  # (Km)
-        z_vec = mss_d2d_manager.z / 1e3  # (Km)
-        # Store all positions
-        all_positions['x'].extend(x_vec)
-        all_positions['y'].extend(y_vec)
-        all_positions['z'].extend(z_vec)
+    # Extract satellite positions
+    x_vec = mss_d2d_manager.x / 1e3  # (Km)
+    y_vec = mss_d2d_manager.y / 1e3  # (Km)
+    z_vec = mss_d2d_manager.z / 1e3  # (Km)
+    # Store all positions
 
-        # Identify visible satellites
-        vis_sat_idxs = np.where(mss_d2d_manager.active)[0]
-
-        options.extend([(drop, i, len(visible_positions['x'])+i)
-                       for i, idx in enumerate(vis_sat_idxs)])
-
-        # should be pointing at nadir
-        off_axis = mss_d2d_manager.get_off_axis_angle(center_of_earth)
-        if len(np.where(off_axis > 0.01)[0]):
-            print("AOPA, off axis parece estar errado")
-            print("onde?: ", np.where(off_axis > 0.01))
-
-        visible_positions['x'].extend(x_vec[vis_sat_idxs])
-        visible_positions['y'].extend(y_vec[vis_sat_idxs])
-        visible_positions['z'].extend(z_vec[vis_sat_idxs])
-        vis_elevation.extend(mss_d2d_manager.elevation[vis_sat_idxs])
-    print("option structure: (drop number, drop indice, abs indice)")
-    print("options", options)
-    print("len(options)", len(options))
-    # station_1 = StationManager(np.sum([m.active for m in managers]))
-    # station_1.x = np.ravel([item for m in managers for item in m.x[m.active]])
-    # station_1.y = np.ravel([item for m in managers for item in m.y[m.active]])
-    # station_1.z = np.ravel([item for m in managers for item in m.z[m.active]])
-    # station_1.azimuth = np.ravel([item for m in managers for item in m.azimuth[m.active]])
-    # station_1.elevation = np.ravel([item for m in managers for item in m.elevation[m.active]])
-    # station_1.antenna = np.ravel([item for m in managers for item in m.antenna[m.active]])
-    station_1 = managers[options[select_i][0]]
-    mss_active = np.where(station_1.active)[0]
-    # consider satellite footprint
-    mss_to_consider = mss_active[options[select_i][1]]
-
-    # Flatten arrays
-    # print(all_positions['x'])
-    all_positions['x'] = np.concatenate([all_positions['x']])
-    all_positions['y'] = np.concatenate([all_positions['y']])
-    all_positions['z'] = np.concatenate([all_positions['z']])
-
-    visible_positions['x'] = np.concatenate([visible_positions['x']])
-    visible_positions['y'] = np.concatenate([visible_positions['y']])
-    visible_positions['z'] = np.concatenate([visible_positions['z']])
-
-    orx, ory, orz = geoconv.revert_transformed_cartesian_to_cartesian(
-        station_1.x[mss_to_consider],
-        station_1.y[mss_to_consider],
-        station_1.z[mss_to_consider],
-    )
-    sat_lat, sat_long, sat_alt = ecef2lla(orx, ory, orz)
     # Plot the globe with satellite positions
     fig = plot_globe_with_borders()
 
-    scale = 0.5 / np.sqrt(visible_positions['x'][options[select_i][2]]**2 +
-                          visible_positions['y'][options[select_i][2]]**2 +
-                          visible_positions['z'][options[select_i][2]]**2)
     # Set the camera position in Plotly
-    # print(center_of_earth.z[0])
     show_range = 1e4
     fig.update_layout(
         scene=dict(
             zaxis=dict(
-                range=(-show_range/2, show_range/2)
+                range=(-show_range / 2, show_range / 2)
             ),
             yaxis=dict(
-                range=(-show_range/2, show_range/2)
+                range=(-show_range / 2, show_range / 2)
             ),
             xaxis=dict(
-                range=(-show_range/2, show_range/2)
+                range=(-show_range / 2, show_range / 2)
             ),
             camera=dict(
-                center=dict(x=0, y=0, z=center_of_earth.z[0]/show_range/1e3),
+                center=dict(x=0, y=0, z=center_of_earth.z[0] / show_range / 1e3),
             )
         )
     )
 
-    # latitude points
-    # lat_vals = np.linspace(sat_lat - 10.0, sat_lat + 10.0, 200)
-    # lat_vals = np.linspace(geoconv.ref_lat - 10.0, geoconv.ref_lat + 10.0, 50)
-    lat_vals = np.linspace(-33.69111, 2.81972, 200)
+    # # Satellite as fp center
+    # center_fp_at_sat = 0
+    # # get original sat xyz
+    # orx, ory, orz = geoconv.revert_transformed_cartesian_to_cartesian(
+    #     station_1.x[center_fp_at_sat],
+    #     station_1.y[center_fp_at_sat],
+    #     station_1.z[center_fp_at_sat],
+    # )
+    # sat_lat, sat_long, sat_alt = ecef2lla(orx, ory, orz)
 
-    # longitude points
+    # lat_vals = np.linspace(sat_lat - 10.0, sat_lat + 10.0, 200)
     # lon_vals = np.linspace(sat_long - 10.0, sat_long + 10.0, 200)
+
+    # # Ground station as fp center
+    # lat_vals = np.linspace(geoconv.ref_lat - 10.0, geoconv.ref_lat + 10.0, 50)
     # lon_vals = np.linspace(geoconv.ref_long - 10.0, geoconv.ref_long + 10.0, 50)
+
+    # Arbitrary range for fp calulation
+    lat_vals = np.linspace(-33.69111, 2.81972, 200)
     lon_vals = np.linspace(-72.89583, -34.80861, 200)
 
     # lon and lat will be 2D arrays.
@@ -374,15 +330,19 @@ if __name__ == "__main__":
     # Ensure your converter function can handle vectorized (numpy array) inputs.
     x_flat, y_flat, z_flat = geoconv.convert_lla_to_transformed_cartesian(lat_flat, lon_flat, 0)
 
+    # creates a StationManager to calculate the gains on
     surf_manager = StationManager(len(x_flat))
     surf_manager.x = x_flat
     surf_manager.y = y_flat
     surf_manager.z = z_flat
     surf_manager.height = z_flat
 
+    station_1 = mss_d2d_manager
+    mss_active = np.where(station_1.active)[0]
     station_2 = surf_manager
     station_2_active = np.where(station_2.active)[0]
 
+    print("Calculating gains (memory intensive)")
     # Calculate vector and apointment off_axis
     gains = np.zeros((len(mss_active), len(station_2_active)))
     phi, theta = station_1.get_pointing_vector_to(station_2)
@@ -395,18 +355,12 @@ if __name__ == "__main__":
                 theta_vec=theta[k, station_2_active],
                 phi_vec=phi[k, station_2_active],
         )
-    # lin_gains = gains
+
     if SUM_GAINS:
         gains = 10 ** (gains / 10)
         gains = 10 * np.log10(np.sum(gains, axis=0))
     else:
         gains = np.max(gains, axis=0)
-    # lin_gains = gains
-    # print("lin_gains")
-    # print(lin_gains)
-    # print(mss_active)
-    # print("considering ", mss_to_consider)
-    # print("considering z", station_1.z[mss_to_consider])
 
     world_surf_x = x_flat.reshape(lat.shape)
     world_surf_y = y_flat.reshape(lat.shape)
@@ -417,33 +371,34 @@ if __name__ == "__main__":
     mx_gain = np.max(reshaped_gain)
     mn_gain = np.min(reshaped_gain)
     rnge = mx_gain - mn_gain
-    n_steps = len(step)
-    colorscale = [[0, clor], [1/n_steps/2-0.001, clor]]
+    n_steps = len(step) - 1
+    colorscale = []
     bins = []
     at = 0
     offset = len(colors) - len(step)
 
-    for i in range(1, n_steps+1):
-        ci = offset + i-1
+    for i in range(0, n_steps + 1):
+        ci = offset + i
 
         bins.append(mx_gain - at * rnge)
-        at += step[i-1]/rnge
+        at += step[i] / rnge
 
-        if DISCRETIZE and i/n_steps - 1/n_steps/2 > 0:
-            colorscale.append([i/n_steps - 1/n_steps/2, "rgb(100,100,100)"])
-            colorscale.append([i/n_steps - 1/n_steps/2 + 0.001, colors[ci]])
-        colorscale.append([i/n_steps, colors[ci]])
-        if DISCRETIZE and i/n_steps + 1/n_steps/2 < 1.0:
-            colorscale.append([i/n_steps + 1/n_steps/2 - 0.001, colors[ci]])
+        if DISCRETIZE and i / n_steps - 1 / n_steps / 2 > 0:
+            colorscale.append([i / n_steps - 1 / n_steps / 2, "rgb(100,100,100)"])
+            colorscale.append([i / n_steps - 1 / n_steps / 2 + 0.001, colors[ci]])
+        colorscale.append([i / n_steps, colors[ci]])
+        if DISCRETIZE and i / n_steps + 1 / n_steps / 2 < 1.0:
+            colorscale.append([i / n_steps + 1 / n_steps / 2 - 0.001, colors[ci]])
     # bins.append(mn_gain)
     bins.reverse()
 
     if DISCRETIZE:
+        # cumul_steps = np.cumsum(steps)
         surfacecolor = np.digitize(reshaped_gain, bins, right=True)
-        colorbar=dict(
+        colorbar = dict(
             tickmode='array',
-            tickvals=np.arange(0, len(bins) + 1),
-            ticktext=[f"< {bins[0]:.2f} dB"] + [f"{bins[i]:.2f} to {bins[i+1]:.2f} dB" for i in range(len(bins) - 1)],
+            tickvals=np.arange(0, len(bins)),
+            ticktext=[f"< {bins[0]:.2f} dB"] + [f"{bins[i]:.2f} to {bins[i + 1]:.2f} dB" for i in range(len(bins) - 1)],
             title="Gain (dB)"
         )
     else:
@@ -464,9 +419,9 @@ if __name__ == "__main__":
     # Plot all satellites (red markers)
     print("adding sats")
     fig.add_trace(go.Scatter3d(
-        x=all_positions['x'],
-        y=all_positions['y'],
-        z=all_positions['z'],
+        x=mss_d2d_manager.x / 1e3,
+        y=mss_d2d_manager.y / 1e3,
+        z=mss_d2d_manager.z / 1e3,
         mode='markers',
         marker=dict(size=2, color='red', opacity=0.5),
         showlegend=False
@@ -474,11 +429,10 @@ if __name__ == "__main__":
 
     # Plot visible satellites (green markers)
     # print(visible_positions['x'][visible_positions['x'] > 0])
-    # print("vis_elevation", vis_elevation)
     fig.add_trace(go.Scatter3d(
-        x=visible_positions['x'],
-        y=visible_positions['y'],
-        z=visible_positions['z'],
+        x=mss_d2d_manager.x[mss_d2d_manager.active] / 1e3,
+        y=mss_d2d_manager.y[mss_d2d_manager.active] / 1e3,
+        z=mss_d2d_manager.z[mss_d2d_manager.active] / 1e3,
         mode='markers',
         marker=dict(size=3, color='green', opacity=0.8),
         showlegend=False
@@ -505,14 +459,13 @@ if __name__ == "__main__":
     )
 
     fig.add_trace(go.Scatter3d(
-        x=lim_x ,
-        y=lim_y ,
-        z=lim_z ,
+        x=lim_x,
+        y=lim_y,
+        z=lim_z,
         mode='lines',
         line=dict(color='rgb(0, 0, 255)'),
         showlegend=False
     ))
-
 
     # fig.add_trace(go.Scatter3d(
     #     x=center_of_earth.x / 1e3,

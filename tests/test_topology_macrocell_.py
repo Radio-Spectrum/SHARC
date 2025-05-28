@@ -86,12 +86,20 @@ class TopologyMacrocellTest(unittest.TestCase):
         self.assertEqual(len(topology.azimuth), num_bs)
 
         # check coordinates
-        x_ref = np.repeat(np.array([0, 1000, 500, -500, -1000, -500,
-                                    500, 2000, 1500, 1000, 0, -1000,
-                                    -1500, -2000, -1500, -1000, 0, 1000, 1500]), num_bs_per_site)
-        y_ref = np.repeat(np.array([0, 0, 866.02, 866.02, 0, -866.02,
-                                    -866.02, 0, 866.02, 1732.05, 1732.05, 1732.05,
-                                    866.02, 0, -866.02, -1732.05, -1732.05, -1732.05, -866.02]), num_bs_per_site)
+        x_ref = np.repeat(
+            np.array([
+                0, 1000, 500, -500, -1000, -500,
+                500, 2000, 1500, 1000, 0, -1000,
+                -1500, -2000, -1500, -1000, 0, 1000, 1500,
+            ]), num_bs_per_site,
+        )
+        y_ref = np.repeat(
+            np.array([
+                0, 0, 866.02, 866.02, 0, -866.02,
+                -866.02, 0, 866.02, 1732.05, 1732.05, 1732.05,
+                866.02, 0, -866.02, -1732.05, -1732.05, -1732.05, -866.02,
+            ]), num_bs_per_site,
+        )
         az_ref = np.tile([60, 180, 300], num_sites)
 
         npt.assert_allclose(topology.x, x_ref, atol=1e-2)
@@ -110,12 +118,20 @@ class TopologyMacrocellTest(unittest.TestCase):
         self.assertEqual(len(topology.azimuth), num_bs)
 
         # check coordinates
-        x_ref = np.repeat(np.array([0, 500, 250, -250, -500, -250,
-                                    250, 1000, 750, 500, 0, -500,
-                                    -750, -1000, -750, -500, 0, 500, 750]), num_bs_per_site)
-        y_ref = np.repeat(np.array([0, 0, 433.01, 433.01, 0, -433.01,
-                                    -433.01, 0, 433.01, 866.02, 866.02, 866.02,
-                                    433.01, 0, -433.01, -866.02, -866.02, -866.02, -433.01]), num_bs_per_site)
+        x_ref = np.repeat(
+            np.array([
+                0, 500, 250, -250, -500, -250,
+                250, 1000, 750, 500, 0, -500,
+                -750, -1000, -750, -500, 0, 500, 750,
+            ]), num_bs_per_site,
+        )
+        y_ref = np.repeat(
+            np.array([
+                0, 0, 433.01, 433.01, 0, -433.01,
+                -433.01, 0, 433.01, 866.02, 866.02, 866.02,
+                433.01, 0, -433.01, -866.02, -866.02, -866.02, -433.01,
+            ]), num_bs_per_site,
+        )
         az_ref = np.tile([60, 180, 300], num_sites)
 
         npt.assert_allclose(topology.x, x_ref, atol=1e-2)

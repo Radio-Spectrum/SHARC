@@ -13,12 +13,12 @@
 ## Configure your simulation
 
 1. Create a parameter file:
-   - Example: `campaigns/imt_hibs_ras_2600_MHz/input/parameters_hibs_ras_2600_MHz_0km.ini`.
+   - Example: `campaigns/imt_hibs_ras_2600_MHz/input/parameters_hibs_ras_2600_MHz_0km.yaml`.
 
 2. Set the configuration for your study in the parameter file.
 
 3. Set the output folder in the parameter file:
-    ```ini
+    ```yaml
     ###########################################################################
     # output destination folder - this is relative to the SHARC/sharc directory
     output_dir = campaigns/imt_hibs_ras_2600_MHz/output/

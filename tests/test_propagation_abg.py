@@ -33,16 +33,20 @@ class PropagationABGTest(unittest.TestCase):
         shadowing = False
         loss = np.array([[120.121, 143.886347], [140.591406, 112.578509]])
 
-        npt.assert_allclose(self.abg.get_loss(d, f, indoor, shadowing),
-                            loss, atol=1e-2)
+        npt.assert_allclose(
+            self.abg.get_loss(d, f, indoor, shadowing),
+            loss, atol=1e-2,
+        )
 
         d = np.array([500, 3000])[:, np.newaxis]
         f = np.array([27000, 40000])[:, np.newaxis]
         indoor = np.zeros(d.shape[0], dtype=bool)
         shadowing = False
         loss = np.array([143.886, 174.269])[:, np.newaxis]
-        npt.assert_allclose(self.abg.get_loss(d, f, indoor, shadowing),
-                            loss, atol=1e-2)
+        npt.assert_allclose(
+            self.abg.get_loss(d, f, indoor, shadowing),
+            loss, atol=1e-2,
+        )
 
 
 if __name__ == '__main__':

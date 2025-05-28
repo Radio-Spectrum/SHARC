@@ -22,7 +22,7 @@ class StationFactoryNgsoTest(unittest.TestCase):
             long_asc_deg=18.0,            # Longitude of ascending node
             inclination_deg=54.5,         # Orbital inclination in degrees
             perigee_alt_km=525.0,         # Perigee altitude in kilometers
-            apogee_alt_km=525.0           # Apogee altitude in kilometers
+            apogee_alt_km=525.0,           # Apogee altitude in kilometers
         )
 
         # Creating orbital parameters for the second orbit
@@ -33,7 +33,7 @@ class StationFactoryNgsoTest(unittest.TestCase):
             long_asc_deg=30.0,            # Longitude of ascending node
             inclination_deg=26.0,         # Orbital inclination in degrees
             perigee_alt_km=580.0,         # Perigee altitude in kilometers
-            apogee_alt_km=580.0           # Apogee altitude in kilometers
+            apogee_alt_km=580.0,           # Apogee altitude in kilometers
         )
 
         # Creating an NGSO constellation and adding the defined orbits
@@ -45,7 +45,7 @@ class StationFactoryNgsoTest(unittest.TestCase):
         self.geoconvert.set_reference(
             -15.7801,
             -47.9292,
-            1200
+            1200,
         )
         self.param = ParametersMssD2d(
             name="Acme-Star-1",                         # Name of the constellation
@@ -89,9 +89,11 @@ class StationFactoryNgsoTest(unittest.TestCase):
         earth_center.x = np.array([0.])
         earth_center.y = np.array([0.])
         x, y, z = lla2ecef(self.lat, self.long, self.alt)
-        earth_center.z = np.array([-np.sqrt(
-                                      x*x + y*y + z*z
-                                  )])
+        earth_center.z = np.array([
+            -np.sqrt(
+                x * x + y * y + z * z,
+            ),
+        ])
 
         self.assertNotAlmostEqual(earth_center.z[0], 0.)
 
@@ -99,12 +101,12 @@ class StationFactoryNgsoTest(unittest.TestCase):
         distance_to_center_of_earth = self.ngso_manager.get_3d_distance_to(earth_center)
         distance_to_center_of_earth_should_eq = np.sqrt(
             self.ngso_manager.x ** 2 +
-                self.ngso_manager.y ** 2 +
-                (
+            self.ngso_manager.y ** 2 +
+            (
                     np.sqrt(
-                        x*x + y*y + z*z
+                        x * x + y * y + z * z,
                     ) + self.ngso_manager.z
-                ) ** 2
+            ) ** 2,
         )
 
         npt.assert_allclose(off_axis_angle, 0.0, atol=1e-05)
@@ -112,7 +114,7 @@ class StationFactoryNgsoTest(unittest.TestCase):
         npt.assert_allclose(
             distance_to_center_of_earth.flatten(),
             distance_to_center_of_earth_should_eq,
-            atol=1e-05
+            atol=1e-05,
         )
 
     def test_satellite_coordinate_reversing(self):
@@ -144,7 +146,6 @@ class StationFactoryNgsoTest(unittest.TestCase):
         npt.assert_allclose(self.ngso_manager.height, ngso_original_coord.height, atol=1e-500)
         npt.assert_allclose(self.ngso_manager.azimuth, ngso_original_coord.azimuth, atol=1e-500)
         npt.assert_allclose(self.ngso_manager.elevation, ngso_original_coord.elevation, atol=1e-500)
-
 
 
 if __name__ == '__main__':

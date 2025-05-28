@@ -3,13 +3,15 @@ from sharc.parameters.constants import EARTH_RADIUS
 
 EARTH_RADIUS_KM = EARTH_RADIUS / 1000
 
-# WGS84 Ellipsoid constants
+
 class WGS84Defs:
+    """Constants for the WGS84 ellipsoid model."""
     SEMI_MAJOR_AXIS = 6378137.0  # Semi-major axis (in meters)
     SEMI_MINOR_AXIS = 6356752.3  # Semi-major axis (in meters)
     ECCENTRICITY = 8.1819190842622e-2  # WGS84 ellipsoid eccentricity
     FLATTENING = 0.0033528106647474805
     FIRST_ECCENTRICITY_SQRD = 6.69437999014e-3
+
 
 def ecef2lla(x: np.ndarray, y: np.ndarray, z: np.ndarray) -> tuple:
     """Coverts ECEF cartesian coordinates to lat long in WSG84 CRS.

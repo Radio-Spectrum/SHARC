@@ -9,24 +9,30 @@ class StationTest(unittest.TestCase):
             None,
             True,
             output_dir="output",
-            output_dir_prefix="out"
+            output_dir_prefix="out",
         )
 
     def test_flush_to_and_load_from_file(self):
         arr1 = [1., 2., 3., 4., 5., 6., 7., 8., 9., 100.]
         self.results.imt_coupling_loss.extend(arr1)
+        self.results.imt_bs_antenna_gain.extend(arr1)
         self.assertGreater(len(self.results.imt_coupling_loss), 0)
+        self.assertGreater(len(self.results.imt_bs_antenna_gain), 0)
         # Results should flush
         self.results.write_files(1)
         # check that no results are left in arr
         self.assertEqual(len(self.results.imt_coupling_loss), 0)
+        self.assertEqual(len(self.results.imt_bs_antenna_gain), 0)
 
         arr2 = [101., 102., 103., 104., 105., 106., 107., 108., 109.]
         self.results.imt_coupling_loss.extend(arr2)
+        self.results.imt_bs_antenna_gain.extend(arr2)
         self.assertGreater(len(self.results.imt_coupling_loss), 0)
+        self.assertGreater(len(self.results.imt_bs_antenna_gain), 0)
         self.results.write_files(2)
         # check that no results are left in arr
         self.assertEqual(len(self.results.imt_coupling_loss), 0)
+        self.assertEqual(len(self.results.imt_bs_antenna_gain), 0)
 
         results_recuperated_from_file = Results().load_from_dir(self.results.output_directory)
 
@@ -34,6 +40,14 @@ class StationTest(unittest.TestCase):
         results_arr.extend(arr2)
 
         self.assertEqual(results_recuperated_from_file.imt_coupling_loss, results_arr)
+        self.assertEqual(results_recuperated_from_file.imt_bs_antenna_gain, results_arr)
+
+        results_recuperated_from_file = Results().load_from_dir(
+            self.results.output_directory, only_samples=["imt_bs_antenna_gain"],
+        )
+
+        self.assertEqual(results_recuperated_from_file.imt_coupling_loss, [])
+        self.assertEqual(results_recuperated_from_file.imt_bs_antenna_gain, results_arr)
 
     def test_get_most_recent_dirs(self):
         dir_2024_01_01_04 = "caminho_abs/prefixo_2024-01-01_04"

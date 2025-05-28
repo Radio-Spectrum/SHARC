@@ -19,26 +19,26 @@ class AntennaReg_RR_A7_3Test(unittest.TestCase):
         self.antenna1_params = ParametersAntennaWithDiameter(
                 diameter=3,
                 frequency=10000,
-                antenna_gain=50
-            )
+                antenna_gain=50,
+        )
 
         self.antenna1 = AntennaReg_RR_A7_3(
-            self.antenna1_params
+            self.antenna1_params,
         )
         self.antenna2_params = ParametersAntennaWithDiameter(
                 diameter=3,
                 frequency=4000,
-                antenna_gain=30
-            )
+                antenna_gain=30,
+        )
         self.antenna2 = AntennaReg_RR_A7_3(
-            self.antenna2_params
+            self.antenna2_params,
         )
         self.antenna3_params = ParametersAntennaWithDiameter(
             frequency=10000,
-            antenna_gain=50
+            antenna_gain=50,
         )
         self.antenna3 = AntennaReg_RR_A7_3(
-            self.antenna3_params
+            self.antenna3_params,
         )
 
     def test_diameter_inference(self):
@@ -46,7 +46,7 @@ class AntennaReg_RR_A7_3Test(unittest.TestCase):
         self.assertAlmostEqual(
             20 * math.log10(self.antenna3.D_lmbda),
             self.antenna3_params.antenna_gain - 7.7,
-            delta=1e-10
+            delta=1e-10,
         )
 
     def test_gain(self):
@@ -74,8 +74,8 @@ class AntennaReg_RR_A7_3Test(unittest.TestCase):
                 ParametersAntennaWithDiameter(
                     diameter=3,
                     frequency=10000,
-                    antenna_gain=100
-                )
+                    antenna_gain=100,
+                ),
             )
 
     def test_calculate_gain(self):
@@ -86,7 +86,7 @@ class AntennaReg_RR_A7_3Test(unittest.TestCase):
             1.1,
             35.9,
             36,
-            180
+            180,
         ]
         expected = [
             self.antenna1.peak_gain - 2.5 * 1e-3 * self.antenna1.D_lmbda * phi[0] * self.antenna1.D_lmbda * phi[0],
@@ -94,7 +94,7 @@ class AntennaReg_RR_A7_3Test(unittest.TestCase):
             29 - 25 * math.log10(phi[2]),
             29 - 25 * math.log10(phi[3]),
             -10,
-            -10
+            -10,
         ]
 
         # Test antenna2
@@ -105,7 +105,7 @@ class AntennaReg_RR_A7_3Test(unittest.TestCase):
             2.6,
             35.9,
             36,
-            180
+            180,
         ]
         expected = [
             self.antenna2.peak_gain - 2.5 * 1e-3 * self.antenna2.D_lmbda * phi[0] * self.antenna2.D_lmbda * phi[0],
@@ -114,7 +114,7 @@ class AntennaReg_RR_A7_3Test(unittest.TestCase):
             29 - 25 * math.log10(phi[3]),
             29 - 25 * math.log10(phi[4]),
             -10,
-            -10
+            -10,
         ]
 
         # Test antenna1

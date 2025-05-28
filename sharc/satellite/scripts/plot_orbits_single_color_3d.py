@@ -48,7 +48,7 @@ def plot_back(fig):
 
     # Add the surface to the Plotly figure.
     fig.add_surface(
-        x=x/1e3, y=y/1e3, z=z/1e3,
+        x=(x / 1e3), y=(y / 1e3), z=(z / 1e3),
         colorscale=[[0, clor], [1, clor]],  # Uniform color scale for a solid color.
         opacity=1.0,
         showlegend=False,
@@ -81,12 +81,13 @@ def plot_front(fig):
 
     # Add the surface to the Plotly figure.
     fig.add_surface(
-        x=x/1e3, y=y/1e3, z=z/1e3,
+        x=(x / 1e3), y=(y / 1e3), z=(z / 1e3),
         colorscale=[[0, clor], [1, clor]],  # Uniform color scale for a solid color.
         opacity=1.0,
         showlegend=False,
         lighting=dict(diffuse=0.1)
     )
+
 
 def plot_polygon(poly):
 
@@ -106,7 +107,7 @@ def plot_polygon(poly):
 def plot_globe_with_borders():
     # Read the shapefile.  Creates a DataFrame object
     countries_borders_shp_file = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                                              "../data/ne_110m_admin_0_countries/ne_110m_admin_0_countries.shp")
+                                              "../../data/countries/ne_110m_admin_0_countries.shp")
     gdf = gpd.read_file(countries_borders_shp_file)
     fig = go.Figure()
     fig.update_layout(
@@ -130,22 +131,22 @@ def plot_globe_with_borders():
 
         if polys.geom_type == 'Polygon':
             x, y, z = plot_polygon(polys)
-            x_all.extend(x/1e3)
+            x_all.extend(x / 1e3)
             x_all.extend([None])  # None separates different polygons
-            y_all.extend(y/1e3)
+            y_all.extend(y / 1e3)
             y_all.extend([None])
-            z_all.extend(z/1e3)
+            z_all.extend(z / 1e3)
             z_all.extend([None])
 
         elif polys.geom_type == 'MultiPolygon':
 
             for poly in polys.geoms:
                 x, y, z = plot_polygon(poly)
-                x_all.extend(x/1e3)
+                x_all.extend(x / 1e3)
                 x_all.extend([None])  # None separates different polygons
-                y_all.extend(y/1e3)
+                y_all.extend(y / 1e3)
                 y_all.extend([None])
-                z_all.extend(z/1e3)
+                z_all.extend(z / 1e3)
                 z_all.extend([None])
 
     fig.add_trace(go.Scatter3d(x=x_all, y=y_all, z=z_all, mode='lines',
@@ -170,11 +171,12 @@ if __name__ == "__main__":
     params = ParametersMssD2d(
         name="Example-MSS-D2D",
         antenna_pattern="ITU-R-S.1528-Taylor",
-        antenna_gain=30.0,
         orbits=[orbit_1, orbit_2],
         frequency=2100,
         bandwidth=5
     )
+
+    params.antenna_s1528.antenna_gain = 30.0
 
     params.sat_is_active_if.conditions = [
         "LAT_LONG_INSIDE_COUNTRY",
@@ -184,7 +186,7 @@ if __name__ == "__main__":
     # params.sat_is_active_if.lat_long_inside_country.country_name = "Colombia"
     params.sat_is_active_if.lat_long_inside_country.margin_from_border = 0
     # params.sat_is_active_if.lat_long_inside_country.margin_from_border = 0
-    params.sat_is_active_if.lat_long_inside_country.country_name = "Brazil"
+    params.sat_is_active_if.lat_long_inside_country.country_names = ["Brazil"]
 
     params.propagate_parameters()
 
@@ -220,9 +222,9 @@ if __name__ == "__main__":
         mss_d2d_manager = StationFactory.generate_mss_d2d(params, rng, geoconv)
 
         # Extract satellite positions
-        x_vec = mss_d2d_manager.x /1e3 #(Km)
-        y_vec = mss_d2d_manager.y /1e3 #(Km)
-        z_vec = mss_d2d_manager.z /1e3 #(Km)
+        x_vec = mss_d2d_manager.x / 1e3  # (Km)
+        y_vec = mss_d2d_manager.y / 1e3  # (Km)
+        z_vec = mss_d2d_manager.z / 1e3  # (Km)
         # Store all positions
         all_positions['x'].extend(x_vec)
         all_positions['y'].extend(y_vec)
@@ -241,10 +243,8 @@ if __name__ == "__main__":
         visible_positions['y'].extend(y_vec[vis_sat_idxs])
         visible_positions['z'].extend(z_vec[vis_sat_idxs])
         vis_elevation.extend(mss_d2d_manager.elevation[vis_sat_idxs])
-        
 
     # Flatten arrays
-    # print(all_positions['x'])
     all_positions['x'] = np.concatenate([all_positions['x']])
     all_positions['y'] = np.concatenate([all_positions['y']])
     all_positions['z'] = np.concatenate([all_positions['z']])
@@ -252,7 +252,7 @@ if __name__ == "__main__":
     visible_positions['x'] = np.concatenate([visible_positions['x']])
     visible_positions['y'] = np.concatenate([visible_positions['y']])
     visible_positions['z'] = np.concatenate([visible_positions['z']])
-    
+
     # Plot the globe with satellite positions
     fig = plot_globe_with_borders()
 
@@ -279,7 +279,6 @@ if __name__ == "__main__":
         showlegend=False
     ))
 
-    
     fig.add_trace(go.Scatter3d(
         x=[ground_sta_pos[0] / 1e3],
         y=[ground_sta_pos[1] / 1e3],
@@ -301,4 +300,3 @@ if __name__ == "__main__":
     # Display the plot
     print(len(fig.data))
     fig.show()
-

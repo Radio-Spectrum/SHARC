@@ -53,6 +53,8 @@ class AntennaFactory():
                 return AntennaS1855(antenna_params.itu_r_s_1855)
             case "ITU-R Reg. RR. Appendice 7 Annex 3":
                 return AntennaReg_RR_A7_3(antenna_params.itu_reg_rr_a7_3)
+            case "ITU-R S.672":
+                return AntennaS672(antenna_params.itu_r_s_672)
             case "ARRAY":
                 return AntennaBeamformingImt(
                     antenna_params.array.get_antenna_parameters(),

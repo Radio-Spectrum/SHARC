@@ -85,6 +85,8 @@ class ParametersMssSs(ParametersBase):
     earth_station_lat_deg: float = 0.0
     earth_station_long_diff_deg: float = 0.0
     season: str = "SUMMER"
+    # Percentage of stations where clutter is applied
+    perc_clutter: float = 100
     # Channel parameters
     # channel model, possible values are "FSPL" (free-space path loss),
     #                                    "SatelliteSimple" (FSPL + 4 + clutter loss)
@@ -142,5 +144,6 @@ class ParametersMssSs(ParametersBase):
                 earth_station_alt_m=self.earth_station_alt_m,
                 earth_station_lat_deg=self.earth_station_lat_deg,
                 earth_station_long_diff_deg=self.earth_station_long_diff_deg,
-                season=self.season
+                season=self.season,
+                perc_clutter=self.perc_clutter
             )

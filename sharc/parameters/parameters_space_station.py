@@ -58,7 +58,9 @@ class ParametersSpaceStation(ParametersBase):
     earth_station_lat_deg: float = 0.0
     earth_station_long_diff_deg: float = 0.0
     season: str = "SUMMER"
-
+    # Percentage of stations where clutter is applied
+    perc_clutter: float = 100
+    
     # This parameter is also used by P619, but should not be set manually.
     # this should always == params.altitude
     space_station_alt_m: float = None

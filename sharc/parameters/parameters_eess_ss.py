@@ -69,7 +69,9 @@ class ParametersEessSS(ParametersSpaceStation):
     distribution_enable: bool = False
     distribution_type: str = "UNIFORM"
     nadir_angle_distribution: tuple = (18.5, 49.3)
-
+    # Percentage of stations where clutter is applied
+    perc_clutter: float = 100
+    
     def load_parameters_from_file(self, config_file: str):
         """
         Load the parameters from a file and run a sanity check.

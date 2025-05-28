@@ -29,7 +29,8 @@ class ParametersP619(ParametersBase):
     season: str = "SUMMER"
     shadowing: bool = True
     noise_temperature: float = 290.0
-
+    # Percentage of stations where clutter is applied
+    perc_clutter: float = 100
     def load_from_paramters(self, param: ParametersBase):
         """Used to load parameters of P.619 from IMT or system parameters
 
@@ -43,7 +44,7 @@ class ParametersP619(ParametersBase):
         self.earth_station_lat_deg = param.earth_station_lat_deg
         self.earth_station_long_diff_deg = param.earth_station_long_diff_deg
         self.season = param.season
-
+        self.perc_clutter = param.perc_clutter
         if self.season.upper() not in ["SUMMER", "WINTER"]:
             raise ValueError(f"{self.__class__.__name__}: \
                              Invalid value for parameter season - {self.season}. \
@@ -54,9 +55,11 @@ class ParametersP619(ParametersBase):
                                 earth_station_alt_m: float,
                                 earth_station_lat_deg: float,
                                 earth_station_long_diff_deg: float,
+                                perc_clutter: float,
                                 season: typing.Literal["SUMMER", "WINTER"]):
         self.space_station_alt_m = space_station_alt_m
         self.earth_station_alt_m = earth_station_alt_m
         self.earth_station_lat_deg = earth_station_lat_deg
         self.earth_station_long_diff_deg = earth_station_long_diff_deg
         self.season = season
+        self.perc_clutter = perc_clutter

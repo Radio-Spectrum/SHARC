@@ -13,14 +13,14 @@ class ParametersAntenna(ParametersBase):
     # available antenna radiation patterns
     __SUPPORTED_ANTENNA_PATTERNS = [
         "OMNI", "ITU-R F.699", "ITU-R S.465", "ITU-R S.580", "MODIFIED ITU-R S.465", "ITU-R S.1855",
-        "ITU-R Reg. RR. Appendice 7 Annex 3", "ARRAY", "ITU-R-S.1528-Taylor",
+        "ITU-R Reg. RR. Appendice 7 Annex 3", "ARRAY",  "ITU-R S.672", "ITU-R-S.1528-Taylor",
         "ITU-R-S.1528-Section1.2", "ITU-R-S.1528-LEO"
     ]
 
     # chosen antenna radiation pattern
     pattern: typing.Literal[
         "OMNI", "ITU-R F.699", "ITU-R S.465", "ITU-R S.580", "MODIFIED ITU-R S.465", "ITU-R S.1855",
-        "ITU-R Reg. RR. Appendice 7 Annex 3", "ARRAY", "ITU-R-S.1528-Taylor",
+        "ITU-R Reg. RR. Appendice 7 Annex 3", "ARRAY", "ITU-R S.672", "ITU-R-S.1528-Taylor",
         "ITU-R-S.1528-Section1.2", "ITU-R-S.1528-LEO"
     ] = None
 
@@ -56,6 +56,19 @@ class ParametersAntenna(ParametersBase):
     # TODO: maybe separate each different S.1528 parameter?
     itu_r_s_1528: ParametersAntennaS1528 = field(
         default_factory=ParametersAntennaS1528,
+    )
+
+    @dataclass
+    class ParametersAntenna672(ParametersBase):
+        antenna_l_s: float = -25
+        antenna_3_dB: float = None
+        antenna_gain: float = None
+        def validate(self, ctx):
+            if None in [self.antenna_gain, self.antenna_3_dB]:
+                raise ValueError(f"{ctx}.antenna_3_dB should be set to a number")
+
+    itu_r_s_672: ParametersAntenna672 = field(
+        default_factory=ParametersAntenna672,
     )
 
     def set_external_parameters(self, **kwargs):
@@ -106,6 +119,8 @@ class ParametersAntenna(ParametersBase):
                 self.itu_r_s_465_modified.validate(
                     f"{ctx}.itu_r_s_465_modified",
                 )
+            case "ITU-R S.672":
+                self.itu_r_s_672.validate(f"{ctx}.itu_r_s_672")
             case "ITU-R S.580":
                 self.itu_r_s_580.validate(f"{ctx}.itu_r_s_580")
             case "ITU-R Reg. RR. Appendice 7 Annex 3":

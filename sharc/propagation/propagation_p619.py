@@ -39,6 +39,7 @@ class PropagationP619(Propagation):
         earth_station_lat_deg: float,
         earth_station_long_diff_deg: float,
         season: str,
+        perc_clutter: str,
     ):
         """Implements the earth-to-space channel model from ITU-R P.619
 
@@ -82,6 +83,7 @@ class PropagationP619(Propagation):
         self.earth_station_alt_m = earth_station_alt_m
         self.earth_station_lat_deg = earth_station_lat_deg
         self.earth_station_long_diff_deg = earth_station_long_diff_deg
+        self.perc_clutter = perc_clutter
 
         if season.upper() not in ["SUMMER", "WINTER"]:
             raise ValueError(
@@ -465,6 +467,7 @@ class PropagationP619(Propagation):
                     distance=distance,
                     elevation=elevation["free_space"],
                     station_type=StationType.FSS_SS,
+                    perc_clutter=self.perc_clutter
                 )
             building_loss = self.building_entry.get_loss(
                 frequency, elevation["apparent"],

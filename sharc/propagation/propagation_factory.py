@@ -89,6 +89,7 @@ class PropagationFactory(object):
                 earth_station_lat_deg=param_system.param_p619.earth_station_lat_deg,
                 earth_station_long_diff_deg=param_system.param_p619.earth_station_lat_deg,
                 season=param_system.season,
+                perc_clutter=param_system.perc_clutter
             )
         elif channel_model == "P452":
             return PropagationClearAir(random_number_gen, param_system.param_p452)

@@ -75,6 +75,8 @@ class PropagationClutterLoss(Propagation):
         f = kwargs["frequency"]
         loc_per = kwargs.pop("loc_percentage", "RANDOM")
         type = kwargs["station_type"]
+        type_clutter = kwargs.pop("apply_clutter", "both_ends")
+        p_clutter = kwargs["perc_clutter"]
 
         d = kwargs["distance"]
 
@@ -89,10 +91,31 @@ class PropagationClutterLoss(Propagation):
             p2 = loc_per * np.ones(d.shape)
 
         if type is StationType.IMT_BS or type is StationType.IMT_UE or type is StationType.FSS_ES:
-            loss = self.get_terrestrial_clutter_loss(f, d, p1, True) + self.get_terrestrial_clutter_loss(f, d, p2, False)
+            if type_clutter == "one_end":
+                loss = self.get_terrestrial_clutter_loss(f, d, p1, False)
+                mult_1 = np.zeros(d.shape)
+                num_ones = int(np.round(mult_1.size * p_clutter / 100))
+                indices = np.random.choice(mult_1.size, size=num_ones, replace=False)
+                mult_1.flat[indices] = 1
+                loss *= mult_1
+            else:
+                if type_clutter == "both_ends":
+                    loss1 = self.get_terrestrial_clutter_loss(f, d, p1, False)
+                    loss2 = self.get_terrestrial_clutter_loss(f, d, p2, True)
+                    mult_1 = np.zeros(d.shape)
+                    num_ones_1 = int(np.round(mult_1.size * p_clutter / 100))
+                    indices_1 = np.random.choice(mult_1.size, size=num_ones_1, replace=False)
+                    mult_1.flat[indices_1] = 1
+                    loss = loss1 + loss2
+                    loss *= mult_1
         else:
             theta = kwargs["elevation"]
             loss = self.get_spacial_clutter_loss(f, theta, p1)
+            mult_1 = np.zeros(d.shape)
+            num_ones_1 = int(np.round(mult_1.size * p_clutter / 100))
+            indices_1 = np.random.choice(mult_1.size, size=num_ones_1, replace=False)
+            mult_1.flat[indices_1] = 1
+            loss *= mult_1
         return loss
 
     def get_spacial_clutter_loss(

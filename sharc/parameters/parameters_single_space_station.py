@@ -49,7 +49,8 @@ class ParametersSingleSpaceStation(ParametersBase):
     param_p619: ParametersP619 = field(default_factory=ParametersP619)
     # TODO: remove season from system parameter and put it as p619 parameter
     season: typing.Literal["WINTER", "SUMMER"] = "SUMMER"
-
+    # Percentage of stations where clutter is applied
+    perc_clutter: float = 100
     @dataclass
     class SpaceStationGeometry(ParametersBase):
         # NOTE: This does not directly translate to simulator 'height' param

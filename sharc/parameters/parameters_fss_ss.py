@@ -67,7 +67,8 @@ class ParametersFssSs(ParametersBase):
     channel_model: str = "P619"
     # 3 dB beamwidth angle (3 dB below maximum gain) [degrees]
     antenna_3_dB: float = 0.65
-
+    # Percentage of stations where clutter is applied
+    perc_clutter: float = 100
     def load_parameters_from_file(self, config_file: str):
         """Load the parameters from file an run a sanity check
 

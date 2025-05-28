@@ -1,0 +1,148 @@
+general:
+  enable_adjacent_channel: false
+  enable_cochannel: true
+  imt_link: DOWNLINK
+  num_snapshots: 200000
+  output_dir: campaigns/ES_Macro/output_dl/
+  output_dir_prefix: ES_Macro_1
+  overwrite_output: false
+  seed: 33
+  system: SINGLE_SPACE_STATION
+imt:
+  #adjacent_antenna_model: BEAMFORMING
+  bandwidth: 100
+  bs:
+    antenna:
+      array:
+        downtilt: 6
+        element_am: 30
+        element_horiz_spacing: 0.5
+        element_max_g: 6.4
+        element_pattern: M2101
+        element_phi_3db: 90
+        element_sla_v: 30
+        element_theta_3db: 65
+        element_vert_spacing: 2.1
+        minimum_array_gain: -200
+        multiplication_factor: 12
+        n_columns: 16
+        n_rows: 8
+        normalization: false
+        subarray:
+          element_vert_spacing: 0.7
+          eletrical_downtilt: 3.0
+          is_enabled: true
+          n_rows: 3
+    conducted_power: 22
+    height: 18
+    load_probability: 0.2
+    noise_figure: 6
+    ohmic_loss: 0
+  channel_model: UMa
+  downlink:
+    attenuation_factor: 0.6
+    sinr_max: 30
+    sinr_min: -10
+  frequency: 8400
+  guard_band_ratio: 0.1
+  interfered_with: false
+  minimum_separation_distance_bs_ue: 35
+  rb_bandwidth: 0.18
+  shadowing: true
+  spectral_mask: IMT-2020
+  spurious_emissions: -13
+  topology:
+    macrocell:
+      intersite_distance: 600
+      num_clusters: 1
+      wrap_around: false
+    type: MACROCELL
+  ue:
+    alpha: 0.8
+    antenna:
+      array:
+        element_am: 25
+        element_max_g: -4
+        element_pattern: FIXED
+        element_phi_3db: 180
+        element_sla_v: 25
+        element_theta_3db: 360
+        minimum_array_gain: -200
+        multiplication_factor: 12
+        n_columns: 1
+        n_rows: 1
+        normalization: false
+    body_loss: 4
+    distribution_type: UNIFORM
+    height: 1.5
+    indoor_percent: 70
+    k: 3
+    k_m: 1
+    noise_figure: 13
+    ohmic_loss: 0
+    p_cmax: 23
+    p_o_pusch: -92.2
+    power_dynamic_range: 56
+    tx_power_control: true
+  uplink:
+    attenuation_factor: 0.4
+    sinr_max: 22
+    sinr_min: -10
+
+single_space_station:
+    frequency: 8195
+    bandwidth: 32
+    # tx power density just so simulator runs
+    tx_power_density: -200
+    # also just so simulator runs
+    noise_temperature: 500
+    # NOTE: Chosen from Annex 4.11 to Document 5D/413-E Section 5.2
+    # – ITU-R P.619
+    #     Prediction procedure for the evaluation of interference between stations on
+    #     the surface of the Earth at frequencies above about 0.1 GHz
+    channel_model: P619
+    perc_clutter: 15               # Percentage of stations where clutter is applied
+
+    season: SUMMER
+
+    geometry:
+      # Sat altitude
+      altitude: 35786000
+      ###########################################################################
+      # earth station altitude [meters]
+      # Seems like a good enough approx. since
+      # Most of Brazil's altitude is already below 900m, with Brasília at 1200m
+      # and Brazil already makes for half of South America territory
+      es_altitude: 1200
+      ###########################################################################
+      # earth station lat long [deg]
+      es_lat_deg: -10.871349
+      ###########################################################################
+      # earth station lat long [deg]
+      es_long_deg: -51.6424333
+      # Azimuth angle
+      azimuth:
+        type: POINTING_AT_IMT
+      # Elevation angle [degrees]
+      # Is not elevation from ground, is elevation for satellite antenna pointing
+      elevation:
+        # Type of elevation. May be "FIXED"
+        type: POINTING_AT_IMT
+      # Station 2d location [meters]:
+      location:
+        type: FIXED
+        fixed:
+          lat_deg: 0
+          long_deg: -14.5
+    antenna:
+        ###########################################################################
+        # Choose the antenna pattern. Can be one of:
+        # "OMNI", "ITU-R F.699", "ITU-R S.465", "ITU-R S.580", "MODIFIED ITU-R S.465",
+        # "ITU-R S.1855", "ITU-R S.672"
+        pattern: ITU-R S.672
+        ###########################################################################
+        # Station peak receive antenna gain [dBi]
+        gain: 36
+        itu_r_s_672:
+          antenna_3_dB: 1
+          antenna_l_s: -20

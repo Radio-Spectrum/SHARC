@@ -127,8 +127,7 @@ class TestTopologyImtMssDc(unittest.TestCase):
             ),
         )
         # Add a tolerance to the elevation angle because of the Earth oblateness
-        expected_atol = 2e-2
-        npt.assert_array_less(min_elevation_angle - expected_atol, xy_plane_elevations)
+        npt.assert_array_less(min_elevation_angle, xy_plane_elevations)
 
 
 if __name__ == '__main__':

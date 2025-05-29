@@ -1,20 +1,9 @@
 import numpy as np
-from sharc.parameters.constants import EARTH_RADIUS
-
-EARTH_RADIUS_KM = EARTH_RADIUS / 1000
-
-
-class WGS84Defs:
-    """Constants for the WGS84 ellipsoid model."""
-    SEMI_MAJOR_AXIS = 6378137.0  # Semi-major axis (in meters)
-    SEMI_MINOR_AXIS = 6356752.3  # Semi-major axis (in meters)
-    ECCENTRICITY = 8.1819190842622e-2  # WGS84 ellipsoid eccentricity
-    FLATTENING = 0.0033528106647474805
-    FIRST_ECCENTRICITY_SQRD = 6.69437999014e-3
+from sharc.satellite.ngso.constants import EARTH_RADIUS_M
 
 
 def ecef2lla(x: np.ndarray, y: np.ndarray, z: np.ndarray) -> tuple:
-    """Coverts ECEF cartesian coordinates to lat long in WSG84 CRS.
+    """Coverts ECEF cartesian coordinates to lat long in spherical earth model.
 
     Parameters
     ----------
@@ -28,33 +17,35 @@ def ecef2lla(x: np.ndarray, y: np.ndarray, z: np.ndarray) -> tuple:
     Returns
     -------
     tuple (lat, long, alt)
-        lat long and altitude in WSG84 format
+        lat long and altitude in spherical earth model
     """
-    # Longitude calculation
-    lon = np.arctan2(y, x)
+    x = np.atleast_1d(x)
+    y = np.atleast_1d(y)
+    z = np.atleast_1d(z)
+    xy = np.sqrt(x**2 + y**2)
 
-    # Iteratively solve for latitude and altitude
-    p = np.sqrt(np.power(x, 2) + np.power(y, 2))
-    lat = np.arctan2(z, p * (1 - WGS84Defs.ECCENTRICITY**2))  # Initial estimate for latitude
-    for _ in range(5):  # Iteratively improve the estimate
-        N = WGS84Defs.SEMI_MAJOR_AXIS / np.sqrt(1 - WGS84Defs.ECCENTRICITY**2 * np.sin(lat)**2)
-        alt = p / np.cos(lat) - N
-        lat = np.arctan2(z, p * (1 - WGS84Defs.ECCENTRICITY**2 * (N / (N + alt))))
+    lon = np.arccos(x / xy)
+    lon[y < 0] = -lon[y < 0]
 
-    # Convert latitude and longitude from radians to degrees
-    lat = np.degrees(lat)
-    lon = np.degrees(lon)
+    lat = np.arctan2(z, xy)
+
+    xyz = np.sqrt(x**2 + y**2 + z**2)
+    alt = xyz - EARTH_RADIUS_M
+
+    lat = np.rad2deg(lat)
+    lon = np.rad2deg(lon)
+
     return lat, lon, alt
 
 
-def lla2ecef(lat: np.ndarray, lng: np.ndarray, alt: np.ndarray) -> tuple:
-    """Converts from geodetic WSG84 to ECEF coordinates
+def lla2ecef(lat: np.ndarray, lon: np.ndarray, alt: np.ndarray) -> tuple:
+    """Converts from spherical earth model lla to ECEF coordinates
 
     Parameters
     ----------
     lat : np.ndarray
         latitude in degrees
-    lng : np.ndarray
+    lon : np.ndarray
         longitute in degrees
     alt : np.ndarray
         altitude in meters
@@ -64,12 +55,14 @@ def lla2ecef(lat: np.ndarray, lng: np.ndarray, alt: np.ndarray) -> tuple:
     tuple
         x, y and z coordinates
     """
-    lat = np.deg2rad(lat)
-    lng = np.deg2rad(lng)
-    n_phi = WGS84Defs.SEMI_MAJOR_AXIS / np.sqrt(1 - WGS84Defs.FIRST_ECCENTRICITY_SQRD * np.sin(lat)**2)
-    x = (n_phi + alt) * np.cos(lat) * np.cos(lng)
-    y = (n_phi + alt) * np.cos(lat) * np.sin(lng)
-    z = ((1 - WGS84Defs.FLATTENING)**2 * n_phi + alt) * np.sin(lat)
+    lat = np.atleast_1d(lat)
+    lon = np.atleast_1d(lon)
+    alt = np.atleast_1d(alt)
+
+    r = (alt + EARTH_RADIUS_M)
+    x = r * np.cos(np.deg2rad(lat)) * np.cos(np.deg2rad(lon))
+    y = r * np.cos(np.deg2rad(lat)) * np.sin(np.deg2rad(lon))
+    z = r * np.sin(np.deg2rad(lat))
 
     return x, y, z
 
@@ -78,7 +71,10 @@ def calc_elevation(Le: np.ndarray,
                    Ls: np.ndarray,
                    le: np.ndarray,
                    ls: np.ndarray,
-                   sat_height: np.ndarray) -> np.ndarray:
+                   *,
+                   sat_height: np.ndarray,
+                   es_height: np.ndarray,
+               ) -> np.ndarray:
     """Calculates the elevation angle from the earth station
     to space station, given earth and space station coordinates.
     Negative elevation angles means the space stations is not visible from Earth station.
@@ -94,7 +90,9 @@ def calc_elevation(Le: np.ndarray,
     ls : (ndarray)
         latitudes of the space station
     sat_height : (ndarray)
-        space station altitudes
+        space station altitudes in meters
+    es_height : (ndarray)
+        earth station altitudes in meters
 
     Returns
     -------
@@ -108,10 +106,11 @@ def calc_elevation(Le: np.ndarray,
     gamma = np.arccos(
         np.cos(Le) * np.cos(Ls) * np.cos(ls - le) + np.sin(Le) * np.sin(Ls)
     )
-    rs = EARTH_RADIUS_KM + sat_height
-    slant = np.sqrt(rs**2 + EARTH_RADIUS_KM**2 - 2 * rs * EARTH_RADIUS_KM * np.cos(gamma))
-    elev_angle = np.arccos((slant**2 + EARTH_RADIUS_KM**2 - rs**2) / \
-                           (2 * slant * EARTH_RADIUS_KM)) - np.pi / 2
+    rs = EARTH_RADIUS_M + sat_height
+    re = EARTH_RADIUS_M + es_height
+    slant = np.sqrt(rs**2 + re**2 - 2 * rs * re * np.cos(gamma))
+    elev_angle = np.arccos((slant**2 + re**2 - rs**2) / \
+                           (2 * slant * re)) - np.pi / 2
 
     return np.degrees(elev_angle)
 

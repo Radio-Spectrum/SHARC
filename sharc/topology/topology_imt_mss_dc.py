@@ -104,7 +104,7 @@ class TopologyImtMssDc(Topology):
         i = 0  # Iteration counter for ensuring satellite visibility
         while len(active_satellite_idxs) == 0:
             # Initialize arrays to store satellite positions, angles and distance from center of earth
-            all_positions = {"R": [], "lat": [], "lon": [], "sx": [], "sy": [], "sz": []}
+            all_positions = {"R": [], "lat": [], "lon": [], "sx": [], "sy": [], "sz": [], "alt": []}
             all_elevations = []  # Store satellite elevations
             all_azimuths = []  # Store satellite azimuths
 
@@ -149,6 +149,7 @@ class TopologyImtMssDc(Topology):
                 all_positions['sy'].extend(sy)  # Y-coordinates
                 all_positions['sz'].extend(sz)  # Z-coordinates
                 all_positions["R"].extend(r)
+                all_positions["alt"].extend(pos_vec['alt'])
                 all_elevations.extend(elevations)  # Elevation angles
                 all_azimuths.extend(azimuths)  # Azimuth angles
 
@@ -161,7 +162,8 @@ class TopologyImtMssDc(Topology):
                         pos_vec['lat'],  # Latitude of satellites
                         geometry_converter.ref_long,  # Longitude of base station
                         pos_vec['lon'],  # Longitude of satellites
-                        orbit.perigee_alt_km  # Perigee altitude in kilometers
+                        sat_height=pos_vec['alt'] * 1e3,  # Perigee altitude in kilometers
+                        es_height=geometry_converter.ref_alt,
                     )
 
                     # Determine visible satellites based on minimum elevation angle
@@ -178,7 +180,8 @@ class TopologyImtMssDc(Topology):
                             pos_vec['lat'],  # Latitude of satellites
                             geometry_converter.ref_long,  # Longitude of base station
                             pos_vec['lon'],  # Longitude of satellites
-                            orbit.perigee_alt_km  # Perigee altitude in kilometers
+                            sat_height=pos_vec['alt'] * 1e3,  # Perigee altitude in kilometers
+                            es_height=geometry_converter.ref_alt,
                         )
 
                     # Determine visible satellites based on minimum elevation angle
@@ -226,6 +229,7 @@ class TopologyImtMssDc(Topology):
             # Store the latitude and longitude of the visible satellites for later use
             lat = np.squeeze(np.array(all_positions['lat']))[active_satellite_idxs]
             lon = np.squeeze(np.array(all_positions['lon']))[active_satellite_idxs]
+            sat_altitude = np.squeeze(np.array(all_positions['alt']))[active_satellite_idxs] * 1e3
         else:
             total_active_satellites = total_satellites
             space_station_x = np.squeeze(np.array(all_positions['sx'])) * 1e3  # Convert X-coordinates to meters
@@ -236,17 +240,7 @@ class TopologyImtMssDc(Topology):
             # Store the latitude and longitude of the visible satellites for later use
             lat = np.squeeze(np.array(all_positions['lat']))
             lon = np.squeeze(np.array(all_positions['lon']))
-
-        rx, ry, rz = lla2ecef(
-            np.squeeze(lat),
-            np.squeeze(lon),
-            0
-        )
-        earth_radius = np.sqrt(rx * rx + ry * ry + rz * rz)
-        all_r = np.squeeze(np.array(all_positions['R'])) * 1e3
-        if only_active:
-            all_r = all_r[active_satellite_idxs]
-        sat_altitude = np.array(all_r - earth_radius)
+            sat_altitude = np.squeeze(np.array(all_positions['alt'])) * 1e3
 
         # Convert the ECEF coordinates to the transformed cartesian coordinates and set the Space Station positions
         # used to generetate the IMT Base Stations

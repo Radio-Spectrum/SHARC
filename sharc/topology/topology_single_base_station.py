@@ -19,7 +19,7 @@ class TopologySingleBaseStation(Topology):
     """
 
     # possible values for base station azimuth [degrees]
-    AZIMUTH = [0, 180]
+    AZIMUTH = [90, 180]
     ALLOWED_NUM_CLUSTERS = [1, 2]
 
     def __init__(self, cell_radius: float, num_clusters: int):

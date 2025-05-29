@@ -58,7 +58,7 @@ imt:
     # Amount of guard band wrt total bandwidth. Setting this parameter to 0.1
     # means that 10% of the total bandwidth will be used as guard band: 5% in
     # the lower
-    guard_band_ratio: 0.1
+    guard_band_ratio: 0.0
     ###########################################################################
     # Network topology parameters.
     topology:
@@ -101,7 +101,7 @@ imt:
         load_probability: 1.0
         ###########################################################################
         # Conducted power per antenna element [dBm/bandwidth]
-        conducted_power: 46.0
+        conducted_power: 31.0
         ###########################################################################
         # Base station height [m]
         height: 20.0
@@ -137,7 +137,7 @@ imt:
                 ###########################################################################
                 # Radiation pattern of each antenna element
                 # Possible values: "M2101", "F1336", "FIXED"
-                element_pattern: F1336
+                element_pattern: M2101
                 ###########################################################################
                 # Minimum array gain for the beamforming antenna [dBi]
                 minimum_array_gain: -200
@@ -351,7 +351,7 @@ imt:
     shadowing: FALSE
     ###########################################################################
     # receiver noise temperature [K]
-    noise_temperature: 290
+    noise_temperature: 273
     ###########################################################################
     # P619 parameters
     param_p619:

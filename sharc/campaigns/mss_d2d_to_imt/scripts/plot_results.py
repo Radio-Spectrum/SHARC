@@ -24,7 +24,7 @@ post_processor = PostProcessor()
 # This could easily come from a config file
 if scenario == 0:
     many_results = Results.load_many_from_dir(os.path.join(campaign_base_dir, "output"),
-                                              filter_fn=lambda x: "_co_channel_system_A" in x,
+                                              filter_fn=lambda x: "system_A" in x,
                                               only_latest=True)
     post_processor\
         .add_plot_legend_pattern(
@@ -36,6 +36,21 @@ if scenario == 0:
         .add_plot_legend_pattern(
             dir_name_contains="_mss_d2d_to_imt_dl_co_channel_system_A",
             legend="MSS-D2D to IMT-DL"
+        )
+    post_processor\
+        .add_plot_legend_pattern(
+            dir_name_contains="_mss_d2d_to_imt_ul_co_channel_AAS_k_1_system_A",
+            legend="MSS-D2D to IMT-UL (AAS, K=1)"
+        )
+    post_processor\
+        .add_plot_legend_pattern(
+            dir_name_contains="_mss_d2d_to_imt_ul_co_channel_AAS_k_3_system_A",
+            legend="MSS-D2D to IMT-UL (AAS, K=3)"
+        )
+    post_processor\
+        .add_plot_legend_pattern(
+            dir_name_contains="_mss_d2d_to_imt_ul_co_channel_AAS_k_6_system_A",
+            legend="MSS-D2D to IMT-UL (AAS, K=6)"
         )
 elif scenario == 1:
     many_results = Results.load_many_from_dir(os.path.join(campaign_base_dir, "output"),
@@ -68,7 +83,7 @@ post_processor.add_plots(plots)
 
 # Add a protection criteria line:
 protection_criteria = -6
-imt_dl_inr = post_processor.get_plot_by_results_attribute_name("imt_dl_inr", plot_type="ccdf")
+imt_dl_inr = post_processor.get_plot_by_results_attribute_name("imt_dl_inr", plot_type="cdf")
 imt_dl_inr.add_vline(protection_criteria, line_dash="dash", annotation=dict(
     text="Protection Criteria: " + str(protection_criteria) + " dB",
     xref="x", yref="y",
@@ -76,7 +91,7 @@ imt_dl_inr.add_vline(protection_criteria, line_dash="dash", annotation=dict(
     font=dict(size=12, color="red")
 ))
 imt_dl_inr.update_layout(template="plotly_white")
-imt_ul_inr = post_processor.get_plot_by_results_attribute_name("imt_ul_inr", plot_type="ccdf")
+imt_ul_inr = post_processor.get_plot_by_results_attribute_name("imt_ul_inr", plot_type="cdf")
 imt_ul_inr.add_vline(protection_criteria, line_dash="dash")
 
 # Export imt_ul_inr trace to CSV
@@ -101,7 +116,7 @@ imt_dl_inr.add_trace({
     "x": x,
     "y": y,
     "mode": "lines",
-    "name": "Rabie ref"
+    "name": "Apple IMT-DL"
 })
 
 # Update layout if needed

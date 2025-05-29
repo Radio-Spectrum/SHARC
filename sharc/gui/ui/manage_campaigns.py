@@ -1,6 +1,7 @@
 import streamlit as st
 from pathlib import Path
 from ui.explorer import run_python_script
+from core.text_editor import yaml_editor 
 
 # ===============================
 # Utils
@@ -86,8 +87,54 @@ def start_simulation():
 # ===============================
 # Placeholder for Editing
 # ===============================
+
+
 def edit_campaigns():
-    st.info("Edit campaigns feature coming soon.")
+    if not check_campaign_dir():
+        return
+    
+    list_campaigns = [f.name for f in CAMPAIGN_DIR.iterdir() if f.is_dir()]
+    select_campaign = st.selectbox("Select a campaign:", list_campaigns, index=None)
+
+    if select_campaign:
+        input_dir = CAMPAIGN_DIR / select_campaign / "input"
+        if input_dir.exists():
+            list_files = [f.name for f in input_dir.glob("*.yaml") if f.is_file()]
+            selected_file = st.selectbox("Select a YAML file:", list_files, index=None)
+
+            if selected_file:
+                edit_campaign_page([select_campaign, selected_file])
+        else:
+            st.warning(f"No input folder found for campaign '{select_campaign}'.")
+
+
+def edit_campaign_page(select_var = None):
+    if len(select_var) < 1:
+        st.error("Failed to select file to edit.")
+        return
+
+    campaign = select_var[0]
+    file = select_var[1]
+
+    if not campaign or not file:
+        st.warning("No file selected for editing.")
+        return
+
+    st.header(f"📝 Editing {str(file).split("/")[-1]}")
+
+    tabs = st.tabs(["📁 File Info", "📝 Edit YAML"])
+
+    with tabs[0]:
+        path = CAMPAIGN_DIR / campaign / "input" / file
+        st.markdown(f"""
+            **Campaign:** {campaign}  
+            **File:** {file}  
+            **Path:** {path}
+        """)
+
+    with tabs[1]:
+        yaml_editor(campaign, file)
+
 
 # ===============================
 # Campaign Button Renderer

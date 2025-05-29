@@ -14,3 +14,4 @@ if find_project_root == None:
 else:
     PROJECT_ROOT = str(find_project_root("sharc")) 
     print(PROJECT_ROOT)
+    

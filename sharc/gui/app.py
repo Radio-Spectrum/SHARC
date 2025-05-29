@@ -54,7 +54,9 @@ if selected_page == "campaigns":
         mng_cp.start_simulation()
 
     if edit_camp:
-        st.write("Editing campaigns...")
+        if st.session_state.selected_folder != "Edit mode":
+           st.session_state.selected_folder = "Edit mode"
+           st.rerun()
 
     if create_camp:
         st.write("Creating a new campaign...")
@@ -67,7 +69,11 @@ try:
 except FileNotFoundError:
     st.warning(f"This module {selected_page} doesn't have documentation yet.")
 
-if selected_page != "home":
+if st.session_state.selected_folder == "Edit mode":
+    mng_cp.edit_campaigns()
+
+
+if selected_page != "home" and st.session_state.selected_folder != "Edit mode":
 
     project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
     folder_path = os.path.join(project_root, selected_page)

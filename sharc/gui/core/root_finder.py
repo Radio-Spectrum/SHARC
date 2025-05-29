@@ -1,6 +1,7 @@
+import os
 from pathlib import Path
 
-def find_project_root(folder_name="sharc") -> Path | None:
+def find_project_root(folder_name = "sharc") -> Path | None:
 
     current_path = Path(__file__).resolve()
     for parent in current_path.parents:
@@ -11,4 +12,5 @@ def find_project_root(folder_name="sharc") -> Path | None:
 if find_project_root == None:
     print("Not found")
 else:
-    print(find_project_root)
+    PROJECT_ROOT = str(find_project_root("sharc")) 
+    print(PROJECT_ROOT)

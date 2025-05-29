@@ -51,6 +51,7 @@ if selected_page == "campaigns":
 
     if start_sim:
         st.write("Simulation started!")
+        mng_cp.start_simulation()
 
     if edit_camp:
         st.write("Editing campaigns...")

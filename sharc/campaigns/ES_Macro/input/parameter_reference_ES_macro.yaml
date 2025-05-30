@@ -43,7 +43,7 @@ imt:
     attenuation_factor: 0.6
     sinr_max: 30
     sinr_min: -10
-  frequency: 8400
+  frequency: 8195
   guard_band_ratio: 0.1
   interfered_with: false
   minimum_separation_distance_bs_ue: 35
@@ -96,6 +96,7 @@ single_space_station:
     tx_power_density: -200
     # also just so simulator runs
     noise_temperature: 500
+    polarization_loss: 3
     # NOTE: Chosen from Annex 4.11 to Document 5D/413-E Section 5.2
     # – ITU-R P.619
     #     Prediction procedure for the evaluation of interference between stations on

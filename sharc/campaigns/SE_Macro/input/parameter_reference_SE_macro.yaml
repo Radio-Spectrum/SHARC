@@ -98,6 +98,7 @@ single_earth_station:
   bandwidth: 30
   channel_model: P452
   frequency: 8400
+  polarization_loss: 3
   geometry:
     azimuth:
       fixed: -180

@@ -280,7 +280,8 @@ class PostProcessor:
             ]
 
         return possible
-
+        
+    
     def generate_cdf_plots_from_results(
         self, results: list[Results], *, n_bins=200
     ) -> list[go.Figure]:
@@ -359,7 +360,6 @@ class PostProcessor:
             attr_names = res.get_relevant_attributes()
 
             next_tick = 1
-
             ticks_major = []
             ticks_minor = []
 
@@ -403,7 +403,7 @@ class PostProcessor:
                         xaxis_title=attr_plot_info["x_label"],
                         yaxis_title="$\\text{P } I > X$",
                         yaxis=dict(tickmode="array", tickvals=all_ticks, type="log",
-                                   range=[np.log10(cutoff_percentage), 0],
+                                   range=[np.log10(cutoff_percentage-cutoff_percentage/4), 0],
                                    ticktext=ticktext,
                                    gridcolor="lightgray",
                                    gridwidth=.5,
@@ -415,7 +415,7 @@ class PostProcessor:
                                    gridwidth=.5,
                                    griddash="dot"
                                    ),
-                        legend_title="Labels",
+                        # legend_title="Labels",
                         meta={"related_results_attribute": attr_name, "plot_type": "ccdf"},
                         plot_bgcolor="white",
                         paper_bgcolor="white",
@@ -441,12 +441,12 @@ class PostProcessor:
                             )
                         ],
                         legend=dict(
-                            x=0.95,          # x position (95% from the left)
-                            y=0.95,          # y position (95% from the bottom)
+                            x=0.38,          # x position (95% from the left)
+                            y=0.3,          # y position (95% from the bottom)
                             xanchor='right', # anchor the legend's right side at x=0.95
                             yanchor='top',   # anchor the legend's top at y=0.95
                             bgcolor='rgba(255,255,255,0.5)',  # Optional: semi-transparent white background
-                            bordercolor='black',              # Optional: border color for better separation
+                            bordercolor='rgba(217,217,217,1)',              # Optional: border color for better separation
                             borderwidth=1                     # Optional: border width in pixels
                         )
                     )
@@ -519,6 +519,7 @@ class PostProcessor:
         ul_tdd_factor: float,
         n_bs_sim: int,
         n_bs_actual: int,
+        n_drops: int,
         random_number_gen=np.random.RandomState(31),
     ):
         """
@@ -558,7 +559,8 @@ class PostProcessor:
         elif dl_tdd_factor == 0:
             n_aggregate = len(ul_samples)
         else:
-            n_aggregate = min(len(ul_samples), len(dl_samples))
+            # n_aggregate = min(len(ul_samples), len(dl_samples))
+            n_aggregate = n_drops
 
         aggregate_samples = np.empty(n_aggregate)
 

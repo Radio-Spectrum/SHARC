@@ -155,17 +155,21 @@ def apply_button_style(key: str, color: str, text_color: str = "white", height="
     """, unsafe_allow_html=True)
 
 def render_campaign_buttons():
-    col1, col2 = st.columns(2)
+    col1, col2, col3 = st.columns(3)
 
     with col1:
         start_sim = st.button("Start Simulation", key="start_sim")
-        apply_button_style("start_sim", "#28a745")
+        apply_button_style("start_sim", "#28a745")  # green
 
     with col2:
+        stop_sim = st.button("Stop Simulation", key="stop_sim")
+        apply_button_style("stop_sim", "#dc3545")  # red
+
+    with col3:
         edit_camp = st.button("Edit Campaigns", key="edit_camp")
-        apply_button_style("edit_camp", "#ffc107", "black")
+        apply_button_style("edit_camp", "#ffc107", "black")  # yellow
 
     create_camp = st.button("Create Campaign", key="create_camp")
-    apply_button_style("create_camp", "#007bff", "white", "50px", "1.1rem")
+    apply_button_style("create_camp", "#007bff", "white", "50px", "1.1rem")  # blue
 
-    return start_sim, edit_camp, create_camp
+    return start_sim, stop_sim, edit_camp, create_camp 

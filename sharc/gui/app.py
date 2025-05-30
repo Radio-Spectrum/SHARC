@@ -2,15 +2,18 @@ import os
 import streamlit as st
 from ui.sidebar_folders import sidebar_style
 from ui.terminal_component import render_notebook_terminal
-from ui.explorer import render_file_explorer  
+from ui.explorer import render_file_explorer
+from ui.explorer import render_script_logger
 import ui.manage_campaigns as mng_cp
-
 
 st.set_page_config(page_title="SHARC", layout="wide")
 
+# 
+if "observer" not in st.session_state:
+    st.session_state.observer = None
+
+# 
 favicon_path = os.path.join(os.path.dirname(__file__), 'ui', 'img', 'sharc_logo_1.0.png')
-
-
 if os.path.exists(favicon_path):
     st.markdown(
         f'<link rel="icon" href="file://{favicon_path}" type="image/png">',
@@ -19,7 +22,7 @@ if os.path.exists(favicon_path):
 else:
     st.error("Favicon image not found!")
 
-
+# 
 st.markdown("""
     <style>
     div.stButton > button {
@@ -34,7 +37,6 @@ st.markdown("""
         box-shadow: 0 2px 4px rgba(0,0,0,0.2);
         transition: 0.2s ease;
     }
-
     div.stButton > button:hover {
         background-color: #2a2a3d;
         transform: scale(1.01);
@@ -43,38 +45,43 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
+# 
 selected_page = sidebar_style()
-st.title(f"{selected_page.capitalize()}")
+st.title(selected_page.capitalize())
 
+# 
 if selected_page == "campaigns":
-    start_sim, edit_camp, create_camp = mng_cp.render_campaign_buttons()
+    start_sim, stop_sim, edit_camp, create_camp = mng_cp.render_campaign_buttons()
 
     if start_sim:
         st.write("Simulation started!")
         mng_cp.start_simulation()
 
     if edit_camp:
-        if st.session_state.selected_folder != "Edit mode":
-           st.session_state.selected_folder = "Edit mode"
-           st.rerun()
+        if st.session_state.get("selected_folder", "") != "Edit mode":
+            st.session_state.selected_folder = "Edit mode"
+            st.rerun()
 
     if create_camp:
         st.write("Creating a new campaign...")
         mng_cp.create_campaign()
 
+    render_script_logger()
+
+# 
 docs_path = os.path.join(os.path.dirname(__file__), "docs", f"{selected_page}.md")
 try:
-    with open(docs_path, "r") as f:
+    with open(docs_path, "r", encoding="utf-8") as f:
         st.markdown(f.read())
 except FileNotFoundError:
-    st.warning(f"This module {selected_page} doesn't have documentation yet.")
+    st.warning(f"This module '{selected_page}' doesn't have documentation yet.")
 
-if st.session_state.selected_folder == "Edit mode":
+# 
+if st.session_state.get("selected_folder") == "Edit mode":
     mng_cp.edit_campaigns()
 
-
-if selected_page != "home" and st.session_state.selected_folder != "Edit mode":
-
+# 
+if selected_page != "home" and st.session_state.get("selected_folder", "") != "Edit mode":
     project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
     folder_path = os.path.join(project_root, selected_page)
 
@@ -89,10 +96,5 @@ if selected_page != "home" and st.session_state.selected_folder != "Edit mode":
             render_file_explorer(folder_path)
         else:
             st.info(f"No files found in folder `{folder_path}`.")
-    
-    script_files = [f for f in os.listdir(folder_path) if f.endswith(".py")]
-    
-    for script in script_files:
-        script_path = os.path.join(folder_path, script)
 
     render_notebook_terminal()

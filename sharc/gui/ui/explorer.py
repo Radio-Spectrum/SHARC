@@ -120,6 +120,17 @@ def run_python_script(script_path):
         return True, "✅ Execution started."
     return False, "❌ Failed to start execution."
 
+#  - Stop script -
+def stop_script():
+    if "observer" in st.session_state and st.session_state.observer:
+        if st.session_state.observer.running:
+            stopped = st.session_state.observer.stop()
+            return stopped, "🛑 Script stopped." if stopped else "⚠️ Failed to stop script."
+        else:
+            return False, "ℹ️ No script is currently running."
+    return False, "ℹ️ No observer found in session."
+
+
 
 # ===============================
 # External Terminal Execution
@@ -231,7 +242,7 @@ def render_script_logger():
     if "show_logs" not in st.session_state:
         st.session_state.show_logs = False
 
-    if st.button("🧪 Toggle Real-time Logs"):
+    if st.button("🖥 Toggle Real-time Logs"):
         st.session_state.show_logs = not st.session_state.show_logs
 
     if st.session_state.show_logs:

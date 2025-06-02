@@ -1,6 +1,7 @@
 import streamlit as st
 from pathlib import Path
 from ui.explorer import run_python_script
+from ui.explorer import stop_script
 from core.text_editor import yaml_editor 
 
 # ===============================
@@ -90,7 +91,16 @@ def start_simulation():
 
 @st.dialog("Stop Simulation")
 def stop_simulation():
-    st.warning("Are you sure that you want to stop simulation?")
+    st.write("⚠️ Are you sure you want to stop the simulation?")
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("✅ Yes, stop it"):
+            success, msg = stop_script()
+            st.success(msg) if success else st.error(msg)
+    with col2:
+        if st.button("❌ Cancel"):
+            st.info("Simulation was not stopped.")
+            st.rerun()
 
 
 

@@ -54,8 +54,13 @@ if selected_page == "campaigns":
     start_sim, stop_sim, edit_camp, create_camp = mng_cp.render_campaign_buttons()
 
     if start_sim:
-        st.write("Simulation started!")
         mng_cp.start_simulation()
+
+    if stop_sim:
+        mng_cp.stop_simulation()
+        st.session_state.skip_logger = True
+    else:
+        st.session_state.skip_logger = False
 
     if edit_camp:
         if st.session_state.get("selected_folder", "") != "Edit mode":
@@ -66,7 +71,8 @@ if selected_page == "campaigns":
         st.write("Creating a new campaign...")
         mng_cp.create_campaign()
 
-    render_script_logger()
+    if not st.session_state.get("skip_logger", False):
+        render_script_logger()
 
 # 
 docs_path = os.path.join(os.path.dirname(__file__), "docs", f"{selected_page}.md")

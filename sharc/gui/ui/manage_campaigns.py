@@ -85,6 +85,16 @@ def start_simulation():
             st.error(f"Simulation script '{script_file}' not found in the selected campaign.")
 
 # ===============================
+# Stop simulation
+# ===============================
+
+@st.dialog("Stop Simulation")
+def stop_simulation():
+    st.warning("Are you sure that you want to stop simulation?")
+
+
+
+# ===============================
 # Placeholder for Editing
 # ===============================
 

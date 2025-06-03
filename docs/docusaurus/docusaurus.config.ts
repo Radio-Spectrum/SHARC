@@ -124,10 +124,6 @@ const config: Config = {
           title: 'References',
           items: [
             {
-              label: 'ITU',
-              href: 'https://www.itu.int/en/Pages/default.aspx',
-            },
-            {
               label: 'Radio-Spectrum',
               href: 'https://github.com/Radio-Spectrum',
             },

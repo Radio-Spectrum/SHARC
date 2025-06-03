@@ -55,19 +55,11 @@ function HomepageFeatures() {
       </p>
       <div style={featureStyles.featureList}>
         {[
-          {
-            title: "", 
-            description: "",
-          },
           { 
             title: "SHARing and Compatibility", 
             description: "SHARC helps users simulate and evaluate various radiocommunication systems to understand how they share and coexist in the radio spectrum.", 
             logo: useBaseUrl ("/img/logo.svg")  
-          },
-          { 
-            title: "", 
-            description: "",  
-          },
+          }
         ].map((feature, index) => (
           <div key={index} style={featureStyles.featureItem}>
             <div style={featureStyles.icon}>

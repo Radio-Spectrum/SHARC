@@ -61,7 +61,7 @@ function HomepageFeatures() {
           },
           { 
             title: "SHARing and Compatibility", 
-            description: "The development of this software is being lead by the Telecommunications Regulatory Authority (TRA) of Brazil, ANATEL.", 
+            description: "SHARC helps users simulate and evaluate various radiocommunication systems to understand how they share and coexist in the radio spectrum.", 
             logo: useBaseUrl ("/img/logo.svg")  
           },
           { 

@@ -6,7 +6,7 @@ sidebar_position: 1
 
 ## Introduction to SHARC
 
-Welcome to **SHARC**, a powerful simulator designed to support **SHARing and Compatibility** studies of radiocommunication systems. Developed and maintained by the **Telecommunications Regulatory Authority (TRA)** of Brazil, **ANATEL**, SHARC implements the framework specified in [ITU-R M.2101](https://www.itu.int/rec/R-REC-M.2101/en), focusing on **modeling and simulating IMT networks and systems** for use in sharing and compatibility studies.
+Welcome to **SHARC**, a powerful simulator designed to support **SHARing and Compatibility** studies of radiocommunication systems, focusing on **modeling and simulating IMT networks and systems** for use in sharing and compatibility studies.
 
 ### Purpose of SHARC
 

@@ -124,10 +124,6 @@ const config: Config = {
           title: 'References',
           items: [
             {
-              label: 'Anatel',
-              href: 'https://www.gov.br/anatel/pt-br',
-            },
-            {
               label: 'ITU',
               href: 'https://www.itu.int/en/Pages/default.aspx',
             },
@@ -147,7 +143,7 @@ const config: Config = {
           ],
         },
       ],
-      copyright: `Development of this software is being led by the Telecommunications Regulatory Authority (TRA) of Brazil, ANATEL.\nCopyright © ${new Date().getFullYear()} Radio-Spectrum SHARC.`,
+      copyright: `${new Date().getFullYear()} Radio-Spectrum SHARC.`,
     },
     prism: {
       theme: prismThemes.github,

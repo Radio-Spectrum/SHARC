@@ -56,9 +56,8 @@ function HomepageFeatures() {
       <div style={featureStyles.featureList}>
         {[
           {
-            title: "Follow the Anatel Standards", 
-            description: "This software complies with ANATEL regulations and recommendations, aligning with national telecommunications standards in Brazil", 
-            logo: useBaseUrl ("/img/anatel_logo.svg"),
+            title: "", 
+            description: "",
           },
           { 
             title: "SHARing and Compatibility", 
@@ -66,9 +65,8 @@ function HomepageFeatures() {
             logo: useBaseUrl ("/img/logo.svg")  
           },
           { 
-            title: "Follow the ITU Resolutions", 
-            description: "This software follows ITU resolutions and recommendations, ensuring alignment with global telecommunications standards. By adhering to these guidelines, it supports accurate modeling and analysis, fostering consistency and reliability in applications such as satellite footprint coverage and IMT network integration.",
-            logo: useBaseUrl ("/img/itu_logo.svg")  
+            title: "", 
+            description: "",  
           },
         ].map((feature, index) => (
           <div key={index} style={featureStyles.featureItem}>

@@ -28,6 +28,10 @@ class ParametersMssD2d(ParametersBase):
     # MSS_D2d system bandwidth in MHz
     bandwidth: float = 5.0
 
+    # Polarization loss [dB]
+    # P.619 suggests 3dB polarization loss as good constant value for monte carlo
+    polarization_loss: float = None
+
     # In case you want to use a load factor for beams
     # that means that each beam has a probability of `beams_load_factor` to be active
     beams_load_factor: float = 1.0

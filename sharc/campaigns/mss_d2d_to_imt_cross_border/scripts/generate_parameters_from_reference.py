@@ -7,6 +7,22 @@ from copy import deepcopy
 
 from sharc.parameters.parameters_base import tuple_constructor
 
+import argparse
+
+parser = argparse.ArgumentParser(
+    description="You may create or overwrite the parameters with different channel configs"
+)
+
+parser.add_argument('--channel', type=str, required=True, choices=["co", "adj"],
+    help='Set the channel to generate the parameters ("co" for cochannel or "adj" for adjacent channel)'
+)
+
+parser.add_argument('--freq', type=str, required=True, choices=["~0.8G", "~2.1G"],
+    help='Set the frequency to generate the parameters ("~0.8G" or "~2.1G")'
+)
+
+args = parser.parse_args()
+
 yaml.SafeLoader.add_constructor('tag:yaml.org,2002:python/tuple', tuple_constructor)
 
 local_dir = os.path.dirname(os.path.abspath(__file__))
@@ -17,6 +33,66 @@ ul_parameter_file_name = os.path.join(local_dir, "./base_input.yaml")
 # load the base parameters from the yaml file
 with open(ul_parameter_file_name, 'r') as file:
     ul_parameters = yaml.safe_load(file)
+
+# Set parameters based on cli config
+if args.freq == "~2.1G":
+    # default parameters already made for this case
+    imt_freq = ul_parameters["imt"]["frequency"]
+    imt_bw = ul_parameters["imt"]["bandwidth"]
+elif args.freq == "~0.8G":
+    # update mss params
+    ul_parameters["mss_d2d"]["tx_power_density"] = -28.1 - 34.1
+
+    # update immt params
+    imt_bw = 10.0
+    imt_freq = 698 + imt_bw / 2
+    ul_parameters["imt"]["frequency"] = imt_freq
+    ul_parameters["imt"]["bandwidth"] = imt_bw
+
+    # # same as defalt for mss d2d bw
+    # # ul_parameters["mss_d2d"]["bandwidth"] = 5.0
+
+    ul_parameters["imt"]["topology"]["single_bs"]["cell_radius"] = 1500
+    # BS for f < 1GHz needs non-AAS
+    # so we change it here
+    ul_parameters["imt"]["bs"]["conducted_power"] = 58
+
+    ul_parameters["imt"]["bs"]["height"] = 30
+    # while ohmic loss is included in AAS gain,
+    # feeder loss = 3 dB is not included in non-AAS gain
+    ul_parameters["imt"]["bs"]["ohmic_loss"] = 3
+
+    # Non aas
+    ul_parameters["imt"]["bs"]["antenna"]["array"]["n_rows"] = 1
+    ul_parameters["imt"]["bs"]["antenna"]["array"]["n_columns"] = 1
+    ul_parameters["imt"]["bs"]["antenna"]["array"]["subarray"]["is_enabled"] = False
+
+    ul_parameters["imt"]["bs"]["antenna"]["array"]["element_pattern"] = "F1336"
+    ul_parameters["imt"]["bs"]["antenna"]["array"]["downtilt"] = 3.0
+
+    ul_parameters["imt"]["bs"]["antenna"]["array"]["element_max_g"] = 15
+    ul_parameters["imt"]["bs"]["antenna"]["array"]["element_phi_3db"] = 65
+    # NOTE: to calculate automatically:
+    ul_parameters["imt"]["bs"]["antenna"]["array"]["element_theta_3db"] = 0
+else:
+    raise ValueError("Should be impossible to fall here")
+
+if args.channel == "co":
+    ul_parameters["general"]["enable_cochannel"] = True
+    ul_parameters["general"]["enable_adjacent_channel"] = False
+
+    ul_parameters["mss_d2d"]["frequency"] = imt_freq
+elif args.channel == "adj":
+    ul_parameters["general"]["enable_cochannel"] = False
+    ul_parameters["general"]["enable_adjacent_channel"] = True
+
+    ul_parameters["mss_d2d"]["frequency"] = imt_freq + imt_bw / 2 + ul_parameters["mss_d2d"]["bandwidth"] / 2
+else:
+    raise ValueError("Should be impossible to fall here")
+
+ul_parameters['general']['output_dir'] = \
+    ul_parameters['general']['output_dir'].replace("output_base", f"output_{args.freq}_{args.channel}")
+
 
 dl_parameters = deepcopy(ul_parameters)
 dl_parameters['general']['output_dir'] = ul_parameters['general']['output_dir'].replace("_ul", "_dl")

@@ -6,6 +6,24 @@ from sharc.results import Results
 # import plotly.graph_objects as go
 from sharc.post_processor import PostProcessor
 
+import argparse
+
+parser = argparse.ArgumentParser(
+    description="You may plot the results for the different channel configs"
+)
+
+parser.add_argument('--channel', type=str, required=True, choices=["co", "adj"],
+    help='Set the channel to generate the parameters ("co" for cochannel or "adj" for adjacent channel)'
+)
+
+parser.add_argument('--freq', type=str, required=True, choices=["~0.8G", "~2.1G"],
+    help='Set the frequency to generate the parameters ("~0.8G" or "~2.1G")'
+)
+
+args = parser.parse_args()
+
+output_start = f"output_{args.freq}_{args.channel}"
+
 post_processor = PostProcessor()
 
 # Add a legend to results in folder that match the pattern
@@ -34,8 +52,10 @@ for prefix in prefixes:
 
 campaign_base_dir = str((Path(__file__) / ".." / "..").resolve())
 
-results_dl = Results.load_many_from_dir(os.path.join(campaign_base_dir, "output_base_dl"), only_latest=True)
-results_ul = Results.load_many_from_dir(os.path.join(campaign_base_dir, "output_base_ul"), only_latest=True)
+
+
+results_dl = Results.load_many_from_dir(os.path.join(campaign_base_dir, f"{output_start}_dl"), only_latest=True)
+results_ul = Results.load_many_from_dir(os.path.join(campaign_base_dir, f"{output_start}_ul"), only_latest=True)
 # ^: typing.List[Results]
 all_results = [*results_ul, *results_dl]
 

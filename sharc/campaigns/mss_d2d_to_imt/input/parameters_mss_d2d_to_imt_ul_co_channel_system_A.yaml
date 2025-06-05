@@ -81,7 +81,7 @@ imt:
             # Inter-site distance or Cell Radius in single Base Station network topology [m]
             # You can either provide 'cell_radius' or 'intersite_distance' for this topology
             # The relationship used is cell_radius = intersite_distance * 2 / 3
-            cell_radius: 250
+            cell_radius: 500
             # intersite_distance: 1
             ###########################################################################
             # Number of clusters in single base station topology
@@ -112,7 +112,7 @@ imt:
         # Base station array ohmic loss  [dB]
         ohmic_loss: 3.0
         # Base Station Antenna parameters:
-        antenna:
+        antenna:  # Parameters for non-AAS antenna
             array:
                 ###########################################################################
                 # If normalization of M2101 should be applied for BS
@@ -160,10 +160,10 @@ imt:
                 element_theta_3db: 0
                 ###########################################################################
                 # BS/UE number of rows in antenna array
-                n_rows: 4
+                n_rows: 1
                 ###########################################################################
                 # BS/UE number of columns in antenna array
-                n_columns: 8
+                n_columns: 1
                 ###########################################################################
                 # BS/UE array horizontal element spacing (d/lambda)
                 element_horiz_spacing: 0.5

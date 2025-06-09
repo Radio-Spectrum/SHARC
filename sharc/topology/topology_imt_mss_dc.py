@@ -441,6 +441,8 @@ class TopologyImtMssDc(Topology):
         sx = np.resize(sx, orbit_params.num_beams * total_active_satellites)
         sy = np.resize(sy, orbit_params.num_beams * total_active_satellites)
 
+        sat_altitude = all_sat_altitude[active_satellite_idxs]
+
         if orbit_params.beam_positioning.type == "ANGLE_AND_DISTANCE_FROM_SUBSATELLITE":
             azim_add = TopologyImtMssDc.get_distr(
                 random_number_gen,
@@ -484,7 +486,6 @@ class TopologyImtMssDc(Topology):
                     f"mss_d2d_params.beam_positioning.angle_from_subsatellite_theta.type = \n"
                     f"'{orbit_params.beam_positioning.angle_from_subsatellite_theta.type}' is not recognized!"
                 )
-            sat_altitude = all_sat_altitude[active_satellite_idxs]
             subsatellite_distance_add = sat_altitude * np.tan(off_nadir_add)
 
             azim_add = TopologyImtMssDc.get_distr(

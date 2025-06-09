@@ -13,14 +13,14 @@ class ParametersAntenna(ParametersBase):
     # available antenna radiation patterns
     __SUPPORTED_ANTENNA_PATTERNS = [
         "OMNI", "ITU-R F.699", "ITU-R S.465", "ITU-R S.580", "MODIFIED ITU-R S.465", "ITU-R S.1855",
-        "ITU-R Reg. RR. Appendice 7 Annex 3", "ARRAY",  "ITU-R S.672", "ITU-R-S.1528-Taylor",
+        "ITU-R Reg. RR. Appendice 7 Annex 3", "ARRAY",  "ITU-R S.672", "ITU-R-S.1528-Taylor","ITU-R F.1245",
         "ITU-R-S.1528-Section1.2", "ITU-R-S.1528-LEO"
     ]
 
     # chosen antenna radiation pattern
     pattern: typing.Literal[
         "OMNI", "ITU-R F.699", "ITU-R S.465", "ITU-R S.580", "MODIFIED ITU-R S.465", "ITU-R S.1855",
-        "ITU-R Reg. RR. Appendice 7 Annex 3", "ARRAY", "ITU-R S.672", "ITU-R-S.1528-Taylor",
+        "ITU-R Reg. RR. Appendice 7 Annex 3", "ARRAY", "ITU-R S.672", "ITU-R-S.1528-Taylor","ITU-R F.1245"
         "ITU-R-S.1528-Section1.2", "ITU-R-S.1528-LEO"
     ] = None
 
@@ -50,7 +50,9 @@ class ParametersAntenna(ParametersBase):
     itu_reg_rr_a7_3: ParametersAntennaWithDiameter = field(
         default_factory=ParametersAntennaWithDiameter,
     )
-
+    itu_r_f_1245: ParametersAntennaWithDiameter = field(
+        default_factory=ParametersAntennaWithDiameter,
+    )
     array: ParametersAntennaImt = field(default_factory=lambda: ParametersAntennaImt(downtilt=0.0))
 
     # TODO: maybe separate each different S.1528 parameter?
@@ -140,6 +142,8 @@ class ParametersAntenna(ParametersBase):
                 self.itu_r_s_1528.validate(f"{ctx}.itu_r_s_1528")
             case "ITU-R-S.1528-LEO":
                 self.itu_r_s_1528.validate(f"{ctx}.itu_r_s_1528")
+            case "ITU-R F.1245":
+                self.itu_r_f_1245.validate(f"{ctx}.itu_r_s_1528")
             case _:
                 raise NotImplementedError(
                     "ParametersAntenna.validate does not implement this antenna validation!",

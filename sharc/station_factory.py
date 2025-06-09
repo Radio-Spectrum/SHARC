@@ -43,6 +43,7 @@ from sharc.antenna.antenna_rs1861_9b import AntennaRS1861_9B
 from sharc.antenna.antenna_rs1861_9c import AntennaRS1861_9C
 from sharc.antenna.antenna_rs2043 import AntennaRS2043
 from sharc.antenna.antenna_s465 import AntennaS465
+from sharc.antenna.antenna_f1245 import AntennaF1245
 from sharc.antenna.antenna_rra7_3 import AntennaReg_RR_A7_3
 from sharc.antenna.antenna_modified_s465 import AntennaModifiedS465
 from sharc.antenna.antenna_s580 import AntennaS580
@@ -1004,6 +1005,11 @@ class StationFactory(object):
             case "ITU-R S.580":
                 single_earth_station.antenna = np.array(
                     [AntennaS580(param.antenna.itu_r_s_580)],
+                )
+            case "ITU-R F.1245":
+                param.antenna.itu_r_f_1245.peak_gain = param.antenna.itu_r_f_1245.antenna_gain
+                single_earth_station.antenna = np.array(
+                    [AntennaF1245(param.antenna.itu_r_f_1245,param.antenna.itu_r_f_1245)],
                 )
             case _:
                 sys.stderr.write(

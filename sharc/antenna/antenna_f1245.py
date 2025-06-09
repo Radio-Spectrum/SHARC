@@ -29,16 +29,16 @@ class AntennaF1245(Antenna):
         self.phi_r = 12.02 * math.pow(self.d_lmbda, -0.6)
 
     def calculate_gain(self, *args, **kwargs) -> np.array:
-        phi_vec = np.absolute(kwargs["phi_vec"])
-        theta_vec = np.absolute(kwargs["theta_vec"])
-        beams_l = np.absolute(kwargs["beams_l"])
-        off_axis = self.calculate_off_axis_angle(phi_vec, theta_vec)
+        #phi_vec = np.absolute(kwargs["phi_vec"])
+        #theta_vec = np.absolute(kwargs["theta_vec"])
+        off_axis = np.absolute(kwargs["off_axis_angle_vec"])
+
         if self.d_lmbda > 100:
             gain = self.calculate_gain_greater(off_axis)
         else:
             gain = self.calculate_gain_less(off_axis)
-            idx_max_gain = np.where(beams_l == -1)[0]
-            gain[idx_max_gain] = self.peak_gain
+            #idx_max_gain = np.where(beams_l == -1)[0]
+            #gain[idx_max_gain] = self.peak_gain
         return gain
 
     def calculate_gain_greater(self, phi: float) -> np.array:

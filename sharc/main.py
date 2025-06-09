@@ -5,7 +5,7 @@ Created on Mon Dec 26 17:05:49 2016
 @author: edgar
 """
 
-from sharc.support.logging import Logging
+from sharc.support.sharc_logger import Logging
 from sharc.controller import Controller
 from sharc.gui.view import View
 from sharc.model import Model

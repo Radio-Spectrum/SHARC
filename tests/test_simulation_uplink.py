@@ -246,6 +246,7 @@ class SimulationUplinkTest(unittest.TestCase):
         # test scheduler and bandwidth allocation
         self.simulation.scheduler()
         bandwidth_per_ue = math.trunc((1 - 0.1) * 100 / 2)
+        bandwidth_per_bs = math.trunc((1 - 0.1) * 100)
         npt.assert_allclose(
             self.simulation.ue.bandwidth,
             bandwidth_per_ue * np.ones(4), atol=1e-2,
@@ -294,7 +295,7 @@ class SimulationUplinkTest(unittest.TestCase):
 
         # check BS thermal noise
         thermal_noise = 10 * \
-            np.log10(1.38064852e-23 * 290 * bandwidth_per_ue * 1e3 * 1e6) + 7
+            np.log10(1.38064852e-23 * 290 * bandwidth_per_bs * 1e3 * 1e6) + 7
         npt.assert_allclose(
             self.simulation.bs.thermal_noise,
             thermal_noise,
@@ -446,6 +447,7 @@ class SimulationUplinkTest(unittest.TestCase):
 
         self.simulation.scheduler()
         bandwidth_per_ue = math.trunc((1 - 0.1) * 100 / 2)
+        bandwidth_per_bs = math.trunc((1 - 0.1) * 100)
         self.simulation.power_control()
 
         self.simulation.calculate_sinr()
@@ -498,7 +500,7 @@ class SimulationUplinkTest(unittest.TestCase):
 
         # check BS thermal noise
         thermal_noise = 10 * \
-            np.log10(1.38064852e-23 * 290 * bandwidth_per_ue * 1e3 * 1e6) + 7
+            np.log10(1.38064852e-23 * 290 * bandwidth_per_bs * 1e3 * 1e6) + 7
         npt.assert_allclose(
             self.simulation.bs.thermal_noise,
             thermal_noise,
@@ -712,13 +714,14 @@ class SimulationUplinkTest(unittest.TestCase):
         )
 
         self.simulation.scheduler()
+        bandwidth_per_bs = math.trunc((1 - 0.1) * 100)
         bandwidth_per_ue = math.trunc((1 - 0.1) * 100 / 2)
         self.simulation.power_control()
 
         self.simulation.calculate_sinr()
         # check BS thermal noise
         thermal_noise = 10 * \
-            np.log10(1.38064852e-23 * 290 * bandwidth_per_ue * 1e3 * 1e6) + 7
+            np.log10(1.38064852e-23 * 290 * bandwidth_per_bs * 1e3 * 1e6) + 7
         npt.assert_allclose(
             self.simulation.bs.thermal_noise,
             thermal_noise,
@@ -728,12 +731,12 @@ class SimulationUplinkTest(unittest.TestCase):
         # check SINR
         npt.assert_allclose(
             self.simulation.bs.sinr[0],
-            np.array([-57.47 - (-60.06), -67.35 - (-63.04)]),
+            np.array([-57.68 - (-60.27), -67.37 - (-63.05)]),
             atol=1e-2,
         )
         npt.assert_allclose(
             self.simulation.bs.sinr[1],
-            np.array([-57.53 - (-75.40), -46.99 - (-71.57)]),
+            np.array([-57.55 - (-75.28), -47.09 - (-71.62)]),
             atol=1e-2,
         )
 

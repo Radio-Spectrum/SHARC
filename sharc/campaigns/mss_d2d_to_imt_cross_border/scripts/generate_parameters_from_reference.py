@@ -170,19 +170,19 @@ for dist in [
         parameters['mss_d2d']['num_sectors'] = 1
         parameters['mss_d2d']['beams_load_factor'] = 1
 
-        parameters['mss_d2d']['center_beam_positioning'] = {}
+        parameters['mss_d2d']['beam_positioning'] = {}
 
-        parameters['mss_d2d']['center_beam_positioning']['type'] = "ANGLE_AND_DISTANCE_FROM_SUBSATELLITE"
+        parameters['mss_d2d']['beam_positioning']['type'] = "ANGLE_AND_DISTANCE_FROM_SUBSATELLITE"
 
         # for uniform area distribution
-        parameters['mss_d2d']['center_beam_positioning']['angle_from_subsatellite_phi'] = {
+        parameters['mss_d2d']['beam_positioning']['angle_from_subsatellite_phi'] = {
             'type': "~U(MIN,MAX)",
             'distribution': {
                 'min': -180.,
                 'max': 180.,
             }
         }
-        parameters['mss_d2d']['center_beam_positioning']['distance_from_subsatellite'] = {
+        parameters['mss_d2d']['beam_positioning']['distance_from_subsatellite'] = {
             'type': "~SQRT(U(0,1))*MAX",
             'distribution': {
                 'min': 0,

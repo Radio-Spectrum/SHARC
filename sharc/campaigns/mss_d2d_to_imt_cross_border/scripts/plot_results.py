@@ -98,6 +98,10 @@ post_processor\
     .get_plot_by_results_attribute_name("imt_dl_pfd_external_aggregated")\
     .add_vline(pfd_protection_criteria, line_dash="dash")
 
+post_processor\
+    .get_plot_by_results_attribute_name("imt_dl_pfd_external")\
+    .add_vline(pfd_protection_criteria, line_dash="dash")
+
 
 attributes_to_plot = [
     # "imt_system_antenna_gain",

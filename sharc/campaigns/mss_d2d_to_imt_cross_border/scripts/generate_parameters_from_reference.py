@@ -100,11 +100,22 @@ dl_parameters['general']['output_dir_prefix'] = ul_parameters['general']['output
 dl_parameters['general']['imt_link'] = "DOWNLINK"
 
 country_border = 4 * ul_parameters["mss_d2d"]["cell_radius"] / 1e3
-print("country_border", country_border)
 
 # doesn't matter from which, both will give same result
 output_dir_pattern = ul_parameters['general']['output_dir'].replace("_base_ul", "_<specific>")
 output_prefix_pattern = ul_parameters['general']['output_dir_prefix'].replace("_base_ul", "_<specific>")
+
+def w_param(parameters, specific):
+    """
+    sets output dir and writes paramfile to input dir
+    """
+    parameters['general']['output_dir_prefix'] = output_prefix_pattern.replace("<specific>", specific)
+
+    with open(
+        os.path.join(input_dir, f"./parameters_mss_d2d_to_imt_cross_border_{specific}.yaml"),
+        'w'
+    ) as file:
+        yaml.dump(parameters, file, default_flow_style=False)
 
 for dist in [
     0,
@@ -114,27 +125,12 @@ for dist in [
     country_border + 3 * 111 / 2,
     country_border + 2 * 111
 ]:
+    # setting border for all parameter files on this loop
     ul_parameters["mss_d2d"]["sat_is_active_if"]["lat_long_inside_country"]["margin_from_border"] = dist
-    specific = f"{dist}km_base_ul"
-    ul_parameters['general']['output_dir_prefix'] = output_prefix_pattern.replace("<specific>", specific)
-
     dl_parameters["mss_d2d"]["sat_is_active_if"]["lat_long_inside_country"]["margin_from_border"] = dist
-    specific = f"{dist}km_base_dl"
-    dl_parameters['general']['output_dir_prefix'] = output_prefix_pattern.replace("<specific>", specific)
 
-    ul_parameter_file_name = os.path.join(input_dir, f"./parameters_mss_d2d_to_imt_cross_border_{dist}km_base_ul.yaml")
-    dl_parameter_file_name = os.path.join(input_dir, f"./parameters_mss_d2d_to_imt_cross_border_{dist}km_base_dl.yaml")
-
-    with open(
-        dl_parameter_file_name,
-        'w'
-    ) as file:
-        yaml.dump(dl_parameters, file, default_flow_style=False)
-    with open(
-        ul_parameter_file_name,
-        'w'
-    ) as file:
-        yaml.dump(ul_parameters, file, default_flow_style=False)
+    w_param(ul_parameters, f"{dist}km_base_ul")
+    w_param(dl_parameters, f"{dist}km_base_dl")
 
     for link in ["ul", "dl"]:
         if link == "ul":
@@ -142,59 +138,58 @@ for dist in [
         if link == "dl":
             parameters = deepcopy(dl_parameters)
 
+        ####################################################
+        # make fixed positioned sectors with different loads
+        print("Generating parameters for sectors at subsatellite with different loads")
         parameters['mss_d2d']['num_sectors'] = 19
         # 1 out of 19 beams are active
         parameters['mss_d2d']['beams_load_factor'] = 0.05263157894
+        w_param(parameters, f"{dist}km_activate_random_beam_5p_{link}")
 
-        specific = f"{dist}km_activate_random_beam_5p_{link}"
-        parameters['general']['output_dir_prefix'] = output_prefix_pattern.replace("<specific>", specific)
-
-        with open(
-            os.path.join(input_dir, f"./parameters_mss_d2d_to_imt_cross_border_{specific}.yaml"),
-            'w'
-        ) as file:
-            yaml.dump(parameters, file, default_flow_style=False)
-
-        parameters['mss_d2d']['num_sectors'] = 19
         parameters['mss_d2d']['beams_load_factor'] = 0.3
+        w_param(parameters, f"{dist}km_activate_random_beam_30p_{link}")
 
-        specific = f"{dist}km_activate_random_beam_30p_{link}"
-        parameters['general']['output_dir_prefix'] = output_prefix_pattern.replace("<specific>", specific)
-
-        with open(
-            os.path.join(input_dir, f"./parameters_mss_d2d_to_imt_cross_border_{specific}.yaml"),
-            'w'
-        ) as file:
-            yaml.dump(parameters, file, default_flow_style=False)
-
+        ####################################################
+        # make single sector with random pointing
+        print(
+            "Generating parameters for single sector at random"
+            " (uniform) circle area around subsatellite"
+        )
         parameters['mss_d2d']['num_sectors'] = 1
         parameters['mss_d2d']['beams_load_factor'] = 1
-
-        parameters['mss_d2d']['beam_positioning'] = {}
-
-        parameters['mss_d2d']['beam_positioning']['type'] = "ANGLE_AND_DISTANCE_FROM_SUBSATELLITE"
-
-        # for uniform area distribution
-        parameters['mss_d2d']['beam_positioning']['angle_from_subsatellite_phi'] = {
-            'type': "~U(MIN,MAX)",
-            'distribution': {
-                'min': -180.,
-                'max': 180.,
+        # for uniform area distribution in a circle of radius 4 * beam_radius
+        parameters['mss_d2d']['beam_positioning'] = {
+            'type': "ANGLE_AND_DISTANCE_FROM_SUBSATELLITE",
+            'angle_from_subsatellite_phi': {
+                'type': "~U(MIN,MAX)",
+                'distribution': {
+                    'min': -180.,
+                    'max': 180.,
+                },
+            },
+            'distance_from_subsatellite': {
+                'type': "~SQRT(U(0,1))*MAX",
+                'distribution': {
+                    'min': 0,
+                    'max': parameters['mss_d2d']["cell_radius"] * 4,
+                }
             }
         }
-        parameters['mss_d2d']['beam_positioning']['distance_from_subsatellite'] = {
-            'type': "~SQRT(U(0,1))*MAX",
-            'distribution': {
-                'min': 0,
-                'max': parameters['mss_d2d']["cell_radius"] * 4,
-            }
-        }
+        w_param(parameters, f"{dist}km_random_pointing_1beam_{link}")
 
-        specific = f"{dist}km_random_pointing_1beam_{link}"
-        parameters['general']['output_dir_prefix'] = output_prefix_pattern.replace("<specific>", specific)
+        ####################################################
+        # entire service grid is covered
+        print(
+            "Generating parameters for service grid covering the whole covered countries"
+        )
+        parameters['mss_d2d']['beams_load_factor'] = 1
+        # just select service grid, let defaults come from
+        # country polygon limit definitions
+        parameters['mss_d2d']['beam_positioning']['type'] = "SERVICE_GRID"
+        w_param(parameters, f"{dist}km_service_grid_100p_{link}")
 
-        with open(
-            os.path.join(input_dir, f"./parameters_mss_d2d_to_imt_cross_border_{specific}.yaml"),
-            'w'
-        ) as file:
-            yaml.dump(parameters, file, default_flow_style=False)
+        parameters['mss_d2d']['beams_load_factor'] = 0.5
+        w_param(parameters, f"{dist}km_service_grid_50p_{link}")
+
+        parameters['mss_d2d']['beams_load_factor'] = 0.2
+        w_param(parameters, f"{dist}km_service_grid_20p_{link}")

@@ -36,10 +36,10 @@ imt:
     interfered_with: TRUE
     ###########################################################################
     # IMT center frequency [MHz]
-    frequency: 2300.0
+    frequency: 2160.0
     ###########################################################################
     # IMT bandwidth [MHz]
-    bandwidth: 20.0
+    bandwidth: 5.0
     ###########################################################################
     # IMT resource block bandwidth [MHz]
     rb_bandwidth: 0.180
@@ -160,10 +160,10 @@ imt:
                 element_theta_3db: 0
                 ###########################################################################
                 # BS/UE number of rows in antenna array
-                n_rows: 4
+                n_rows: 1
                 ###########################################################################
                 # BS/UE number of columns in antenna array
-                n_columns: 8
+                n_columns: 1
                 ###########################################################################
                 # BS/UE array horizontal element spacing (d/lambda)
                 element_horiz_spacing: 0.5
@@ -378,13 +378,16 @@ mss_d2d:
     # chosen spectral Mask
     spectral_mask: 3GPP E-UTRA
     # MSS_D2D system center frequency in MHz
-    frequency: 2300.0
+    frequency: 2160.0
     # MSS_D2d system bandwidth in MHz
     bandwidth: 5.0
     # MSS_D2D cell radius in network topology [m]
     cell_radius: 39475.0
     # Satellite power density in dBW/Hz
-    tx_power_density: -52.2
+    tx_power_density: -54.2
+    # Polarization loss [dB]
+    # P.619 suggests 3dB polarization loss as good constant value for monte carlo
+    polarization_loss: 0
     # Number of sectors
     num_sectors: 1
     # Satellite antenna pattern

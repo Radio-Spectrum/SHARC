@@ -237,7 +237,7 @@ class Simulation(ABC, Observable):
             else:
                 raise ValueError(
                     "Polarization loss is not initialized in the system parameters. "
-                    "Please initialized it in the system parameters file."
+                    "Please initialize it in the system parameters file."
                 )
         else:
             raise ValueError(

@@ -131,6 +131,7 @@ class SimulationUplinkTest(unittest.TestCase):
         self.param.fss_ss.time_ratio = 0.5
         self.param.fss_ss.antenna_l_s = -20
         self.param.fss_ss.acs = 0
+        self.param.fss_ss.polarization_loss = 3.0
 
         self.param.fss_es.x = -5000
         self.param.fss_es.y = 0
@@ -148,6 +149,7 @@ class SimulationUplinkTest(unittest.TestCase):
         self.param.fss_es.channel_model = "FSPL"
         self.param.fss_es.line_of_sight_prob = 1
         self.param.fss_es.acs = 0
+        self.param.fss_es.polarization_loss = 3.0
 
         self.param.ras.geometry.location.type = "FIXED"
         self.param.ras.geometry.location.fixed.x = -5000
@@ -167,9 +169,7 @@ class SimulationUplinkTest(unittest.TestCase):
         self.param.ras.antenna.pattern = "OMNI"
         self.param.ras.channel_model = "FSPL"
         self.param.ras.line_of_sight_prob = 1
-        self.param.ras.BOLTZMANN_CONSTANT = 1.38064852e-23
-        self.param.ras.EARTH_RADIUS = 6371000
-        self.param.ras.SPEED_OF_LIGHT = 299792458
+        self.param.ras.polarization_loss = 0.0
 
     def test_simulation_2bs_4ue_ss(self):
         self.param.general.system = "FSS_SS"
@@ -246,6 +246,7 @@ class SimulationUplinkTest(unittest.TestCase):
         # test scheduler and bandwidth allocation
         self.simulation.scheduler()
         bandwidth_per_ue = math.trunc((1 - 0.1) * 100 / 2)
+        bandwidth_per_bs = math.trunc((1 - 0.1) * 100)
         npt.assert_allclose(
             self.simulation.ue.bandwidth,
             bandwidth_per_ue * np.ones(4), atol=1e-2,
@@ -294,7 +295,7 @@ class SimulationUplinkTest(unittest.TestCase):
 
         # check BS thermal noise
         thermal_noise = 10 * \
-            np.log10(1.38064852e-23 * 290 * bandwidth_per_ue * 1e3 * 1e6) + 7
+            np.log10(1.38064852e-23 * 290 * bandwidth_per_bs * 1e3 * 1e6) + 7
         npt.assert_allclose(
             self.simulation.bs.thermal_noise,
             thermal_noise,
@@ -446,6 +447,7 @@ class SimulationUplinkTest(unittest.TestCase):
 
         self.simulation.scheduler()
         bandwidth_per_ue = math.trunc((1 - 0.1) * 100 / 2)
+        bandwidth_per_bs = math.trunc((1 - 0.1) * 100)
         self.simulation.power_control()
 
         self.simulation.calculate_sinr()
@@ -498,7 +500,7 @@ class SimulationUplinkTest(unittest.TestCase):
 
         # check BS thermal noise
         thermal_noise = 10 * \
-            np.log10(1.38064852e-23 * 290 * bandwidth_per_ue * 1e3 * 1e6) + 7
+            np.log10(1.38064852e-23 * 290 * bandwidth_per_bs * 1e3 * 1e6) + 7
         npt.assert_allclose(
             self.simulation.bs.thermal_noise,
             thermal_noise,
@@ -712,13 +714,14 @@ class SimulationUplinkTest(unittest.TestCase):
         )
 
         self.simulation.scheduler()
+        bandwidth_per_bs = math.trunc((1 - 0.1) * 100)
         bandwidth_per_ue = math.trunc((1 - 0.1) * 100 / 2)
         self.simulation.power_control()
 
         self.simulation.calculate_sinr()
         # check BS thermal noise
         thermal_noise = 10 * \
-            np.log10(1.38064852e-23 * 290 * bandwidth_per_ue * 1e3 * 1e6) + 7
+            np.log10(1.38064852e-23 * 290 * bandwidth_per_bs * 1e3 * 1e6) + 7
         npt.assert_allclose(
             self.simulation.bs.thermal_noise,
             thermal_noise,
@@ -728,12 +731,12 @@ class SimulationUplinkTest(unittest.TestCase):
         # check SINR
         npt.assert_allclose(
             self.simulation.bs.sinr[0],
-            np.array([-57.47 - (-60.06), -67.35 - (-63.04)]),
+            np.array([-57.68 - (-60.27), -67.37 - (-63.05)]),
             atol=1e-2,
         )
         npt.assert_allclose(
             self.simulation.bs.sinr[1],
-            np.array([-57.53 - (-75.40), -46.99 - (-71.57)]),
+            np.array([-57.55 - (-75.28), -47.09 - (-71.62)]),
             atol=1e-2,
         )
 

@@ -3,6 +3,7 @@ import unittest
 from sharc.parameters.parameters import Parameters
 import numpy as np
 from contextlib import contextmanager
+from pyproj import Geod
 
 
 @contextmanager
@@ -215,6 +216,77 @@ class ParametersTest(unittest.TestCase):
         self.assertEqual(self.parameters.imt.topology.ntn.bs_azimuth, 45)
         self.assertEqual(self.parameters.imt.topology.ntn.bs_elevation, 45)
         self.assertEqual(self.parameters.imt.topology.ntn.num_sectors, 19)
+        """
+        Test parameters mss dc
+        """
+        self.assertEqual(
+            self.parameters.imt.topology.mss_dc.beam_radius,
+            19000,
+        )
+        self.assertEqual(
+            self.parameters.imt.topology.mss_dc.num_beams,
+            19,
+        )
+        self.assertEqual(
+            self.parameters.imt.topology.mss_dc.sat_is_active_if.conditions,
+            ["LAT_LONG_INSIDE_COUNTRY", "MINIMUM_ELEVATION_FROM_ES", "MAXIMUM_ELEVATION_FROM_ES"],
+        )
+
+        self.parameters.imt.topology.mss_dc.validate("test_imt")
+        self.assertEqual(self.parameters.imt.topology.mss_dc.beam_positioning.service_grid.beam_radius, 19000)
+        self.assertEqual(self.parameters.imt.topology.mss_dc.beam_positioning.service_grid.grid_margin_from_border, 0.11)
+        self.assertEqual(self.parameters.imt.topology.mss_dc.beam_positioning.service_grid.eligible_sats_margin_from_border, -2.1)
+        self.assertEqual(len(self.parameters.imt.topology.mss_dc.beam_positioning.service_grid.country_names), 2)
+        self.assertEqual(self.parameters.imt.topology.mss_dc.beam_positioning.service_grid.country_names[0], "Brazil")
+        self.assertEqual(self.parameters.imt.topology.mss_dc.beam_positioning.service_grid.country_names[1], "Chile")
+
+        self.assertEqual(len(self.parameters.imt.topology.mss_dc.sat_is_active_if.lat_long_inside_country.country_names), 2)
+        self.assertEqual(self.parameters.imt.topology.mss_dc.sat_is_active_if.lat_long_inside_country.country_names[0], "Brazil")
+        self.assertEqual(len(self.parameters.imt.topology.mss_dc.sat_is_active_if.lat_long_inside_country.country_names), 2)
+        self.assertEqual(self.parameters.imt.topology.mss_dc.sat_is_active_if.lat_long_inside_country.country_names[0], "Brazil")
+        self.assertEqual(self.parameters.imt.topology.mss_dc.sat_is_active_if.lat_long_inside_country.country_names[1], "Ecuador")
+
+        self.assertEqual(self.parameters.imt.topology.mss_dc.sat_is_active_if.lat_long_inside_country.margin_from_border, 11.1241)
+        self.assertEqual(self.parameters.imt.topology.mss_dc.sat_is_active_if.minimum_elevation_from_es, 1.112)
+        self.assertEqual(self.parameters.imt.topology.mss_dc.sat_is_active_if.maximum_elevation_from_es, 1.113)
+        self.assertTrue(isinstance(self.parameters.imt.topology.mss_dc.orbits, list))
+        expected_orbit_params = [
+            {
+                'n_planes': 20,
+                'inclination_deg': 54.5,
+                'perigee_alt_km': 525.0,
+                'apogee_alt_km': 525.0,
+                'sats_per_plane': 32,
+                'long_asc_deg': 18.0,
+                'phasing_deg': 3.9,
+            },
+            {
+                'n_planes': 12,
+                'inclination_deg': 26.0,
+                'perigee_alt_km': 580.0,
+                'apogee_alt_km': 580.0,
+                'sats_per_plane': 20,
+                'long_asc_deg': 30.0,
+                'phasing_deg': 2.0,
+            },
+            {
+                'n_planes': 26,
+                'inclination_deg': 97.77,
+                'perigee_alt_km': 595.0,
+                'apogee_alt_km': 595.0,
+                'sats_per_plane': 30,
+                'long_asc_deg': 14.0,
+                'phasing_deg': 7.8,
+            },
+        ]
+        for i, orbit_params in enumerate(self.parameters.imt.topology.mss_dc.orbits):
+            self.assertEqual(orbit_params.n_planes, expected_orbit_params[i]['n_planes'])
+            self.assertEqual(orbit_params.inclination_deg, expected_orbit_params[i]['inclination_deg'])
+            self.assertEqual(orbit_params.perigee_alt_km, expected_orbit_params[i]['perigee_alt_km'])
+            self.assertEqual(orbit_params.apogee_alt_km, expected_orbit_params[i]['apogee_alt_km'])
+            self.assertEqual(orbit_params.sats_per_plane, expected_orbit_params[i]['sats_per_plane'])
+            self.assertEqual(orbit_params.long_asc_deg, expected_orbit_params[i]['long_asc_deg'])
+            self.assertEqual(orbit_params.phasing_deg, expected_orbit_params[i]['phasing_deg'])
 
     def test_parameters_haps(self):
         """Test ParametersHaps
@@ -444,7 +516,8 @@ class ParametersTest(unittest.TestCase):
         self.assertEqual(self.parameters.mss_d2d.name, 'SystemA')
         self.assertEqual(self.parameters.mss_d2d.frequency, 2170.0)
         self.assertEqual(self.parameters.mss_d2d.bandwidth, 5.0)
-        self.assertEqual(self.parameters.mss_d2d.cell_radius, 19000)
+        self.assertEqual(self.parameters.mss_d2d.cell_radius, 19001)
+        self.assertEqual(self.parameters.mss_d2d.beam_radius, 19001)
         self.assertEqual(self.parameters.mss_d2d.tx_power_density, -30)
         self.assertEqual(self.parameters.mss_d2d.num_sectors, 19)
         self.assertEqual(self.parameters.mss_d2d.antenna_diamter, 1.0)
@@ -461,6 +534,13 @@ class ParametersTest(unittest.TestCase):
         self.assertEqual(self.parameters.mss_d2d.param_p619.earth_station_alt_m, 0.0)
         self.assertEqual(self.parameters.mss_d2d.param_p619.earth_station_lat_deg, 0.0)
         self.assertEqual(self.parameters.mss_d2d.param_p619.earth_station_long_diff_deg, 0.0)
+
+        self.assertEqual(self.parameters.mss_d2d.beam_positioning.service_grid.beam_radius, 19001)
+        self.assertEqual(self.parameters.mss_d2d.beam_positioning.service_grid.grid_margin_from_border, 0.11)
+        self.assertEqual(self.parameters.mss_d2d.beam_positioning.service_grid.eligible_sats_margin_from_border, -2.1)
+        self.assertEqual(len(self.parameters.mss_d2d.beam_positioning.service_grid.country_names), 2)
+        self.assertEqual(self.parameters.mss_d2d.beam_positioning.service_grid.country_names[0], "Brazil")
+        self.assertEqual(self.parameters.mss_d2d.beam_positioning.service_grid.country_names[1], "Chile")
 
         self.assertEqual(
             self.parameters.mss_d2d.sat_is_active_if.conditions,
@@ -600,6 +680,44 @@ class ParametersTest(unittest.TestCase):
         self.assertEqual(
             self.parameters.single_space_station.param_p619.earth_station_lat_deg, self.parameters.single_space_station.geometry.es_lat_deg,
         )
+
+    def test_mss_d2d_loaded_geom(self):
+        self.parameters.mss_d2d.sat_is_active_if.lat_long_inside_country.margin_from_border = 0.0
+        # test brazil's area
+        self.parameters.mss_d2d.sat_is_active_if.lat_long_inside_country.country_names = ["Brazil"]
+        self.parameters.mss_d2d.sat_is_active_if.lat_long_inside_country.reset_filter_polygon("test", True)
+        pol = self.parameters.mss_d2d.sat_is_active_if.lat_long_inside_country.filter_polygon
+
+        geod = Geod(ellps="WGS84")
+
+        # this value was taken experimentally from the current implementation
+        # and is not much different from census's results of 8.509.379,576 km^2
+        # https://www.ibge.gov.br/geociencias/organizacao-do-territorio/estrutura-territorial/15761-areas-dos-municipios.html
+        BR_AREA = 8508557e6
+        geod_area = abs(geod.geometry_area_perimeter(pol)[0])
+
+        self.assertAlmostEqual(geod_area, BR_AREA, delta=50e6)
+
+        # test chile's area
+        self.parameters.mss_d2d.sat_is_active_if.lat_long_inside_country.country_names = ["Chile"]
+        self.parameters.mss_d2d.sat_is_active_if.lat_long_inside_country.reset_filter_polygon("test", True)
+        pol = self.parameters.mss_d2d.sat_is_active_if.lat_long_inside_country.filter_polygon
+
+        # this value was taken experimentally from the current implementation
+        # this doesn't align very well with wikipedia, and didn't find government website informing this
+        CL_AREA = 814844e6
+        geod_area = abs(geod.geometry_area_perimeter(pol)[0])
+
+        self.assertAlmostEqual(geod_area, CL_AREA, delta=50e6)
+
+        # test area union
+        self.parameters.mss_d2d.sat_is_active_if.lat_long_inside_country.country_names = ["Chile", "Brazil"]
+        self.parameters.mss_d2d.sat_is_active_if.lat_long_inside_country.reset_filter_polygon("test", True)
+        pol = self.parameters.mss_d2d.sat_is_active_if.lat_long_inside_country.filter_polygon
+
+        geod_area = abs(geod.geometry_area_perimeter(pol)[0])
+        # this value was taken experimentally from the current implementation
+        self.assertAlmostEqual(geod_area / 1e6, (CL_AREA + BR_AREA) / 1e6, delta=50)
 
 
 if __name__ == '__main__':

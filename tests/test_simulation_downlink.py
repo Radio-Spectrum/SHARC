@@ -138,6 +138,7 @@ class SimulationDownlinkTest(unittest.TestCase):
         self.param.fss_ss.time_ratio = 0.5
         self.param.fss_ss.antenna_l_s = -20
         self.param.fss_ss.acs = 0
+        self.param.fss_ss.polarization_loss = 3.0
 
         self.param.fss_es.x = -5000
         self.param.fss_es.y = 0
@@ -155,6 +156,7 @@ class SimulationDownlinkTest(unittest.TestCase):
         self.param.fss_es.channel_model = "FSPL"
         self.param.fss_es.line_of_sight_prob = 1
         self.param.fss_es.acs = 0
+        self.param.fss_es.polarization_loss = 3.0
 
         self.param.ras.geometry.location.type = "FIXED"
         self.param.ras.geometry.location.x = -5000
@@ -174,6 +176,7 @@ class SimulationDownlinkTest(unittest.TestCase):
         self.param.ras.channel_model = "FSPL"
         self.param.ras.line_of_sight_prob = 1
         self.param.ras.tx_power_density = -500
+        self.param.ras.polarization_loss = 0.0
 
     def test_simulation_2bs_4ue_fss_ss(self):
         self.param.general.system = "FSS_SS"

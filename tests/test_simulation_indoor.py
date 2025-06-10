@@ -136,6 +136,7 @@ class SimulationIndoorTest(unittest.TestCase):
         self.param.fss_es.line_of_sight_prob = 1
         self.param.fss_es.adjacent_ch_selectivity = 0
         self.param.fss_es.diameter = 0.74
+        self.param.fss_es.polarization_loss = 3.0
 
     def test_simulation_fss_es(self):
         # Initialize stations

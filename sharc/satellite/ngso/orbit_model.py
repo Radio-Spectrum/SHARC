@@ -168,6 +168,7 @@ class OrbitModel():
         pos_vector = {
             'lat': lat,
             'lon': lon,
+            'alt': r - EARTH_RADIUS_KM,
             'sx': sx,
             'sy': sy,
             'sz': sz

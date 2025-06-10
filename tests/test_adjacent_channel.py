@@ -141,6 +141,7 @@ class SimulationAdjacentTest(unittest.TestCase):
         self.param.fss_ss.time_ratio = 0.5
         self.param.fss_ss.antenna_l_s = -20
         self.param.fss_ss.acs = 10
+        self.param.fss_ss.polarization_loss = 3.0
 
     def test_simulation_2bs_4ue_downlink(self):
         self.param.general.imt_link = "DOWNLINK"

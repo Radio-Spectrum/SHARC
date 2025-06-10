@@ -44,7 +44,7 @@ imt:
     # IMT resource block bandwidth [MHz]
     rb_bandwidth: 0.180
     # IMT resource block bandwidth [MHz]
-    adjacent_ch_reception: ACS
+    adjacent_ch_reception: "OFF"
     ###########################################################################
     # IMT spectrum emission mask. Options are:
     #   "IMT-2020" : for mmWave as described in ITU-R TG 5/1 Contribution 36
@@ -81,7 +81,7 @@ imt:
             # Inter-site distance or Cell Radius in single Base Station network topology [m]
             # You can either provide 'cell_radius' or 'intersite_distance' for this topology
             # The relationship used is cell_radius = intersite_distance * 2 / 3
-            cell_radius: 100
+            cell_radius: 500
             # intersite_distance: 1
             ###########################################################################
             # Number of clusters in single base station topology
@@ -110,7 +110,8 @@ imt:
         noise_figure: 5.0
         ###########################################################################
         # Base station array ohmic loss  [dB]
-        ohmic_loss: 3.0
+        # NOTE: element gain includes ohmic loss
+        ohmic_loss: 0.0
         # Base Station Antenna parameters:
         antenna:
             array:
@@ -182,6 +183,19 @@ imt:
                 # side lobes when beamforming is assumed in adjacent channel.
                 #       Original value: 12 (Rec. ITU-R M.2101)
                 multiplication_factor: 12
+                ###########################################################################
+                # Subarray for IMT as defined in R23-WP5D-C-0413, Annex 4.2
+                # Single column sub array
+                subarray:
+                    # NOTE: if subarray is enabled, element definition will mostly come from
+                    # the above definitions
+                    is_enabled: true
+                    # Rows per subarray
+                    n_rows: 3
+                    # Sub array element spacing (d/lambda).
+                    element_vert_spacing: 0.7
+                    # Sub array eletrical downtilt [deg]
+                    eletrical_downtilt: 3.0
 
     ###########################################################################
     # User Equipment parameters:
@@ -384,7 +398,10 @@ mss_d2d:
     # MSS_D2D cell radius in network topology [m]
     cell_radius: 39475.0
     # Satellite power density in dBW/Hz
-    tx_power_density: -52.2
+    tx_power_density: -54.2
+    # Polarization loss [dB]
+    # P.619 suggests 3dB polarization loss as good constant value for monte carlo
+    polarization_loss: 0
     # Number of sectors
     num_sectors: 19
     # Satellite antenna pattern

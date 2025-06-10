@@ -50,6 +50,8 @@ class ParametersHaps(ParametersBase):
     # design, and has a maximum value of −25 dB
     antenna_l_n: float = -25.0
 
+    polarization_loss: float | None = None  # Polarization loss [dB]
+
     def load_parameters_from_file(self, config_file: str):
         """Load the parameters from file an run a sanity check
 

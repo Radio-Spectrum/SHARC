@@ -6,7 +6,9 @@ from pathlib import Path
 import geopandas as gpd
 import shapely as shp
 
-from sharc.support.sharc_geom import shrink_countries_by_km
+from sharc.support.sharc_utils import load_epsg4326_gdf
+from sharc.support.sharc_geom import shrink_countries_by_km, generate_grid_in_multipolygon
+from sharc.satellite.utils.sat_utils import lla2ecef
 from sharc.parameters.parameters_base import ParametersBase
 from sharc.parameters.parameters_orbit import ParametersOrbit
 
@@ -86,14 +88,105 @@ class ParametersSectorPositioning(ParametersBase):
                         f"No validation implemented for {ctx}.type = {self.type}"
                     )
 
+    @dataclass
+    class ParametersServiceGrid(ParametersBase):
+        country_shapes_filename: Path = SHARC_ROOT_DIR / "sharc" / "data" / "countries" / "ne_110m_admin_0_countries.shp"
+
+        country_names: list[str] = field(default_factory=lambda: list([""]))
+
+        # margin from inside of border [km]
+        # if positive, makes border smaller by x km
+        # if negative, makes border bigger by x km
+        grid_margin_from_border: float = None
+
+        # margin from inside of border [km]
+        # if positive, makes border smaller by x km
+        # if negative, makes border bigger by x km
+        eligible_sats_margin_from_border: float = None
+
+        beam_radius: float = None
+
+        # 2xN, ([lon], [lat])
+        lon_lat_grid = None
+
+        eligibility_polygon: typing.Union[shp.MultiPolygon, shp.Polygon] = None
+
+        def validate(self, ctx: str):
+            # conditional is weird due to suboptimal way of working with nested array parameters
+            if len(self.country_names) == 0 or (len(self.country_names) == 1 and self.country_names[0] == ""):
+                raise ValueError(f"You need to pass at least one country name to {ctx}.country_names")
+
+            # NOTE: prefer this to be set by a parent/composition
+            if not isinstance(self.beam_radius, float) and not isinstance(self.beam_radius, int):
+                raise ValueError(f"{ctx}.beam_radius needs to be a number")
+
+            if self.grid_margin_from_border is None:
+                self.grid_margin_from_border = self.beam_radius / 1e3
+            if not isinstance(self.grid_margin_from_border, float) and not isinstance(self.grid_margin_from_border, int):
+                raise ValueError(f"{ctx}.grid_margin_from_border needs to be a number")
+
+            if not isinstance(self.eligible_sats_margin_from_border, float) and not isinstance(self.eligible_sats_margin_from_border, int):
+                raise ValueError(f"{ctx}.eligible_sats_margin_from_border needs to be a number")
+
+            self.reset_grid(ctx)
+
+            super().validate(ctx)
+
+        def load_from_active_sat_conditions(
+            self,
+            sat_is_active_if: "ParametersSelectActiveSatellite",
+        ):
+            if len(self.country_names) == 0 or self.country_names[0] == "":
+                self.country_names = sat_is_active_if.lat_long_inside_country.country_names
+            if self.eligible_sats_margin_from_border is None:
+                self.eligible_sats_margin_from_border = sat_is_active_if.lat_long_inside_country.margin_from_border
+
+        def reset_grid(self, ctx: str, force_update=False):
+            """
+            After creating grid, there are some features that can only be implemented
+            with knowledge of other parts of the simulator. This method's purpose is
+            to run only once at the start of the simulation
+            """
+            if self.lon_lat_grid is not None and not force_update:
+                return
+            filtered_gdf = load_epsg4326_gdf(
+                self.country_shapes_filename,
+                {
+                    "NAME": self.country_names
+                },
+                ctx,
+            )
+
+            # shrink countries and unite
+            # them into a single MultiPolygon
+            shrinked = shrink_countries_by_km(
+                filtered_gdf.geometry.values, self.grid_margin_from_border
+            )
+            polygon = shp.ops.unary_union(shrinked)
+            assert polygon.is_valid, shp.validation.explain_validity(polygon)
+            assert not polygon.is_empty, "Can't have a empty polygon as filter"
+
+            self.lon_lat_grid = generate_grid_in_multipolygon(
+                polygon,
+                self.beam_radius
+            )
+
+            self.ecef_grid = lla2ecef(self.lon_lat_grid[1], self.lon_lat_grid[0], 0)
+
+            self.eligibility_polygon = shp.ops.unary_union(shrink_countries_by_km(
+                filtered_gdf.geometry.values, self.eligible_sats_margin_from_border
+            ))
+
     __ALLOWED_TYPES = [
         "ANGLE_FROM_SUBSATELLITE",
         "ANGLE_AND_DISTANCE_FROM_SUBSATELLITE",
+        "SERVICE_GRID",
     ]
 
     type: typing.Literal[
         "ANGLE_FROM_SUBSATELLITE",
         "ANGLE_AND_DISTANCE_FROM_SUBSATELLITE",
+        "SERVICE_GRID",
     ] = "ANGLE_FROM_SUBSATELLITE"
 
     # theta is the off axis angle from satellite nadir
@@ -112,6 +205,8 @@ class ParametersSectorPositioning(ParametersBase):
         default_factory=lambda: ParametersSectorPositioning.ParametersSectorValue(MIN_VALUE=0.0)
     )
 
+    service_grid: ParametersServiceGrid = field(default_factory=ParametersServiceGrid)
+
     def validate(self, ctx):
         if self.type not in self.__ALLOWED_TYPES:
             raise ValueError(
@@ -123,6 +218,8 @@ class ParametersSectorPositioning(ParametersBase):
                 self.angle_from_subsatellite_phi.validate(f"{ctx}.angle_from_subsatellite_phi")
             case "ANGLE_AND_DISTANCE_FROM_SUBSATELLITE":
                 self.angle_from_subsatellite_theta.validate(f"{ctx}.angle_from_subsatellite_theta")
+            case "SERVICE_GRID":
+                self.service_grid.validate(f"{ctx}.service_grid")
             case _:
                 raise NotImplementedError(
                     f"No validation implemented for {ctx}.type = {self.type}"
@@ -136,65 +233,42 @@ class ParametersSelectActiveSatellite(ParametersBase):
         country_shapes_filename: Path = \
             SHARC_ROOT_DIR / "sharc" / "data" / "countries" / "ne_110m_admin_0_countries.shp"
 
-        # may load automatically for different shapefiles
-        __ALLOWED_COUNTRY_NAMES = []
-
-        __ALLOWED_COORDINATE_REFERENCES = [
-            # it is a WGS84 based coordinate system that only contains (lat, long) information
-            # which should be more than enough to describe any country borders or desired shape
-            "EPSG:4326"
-        ]
-
         country_names: list[str] = field(default_factory=lambda: list([""]))
+
         # margin from inside of border [km]
         # if positive, makes border smaller by x km
         # if negative, makes border bigger by x km
         margin_from_border: float = 0.0
 
         # geometry after file processing
-        filter_polygon = None
+        filter_polygon: typing.Union[shp.MultiPolygon, shp.Polygon] = None
 
-        already_validated = False
-
-        def validate(self, ctx):
-            if self.already_validated:
-                return
-            self.already_validated = True
-
+        def validate(self, ctx: str):
             # conditional is weird due to suboptimal way of working with nested array parameters
-            if len(self.country_names) == 1 and self.country_names[0] == "":
+            if len(self.country_names) == 0 or (len(self.country_names) == 1 and self.country_names[0] == ""):
                 raise ValueError(f"You need to pass at least one country name to {ctx}.country_names")
 
-            f = gpd.read_file(self.country_shapes_filename, columns=["NAME"])
-            if f.geometry.crs not in self.__ALLOWED_COORDINATE_REFERENCES:
-                raise ValueError(
-                    f"Shapefile at {ctx}.country_shapes_filename = {self.country_shapes_filename}\n"
-                    f"does not use one of the allowed formats {self.__ALLOWED_COORDINATE_REFERENCES},"
-                    "with points as (lat, long).\n"
-                    "If for some reason you really want to use another projection for this parameter\n"
-                    "Add the projection so that this error isn't triggered"
-                )
-            if "NAME" not in f:
-                raise ValueError(
-                    f"Shapefile at {ctx}.country_shapes_filename = {self.country_shapes_filename}\n"
-                    "does not contains a 'NAME' column, so it cannot be read"
-                )
-            self.__ALLOWED_COUNTRY_NAMES = list(f["NAME"])
+            self.reset_filter_polygon(ctx)
 
-            for country_name in self.country_names:
-                if country_name not in self.__ALLOWED_COUNTRY_NAMES:
-                    raise ValueError(
-                        f"{ctx}.country_names has {country_name} but shapefile only contains data on\n"
-                        f"{self.__ALLOWED_COUNTRY_NAMES}"
-                    )
+        def reset_filter_polygon(self, ctx: str, force_update=False):
+            if self.filter_polygon is not None and not force_update:
+                return
 
-            filtered_gdf = f[f["NAME"].isin(self.country_names)]
+            filtered_gdf = load_epsg4326_gdf(
+                self.country_shapes_filename,
+                {
+                    "NAME": self.country_names
+                },
+                ctx,
+            )
 
             # shrink countries and unite
             # them into a single MultiPolygon
             self.filter_polygon = shp.ops.unary_union(shrink_countries_by_km(
                 filtered_gdf.geometry.values, self.margin_from_border
             ))
+
+            assert self.filter_polygon.is_valid, shp.validation.explain_validity(self.filter_polygon)
 
     __ALLOWED_CONDITIONS = [
         "LAT_LONG_INSIDE_COUNTRY",
@@ -281,7 +355,15 @@ class ParametersImtMssDc(ParametersBase):
 
     sat_is_active_if: ParametersSelectActiveSatellite = field(default_factory=ParametersSelectActiveSatellite)
 
-    center_beam_positioning: ParametersSectorPositioning = field(default_factory=ParametersSectorPositioning)
+    beam_positioning: ParametersSectorPositioning = field(default_factory=ParametersSectorPositioning)
+
+    def propagate_parameters(self):
+        if self.beam_positioning.service_grid.beam_radius is None:
+            self.beam_positioning.service_grid.beam_radius = self.beam_radius
+
+        self.beam_positioning.service_grid.load_from_active_sat_conditions(
+            self.sat_is_active_if,
+        )
 
     def validate(self, ctx: str):
         """
@@ -299,5 +381,7 @@ class ParametersImtMssDc(ParametersBase):
         else:
             self.cell_radius = self.beam_radius
             self.intersite_distance = np.sqrt(3) * self.cell_radius
+
+        self.propagate_parameters()
 
         super().validate(ctx)

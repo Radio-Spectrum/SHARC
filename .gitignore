@@ -97,7 +97,11 @@ SYS_*.txt
 
 # Ignores campaigns output
 
-/sharc/campaigns/imt_*/output/output_imt*/*.csv
-/sharc/campaigns/imt_*/output/output_imt*/*.yaml
-/sharc/campaigns/imt_*/output/Figs/*.png
+/sharc/campaigns/*/out*/out*_imt*/*.csv
+/sharc/campaigns/*/octave/outp*_imt*/*.csv
+/sharc/campaigns/*/octave/output_imt*/*.yaml
+/sharc/campaigns/*/out*/output_imt*/*.yaml
+/sharc/campaigns/*/input/*.yaml
+/sharc/campaigns/*/output/Figs/*.png
 sharc/campaigns/mss_d2d_to_imt/output/*.yaml
+sharc/campaigns/imt*/*.zip

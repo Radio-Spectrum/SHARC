@@ -172,27 +172,73 @@ class SimulationUplink(Simulation):
         if self.co_channel:
             if self.overlapping_bandwidth > 0:
                 # Inteferer transmit power in dBm over the overlapping band (MHz)
+                # [dB]
                 in_band_interf = self.param_system.tx_power_density + \
-                    10 * np.log10(self.overlapping_bandwidth * 1e6) + 30
+                    10 * np.log10(self.overlapping_bandwidth * 1e6)
 
         oob_power = -500
         oob_interf_lin = 0
         if self.adjacent_channel:
-            if self.parameters.imt.adjacent_interf_model == "SPECTRAL_MASK":
-                # Out-of-band power in the adjacent channel.
-                oob_power = self.system.spectral_mask.power_calc(self.parameters.imt.frequency,
-                                                                 self.parameters.imt.bandwidth)
-                oob_interf_lin = np.power(10, 0.1 * oob_power) / \
-                    np.power(10, 0.1 * self.parameters.imt.bs_adjacent_ch_selectivity)
-            elif self.parameters.imt.adjacent_interf_model == "ACIR":
-                acir = -10 * np.log10(10**(-self.param_system.adjacent_ch_leak_ratio / 10) +
-                                      10**(-self.parameters.imt.bs_adjacent_ch_selectivity / 10))
-                oob_power = self.param_system.tx_power_density + \
-                    10 * np.log10(self.param_system.bandwidth * 1e6) -  \
-                    acir + 30
-                oob_interf_lin = 10**(oob_power / 10)
+            # emissions outside of tx bandwidth and inside of rx bw
+            # due to oob emissions on tx side
+            tx_oob = -500
 
-        ext_interference = 10 * np.log10(np.power(10, 0.1 * in_band_interf) + oob_interf_lin)
+            # emissions outside of rx bw and inside of tx bw
+            # due to non ideal filtering on rx side
+            rx_oob = -500
+
+            if self.parameters.imt.adjacent_ch_reception == "ACS":
+                if self.param_system.bandwidth != self.overlapping_bandwidth:
+                    # only apply ACS over non overlapping bw
+                    p_tx = self.param_system.tx_power_density \
+                            + 10 * np.log10(
+                                (self.param_system.bandwidth - self.overlapping_bandwidth) * 1e6
+                            )
+
+                    rx_oob = p_tx - self.parameters.imt.bs.adjacent_ch_selectivity
+            elif self.parameters.imt.adjacent_ch_reception == "OFF":
+                pass
+            elif self.parameters.imt.adjacent_ch_reception is False:
+                pass
+            else:
+                raise ValueError(
+                    f"No implementation for parameters.imt.adjacent_ch_reception == {self.parameters.imt.adjacent_ch_reception}"
+                )
+
+            # for tx oob we accept ACLR and spectral mask
+            if self.param_system.adjacent_ch_emissions == "SPECTRAL_MASK":
+                # mask returns dBm
+                # so we convert to [dB]
+                tx_oob = self.system.spectral_mask.power_calc(
+                    self.parameters.imt.frequency,
+                    self.parameters.imt.bandwidth
+                ) - 30
+            elif self.param_system.adjacent_ch_emissions == "ACLR":
+                # consider ACLR only over non overlapping band
+                # [dB]
+                tx_oob = self.param_system.tx_power_density + \
+                    10 * np.log10(
+                        (self.param_system.bandwidth - self.overlapping_bandwidth) * 1e6
+                    ) - self.param_system.adjacent_ch_leak_ratio
+            elif self.param_system.adjacent_ch_emissions == "OFF":
+                pass
+            else:
+                raise ValueError(
+                    f"No implementation for param_system.adjacent_ch_emissions == {self.param_system.adjacent_ch_emissions}"
+                )
+
+            # Out of band power
+            # sum linearly power leaked into band and power received in the adjacent band
+
+            # linear [W]:
+            oob_interf_lin = 10 ** (0.1 * tx_oob) + 10 ** (0.1 * rx_oob)
+            # dB
+            oob_power = 10 * np.log10(
+                oob_interf_lin
+            )
+
+        # [dBm]
+        ext_interference = 10 * np.log10(np.power(10, 0.1 * in_band_interf) + oob_interf_lin) + 30
 
         bs_active = np.where(self.bs.active)[0]
         sys_active = np.where(self.system.active)[0]

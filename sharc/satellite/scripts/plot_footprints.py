@@ -188,15 +188,17 @@ if __name__ == "__main__":
     # steps from previous section
     # e.g. [3, 3, 14] means that 1st clr will be for -3 dB, 2nd for -6dB and 3rd for -20dB
     # from normalized gains
-    step = [3, 17, 20, 20]  # dB
+    step = [3, 3, 17]  # dB
     # choose a seed to use for getting the satellites
     # if seed is different, different random numbers are taken
-    SEED = 31
+    SEED = 32
     # choose if colors appear continuously or in discrete steps
     DISCRETIZE = True
     # choose if a surface point received gain should be all sat gains summed
     # or if only max gain will be considered
     SUM_GAINS = False
+    # if using service grid, you may choose for it to appear on the plot
+    SHOW_SERVICE_GRID_IF_POSSIBLE = False
 
     # Define the orbit parameters for two satellite constellations
     orbit_1 = ParametersOrbit(
@@ -230,6 +232,7 @@ if __name__ == "__main__":
         num_sectors=19,
         antenna_s1528=antenna_params,
         intersite_distance=np.sqrt(3) * spotbeam_radius,
+        cell_radius=spotbeam_radius,
         orbits=[orbit_1]
     )
     params.sat_is_active_if.conditions = [
@@ -239,12 +242,15 @@ if __name__ == "__main__":
     params.sat_is_active_if.minimum_elevation_from_es = 5.0
     params.sat_is_active_if.lat_long_inside_country.country_names = ["Brazil"]
     # params.beams_load_factor = 0.1
-    # params.center_beam_positioning.type = "ANGLE_AND_DISTANCE_FROM_SUBSATELLITE"
-    # params.center_beam_positioning.angle_from_subsatellite_phi.type = "~U(MIN,MAX)"
-    # params.center_beam_positioning.angle_from_subsatellite_phi.distribution.min = -60.0
-    # params.center_beam_positioning.angle_from_subsatellite_phi.distribution.max = 60.0
-    # params.center_beam_positioning.distance_from_subsatellite.type = "~SQRT(U(0,1))*MAX"
-    # params.center_beam_positioning.distance_from_subsatellite.distribution.max = 1111000.0
+    params.beam_positioning.type = "SERVICE_GRID"
+    # params.beam_positioning.type = "ANGLE_AND_DISTANCE_FROM_SUBSATELLITE"
+    # params.beam_positioning.angle_from_subsatellite_phi.type = "~U(MIN,MAX)"
+    # params.beam_positioning.angle_from_subsatellite_phi.distribution.min = -60.0
+    # params.beam_positioning.angle_from_subsatellite_phi.distribution.max = 60.0
+    # params.beam_positioning.distance_from_subsatellite.type = "~SQRT(U(0,1))*MAX"
+    # params.beam_positioning.distance_from_subsatellite.distribution.max = 1111000.0
+    params.propagate_parameters()
+    params.validate("opa")
 
     print("instantiating stations")
     # Create a topology with a single base station
@@ -312,8 +318,8 @@ if __name__ == "__main__":
     # lon_vals = np.linspace(sat_long - 10.0, sat_long + 10.0, 200)
 
     # # Ground station as fp center
-    # lat_vals = np.linspace(geoconv.ref_lat - 10.0, geoconv.ref_lat + 10.0, 50)
-    # lon_vals = np.linspace(geoconv.ref_long - 10.0, geoconv.ref_long + 10.0, 50)
+    # lat_vals = np.linspace(geoconv.ref_lat - 5.0, geoconv.ref_lat + 5.0, 50)
+    # lon_vals = np.linspace(geoconv.ref_long - 5.0, geoconv.ref_long + 5.0, 50)
 
     # Arbitrary range for fp calulation
     lat_vals = np.linspace(-33.69111, 2.81972, 200)
@@ -345,11 +351,10 @@ if __name__ == "__main__":
     print("Calculating gains (memory intensive)")
     # Calculate vector and apointment off_axis
     gains = np.zeros((len(mss_active), len(station_2_active)))
-    phi, theta = station_1.get_pointing_vector_to(station_2)
     off_axis_angle = station_1.get_off_axis_angle(station_2)
     phi, theta = station_1.get_pointing_vector_to(station_2)
-    for k in mss_active:
-        gains[k, station_2_active] = \
+    for k in range(len(mss_active)):
+        gains[k, :] = \
             station_1.antenna[k].calculate_gain(
                 off_axis_angle_vec=off_axis_angle[k, station_2_active],
                 theta_vec=theta[k, station_2_active],
@@ -467,6 +472,23 @@ if __name__ == "__main__":
         showlegend=False
     ))
 
+    if params.beam_positioning.type == "SERVICE_GRID" and SHOW_SERVICE_GRID_IF_POSSIBLE:
+        print("adding service grid")
+        print("N = ", len(params.beam_positioning.service_grid.lon_lat_grid[0]))
+        xy_coords = params.beam_positioning.service_grid.lon_lat_grid
+        lon = np.array(xy_coords[0])
+        lat = np.array(xy_coords[1])
+
+        x, y, z = geoconv.convert_lla_to_transformed_cartesian(lat, lon, 1e3)
+
+        fig.add_trace(go.Scatter3d(
+            x=x / 1e3,
+            y=y / 1e3,
+            z=z / 1e3,
+            mode='markers',
+            marker=dict(size=1, color='blue', opacity=1.0),
+            showlegend=False
+        ))
     # fig.add_trace(go.Scatter3d(
     #     x=center_of_earth.x / 1e3,
     #     y=center_of_earth.y / 1e3,

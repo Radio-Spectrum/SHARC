@@ -130,6 +130,7 @@ class SimulationDownlinkTvroTest(unittest.TestCase):
         self.param.fss_es.antenna_envelope_gain = 0
         self.param.fss_es.channel_model = "FSPL"
         self.param.fss_es.line_of_sight_prob = 1
+        self.param.fss_es.polarization_loss = 3.0
 
     def test_simulation_1bs_1ue_tvro(self):
         self.param.general.system = "FSS_ES"

@@ -235,9 +235,6 @@ if __name__ == "__main__":
 
         # should be pointing at nadir
         off_axis = mss_d2d_manager.get_off_axis_angle(center_of_earth)
-        if len(np.where(off_axis > 0.01)[0]):
-            print("AOPA, off axis parece estar errado")
-            print("onde?: ", np.where(off_axis > 0.01))
 
         visible_positions['x'].extend(x_vec[vis_sat_idxs])
         visible_positions['y'].extend(y_vec[vis_sat_idxs])

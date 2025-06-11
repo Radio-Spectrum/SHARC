@@ -48,6 +48,8 @@ class ParametersImt(ParametersBase):
         height: float = 6.0
         noise_figure: float = 10.0
         ohmic_loss: float = 3.0
+        # Adjacent Channel Selectivity in dB
+        adjacent_ch_selectivity: float = None
         antenna: ParametersAntenna = field(default_factory=lambda: ParametersAntenna(
             pattern="ARRAY", array=ParametersAntennaImt(downtilt=0.0)
         ))

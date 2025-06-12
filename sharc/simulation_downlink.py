@@ -5,13 +5,14 @@ Created on Wed Jan 11 19:06:41 2017
 @author: edgar
 """
 
-import numpy as np
 import math
 
-from sharc.simulation import Simulation
-from sharc.parameters.parameters import Parameters
-from sharc.station_factory import StationFactory
+import numpy as np
+
 from sharc.parameters.constants import BOLTZMANN_CONSTANT
+from sharc.parameters.parameters import Parameters
+from sharc.simulation import Simulation
+from sharc.station_factory import StationFactory
 
 
 class SimulationDownlink(Simulation):
@@ -459,13 +460,15 @@ class SimulationDownlink(Simulation):
 
     def collect_results(self, write_to_file: bool, snapshot_number: int):
         if not self.parameters.imt.interfered_with and np.any(self.bs.active):
-            self.results.system_inr.extend(self.system.inr.tolist())
+            self.results.system_inr.extend(float(x) for x in self.system.inr.flatten())
+
             self.results.system_dl_interf_power.extend(
                 [self.system.rx_interference],
             )
-            self.results.system_dl_interf_power_per_mhz.extend(
-                [self.system.rx_interference - 10 * math.log10(self.system.bandwidth)],
-            )
+            self.results.system_dl_interf_power_per_mhz.append(
+    float(self.system.rx_interference - 10 * math.log10(self.system.bandwidth))
+)
+
             # TODO: generalize this a bit more if needed (same conditional as above)
             if hasattr(self.system.antenna[0], "effective_area") and self.system.num_stations == 1:
                 self.results.system_pfd.extend([self.system.pfd])

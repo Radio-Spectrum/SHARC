@@ -241,6 +241,7 @@ class SimulationDownlink(Simulation):
 
                     for i, center_freq, bw in zip(range(len(center_freqs)), center_freqs, ue_bws):
                         # calculate tx emissions in UE in use bandwidth only
+                        # [dB]
                         tx_oob[i] = self.system.spectral_mask.power_calc(
                             center_freq,
                             bw
@@ -254,6 +255,8 @@ class SimulationDownlink(Simulation):
                         self.param_system.adjacent_ch_leak_ratio + \
                         10 * np.log10(1. - weights)
                 elif self.param_system.adjacent_ch_emissions == "OFF":
+                    pass
+                elif self.parameters.imt.adjacent_ch_reception is False:
                     pass
                 else:
                     raise ValueError(

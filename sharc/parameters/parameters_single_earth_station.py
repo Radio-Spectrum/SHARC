@@ -27,7 +27,7 @@ class ParametersSingleEarthStation(ParametersBase):
     # NOTE: Verification needed:
     # polarization mismatch between IMT BS and linear polarization = 3dB in earth P2P case?
     # = 0 is safer choice
-    polarization_loss: float = 3.0
+    polarization_loss: float | None = None
 
     # Sensor center frequency [MHz]
     frequency: float = None  # Center frequency of the sensor in MHz

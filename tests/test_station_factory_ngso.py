@@ -89,11 +89,9 @@ class StationFactoryNgsoTest(unittest.TestCase):
         earth_center.x = np.array([0.])
         earth_center.y = np.array([0.])
         x, y, z = lla2ecef(self.lat, self.long, self.alt)
-        earth_center.z = np.array([
-            -np.sqrt(
-                x * x + y * y + z * z,
-            ),
-        ])
+        earth_center.z = -np.sqrt(
+            x * x + y * y + z * z,
+        )
 
         self.assertNotAlmostEqual(earth_center.z[0], 0.)
 

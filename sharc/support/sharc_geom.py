@@ -1,10 +1,14 @@
 import numpy as np
 import shapely as shp
-import typing
+import shapely.vectorized
 import pyproj
+import scipy.spatial.transform
+import typing
 
 from sharc.satellite.utils.sat_utils import lla2ecef, ecef2lla
 from sharc.station_manager import StationManager
+from sharc.support.sharc_utils import to_scalar
+from sharc.satellite.ngso.constants import EARTH_RADIUS_M
 
 
 def cartesian_to_polar(x: np.ndarray, y: np.ndarray, z: np.ndarray) -> tuple:
@@ -145,14 +149,13 @@ def rotate_angles_based_on_new_nadir(elev, azim, nadir_elev, nadir_azim):
     return res_elev, rotated_phi
 
 
+# NOTE: this works for both spherical an ellipsoidal Earth,
+# just need to change ecef2lla and lla2ecef implementations
+# TODO: refactor class and method names
 class GeometryConverter():
     """
-    This is a Singleton. set_reference should be called once per simulation/snapshot.
-
-    Alert:
-        Every conversion between polar and geodesic should be intermediated by cartesian.
-        Every transformation should be done either at cartesian or polar.
-        Ignore at your own risk (and sadness)
+    This class receives a reference lat, lon, alt and may transform other coordinate types
+    to local ENU
     """
     def __init__(self):
         # geodesical
@@ -165,31 +168,61 @@ class GeometryConverter():
         self.ref_y = None
         self.ref_z = None
 
-        # polar
-        self.ref_r = None
-        self.ref_azim = None
-        self.ref_elev = None
+        # rotation matrix used
+        self.translation = np.array([self.ref_x, self.ref_y, self.ref_z])
+        self.rotation = None
 
     def get_translation(self):
-        return self.ref_r
+        return self.ref_alt + EARTH_RADIUS_M
 
     def validate(self):
-        if None in [self.ref_elev, self.ref_azim, self.ref_r]:
+        if None in [self.ref_lat, self.ref_long, self.ref_alt]:
             raise ValueError("You need to set a reference for coordinate transformation before using it")
 
     def set_reference(self, ref_lat: float, ref_long: float, ref_alt: float):
-        self.ref_lat = ref_lat
-        self.ref_long = ref_long
-        self.ref_alt = ref_alt
+        self.ref_lat = to_scalar(ref_lat)
+        self.ref_long = to_scalar(ref_long)
+        self.ref_alt = to_scalar(ref_alt)
         ref_x, ref_y, ref_z = lla2ecef(self.ref_lat, self.ref_long, self.ref_alt)
-        self.ref_x = ref_x
-        self.ref_y = ref_y
-        self.ref_z = ref_z
+        self.ref_x = to_scalar(ref_x)
+        self.ref_y = to_scalar(ref_y)
+        self.ref_z = to_scalar(ref_z)
 
-        # polar coordinates
-        # geodesic doesn't necessarily translate one to one here
-        # so we use cartesian as intermediary
-        self.ref_r, self.ref_azim, self.ref_elev = cartesian_to_polar(ref_x, ref_y, ref_z)
+        # ECEF considers xy plane with x axis pointing at lon = 0,
+        # local coords considers x axis pointing towards East
+        # and y pointing towards North
+
+        # translate everything so ES is at (0, 0, 0)
+        self.translation = np.array([self.ref_x, self.ref_y, self.ref_z])
+
+        # considering:
+        # - that by definition the vector pointing East
+        #     is already orthogonal to ECEF z axis,
+        #     in other words, it is fully contained in the ECEF xy plane;
+        # Then, a single rotation around ECEF z can align local East and positive x
+        # Local east and ECEF x axis are parallel and with same direction at long=-90
+        # rotation around ECEF z = -90 - ref_lon
+        rotation_around_z = -self.ref_long - 90
+
+        # considering:
+        # - that the local zenith is orthogonal to local east;
+        # - that the local zenith unit vector can be found by using geodetic (lat, lon)
+        #    as polar coordinates (as follows from geodetic lat, lon definition)
+        # - that the local east is now fully contained in the x axis;
+        # Then the local zenith is fully contained in the yz plane,
+        # and a single rotation around the x axis aligns it with global z
+        # More specifically, z_vec = polar(lat, ref_long - ref_long) = polar(lat, 0)
+        # and so a rotation of 90 - lat is what is necessary
+        rotation_around_x = self.ref_lat - 90
+
+        # since ECEF follows left hand rule and local coordinates also do,
+        # x axis points to local East and z points to local zenith,
+        # y axis already is aligned with local North after transformation
+        self.rotation = scipy.spatial.transform.Rotation.from_euler(
+            'zx', [rotation_around_z, rotation_around_x], degrees=True
+        )
+        # can also be confirmed comparing to here:
+        # https://gssc.esa.int/navipedia/index.php/Transformations_between_ECEF_and_ENU_coordinates
 
     def convert_cartesian_to_transformed_cartesian(
         self, x, y, z, *, translate=None
@@ -198,46 +231,20 @@ class GeometryConverter():
         Transforms points by the same transformation required to bring reference to (0,0,0)
         You can only rotate by specifying translate=0
         """
-        ref_elev = self.ref_elev
-        ref_azim = self.ref_azim
-        ref_r = self.ref_r
-
         self.validate()
 
-        # calculate distances to the centre of the Earth
-        dist_sat_centre_earth_km, azim, elev = cartesian_to_polar(x, y, z)
+        translate_val = self.translation
+        if translate is not None:
+            translate_val = np.atleast_1d(translate)
 
-        dist_imt_centre_earth = translate
-        if translate is None:
-            dist_imt_centre_earth = ref_r
+        # broadcast translate to have same number of dimensions as expected
+        xyz = np.stack([x, y, z], axis=-1)  # Nx3
 
-        # calculate Cartesian coordinates of , with origin at centre of the Earth,
-        # but considering the x axis at same longitude as the ref_long
-        # so that we can rotate around y to bring reference to top
-        sat_lat_rad = np.deg2rad(elev)
-        # consider coordinates rotating ref_long clockwise around z axis
-        imt_long_diff_rad = np.deg2rad(azim - ref_azim)
-        x1 = dist_sat_centre_earth_km * \
-            np.cos(sat_lat_rad) * np.cos(imt_long_diff_rad)
-        y1 = dist_sat_centre_earth_km * \
-            np.cos(sat_lat_rad) * np.sin(imt_long_diff_rad)
+        rshp = (xyz.ndim - 1) * (1,) + translate_val.shape
+        xyz = xyz - translate_val.reshape(rshp)
 
-        # didn't transform, shoud eq height
-        z1 = dist_sat_centre_earth_km * np.sin(sat_lat_rad)
-
-        # rotate axis and calculate coordinates with origin at IMT system
-        imt_lat_rad = np.deg2rad(ref_elev)
-        x2 = (
-            x1 * np.sin(imt_lat_rad) - z1 * np.cos(imt_lat_rad)
-        )
-
-        y2 = y1
-
-        z2 = (
-            z1 * np.sin(imt_lat_rad) + x1 * np.cos(imt_lat_rad)
-        ) - dist_imt_centre_earth
-
-        return (x2, y2, z2)
+        # rotate so axis are same as ENU
+        return self.rotation.apply(xyz).T
 
     def revert_transformed_cartesian_to_cartesian(
         self, x2, y2, z2, *, translate=None
@@ -247,40 +254,21 @@ class GeometryConverter():
         You can only rotate by specifying translate=0. You need to use the same 'translate' value used
         in transformation if you wish to reverse the transformation correctly
         """
-        ref_elev = self.ref_elev
-        ref_azim = self.ref_azim
-        ref_r = self.ref_r
-
         self.validate()
 
-        # rotate axis and calculate coordinates with origin at IMT system
-        imt_lat_rad = np.deg2rad(ref_elev)
+        # translate everything so ES is at (0, 0, 0)
+        translate_val = self.translation
+        if translate is not None:
+            translate_val = np.atleast_1d(translate)
 
-        dist_imt_centre_earth = translate
-        if translate is None:
-            dist_imt_centre_earth = ref_r
+        # broadcast translate to have same number of dimensions as expected
+        xyz = np.stack([x2, y2, z2], axis=-1)  # Nx3
 
-        # transposed transformation matrix
-        z2 = z2 + dist_imt_centre_earth
-        y1 = y2
-        x1 = x2 * np.sin(imt_lat_rad) + z2 * np.cos(imt_lat_rad)
-        z1 = z2 * np.sin(imt_lat_rad) - x2 * np.cos(imt_lat_rad)
+        # rotate xyz back to ecef coord system
+        xyz = self.rotation.apply(xyz, inverse=True)
 
-        dist_sat_centre_earth_km = np.sqrt(x1 * x1 + z1 * z1 + y1 * y1)
-        sat_lat_rad = np.arcsin(z1 / dist_sat_centre_earth_km)
-
-        imt_long_diff_rad = np.arctan2(
-            y1, x1
-        )
-
-        # calculate distances to the centre of the Earth
-        x, y, z = polar_to_cartesian(
-            dist_sat_centre_earth_km,
-            np.rad2deg(imt_long_diff_rad) + ref_azim,
-            np.rad2deg(sat_lat_rad)
-        )
-
-        return (x, y, z)
+        # translate earth reference back to its original ecef coord
+        return (xyz + translate_val[np.newaxis, :]).T
 
     def convert_lla_to_transformed_cartesian(
         self, lat: np.array, long: np.array, alt: np.array
@@ -306,7 +294,6 @@ class GeometryConverter():
         if idx is specified, only stations[idx] will be converted
         """
         # transform positions
-        # print("(station.x, station.y, station.z)", (station.x[idx], station.y[idx], station.z[idx]))
         if idx is None:
             nx, ny, nz = self.convert_cartesian_to_transformed_cartesian(station.x, station.y, station.z)
         else:
@@ -355,7 +342,6 @@ class GeometryConverter():
         if idx is specified, only stations[idx] will be converted
         """
         # transform positions
-        # print("(station.x, station.y, station.z)", (station.x[idx], station.y[idx], station.z[idx]))
         if idx is None:
             nx, ny, nz = self.revert_transformed_cartesian_to_cartesian(station.x, station.y, station.z)
         else:
@@ -463,6 +449,88 @@ def shrink_countries_by_km(
     return [
         poly for poly in polys if poly.is_valid and not poly.is_empty and poly.area > 0
     ]
+
+
+def generate_grid_in_polygon(
+    polygon: shp.geometry.Polygon,
+    hexagon_radius: float,
+):
+    """
+    Projects a Polygon in "EPSG:4326" to Lambert Azimuthal Equal Area projection,
+    creates a hexagonal grid inside the polygon,
+    where the points are in the heaxagon center,
+    projects the points back to EPSG:4326.
+    Returns:
+        np.array with dimension 2 x N,
+        with lon's along 1st dimension and lat's along 2nd
+    """
+    if hexagon_radius < 0:
+        raise ValueError("generate_grid_in_polygon.hexagon radius must be positive")
+    # Lambert is more precise, but could prob. get UTM projection
+    # Didn't see any practical difference for current use cases
+    proj_crs = get_lambert_equal_area_crs(polygon)
+
+    # Create transformer objects
+    # NOTE: important always_xy=True to not mix lat lon up order
+    to_proj = pyproj.Transformer.from_crs("EPSG:4326", proj_crs, always_xy=True).transform
+    from_proj = pyproj.Transformer.from_crs(proj_crs, "EPSG:4326", always_xy=True).transform
+
+    # Transform to projection where unit is meters
+    polygon_proj = shp.ops.transform(to_proj, polygon)
+
+    # create a bounding box, afterwards we filter to polygon site
+    minx, miny, maxx, maxy = polygon_proj.bounds
+    x_spacing = 3 * hexagon_radius
+    y_spacing = hexagon_radius * np.sqrt(3) / 2
+
+    x_vals = np.arange(minx, maxx + x_spacing, x_spacing)
+
+    y_vals = np.arange(miny, maxy + y_spacing, y_spacing)
+
+    x_vals, y_vals = np.meshgrid(x_vals, y_vals)
+
+    # dislocate every i%2==0 row to create a hexagonal grid
+    x_vals[::2] += x_spacing / 2
+
+    x_vals = x_vals.ravel()
+    y_vals = y_vals.ravel()
+
+    # Return to EPSG:4326
+    xt, yt = from_proj(x_vals, y_vals)
+
+    # we buffer the polygon very slightly to include points
+    # right on the border of the polygon
+    polygon = polygon.buffer(1e-9)
+    msk = shp.vectorized.contains(polygon, xt, yt)
+    xt = xt[msk]
+    yt = yt[msk]
+
+    return np.stack((xt, yt))
+
+
+def generate_grid_in_multipolygon(
+    poly: typing.Union[shp.geometry.MultiPolygon, shp.geometry.Polygon],
+    km: float
+) -> list[shp.geometry.MultiPolygon]:
+    """
+    Receives a MultiPolygon containing multiple countries
+    and creates a grid for each of them
+    Returns a single 2xN grid of lon's lat's
+    """
+    lons = []
+    lats = []
+
+    if poly.geom_type == 'Polygon':
+        x, y = generate_grid_in_polygon(poly, km)
+        lons.extend(x)
+        lats.extend(y)
+    elif poly.geom_type == 'MultiPolygon':
+        for p in poly.geoms:
+            x, y = generate_grid_in_polygon(p, km)
+            lons.extend(x)
+            lats.extend(y)
+
+    return np.stack((lons, lats))
 
 
 if __name__ == "__main__":

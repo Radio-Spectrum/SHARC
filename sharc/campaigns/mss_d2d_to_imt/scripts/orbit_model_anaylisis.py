@@ -59,7 +59,9 @@ if __name__ == "__main__":
                                                           n_periods=total_periods)
     sat_altitude_km = orbit.apogee_alt_km  # altitude of the satellites in kilometers
     num_of_visible_sats_per_drop = []
-    elev_angles = calc_elevation(GROUND_STA_LAT, pos_vec['lat'], GROUND_STA_LON, pos_vec['lon'], sat_altitude_km)
+    elev_angles = calc_elevation(GROUND_STA_LAT, pos_vec['lat'], GROUND_STA_LON, pos_vec['lon'],
+                                 sat_height=sat_altitude_km * 1e3,
+                                 es_height=0)
     elevation_angles_per_drop = elev_angles[np.where(np.array(elev_angles) > MIN_ELEV_ANGLE_DEG)]
     num_of_visible_sats_per_drop = np.sum(np.array(elev_angles) > MIN_ELEV_ANGLE_DEG, axis=0)
 
@@ -71,7 +73,8 @@ if __name__ == "__main__":
     elev_angles = calc_elevation(GROUND_STA_LAT,
                                  pos_vec['lat'],
                                  GROUND_STA_LON, pos_vec['lon'],
-                                 sat_altitude_km)
+                                 sat_height=sat_altitude_km * 1e3,
+                                 es_height=0)
     elevation_angles_per_drop_rand = elev_angles[np.where(np.array(elev_angles) > MIN_ELEV_ANGLE_DEG)]
     num_of_visible_sats_per_drop_rand = np.sum(np.array(elev_angles) > MIN_ELEV_ANGLE_DEG, axis=0)
 

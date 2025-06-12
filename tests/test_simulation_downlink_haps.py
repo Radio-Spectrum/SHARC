@@ -135,6 +135,7 @@ class SimulationDownlinkHapsTest(unittest.TestCase):
         self.param.haps.season = "SUMMER"
         self.param.haps.channel_model = "FSPL"
         self.param.haps.antenna_l_n = -25
+        self.param.haps.polarization_loss = 3.0
 
     def test_simulation_2bs_4ue_1haps(self):
         """

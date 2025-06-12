@@ -39,7 +39,7 @@ class ParametersSingleSpaceStation(ParametersBase):
     # e.g. could come from polarization mismatch or depolarization
     # check if IMT parameters don't come in values for single polarization
     # before adding loss here
-    polarization_loss: float = 0.0
+    polarization_loss: float | None = None
 
     # Channel model, possible values are "FSPL" (free-space path loss), "P619"
     channel_model: typing.Literal[

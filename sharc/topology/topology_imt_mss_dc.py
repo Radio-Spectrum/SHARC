@@ -15,6 +15,7 @@ import functools
 from collections import defaultdict
 
 import geopandas as gpd
+import numpy as np
 
 from sharc.parameters.imt.parameters_imt_mss_dc import ParametersImtMssDc
 from sharc.parameters.parameters_orbit import ParametersOrbit

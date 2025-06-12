@@ -19,7 +19,7 @@ def generate_config(angle):
 general:
     ###########################################################################
     # Number of simulation snapshots
-    num_snapshots: 1000
+    num_snapshots: 3000
     ###########################################################################
     # IMT link that will be simulated (DOWNLINK or UPLINK)
     imt_link: DOWNLINK
@@ -41,7 +41,7 @@ general:
     output_dir: campaigns/mss_d2d_to_gnss/output/
     ###########################################################################
     # output folder prefix
-    output_dir_prefix: output_mss_d2d_to_gnss_base
+    output_dir_prefix: output_mss_d2d_to_gnss_elev_{angle}_deg
 imt:
     ###########################################################################
     # Minimum 2D separation distance from BS to UE [m]
@@ -106,7 +106,7 @@ imt:
             beam_radius: 39475.0
             # Number of sectors
             num_beams: 1
-            center_beam_positioning:
+            beam_positioning:
                 # type may be one of 
                 # "ANGLE_FROM_SUBSATELLITE", "ANGLE_AND_DISTANCE_FROM_SUBSATELLITE",
                 # "SERVICE_GRID"
@@ -524,6 +524,7 @@ imt:
 # Referce data comes from the REPLY LIAISON STATEMENT TO WORKING PARTY 4C ON
 # WRC-27 AGENDA ITEMS 1.12, 1.13, 1.14 AND 1.15 - Document 4C/196-E
 single_earth_station:
+  polarization_loss: 0  # dB - polarization loss
   frequency: 1575.42  # MHz - L1 Band
   bandwidth: 30  # MHz, based on ±16.5 MHz 3 dB bandwidth
   # tx power density just so simulator runs
@@ -559,12 +560,17 @@ single_earth_station:
       ###########################################################################
       # Choose the antenna pattern. Can be one of:
       # "OMNI", "ITU-R F.699", "ITU-R S.465", "ITU-R S.580", "MODIFIED ITU-R S.465",
-      # "ITU-R S.1855", "ITU-R S.672"
+      # "ITU-R S.1855", "ITU-R S.672", "HEMISPHERIC"
       # since 20deg beamwidth would already cover every area
-      pattern: "OMNI"
+      pattern: "HEMISPHERIC"
       ###########################################################################
       # Station peak receive antenna gain [dBi]
       gain: 3 
+      # Hemispheric pattern parameters
+      hemispheric:
+        gain_upper: 3       # gain for upper hemisphere 
+        gain_lower: -5      # gain for lower hemisphere 
+        cutoff_angle: 80.0  # angle (in degrees) between upper and lower hemisphere
       #itu_r_s_465:
         # Diameter [m]
         # diameter: 0.2  # derived with efficiency 0.5

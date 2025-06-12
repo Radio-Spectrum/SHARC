@@ -1,14 +1,14 @@
-from sharc.results import Results
-
-from dataclasses import dataclass, field
-import plotly.graph_objects as go
-from plotly.colors import DEFAULT_PLOTLY_COLORS
 import os
-import numpy as np
-import scipy
+import pathlib
 import typing
-import pathlib
-import pathlib
+from dataclasses import dataclass, field
+
+import numpy as np
+import plotly.graph_objects as go
+import scipy
+from plotly.colors import DEFAULT_PLOTLY_COLORS
+
+from sharc.results import Results
 
 
 class FieldStatistics:
@@ -104,7 +104,9 @@ class ResultsStatistics:
         return stats_found[0]
 
     def __str__(self):
-        return f"[{self.results_output_dir}]\n{'\n'.join(list(map(str, self.fields_statistics)))}"
+        stats_str = '\n'.join(list(map(str, self.fields_statistics)))
+        return f"[{self.results_output_dir}]\n{stats_str}"
+
 
 
 @dataclass

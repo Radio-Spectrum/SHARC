@@ -10,7 +10,7 @@ import plotly.graph_objects as go
 
 from sharc.parameters.parameters_mss_d2d import ParametersMssD2d
 from sharc.satellite.ngso.orbit_model import OrbitModel
-from sharc.satellite.utils.sat_utils import calc_elevation
+from sharc.satellite.utils.sat_utils import calc_elevation, lla2ecef
 
 
 if __name__ == "__main__":

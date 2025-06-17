@@ -105,6 +105,9 @@ class Results(object):
 
         self.off_axis_angle = SampleList()
 
+        self.bs_to_sys_phi = SampleList()
+        self.bs_to_sys_theta = SampleList()
+
         self.__sharc_dir = pathlib.Path(__file__).parent.resolve()
 
     def prepare_to_write(

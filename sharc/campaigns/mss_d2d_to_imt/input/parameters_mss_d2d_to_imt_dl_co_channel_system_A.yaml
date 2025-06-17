@@ -393,6 +393,8 @@ mss_d2d:
     # if no active satellites are active on that time
     # we resample
     # only active satellites will contribute to interference
+    # Polarization loss
+    polarization_loss: 0.0
     sat_is_active_if:
         # for a satellite to be active, it needs to respect ALL conditions
         conditions:

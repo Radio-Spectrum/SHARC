@@ -98,6 +98,9 @@ class ParametersMssD2d(ParametersBase):
     #                                    "P619"
     channel_model: str = "P619"
 
+    # Polarization loss
+    polarization_loss: float | None = None
+
     def load_parameters_from_file(self, config_file: str):
         """
         Load the parameters from a file and run a sanity check.

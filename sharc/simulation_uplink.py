@@ -418,6 +418,10 @@ class SimulationUplink(Simulation):
                     self.results.imt_system_diffraction_loss.extend(
                         self.imt_system_diffraction_loss[np.ix_(sys_active, active_beams)],
                     )
+                
+                self.results.bs_to_sys_phi.extend(self.bs_to_sys_phi)
+                self.results.bs_to_sys_theta.extend(self.bs_to_sys_theta)
+
             else:  # IMT is the interferer
                 self.results.system_imt_antenna_gain.extend(
                     self.system_imt_antenna_gain[np.ix_(sys_active, ue)],

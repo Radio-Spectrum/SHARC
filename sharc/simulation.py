@@ -105,6 +105,10 @@ class Simulation(ABC, Observable):
         self.coupling_loss_imt_system = np.empty(0)
         self.coupling_loss_imt_system_adjacent = np.empty(0)
 
+        # Adding those for debugging purposes
+        self.bs_to_sys_phi = np.empty(0)
+        self.bs_to_sys_theta = np.empty(0)
+
         self.bs_to_ue_d_2D = np.empty(0)
         self.bs_to_ue_d_3D = np.empty(0)
         self.bs_to_ue_phi = np.empty(0)
@@ -532,6 +536,8 @@ class Simulation(ABC, Observable):
             if (station_2.station_type is StationType.IMT_UE):
                 phi = self.bs_to_ue_phi
                 theta = self.bs_to_ue_theta
+                self.bs_to_sys_phi = phi.flatten()
+                self.bs_to_sys_theta = theta.flatten()
                 beams_idx = self.bs_to_ue_beam_rbs[station_2_active]
             elif not station_2.is_imt_station():
                 phi, theta = station_1.get_pointing_vector_to(station_2)

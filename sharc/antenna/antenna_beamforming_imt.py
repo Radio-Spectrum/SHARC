@@ -544,17 +544,23 @@ if __name__ == '__main__':
     ue_param.minimum_array_gain = -200
 
     bs_param.element_pattern = "M2101"
-    bs_param.element_max_g = 5
-    bs_param.element_phi_3db = 65
+    bs_param.element_max_g = 6.4
+    bs_param.element_phi_3db = 90
     bs_param.element_theta_3db = 65
     bs_param.element_am = 30
     bs_param.element_sla_v = 30
-    bs_param.n_rows = 8
+    bs_param.n_rows = 4
     bs_param.n_columns = 8
     bs_param.element_horiz_spacing = 0.5
-    bs_param.element_vert_spacing = 0.5
+    bs_param.element_vert_spacing = 2.1
     bs_param.multiplication_factor = 12
     bs_param.downtilt = 0
+    bs_param.subarray = ParametersAntennaSubarrayImt(
+        is_enabled=True,
+        eletrical_downtilt=3.0,
+        n_rows=3,
+        element_vert_spacing=0.7,
+    )
 
     ue_param.element_pattern = "M2101"
     ue_param.element_max_g = 5
@@ -572,7 +578,7 @@ if __name__ == '__main__':
 
     # Plot BS TX radiation patterns
     par = bs_param.get_antenna_parameters()
-    bs_array = AntennaBeamformingImt(par, 0, 0, bs_param.sub_array)
+    bs_array = AntennaBeamformingImt(par, 0, 0, bs_param.subarray)
     f = plot.plot_element_pattern(bs_array, "BS", "ELEMENT")
     # f.savefig(figs_dir + "BS_element.pdf", bbox_inches='tight')
     f = plot.plot_element_pattern(bs_array, "TX", "ARRAY")
@@ -580,7 +586,7 @@ if __name__ == '__main__':
 
     # Plot UE TX radiation patterns
     par = ue_param.get_antenna_parameters()
-    ue_array = AntennaBeamformingImt(par, 0, 0, ue_param.sub_array)
+    ue_array = AntennaBeamformingImt(par, 0, 0, ue_param.subarray)
     plot.plot_element_pattern(ue_array, "UE", "ELEMENT")
     plot.plot_element_pattern(ue_array, "UE", "ARRAY")
 

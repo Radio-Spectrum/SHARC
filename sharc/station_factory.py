@@ -280,6 +280,15 @@ class StationFactory(object):
             elif param.ue.distribution_distance.upper() == "UNIFORM":
                 radius = (topology.cell_radius - param.minimum_separation_distance_bs_ue) * \
                     random_number_gen.random_sample(num_ue) + param.minimum_separation_distance_bs_ue
+            elif param.ue.distribution_distance.upper() == "SQRT(UNIFORM)":
+                # this is so that area distribution may be uniform in annulus/ring
+                r_min = param.minimum_separation_distance_bs_ue
+                r_max = topology.cell_radius
+                radius = np.sqrt(
+                    random_number_gen.random_sample(
+                        num_ue
+                    ) * (r_max**2 - r_min**2) + r_min**2
+                )
             else:
                 sys.stderr.write(
                     "ERROR\nInvalid UE distance distribution: " + param.ue.distribution_distance,

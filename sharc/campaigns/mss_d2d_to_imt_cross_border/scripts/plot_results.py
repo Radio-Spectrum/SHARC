@@ -22,14 +22,28 @@ parser.add_argument('--freq', type=str, required=True, choices=["~0.8G", "~2.1G"
 
 args = parser.parse_args()
 
-output_start = f"output_{args.freq}_{args.channel}"
+selected_str = f"{args.freq}_{args.channel}"
+
+output_start = f"output_{selected_str}"
 
 post_processor = PostProcessor()
 
 # Add a legend to results in folder that match the pattern
 # This could easily come from a config file
 
-prefixes = ["0km", "157.9km", "213.4km", "268.9km", "324.4km", "379.9km", "border"]
+cell_radius = 113630 if args.freq == "~0.8G" else 39475
+
+country_border = 4 * cell_radius / 1e3
+dists = [
+    0,
+    country_border,
+    country_border + 111 / 2,
+    country_border + 111,
+    country_border + 3 * 111 / 2,
+    country_border + 2 * 111
+]
+
+prefixes = [f"{x}km" for x in dists]
 for prefix in prefixes:
     if prefix == "border":
         km = "0km"
@@ -39,6 +53,15 @@ for prefix in prefixes:
         .add_plot_legend_pattern(
             dir_name_contains=f"{prefix}_base",
             legend=f"19 sectors ({km})"
+        ).add_plot_legend_pattern(
+            dir_name_contains=f"{prefix}_service_grid_100p",
+            legend=f"Service grid, load=100% ({km})"
+        ).add_plot_legend_pattern(
+            dir_name_contains=f"{prefix}_service_grid_20p",
+            legend=f"Service grid, load=20% ({km})"
+        ).add_plot_legend_pattern(
+            dir_name_contains=f"{prefix}_service_grid_50p",
+            legend=f"Service grid, load=50% ({km})"
         ).add_plot_legend_pattern(
             dir_name_contains=f"{prefix}_activate_random_beam_5p",
             legend=f"19 sectors, load=1/19 ({km})"
@@ -52,16 +75,30 @@ for prefix in prefixes:
 
 campaign_base_dir = str((Path(__file__) / ".." / "..").resolve())
 
+attributes_to_plot = [
+    "imt_system_antenna_gain",
+    "system_imt_antenna_gain",
+    "sys_to_imt_coupling_loss",
+    "imt_system_path_loss",
+    "imt_dl_pfd_external",
+    "imt_dl_pfd_external_aggregated",
+    "imt_dl_inr",
+    "imt_ul_inr",
+]
 
-
-results_dl = Results.load_many_from_dir(os.path.join(campaign_base_dir, f"{output_start}_dl"), only_latest=True)
-results_ul = Results.load_many_from_dir(os.path.join(campaign_base_dir, f"{output_start}_ul"), only_latest=True)
+results_dl = Results.load_many_from_dir(os.path.join(campaign_base_dir, f"{output_start}_dl"), only_latest=True, only_samples=attributes_to_plot)
+# print("len(results_dl)", len(results_dl))
+# for i in range(len(results_dl)):
+#     print(results_dl[i].imt_dl_inr)
+# exit()
+results_ul = Results.load_many_from_dir(os.path.join(campaign_base_dir, f"{output_start}_ul"), only_latest=True, only_samples=attributes_to_plot)
+# print("len(results_ul)", len(results_ul))
 # ^: typing.List[Results]
 all_results = [*results_ul, *results_dl]
 
 post_processor.add_results(all_results)
 
-styles = ["solid", "dot", "dash", "longdash", "dashdot", "longdashdot"]
+styles = ["solid", "longdash", "dash", "longdashdot", "dashdot", "dot"]
 
 
 def linestyle_getter(result: Results):
@@ -102,25 +139,19 @@ post_processor\
     .get_plot_by_results_attribute_name("imt_dl_pfd_external")\
     .add_vline(pfd_protection_criteria, line_dash="dash")
 
-
-attributes_to_plot = [
-    # "imt_system_antenna_gain",
-    # "system_imt_antenna_gain",
-    # "sys_to_imt_coupling_loss",
-    # "imt_system_path_loss",
-    "imt_dl_pfd_external",
-    "imt_dl_pfd_external_aggregated",
-    "imt_dl_inr",
-    "imt_ul_inr",
-]
-
 for attr in attributes_to_plot:
     post_processor.get_plot_by_results_attribute_name(attr).show()
 
 # Ensure the "htmls" directory exists relative to the script directory
-# htmls_dir = Path(__file__).parent / "htmls"
+# output_dir = Path(__file__).parent / "../output"
+# output_dir.mkdir(exist_ok=True)
+# htmls_dir = output_dir / "htmls"
 # htmls_dir.mkdir(exist_ok=True)
+# specific_dir = htmls_dir / selected_str
+# specific_dir.mkdir(exist_ok=True)
+# # print("specific_dir", specific_dir)
+
 # for attr in attributes_to_plot:
 #     post_processor\
 #         .get_plot_by_results_attribute_name(attr)\
-#         .write_html(htmls_dir / f"{attr}.html")
+#         .write_html(specific_dir / f"{attr}.html")

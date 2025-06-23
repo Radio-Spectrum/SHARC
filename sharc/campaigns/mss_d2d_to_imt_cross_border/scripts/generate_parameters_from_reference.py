@@ -42,6 +42,7 @@ if args.freq == "~2.1G":
 elif args.freq == "~0.8G":
     # update mss params
     ul_parameters["mss_d2d"]["tx_power_density"] = -28.1 - 34.1
+    ul_parameters["mss_d2d"]["cell_radius"] = 113630
 
     # update immt params
     imt_bw = 10.0
@@ -182,6 +183,10 @@ for dist in [
         print(
             "Generating parameters for service grid covering the whole covered countries"
         )
+        parameters["mss_d2d"]["sat_is_active_if"]["lat_long_inside_country"]["margin_from_border"] = 0
+        parameters["mss_d2d"]["beam_positioning"]["service_grid"] = {
+            "grid_margin_from_border": dist
+        }
         parameters['mss_d2d']['beams_load_factor'] = 1
         # just select service grid, let defaults come from
         # country polygon limit definitions

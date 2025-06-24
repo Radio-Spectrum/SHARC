@@ -32,23 +32,22 @@ post_processor = PostProcessor()
 # This could easily come from a config file
 
 cell_radius = 113630 if args.freq == "~0.8G" else 39475
+cell_radius /= 1e3
 
-country_border = 4 * cell_radius / 1e3
-dists = [
+country_border = 4 * cell_radius
+dists = sorted([
     0,
+    cell_radius,
+    # cell_radius + 111,
+    cell_radius + 2 * 111,
     country_border,
-    country_border + 111 / 2,
-    country_border + 111,
-    country_border + 3 * 111 / 2,
-    country_border + 2 * 111
-]
+    # country_border + 111,
+    country_border + 2 * 111,
+])
 
 prefixes = [f"{x}km" for x in dists]
 for prefix in prefixes:
-    if prefix == "border":
-        km = "0km"
-    else:
-        km = prefix
+    km = prefix
     post_processor\
         .add_plot_legend_pattern(
             dir_name_contains=f"{prefix}_base",
@@ -62,6 +61,15 @@ for prefix in prefixes:
         ).add_plot_legend_pattern(
             dir_name_contains=f"{prefix}_service_grid_50p",
             legend=f"Service grid, load=50% ({km})"
+        ).add_plot_legend_pattern(
+            dir_name_contains=f"{prefix}_service_grid_padded_100p",
+            legend=f"Service grid w/ sats outside, load=100% ({km})"
+        ).add_plot_legend_pattern(
+            dir_name_contains=f"{prefix}_service_grid_padded_20p",
+            legend=f"Service grid w/ sats outside, load=20% ({km})"
+        ).add_plot_legend_pattern(
+            dir_name_contains=f"{prefix}_service_grid_padded_50p",
+            legend=f"Service grid w/ sats outside, load=50% ({km})"
         ).add_plot_legend_pattern(
             dir_name_contains=f"{prefix}_activate_random_beam_5p",
             legend=f"19 sectors, load=1/19 ({km})"

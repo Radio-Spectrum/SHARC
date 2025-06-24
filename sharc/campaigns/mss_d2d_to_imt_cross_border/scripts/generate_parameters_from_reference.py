@@ -100,7 +100,8 @@ dl_parameters['general']['output_dir'] = ul_parameters['general']['output_dir'].
 dl_parameters['general']['output_dir_prefix'] = ul_parameters['general']['output_dir_prefix'].replace("_ul", "_dl")
 dl_parameters['general']['imt_link'] = "DOWNLINK"
 
-country_border = 4 * ul_parameters["mss_d2d"]["cell_radius"] / 1e3
+cell_radius = ul_parameters["mss_d2d"]["cell_radius"] / 1e3
+country_border = 4 * cell_radius
 
 # doesn't matter from which, both will give same result
 output_dir_pattern = ul_parameters['general']['output_dir'].replace("_base_ul", "_<specific>")
@@ -121,17 +122,17 @@ def w_param(parameters, specific):
 for dist in [
     0,
     country_border,
-    country_border + 111 / 2,
-    country_border + 111,
-    country_border + 3 * 111 / 2,
+    # country_border + 111 / 2,
+    # country_border + 111,
+    # country_border + 3 * 111 / 2,
     country_border + 2 * 111
 ]:
     # setting border for all parameter files on this loop
     ul_parameters["mss_d2d"]["sat_is_active_if"]["lat_long_inside_country"]["margin_from_border"] = dist
     dl_parameters["mss_d2d"]["sat_is_active_if"]["lat_long_inside_country"]["margin_from_border"] = dist
 
-    w_param(ul_parameters, f"{dist}km_base_ul")
-    w_param(dl_parameters, f"{dist}km_base_dl")
+    # w_param(ul_parameters, f"{dist}km_base_ul")
+    # w_param(dl_parameters, f"{dist}km_base_dl")
 
     for link in ["ul", "dl"]:
         if link == "ul":
@@ -145,10 +146,10 @@ for dist in [
         parameters['mss_d2d']['num_sectors'] = 19
         # 1 out of 19 beams are active
         parameters['mss_d2d']['beams_load_factor'] = 0.05263157894
-        w_param(parameters, f"{dist}km_activate_random_beam_5p_{link}")
+    #     w_param(parameters, f"{dist}km_activate_random_beam_5p_{link}")
 
         parameters['mss_d2d']['beams_load_factor'] = 0.3
-        w_param(parameters, f"{dist}km_activate_random_beam_30p_{link}")
+    #     w_param(parameters, f"{dist}km_activate_random_beam_30p_{link}")
 
         ####################################################
         # make single sector with random pointing
@@ -176,21 +177,45 @@ for dist in [
                 }
             }
         }
-        w_param(parameters, f"{dist}km_random_pointing_1beam_{link}")
+    #     w_param(parameters, f"{dist}km_random_pointing_1beam_{link}")
 
+for dist in [
+    0,
+    cell_radius,
+    # cell_radius + 111,
+    cell_radius + 2 * 111,
+]:
+    for link in ["ul", "dl"]:
+        if link == "ul":
+            parameters = deepcopy(ul_parameters)
+        if link == "dl":
+            parameters = deepcopy(dl_parameters)
         ####################################################
         # entire service grid is covered
-        print(
-            "Generating parameters for service grid covering the whole covered countries"
-        )
-        parameters["mss_d2d"]["sat_is_active_if"]["lat_long_inside_country"]["margin_from_border"] = 0
-        parameters["mss_d2d"]["beam_positioning"]["service_grid"] = {
-            "grid_margin_from_border": dist
+        # 731 km of border
+        parameters["mss_d2d"]["sat_is_active_if"]["lat_long_inside_country"]["margin_from_border"] = -731
+        parameters['mss_d2d']['beam_positioning'] = {
+            "service_grid": {
+                "grid_margin_from_border": dist,
+                "eligible_sats_margin_from_border": -731
+            }
         }
         parameters['mss_d2d']['beams_load_factor'] = 1
         # just select service grid, let defaults come from
         # country polygon limit definitions
         parameters['mss_d2d']['beam_positioning']['type'] = "SERVICE_GRID"
+        w_param(parameters, f"{dist}km_service_grid_padded_100p_{link}")
+
+        parameters['mss_d2d']['beams_load_factor'] = 0.5
+        w_param(parameters, f"{dist}km_service_grid_padded_50p_{link}")
+
+        parameters['mss_d2d']['beams_load_factor'] = 0.2
+        w_param(parameters, f"{dist}km_service_grid_padded_20p_{link}")
+
+
+        parameters["mss_d2d"]["sat_is_active_if"]["lat_long_inside_country"]["margin_from_border"] = 0
+        parameters["mss_d2d"]["beam_positioning"]["service_grid"]["eligible_sats_margin_from_border"] = 0
+
         w_param(parameters, f"{dist}km_service_grid_100p_{link}")
 
         parameters['mss_d2d']['beams_load_factor'] = 0.5

@@ -215,7 +215,7 @@ for dist in [
 
         parameters["mss_d2d"]["sat_is_active_if"]["lat_long_inside_country"]["margin_from_border"] = 0
         parameters["mss_d2d"]["beam_positioning"]["service_grid"]["eligible_sats_margin_from_border"] = 0
-
+        parameters['mss_d2d']['beams_load_factor'] = 1
         w_param(parameters, f"{dist}km_service_grid_100p_{link}")
 
         parameters['mss_d2d']['beams_load_factor'] = 0.5

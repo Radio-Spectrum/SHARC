@@ -43,7 +43,7 @@ class ThreadSimulation(Thread):
         -------
             True if simulation is stopped
         """
-        return self.stop_flag.isSet()
+        return self.stop_flag.is_set()
 
     def run(self):
         """

@@ -17,7 +17,8 @@ class Logging:
     @staticmethod
     def setup_logging(
         default_path='support/logging.yaml',
-        default_level=logging.INFO, env_key='LOG_CFG',
+        default_level=logging.INFO,
+        env_key='LOG_CFG',
     ):
         """Set up logging configuration for the application."""
         path = default_path
@@ -27,6 +28,7 @@ class Logging:
         if os.path.exists(path):
             with open(path, 'rt') as f:
                 config = yaml.safe_load(f.read())
+            config['root']['level'] = logging.getLevelName(default_level)
             logging.config.dictConfig(config)
         else:
             logging.basicConfig(level=default_level)

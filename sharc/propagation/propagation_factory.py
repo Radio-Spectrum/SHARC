@@ -69,8 +69,8 @@ class PropagationFactory(object):
                 param.imt.los_adjustment_factor)
         elif channel_model == "SatelliteSimple":
             return PropagationSatSimple(random_number_gen,
-                                        param_system.satellite_simple.enable_clutter_loss,
-                                        param_system.satellite_simple.atmospheric_loss)
+                                        param_system.param_satellite_simple.enable_clutter_loss,
+                                        param_system.param_satellite_simple.atmospheric_loss)
         elif channel_model == "TerrestrialSimple":
             return PropagationTerSimple(random_number_gen)
         elif channel_model == "P619":

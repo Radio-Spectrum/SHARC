@@ -38,10 +38,6 @@ class PropagationSatSimple(Propagation):
         )
         self.atmospheric_loss = atmospheric_loss
 
-        print("PropagationSatSimple initialized with:")
-        print(self.enable_clutter_loss)
-        print(self.atmospheric_loss)
-
     @dispatch(Parameters, float, StationManager,
               StationManager, np.ndarray, np.ndarray)
     def get_loss(

@@ -848,6 +848,16 @@ single_earth_station:
         # Value in dB of building entry loss if
         # bs_building_entry_loss_type = FIXED_VALUE
         bs_building_entry_loss_value: 47
+
+    ###########################################################################
+    # Parameters for SatelliteSimple channel model
+    param_satellite_simple:
+        ###########################################################################
+        # Whether to use the clutter loss or not
+        enable_clutter_loss: TRUE
+        ###########################################################################
+        # Atmospheric attenuation in dB
+        atmospheric_loss: 0.5
 single_space_station:
     ###########################################################################
     # Sensor center frequency [MHz]

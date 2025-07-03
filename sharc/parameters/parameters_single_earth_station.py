@@ -83,7 +83,7 @@ class ParametersSingleEarthStation(ParametersBase):
         enable_clutter_loss: bool = True
         atmospheric_loss: float = 0.75
 
-    satellite_simple: ParametersSatelliteSimple = field(
+    param_satellite_simple: ParametersSatelliteSimple = field(
         default_factory=ParametersSatelliteSimple,
     )
 

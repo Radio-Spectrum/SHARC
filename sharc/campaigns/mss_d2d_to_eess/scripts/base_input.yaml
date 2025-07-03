@@ -92,26 +92,28 @@ imt:
                 # when "ANGLE_FROM_SUBSATELLITE", both phi and theta must be specified
                 # when "ANGLE_AND_DISTANCE_FROM_SUBSATELLITE", both phi and distance
                 #  must be specified
-                type: ANGLE_FROM_SUBSATELLITE
+                type: SERVICE_GRID
+                service_grid:
+                    eligible_sats_margin_from_border: -731
                 # theta is the off axis angle from satellite nadir
-                angle_from_subsatellite_theta:
+                # angle_from_subsatellite_theta:
                     # type may be one of
                     # "FIXED", "~U(MIN,MAX)", "~SQRT(U(0,1))*MAX"
-                    type: FIXED
+                    # type: FIXED
                     # used if TYPE == FIXED is specified
-                    fixed: 0
+                    # fixed: 0
                     # used if some distribution type is specified
                     # distribution:
                     #     min: 0.0
                     #     max: 66.1
                 # phi completes polar coordinates
                 # equivalent to "azimuth" from subsatellite in earth plane
-                angle_from_subsatellite_phi:
+                # angle_from_subsatellite_phi:
                     # type may be one of
                     # "FIXED", "~U(MIN,MAX)", "~SQRT(U(0,1))*MAX"
-                    type: FIXED
+                    # type: FIXED
                     # used if TYPE == FIXED is specified
-                    fixed: 0
+                    # fixed: 0
                     # used if some distribution type is specified
                     # distribution:
                     #     min: 0.0
@@ -153,21 +155,20 @@ imt:
             sat_is_active_if:
                 # for a satellite to be active, it needs to respect ALL conditions
                 conditions:
-                    # - LAT_LONG_INSIDE_COUNTRY
+                    - LAT_LONG_INSIDE_COUNTRY
                     - MINIMUM_ELEVATION_FROM_ES
                     # - MAXIMUM_ELEVATION_FROM_ES
                 minimum_elevation_from_es: 5.0
                 # maximum_elevation_from_es: 80.0
-                # lat_long_inside_country:
-                #     # You may specify another shp file for country borders reference
-                #     # country_shapes_filename: sharc/topology/countries/ne_110m_admin_0_countries.shp
-                #     country_names:
-                #         - Brazil
-                #         - Ecuador
-                #     # margin from inside of border [km]
-                #     # if positive, makes border smaller by x km
-                #     # if negative, makes border bigger by x km
-                #     margin_from_border: 111.0
+                lat_long_inside_country:
+                    # You may specify another shp file for country borders reference
+                    # country_shapes_filename: sharc/topology/countries/ne_110m_admin_0_countries.shp
+                    country_names:
+                        - Brazil
+                    # margin from inside of border [km]
+                    # if positive, makes border smaller by x km
+                    # if negative, makes border bigger by x km
+                    margin_from_border: 40
             ###########################################################################
             # Parameters for the orbits
             orbits:  # System 3 parameters
@@ -513,7 +514,13 @@ single_earth_station:
   # 35-45dBs are generally assumed. We take 35 as a worst case.
   adjacent_ch_selectivity: 35
   # Channel model
+#   channel_model: SatelliteSimple
   channel_model: FSPL
+  param_satellite_simple:
+    # Enable clutter loss
+    enable_clutter_loss: false
+    # Atmospheric loss in dB
+    atmospheric_loss: 0.65
   # NOTE: when using P.619 it is suggested that polarization loss = 3dB is good
   polarization_loss: 0
   # Earth Station parameters

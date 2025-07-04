@@ -86,9 +86,9 @@ class SimulationDownlink(Simulation):
         self.select_ue(random_number_gen)
 
         # Calculate coupling loss after beams are created
-        # self.coupling_loss_imt = self.calculate_intra_imt_coupling_loss(
-        #     self.ue, self.bs,
-        # )
+        self.coupling_loss_imt = self.calculate_intra_imt_coupling_loss(
+            self.ue, self.bs,
+        )
         self.scheduler()
         self.power_control()
 
@@ -100,7 +100,7 @@ class SimulationDownlink(Simulation):
         else:
             # Execute this piece of code if IMT generates interference into
             # the other system
-            # self.calculate_sinr()
+            self.calculate_sinr()
             self.calculate_external_interference()
 
         self.collect_results(write_to_file, snapshot_number)
@@ -521,25 +521,25 @@ class SimulationDownlink(Simulation):
         sys_active = np.where(self.system.active)[0]
         for bs in bs_active:
             ue = self.link[bs]
-            # self.results.imt_path_loss.extend(self.path_loss_imt[bs, ue])
-            # self.results.imt_coupling_loss.extend(
-            #     self.coupling_loss_imt[bs, ue],
-            # )
+            self.results.imt_path_loss.extend(self.path_loss_imt[bs, ue])
+            self.results.imt_coupling_loss.extend(
+                self.coupling_loss_imt[bs, ue],
+            )
 
-            # self.results.imt_bs_antenna_gain.extend(
-            #     self.imt_bs_antenna_gain[bs, ue],
-            # )
-            # self.results.imt_ue_antenna_gain.extend(
-            #     self.imt_ue_antenna_gain[bs, ue],
-            # )
+            self.results.imt_bs_antenna_gain.extend(
+                self.imt_bs_antenna_gain[bs, ue],
+            )
+            self.results.imt_ue_antenna_gain.extend(
+                self.imt_ue_antenna_gain[bs, ue],
+            )
 
-            # tput = self.calculate_imt_tput(
-            #     self.ue.sinr[ue],
-            #     self.parameters.imt.downlink.sinr_min,
-            #     self.parameters.imt.downlink.sinr_max,
-            #     self.parameters.imt.downlink.attenuation_factor,
-            # )
-            # self.results.imt_dl_tput.extend(tput.tolist())
+            tput = self.calculate_imt_tput(
+                self.ue.sinr[ue],
+                self.parameters.imt.downlink.sinr_min,
+                self.parameters.imt.downlink.sinr_max,
+                self.parameters.imt.downlink.attenuation_factor,
+            )
+            self.results.imt_dl_tput.extend(tput.tolist())
 
             # Results for IMT-SYSTEM
             if self.parameters.imt.interfered_with:  # IMT suffers interference

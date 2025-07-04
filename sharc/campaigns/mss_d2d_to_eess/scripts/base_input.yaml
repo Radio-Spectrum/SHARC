@@ -34,6 +34,9 @@ imt:
     #   FALSE : IMT generates interference
     interfered_with: False
     ###########################################################################
+    # Whether to disable the IMT intra SINR calculation for downlink simulations and IMT is interferer.
+    imt_dl_intra_sinr_calculation_disabled: True
+    ###########################################################################
     # IMT center frequency [MHz]
     frequency: 2167.5  # B1/B4 - SPACE STATION - 2110-2 170
     ###########################################################################

@@ -38,6 +38,7 @@ class ParametersTest(unittest.TestCase):
             self.parameters.imt.minimum_separation_distance_bs_ue, 1.3,
         )
         self.assertEqual(self.parameters.imt.interfered_with, False)
+        self.assertEqual(self.parameters.imt.imt_dl_intra_sinr_calculation_enabled, False)
         self.assertEqual(self.parameters.imt.frequency, 24360)
         self.assertEqual(self.parameters.imt.bandwidth, 200.5)
         self.assertEqual(self.parameters.imt.rb_bandwidth, 0.181)

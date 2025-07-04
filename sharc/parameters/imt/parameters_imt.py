@@ -19,6 +19,13 @@ class ParametersImt(ParametersBase):
     # whether to enable recursive parameters setting on .yaml file
     nested_parameters_enabled: bool = True
 
+    # Whether to disable the IMT intra SINR calculation for downlink simulations and IMT is interferer.
+    # That's useful to speed-up the simulation for cases where we're interested only on the interference into the
+    # other system from IMT base stations that has fixed transmit power.
+    # This parameters has effect **only** when the IMT system is the interferer and the link is downlink.
+    # If this is set to True, the intra SINR calculation will not be performed
+    imt_dl_intra_sinr_calculation_disabled: bool = False
+
     minimum_separation_distance_bs_ue: float = 0.0
     interfered_with: bool = False
     frequency: float = 24350.0

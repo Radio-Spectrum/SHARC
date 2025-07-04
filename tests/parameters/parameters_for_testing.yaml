@@ -29,6 +29,9 @@ imt:
     #   FALSE : IMT generates interference
     interfered_with  : FALSE
     ###########################################################################
+    # Whether to disable the IMT intra SINR calculation for downlink simulations and IMT is interferer.
+    imt_dl_intra_sinr_calculation_disabled: False
+    ###########################################################################
     # IMT center frequency [MHz]
     frequency  : 24360
     ###########################################################################

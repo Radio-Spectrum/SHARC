@@ -20,8 +20,10 @@ from sharc.parameters.imt.parameters_single_bs import ParametersSingleBS
 
 
 class SimulationDownlinkTest(unittest.TestCase):
+    """Unit tests for the SimulationDownlink class and its downlink simulation scenarios."""
 
     def setUp(self):
+        """Set up test fixtures for SimulationDownlink tests."""
         self.param = Parameters()
 
         self.param.general.imt_link = "DOWNLINK"
@@ -179,6 +181,7 @@ class SimulationDownlinkTest(unittest.TestCase):
         self.param.ras.polarization_loss = 0.0
 
     def test_simulation_2bs_4ue_fss_ss(self):
+        """Test simulation with 2 base stations and 4 UEs for FSS-SS scenario."""
         self.param.general.system = "FSS_SS"
 
         self.simulation = SimulationDownlink(self.param, "")
@@ -237,9 +240,7 @@ class SimulationDownlinkTest(unittest.TestCase):
 
         # test coupling loss method
         self.simulation.coupling_loss_imt = self.simulation.calculate_intra_imt_coupling_loss(
-            self.simulation.ue,
-            self.simulation.bs,
-        )
+            self.simulation.ue, self.simulation.bs, )
         path_loss_imt = np.array([
             [78.68, 89.36, 93.28, 97.06],
             [97.55, 94.73, 91.54, 82.08],
@@ -271,12 +272,12 @@ class SimulationDownlinkTest(unittest.TestCase):
         tx_power = 10 - 10 * math.log10(2)
         npt.assert_allclose(
             self.simulation.bs.tx_power[0], np.array(
-            [tx_power, tx_power],
+                [tx_power, tx_power],
             ), atol=1e-2,
         )
         npt.assert_allclose(
             self.simulation.bs.tx_power[1], np.array(
-            [tx_power, tx_power],
+                [tx_power, tx_power],
             ), atol=1e-2,
         )
 
@@ -316,7 +317,9 @@ class SimulationDownlinkTest(unittest.TestCase):
                 np.power(10, 0.1 * thermal_noise),
             )
         npt.assert_allclose(
-            self.simulation.ue.total_interference, total_interference, atol=1e-2,
+            self.simulation.ue.total_interference,
+            total_interference,
+            atol=1e-2,
         )
 
         # check SNR
@@ -349,10 +352,12 @@ class SimulationDownlinkTest(unittest.TestCase):
         polarization_loss = 3
         sat_antenna_gain = 51
         bs_antenna_gain = np.array([1, 2])
-        coupling_loss_imt_system = path_loss_imt_system - sat_antenna_gain \
-            - np.array([bs_antenna_gain[0], bs_antenna_gain[0], bs_antenna_gain[1], bs_antenna_gain[1]]) \
-            + polarization_loss \
-            + self.param.imt.bs.ohmic_loss
+        coupling_loss_imt_system = path_loss_imt_system - sat_antenna_gain - np.array(
+            [
+                bs_antenna_gain[0],
+                bs_antenna_gain[0],
+                bs_antenna_gain[1],
+                bs_antenna_gain[1]]) + polarization_loss + self.param.imt.bs.ohmic_loss
 
         npt.assert_allclose(
             self.simulation.coupling_loss_imt_system,
@@ -389,6 +394,7 @@ class SimulationDownlinkTest(unittest.TestCase):
         )
 
     def test_simulation_2bs_4ue_fss_es(self):
+        """Test simulation with 2 base stations and 4 UEs for FSS-ES scenario."""
         self.param.general.system = "FSS_ES"
 
         self.simulation = SimulationDownlink(self.param, "")
@@ -432,9 +438,7 @@ class SimulationDownlinkTest(unittest.TestCase):
         self.simulation.select_ue(random_number_gen)
         self.simulation.link = {0: [0, 1], 1: [2, 3]}
         self.simulation.coupling_loss_imt = self.simulation.calculate_intra_imt_coupling_loss(
-            self.simulation.ue,
-            self.simulation.bs,
-        )
+            self.simulation.ue, self.simulation.bs, )
         self.simulation.scheduler()
         self.simulation.power_control()
         self.simulation.calculate_sinr()
@@ -444,12 +448,12 @@ class SimulationDownlinkTest(unittest.TestCase):
         tx_power = 10 - 10 * math.log10(2)
         npt.assert_allclose(
             self.simulation.bs.tx_power[0], np.array(
-            [tx_power, tx_power],
+                [tx_power, tx_power],
             ), atol=1e-2,
         )
         npt.assert_allclose(
             self.simulation.bs.tx_power[1], np.array(
-            [tx_power, tx_power],
+                [tx_power, tx_power],
             ), atol=1e-2,
         )
 
@@ -462,11 +466,31 @@ class SimulationDownlinkTest(unittest.TestCase):
         npt.assert_allclose(self.simulation.ue.rx_power, rx_power, atol=1e-2)
 
         # check UE received interference
-        rx_interference = np.array([
-            tx_power - 3 - (97.55 - 2 - 10) - 4 - 3, tx_power - 3 - (
-            94.73 - 2 - 11
-            ) - 4 - 3, tx_power - 3 - (93.28 - 1 - 22) - 4 - 3, tx_power - 3 - (97.06 - 1 - 23) - 4 - 3,
-        ])
+        rx_interference = np.array([tx_power -
+                                    3 -
+                                    (97.55 -
+                                     2 -
+                                     10) -
+                                    4 -
+                                    3, tx_power -
+                                    3 -
+                                    (94.73 -
+                                     2 -
+                                     11) -
+                                    4 -
+                                    3, tx_power -
+                                    3 -
+                                    (93.28 -
+                                        1 -
+                                        22) -
+                                    4 -
+                                    3, tx_power -
+                                    3 -
+                                    (97.06 -
+                                        1 -
+                                        23) -
+                                    4 -
+                                    3, ])
         npt.assert_allclose(
             self.simulation.ue.rx_interference,
             rx_interference, atol=1e-2,
@@ -487,7 +511,9 @@ class SimulationDownlinkTest(unittest.TestCase):
                 np.power(10, 0.1 * thermal_noise),
             )
         npt.assert_allclose(
-            self.simulation.ue.total_interference, total_interference, atol=1e-2,
+            self.simulation.ue.total_interference,
+            total_interference,
+            atol=1e-2,
         )
 
         self.simulation.system = StationFactory.generate_fss_earth_station(
@@ -525,7 +551,9 @@ class SimulationDownlinkTest(unittest.TestCase):
 
         # check interference from FSS_ES to IMT_UE
         system_tx_power = -60 + 10 * math.log10(bandwidth_per_ue * 1e6) + 30
-        ext_interference = (system_tx_power - coupling_loss_imt_system).flatten()
+        ext_interference = (
+            system_tx_power -
+            coupling_loss_imt_system).flatten()
         npt.assert_allclose(
             self.simulation.ue.ext_interference,
             ext_interference,
@@ -587,6 +615,7 @@ class SimulationDownlinkTest(unittest.TestCase):
         )
 
     def test_simulation_2bs_4ue_ras(self):
+        """Test simulation with 2 base stations and 4 UEs for RAS scenario."""
         self.param.general.system = "RAS"
 
         self.simulation = SimulationDownlink(self.param, "")
@@ -638,9 +667,7 @@ class SimulationDownlinkTest(unittest.TestCase):
         self.simulation.select_ue(random_number_gen)
         self.simulation.link = {0: [0, 1], 1: [2, 3]}
         self.simulation.coupling_loss_imt = self.simulation.calculate_intra_imt_coupling_loss(
-            self.simulation.ue,
-            self.simulation.bs,
-        )
+            self.simulation.ue, self.simulation.bs, )
         self.simulation.scheduler()
         self.simulation.power_control()
         self.simulation.calculate_sinr()
@@ -669,7 +696,8 @@ class SimulationDownlinkTest(unittest.TestCase):
         )
         self.simulation.system.x = np.array([-2000])
         self.simulation.system.y = np.array([0])
-        self.simulation.system.height = np.array([self.param.ras.geometry.height])
+        self.simulation.system.height = np.array(
+            [self.param.ras.geometry.height])
         self.simulation.system.antenna[0].effective_area = 54.9779
 
         # Test gain calculation
@@ -729,10 +757,11 @@ class SimulationDownlinkTest(unittest.TestCase):
         )
 
     def test_calculate_bw_weights(self):
+        """Test calculation of bandwidth weights for co-channel systems."""
         self.param.general.system = "FSS_ES"
         self.simulation = SimulationDownlink(self.param, "")
 
-        ############################################################################
+        #######################################################################
         # Calculating bw co-channel weights for when system is at start of band
         bw_imt = 200
         bw_sys = 33.33
@@ -741,10 +770,22 @@ class SimulationDownlinkTest(unittest.TestCase):
 
         bw_ue = np.repeat(bw_imt / ue_k, ue_k)
         fc_imt = 2200
-        fc_ue = np.linspace(fc_imt - bw_imt / 2 + bw_ue[0] / 2, fc_imt + bw_imt / 2 - bw_ue[0] / 2, ue_k)
+        fc_ue = np.linspace(
+            fc_imt -
+            bw_imt /
+            2 +
+            bw_ue[0] /
+            2,
+            fc_imt +
+            bw_imt /
+            2 -
+            bw_ue[0] /
+            2,
+            ue_k)
         fc_sys = fc_imt - bw_imt / 2 + bw_sys / 2
 
-        weights = self.simulation.calculate_bw_weights(bw_ue, fc_ue, bw_sys, fc_sys)
+        weights = self.simulation.calculate_bw_weights(
+            bw_ue, fc_ue, bw_sys, fc_sys)
         npt.assert_allclose(ref_weights, weights, atol=1e-2)
 
         bw_imt = 100
@@ -754,10 +795,22 @@ class SimulationDownlinkTest(unittest.TestCase):
 
         bw_ue = np.repeat(bw_imt / ue_k, ue_k)
         fc_imt = 2200
-        fc_ue = np.linspace(fc_imt - bw_imt / 2 + bw_ue[0] / 2, fc_imt + bw_imt / 2 - bw_ue[0] / 2, ue_k)
+        fc_ue = np.linspace(
+            fc_imt -
+            bw_imt /
+            2 +
+            bw_ue[0] /
+            2,
+            fc_imt +
+            bw_imt /
+            2 -
+            bw_ue[0] /
+            2,
+            ue_k)
         fc_sys = fc_imt - bw_imt / 2 + bw_sys / 2
 
-        weights = self.simulation.calculate_bw_weights(bw_ue, fc_ue, bw_sys, fc_sys)
+        weights = self.simulation.calculate_bw_weights(
+            bw_ue, fc_ue, bw_sys, fc_sys)
         npt.assert_allclose(ref_weights, weights, atol=1e-2)
 
         bw_imt = 200
@@ -767,10 +820,22 @@ class SimulationDownlinkTest(unittest.TestCase):
 
         bw_ue = np.repeat(bw_imt / ue_k, ue_k)
         fc_imt = 2200
-        fc_ue = np.linspace(fc_imt - bw_imt / 2 + bw_ue[0] / 2, fc_imt + bw_imt / 2 - bw_ue[0] / 2, ue_k)
+        fc_ue = np.linspace(
+            fc_imt -
+            bw_imt /
+            2 +
+            bw_ue[0] /
+            2,
+            fc_imt +
+            bw_imt /
+            2 -
+            bw_ue[0] /
+            2,
+            ue_k)
         fc_sys = fc_imt - bw_imt / 2 + bw_sys / 2
 
-        weights = self.simulation.calculate_bw_weights(bw_ue, fc_ue, bw_sys, fc_sys)
+        weights = self.simulation.calculate_bw_weights(
+            bw_ue, fc_ue, bw_sys, fc_sys)
         npt.assert_allclose(ref_weights, weights, atol=1e-2)
 
         bw_imt = 400
@@ -780,10 +845,22 @@ class SimulationDownlinkTest(unittest.TestCase):
 
         bw_ue = np.repeat(bw_imt / ue_k, ue_k)
         fc_imt = 2200
-        fc_ue = np.linspace(fc_imt - bw_imt / 2 + bw_ue[0] / 2, fc_imt + bw_imt / 2 - bw_ue[0] / 2, ue_k)
+        fc_ue = np.linspace(
+            fc_imt -
+            bw_imt /
+            2 +
+            bw_ue[0] /
+            2,
+            fc_imt +
+            bw_imt /
+            2 -
+            bw_ue[0] /
+            2,
+            ue_k)
         fc_sys = fc_imt - bw_imt / 2 + bw_sys / 2
 
-        weights = self.simulation.calculate_bw_weights(bw_ue, fc_ue, bw_sys, fc_sys)
+        weights = self.simulation.calculate_bw_weights(
+            bw_ue, fc_ue, bw_sys, fc_sys)
         npt.assert_allclose(ref_weights, weights, atol=1e-2)
 
         bw_imt = 200
@@ -793,10 +870,22 @@ class SimulationDownlinkTest(unittest.TestCase):
 
         bw_ue = np.repeat(bw_imt / ue_k, ue_k)
         fc_imt = 2200
-        fc_ue = np.linspace(fc_imt - bw_imt / 2 + bw_ue[0] / 2, fc_imt + bw_imt / 2 - bw_ue[0] / 2, ue_k)
+        fc_ue = np.linspace(
+            fc_imt -
+            bw_imt /
+            2 +
+            bw_ue[0] /
+            2,
+            fc_imt +
+            bw_imt /
+            2 -
+            bw_ue[0] /
+            2,
+            ue_k)
         fc_sys = fc_imt - bw_imt / 2 + bw_sys / 2
 
-        weights = self.simulation.calculate_bw_weights(bw_ue, fc_ue, bw_sys, fc_sys)
+        weights = self.simulation.calculate_bw_weights(
+            bw_ue, fc_ue, bw_sys, fc_sys)
         npt.assert_allclose(ref_weights, weights, atol=1e-2)
 
         bw_imt = 200
@@ -806,10 +895,22 @@ class SimulationDownlinkTest(unittest.TestCase):
 
         bw_ue = np.repeat(bw_imt / ue_k, ue_k)
         fc_imt = 2200
-        fc_ue = np.linspace(fc_imt - bw_imt / 2 + bw_ue[0] / 2, fc_imt + bw_imt / 2 - bw_ue[0] / 2, ue_k)
+        fc_ue = np.linspace(
+            fc_imt -
+            bw_imt /
+            2 +
+            bw_ue[0] /
+            2,
+            fc_imt +
+            bw_imt /
+            2 -
+            bw_ue[0] /
+            2,
+            ue_k)
         fc_sys = fc_imt - bw_imt / 2 + bw_sys / 2
 
-        weights = self.simulation.calculate_bw_weights(bw_ue, fc_ue, bw_sys, fc_sys)
+        weights = self.simulation.calculate_bw_weights(
+            bw_ue, fc_ue, bw_sys, fc_sys)
         npt.assert_allclose(ref_weights, weights, atol=1e-2)
 
         bw_imt = 150
@@ -819,10 +920,22 @@ class SimulationDownlinkTest(unittest.TestCase):
 
         bw_ue = np.repeat(bw_imt / ue_k, ue_k)
         fc_imt = 2200
-        fc_ue = np.linspace(fc_imt - bw_imt / 2 + bw_ue[0] / 2, fc_imt + bw_imt / 2 - bw_ue[0] / 2, ue_k)
+        fc_ue = np.linspace(
+            fc_imt -
+            bw_imt /
+            2 +
+            bw_ue[0] /
+            2,
+            fc_imt +
+            bw_imt /
+            2 -
+            bw_ue[0] /
+            2,
+            ue_k)
         fc_sys = fc_imt - bw_imt / 2 + bw_sys / 2
 
-        weights = self.simulation.calculate_bw_weights(bw_ue, fc_ue, bw_sys, fc_sys)
+        weights = self.simulation.calculate_bw_weights(
+            bw_ue, fc_ue, bw_sys, fc_sys)
         npt.assert_allclose(ref_weights, weights, atol=1e-2)
 
         bw_imt = 200
@@ -832,10 +945,22 @@ class SimulationDownlinkTest(unittest.TestCase):
 
         bw_ue = np.repeat(bw_imt / ue_k, ue_k)
         fc_imt = 2200
-        fc_ue = np.linspace(fc_imt - bw_imt / 2 + bw_ue[0] / 2, fc_imt + bw_imt / 2 - bw_ue[0] / 2, ue_k)
+        fc_ue = np.linspace(
+            fc_imt -
+            bw_imt /
+            2 +
+            bw_ue[0] /
+            2,
+            fc_imt +
+            bw_imt /
+            2 -
+            bw_ue[0] /
+            2,
+            ue_k)
         fc_sys = fc_imt - bw_imt / 2 + bw_sys / 2
 
-        weights = self.simulation.calculate_bw_weights(bw_ue, fc_ue, bw_sys, fc_sys)
+        weights = self.simulation.calculate_bw_weights(
+            bw_ue, fc_ue, bw_sys, fc_sys)
         npt.assert_allclose(ref_weights, weights, atol=1e-2)
 
         bw_imt = 200
@@ -845,10 +970,22 @@ class SimulationDownlinkTest(unittest.TestCase):
 
         bw_ue = np.repeat(bw_imt / ue_k, ue_k)
         fc_imt = 2200
-        fc_ue = np.linspace(fc_imt - bw_imt / 2 + bw_ue[0] / 2, fc_imt + bw_imt / 2 - bw_ue[0] / 2, ue_k)
+        fc_ue = np.linspace(
+            fc_imt -
+            bw_imt /
+            2 +
+            bw_ue[0] /
+            2,
+            fc_imt +
+            bw_imt /
+            2 -
+            bw_ue[0] /
+            2,
+            ue_k)
         fc_sys = fc_imt - bw_imt / 2 + bw_sys / 2
 
-        weights = self.simulation.calculate_bw_weights(bw_ue, fc_ue, bw_sys, fc_sys)
+        weights = self.simulation.calculate_bw_weights(
+            bw_ue, fc_ue, bw_sys, fc_sys)
         npt.assert_allclose(ref_weights, weights, atol=1e-2)
 
         bw_imt = 100
@@ -858,10 +995,22 @@ class SimulationDownlinkTest(unittest.TestCase):
 
         bw_ue = np.repeat(bw_imt / ue_k, ue_k)
         fc_imt = 2200
-        fc_ue = np.linspace(fc_imt - bw_imt / 2 + bw_ue[0] / 2, fc_imt + bw_imt / 2 - bw_ue[0] / 2, ue_k)
+        fc_ue = np.linspace(
+            fc_imt -
+            bw_imt /
+            2 +
+            bw_ue[0] /
+            2,
+            fc_imt +
+            bw_imt /
+            2 -
+            bw_ue[0] /
+            2,
+            ue_k)
         fc_sys = fc_imt - bw_imt / 2 + bw_sys / 2
 
-        weights = self.simulation.calculate_bw_weights(bw_ue, fc_ue, bw_sys, fc_sys)
+        weights = self.simulation.calculate_bw_weights(
+            bw_ue, fc_ue, bw_sys, fc_sys)
         npt.assert_allclose(ref_weights, weights, atol=1e-2)
 
         bw_imt = 300
@@ -871,10 +1020,22 @@ class SimulationDownlinkTest(unittest.TestCase):
 
         bw_ue = np.repeat(bw_imt / ue_k, ue_k)
         fc_imt = 2200
-        fc_ue = np.linspace(fc_imt - bw_imt / 2 + bw_ue[0] / 2, fc_imt + bw_imt / 2 - bw_ue[0] / 2, ue_k)
+        fc_ue = np.linspace(
+            fc_imt -
+            bw_imt /
+            2 +
+            bw_ue[0] /
+            2,
+            fc_imt +
+            bw_imt /
+            2 -
+            bw_ue[0] /
+            2,
+            ue_k)
         fc_sys = fc_imt - bw_imt / 2 + bw_sys / 2
 
-        weights = self.simulation.calculate_bw_weights(bw_ue, fc_ue, bw_sys, fc_sys)
+        weights = self.simulation.calculate_bw_weights(
+            bw_ue, fc_ue, bw_sys, fc_sys)
         npt.assert_allclose(ref_weights, weights, atol=1e-2)
 
         bw_imt = 100
@@ -884,10 +1045,22 @@ class SimulationDownlinkTest(unittest.TestCase):
 
         bw_ue = np.repeat(bw_imt / ue_k, ue_k)
         fc_imt = 2200
-        fc_ue = np.linspace(fc_imt - bw_imt / 2 + bw_ue[0] / 2, fc_imt + bw_imt / 2 - bw_ue[0] / 2, ue_k)
+        fc_ue = np.linspace(
+            fc_imt -
+            bw_imt /
+            2 +
+            bw_ue[0] /
+            2,
+            fc_imt +
+            bw_imt /
+            2 -
+            bw_ue[0] /
+            2,
+            ue_k)
         fc_sys = fc_imt - bw_imt / 2 + bw_sys / 2
 
-        weights = self.simulation.calculate_bw_weights(bw_ue, fc_ue, bw_sys, fc_sys)
+        weights = self.simulation.calculate_bw_weights(
+            bw_ue, fc_ue, bw_sys, fc_sys)
         npt.assert_allclose(ref_weights, weights, atol=1e-2)
 
         bw_imt = 200
@@ -897,13 +1070,25 @@ class SimulationDownlinkTest(unittest.TestCase):
 
         bw_ue = np.repeat(bw_imt / ue_k, ue_k)
         fc_imt = 2200
-        fc_ue = np.linspace(fc_imt - bw_imt / 2 + bw_ue[0] / 2, fc_imt + bw_imt / 2 - bw_ue[0] / 2, ue_k)
+        fc_ue = np.linspace(
+            fc_imt -
+            bw_imt /
+            2 +
+            bw_ue[0] /
+            2,
+            fc_imt +
+            bw_imt /
+            2 -
+            bw_ue[0] /
+            2,
+            ue_k)
         fc_sys = fc_imt - bw_imt / 2 + bw_sys / 2
 
-        weights = self.simulation.calculate_bw_weights(bw_ue, fc_ue, bw_sys, fc_sys)
+        weights = self.simulation.calculate_bw_weights(
+            bw_ue, fc_ue, bw_sys, fc_sys)
         npt.assert_allclose(ref_weights, weights, atol=1e-2)
 
-        ############################################################################
+        #######################################################################
         # Calculating weigths for overlap at the middle of band:
         bw_imt = 200
         bw_sys = 33.33
@@ -912,11 +1097,23 @@ class SimulationDownlinkTest(unittest.TestCase):
 
         bw_ue = np.repeat(bw_imt / ue_k, ue_k)
         fc_imt = 2200
-        fc_ue = np.linspace(fc_imt - bw_imt / 2 + bw_ue[0] / 2, fc_imt + bw_imt / 2 - bw_ue[0] / 2, ue_k)
+        fc_ue = np.linspace(
+            fc_imt -
+            bw_imt /
+            2 +
+            bw_ue[0] /
+            2,
+            fc_imt +
+            bw_imt /
+            2 -
+            bw_ue[0] /
+            2,
+            ue_k)
         # at middle of imt band
         fc_sys = fc_imt - bw_sys / 2
 
-        weights = self.simulation.calculate_bw_weights(bw_ue, fc_ue, bw_sys, fc_sys)
+        weights = self.simulation.calculate_bw_weights(
+            bw_ue, fc_ue, bw_sys, fc_sys)
         npt.assert_allclose(ref_weights, weights, atol=1e-2)
 
         bw_imt = 200
@@ -926,11 +1123,23 @@ class SimulationDownlinkTest(unittest.TestCase):
 
         bw_ue = np.repeat(bw_imt / ue_k, ue_k)
         fc_imt = 2200
-        fc_ue = np.linspace(fc_imt - bw_imt / 2 + bw_ue[0] / 2, fc_imt + bw_imt / 2 - bw_ue[0] / 2, ue_k)
+        fc_ue = np.linspace(
+            fc_imt -
+            bw_imt /
+            2 +
+            bw_ue[0] /
+            2,
+            fc_imt +
+            bw_imt /
+            2 -
+            bw_ue[0] /
+            2,
+            ue_k)
         # at middle of imt band
         fc_sys = fc_imt
 
-        weights = self.simulation.calculate_bw_weights(bw_ue, fc_ue, bw_sys, fc_sys)
+        weights = self.simulation.calculate_bw_weights(
+            bw_ue, fc_ue, bw_sys, fc_sys)
         npt.assert_allclose(ref_weights, weights, atol=1e-2)
 
         bw_imt = 200
@@ -940,14 +1149,26 @@ class SimulationDownlinkTest(unittest.TestCase):
 
         bw_ue = np.repeat(bw_imt / ue_k, ue_k)
         fc_imt = 2200
-        fc_ue = np.linspace(fc_imt - bw_imt / 2 + bw_ue[0] / 2, fc_imt + bw_imt / 2 - bw_ue[0] / 2, ue_k)
+        fc_ue = np.linspace(
+            fc_imt -
+            bw_imt /
+            2 +
+            bw_ue[0] /
+            2,
+            fc_imt +
+            bw_imt /
+            2 -
+            bw_ue[0] /
+            2,
+            ue_k)
         # at middle - 10 of imt band
         fc_sys = fc_imt - 10
 
-        weights = self.simulation.calculate_bw_weights(bw_ue, fc_ue, bw_sys, fc_sys)
+        weights = self.simulation.calculate_bw_weights(
+            bw_ue, fc_ue, bw_sys, fc_sys)
         npt.assert_allclose(ref_weights, weights, atol=1e-2)
 
-        ############################################################################
+        #######################################################################
         # Calculating co-channel weights for partial overlap
 
         bw_imt = 200
@@ -957,11 +1178,23 @@ class SimulationDownlinkTest(unittest.TestCase):
 
         bw_ue = np.repeat(bw_imt / ue_k, ue_k)
         fc_imt = 2200
-        fc_ue = np.linspace(fc_imt - bw_imt / 2 + bw_ue[0] / 2, fc_imt + bw_imt / 2 - bw_ue[0] / 2, ue_k)
+        fc_ue = np.linspace(
+            fc_imt -
+            bw_imt /
+            2 +
+            bw_ue[0] /
+            2,
+            fc_imt +
+            bw_imt /
+            2 -
+            bw_ue[0] /
+            2,
+            ue_k)
         # half inside, half outside
         fc_sys = fc_imt - bw_imt / 2
 
-        weights = self.simulation.calculate_bw_weights(bw_ue, fc_ue, bw_sys, fc_sys)
+        weights = self.simulation.calculate_bw_weights(
+            bw_ue, fc_ue, bw_sys, fc_sys)
         npt.assert_allclose(ref_weights, weights, atol=1e-2)
 
         bw_imt = 200
@@ -971,10 +1204,22 @@ class SimulationDownlinkTest(unittest.TestCase):
 
         bw_ue = np.repeat(bw_imt / ue_k, ue_k)
         fc_imt = 2200
-        fc_ue = np.linspace(fc_imt - bw_imt / 2 + bw_ue[0] / 2, fc_imt + bw_imt / 2 - bw_ue[0] / 2, ue_k)
+        fc_ue = np.linspace(
+            fc_imt -
+            bw_imt /
+            2 +
+            bw_ue[0] /
+            2,
+            fc_imt +
+            bw_imt /
+            2 -
+            bw_ue[0] /
+            2,
+            ue_k)
         fc_sys = fc_imt - bw_imt / 2
 
-        weights = self.simulation.calculate_bw_weights(bw_ue, fc_ue, bw_sys, fc_sys)
+        weights = self.simulation.calculate_bw_weights(
+            bw_ue, fc_ue, bw_sys, fc_sys)
         npt.assert_allclose(ref_weights, weights, atol=1e-2)
 
 

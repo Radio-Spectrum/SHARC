@@ -15,12 +15,13 @@ from sharc.antenna.antenna_omni import AntennaOmni
 from sharc.antenna.antenna_beamforming_imt import AntennaBeamformingImt
 from sharc.station_factory import StationFactory
 from sharc.propagation.propagation_factory import PropagationFactory
-from sharc.support.enumerations import StationType
 
 
 class SimulationUplinkTest(unittest.TestCase):
+    """Unit tests for the SimulationUplink class and its uplink simulation scenarios."""
 
     def setUp(self):
+        """Set up test fixtures for SimulationUplink tests."""
         self.param = Parameters()
 
         self.param.general.imt_link = "UPLINK"
@@ -172,6 +173,7 @@ class SimulationUplinkTest(unittest.TestCase):
         self.param.ras.polarization_loss = 0.0
 
     def test_simulation_2bs_4ue_ss(self):
+        """Test simulation with 2 base stations and 4 UEs for FSS-SS scenario."""
         self.param.general.system = "FSS_SS"
 
         self.simulation = SimulationUplink(self.param, "")
@@ -230,9 +232,7 @@ class SimulationUplinkTest(unittest.TestCase):
 
         # test coupling loss method
         self.simulation.coupling_loss_imt = self.simulation.calculate_intra_imt_coupling_loss(
-            self.simulation.ue,
-            self.simulation.bs,
-        )
+            self.simulation.ue, self.simulation.bs, )
         coupling_loss_imt = np.array([
             [88.68 - 1 - 10, 99.36 - 1 - 11, 103.28 - 1 - 22, 107.06 - 1 - 23],
             [107.55 - 2 - 10, 104.73 - 2 - 11, 101.54 - 2 - 22, 92.08 - 2 - 23],
@@ -304,8 +304,26 @@ class SimulationUplinkTest(unittest.TestCase):
 
         # check BS thermal noise + interference
         total_interference = {
-            0: 10 * np.log10(np.power(10, 0.1 * rx_interference[0]) + np.power(10, 0.1 * thermal_noise)),
-            1: 10 * np.log10(np.power(10, 0.1 * rx_interference[1]) + np.power(10, 0.1 * thermal_noise)),
+            0: 10 *
+            np.log10(
+                np.power(
+                    10,
+                    0.1 *
+                    rx_interference[0]) +
+                np.power(
+                    10,
+                    0.1 *
+                    thermal_noise)),
+            1: 10 *
+            np.log10(
+                np.power(
+                    10,
+                    0.1 *
+                    rx_interference[1]) +
+                np.power(
+                    10,
+                    0.1 *
+                    thermal_noise)),
         }
         npt.assert_allclose(
             self.simulation.bs.total_interference[0],
@@ -389,6 +407,7 @@ class SimulationUplinkTest(unittest.TestCase):
         )
 
     def test_simulation_2bs_4ue_es(self):
+        """Test simulation with 2 base stations and 4 UEs for FSS-ES scenario."""
         self.param.general.system = "FSS_ES"
 
         self.simulation = SimulationUplink(self.param, "")
@@ -441,12 +460,10 @@ class SimulationUplinkTest(unittest.TestCase):
 
         # test coupling loss method
         self.simulation.coupling_loss_imt = self.simulation.calculate_intra_imt_coupling_loss(
-            self.simulation.ue,
-            self.simulation.bs,
-        )
+            self.simulation.ue, self.simulation.bs, )
 
         self.simulation.scheduler()
-        bandwidth_per_ue = math.trunc((1 - 0.1) * 100 / 2)
+        math.trunc((1 - 0.1) * 100 / 2)
         bandwidth_per_bs = math.trunc((1 - 0.1) * 100)
         self.simulation.power_control()
 
@@ -509,8 +526,26 @@ class SimulationUplinkTest(unittest.TestCase):
 
         # check BS thermal noise + interference
         total_interference = {
-            0: 10 * np.log10(np.power(10, 0.1 * rx_interference[0]) + np.power(10, 0.1 * thermal_noise)),
-            1: 10 * np.log10(np.power(10, 0.1 * rx_interference[1]) + np.power(10, 0.1 * thermal_noise)),
+            0: 10 *
+            np.log10(
+                np.power(
+                    10,
+                    0.1 *
+                    rx_interference[0]) +
+                np.power(
+                    10,
+                    0.1 *
+                    thermal_noise)),
+            1: 10 *
+            np.log10(
+                np.power(
+                    10,
+                    0.1 *
+                    rx_interference[1]) +
+                np.power(
+                    10,
+                    0.1 *
+                    thermal_noise)),
         }
         npt.assert_allclose(
             self.simulation.bs.total_interference[0],
@@ -567,7 +602,8 @@ class SimulationUplinkTest(unittest.TestCase):
         )
 
         # external interference
-        system_tx_power = -60 + 10 * math.log10(self.simulation.overlapping_bandwidth * 1e6) + 30
+        system_tx_power = -60 + 10 * \
+            math.log10(self.simulation.overlapping_bandwidth * 1e6) + 30
         ext_interference = {
             0: system_tx_power - coupling_loss_imt_system[0:2, 0],
             1: system_tx_power - coupling_loss_imt_system[2:4, 0],
@@ -657,6 +693,7 @@ class SimulationUplinkTest(unittest.TestCase):
         )
 
     def test_simulation_2bs_4ue_ras(self):
+        """Test simulation with 2 base stations and 4 UEs for RAS scenario."""
         self.param.general.system = "RAS"
 
         self.simulation = SimulationUplink(self.param, "")
@@ -709,13 +746,11 @@ class SimulationUplinkTest(unittest.TestCase):
 
         # test coupling loss method
         self.simulation.coupling_loss_imt = self.simulation.calculate_intra_imt_coupling_loss(
-            self.simulation.ue,
-            self.simulation.bs,
-        )
+            self.simulation.ue, self.simulation.bs, )
 
         self.simulation.scheduler()
         bandwidth_per_bs = math.trunc((1 - 0.1) * 100)
-        bandwidth_per_ue = math.trunc((1 - 0.1) * 100 / 2)
+        math.trunc((1 - 0.1) * 100 / 2)
         self.simulation.power_control()
 
         self.simulation.calculate_sinr()
@@ -746,7 +781,8 @@ class SimulationUplinkTest(unittest.TestCase):
         )
         self.simulation.system.x = np.array([-2000])
         self.simulation.system.y = np.array([0])
-        self.simulation.system.height = np.array([self.param.ras.geometry.height])
+        self.simulation.system.height = np.array(
+            [self.param.ras.geometry.height])
         self.simulation.system.antenna[0].effective_area = 54.9779
 
         # Test gain calculation
@@ -803,6 +839,7 @@ class SimulationUplinkTest(unittest.TestCase):
         )
 
     def test_beamforming_gains(self):
+        """Test calculation of beamforming gains in the uplink simulation."""
         self.param.general.system = "FSS_SS"
 
         self.simulation = SimulationUplink(self.param, "")
@@ -955,6 +992,7 @@ class SimulationUplinkTest(unittest.TestCase):
         npt.assert_allclose(gain, ref_gain, atol=eps)
 
     def test_calculate_imt_ul_tput(self):
+        """Test calculation of IMT uplink throughput."""
         self.param.general.system = "FSS_SS"
 
         self.simulation = SimulationUplink(self.param, "")

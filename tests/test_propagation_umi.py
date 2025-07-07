@@ -14,8 +14,10 @@ from sharc.propagation.propagation_umi import PropagationUMi
 
 
 class PropagationUMiTest(unittest.TestCase):
+    """Unit tests for the PropagationUMi class and its urban microcell propagation loss calculations."""
 
     def setUp(self):
+        """Set up test fixtures for PropagationUMi tests."""
         los_adjustment_factor = 18
         self.umi = PropagationUMi(
             np.random.RandomState(),
@@ -23,6 +25,7 @@ class PropagationUMiTest(unittest.TestCase):
         )
 
     def test_los_probability(self):
+        """Test the calculation of line-of-sight (LOS) probability for UMi scenario."""
         distance_2D = np.array([
             [10, 15, 40],
             [17, 60, 80],
@@ -41,6 +44,7 @@ class PropagationUMiTest(unittest.TestCase):
         )
 
     def test_breakpoint_distance(self):
+        """Test the calculation of breakpoint distance for UMi scenario."""
         h_bs = np.array([15, 20, 25, 30])
         h_ue = np.array([3, 4])
         h_e = np.ones((h_ue.size, h_bs.size))
@@ -55,6 +59,7 @@ class PropagationUMiTest(unittest.TestCase):
         )
 
     def test_loss_los(self):
+        """Test the calculation of LOS path loss for UMi scenario."""
         distance_2D = np.array([
             [100, 500],
             [200, 600],
@@ -110,6 +115,7 @@ class PropagationUMiTest(unittest.TestCase):
         )
 
     def test_loss_nlos(self):
+        """Test the calculation of NLOS path loss for UMi scenario."""
         distance_2D = np.array([
             [100, 500],
             [200, 600],

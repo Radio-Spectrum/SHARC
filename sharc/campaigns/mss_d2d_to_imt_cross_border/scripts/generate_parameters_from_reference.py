@@ -1,6 +1,5 @@
 """Generates scenarios based on main parameters
 """
-import numpy as np
 import yaml
 import os
 from copy import deepcopy
@@ -96,8 +95,10 @@ ul_parameters['general']['output_dir'] = \
 
 
 dl_parameters = deepcopy(ul_parameters)
-dl_parameters['general']['output_dir'] = ul_parameters['general']['output_dir'].replace("_ul", "_dl")
-dl_parameters['general']['output_dir_prefix'] = ul_parameters['general']['output_dir_prefix'].replace("_ul", "_dl")
+dl_parameters['general']['output_dir'] = ul_parameters['general']['output_dir'].replace(
+    "_ul", "_dl")
+dl_parameters['general']['output_dir_prefix'] = ul_parameters['general']['output_dir_prefix'].replace(
+    "_ul", "_dl")
 dl_parameters['general']['imt_link'] = "DOWNLINK"
 
 cell_radius = ul_parameters["mss_d2d"]["cell_radius"] / 1e3

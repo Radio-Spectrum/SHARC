@@ -12,7 +12,8 @@ start_time = time.time()
 # CONSTANTS
 EARTH_RADIUS_KM = 6378.145  # radius of the Earth, in km
 KEPLER_CONST = 398601.8  # Kepler's constant, in km^3/s^2
-EARTH_ROTATION_RATE = 2 * np.pi / (24 * 3600)  # earth's average rotation rate, in rad/s
+# earth's average rotation rate, in rad/s
+EARTH_ROTATION_RATE = 2 * np.pi / (24 * 3600)
 
 # INPUTS - NGSO SYSTEM
 
@@ -20,7 +21,9 @@ EARTH_ROTATION_RATE = 2 * np.pi / (24 * 3600)  # earth's average rotation rate, 
 Nsp = 6  # number of satellites in the orbital plane (A.4.b.4.b)
 Np = 8  # number of orbital planes (A.4.b.2)
 phasing = 7.5  # satellite phasing between planes, in degrees
-long_asc = 0  # initial longitude of ascending node of the first plane, in degrees (A.4.b.4.j)
+# initial longitude of ascending node of the first plane, in degrees
+# (A.4.b.4.j)
+long_asc = 0
 omega = 0  # argument of perigee, in degrees (A.4.b.4.i)
 delta = 52  # orbital plane inclination, in degrees (A.4.b.4.a)
 hp = 1414  # altitude of perigee in km (A.4.b.4.e)
@@ -42,14 +45,17 @@ a = (hp + ha + 2 * EARTH_RADIUS_KM) / 2  # semi-major axis, in km
 e = (ha + EARTH_RADIUS_KM - a) / a  # orbital eccentricity (e)
 P = 2 * np.pi * np.sqrt(a ** 3 / KEPLER_CONST)  # orbital period, in seconds
 beta = 360 / Nsp  # satellite separation angle in the plane (degrees)
-psi = 360 / Np  # angle between plane intersections with the equatorial plane (degrees)
+# angle between plane intersections with the equatorial plane (degrees)
+psi = 360 / Np
 
 # Initial mean anomalies for all the satellites
-M_o = (Mo + np.arange(Nsp) * beta + np.arange(Np)[:, None] * phasing) % 360  # shape (Np, Nsp)
+M_o = (Mo + np.arange(Nsp) * beta + np.arange(Np)
+       [:, None] * phasing) % 360  # shape (Np, Nsp)
 M0 = np.radians(M_o.flatten())  # shape (Np*Nsp,)
 
 # Initial longitudes of ascending node for all the planes
-Omega_o = (long_asc + np.arange(Nsp) * 0 + np.arange(Np)[:, None] * psi) % 360  # shape (Np, Nsp)
+Omega_o = (long_asc + np.arange(Nsp) * 0 + np.arange(Np)
+           [:, None] * psi) % 360  # shape (Np, Nsp)
 Omega0 = np.radians(Omega_o.flatten())  # shape (Np*Nsp,)
 
 # INPUTS - EARTH SYSTEM
@@ -110,7 +116,8 @@ def eccentric_anomaly(e, M, terms=40, mod_2pi=True):
     M_expanded = M[None, ...]  # Add a new dimension to M, for broadcasting
 
     # Calculate series sum using Bessel functions and sine terms
-    series_sum = np.sum((1 / n) * jv(n, n * e) * np.sin(n * M_expanded), axis=0)
+    series_sum = np.sum((1 / n) * jv(n, n * e) *
+                        np.sin(n * M_expanded), axis=0)
 
     # Calculate eccentric anomaly
     E = M + 2 * series_sum
@@ -152,14 +159,17 @@ def keplerian2eci(a, e, delta, Omega, omega, nu):
     omega_rad = np.radians(omega)
     nu_rad = np.radians(nu)
 
-    # Compute gamma (angle between satellite position and ascending node in the orbital plane)
+    # Compute gamma (angle between satellite position and ascending node in
+    # the orbital plane)
     gamma = (nu_rad + omega_rad) % (2 * np.pi)
 
     # Trigonometric calculations
     cos_gamma = np.cos(gamma)
     sin_gamma = np.sin(gamma)
-    cos_raan = np.cos(-Omega_rad)[:, np.newaxis]  # Shape (N, 1) for broadcasting
-    sin_raan = np.sin(-Omega_rad)[:, np.newaxis]  # Shape (N, 1) for broadcasting
+    # Shape (N, 1) for broadcasting
+    cos_raan = np.cos(-Omega_rad)[:, np.newaxis]
+    # Shape (N, 1) for broadcasting
+    sin_raan = np.sin(-Omega_rad)[:, np.newaxis]
     cos_incl = np.cos(delta_rad)
     sin_incl = np.sin(delta_rad)
 
@@ -223,7 +233,12 @@ def eci2ecef(t, r_eci):
     return r_ecef
 
 
-def plot_ground_tracks(theta_deg, phi_deg, planes=None, satellites=None, title="Satellite Ground Tracks"):
+def plot_ground_tracks(
+        theta_deg,
+        phi_deg,
+        planes=None,
+        satellites=None,
+        title="Satellite Ground Tracks"):
     """
     Plots the satellite ground tracks as points based on latitude and longitude data.
 
@@ -237,11 +252,13 @@ def plot_ground_tracks(theta_deg, phi_deg, planes=None, satellites=None, title="
         title (str): Title for the plot.
     """
     # Determine the number of planes and satellites in the data
-    num_planes = len(np.unique(planes)) if planes is not None else theta_deg.shape[0]
+    num_planes = len(
+        np.unique(planes)) if planes is not None else theta_deg.shape[0]
     num_satellites_per_plane = theta_deg.shape[0] // num_planes
 
     # Set up the plot with Cartopy
-    fig, ax = plt.subplots(figsize=(12, 8), subplot_kw={'projection': ccrs.PlateCarree()})
+    fig, ax = plt.subplots(figsize=(12, 8), subplot_kw={
+                           'projection': ccrs.PlateCarree()})
     ax.set_global()
     ax.add_feature(cfeature.COASTLINE)
     ax.add_feature(cfeature.BORDERS, linestyle=':')
@@ -263,8 +280,10 @@ def plot_ground_tracks(theta_deg, phi_deg, planes=None, satellites=None, title="
 
             # Plot the ground track points for the selected satellite
             ax.scatter(
-                phi_deg[satellite_global_idx, :], theta_deg[satellite_global_idx, :],
-                label=f'Plane {plane_idx + 1}, Satellite {sat_idx + 1}', s=1,  # Size of each point
+                phi_deg[satellite_global_idx,
+                        :], theta_deg[satellite_global_idx, :],
+                # Size of each point
+                label=f'Plane {plane_idx + 1}, Satellite {sat_idx + 1}', s=1,
                 transform=ccrs.PlateCarree()
             )
 
@@ -300,12 +319,20 @@ if __name__ == "__main__":
     phiS = np.arccos(np.cos(gamma) / np.cos(theta)) * np.sign(gamma)
 
     # Longitudes of the ascending node (OmegaG)
-    OmegaG = (Omega0[:, None] + EARTH_ROTATION_RATE * t)  # shape (Np*Nsp, len(t))
+    OmegaG = (Omega0[:, None] +
+              EARTH_ROTATION_RATE *
+              t)  # shape (Np*Nsp, len(t))
     OmegaG = wrap2pi(OmegaG)
 
     # POSITION CALCULATION IN ECEF COORDINATES - ITU-R S.1503
 
-    r_eci = keplerian2eci(a, e, delta, np.degrees(Omega0), omega, np.degrees(v))
+    r_eci = keplerian2eci(
+        a,
+        e,
+        delta,
+        np.degrees(Omega0),
+        omega,
+        np.degrees(v))
     r_ecef = eci2ecef(t, r_eci)
     sx, sy, sz = r_ecef[0], r_ecef[1], r_ecef[2]
     lat = np.degrees(np.arcsin(sz / r))
@@ -313,7 +340,19 @@ if __name__ == "__main__":
 
     # MAP
     # static map
-    plot_ground_tracks(lat, lon, planes=[1, 2, 3, 4, 5, 6, 7, 8], satellites=[1])
+    plot_ground_tracks(
+        lat,
+        lon,
+        planes=[
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8],
+        satellites=[1])
 
     # DATAFRAME WITH INITIAL DATA
     data = []
@@ -327,7 +366,8 @@ if __name__ == "__main__":
                     plane + 1,  # Plane number
                     satellite + 1,  # Satellite number
                     M_o[plane, satellite],  # Mean anomaly (M_o) in degrees
-                    Omega_o[plane, satellite],  # Longitude of ascending node (Omega_o) in degrees
+                    # Longitude of ascending node (Omega_o) in degrees
+                    Omega_o[plane, satellite],
                     r[sat_index, i],  # distance in km
                     lat[sat_index, i],  # Latitude in degrees
                     lon[sat_index, i],  # Longitude in degrees

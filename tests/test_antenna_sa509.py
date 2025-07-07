@@ -14,8 +14,10 @@ import numpy.testing as npt
 
 
 class AntennaSA509Test(unittest.TestCase):
+    """Unit tests for the AntennaSA509 class."""
 
     def setUp(self):
+        """Set up test fixtures for AntennaSA509 tests."""
         self.par = ParametersRas()
         self.par.diameter = 10
         self.par.antenna_efficiency = 1
@@ -24,6 +26,7 @@ class AntennaSA509Test(unittest.TestCase):
         self.antenna = AntennaSA509(self.par)
 
     def test_construction(self):
+        """Test construction and property calculations of AntennaSA509."""
         self.assertEqual(self.antenna.diameter, 10)
         self.assertEqual(self.antenna.efficiency, 1)
         self.assertAlmostEqual(self.antenna.wavelength, 1e-2, places=3)
@@ -37,6 +40,7 @@ class AntennaSA509Test(unittest.TestCase):
         self.assertAlmostEqual(self.antenna.phi_2, 0.14531, delta=1e-4)
 
     def test_calculate_gain(self):
+        """Test the calculate_gain method for various off-axis angles."""
         phi = np.array([0.03464, 0.05, 0.1, 10, 25, 50, 100, 150])
         ref_gain = np.array([66.943, 63.693, 49.943, 4, -5.949, -13, -8, -13])
 

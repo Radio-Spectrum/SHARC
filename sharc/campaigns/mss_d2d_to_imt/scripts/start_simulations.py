@@ -3,7 +3,8 @@ import argparse
 import subprocess
 
 # Set the campaign name
-# The name of the campaign to run. This should match the name of the campaign directory.
+# The name of the campaign to run. This should match the name of the
+# campaign directory.
 name_campaign = "mss_d2d_to_imt"
 
 # Run the campaign in single-thread mode
@@ -13,7 +14,8 @@ name_campaign = "mss_d2d_to_imt"
 # run_campaign_re(name_campaign, r'^parameters_mss_d2d_to_imt_(dl,ul)_co_channel_system_A.yaml')
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Run SHARC MSS-D2D simulations.")
+    parser = argparse.ArgumentParser(
+        description="Run SHARC MSS-D2D simulations.")
     parser.add_argument(
         "--scenario",
         type=int,

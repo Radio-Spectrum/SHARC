@@ -27,7 +27,8 @@ class PropagationUMi(Propagation):
         super().__init__(random_number_gen)
         self.los_adjustment_factor = los_adjustment_factor
 
-    @dispatch(Parameters, float, StationManager, StationManager, np.ndarray, np.ndarray)
+    @dispatch(Parameters, float, StationManager,
+              StationManager, np.ndarray, np.ndarray)
     def get_loss(
         self,
         params: Parameters,
@@ -58,12 +59,13 @@ class PropagationUMi(Propagation):
         wrap_around_enabled = False
         if params.imt.topology.type == "MACROCELL":
             wrap_around_enabled = params.imt.topology.macrocell.wrap_around \
-                                    and params.imt.topology.macrocell.num_clusters == 1
+                and params.imt.topology.macrocell.num_clusters == 1
         if params.imt.topology.type == "HOTSPOT":
             wrap_around_enabled = params.imt.topology.hotspot.wrap_around \
-                                    and params.imt.topology.hotspot.num_clusters == 1
+                and params.imt.topology.hotspot.num_clusters == 1
 
-        if wrap_around_enabled and (station_a.is_imt_station() and station_b.is_imt_station()):
+        if wrap_around_enabled and (
+                station_a.is_imt_station() and station_b.is_imt_station()):
             distance_2d, distance_3d, _, _ = \
                 station_a.get_dist_angles_wrap_around(station_b)
         else:
@@ -126,20 +128,32 @@ class PropagationUMi(Propagation):
         )
         los_condition = self.get_los_condition(los_probability)
 
-        i_los = np.where(los_condition == True)[:2]
+        i_los = np.where(los_condition)[:2]
         i_nlos = np.where(los_condition == False)[:2]
 
         loss = np.empty(distance_2D.shape)
 
         if len(i_los[0]):
             loss_los = self.get_loss_los(
-                distance_2D, distance_3D, frequency, bs_height, ue_height, h_e, shadowing_los,
+                distance_2D,
+                distance_3D,
+                frequency,
+                bs_height,
+                ue_height,
+                h_e,
+                shadowing_los,
             )
             loss[i_los] = loss_los[i_los]
 
         if len(i_nlos[0]):
             loss_nlos = self.get_loss_nlos(
-                distance_2D, distance_3D, frequency, bs_height, ue_height, h_e, shadowing_nlos,
+                distance_2D,
+                distance_3D,
+                frequency,
+                bs_height,
+                ue_height,
+                h_e,
+                shadowing_nlos,
             )
             loss[i_nlos] = loss_nlos[i_nlos]
 
@@ -189,8 +203,8 @@ class PropagationUMi(Propagation):
                     breakpoint_distance**2 +
                     (h_bs - h_ue[:, np.newaxis])**2,
                 )
-            loss[idg] = 40 * np.log10(distance_3D[idg]) + 20 * np.log10(frequency[idg]) - 27.55 \
-                + fitting_term[idg]
+            loss[idg] = 40 * np.log10(distance_3D[idg]) + 20 * \
+                np.log10(frequency[idg]) - 27.55 + fitting_term[idg]
 
         if shadowing_std:
             shadowing = self.random_number_gen.normal(
@@ -241,7 +255,12 @@ class PropagationUMi(Propagation):
 
         return loss_nlos + shadowing
 
-    def get_breakpoint_distance(self, frequency: float, h_bs: np.array, h_ue: np.array, h_e: np.array) -> float:
+    def get_breakpoint_distance(
+            self,
+            frequency: float,
+            h_bs: np.array,
+            h_ue: np.array,
+            h_e: np.array) -> float:
         """
         Calculates the breakpoint distance for the LOS (line-of-sight) case.
 
@@ -361,7 +380,15 @@ if __name__ == '__main__':
     #  1 ue x 1000 bs
     num_ue = 1
     num_bs = 1000
-    distance_2D = np.repeat(np.linspace(1, num_bs, num=num_bs)[np.newaxis, :], num_ue, axis=0)
+    distance_2D = np.repeat(
+        np.linspace(
+            1,
+            num_bs,
+            num=num_bs)[
+            np.newaxis,
+            :],
+        num_ue,
+        axis=0)
     freq = 24350 * np.ones(distance_2D.shape)
     h_bs = 6 * np.ones(num_bs)
     h_ue = 1.5 * np.ones(num_ue)

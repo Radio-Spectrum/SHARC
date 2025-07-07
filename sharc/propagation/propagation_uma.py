@@ -21,7 +21,8 @@ class PropagationUMa(Propagation):
     to 3GPP TR 38.900 v14.2.0.
     TODO: calculate the effective environment height for the generic case
     """
-    @dispatch(Parameters, float, StationManager, StationManager, np.ndarray, np.ndarray)
+    @dispatch(Parameters, float, StationManager,
+              StationManager, np.ndarray, np.ndarray)
     def get_loss(
         self,
         params: Parameters,
@@ -52,12 +53,13 @@ class PropagationUMa(Propagation):
         wrap_around_enabled = False
         if params.imt.topology.type == "MACROCELL":
             wrap_around_enabled = params.imt.topology.macrocell.wrap_around \
-                                    and params.imt.topology.macrocell.num_clusters == 1
+                and params.imt.topology.macrocell.num_clusters == 1
         if params.imt.topology.type == "HOTSPOT":
             wrap_around_enabled = params.imt.topology.hotspot.wrap_around \
-                                    and params.imt.topology.hotspot.num_clusters == 1
+                and params.imt.topology.hotspot.num_clusters == 1
 
-        if wrap_around_enabled and (station_a.is_imt_station() and station_b.is_imt_station()):
+        if wrap_around_enabled and (
+                station_a.is_imt_station() and station_b.is_imt_station()):
             distances_2d, distances_3d, _, _ = \
                 station_a.get_dist_angles_wrap_around(station_b)
         else:
@@ -73,13 +75,19 @@ class PropagationUMa(Propagation):
             params.imt.shadowing,
         )
 
-        # the interface expects station_a.num_stations x station_b.num_stations array
+        # the interface expects station_a.num_stations x station_b.num_stations
+        # array
         return loss
 
     @dispatch(np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, bool)
     def get_loss(
-        self, distance_3d: np.array, distance_2d: np.array, frequency: np.array,
-        bs_height: np.array, ue_height: np.array, shadowing: bool,
+        self,
+        distance_3d: np.array,
+        distance_2d: np.array,
+        frequency: np.array,
+        bs_height: np.array,
+        ue_height: np.array,
+        shadowing: bool,
     ) -> np.array:
         """
         Calculates path loss for LOS and NLOS cases with respective shadowing
@@ -110,20 +118,32 @@ class PropagationUMa(Propagation):
         los_probability = self.get_los_probability(distance_2d, ue_height)
         los_condition = self.get_los_condition(los_probability)
 
-        i_los = np.where(los_condition == True)[:2]
+        i_los = np.where(los_condition)[:2]
         i_nlos = np.where(los_condition == False)[:2]
 
         loss = np.empty(distance_2d.shape)
 
         if len(i_los[0]):
             loss_los = self.get_loss_los(
-                distance_2d, distance_3d, frequency, bs_height, ue_height, h_e, shadowing_los,
+                distance_2d,
+                distance_3d,
+                frequency,
+                bs_height,
+                ue_height,
+                h_e,
+                shadowing_los,
             )
             loss[i_los] = loss_los[i_los]
 
         if len(i_nlos[0]):
             loss_nlos = self.get_loss_nlos(
-                distance_2d, distance_3d, frequency, bs_height, ue_height, h_e, shadowing_nlos,
+                distance_2d,
+                distance_3d,
+                frequency,
+                bs_height,
+                ue_height,
+                h_e,
+                shadowing_nlos,
             )
             loss[i_nlos] = loss_nlos[i_nlos]
 
@@ -170,8 +190,8 @@ class PropagationUMa(Propagation):
                     breakpoint_distance**2 +
                     (h_bs - h_ue[:, np.newaxis])**2,
                 )
-            loss[idg] = 40 * np.log10(distance_3D[idg]) + 20 * np.log10(frequency[idg]) - 27.55 \
-                + fitting_term[idg]
+            loss[idg] = 40 * np.log10(distance_3D[idg]) + 20 * \
+                np.log10(frequency[idg]) - 27.55 + fitting_term[idg]
 
         if shadowing_std:
             shadowing = self.random_number_gen.normal(
@@ -220,7 +240,12 @@ class PropagationUMa(Propagation):
 
         return loss_nlos + shadowing
 
-    def get_breakpoint_distance(self, frequency: float, h_bs: np.array, h_ue: np.array, h_e: np.array) -> float:
+    def get_breakpoint_distance(
+            self,
+            frequency: float,
+            h_bs: np.array,
+            h_ue: np.array,
+            h_e: np.array) -> float:
         """
         Calculates the breakpoint distance for the LOS (line-of-sight) case.
 
@@ -262,7 +287,10 @@ class PropagationUMa(Propagation):
         ) < p_los
         return los_condition
 
-    def get_los_probability(self, distance_2D: np.array, h_ue: np.array) -> np.array:
+    def get_los_probability(
+            self,
+            distance_2D: np.array,
+            h_ue: np.array) -> np.array:
         """
         Returns the line-of-sight (LOS) probability
 
@@ -333,7 +361,15 @@ if __name__ == '__main__':
     shadowing_std = 0
     num_ue = 1
     num_bs = 1000
-    distance_2D = np.repeat(np.linspace(1, num_bs, num=num_bs)[np.newaxis, :], num_ue, axis=0)
+    distance_2D = np.repeat(
+        np.linspace(
+            1,
+            num_bs,
+            num=num_bs)[
+            np.newaxis,
+            :],
+        num_ue,
+        axis=0)
     freq = 27000 * np.ones(distance_2D.shape)
     h_bs = 6 * np.ones(num_bs)
     h_ue = 1.5 * np.ones(num_ue)
@@ -346,10 +382,9 @@ if __name__ == '__main__':
     loss_nlos = uma.get_loss_nlos(
         distance_2D, distance_3D, freq, h_bs, h_ue, h_e, shadowing_std,
     )
-    loss_fs = PropagationFreeSpace(np.random.RandomState(101)).get_free_space_loss(
-        distance=distance_2D,
-        frequency=freq,
-    )
+    loss_fs = PropagationFreeSpace(
+        np.random.RandomState(101)).get_free_space_loss(
+        distance=distance_2D, frequency=freq, )
 
     fig = plt.figure(figsize=(8, 6), facecolor='w', edgecolor='k')
     ax = fig.gca()

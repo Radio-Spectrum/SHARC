@@ -52,7 +52,8 @@ class ParametersFssEs(ParametersBase):
     # Possible values: "ITU-R S.1855", "ITU-R S.465", "ITU-R S.580", "OMNI",
     #                  "Modified ITU-R S.465"
     antenna_pattern: str = "Modified ITU-R S.465"
-    # Antenna envelope gain (dBi) - only relevant for "Modified ITU-R S.465" model
+    # Antenna envelope gain (dBi) - only relevant for "Modified ITU-R S.465"
+    # model
     antenna_envelope_gain: float = 0.0
     # Diameter of the antenna [m]
     diameter: float = 1.8
@@ -77,9 +78,11 @@ class ParametersFssEs(ParametersBase):
     delta_N: float = 43.127
     # Percentage p. Float (0 to 100) or RANDOM
     percentage_p: str = "0.2"
-    # Distance over land from the transmit and receive antennas to the coast (km)
+    # Distance over land from the transmit and receive antennas to the coast
+    # (km)
     Dct: float = 70.0
-    # Distance over land from the transmit and receive antennas to the coast (km)
+    # Distance over land from the transmit and receive antennas to the coast
+    # (km)
     Dcr: float = 70.0
     # Effective height of interfering antenna (m)
     Hte: float = 20.0
@@ -91,7 +94,8 @@ class ParametersFssEs(ParametersBase):
     rx_lat: float = -23.17889
     # Antenna polarization
     polarization: str = "horizontal"
-    # Determine whether clutter loss following ITU-R P.2108 is added (TRUE/FALSE)
+    # Determine whether clutter loss following ITU-R P.2108 is added
+    # (TRUE/FALSE)
     clutter_loss: bool = True
 
     # Parameters for the P.619 propagation model used for sharing studies between IMT-NTN and FSS-ES
@@ -174,7 +178,9 @@ class ParametersFssEs(ParametersBase):
                                 Invalid value for parameter azimuth - {self.azimuth}.
                                 Allowed values are \"RANDOM\" or a angle in degrees.""")
 
-        if isinstance(self.percentage_p, str) and self.percentage_p.upper() != "RANDOM":
+        if isinstance(
+                self.percentage_p,
+                str) and self.percentage_p.upper() != "RANDOM":
             percentage_p = float(self.percentage_p)
             if percentage_p <= 0 or percentage_p > 1:
                 raise ValueError(f"""ParametersFssEs:
@@ -191,7 +197,8 @@ class ParametersFssEs(ParametersBase):
                              Invalid value for parameter es_position - {self.es_position} \
                              Allowed values are \"BUILDINGSIDE\", \"ROOFTOP\".")
 
-        if self.bs_building_entry_loss_type not in ["P2109_RANDOM", "P2109_FIXED", "FIXED_VALUE"]:
+        if self.bs_building_entry_loss_type not in [
+                "P2109_RANDOM", "P2109_FIXED", "FIXED_VALUE"]:
             raise ValueError(f"ParametersFssEs: \
                              Invalid value for parameter bs_building_entry_loss_type - \
                              {self.bs_building_entry_loss_type} \

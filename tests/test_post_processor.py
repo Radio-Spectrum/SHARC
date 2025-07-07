@@ -6,9 +6,12 @@ from sharc.post_processor import PostProcessor
 
 
 class StationTest(unittest.TestCase):
+    """Unit tests for the PostProcessor class and its plotting methods."""
+
     def setUp(self):
+        """Set up test fixtures for PostProcessor tests."""
         self.post_processor = PostProcessor()
-        # We just prepare to write beacause Results class is not fully initialized
+        # We just prepare to write because Results class is not fully initialized
         # before preparing to read or loading from previous results
         self.results = Results().prepare_to_write(
             None,
@@ -16,11 +19,13 @@ class StationTest(unittest.TestCase):
         )
 
     def test_generate_and_add_cdf_plots_from_results(self):
+        """Test generating and adding CDF plots from results."""
         self.results.imt_coupling_loss.extend([0, 1, 2, 3, 4, 5])
         self.results.imt_dl_inr.extend([0, 1, 2, 3, 4, 5])
 
         trace_legend = "any legendd. Lorem ipsum"
-        self.post_processor.add_plot_legend_pattern(dir_name_contains="output", legend=trace_legend)
+        self.post_processor.add_plot_legend_pattern(
+            dir_name_contains="output", legend=trace_legend)
 
         self.post_processor.add_plots(
             self.post_processor.generate_cdf_plots_from_results(
@@ -29,7 +34,9 @@ class StationTest(unittest.TestCase):
         )
 
         self.assertEqual(len(self.post_processor.plots), 2)
-        self.assertEqual(self.post_processor.plots[0].data[0].name, trace_legend)
+        self.assertEqual(
+            self.post_processor.plots[0].data[0].name,
+            trace_legend)
 
 
 if __name__ == '__main__':

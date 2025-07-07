@@ -13,8 +13,10 @@ from sharc.support.enumerations import StationType
 
 
 class SpectalMaskImtTest(unittest.TestCase):
+    """Unit tests for the SpectralMaskImt class and its power calculation method."""
 
     def setUp(self):
+        """Set up test cases for different station types and masks at various frequencies."""
         # Initialize variables for 40 GHz
         sta_type = StationType.IMT_BS
         p_tx = 25.1
@@ -64,6 +66,7 @@ class SpectalMaskImtTest(unittest.TestCase):
         self.mask_bs_9GHz_30_spurious.set_mask(p_tx)
 
     def test_power_calc(self):
+        """Test power calculation for different masks and frequency/bandwidth combinations."""
         #######################################################################
         # Testing mask for 40 GHz
         #######################################################################

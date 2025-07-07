@@ -17,12 +17,17 @@ from sharc.support.enumerations import StationType
 from sharc.topology.topology_factory import TopologyFactory
 from sharc.support.sharc_geom import GeometryConverter
 from sharc.parameters.parameters import Parameters
-from sharc.station_manager import StationManager, copy_active_stations
+from sharc.station_manager import StationManager
 from sharc.results import Results
 from sharc.propagation.propagation_factory import PropagationFactory
 
 
 class Simulation(ABC, Observable):
+    """
+    Abstract base class for running a simulation in the SHARC framework.
+
+    This class manages the simulation parameters, system selection, and provides the interface for simulation execution and result handling.
+    """
 
     def __init__(self, parameters: Parameters, parameter_file: str):
         ABC.__init__(self)
@@ -65,10 +70,10 @@ class Simulation(ABC, Observable):
         self.wrap_around_enabled = False
         if self.parameters.imt.topology.type == "MACROCELL":
             self.wrap_around_enabled = self.parameters.imt.topology.macrocell.wrap_around \
-                                    and self.parameters.imt.topology.macrocell.num_clusters == 1
+                and self.parameters.imt.topology.macrocell.num_clusters == 1
         if self.parameters.imt.topology.type == "HOTSPOT":
             self.wrap_around_enabled = self.parameters.imt.topology.hotspot.wrap_around \
-                                    and self.parameters.imt.topology.hotspot.num_clusters == 1
+                and self.parameters.imt.topology.hotspot.num_clusters == 1
 
         self.co_channel = self.parameters.general.enable_cochannel
         self.adjacent_channel = self.parameters.general.enable_adjacent_channel
@@ -134,13 +139,14 @@ class Simulation(ABC, Observable):
         if self.overlapping_bandwidth < 0:
             self.overlapping_bandwidth = 0
 
-        if (self.overlapping_bandwidth == self.param_system.bandwidth and not self.parameters.imt.interfered_with) or \
-                (self.overlapping_bandwidth == self.parameters.imt.bandwidth and self.parameters.imt.interfered_with):
+        if (self.overlapping_bandwidth == self.param_system.bandwidth and not self.parameters.imt.interfered_with) or (
+                self.overlapping_bandwidth == self.parameters.imt.bandwidth and self.parameters.imt.interfered_with):
 
             self.adjacent_channel = False
 
         if not self.co_channel and not self.adjacent_channel:
-            raise ValueError("Both co_channel and adjacent_channel can't be false")
+            raise ValueError(
+                "Both co_channel and adjacent_channel can't be false")
 
         random_number_gen = np.random.RandomState(self.parameters.general.seed)
         self.propagation_imt = PropagationFactory.create_propagation(
@@ -157,14 +163,20 @@ class Simulation(ABC, Observable):
         )
 
     def add_observer_list(self, observers: list):
+        """
+        Add a list of observers to the simulation.
+
+        Args:
+            observers (list): List of observer objects to add.
+        """
         for o in observers:
             self.add_observer(o)
 
     def initialize_topology_dependant_variables(self):
         """
-        This method 'could' be called on every snapshot to re-initialize variables.
-        However, it'll probably be used to re-initialize variables only on demand,
-        when needed.
+        Initialize or re-initialize topology-dependent variables.
+
+        This method can be called on every snapshot to re-initialize variables, but is typically used on demand.
         """
         num_bs = self.topology.num_base_stations
         num_ue = num_bs * self.parameters.imt.ue.k * self.parameters.imt.ue.k_m
@@ -237,8 +249,7 @@ class Simulation(ABC, Observable):
             else:
                 raise ValueError(
                     "Polarization loss is not initialized in the system parameters. "
-                    "Please initialized it in the system parameters file."
-                )
+                    "Please initialized it in the system parameters file.")
         else:
             raise ValueError(
                 "Polarization loss is not defined in the system parameters. "
@@ -282,16 +293,20 @@ class Simulation(ABC, Observable):
         """
         # Set the frequency and other parameters for the propagation model
         if self.parameters.imt.interfered_with:
-            freq = self.param_system.frequency
+            freq = float(self.param_system.frequency)
         else:
-            freq = self.parameters.imt.frequency
+            freq = float(self.parameters.imt.frequency)
 
-        # Calculate the antenna gains of the IMT station with respect to the system's station
+        # Calculate the antenna gains of the IMT station with respect to the
+        # system's station
         if imt_station.station_type is StationType.IMT_UE:
             # define antenna gains
             gain_sys_to_imt = self.calculate_gains(system_station, imt_station)
             gain_imt_to_sys = np.transpose(
-                self.calculate_gains(imt_station, system_station, is_co_channel))
+                self.calculate_gains(
+                    imt_station,
+                    system_station,
+                    is_co_channel))
             additional_loss = self.parameters.imt.ue.ohmic_loss \
                 + self.parameters.imt.ue.body_loss \
                 + self.polarization_loss
@@ -311,7 +326,9 @@ class Simulation(ABC, Observable):
                 + self.polarization_loss
         else:
             # should never reach this line
-            return ValueError(f"Invalid IMT StationType! {imt_station.station_type}")
+            return ValueError(
+                f"Invalid IMT StationType! {
+                    imt_station.station_type}")
 
         # TODO: this performance betterment doesn't work when one of the stations is IMT_BS
         # so do something that works for it
@@ -356,8 +373,8 @@ class Simulation(ABC, Observable):
         self.imt_system_antenna_gain = gain_imt_to_sys
 
         # calculate coupling loss
-        coupling_loss = \
-            self.imt_system_path_loss - self.system_imt_antenna_gain - self.imt_system_antenna_gain + additional_loss
+        coupling_loss = self.imt_system_path_loss - self.system_imt_antenna_gain - \
+            self.imt_system_antenna_gain + additional_loss
 
         # Simulator expects imt_stations x system_stations shape
         return np.transpose(coupling_loss)
@@ -399,7 +416,8 @@ class Simulation(ABC, Observable):
             imt_ue_station, imt_bs_station,
         )
 
-        # Calculate the path loss between IMT stations. Primarly used for UL power control.
+        # Calculate the path loss between IMT stations. Primarly used for UL
+        # power control.
 
         # Note on the array dimentions for coupling loss calculations:
         # The function get_loss returns an array station_a x station_b
@@ -421,7 +439,8 @@ class Simulation(ABC, Observable):
             + self.parameters.imt.ue.body_loss
 
         # calculate coupling loss
-        coupling_loss = self.path_loss_imt - self.imt_bs_antenna_gain - self.imt_ue_antenna_gain + additional_loss
+        coupling_loss = self.path_loss_imt - self.imt_bs_antenna_gain - \
+            self.imt_ue_antenna_gain + additional_loss
 
         return coupling_loss
 
@@ -453,8 +472,7 @@ class Simulation(ABC, Observable):
             self.bs_to_ue_d_2D = self.bs.get_distance_to(self.ue)
             self.bs_to_ue_d_3D = self.bs.get_3d_distance_to(self.ue)
             self.bs_to_ue_phi, self.bs_to_ue_theta = self.bs.get_pointing_vector_to(
-                self.ue,
-            )
+                self.ue, )
 
         bs_active = np.where(self.bs.active)[0]
         for bs in bs_active:
@@ -485,7 +503,8 @@ class Simulation(ABC, Observable):
                     )
 
                     # TODO?: limit beamforming on UE as well
-                    # would make sense, but we don't have any parameters explicitly setting it
+                    # would make sense, but we don't have any parameters
+                    # explicitly setting it
 
                     # add beam to UE antennas
                     self.ue.antenna[ue].add_beam(
@@ -554,19 +573,20 @@ class Simulation(ABC, Observable):
         if station_1.station_type is StationType.IMT_BS and not station_2.is_imt_station():
             off_axis_angle = station_1.get_off_axis_angle(station_2)
             for k in station_1_active:
-                for b in range(k * self.parameters.imt.ue.k, (k + 1) * self.parameters.imt.ue.k):
-                    gains[b, station_2_active] = station_1.antenna[k].calculate_gain(
-                        phi_vec=phi[b, station_2_active],
-                        theta_vec=theta[
-                            b,
-                            station_2_active,
-                        ],
-                        beams_l=np.repeat(
-                            beams_idx[b], len(station_2_active)
-                        ),
-                        co_channel=c_channel,
-                        off_axis_angle_vec=off_axis_angle[k, station_2_active]
-                    )
+                for b in range(
+                    k * self.parameters.imt.ue.k,
+                        (k + 1) * self.parameters.imt.ue.k):
+                    gains[b,
+                          station_2_active] = station_1.antenna[k].calculate_gain(phi_vec=phi[b,
+                                                                                              station_2_active],
+                                                                                  theta_vec=theta[b,
+                                                                                                  station_2_active,
+                                                                                                  ],
+                                                                                  beams_l=np.repeat(beams_idx[b],
+                                                                                                    len(station_2_active)),
+                                                                                  co_channel=c_channel,
+                                                                                  off_axis_angle_vec=off_axis_angle[k,
+                                                                                                                    station_2_active])
 
         elif station_1.station_type is StationType.IMT_UE and not station_2.is_imt_station():
             off_axis_angle = station_1.get_off_axis_angle(station_2)
@@ -620,6 +640,18 @@ class Simulation(ABC, Observable):
         sinr_max: float,
         attenuation_factor: float,
     ) -> np.array:
+        """
+        Calculate IMT throughput based on SINR and attenuation factor.
+
+        Args:
+            sinr (np.array): Array of SINR values.
+            sinr_min (float): Minimum SINR threshold.
+            sinr_max (float): Maximum SINR threshold.
+            attenuation_factor (float): Attenuation factor for throughput calculation.
+
+        Returns:
+            np.array: Array of throughput values.
+        """
         tput_min = 0
         tput_max = attenuation_factor * \
             math.log2(1 + math.pow(10, 0.1 * sinr_max))
@@ -636,7 +668,12 @@ class Simulation(ABC, Observable):
 
         return tput
 
-    def calculate_bw_weights(self, bw_ue: np.array, fc_ue: np.array, bw_sys: float, fc_sys: float) -> np.array:
+    def calculate_bw_weights(
+            self,
+            bw_ue: np.array,
+            fc_ue: np.array,
+            bw_sys: float,
+            fc_sys: float) -> np.array:
         """
         Calculates the weight that each resource block group of IMT base stations
         will have when estimating the interference to other systems based on
@@ -667,6 +704,9 @@ class Simulation(ABC, Observable):
         return overlap
 
     def plot_scenario(self):
+        """
+        Plot the current simulation scenario, including network topology and user equipments.
+        """
         fig = plt.figure(figsize=(8, 8), facecolor='w', edgecolor='k')
         ax = fig.gca()
 

@@ -23,7 +23,11 @@ post_processor\
 
 campaign_base_dir = str((Path(__file__) / ".." / "..").resolve())
 
-many_results = Results.load_many_from_dir(os.path.join(campaign_base_dir, "output"), only_latest=True)
+many_results = Results.load_many_from_dir(
+    os.path.join(
+        campaign_base_dir,
+        "output"),
+    only_latest=True)
 
 post_processor.add_results(many_results)
 
@@ -33,11 +37,13 @@ plots = post_processor.generate_cdf_plots_from_results(
 
 post_processor.add_plots(plots)
 
-uplink_interf_samples = post_processor.get_results_by_output_dir("_UL").system_ul_interf_power
+uplink_interf_samples = post_processor.get_results_by_output_dir(
+    "_UL").system_ul_interf_power
 
 # This function aggregates IMT downlink and uplink
 aggregated_results = PostProcessor.aggregate_results(
-    dl_samples=post_processor.get_results_by_output_dir("_DL_alternative").system_dl_interf_power,
+    dl_samples=post_processor.get_results_by_output_dir(
+        "_DL_alternative").system_dl_interf_power,
     ul_samples=uplink_interf_samples,
     ul_tdd_factor=0.25,
     # SF is not exactly 3, but approx
@@ -70,14 +76,21 @@ relevant.add_trace(
 aggr_x, aggr_y = PostProcessor.cdf_from(aggregated_results)
 
 relevant.add_trace(
-    go.Scatter(x=aggr_x, y=aggr_y, mode='lines', name='Aggregate interference',),
+    go.Scatter(
+        x=aggr_x,
+        y=aggr_y,
+        mode='lines',
+        name='Aggregate interference',
+    ),
 )
 
 # TODO: put some more stuff into PostProcessor if ends up being really used
 compare_to = pandas.read_csv(
-    os.path.join(campaign_base_dir, "comparison", "Fig. 8 EESS (Passive) Sensor.csv"),
-    skiprows=1
-)
+    os.path.join(
+        campaign_base_dir,
+        "comparison",
+        "Fig. 8 EESS (Passive) Sensor.csv"),
+    skiprows=1)
 
 comp_x, comp_y = (compare_to.iloc[:, 0], compare_to.iloc[:, 1])
 # inverting given chart from P of I > x to P of I < x
@@ -86,13 +99,20 @@ comp_y = 1 - comp_y
 comp_x = comp_x + 30
 
 relevant.add_trace(
-    go.Scatter(x=comp_x, y=comp_y, mode='lines', name='Fig. 8 EESS (Passive) Sensor',),
+    go.Scatter(
+        x=comp_x,
+        y=comp_y,
+        mode='lines',
+        name='Fig. 8 EESS (Passive) Sensor',
+    ),
 )
 
 compare_to = pandas.read_csv(
-    os.path.join(campaign_base_dir, "comparison", "Fig. 15 (IMT Uplink) EESS (Passive) Sensor.csv"),
-    skiprows=1
-)
+    os.path.join(
+        campaign_base_dir,
+        "comparison",
+        "Fig. 15 (IMT Uplink) EESS (Passive) Sensor.csv"),
+    skiprows=1)
 
 comp_x, comp_y = (compare_to.iloc[:, 0], compare_to.iloc[:, 1])
 # inverting given chart from P of I > x to P of I < x
@@ -101,7 +121,12 @@ comp_y = 1 - comp_y
 comp_x = comp_x + 30
 
 relevant.add_trace(
-    go.Scatter(x=comp_x, y=comp_y, mode='lines', name='Fig. 15 (IMT Uplink) EESS (Passive) Sensor',),
+    go.Scatter(
+        x=comp_x,
+        y=comp_y,
+        mode='lines',
+        name='Fig. 15 (IMT Uplink) EESS (Passive) Sensor',
+    ),
 )
 
 relevant.show()

@@ -16,6 +16,17 @@ sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 
 
 def main(argv):
+    """
+    Run the main entry point for the SHARC command-line interface.
+
+    Parses command-line arguments, sets up logging, initializes the Model, ViewCli, and Controller,
+    connects them, and starts the simulation using the provided parameter file.
+
+    Parameters
+    ----------
+    argv : list
+        List of command-line arguments passed to the script.
+    """
     print("Welcome to SHARC!\n")
 
     param_file = ''

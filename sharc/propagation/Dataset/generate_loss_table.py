@@ -43,8 +43,9 @@ for elevation in apparent_elevation:
 output_dir = os.path.join(os.path.dirname(__file__), 'BRASILIA')
 os.makedirs(output_dir, exist_ok=True)
 output_file = os.path.join(
-    output_dir, f'{city_name}_{int(frequency_MHz)}_{int(earth_station_alt_m)}m.csv',
-)
+    output_dir, f'{city_name}_{
+        int(frequency_MHz)}_{
+            int(earth_station_alt_m)}m.csv', )
 
 with open(output_file, mode='w', newline='') as file:
     writer = csv.writer(file)

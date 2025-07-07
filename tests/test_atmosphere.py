@@ -12,11 +12,14 @@ from sharc.propagation.atmosphere import ReferenceAtmosphere
 
 
 class TestAtmosphere(unittest.TestCase):
+    """Unit tests for the ReferenceAtmosphere class."""
 
     def setUp(self):
+        """Set up test fixtures for ReferenceAtmosphere tests."""
         self.atmosphere = ReferenceAtmosphere()
 
     def test_specific_attenuation(self):
+        """Test the specific attenuation calculation against ITU-R P-676-11 benchmarks."""
         temperature = 15 + 273.15  # K
         vapour_density = 7.5  # g/m**3
         pressure_hPa = 1013.25

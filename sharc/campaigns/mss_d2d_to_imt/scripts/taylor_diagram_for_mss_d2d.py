@@ -1,7 +1,8 @@
-# Generate a Taylor diagram for the MSS D2D to IMT sharing scenario with parameters from
-# Annex 4 to Working Party 4C Chair’s Report
-# WORKING DOCUMENT ON SHARING AND COMPATIBILITY STUDIES IN RELATION TO WRC-27 AGENDA ITEM 1.13
-# Section 4.1.4
+
+"""
+Script to generate a Taylor diagram for the MSS D2D to IMT sharing scenario.
+Parameters are based on Annex 4 to Working Party 4C Chair’s Report, Section 4.1.4.
+"""
 
 import numpy as np
 import plotly.graph_objects as go
@@ -40,7 +41,13 @@ gain_rolloff_7 = antenna.calculate_gain(off_axis_angle_vec=theta_angles,
 fig = go.Figure()
 
 # Add a trace for the antenna gain
-fig.add_trace(go.Scatter(x=theta_angles, y=gain_rolloff_7 - g_max, mode='lines', name='Antenna Gain'))
+fig.add_trace(
+    go.Scatter(
+        x=theta_angles,
+        y=gain_rolloff_7 -
+        g_max,
+        mode='lines',
+        name='Antenna Gain'))
 # Limit the y-axis from 0 to 35 dBi
 fig.update_yaxes(range=[-20 - g_max, 2])
 fig.update_xaxes(range=[0, 90])

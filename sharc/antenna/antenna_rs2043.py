@@ -18,10 +18,24 @@ class AntennaRS2043(object):
     """
 
     def calculate_gain(self, **kwargs) -> np.array:
+        """
+        Calculate the total antenna gain for given off-axis and elevation angles.
+
+        Parameters
+        ----------
+        **kwargs : dict
+            Keyword arguments containing:
+                - off_axis_angle_vec: azimuth angles (degrees)
+                - theta_vec: elevation angles (degrees)
+
+        Returns
+        -------
+        np.array
+            Total gain (azimuth + elevation) for the given directions.
+        """
         phi = np.asarray(kwargs["off_axis_angle_vec"])
         theta = np.asarray(kwargs["theta_vec"])
         gain = self.get_gain_az(phi) + self.get_gain_el(theta)
-
         return gain
 
     def get_gain_az(self, phi: np.array) -> np.array:

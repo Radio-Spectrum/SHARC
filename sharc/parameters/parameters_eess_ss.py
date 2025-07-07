@@ -59,8 +59,8 @@ class ParametersEessSS(ParametersSpaceStation):
     earth_station_long_diff_deg: float = 0.0
     season: str = "SUMMER"
 
-    ########### Creates a statistical distribution of nadir angle###############
-    ############## following variables nadir_angle_distribution#################
+    ########### Creates a statistical distribution of nadir angle#############
+    ############## following variables nadir_angle_distribution###############
     # if distribution_enable = ON, nadir_angle will vary statistically#########
     # if distribution_enable = OFF, nadir_angle follow nadir_angle variable ###
     # distribution_type = UNIFORM
@@ -99,12 +99,15 @@ class ParametersEessSS(ParametersSpaceStation):
             "ITU-R RS.1861 9b", "ITU-R RS.1861 9c",
             "ITU-R RS.2043", "OMNI",
         ]:
-            raise ValueError(f"Invalid antenna_pattern: {self.antenna_pattern}")
+            raise ValueError(
+                f"Invalid antenna_pattern: {
+                    self.antenna_pattern}")
 
         if self.antenna_pattern == "ITU-R RS.2043" and \
                 (self.frequency <= 9000.0 or self.frequency >= 10999.0):
             raise ValueError(
-                f"Frequency {self.frequency} MHz is not in the range for antenna pattern \"ITU-R RS.2043\"",
+                f"Frequency {
+                    self.frequency} MHz is not in the range for antenna pattern \"ITU-R RS.2043\"",
             )
 
         # Check channel model

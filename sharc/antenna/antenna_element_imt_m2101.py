@@ -52,7 +52,8 @@ class AntennaElementImtM2101(object):
         -------
             a_h (np.array): horizontal radiation pattern gain value
         """
-        return -1.0 * np.minimum(self.multiplication_factor * (phi / self.phi_3db)**2, self.am)
+        return -1.0 * np.minimum(self.multiplication_factor *
+                                 (phi / self.phi_3db)**2, self.am)
 
     def vertical_pattern(self, theta: np.array) -> np.array:
         """
@@ -66,7 +67,8 @@ class AntennaElementImtM2101(object):
         -------
             a_v (np.array): vertical radiation pattern gain value
         """
-        return -1.0 * np.minimum(self.multiplication_factor * ((theta - 90.0) / self.theta_3db)**2, self.sla_v)
+        return -1.0 * np.minimum(self.multiplication_factor *
+                                 ((theta - 90.0) / self.theta_3db)**2, self.sla_v)
 
     def element_pattern(self, phi: np.array, theta: np.array) -> np.array:
         """

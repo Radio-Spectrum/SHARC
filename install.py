@@ -6,6 +6,14 @@ import platform
 
 
 def run_command(command, shell=False):
+    """Run a shell command.
+
+    Args:
+        command (list or str): The command to execute.
+        shell (bool): Whether to use the shell.
+    Raises:
+        SystemExit: If the command fails.
+    """
     try:
         subprocess.check_call(command, shell=shell)
     except subprocess.CalledProcessError as e:
@@ -14,6 +22,7 @@ def run_command(command, shell=False):
 
 
 def main():
+    """Run the installer script main entry point."""
     if int("".join(sys.version.split(" ")[0].split("."))) > 3120:
         print("- Compatible Python version successfully recognized, starting installation process...")
         start_install()
@@ -22,6 +31,7 @@ def main():
 
 
 def start_install():
+    """Start the SHARC installation process."""
     print("- SHARC Installer Starting...")
 
     # Set up path

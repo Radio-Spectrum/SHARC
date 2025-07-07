@@ -25,6 +25,7 @@ from sharc.propagation.propagation_hdfss import PropagationHDFSS
 
 
 class PropagationFactory(object):
+    """Factory class for creating propagation model objects based on the specified channel model."""
 
     @staticmethod
     def create_propagation(
@@ -33,28 +34,28 @@ class PropagationFactory(object):
         param_system: ParametersBase,
         random_number_gen: rnd.RandomState,
     ) -> Propagation:
-        """Creates a propagation model object
+        """Create and return a propagation model object.
 
         Parameters
         ----------
         channel_model : str
-            The channel model
+            The channel model.
         param : Parameters
-            The simulation paramters.
+            The simulation parameters.
         param_system : ParametersBase
-            Specific system paramters. It can be either ParametersIMT or other system parameters.
+            Specific system parameters. It can be either ParametersIMT or other system parameters.
         random_number_gen : rnd.RandomState
-            Random number generator
+            Random number generator.
 
         Returns
         -------
         Propagation
-            Propagation object
+            Propagation object.
 
         Raises
         ------
         ValueError
-            Raises ValueError if the channel model is not implemented.
+            If the channel model is not implemented.
         """
         if channel_model == "FSPL":
             return PropagationFreeSpace(random_number_gen)
@@ -63,7 +64,9 @@ class PropagationFactory(object):
         elif channel_model == "UMa":
             return PropagationUMa(random_number_gen)
         elif channel_model == "UMi":
-            return PropagationUMi(random_number_gen, param.imt.los_adjustment_factor)
+            return PropagationUMi(
+                random_number_gen,
+                param.imt.los_adjustment_factor)
         elif channel_model == "SatelliteSimple":
             return PropagationSatSimple(random_number_gen)
         elif channel_model == "TerrestrialSimple":
@@ -72,8 +75,8 @@ class PropagationFactory(object):
             if isinstance(param_system, ParametersImt):
                 if param_system.topology.type != "NTN":
                     raise ValueError(
-                        f"PropagationFactory: Channel model P.619 is invalid for topolgy {param.imt.topology.type}",
-                    )
+                        f"PropagationFactory: Channel model P.619 is invalid for topolgy {
+                            param.imt.topology.type}", )
             else:
                 # P.619 model is used only for space-to-earth links
                 if param.imt.topology.type != "NTN" and not param_system.is_space_to_earth:
@@ -91,7 +94,8 @@ class PropagationFactory(object):
                 season=param_system.season,
             )
         elif channel_model == "P452":
-            return PropagationClearAir(random_number_gen, param_system.param_p452)
+            return PropagationClearAir(
+                random_number_gen, param_system.param_p452)
         elif channel_model == "TVRO-URBAN":
             return PropagationTvro(random_number_gen, "URBAN")
         elif channel_model == "TVRO-SUBURBAN":
@@ -101,7 +105,8 @@ class PropagationFactory(object):
                 # TODO: use param_hdfss in fss_es as well
                 return PropagationHDFSS(param.fss_es, random_number_gen)
             else:
-                return PropagationHDFSS(param_system.param_hdfss, random_number_gen)
+                return PropagationHDFSS(
+                    param_system.param_hdfss, random_number_gen)
         elif channel_model == "INDOOR":
             return PropagationIndoor(
                 random_number_gen,

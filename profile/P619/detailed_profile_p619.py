@@ -38,6 +38,11 @@ propagation = PropagationP619(random_number_gen=random_number_gen,
 
 
 def profile_get_atmospheric_gasses_loss():
+    """Calculate atmospheric gasses loss for each elevation in apparent_elevation.
+
+    Returns:
+        list: Loss values for each elevation.
+    """
     losses = []
     for elevation in apparent_elevation:
         loss = propagation._get_atmospheric_gasses_loss(frequency_MHz=frequency_MHz,

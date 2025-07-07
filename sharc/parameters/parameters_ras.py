@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 from dataclasses import dataclass
-import numpy as np
 
 from sharc.parameters.parameters_single_earth_station import ParametersSingleEarthStation
 

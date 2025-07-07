@@ -42,6 +42,22 @@ class AntennaS672(Antenna):
             np.power(10, (self.peak_gain + self.l_s + 20) / 25)
 
     def calculate_gain(self, *args, **kwargs) -> np.array:
+        """
+        Calculate the antenna gain for given off-axis angles using the S.672 model.
+
+        Parameters
+        ----------
+        *args : tuple
+            Positional arguments (unused).
+        **kwargs : dict
+            Keyword arguments containing:
+                - off_axis_angle_vec: off-axis angles (degrees)
+
+        Returns
+        -------
+        np.array
+            Calculated gain values for the given angles.
+        """
         psi = np.absolute(kwargs["off_axis_angle_vec"])
 
         gain = np.zeros(len(psi))

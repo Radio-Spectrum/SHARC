@@ -22,7 +22,10 @@ class PropagationHDFSS(Propagation):
     This is a compoposition of HDFSS Rooftop and Indoor models using during simulation run-time.
     """
 
-    def __init__(self, param: ParametersFssEs, rnd_num_gen: np.random.RandomState):
+    def __init__(
+            self,
+            param: ParametersFssEs,
+            rnd_num_gen: np.random.RandomState):
         super().__init__(rnd_num_gen)
 
         if param.es_position == "ROOFTOP":

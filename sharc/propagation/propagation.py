@@ -19,7 +19,8 @@ class Propagation(ABC):
 
     def __init__(self, random_number_gen: np.random.RandomState):
         self.random_number_gen = random_number_gen
-        # Inicates whether this propagation model is for links between earth and space
+        # Inicates whether this propagation model is for links between earth
+        # and space
         self.is_earth_space_model = False
 
     @abstractmethod

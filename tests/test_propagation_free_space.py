@@ -13,11 +13,14 @@ from sharc.propagation.propagation_free_space import PropagationFreeSpace
 
 
 class PropagationFreeSpaceTest(unittest.TestCase):
+    """Unit tests for the PropagationFreeSpace class and its free space loss calculations."""
 
     def setUp(self):
+        """Set up test fixtures for PropagationFreeSpace tests."""
         self.freeSpace = PropagationFreeSpace(np.random.RandomState())
 
     def test_loss(self):
+        """Test the get_loss method for various distances and frequencies."""
         d = np.array([10])
         f = np.array([10])
         loss = self.freeSpace.get_loss(d, f)

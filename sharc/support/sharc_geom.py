@@ -5,29 +5,28 @@ import pyproj
 import scipy.spatial.transform
 import typing
 
-from sharc.satellite.utils.sat_utils import lla2ecef, ecef2lla
+from sharc.satellite.utils.sat_utils import lla2ecef
 from sharc.station_manager import StationManager
 from sharc.support.sharc_utils import to_scalar
-from sharc.satellite.ngso.constants import EARTH_RADIUS_M
+from sharc.satellite.ngso.constants import EARTH_RADIUS_M, EARTH_DEFAULT_CRS, EARTH_SPHERICAL_CRS
 
 
 def cartesian_to_polar(x: np.ndarray, y: np.ndarray, z: np.ndarray) -> tuple:
-    """
-    Converts cartesian coordinates to polar coordinates.
+    """Convert cartesian coordinates to polar coordinates (range, azimuth, elevation).
 
     Parameters
     ----------
     x : np.ndarray
-        x coordinate in meters
+        X coordinate(s) in meters.
     y : np.ndarray
-        y coordinate in meters
+        Y coordinate(s) in meters.
     z : np.ndarray
-        z coordinate in meters
+        Z coordinate(s) in meters.
 
     Returns
     -------
     tuple
-        range, azimuth and elevation in meters, degrees and degrees
+        Tuple of (range, azimuth in degrees, elevation in degrees).
     """
     # range calculation
     r = np.sqrt(x**2 + y**2 + z**2)
@@ -41,23 +40,25 @@ def cartesian_to_polar(x: np.ndarray, y: np.ndarray, z: np.ndarray) -> tuple:
     return r, np.degrees(azimuth), np.degrees(elevation)
 
 
-def polar_to_cartesian(r: np.ndarray, azimuth: np.ndarray, elevation: np.ndarray) -> tuple:
-    """
-    Converts polar coordinates to cartesian coordinates.
+def polar_to_cartesian(
+        r: np.ndarray,
+        azimuth: np.ndarray,
+        elevation: np.ndarray) -> tuple:
+    """Convert polar coordinates to cartesian coordinates.
 
     Parameters
     ----------
     r : np.ndarray
-        range in meters
+        Range in meters.
     azimuth : np.ndarray
-        azimuth in degrees
+        Azimuth in degrees.
     elevation : np.ndarray
-        elevation in degrees
+        Elevation in degrees.
 
     Returns
     -------
     tuple
-        x, y and z coordinates in meters
+        x, y, and z coordinates in meters.
     """
     azimuth = np.radians(azimuth)
     elevation = np.radians(elevation)
@@ -69,9 +70,21 @@ def polar_to_cartesian(r: np.ndarray, azimuth: np.ndarray, elevation: np.ndarray
 
 
 def get_rotation_matrix(around_z, around_y):
-    """
-    Rotates with the right hand rule around the z axis (similar to simulator azimuth)
-    and with the right hand rule around the y axis (similar to simulator elevation)
+    """Return rotation matrix for right-hand rule around z and y axes.
+
+    Rotates with the right-hand rule around the z axis (azimuth) and y axis (elevation).
+
+    Parameters
+    ----------
+    around_z : float
+        Angle in degrees to rotate around the z axis (azimuth).
+    around_y : float
+        Angle in degrees to rotate around the y axis (elevation).
+
+    Returns
+    -------
+    np.matrix
+        The combined rotation matrix.
     """
     alpha = np.deg2rad(around_z)
     beta = np.deg2rad(around_y)
@@ -91,26 +104,37 @@ def get_rotation_matrix(around_z, around_y):
 
 
 def rotate_angles_based_on_new_nadir(elev, azim, nadir_elev, nadir_azim):
-    """
-    Receives elevation and azimuth 2d, rotates around base
-    so that base_elev <> 0deg and base_azim <> 0deg
-    elevation being 0 at horizon (xy plane) and azimuth 0 at x axis
+    """Rotate elevation and azimuth so that base_elev and base_azim are at 0 deg.
+
+    Receives elevation and azimuth arrays, rotates around base so that base_elev and base_azim are at 0 deg,
+    with elevation being 0 at the horizon (xy plane) and azimuth 0 at the x axis.
+
+    Parameters
+    ----------
+    elev : array-like
+        Elevation angles in degrees.
+    azim : array-like
+        Azimuth angles in degrees.
+    nadir_elev : float
+        Reference elevation (nadir) in degrees.
+    nadir_azim : float
+        Reference azimuth (nadir) in degrees.
 
     Returns
-    ------
-        elevation, azimuth
-        (xy plane elevation)
+    -------
+    tuple
+        Rotated elevation and azimuth arrays (xy plane elevation).
     """
     # translating to normal polar coordinate system, with theta being angle from z axis
     # and phi being angle from x axis in the xy plane
     nadir_theta = 90 - nadir_elev
     nadir_phi = nadir_azim
 
-    nadir_point = np.matrix([
-        np.sin(np.deg2rad(nadir_theta)) * np.cos(np.deg2rad(nadir_phi)),
-        np.sin(np.deg2rad(nadir_theta)) * np.sin(np.deg2rad(nadir_phi)),
-        np.cos(np.deg2rad(nadir_theta)),
-    ])
+    # nadir_point = np.matrix([
+    #     np.sin(np.deg2rad(nadir_theta)) * np.cos(np.deg2rad(nadir_phi)),
+    #     np.sin(np.deg2rad(nadir_theta)) * np.sin(np.deg2rad(nadir_phi)),
+    #     np.cos(np.deg2rad(nadir_theta)),
+    # ])
     # first rotate around y axis nadir_theta-180 to reach new theta
     # since nadir_theta in (0,180), rotation will end up to azimuth=0
     # so we rotate it around z axis nadir_phi
@@ -153,11 +177,13 @@ def rotate_angles_based_on_new_nadir(elev, azim, nadir_elev, nadir_azim):
 # just need to change ecef2lla and lla2ecef implementations
 # TODO: refactor class and method names
 class GeometryConverter():
+    """Class for transforming coordinates to local ENU using a reference lat, lon, alt.
+
+    This class receives a reference lat, lon, alt and may transform other coordinate types to local ENU.
     """
-    This class receives a reference lat, lon, alt and may transform other coordinate types
-    to local ENU
-    """
+
     def __init__(self):
+        """Initialize GeometryConverter with unset reference coordinates."""
         # geodesical
         self.ref_lat = None
         self.ref_long = None
@@ -173,17 +199,47 @@ class GeometryConverter():
         self.rotation = None
 
     def get_translation(self):
+        """Return the translation value for the reference altitude and Earth's radius."""
+        """Return the translation value for the reference altitude.
+
+        Returns
+        -------
+        float
+            The sum of the reference altitude and Earth's radius in meters.
+        """
         return self.ref_alt + EARTH_RADIUS_M
 
     def validate(self):
+        """Validate that the reference coordinates for transformation are set."""
+        """Validate that the reference for coordinate transformation is set.
+
+        Raises
+        ------
+        ValueError
+            If the reference latitude, longitude, or altitude is not set.
+        """
         if None in [self.ref_lat, self.ref_long, self.ref_alt]:
-            raise ValueError("You need to set a reference for coordinate transformation before using it")
+            raise ValueError(
+                "You need to set a reference for coordinate transformation before using it")
 
     def set_reference(self, ref_lat: float, ref_long: float, ref_alt: float):
+        """Set the reference latitude, longitude, and altitude for coordinate transformation."""
+        """Set the reference latitude, longitude, and altitude for coordinate transformation.
+
+        Parameters
+        ----------
+        ref_lat : float
+            Reference latitude in degrees.
+        ref_long : float
+            Reference longitude in degrees.
+        ref_alt : float
+            Reference altitude in meters.
+        """
         self.ref_lat = to_scalar(ref_lat)
         self.ref_long = to_scalar(ref_long)
         self.ref_alt = to_scalar(ref_alt)
-        ref_x, ref_y, ref_z = lla2ecef(self.ref_lat, self.ref_long, self.ref_alt)
+        ref_x, ref_y, ref_z = lla2ecef(
+            self.ref_lat, self.ref_long, self.ref_alt)
         self.ref_x = to_scalar(ref_x)
         self.ref_y = to_scalar(ref_y)
         self.ref_z = to_scalar(ref_z)
@@ -227,9 +283,21 @@ class GeometryConverter():
     def convert_cartesian_to_transformed_cartesian(
         self, x, y, z, *, translate=None
     ):
-        """
-        Transforms points by the same transformation required to bring reference to (0,0,0)
-        You can only rotate by specifying translate=0
+        """Transform points by the same transformation required to bring reference to (0,0,0).
+
+        You can only rotate by specifying translate=0.
+
+        Parameters
+        ----------
+        x, y, z : array-like
+            Cartesian coordinates to transform.
+        translate : array-like or None, optional
+            Translation vector to use (default: use reference translation).
+
+        Returns
+        -------
+        np.ndarray
+            Transformed coordinates.
         """
         self.validate()
 
@@ -249,10 +317,22 @@ class GeometryConverter():
     def revert_transformed_cartesian_to_cartesian(
         self, x2, y2, z2, *, translate=None
     ):
-        """
-        Reverses transformed points by the same transformation required to bring reference to (0,0,0)
+        """Reverse transformed points by the same transformation required to bring reference to (0,0,0).
+
         You can only rotate by specifying translate=0. You need to use the same 'translate' value used
-        in transformation if you wish to reverse the transformation correctly
+        in transformation if you wish to reverse the transformation correctly.
+
+        Parameters
+        ----------
+        x2, y2, z2 : array-like
+            Transformed cartesian coordinates to revert.
+        translate : array-like or None, optional
+            Translation vector to use (default: use reference translation).
+
+        Returns
+        -------
+        np.ndarray
+            Reverted coordinates.
         """
         self.validate()
 
@@ -273,10 +353,24 @@ class GeometryConverter():
     def convert_lla_to_transformed_cartesian(
         self, lat: np.array, long: np.array, alt: np.array
     ):
-        """
-        You cannot transform this back to lla and expect something useful...
+        """Convert latitude, longitude, altitude to transformed cartesian coordinates.
+
         This rotates and translates every point considering the reference that was set
-        and a geodesical coordinate system
+        and a geodesical coordinate system.
+
+        Parameters
+        ----------
+        lat : np.array
+            Latitude values.
+        long : np.array
+            Longitude values.
+        alt : np.array
+            Altitude values.
+
+        Returns
+        -------
+        np.ndarray
+            Transformed cartesian coordinates.
         """
         # get cartesian position by geodesical
         x, y, z = lla2ecef(lat, long, alt)
@@ -286,18 +380,25 @@ class GeometryConverter():
     def convert_station_3d_to_2d(
         self, station: StationManager, idx=None
     ) -> None:
-        """
-        In place rotate and translate all coordinates so that reference parameters end up in (0,0,0)
-        and stations end up in same relative position according to each other,
-        adapting their angles to the rotation.
+        """In-place rotate and translate all coordinates so that reference parameters end up in (0,0,0).
 
-        if idx is specified, only stations[idx] will be converted
+        Stations end up in the same relative position according to each other, adapting their angles to the rotation.
+        If idx is specified, only stations[idx] will be converted.
+
+        Parameters
+        ----------
+        station : StationManager
+            The station manager whose stations will be transformed.
+        idx : array-like or None, optional
+            Indices of stations to convert (default: all).
         """
         # transform positions
         if idx is None:
-            nx, ny, nz = self.convert_cartesian_to_transformed_cartesian(station.x, station.y, station.z)
+            nx, ny, nz = self.convert_cartesian_to_transformed_cartesian(
+                station.x, station.y, station.z)
         else:
-            nx, ny, nz = self.convert_cartesian_to_transformed_cartesian(station.x[idx], station.y[idx], station.z[idx])
+            nx, ny, nz = self.convert_cartesian_to_transformed_cartesian(
+                station.x[idx], station.y[idx], station.z[idx])
 
         if idx is None:
             azim = station.azimuth
@@ -308,25 +409,28 @@ class GeometryConverter():
 
         r = 1
         # then get pointing vec
-        pointing_vec_x, pointing_vec_y, pointing_vec_z = polar_to_cartesian(r, azim, elev)
+        pointing_vec_x, pointing_vec_y, pointing_vec_z = polar_to_cartesian(
+            r, azim, elev)
 
-        # transform pointing vectors, without considering geodesical earth coord system
+        # transform pointing vectors, without considering geodesical earth
+        # coord system
         pointing_vec_x, pointing_vec_y, pointing_vec_z = self.convert_cartesian_to_transformed_cartesian(
-            pointing_vec_x, pointing_vec_y, pointing_vec_z, translate=0
-        )
+            pointing_vec_x, pointing_vec_y, pointing_vec_z, translate=0)
 
         if idx is None:
             station.x = nx
             station.y = ny
             station.z = nz
 
-            _, station.azimuth, station.elevation = cartesian_to_polar(pointing_vec_x, pointing_vec_y, pointing_vec_z)
+            _, station.azimuth, station.elevation = cartesian_to_polar(
+                pointing_vec_x, pointing_vec_y, pointing_vec_z)
         else:
             station.x[idx] = nx
             station.y[idx] = ny
             station.z[idx] = nz
 
-            _, azimuth, elevation = cartesian_to_polar(pointing_vec_x, pointing_vec_y, pointing_vec_z)
+            _, azimuth, elevation = cartesian_to_polar(
+                pointing_vec_x, pointing_vec_y, pointing_vec_z)
 
             station.azimuth[idx] = azimuth
             station.elevation[idx] = elevation
@@ -334,18 +438,25 @@ class GeometryConverter():
     def revert_station_2d_to_3d(
         self, station: StationManager, idx=None
     ) -> None:
-        """
-        In place rotate and translate all coordinates so that reference parameters end up in (0,0,0)
-        and stations end up in same relative position according to each other,
-        adapting their angles to the rotation.
+        """In-place rotate and translate all coordinates so that reference parameters end up in (0,0,0).
 
-        if idx is specified, only stations[idx] will be converted
+        Stations end up in the same relative position according to each other, adapting their angles to the rotation.
+        If idx is specified, only stations[idx] will be converted.
+
+        Parameters
+        ----------
+        station : StationManager
+            The station manager whose stations will be transformed.
+        idx : array-like or None, optional
+            Indices of stations to convert (default: all).
         """
         # transform positions
         if idx is None:
-            nx, ny, nz = self.revert_transformed_cartesian_to_cartesian(station.x, station.y, station.z)
+            nx, ny, nz = self.revert_transformed_cartesian_to_cartesian(
+                station.x, station.y, station.z)
         else:
-            nx, ny, nz = self.revert_transformed_cartesian_to_cartesian(station.x[idx], station.y[idx], station.z[idx])
+            nx, ny, nz = self.revert_transformed_cartesian_to_cartesian(
+                station.x[idx], station.y[idx], station.z[idx])
 
         if idx is None:
             azim = station.azimuth
@@ -356,50 +467,81 @@ class GeometryConverter():
 
         r = 1
         # then get pointing vec
-        pointing_vec_x, pointing_vec_y, pointing_vec_z = polar_to_cartesian(r, azim, elev)
+        pointing_vec_x, pointing_vec_y, pointing_vec_z = polar_to_cartesian(
+            r, azim, elev)
 
-        # transform pointing vectors, without considering geodesical earth coord system
+        # transform pointing vectors, without considering geodesical earth
+        # coord system
         pointing_vec_x, pointing_vec_y, pointing_vec_z = self.revert_transformed_cartesian_to_cartesian(
-            pointing_vec_x, pointing_vec_y, pointing_vec_z, translate=0
-        )
+            pointing_vec_x, pointing_vec_y, pointing_vec_z, translate=0)
 
         if idx is None:
             station.x = nx
             station.y = ny
             station.z = nz
 
-            _, station.azimuth, station.elevation = cartesian_to_polar(pointing_vec_x, pointing_vec_y, pointing_vec_z)
+            _, station.azimuth, station.elevation = cartesian_to_polar(
+                pointing_vec_x, pointing_vec_y, pointing_vec_z)
         else:
             station.x[idx] = nx
             station.y[idx] = ny
             station.z[idx] = nz
 
-            _, azimuth, elevation = cartesian_to_polar(pointing_vec_x, pointing_vec_y, pointing_vec_z)
+            _, azimuth, elevation = cartesian_to_polar(
+                pointing_vec_x, pointing_vec_y, pointing_vec_z)
 
             station.azimuth[idx] = azimuth
             station.elevation[idx] = elevation
 
 
 def get_lambert_equal_area_crs(polygon: shp.geometry.Polygon):
+    """Return a Lambert Azimuthal Equal Area CRS centered on the polygon centroid.
+
+    Parameters
+    ----------
+    polygon : shp.geometry.Polygon
+        Polygon to center the projection on.
+
+    Returns
+    -------
+    pyproj.CRS
+        Lambert Azimuthal Equal Area CRS.
+    """
+    if EARTH_DEFAULT_CRS == "EPSG:4326":
+        datum = "+datum=WGS84"
+    elif EARTH_DEFAULT_CRS == EARTH_SPHERICAL_CRS:
+        datum = f"+a={EARTH_RADIUS_M} +b={EARTH_RADIUS_M}"
     centroid = polygon.centroid
     return pyproj.CRS.from_user_input(
-        f"+proj=laea +lat_0={centroid.y} +lon_0={centroid.x} +x_0=0 +y_0=0 +datum=WGS84 +units=m +no_defs"
+        f"+proj=laea +lat_0={centroid.y} +lon_0={centroid.x} +x_0=0 +y_0=0 {datum} +units=m +no_defs"
     )
 
 
 def shrink_country_polygon_by_km(
     polygon: shp.geometry.Polygon, km: float
 ) -> shp.geometry.Polygon:
-    """
-    Projects a Polygon in "EPSG:4326" to Lambert Azimuthal Equal Area projection,
-    shrinks the polygon by x km,
-    projects the polygon back to EPSG:4326.
+    """Project a Polygon to Lambert Azimuthal Equal Area, shrink by km, and reproject back.
 
-    Hint:
-        Check for polygon validity after transformation:
+    Projects a Polygon in EARTH_DEFAULT_CRS to Lambert Azimuthal Equal Area projection,
+    shrinks the polygon by x km, and projects the polygon back to EARTH_DEFAULT_CRS.
+
+    Parameters
+    ----------
+    polygon : shp.geometry.Polygon
+        Polygon to shrink.
+    km : float
+        Number of kilometers to shrink the polygon by.
+
+    Returns
+    -------
+    shp.geometry.Polygon
+        The shrunken polygon in EARTH_DEFAULT_CRS.
+
+    Notes
+    -----
+    Check for polygon validity after transformation:
         if poly.is_valid: raise Exception("bad polygon")
         if not poly.is_empty and poly.area > 0: continue # ignore
-        ...
     """
     # Lambert is more precise, but could prob. get UTM projection
     # Didn't see any practical difference for current use cases
@@ -407,8 +549,10 @@ def shrink_country_polygon_by_km(
 
     # Create transformer objects
     # NOTE: important always_xy=True to not mix lat lon up order
-    to_proj = pyproj.Transformer.from_crs("EPSG:4326", proj_crs, always_xy=True).transform
-    from_proj = pyproj.Transformer.from_crs(proj_crs, "EPSG:4326", always_xy=True).transform
+    to_proj = pyproj.Transformer.from_crs(
+        EARTH_DEFAULT_CRS, proj_crs, always_xy=True).transform
+    from_proj = pyproj.Transformer.from_crs(
+        proj_crs, EARTH_DEFAULT_CRS, always_xy=True).transform
 
     # Transform to projection where unit is meters
     polygon_proj = shp.ops.transform(to_proj, polygon)
@@ -416,7 +560,7 @@ def shrink_country_polygon_by_km(
     # Shrink (negative buffer in meters)
     polygon_proj_shrunk = polygon_proj.buffer(-km * 1000)
 
-    # Return to EPSG:4326
+    # Return to EARTH_DEFAULT_CRS
     return shp.ops.transform(from_proj, polygon_proj_shrunk)
 
 
@@ -424,9 +568,19 @@ def shrink_countries_by_km(
     countries: list[shp.geometry.MultiPolygon],
     km: float
 ) -> list[shp.geometry.MultiPolygon]:
-    """
-    Receives a MultiPolygon containing multiple countries
-    and diminishes
+    """Shrink all countries in a list of MultiPolygons by a given number of kilometers.
+
+    Parameters
+    ----------
+    countries : list of shp.geometry.MultiPolygon
+        List of country polygons to shrink.
+    km : float
+        Number of kilometers to shrink each country by.
+
+    Returns
+    -------
+    list of shp.geometry.MultiPolygon
+        List of shrunken country polygons.
     """
     polys = []
 
@@ -455,25 +609,37 @@ def generate_grid_in_polygon(
     polygon: shp.geometry.Polygon,
     hexagon_radius: float,
 ):
-    """
-    Projects a Polygon in "EPSG:4326" to Lambert Azimuthal Equal Area projection,
-    creates a hexagonal grid inside the polygon,
-    where the points are in the heaxagon center,
-    projects the points back to EPSG:4326.
-    Returns:
-        np.array with dimension 2 x N,
-        with lon's along 1st dimension and lat's along 2nd
+    """Generate a hexagonal grid inside a polygon and return points in EARTH_DEFAULT_CRS.
+
+    Projects a Polygon in EARTH_DEFAULT_CRS to Lambert Azimuthal Equal Area projection,
+    creates a hexagonal grid inside the polygon, where the points are in the hexagon center,
+    and projects the points back to EARTH_DEFAULT_CRS.
+
+    Parameters
+    ----------
+    polygon : shp.geometry.Polygon
+        Polygon to fill with a grid.
+    hexagon_radius : float
+        Radius of the hexagons in the grid (in meters).
+
+    Returns
+    -------
+    np.ndarray
+        Array with shape (2, N): longitude in first row, latitude in second row.
     """
     if hexagon_radius < 0:
-        raise ValueError("generate_grid_in_polygon.hexagon radius must be positive")
+        raise ValueError(
+            "generate_grid_in_polygon.hexagon radius must be positive")
     # Lambert is more precise, but could prob. get UTM projection
     # Didn't see any practical difference for current use cases
     proj_crs = get_lambert_equal_area_crs(polygon)
 
     # Create transformer objects
     # NOTE: important always_xy=True to not mix lat lon up order
-    to_proj = pyproj.Transformer.from_crs("EPSG:4326", proj_crs, always_xy=True).transform
-    from_proj = pyproj.Transformer.from_crs(proj_crs, "EPSG:4326", always_xy=True).transform
+    to_proj = pyproj.Transformer.from_crs(
+        EARTH_DEFAULT_CRS, proj_crs, always_xy=True).transform
+    from_proj = pyproj.Transformer.from_crs(
+        proj_crs, EARTH_DEFAULT_CRS, always_xy=True).transform
 
     # Transform to projection where unit is meters
     polygon_proj = shp.ops.transform(to_proj, polygon)
@@ -495,7 +661,7 @@ def generate_grid_in_polygon(
     x_vals = x_vals.ravel()
     y_vals = y_vals.ravel()
 
-    # Return to EPSG:4326
+    # Return to EARTH_DEFAULT_CRS
     xt, yt = from_proj(x_vals, y_vals)
 
     # we buffer the polygon very slightly to include points
@@ -512,10 +678,21 @@ def generate_grid_in_multipolygon(
     poly: typing.Union[shp.geometry.MultiPolygon, shp.geometry.Polygon],
     km: float
 ) -> list[shp.geometry.MultiPolygon]:
-    """
-    Receives a MultiPolygon containing multiple countries
-    and creates a grid for each of them
-    Returns a single 2xN grid of lon's lat's
+    """Generate a grid in a MultiPolygon or Polygon, shrinking each by a given number of kilometers.
+
+    For each polygon, create a grid and return a single 2xN array of longitudes and latitudes.
+
+    Parameters
+    ----------
+    poly : typing.Union[shp.geometry.MultiPolygon, shp.geometry.Polygon]
+        The MultiPolygon or Polygon to process.
+    km : float
+        Number of kilometers to shrink each polygon by.
+
+    Returns
+    -------
+    np.ndarray
+        2xN array: first row is longitudes, second row is latitudes.
     """
     lons = []
     lats = []

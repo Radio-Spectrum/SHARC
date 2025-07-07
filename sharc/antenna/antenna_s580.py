@@ -27,6 +27,22 @@ class AntennaS580(Antenna):
             self.phi_min = 100 * lmbda / param.diameter
 
     def calculate_gain(self, *args, **kwargs) -> np.array:
+        """
+        Calculate the antenna gain for given off-axis angles using the S.580 model.
+
+        Parameters
+        ----------
+        *args : tuple
+            Positional arguments (unused).
+        **kwargs : dict
+            Keyword arguments containing:
+                - off_axis_angle_vec: off-axis angles (degrees)
+
+        Returns
+        -------
+        np.array
+            Calculated gain values for the given angles.
+        """
         phi = np.absolute(kwargs["off_axis_angle_vec"])
 
         gain = np.zeros(phi.shape)

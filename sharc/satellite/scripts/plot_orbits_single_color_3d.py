@@ -1,7 +1,8 @@
 # Generates a 3D plot of the Earth with the satellites positions
 # https://geopandas.org/en/stable/docs/user_guide/io.html
-import os
-import geopandas as gpd
+from sharc.satellite.scripts.plot_globe import plot_globe_with_borders
+from sharc.station_factory import StationFactory
+from sharc.parameters.parameters_mss_d2d import ParametersOrbit, ParametersMssD2d
 import numpy as np
 import plotly.graph_objects as go
 
@@ -16,143 +17,6 @@ sys_alt = 1200
 geoconv.set_reference(
     sys_lat, sys_long, sys_alt
 )
-
-from sharc.satellite.ngso.orbit_model import OrbitModel
-from sharc.satellite.utils.sat_utils import calc_elevation, lla2ecef
-from sharc.satellite.ngso.constants import EARTH_RADIUS_KM
-from sharc.parameters.parameters_mss_d2d import ParametersOrbit, ParametersMssD2d
-from sharc.station_factory import StationFactory
-
-
-def plot_back(fig):
-    """back half of sphere"""
-    clor = 'rgb(220, 220, 220)'
-    # Create a mesh grid for latitude and longitude.
-    # For the "front" half, we can use longitudes from -180 to 0 degrees.
-    lat_vals = np.linspace(-90, 90, 50)       # 50 latitude points from -90 to 90 degrees.
-    lon_vals = np.linspace(0, 180, 50)         # 50 longitude points for the front half.
-    lon, lat = np.meshgrid(lon_vals, lat_vals)  # lon and lat will be 2D arrays.
-
-    # Flatten the mesh to pass to the converter function.
-    lat_flat = lat.flatten()
-    lon_flat = lon.flatten()
-
-    # Convert the lat/lon grid to transformed Cartesian coordinates.
-    # Ensure your converter function can handle vectorized (numpy array) inputs.
-    x_flat, y_flat, z_flat = geoconv.convert_lla_to_transformed_cartesian(lat_flat, lon_flat, 0)
-
-    # Reshape the converted coordinates back to the 2D grid shape.
-    x = x_flat.reshape(lat.shape)
-    y = y_flat.reshape(lat.shape)
-    z = z_flat.reshape(lat.shape)
-
-    # Add the surface to the Plotly figure.
-    fig.add_surface(
-        x=(x / 1e3), y=(y / 1e3), z=(z / 1e3),
-        colorscale=[[0, clor], [1, clor]],  # Uniform color scale for a solid color.
-        opacity=1.0,
-        showlegend=False,
-        lighting=dict(diffuse=0.1)
-    )
-
-
-def plot_front(fig):
-    """front half of sphere"""
-    clor = 'rgb(220, 220, 220)'
-
-    # Create a mesh grid for latitude and longitude.
-    # For the "front" half, we can use longitudes from -180 to 0 degrees.
-    lat_vals = np.linspace(-90, 90, 50)       # 50 latitude points from -90 to 90 degrees.
-    lon_vals = np.linspace(-180, 0, 50)         # 50 longitude points for the front half.
-    lon, lat = np.meshgrid(lon_vals, lat_vals)  # lon and lat will be 2D arrays.
-
-    # Flatten the mesh to pass to the converter function.
-    lat_flat = lat.flatten()
-    lon_flat = lon.flatten()
-
-    # Convert the lat/lon grid to transformed Cartesian coordinates.
-    # Ensure your converter function can handle vectorized (numpy array) inputs.
-    x_flat, y_flat, z_flat = geoconv.convert_lla_to_transformed_cartesian(lat_flat, lon_flat, 0)
-
-    # Reshape the converted coordinates back to the 2D grid shape.
-    x = x_flat.reshape(lat.shape)
-    y = y_flat.reshape(lat.shape)
-    z = z_flat.reshape(lat.shape)
-
-    # Add the surface to the Plotly figure.
-    fig.add_surface(
-        x=(x / 1e3), y=(y / 1e3), z=(z / 1e3),
-        colorscale=[[0, clor], [1, clor]],  # Uniform color scale for a solid color.
-        opacity=1.0,
-        showlegend=False,
-        lighting=dict(diffuse=0.1)
-    )
-
-
-def plot_polygon(poly):
-
-    xy_coords = poly.exterior.coords.xy
-    lon = np.array(xy_coords[0])
-    lat = np.array(xy_coords[1])
-
-    # lon = lon * np.pi / 180
-    # lat = lat * np.pi / 180
-
-    # R = EARTH_RADIUS_KM
-    x, y, z = geoconv.convert_lla_to_transformed_cartesian(lat, lon, 0)
-
-    return x, y, z
-
-
-def plot_globe_with_borders():
-    # Read the shapefile.  Creates a DataFrame object
-    countries_borders_shp_file = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                                              "../../data/countries/ne_110m_admin_0_countries.shp")
-    gdf = gpd.read_file(countries_borders_shp_file)
-    fig = go.Figure()
-    fig.update_layout(
-        scene=dict(
-            aspectmode="data",
-            xaxis=dict(showbackground=False),
-            yaxis=dict(showbackground=False),
-            zaxis=dict(showbackground=False)
-        ),
-        margin=dict(l=0, r=0, b=0, t=0)
-    )
-    # return fig
-    plot_front(fig)
-    plot_back(fig)
-    x_all, y_all, z_all = [], [], []
-
-    for i in gdf.index:
-        # print(gdf.loc[i].NAME)            # Call a specific attribute
-
-        polys = gdf.loc[i].geometry         # Polygons or MultiPolygons
-
-        if polys.geom_type == 'Polygon':
-            x, y, z = plot_polygon(polys)
-            x_all.extend(x / 1e3)
-            x_all.extend([None])  # None separates different polygons
-            y_all.extend(y / 1e3)
-            y_all.extend([None])
-            z_all.extend(z / 1e3)
-            z_all.extend([None])
-
-        elif polys.geom_type == 'MultiPolygon':
-
-            for poly in polys.geoms:
-                x, y, z = plot_polygon(poly)
-                x_all.extend(x / 1e3)
-                x_all.extend([None])  # None separates different polygons
-                y_all.extend(y / 1e3)
-                y_all.extend([None])
-                z_all.extend(z / 1e3)
-                z_all.extend([None])
-
-    fig.add_trace(go.Scatter3d(x=x_all, y=y_all, z=z_all, mode='lines',
-                               line=dict(color='rgb(0, 0, 0)'), showlegend=False))
-
-    return fig
 
 
 if __name__ == "__main__":
@@ -208,7 +72,8 @@ if __name__ == "__main__":
 
     # Plot the ground station (blue marker)
     # ground_sta_pos = lla2ecef(sys_lat, sys_long, sys_alt)
-    ground_sta_pos = geoconv.convert_lla_to_transformed_cartesian(sys_lat, sys_long, 1200.0)
+    ground_sta_pos = geoconv.convert_lla_to_transformed_cartesian(
+        sys_lat, sys_long, 1200.0)
 
     center_of_earth = StationManager(1)
     # rotated and then translated center of earth
@@ -251,7 +116,9 @@ if __name__ == "__main__":
     visible_positions['z'] = np.concatenate([visible_positions['z']])
 
     # Plot the globe with satellite positions
-    fig = plot_globe_with_borders()
+    fig = plot_globe_with_borders(
+        True, geoconv, True
+    )
 
     # Plot all satellites (red markers)
     print("adding sats")

@@ -64,7 +64,8 @@ class ParametersRns(ParametersBase):
             raise ValueError(f"ParametersRns: \
                              Invalid value for parameter {self.antenna_pattern}. \
                              Allowed values are \"ITU-R M.1466\", \"OMNI\".")
-        if self.channel_model.upper() not in ["FSPL", "SatelliteSimple", "P619"]:
+        if self.channel_model.upper() not in [
+                "FSPL", "SatelliteSimple", "P619"]:
             raise ValueError(f"ParametersRns: \
                              Invalid value for paramter channel_model = {self.channel_model}. \
                              Possible values are \"FSPL\", \"SatelliteSimple\", \"P619\".")

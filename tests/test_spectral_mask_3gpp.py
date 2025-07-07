@@ -13,8 +13,10 @@ from sharc.support.enumerations import StationType
 
 
 class SpectalMask3GppTest(unittest.TestCase):
+    """Unit tests for the SpectralMask3Gpp class and its power calculation methods."""
 
     def setUp(self):
+        """Set up test cases for different station types and masks."""
         # Initialize variables for BS Cat-A mask (3.5 GHz)
         sta_type = StationType.IMT_BS
         p_tx = 46
@@ -49,6 +51,7 @@ class SpectalMask3GppTest(unittest.TestCase):
         self.mask_ue.set_mask(p_tx)
 
     def test_power_calc_bs_a(self):
+        """Test power calculation for BS Cat-A mask at various frequencies and bandwidths."""
         #######################################################################
         # BS Cat-A mask
         #######################################################################
@@ -88,6 +91,7 @@ class SpectalMask3GppTest(unittest.TestCase):
         self.assertAlmostEqual(poob, 0.01, delta=1e-2)
 
     def test_power_calc_bs_b(self):
+        """Test power calculation for BS Cat-B mask at various frequencies and bandwidths."""
         #######################################################################
         # BS Cat-B mask
         #######################################################################
@@ -127,6 +131,7 @@ class SpectalMask3GppTest(unittest.TestCase):
         self.assertAlmostEqual(poob, -16.98, delta=1e-2)
 
     def test_power_calc_ue(self):
+        """Test power calculation for UE mask at various frequencies and bandwidths."""
         #######################################################################
         # UE mask
         #######################################################################

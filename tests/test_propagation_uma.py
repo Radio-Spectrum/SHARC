@@ -13,11 +13,14 @@ from sharc.propagation.propagation_uma import PropagationUMa
 
 
 class PropagationUMaTest(unittest.TestCase):
+    """Unit tests for the PropagationUMa class and its urban macrocell propagation loss calculations."""
 
     def setUp(self):
+        """Set up test fixtures for PropagationUMa tests."""
         self.uma = PropagationUMa(np.random.RandomState())
 
     def test_los_probability(self):
+        """Test the calculation of line-of-sight (LOS) probability."""
         distance_2D = np.array([
             [10, 15, 40],
             [17, 60, 80],
@@ -34,6 +37,7 @@ class PropagationUMaTest(unittest.TestCase):
         )
 
     def test_breakpoint_distance(self):
+        """Test the calculation of breakpoint distance for UMa scenario."""
         h_bs = np.array([15, 20, 25, 30])
         h_ue = np.array([3, 4])
         h_e = np.ones((h_ue.size, h_bs.size))
@@ -48,6 +52,7 @@ class PropagationUMaTest(unittest.TestCase):
         )
 
     def test_loss_los(self):
+        """Test the calculation of LOS path loss for UMa scenario."""
         distance_2D = np.array([
             [100, 500],
             [200, 600],
@@ -103,6 +108,7 @@ class PropagationUMaTest(unittest.TestCase):
         )
 
     def test_loss_nlos(self):
+        """Test the calculation of NLOS path loss for UMa scenario."""
         distance_2D = np.array([
             [100, 500],
             [200, 600],

@@ -18,7 +18,8 @@ class ParametersNgsoConstellation(ParametersBase):
     name: str = "Default"  # Name of the NGSO constellation
 
     # Orbital configuration
-    orbits: List[ParametersOrbit] = field(default_factory=list)  # List of orbit parameters
+    orbits: List[ParametersOrbit] = field(
+        default_factory=list)  # List of orbit parameters
 
     # Antenna configuration
     antenna: str = None  # Antenna type for the constellation
@@ -27,10 +28,12 @@ class ParametersNgsoConstellation(ParametersBase):
     max_receive_gain_dBi: float = 30.0  # Maximum receive gain in dBi
     max_num_of_beams: int = 19  # Maximum number of beams per satellite
     cell_radius_m: float = 19000.0  # Cell radius in meters
-    antenna_s1528: ParametersAntennaS1528 = field(default_factory=ParametersAntennaS1528)  # Antenna parameters
+    antenna_s1528: ParametersAntennaS1528 = field(
+        default_factory=ParametersAntennaS1528)  # Antenna parameters
 
     # MSS-specific parameters
-    is_space_to_earth: bool = True  # Direction of communication (space-to-earth or earth-to-space)
+    # Direction of communication (space-to-earth or earth-to-space)
+    is_space_to_earth: bool = True
     x: float = 0.0  # X-coordinate of the satellite bore-sight
     y: float = 0.0  # Y-coordinate of the satellite bore-sight
     frequency: float = 2110.0  # System center frequency in MHz
@@ -39,7 +42,8 @@ class ParametersNgsoConstellation(ParametersBase):
     spurious_emissions: float = -13  # Out-of-band spurious emissions in dB/MHz
     adjacent_ch_leak_ratio: float = 45.0  # Adjacent channel leakage ratio in dB
     altitude: float = 1200000.0  # Satellite altitude above sea level in meters
-    intersite_distance: float = field(init=False)  # Inter-site distance, calculated from cell radius
+    # Inter-site distance, calculated from cell radius
+    intersite_distance: float = field(init=False)
     tx_power_density: float = 40.0  # Satellite transmit power density in dBW/MHz
     azimuth: float = 45.0  # Azimuth angle in degrees
     elevation: float = 90.0  # Elevation angle in degrees
@@ -50,13 +54,17 @@ class ParametersNgsoConstellation(ParametersBase):
     antenna_3_dB_bw: float = 4.4127  # 3 dB beamwidth angle in degrees
 
     # Channel model configuration
-    param_p619: ParametersP619 = field(default_factory=ParametersP619)  # Parameters for the P.619 channel model
-    space_station_alt_m: float = 35780000.0  # Altitude of the space station in meters
+    # Parameters for the P.619 channel model
+    param_p619: ParametersP619 = field(default_factory=ParametersP619)
+    # Altitude of the space station in meters
+    space_station_alt_m: float = 35780000.0
     earth_station_alt_m: float = 0.0  # Altitude of the earth station in meters
     earth_station_lat_deg: float = 0.0  # Latitude of the earth station in degrees
-    earth_station_long_diff_deg: float = 0.0  # Longitude difference for the earth station in degrees
+    # Longitude difference for the earth station in degrees
+    earth_station_long_diff_deg: float = 0.0
     season: str = "SUMMER"  # Season for atmospheric conditions
-    channel_model: str = "P619"  # Channel model type (e.g., FSPL, SatelliteSimple, P619)
+    # Channel model type (e.g., FSPL, SatelliteSimple, P619)
+    channel_model: str = "P619"
 
     def __post_init__(self):
         """
@@ -83,32 +91,45 @@ class ParametersNgsoConstellation(ParametersBase):
 
         # Validate NGSO constellation parameters
         if not self.name or not isinstance(self.name, str):
-            raise ValueError(f"ParametersNgsoMss: Invalid name = {self.name}. Must be a non-empty string.")
+            raise ValueError(
+                f"ParametersNgsoMss: Invalid name = {
+                    self.name}. Must be a non-empty string.")
 
         if not self.orbits:
-            raise ValueError("ParametersNgsoMss: No orbits defined. At least one orbit must be specified.")
+            raise ValueError(
+                "ParametersNgsoMss: No orbits defined. At least one orbit must be specified.")
 
         for orbit in self.orbits:
             if not isinstance(orbit, ParametersOrbit):
-                raise ValueError("ParametersNgsoMss: Invalid orbit configuration. Must be instances of ParametersOrbit.")
+                raise ValueError(
+                    "ParametersNgsoMss: Invalid orbit configuration. Must be instances of ParametersOrbit.")
 
         # Validate MSS-specific parameters
         if self.num_sectors not in [1, 7, 19]:
-            raise ValueError(f"ParametersNgsoMss: Invalid number of sectors: {self.num_sectors}")
+            raise ValueError(
+                f"ParametersNgsoMss: Invalid number of sectors: {
+                    self.num_sectors}")
 
         if self.cell_radius_m <= 0:
-            raise ValueError(f"ParametersNgsoMss: cell_radius must be greater than 0, but is {self.cell_radius_m}")
+            raise ValueError(
+                f"ParametersNgsoMss: cell_radius must be greater than 0, but is {
+                    self.cell_radius_m}")
         else:
             self.intersite_distance = np.sqrt(3) * self.cell_radius_m
 
         if not (0 <= self.azimuth <= 360):
-            raise ValueError("ParametersNgsoMss: azimuth must be between 0 and 360 degrees")
+            raise ValueError(
+                "ParametersNgsoMss: azimuth must be between 0 and 360 degrees")
 
         if not (0 <= self.elevation <= 90):
-            raise ValueError("ParametersNgsoMss: elevation must be between 0 and 90 degrees")
+            raise ValueError(
+                "ParametersNgsoMss: elevation must be between 0 and 90 degrees")
 
-        if self.channel_model.upper() not in ["FSPL", "P619", "SATELLITESIMPLE"]:
-            raise ValueError(f"ParametersNgsoMss: Invalid channel model name {self.channel_model}")
+        if self.channel_model.upper() not in [
+                "FSPL", "P619", "SATELLITESIMPLE"]:
+            raise ValueError(
+                f"ParametersNgsoMss: Invalid channel model name {
+                    self.channel_model}")
 
         if self.channel_model == "P619":
             self.param_p619.set_external_parameters(
@@ -145,7 +166,8 @@ if __name__ == "__main__":
             apogee_alt_km=580.0           # Apogee altitude in kilometers
         )
 
-        # Instantiate the ParametersNgsoConstellation class with manually defined attributes
+        # Instantiate the ParametersNgsoConstellation class with manually
+        # defined attributes
         constellation = ParametersNgsoConstellation(
             name="Acme-Star-1",           # Name of the constellation
             antenna="Taylor1.4",          # Antenna type
@@ -161,9 +183,15 @@ if __name__ == "__main__":
         print(f"\n#### Constellation Details ####")
         print(f"Name: {constellation.name}")
         print(f"Antenna Type: {constellation.antenna}")
-        print(f"Maximum Transmit Power (dB): {constellation.max_transmit_power_dB}")
-        print(f"Maximum Transmit Gain (dBi): {constellation.max_transmit_gain_dBi}")
-        print(f"Maximum Receive Gain (dBi): {constellation.max_receive_gain_dBi}")
+        print(
+            f"Maximum Transmit Power (dB): {
+                constellation.max_transmit_power_dB}")
+        print(
+            f"Maximum Transmit Gain (dBi): {
+                constellation.max_transmit_gain_dBi}")
+        print(
+            f"Maximum Receive Gain (dBi): {
+                constellation.max_receive_gain_dBi}")
         print(f"Maximum Number of Beams: {constellation.max_num_of_beams}")
         print(f"Cell Radius (m): {constellation.cell_radius_m}")
 

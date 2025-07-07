@@ -23,6 +23,13 @@ class SimulationUplink(Simulation):
         super().__init__(parameters, parameter_file)
 
     def snapshot(self, *args, **kwargs):
+        """
+        Execute a simulation snapshot for the uplink scenario.
+
+        Args:
+            *args: Variable length argument list.
+            **kwargs: Arbitrary keyword arguments. Should include 'write_to_file', 'snapshot_number', and 'seed'.
+        """
         write_to_file = kwargs["write_to_file"]
         snapshot_number = kwargs["snapshot_number"]
         seed = kwargs["seed"]
@@ -151,7 +158,7 @@ class SimulationUplink(Simulation):
                 10 * np.log10(
                     np.power(10, 0.1 * self.bs.rx_interference[bs]) +
                     np.power(10, 0.1 * self.bs.thermal_noise[bs]),
-                )
+            )
 
             # calculate SNR and SINR
             self.bs.sinr[bs] = self.bs.rx_power[bs] - \
@@ -172,10 +179,10 @@ class SimulationUplink(Simulation):
         if self.co_channel:
             if self.overlapping_bandwidth > 0:
                 # Inteferer transmit power in dBm over the overlapping band (MHz)
+                # [dB]
                 in_band_interf = self.param_system.tx_power_density + \
-                    10 * np.log10(self.overlapping_bandwidth * 1e6) + 30
+                    10 * np.log10(self.overlapping_bandwidth * 1e6)
 
-        oob_power = -500
         oob_interf_lin = 0
         if self.adjacent_channel:
             # emissions outside of tx bandwidth and inside of rx bw
@@ -184,88 +191,73 @@ class SimulationUplink(Simulation):
 
             # emissions outside of rx bw and inside of tx bw
             # due to non ideal filtering on rx side
-            # will be the same for all UE's, only considering
             rx_oob = -500
 
-            # TODO: M.2101 states that:
-            # "The ACIR value should be calculated based on per UE allocated number of resource blocks"
-
-            # should we actually implement that for ACS since the receiving filter is fixed?
-
-            # or maybe ignore ACS altogether (ACS = inf)? If we consider only allocated RB, it makes
-            # no sense to use ACS.
-            # At the same time, ignoring ACS doesn't seem correct since the interference
-            # could DECREASE when it would make sense for it to increase.
-            # e.g. adjacent systems -> slightly co-channel with ACS = inf
-            # should interfer ^        less than this ^
-
-            # Unless we never use ACS..?
             if self.parameters.imt.adjacent_ch_reception == "ACS":
-                if self.overlapping_bandwidth:
-                    if not hasattr(self, "ALREADY_WARNED_ABOUT_ACS_WHEN_OVERLAPPING_BAND"):
-                        print(
-                            "[WARNING]: You're trying to use ACS on a partially overlapping band"
-                            "with UEs. Verify the code implements the behavior you expect"
-                        )
-                        self.ALREADY_WARNED_ABOUT_ACS_WHEN_OVERLAPPING_BAND = True
-                # only apply ACS over non overlapping bw
-                p_tx = self.param_system.tx_power_density \
+                if self.param_system.bandwidth != self.overlapping_bandwidth:
+                    # only apply ACS over non overlapping bw
+                    p_tx = self.param_system.tx_power_density \
                         + 10 * np.log10(
                             (self.param_system.bandwidth - self.overlapping_bandwidth) * 1e6
                         )
 
-                rx_oob = p_tx - self.parameters.imt.bs.adjacent_ch_selectivity
+                    rx_oob = p_tx - self.parameters.imt.bs.adjacent_ch_selectivity
             elif self.parameters.imt.adjacent_ch_reception == "OFF":
+                pass
+            elif self.parameters.imt.adjacent_ch_reception is False:
                 pass
             else:
                 raise ValueError(
-                    f"No implementation for parameters.imt.adjacent_ch_reception == {self.parameters.imt.adjacent_ch_reception}"
-                )
+                    f"No implementation for parameters.imt.adjacent_ch_reception == {
+                        self.parameters.imt.adjacent_ch_reception}")
 
             # for tx oob we accept ACLR and spectral mask
             if self.param_system.adjacent_ch_emissions == "SPECTRAL_MASK":
+                # mask returns dBm
+                # so we convert to [dB]
                 tx_oob = self.system.spectral_mask.power_calc(
                     self.parameters.imt.frequency,
-                    self.parameters.imt.bandwidth * (
-                        1 - self.parameters.imt.guard_band_ratio
-                    )
+                    self.parameters.imt.bandwidth
                 ) - 30
             elif self.param_system.adjacent_ch_emissions == "ACLR":
-                # consider ACLR only over non co-channel RBs
-                # This should diminish some of the ACLR interference
-                # in a way that make sense
+                # consider ACLR only over non overlapping band
+                # [dB]
                 tx_oob = self.param_system.tx_power_density + \
-                    10 * np.log10(self.param_system.bandwidth * 1e6) -  \
-                    self.param_system.adjacent_ch_leak_ratio
+                    10 * np.log10(
+                        (self.param_system.bandwidth - self.overlapping_bandwidth) * 1e6
+                    ) - self.param_system.adjacent_ch_leak_ratio
             elif self.param_system.adjacent_ch_emissions == "OFF":
                 pass
             else:
                 raise ValueError(
-                    f"No implementation for param_system.adjacent_ch_emissions == {self.param_system.adjacent_ch_emissions}"
-                )
+                    f"No implementation for param_system.adjacent_ch_emissions == {
+                        self.param_system.adjacent_ch_emissions}")
 
             # Out of band power
-            # sum linearly power leaked into band and power received in the adjacent band
+            # sum linearly power leaked into band and power received in the
+            # adjacent band
 
-            oob_power = 10 * np.log10(
-                10 ** (0.1 * tx_oob) + 10 ** (0.1 * rx_oob)
-            )
-            # repeat ue received power for each coupling loss
-            oob_interf_lin = np.power(10, 0.1 * oob_power)
+            # linear [W]:
+            oob_interf_lin = 10 ** (0.1 * tx_oob) + 10 ** (0.1 * rx_oob)
 
-        ext_interference = 10 * np.log10(np.power(10, 0.1 * in_band_interf) + oob_interf_lin)
+        # [dBm]
+        ext_interference = 10 * \
+            np.log10(np.power(10, 0.1 * in_band_interf) + oob_interf_lin) + 30
 
         bs_active = np.where(self.bs.active)[0]
         sys_active = np.where(self.system.active)[0]
         for bs in bs_active:
-            active_beams = \
-                [i for i in range(bs * self.parameters.imt.ue.k, (bs + 1) * self.parameters.imt.ue.k)]
+            active_beams = [
+                i for i in range(
+                    bs * self.parameters.imt.ue.k,
+                    (bs + 1) * self.parameters.imt.ue.k)]
 
             # Interference for each active system transmitter
             bs_ext_interference = ext_interference - \
                 self.coupling_loss_imt_system[active_beams, :][:, sys_active]
             # Sum all the interferers for each bs
-            self.bs.ext_interference[bs] = 10 * np.log10(np.sum(np.power(10, 0.1 * bs_ext_interference), axis=1))
+            self.bs.ext_interference[bs] = 10 * np.log10(
+                np.sum(np.power(10, 0.1 * bs_ext_interference), axis=1))
 
             self.bs.sinr_ext[bs] = self.bs.rx_power[bs] \
                 - (10 * np.log10(np.power(10, 0.1 * self.bs.total_interference[bs]) +
@@ -280,10 +272,7 @@ class SimulationUplink(Simulation):
 
         if self.co_channel:
             self.coupling_loss_imt_system = self.calculate_coupling_loss_system_imt(
-                self.system,
-                self.ue,
-                is_co_channel=True,
-            )
+                self.system, self.ue, is_co_channel=True, )
         if self.adjacent_channel:
             self.coupling_loss_imt_system_adjacent = \
                 self.calculate_coupling_loss_system_imt(
@@ -329,9 +318,9 @@ class SimulationUplink(Simulation):
                 # antenna). In SHARC implementation, ohmic losses are already
                 # included in coupling loss. Then, care has to be taken;
                 # otherwise ohmic loss will be included twice.
-                oob_power = self.ue.spectral_mask.power_calc(self.param_system.frequency, self.system.bandwidth)\
-                    - self.ue_power_diff[ue] \
-                    + self.parameters.imt.ue.ohmic_loss
+                oob_power = self.ue.spectral_mask.power_calc(
+                    self.param_system.frequency,
+                    self.system.bandwidth) - self.ue_power_diff[ue] + self.parameters.imt.ue.ohmic_loss
                 oob_interference_array = oob_power - self.coupling_loss_imt_system_adjacent[ue, sys_active] \
                     + 10 * np.log10(
                         (self.param_system.bandwidth - self.overlapping_bandwidth) /
@@ -355,7 +344,9 @@ class SimulationUplink(Simulation):
 
         # Calculate PFD at the system
         # TODO: generalize this a bit more if needed
-        if hasattr(self.system.antenna[0], "effective_area") and self.system.num_stations == 1:
+        if hasattr(
+                self.system.antenna[0],
+                "effective_area") and self.system.num_stations == 1:
             self.system.pfd = 10 * \
                 np.log10(
                     10**(self.system.rx_interference / 10) /
@@ -363,6 +354,13 @@ class SimulationUplink(Simulation):
                 )
 
     def collect_results(self, write_to_file: bool, snapshot_number: int):
+        """
+        Collect and store results for the current uplink simulation snapshot.
+
+        Args:
+            write_to_file (bool): Whether to write results to file.
+            snapshot_number (int): The current snapshot number.
+        """
         if not self.parameters.imt.interfered_with and np.any(self.bs.active):
             self.results.system_inr.extend(self.system.inr.tolist())
             self.results.system_ul_interf_power.extend(
@@ -372,7 +370,9 @@ class SimulationUplink(Simulation):
                 [self.system.rx_interference - 10 * math.log10(self.system.bandwidth)],
             )
             # TODO: generalize this a bit more if needed
-            if hasattr(self.system.antenna[0], "effective_area") and self.system.num_stations == 1:
+            if hasattr(
+                    self.system.antenna[0],
+                    "effective_area") and self.system.num_stations == 1:
                 self.results.system_pfd.extend([self.system.pfd])
 
         sys_active = np.where(self.system.active)[0]
@@ -414,7 +414,7 @@ class SimulationUplink(Simulation):
 
                 active_beams = np.array([
                     i for i in range(
-                    bs * self.parameters.imt.ue.k, (bs + 1) * self.parameters.imt.ue.k,
+                        bs * self.parameters.imt.ue.k, (bs + 1) * self.parameters.imt.ue.k,
                     )
                 ])
                 self.results.system_imt_antenna_gain.extend(
@@ -454,7 +454,7 @@ class SimulationUplink(Simulation):
             self.results.imt_ul_tx_power.extend(self.ue.tx_power[ue].tolist())
             imt_ul_tx_power_density = 10 * np.log10(
                 np.power(10, 0.1 * self.ue.tx_power[ue]) / (
-                self.num_rb_per_ue * self.parameters.imt.rb_bandwidth * 1e6
+                    self.num_rb_per_ue * self.parameters.imt.rb_bandwidth * 1e6
                 ),
             )
             self.results.imt_ul_tx_power_density.extend(

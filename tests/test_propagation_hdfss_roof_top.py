@@ -15,8 +15,10 @@ from sharc.propagation.propagation_hdfss_roof_top import PropagationHDFSSRoofTop
 
 
 class PropagationHDFSSRoofTopTest(unittest.TestCase):
+    """Unit tests for the PropagationHDFSSRoofTop class and its loss calculations."""
 
     def setUp(self):
+        """Set up test fixtures for PropagationHDFSSRoofTop tests."""
         rnd = np.random.RandomState(101)
         par = ParametersHDFSS()
         par.building_loss_enabled = False
@@ -91,6 +93,7 @@ class PropagationHDFSSRoofTopTest(unittest.TestCase):
         self.propagation_diff_enabled = PropagationHDFSSRoofTop(par, rnd)
 
     def test_get_loss(self):
+        """Test the get_loss method for various roof top scenarios."""
         # Not on same building
         d = np.array([[10.0, 20.0, 30.0, 60.0, 90.0, 300.0, 1000.0]])
         f = 40000 * np.ones_like(d)
@@ -146,6 +149,7 @@ class PropagationHDFSSRoofTopTest(unittest.TestCase):
         npt.assert_allclose(loss, expected_loss, atol=1e-1)
 
     def test_get_build_loss(self):
+        """Test get_building_loss for various station types and probabilities."""
         # Initialize variables
         ele = np.array([[0.0, 45.0, 90.0]])
         f = 40000 * np.ones_like(ele)
@@ -202,6 +206,7 @@ class PropagationHDFSSRoofTopTest(unittest.TestCase):
         npt.assert_allclose(build_loss, expected_build_loss, atol=1e-1)
 
     def test_same_building(self):
+        """Test is_same_building method for correct building identification and loss."""
         # Test is_same_building()
         es_x = np.array([0.0])
         es_y = np.array([0.0])
@@ -243,6 +248,7 @@ class PropagationHDFSSRoofTopTest(unittest.TestCase):
         npt.assert_allclose(loss, expected_loss, atol=1e-1)
 
     def test_get_diff_distances(self):
+        """Test get_diff_distances for both 2D and 3D calculations."""
         es_x = np.array([10.0])
         es_y = np.array([15.0])
         es_z = np.array([19.0])
@@ -283,6 +289,7 @@ class PropagationHDFSSRoofTopTest(unittest.TestCase):
         npt.assert_allclose(distances, expected_distances, atol=1e-1)
 
     def test_diffration_loss(self):
+        """Test diffraction loss calculation for various scenarios."""
         # Test diffraction loss
         h = np.array([7.64, -0.56, -1.2, -0.1])
         d1 = np.array([34.99, 1060.15, 5.0, 120.0])

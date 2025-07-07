@@ -15,8 +15,10 @@ from sharc.station import Station
 
 
 class StationTest(unittest.TestCase):
+    """Unit tests for the Station class, including attributes and equality checks."""
 
     def setUp(self):
+        """Set up test stations with different parameters and antennas for testing."""
         # Array parameters
         self.bs_param = ParametersAntennaImt()
         self.ue_param = ParametersAntennaImt()
@@ -86,27 +88,35 @@ class StationTest(unittest.TestCase):
         self.station3.antenna = AntennaOmni(50)
 
     def test_id(self):
+        """Test that the station ID is set correctly."""
         self.assertEqual(self.station.id, 1)
 
     def test_station_type(self):
+        """Test that the station type is set correctly."""
         self.assertEqual(self.station.station_type, StationType.IMT_BS)
 
     def test_x(self):
+        """Test that the station x-coordinate is set correctly."""
         self.assertEqual(self.station.x, 10)
 
     def test_y(self):
+        """Test that the station y-coordinate is set correctly."""
         self.assertEqual(self.station.y, 15)
 
     def test_height(self):
+        """Test that the station height is set correctly."""
         self.assertEqual(self.station.height, 6)
 
     def test_tx_power(self):
+        """Test that the station transmit power is set correctly."""
         self.assertEqual(self.station.tx_power, 20)
 
     def test_rx_power(self):
+        """Test that the station receive power is set correctly."""
         self.assertEqual(self.station.rx_power, -3)
 
     def test_antenna(self):
+        """Test that the station antenna parameters are set correctly."""
         self.assertEqual(self.station.antenna.azimuth, 300)
         self.assertEqual(self.station.antenna.elevation, -10)
         self.assertEqual(self.station.antenna.n_rows, 8)
@@ -120,6 +130,7 @@ class StationTest(unittest.TestCase):
         self.assertEqual(self.station.antenna.element.sla_v, 25)
 
     def test_eq(self):
+        """Test the equality operator for stations."""
         self.assertTrue(self.station == self.station2)
         # changing id, x, y, or height should change the result
         self.station.x = 11
@@ -129,6 +140,7 @@ class StationTest(unittest.TestCase):
         self.assertFalse(self.station2 == self.station3)
 
     def test_ne(self):
+        """Test the inequality operator for stations."""
         self.assertFalse(self.station != self.station2)
         # changing id, x, y, or height should change the result
         self.station.height = 9

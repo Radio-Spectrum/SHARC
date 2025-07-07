@@ -480,7 +480,7 @@ mss_d2d:
     # Possible values are "ACLR", "SPECTRAL_MASK" and "OFF"
     adjacent_ch_emissions: SPECTRAL_MASK
     # chosen spectral Mask
-    spectral_mask: 3GPP E-UTRA
+    spectral_mask: MSS
     # MSS_D2D system center frequency in MHz
     frequency: 2167.5
     # MSS_D2d system bandwidth in MHz

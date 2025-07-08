@@ -183,12 +183,15 @@ imt:
     # Possible values: SINGLE_ELEMENT, BEAMFORMING
     adjacent_antenna_model: SINGLE_ELEMENT
     # Base station parameters
+    # Values taken from 5D/716 Section 3.2.1.6
+    # Beamforming antenna characteristics for IMT in 1710-4990 MHz
+    # Table-9 Ubran Macro
     bs:
         ###########################################################################
         # The load probability (or activity factor) models the statistical
         # variation of the network load by defining the number of fully loaded
         # base stations that are simultaneously transmitting
-        load_probability: 1.0
+        load_probability: 1.0  # there's only one BS in the scenario
         ###########################################################################
         # Conducted power per antenna element [dBm/bandwidth]
         conducted_power: 28.0
@@ -293,7 +296,7 @@ imt:
         ###########################################################################
         # Number of UEs that are allocated to each cell within handover margin.
         # Remember that in macrocell network each base station has 3 cells (sectors)
-        k: 1
+        k: 3
         ###########################################################################
         # Multiplication factor that is used to ensure that the sufficient number
         # of UE's will distributed throughout ths system area such that the number

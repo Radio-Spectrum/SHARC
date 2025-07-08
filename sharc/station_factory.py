@@ -1685,7 +1685,7 @@ class StationFactory(object):
                 params.bandwidth *
                 1e6))
 
-       # Configure satellite positions in the StationManager
+        # Configure satellite positions in the StationManager
         mss_d2d.x = mss_d2d_values["sat_x"]
         mss_d2d.y = mss_d2d_values["sat_y"]
         mss_d2d.z = mss_d2d_values["sat_z"]

@@ -3,7 +3,6 @@
 import os
 from pathlib import Path
 from sharc.results import Results
-# import plotly.graph_objects as go
 from sharc.post_processor import PostProcessor
 
 import argparse
@@ -13,7 +12,7 @@ parser = argparse.ArgumentParser(
 )
 
 parser.add_argument(
-    '--channel', type=str, required=True, choices=["co", "adj"], 
+    '--channel', type=str, required=True, choices=["co", "adj"],
     help='Set the channel to generate the parameters ("co" for cochannel or "adj" for adjacent channel)')
 
 parser.add_argument(
@@ -35,18 +34,21 @@ auto_open = False
 # Add a legend to results in folder that match the pattern
 # This could easily come from a config file
 
-cell_radius = 113630 if args.freq == "~0.8G" else 39475
+if args.freq == "~0.8G":
+    cell_radius = 113630
+    max_pfd_margin_km = 149.07  # -109 dBW/mˆ2/MHz limit at 850MHz
+elif args.freq == "~2.1G":
+    cell_radius = 39475
+    max_pfd_margin_km = 67.71  # -109 dBW/mˆ2/MHz limit at 2100MHz
+else:
+    raise ValueError(f"Invalid frequency: {args.freq}")
 cell_radius /= 1e3
 
 country_border = 4 * cell_radius
 dists = sorted([
     0,
     cell_radius,
-    # cell_radius + 111,
-    cell_radius + 2 * 111,
-    country_border,
-    # country_border + 111,
-    country_border + 2 * 111,
+    max_pfd_margin_km
 ])
 
 prefixes = [f"{x}km" for x in dists]
@@ -98,12 +100,14 @@ attributes_to_plot = [
     "imt_ul_inr",
 ]
 
-results_dl = Results.load_many_from_dir(os.path.join(campaign_base_dir, f"{output_start}_dl"), only_latest=True, only_samples=attributes_to_plot)
+results_dl = Results.load_many_from_dir(os.path.join(campaign_base_dir, f"{output_start}_dl"), only_latest=True, 
+                                        only_samples=attributes_to_plot)
 # print("len(results_dl)", len(results_dl))
 # for i in range(len(results_dl)):
 #     print(results_dl[i].imt_dl_inr)
 # exit()
-results_ul = Results.load_many_from_dir(os.path.join(campaign_base_dir, f"{output_start}_ul"), only_latest=True, only_samples=attributes_to_plot)
+results_ul = Results.load_many_from_dir(os.path.join(campaign_base_dir, f"{output_start}_ul"), only_latest=True, 
+                                        only_samples=attributes_to_plot)
 # print("len(results_ul)", len(results_ul))
 # ^: typing.List[Results]
 all_results = [*results_ul, *results_dl]
@@ -174,20 +178,14 @@ post_processor\
     ))
 
 post_processor\
-    .get_plot_by_results_attribute_name("imt_dl_pfd_external")\
-    .add_vline(pfd_protection_criteria, line_dash="dash")
-
-
-attributes_to_plot = [
-    # "imt_system_antenna_gain",
-    # "system_imt_antenna_gain",
-    # "sys_to_imt_coupling_loss",
-    # "imt_system_path_loss",
-    "imt_dl_pfd_external",
-    "imt_dl_pfd_external_aggregated",
-    "imt_dl_inr",
-    "imt_ul_inr",
-]
+    .get_plot_by_results_attribute_name("imt_dl_pfd_external", plot_type='ccdf')\
+    .add_vline(pfd_protection_criteria, line_dash="dash", annotation=dict(
+        text="PFD protection criteria",
+        xref="x",
+        yref="paper",
+        x=pfd_protection_criteria + 1.0,  # Offset for visibility
+        y=0.95
+    ))
 
 # for attr in attributes_to_plot:
 #     post_processor.get_plot_by_results_attribute_name(attr).show()
@@ -203,5 +201,5 @@ specific_dir.mkdir(exist_ok=True)
 
 for attr in attributes_to_plot:
     post_processor\
-        .get_plot_by_results_attribute_name(attr)\
+        .get_plot_by_results_attribute_name(attr, plot_type="ccdf")\
         .write_html(specific_dir / f"{attr}.html")

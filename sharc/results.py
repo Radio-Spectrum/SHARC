@@ -239,7 +239,7 @@ class ResultsManager(object):
         filter_fn=None
     ) -> list["ResultsManager"]:
         """
-        Load multiple Results objects from a directory containing output folders.
+        Load multiple ResultsManager objects from a directory containing output folders.
 
         Args:
             root_dir (str): The root directory to search for output folders.
@@ -248,15 +248,15 @@ class ResultsManager(object):
             filter_fn (callable, optional): Function to filter output directories. Defaults to None.
 
         Returns:
-            list[Results]: A list of loaded Results objects.
+            list[ResultsManager]: A list of loaded ResultsManager objects.
         """
         output_dirs = sorted(list(glob.glob(f"{root_dir}/output_*")))
 
         if len(output_dirs) == 0:
-            print("[WARNING]: Results.load_many_from_dir did not find any results")
+            print("[WARNING]: ResultsManager.load_many_from_dir did not find any results")
 
         if only_latest:
-            output_dirs = Results.get_most_recent_outputs_for_each_prefix(
+            output_dirs = ResultsManager.get_most_recent_outputs_for_each_prefix(
                 output_dirs)
 
         if filter_fn:
@@ -264,7 +264,7 @@ class ResultsManager(object):
 
         all_res = []
         for output_dir in output_dirs:
-            res = Results()
+            res = ResultsManager()
             res.load_from_dir(output_dir, only_samples=only_samples)
             all_res.append(res)
 
@@ -283,7 +283,7 @@ class ResultsManager(object):
             only_samples (list[str], optional): List of sample names to load. If None, load all samples. Defaults to None.
 
         Returns:
-            Results: The Results object with loaded data.
+            Results: The ResultsManager object with loaded data.
         """
         self.output_directory = abs_path
 
@@ -343,7 +343,7 @@ class ResultsManager(object):
         res = {}
 
         for dirname in dirnames:
-            prefix, date, id = Results.get_prefix_date_and_id(dirname)
+            prefix, date, id = ResultsManager.get_prefix_date_and_id(dirname)
             res.setdefault(
                 prefix, {
                     "date": date, "id": id, "dirname": dirname})

@@ -59,6 +59,7 @@ from sharc.topology.topology_imt_mss_dc import TopologyImtMssDc
 from sharc.mask.spectral_mask_3gpp import SpectralMask3Gpp
 from sharc.mask.spectral_mask_mss import SpectralMaskMSS
 from sharc.support.sharc_geom import GeometryConverter
+from sharc.results import Results
 
 
 class StationFactory(object):
@@ -1692,6 +1693,10 @@ class StationFactory(object):
         mss_d2d.elevation = mss_d2d_values["sat_antenna_elev"]
         mss_d2d.azimuth = mss_d2d_values["sat_antenna_azim"]
         mss_d2d.height = mss_d2d_values["sat_alt"]
+
+        Results.register_new_sample("mss_d2d_num_beams_per_satellite")
+        getattr(Results, "mss_d2d_num_beams_per_satellite").extend(
+            mss_d2d_values["num_beams_per_satellite"],)
 
         mss_d2d.active = np.zeros(total_satellites, dtype=bool)
 

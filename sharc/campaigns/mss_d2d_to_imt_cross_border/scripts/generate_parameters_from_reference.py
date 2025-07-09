@@ -19,13 +19,13 @@ parser.add_argument(
 )
 
 parser.add_argument(
-    '--freq', type=str, required=True, choices=["~0.8G", "~2.1G"],
-    help='Set the frequency to generate the parameters ("~0.8G" or "~2.1G")'
+    '--freq', type=str, required=True, choices=["0.8G", "2.1G"],
+    help='Set the frequency to generate the parameters ("0.8G" or "2.1G")'
 )
 
 parser.add_argument(
     '--coverage', type=str, required=True, choices=["service_grid", "fixed_sectors"],
-    help='Set the frequency to generate the parameters ("~0.8G" or "~2.1G")',
+    help='Set the frequency to generate the parameters ("0.8G" or "2.1G")',
 )
 
 args = parser.parse_args()
@@ -45,7 +45,7 @@ IMT_CENTER_FREQ_2GHZ = 2140  # center of B1 band
 IMT_CENTER_FREQ_850MHZ = 881.5  # center of A1 band
 
 # Set parameters based on cli config
-if args.freq == "~2.1G":
+if args.freq == "2.1G":
     # Update IMT params for 2.1 GHz
     # 5D/716 table 4.1
     # The base input is already set for 2.1 GHz
@@ -56,7 +56,7 @@ if args.freq == "~2.1G":
     ul_parameters["imt"]["bandwidth"] = imt_bw
     max_pfd_margin_km = 67.71  # -109 dBW/mˆ2/MHz limit at 2.1GHz
 
-elif args.freq == "~0.8G":
+elif args.freq == "0.8G":
     # Update IMT params for 850 MHz
     # 5D/716 table 4.1
     imt_freq = IMT_CENTER_FREQ_850MHZ

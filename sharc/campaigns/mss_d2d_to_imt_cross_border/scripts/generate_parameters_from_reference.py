@@ -126,7 +126,9 @@ dl_parameters["general"]["enable_adjacent_channel"] = False
 # We try to analyze the interferce into a single UE in the DL, so we set the number of UEs to 1 and the IMT
 # band equal to the RBG bandwidth of a single UE.
 ue_tx_bw_mhz = math.trunc(n_rb_per_bw / ul_parameters["imt"]["ue"]["k"]) * ul_parameters["imt"]["rb_bandwidth"]
-dl_parameters["imt"]["bandwidth"] = round(ue_tx_bw_mhz / (1 - ul_parameters["imt"]["guard_band_ratio"]), 2)
+dl_parameters["imt"]["bandwidth"] = imt_bw
+# round(ue_tx_bw_mhz / (1 - ul_parameters["imt"]["guard_band_ratio"]), 2)
+dl_parameters["imt"]["guard_band_ratio"] = ue_tx_bw_mhz / imt_bw
 dl_parameters["imt"]["ue"]["k"] = 1
 
 cell_radius_km = ul_parameters["mss_d2d"]["cell_radius"] / 1e3

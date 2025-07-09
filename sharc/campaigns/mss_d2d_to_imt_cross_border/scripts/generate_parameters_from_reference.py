@@ -119,10 +119,6 @@ dl_parameters['general']['output_dir_prefix'] = ul_parameters['general']['output
     "_ul", "_dl")
 dl_parameters['general']['imt_link'] = "DOWNLINK"
 
-# We turn on adjacent channel emissions for DL to cope with interferece into the UEs outside the
-# overlapping area.
-dl_parameters["general"]["enable_adjacent_channel"] = False
-
 # We try to analyze the interferce into a single UE in the DL, so we set the number of UEs to 1 and the IMT
 # band equal to the RBG bandwidth of a single UE.
 ue_tx_bw_mhz = math.trunc(n_rb_per_bw / ul_parameters["imt"]["ue"]["k"]) * ul_parameters["imt"]["rb_bandwidth"]

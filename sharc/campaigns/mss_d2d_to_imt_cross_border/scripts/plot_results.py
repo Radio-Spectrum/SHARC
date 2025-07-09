@@ -2,8 +2,10 @@
 
 import os
 from pathlib import Path
-from sharc.results import Results
+import plotly.graph_objects as go
+from sharc.results import ResultsManager
 from sharc.post_processor import PostProcessor
+
 
 import argparse
 
@@ -98,18 +100,21 @@ attributes_to_plot = [
     "imt_dl_pfd_external_aggregated",
     "imt_dl_inr",
     "imt_ul_inr",
+    "mss_d2d_num_beams_per_satellite"
 ]
 
-results_dl = Results.load_many_from_dir(os.path.join(campaign_base_dir, f"{output_start}_dl"), only_latest=True, 
-                                        only_samples=attributes_to_plot)
+results_dl = ResultsManager.load_many_from_dir(os.path.join(campaign_base_dir, f"{output_start}_dl"),
+                                               only_latest=True,
+                                               only_samples=attributes_to_plot)
 # print("len(results_dl)", len(results_dl))
 # for i in range(len(results_dl)):
 #     print(results_dl[i].imt_dl_inr)
 # exit()
-results_ul = Results.load_many_from_dir(os.path.join(campaign_base_dir, f"{output_start}_ul"), only_latest=True, 
-                                        only_samples=attributes_to_plot)
+results_ul = ResultsManager.load_many_from_dir(os.path.join(campaign_base_dir, f"{output_start}_ul"),
+                                               only_latest=True,
+                                               only_samples=attributes_to_plot)
 # print("len(results_ul)", len(results_ul))
-# ^: typing.List[Results]
+# ^: typing.List[ResultsManager]
 all_results = [*results_ul, *results_dl]
 
 post_processor.add_results(all_results)
@@ -119,7 +124,7 @@ post_processor.add_results(all_results)
 styles = ["solid", "dot", "dash", "longdash", "dashdot", "longdashdot"]
 
 
-def linestyle_getter(result: Results):
+def linestyle_getter(result: ResultsManager):
     """
     Returns a line style string based on the prefix found in the result's output directory.
     """
@@ -139,53 +144,35 @@ post_processor.add_plots(plots)
 
 # Add a protection criteria line:
 protection_criteria = -6
-post_processor\
-    .get_plot_by_results_attribute_name("imt_dl_inr", plot_type='ccdf')\
-    .add_vline(protection_criteria, line_dash="dash", annotation=dict(
-        text="Protection criteria",
-        xref="x",
-        yref="paper",
-        x=protection_criteria + 1.0,  # Offset for visibility
-        y=0.95
-    ))
 perc_of_time = 0.01
-post_processor\
-    .get_plot_by_results_attribute_name("imt_dl_inr", plot_type="ccdf")\
-    .add_hline(perc_of_time, line_dash="dash")
-post_processor\
-    .get_plot_by_results_attribute_name("imt_ul_inr", plot_type='ccdf')\
-    .add_vline(protection_criteria, line_dash="dash", annotation=dict(
-        text="Protection criteria",
-        xref="x",
-        yref="paper",
-        x=protection_criteria + 1.0,  # Offset for visibility
-        y=0.95
-    ))
-post_processor\
-    .get_plot_by_results_attribute_name("imt_ul_inr", plot_type="ccdf")\
-    .add_hline(perc_of_time, line_dash="dash")
 
-# Add a protection criteria line:
+for attr in ["imt_dl_inr", "imt_ul_inr"]:
+    plot = post_processor.get_plot_by_results_attribute_name("imt_dl_inr", plot_type='ccdf')
+    if plot is not None:
+        plot.add_vline(protection_criteria, line_dash="dash", annotation=dict(
+            text="Protection criteria",
+            xref="x",
+            yref="paper",
+            x=protection_criteria + 1.0,  # Offset for visibility
+            y=0.95
+        ))
+        plot.add_hline(perc_of_time, line_dash="dash")
+    else:
+        print(f"Warning: No plot found for attribute '{attr}'")
+
 pfd_protection_criteria = -109
-post_processor\
-    .get_plot_by_results_attribute_name("imt_dl_pfd_external_aggregated", plot_type='ccdf')\
-    .add_vline(pfd_protection_criteria, line_dash="dash", annotation=dict(
-        text="PFD protection criteria",
-        xref="x",
-        yref="paper",
-        x=pfd_protection_criteria + 1.0,  # Offset for visibility
-        y=0.95
-    ))
-
-post_processor\
-    .get_plot_by_results_attribute_name("imt_dl_pfd_external", plot_type='ccdf')\
-    .add_vline(pfd_protection_criteria, line_dash="dash", annotation=dict(
-        text="PFD protection criteria",
-        xref="x",
-        yref="paper",
-        x=pfd_protection_criteria + 1.0,  # Offset for visibility
-        y=0.95
-    ))
+for attr in ["imt_dl_pfd_external", "imt_dl_pfd_external_aggregated"]:
+    plot = post_processor.get_plot_by_results_attribute_name("imt_dl_pfd_external_aggregated", plot_type='ccdf')
+    if plot is not None:
+        plot.add_vline(pfd_protection_criteria, line_dash="dash", annotation=dict(
+            text="PFD protection criteria",
+            xref="x",
+            yref="paper",
+            x=pfd_protection_criteria + 1.0,  # Offset for visibility
+            y=0.95
+        ))
+    else:
+        print(f"Warning: No plot found for attribute '{attr}'")
 
 # for attr in attributes_to_plot:
 #     post_processor.get_plot_by_results_attribute_name(attr).show()
@@ -200,6 +187,31 @@ specific_dir.mkdir(exist_ok=True)
 # print("specific_dir", specific_dir)
 
 for attr in attributes_to_plot:
-    post_processor\
-        .get_plot_by_results_attribute_name(attr, plot_type="ccdf")\
-        .write_html(specific_dir / f"{attr}.html")
+    plot = post_processor.get_plot_by_results_attribute_name(attr, plot_type="ccdf")
+    if plot is None:
+        print(f"Warning: No plot found for attribute '{attr}'")
+        continue
+    plot.write_html(specific_dir / f"{attr}.html")
+
+# Now let's plot the beam per satellite results.
+# We do it manually as PostProcessor does not support histograms yet.
+mss_d2d_num_beams_per_satellite_attr = getattr(ResultsManager, "mss_d2d_num_beams_per_satellite", None)
+
+assert mss_d2d_num_beams_per_satellite_attr is not None
+
+if mss_d2d_num_beams_per_satellite_attr is not None:
+    fig = go.Figure()
+    fig.add_trace(go.Histogram(
+        x=mss_d2d_num_beams_per_satellite_attr,
+        nbinsx=20,
+        marker_color='blue',
+        opacity=0.75
+    ))
+    fig.update_layout(
+        title="Histogram Number of Beams per Satellite",
+        xaxis_title="Number of Beams per Satellite",
+        yaxis_title="Count"
+    )
+    fig.write_html(specific_dir / "mss_d2d_num_beams_per_satellite_hist.html")
+    if auto_open:
+        fig.show()

@@ -463,20 +463,18 @@ class TopologyImtMssDc(Topology):
             for i, sat in enumerate(best_sats_true):
                 sat_points_towards[sat].append(i)
 
-            # Statistics for the number of beams per satellite
-            num_beams_per_satellite = []
-            for k, v in sat_points_towards.items():
-                num_beams_per_satellite.append(len(v))
-
             # now only return the angles that
             # the caller asked with the active_sat_idxs parameter
             beams_azim = []
             beams_elev = []
             n = 0
+            # Statistics for the number of beams per satellite
+            num_beams_per_satellite = []
 
             for act_sat in active_satellite_idxs:
                 if act_sat in sat_points_towards:
                     n += len(sat_points_towards[act_sat])
+                    num_beams_per_satellite.append(n)
                     beams_azim.append(azim[sat_points_towards[act_sat]])
                     beams_elev.append(elev[sat_points_towards[act_sat]])
                 else:

@@ -474,7 +474,7 @@ class TopologyImtMssDc(Topology):
             for act_sat in active_satellite_idxs:
                 if act_sat in sat_points_towards:
                     n += len(sat_points_towards[act_sat])
-                    num_beams_per_satellite.append(n)
+                    num_beams_per_satellite.append(len(sat_points_towards[act_sat]))
                     beams_azim.append(azim[sat_points_towards[act_sat]])
                     beams_elev.append(elev[sat_points_towards[act_sat]])
                 else:

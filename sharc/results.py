@@ -20,7 +20,7 @@ class SampleList(list):
     """
 
 
-class Results(object):
+class ResultsManager(object):
     """Handle the output of the simulator"""
 
     # This should always be true for 1st samples flush
@@ -187,6 +187,22 @@ class Results(object):
 
         return results_relevant_attr_names
 
+    def register_new_sample(
+        self, sample_name: str,
+    ) -> None:
+        """
+        Register a new sample value for a given sample name.
+
+        Parameters
+        ----------
+        sample_name : str
+            Name of the sample to register.
+        """
+        if not hasattr(self, sample_name):
+            setattr(self, sample_name, SampleList())
+        else:
+            pass  # SampleList already exists, no need to create it again
+
     def write_files(self, snapshot_number: int):
         """Writes the sample data to the output file
 
@@ -221,7 +237,7 @@ class Results(object):
         only_latest=True,
         only_samples: list[str] = None,
         filter_fn=None
-    ) -> list["Results"]:
+    ) -> list["ResultsManager"]:
         """
         Load multiple Results objects from a directory containing output folders.
 
@@ -258,7 +274,7 @@ class Results(object):
             self,
             abs_path: str,
             *,
-            only_samples: list[str] = None) -> "Results":
+            only_samples: list[str] = None) -> "ResultsManager":
         """
         Load results from a specified directory, optionally loading only specified samples.
 
@@ -357,3 +373,7 @@ class Results(object):
             dirname)
         prefix, date, id = mtch.group(1), mtch.group(2), mtch.group(3)
         return prefix, date, id
+
+
+# Create a global instance of ResultsManager
+Results = ResultsManager()

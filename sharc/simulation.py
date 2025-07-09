@@ -234,7 +234,7 @@ class Simulation(ABC, Observable):
             self.num_rb_per_bs / self.parameters.imt.ue.k,
         )
 
-        self.results = Results().prepare_to_write(
+        self.results = Results.prepare_to_write(
             self.parameters_filename,
             self.parameters.general.overwrite_output,
             self.parameters.general.output_dir,

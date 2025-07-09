@@ -287,7 +287,7 @@ class TopologyImtMssDc(Topology):
         _, all_azimuth, all_elevation = cartesian_to_polar(
             pointing_vec_x, pointing_vec_y, pointing_vec_z)
 
-        beams_elev, beams_azim, sx, sy, stat_beams_per_satellite = TopologyImtMssDc.get_satellite_pointing(
+        beams_elev, beams_azim, sx, sy, num_beams_per_satellite = TopologyImtMssDc.get_satellite_pointing(
             random_number_gen,
             geometry_converter,
             orbit_params,
@@ -361,7 +361,7 @@ class TopologyImtMssDc(Topology):
             "sectors_x": sx,
             "sectors_y": sy,
             "sectors_z": np.zeros_like(sx),
-            "stat_beams_per_satellite": stat_beams_per_satellite,
+            "num_beams_per_satellite": num_beams_per_satellite,
         }
 
     @staticmethod
@@ -463,10 +463,10 @@ class TopologyImtMssDc(Topology):
             for i, sat in enumerate(best_sats_true):
                 sat_points_towards[sat].append(i)
 
-            # Statistics
-            stat_beams_per_satellite = []
+            # Statistics for the number of beams per satellite
+            num_beams_per_satellite = []
             for k, v in sat_points_towards.items():
-                stat_beams_per_satellite.append(len(v))
+                num_beams_per_satellite.append(len(v))
 
             # now only return the angles that
             # the caller asked with the active_sat_idxs parameter
@@ -488,7 +488,7 @@ class TopologyImtMssDc(Topology):
             sx = np.zeros(n)
             sy = np.zeros(n)
 
-            return beams_elev, beams_azim, sx, sy, stat_beams_per_satellite
+            return beams_elev, beams_azim, sx, sy, num_beams_per_satellite
 
         # We borrow the TopologyNTN method to calculate the sectors azimuth and elevation angles from their
         # respective x and y boresight coordinates
@@ -608,9 +608,9 @@ class TopologyImtMssDc(Topology):
 
         # Statistics for the number of beams per satellite
         # That makes sense only for SERVICE_GRID but we return it anyway
-        stat_beams_per_satellite = [orbit_params.num_beams] * total_active_satellites
+        num_beams_per_satellite = [orbit_params.num_beams] * total_active_satellites
 
-        return beams_elev, beams_azim, sx, sy, stat_beams_per_satellite
+        return beams_elev, beams_azim, sx, sy, num_beams_per_satellite
 
     @staticmethod
     def get_distr(

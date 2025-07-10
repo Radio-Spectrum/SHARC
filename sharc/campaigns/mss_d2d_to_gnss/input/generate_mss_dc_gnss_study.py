@@ -6,7 +6,7 @@ Script to generate the desired YAML configuration file.
 import os
 
 # Elevation angles to generate
-ANGLES = [5, 30, 60, 90]
+ANGLES = [80, 85, 90]
 
 # Directory where this script resides
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -19,7 +19,7 @@ def generate_config(angle):
 general:
     ###########################################################################
     # Number of simulation snapshots
-    num_snapshots: 3000
+    num_snapshots: 1000
     ###########################################################################
     # IMT link that will be simulated (DOWNLINK or UPLINK)
     imt_link: DOWNLINK
@@ -176,9 +176,9 @@ imt:
                 conditions:
                     # - LAT_LONG_INSIDE_COUNTRY
                     - MINIMUM_ELEVATION_FROM_ES
-                    # - MAXIMUM_ELEVATION_FROM_ES
+                    - MAXIMUM_ELEVATION_FROM_ES
                 minimum_elevation_from_es: 5.0
-                # maximum_elevation_from_es: 80.0
+                maximum_elevation_from_es: {angle}
                 # lat_long_inside_country:
                 #     # You may specify another shp file for country borders reference
                 #     # country_shapes_filename: sharc/topology/countries/ne_110m_admin_0_countries.shp
@@ -549,7 +549,7 @@ single_earth_station:
     elevation:
       # Type of elevation.
       type: FIXED
-      fixed: {angle}
+      fixed: 0
     # Station 2d location [meters]:
     location:
       type: FIXED
@@ -570,7 +570,7 @@ single_earth_station:
       hemispheric:
         gain_upper: 3       # gain for upper hemisphere 
         gain_lower: -5      # gain for lower hemisphere 
-        cutoff_angle: 80.0  # angle (in degrees) between upper and lower hemisphere
+        cutoff_angle: 10.0  # angle (in degrees) between upper and lower hemisphere
       #itu_r_s_465:
         # Diameter [m]
         # diameter: 0.2  # derived with efficiency 0.5

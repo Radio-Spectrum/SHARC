@@ -68,9 +68,24 @@ class ParametersSingleEarthStation(ParametersBase):
 
     # Channel model, possible values are "FSPL" (free-space path loss), "P619"
     channel_model: typing.Literal[
-        "FSPL", "P619",
+        "FSPL",
+        "P619",
         "P452",
+        "SatelliteSimple",  # used only for IMT NTN to EESS
     ] = "FSPL"  # Channel model to be used
+
+    @dataclass
+    class ParametersSatelliteSimple(ParametersBase):
+        """
+        Parameters for the SatelliteSimple channel model.
+        This is used only for IMT NTN to EESS.
+        """
+        enable_clutter_loss: bool = True
+        atmospheric_loss: float = 0.75
+
+    satellite_simple: ParametersSatelliteSimple = field(
+        default_factory=ParametersSatelliteSimple,
+    )
 
     param_p619: ParametersP619 = field(default_factory=ParametersP619)
     # TODO: remove season from system parameter and put it as p619 parameter
@@ -326,9 +341,10 @@ class ParametersSingleEarthStation(ParametersBase):
             "P619",
             "P452",
             "TerrestrialSimple",
+            "SatelliteSimple",  # used only for IMT NTN to EESS
             "TVRO-URBAN",
                 "TVRO-SUBURBAN"]:
             raise ValueError(
                 f"{ctx}.channel_model" +
-                "needs to be in ['FSPL', 'P619', 'P452', 'TerrestrialSimple', 'TVRO-URBAN', 'TVRO-SUBURBAN']",
+                "needs to be in ['FSPL', 'P619', 'P452', 'SatelliteSimple', 'TerrestrialSimple', 'TVRO-URBAN', 'TVRO-SUBURBAN']",
             )

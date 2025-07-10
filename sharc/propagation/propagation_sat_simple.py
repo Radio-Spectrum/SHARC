@@ -7,14 +7,15 @@ Created on Thu Feb 16 12:04:27 2017
 import numpy as np
 from multipledispatch import dispatch
 
-from sharc.propagation.propagation import Propagation
-from sharc.propagation.propagation_p619 import PropagationP619
-from sharc.propagation.propagation_free_space import PropagationFreeSpace
-from sharc.propagation.propagation_clutter_loss import PropagationClutterLoss
-from sharc.propagation.propagation_building_entry_loss import PropagationBuildingEntryLoss
-from sharc.support.enumerations import StationType
-from sharc.station_manager import StationManager
 from sharc.parameters.parameters import Parameters
+from sharc.propagation.propagation import Propagation
+from sharc.propagation.propagation_building_entry_loss import \
+    PropagationBuildingEntryLoss
+from sharc.propagation.propagation_clutter_loss import PropagationClutterLoss
+from sharc.propagation.propagation_free_space import PropagationFreeSpace
+from sharc.propagation.propagation_p619 import PropagationP619
+from sharc.station_manager import StationManager
+from sharc.support.enumerations import StationType
 
 
 class PropagationSatSimple(Propagation):
@@ -27,7 +28,8 @@ class PropagationSatSimple(Propagation):
     def __init__(
             self,
             random_number_gen: np.random.RandomState,
-            enable_clutter_loss=True):
+            enable_clutter_loss=True,
+            atmospheric_loss=0.75):
         super().__init__(random_number_gen)
         self.enable_clutter_loss = enable_clutter_loss
         self.clutter = PropagationClutterLoss(random_number_gen)
@@ -35,7 +37,7 @@ class PropagationSatSimple(Propagation):
         self.building_entry = PropagationBuildingEntryLoss(
             self.random_number_gen,
         )
-        self.atmospheric_loss = 0.75
+        self.atmospheric_loss = atmospheric_loss
 
     @dispatch(Parameters, float, StationManager,
               StationManager, np.ndarray, np.ndarray)

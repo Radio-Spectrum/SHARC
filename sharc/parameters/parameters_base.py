@@ -149,8 +149,7 @@ class ParametersBase:
         for k in params_keys:
             if k not in attr_list:
                 raise ValueError(
-                    f"The parameter {self.section_name}.{k} was passed, but it doesn't exist on parameters definitions!"
-                        )
+                    f"The parameter {self.section_name}.{k} was passed, but it doesn't exist on parameters definitions!")
 
         for attr_name in attr_list:
             try:

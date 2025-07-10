@@ -535,7 +535,13 @@ single_earth_station:
   # 35-45dBs are generally assumed. We take 35 as a worst case.
   adjacent_ch_selectivity: 35
   # Channel model
-  channel_model: FSPL
+  channel_model: SatelliteSimple  #FSPL, SatelliteSimple
+  satellite_simple:
+     # enable clutter loss
+        enable_clutter_loss: false
+     # Atmospheric loss in dB
+        atmospheric_loss: 0.65
+        
   # Earth Station parameters
   geometry:
     height: 1.5

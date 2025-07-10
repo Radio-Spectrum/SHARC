@@ -226,8 +226,8 @@ class SimulationDownlink(Simulation):
                     in_band_interf_power = \
                         self.param_system.tx_power_density + 10 * np.log10(
                             self.ue.bandwidth[ue, np.newaxis] * 1e6
-                        ) + 10 * np.log10(weights)[:, np.newaxis]
-                    in_band_interf_power -= self.coupling_loss_imt_system[ue, :][:, active_sys]
+                        ) + 10 * np.log10(weights)[:, np.newaxis] - \
+                            self.coupling_loss_imt_system[ue, :][:, active_sys]
 
             oob_power = np.resize(-500., (len(ue), 1))
             if self.adjacent_channel:
@@ -256,7 +256,7 @@ class SimulationDownlink(Simulation):
                 if self.parameters.imt.adjacent_ch_reception == "ACS":
                     if self.overlapping_bandwidth:
                         warn(
-                            "You're trying to use ACS on a partially overlapping band"
+                            "You're trying to use ACS on a partially overlapping band "
                             "with UEs.\n\tVerify the code implements the behavior you expect!!"
                         )
                     non_overlap_sys_bw = self.param_system.bandwidth - self.overlapping_bandwidth
@@ -265,10 +265,7 @@ class SimulationDownlink(Simulation):
                     # NOTE: only the power not overlapping is attenuated by ACS
                     # tx_pow_adj_lin = PSD * non_overlap_imt_bw
                     # rx_oob = tx_pow_adj_lin / acs
-                    rx_oob[::] = self.param_system.tx_power_density \
-                            + 10 * np.log10(
-                                non_overlap_sys_bw * 1e6
-                            ) - acs_dB
+                    rx_oob[::] = self.param_system.tx_power_density + 10 * np.log10(non_overlap_sys_bw * 1e6) - acs_dB
                 elif self.parameters.imt.adjacent_ch_reception == "OFF":
                     pass
                 else:
@@ -316,8 +313,7 @@ class SimulationDownlink(Simulation):
                     tx_oob[::] = self.param_system.tx_power_density + \
                         10 * np.log10(1e6) -  \
                         aclr_dB + 10 * np.log10(
-                            non_overlap_imt_bw
-                        )
+                            non_overlap_imt_bw)
                 elif self.param_system.adjacent_ch_emissions == "OFF":
                     pass
                 else:
@@ -336,21 +332,10 @@ class SimulationDownlink(Simulation):
                 oob_power = 10 * np.log10(
                     10 ** (0.1 * tx_oob) + 10 ** (0.1 * rx_oob)
                 )
-                # repeat ue received power for each coupling loss
-                oob_power = np.tile(
-                    np.reshape(
-                        oob_power,
-                        (-1, 1)
-                    ),
-                    (1, len(active_sys))
-                )
-                # could use different coupling loss if
-                # different antenna pattern is to be considered on adj channel
             # Total external interference into the UE in dBm
             ue_ext_int = 10 * np.log10(np.power(10,
                                                 0.1 * in_band_interf_power) + np.power(10,
                                                                                        0.1 * oob_power))
-            # ue_ext_int = ext_interference - self.coupling_loss_imt_system[ue, :][:, active_sys]
 
             # Sum all the interferers for each UE
             self.ue.ext_interference[ue] = 10 * \

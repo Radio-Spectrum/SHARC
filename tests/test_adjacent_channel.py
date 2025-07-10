@@ -271,7 +271,7 @@ class SimulationAdjacentTest(unittest.TestCase):
                     bs * self.param.imt.ue.k,
                     (bs + 1) * self.param.imt.ue.k)]
             tx_pow = self.simulation.bs.tx_power[bs]
-            tx_oob = tx_pow - self.param.imt.adjacent_ch_leak_ratio
+            tx_oob = tx_pow - self.param.imt.bs.adjacent_ch_leak_ratio
             rx_oob = tx_pow - self.param.fss_ss.adjacent_ch_selectivity
             oob_interferece = 10 * np.log10(10**(0.1 * tx_oob) + 10**(
                 0.1 * rx_oob)) - coupling_loss_imt_system_adj[active_beams].flatten()
@@ -286,6 +286,7 @@ class SimulationAdjacentTest(unittest.TestCase):
     def test_simulation_2bs_4ue_uplink(self):
         """Test simulation of 2 base stations and 4 UEs in uplink scenario."""
         self.param.general.imt_link = "UPLINK"
+        self.param.imt.adjacent_ch_emissions = "SPECTRAL_MASK"
 
         self.simulation = SimulationUplink(self.param, "")
         self.simulation.initialize()

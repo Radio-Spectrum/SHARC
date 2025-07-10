@@ -53,6 +53,9 @@ class ResultsManager(object):
         self.system_imt_antenna_gain = SampleList()
         # Antenna gain [dBi]
         self.imt_system_antenna_gain = SampleList()
+        # Antenna gain [dBi]
+        self.imt_system_antenna_gain_adjacent = SampleList()
+
         # Path Loss [dB]
         self.imt_system_path_loss = SampleList()
         # Building entry loss [dB]

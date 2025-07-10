@@ -370,6 +370,19 @@ class ParametersTest(unittest.TestCase):
                 orbit_params.phasing_deg,
                 expected_orbit_params[i]['phasing_deg'])
 
+    def test_imt_validation(self):
+        with self.assertRaises(ValueError) as err_context:
+            self.parameters.imt.ue.k = 2
+            self.parameters.imt.adjacent_antenna_model = "BEAMFORMING"
+            self.parameters.imt.adjacent_ch_emissions = "SPECTRAL_MASK"
+            self.parameters.imt.validate("imt")
+
+        self.assertTrue(
+            'adjacent_antenna_model different than' in str(
+                err_context.exception,
+            ),
+        )
+
     def test_parameters_haps(self):
         """Test ParametersHaps
         """

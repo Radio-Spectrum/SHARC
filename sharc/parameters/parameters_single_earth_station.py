@@ -315,7 +315,12 @@ class ParametersSingleEarthStation(ParametersBase):
         """
         super().validate(ctx)
 
-        if None in [self.frequency, self.bandwidth, self.channel_model]:
+        if None in [
+            self.frequency, self.bandwidth,
+            self.channel_model,
+            self.noise_temperature,
+            self.tx_power_density
+        ]:
             raise ValueError(
                 "ParametersSingleEarthStation required parameters are not all set", )
 

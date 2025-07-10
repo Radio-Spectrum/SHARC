@@ -34,12 +34,7 @@ class ParametersImt(ParametersBase):
     # Possible values are "ACLR", "SPECTRAL_MASK" and "OFF"
     adjacent_ch_emissions: str = "OFF"
 
-    # Adjacent channel leakage ratio in dB used if adjacent_ch_emissions is
-    # set to "ACLR"
-    adjacent_ch_leak_ratio: float = 45.0
-
-    # Spectral mask used for the IMT system when adjacent_ch_emissions is set
-    # to "SPECTRAL_MASK"
+    # Spectral mask used for the IMT system when adjacent_ch_emissions is set to "SPECTRAL_MASK"
     spectral_mask: str = "IMT-2020"
 
     @dataclass
@@ -53,10 +48,11 @@ class ParametersImt(ParametersBase):
         ohmic_loss: float = 3.0
         # Adjacent Channel Selectivity in dB
         adjacent_ch_selectivity: float = None
-        antenna: ParametersAntenna = field(
-            default_factory=lambda: ParametersAntenna(
-                pattern="ARRAY", array=ParametersAntennaImt(
-                    downtilt=0.0)))
+        # Adjacent channel leakage ratio in dB used if adjacent_ch_emissions is set to "ACLR"
+        adjacent_ch_leak_ratio: float = 45.0
+        antenna: ParametersAntenna = field(default_factory=lambda: ParametersAntenna(
+            pattern="ARRAY", array=ParametersAntennaImt(downtilt=0.0)
+        ))
     bs: ParametersBS = field(default_factory=ParametersBS)
 
     topology: ParametersImtTopology = field(
@@ -96,9 +92,11 @@ class ParametersImt(ParametersBase):
         ohmic_loss: float = 3.0
         body_loss: float = 4.0
         adjacent_ch_selectivity: float = 33  # Adjacent Channel Selectivity in dB
-        antenna: ParametersAntenna = field(
-            default_factory=lambda: ParametersAntenna(
-                pattern="ARRAY"))
+        # Adjacent channel leakage ratio in dB used if adjacent_ch_emissions is set to "ACLR"
+        adjacent_ch_leak_ratio: float = 45.0
+        antenna: ParametersAntenna = field(default_factory=lambda: ParametersAntenna(
+            pattern="ARRAY"
+        ))
 
         def validate(self, ctx: str):
             """Validate the UE antenna beamsteering range parameters."""
@@ -220,3 +218,17 @@ class ParametersImt(ParametersBase):
         )
 
         self.validate("imt")
+
+    def validate(self, ctx):
+        super().validate(ctx)
+
+        if self.adjacent_antenna_model != "SINGLE_ELEMENT" \
+                and self.adjacent_ch_emissions == "SPECTRAL_MASK" and self.ue.k > 1:
+            # NOTE: there is no way to reconcile multiple beams with spectral power mask
+            # the mask specifies emission limits, it doesn't sound correct to say that each
+            # beam emits an equal portion of the limit, or that they emmit different portions
+            # The limit is normally a regulatory one, not a technical one
+            raise ValueError(
+                "There currently is no support for using IMT 'SPECTRAL_MASK' with ue.k > 1"
+                " and adjacent_antenna_model different than 'SINGLE_ELEMENT'"
+            )

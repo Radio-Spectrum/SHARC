@@ -291,7 +291,8 @@ class SimulationDownlink(Simulation):
                 else:
                     raise ValueError(
                         f"No implementation for param_system.adjacent_ch_emissions == {
-                            self.param_system.adjacent_ch_emissions}")
+                            self.param_system.adjacent_ch_emissions}"
+                    )
 
                 # Out of band power
                 # sum linearly power leaked into band and power received in the

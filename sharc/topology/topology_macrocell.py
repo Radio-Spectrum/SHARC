@@ -48,12 +48,7 @@ class TopologyMacrocell(Topology):
         self.site_y = np.empty(0)
 
     def calculate_coordinates(self, random_number_gen=np.random.RandomState()):
-        """
-        Calculates the coordinates of the stations according to the inter-site
-        distance parameter. This method is invoked in all snapshots but it can
-        be called only once for the macro cell topology. So we set
-        static_base_stations to True to avoid unnecessary calculations.
-        """
+        """Calculate the coordinates of the stations for the macrocell topology."""
         if not self.static_base_stations:
             self.static_base_stations = True
 
@@ -97,6 +92,7 @@ class TopologyMacrocell(Topology):
             self.indoor = np.zeros(self.num_base_stations, dtype=bool)
 
     def plot(self, ax: matplotlib.axes.Axes):
+        """Plot the macrocell topology on the given axis."""
         # create the hexagons
         r = self.intersite_distance / 3
         for x, y, az in zip(self.x, self.y, self.azimuth):

@@ -22,6 +22,21 @@ class AntennaRS1861_9B(Antenna):
         self.peak_gain = param.antenna_gain
 
     def calculate_gain(self, *args, **kwargs) -> np.array:
+        """
+        Calculate the antenna gain for the given off-axis angles.
+
+        Parameters
+        ----------
+        *args : tuple
+            Positional arguments (not used).
+        **kwargs : dict
+            Keyword arguments, expects 'off_axis_angle_vec'.
+
+        Returns
+        -------
+        np.array
+            Calculated antenna gain values.
+        """
         phi = np.absolute(kwargs["off_axis_angle_vec"])
 
         gain = np.zeros(phi.shape)

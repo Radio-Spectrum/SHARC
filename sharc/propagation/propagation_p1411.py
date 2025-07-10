@@ -17,7 +17,10 @@ class PropagationP1411(Propagation):
     Frequency in MHz and distance in meters!
     """
 
-    def __init__(self, random_number_gen: np.random.RandomState, above_clutter=True):
+    def __init__(
+            self,
+            random_number_gen: np.random.RandomState,
+            above_clutter=True):
         super().__init__(random_number_gen)
 
         if above_clutter:
@@ -42,6 +45,28 @@ class PropagationP1411(Propagation):
             self.nlos_sigma = 7.60
 
     def get_loss(self, *args, **kwargs) -> np.array:
+        """Calculate the path loss using the ITU-R P.1411 model.
+
+        Parameters
+        ----------
+        distance_3D : np.ndarray, optional
+            3D distance array between stations (if provided).
+        distance_2D : np.ndarray, optional
+            2D distance array between stations (if provided).
+        frequency : float
+            Frequency in Hz.
+        los : bool, optional
+            If True, use line-of-sight model. Default is True.
+        shadow : bool, optional
+            If True, include shadow fading. Default is True.
+        number_of_sectors : int, optional
+            Number of sectors for the calculation. Default is 1.
+
+        Returns
+        -------
+        np.array
+            Path loss values for the given parameters.
+        """
         if "distance_3D" in kwargs:
             d = kwargs["distance_3D"]
         else:

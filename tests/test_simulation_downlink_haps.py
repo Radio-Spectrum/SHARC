@@ -20,8 +20,10 @@ from sharc.parameters.imt.parameters_single_bs import ParametersSingleBS
 
 
 class SimulationDownlinkHapsTest(unittest.TestCase):
+    """Unit tests for the SimulationDownlink class in HAPS scenarios."""
 
     def setUp(self):
+        """Set up test fixtures for SimulationDownlink HAPS tests."""
         self.param = Parameters()
 
         self.param.general.imt_link = "DOWNLINK"
@@ -205,12 +207,12 @@ class SimulationDownlinkHapsTest(unittest.TestCase):
         tx_power = 10 - 10 * math.log10(2)
         npt.assert_allclose(
             self.simulation.bs.tx_power[0], np.array(
-            [tx_power, tx_power],
+                [tx_power, tx_power],
             ), atol=1e-2,
         )
         npt.assert_allclose(
             self.simulation.bs.tx_power[1], np.array(
-            [tx_power, tx_power],
+                [tx_power, tx_power],
             ), atol=1e-2,
         )
 
@@ -238,7 +240,8 @@ class SimulationDownlinkHapsTest(unittest.TestCase):
 
         # check UE thermal noise
         ue_noise_fig = 9
-        self.simulation.ue.noise_figure = np.ones(self.simulation.ue.num_stations) * ue_noise_fig
+        self.simulation.ue.noise_figure = np.ones(
+            self.simulation.ue.num_stations) * ue_noise_fig
         thermal_noise = 10 * \
             np.log10(1.38064852e-23 * 290 * bandwidth_per_ue * 1e3 * 1e6) + ue_noise_fig
         # the simulator adds noise figure to total noise
@@ -278,7 +281,9 @@ class SimulationDownlinkHapsTest(unittest.TestCase):
         system_tx_power = (4.4 - 28 - 60) + 10 * \
             np.log10(bandwidth_per_ue * 1e6) + 30
 
-        ext_interference = (system_tx_power - coupling_loss_imt_system).flatten()
+        ext_interference = (
+            system_tx_power -
+            coupling_loss_imt_system).flatten()
         npt.assert_allclose(
             self.simulation.ue.ext_interference,
             ext_interference,

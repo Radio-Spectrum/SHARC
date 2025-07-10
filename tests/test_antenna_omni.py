@@ -12,8 +12,10 @@ from sharc.antenna.antenna_omni import AntennaOmni
 
 
 class AntennaOmniTest(unittest.TestCase):
+    """Unit tests for the AntennaOmni class."""
 
     def setUp(self):
+        """Set up test fixtures for AntennaOmni tests."""
         self.antenna1 = AntennaOmni()
         self.antenna1.gain = 5
 
@@ -23,11 +25,13 @@ class AntennaOmniTest(unittest.TestCase):
         self.antenna3 = AntennaOmni(10)
 
     def test_gain(self):
+        """Test gain property of the antenna."""
         self.assertEqual(self.antenna1.gain, 5)
         self.assertEqual(self.antenna2.gain, 8)
         self.assertEqual(self.antenna3.gain, 10)
 
     def test_calculate_gain(self):
+        """Test calculate_gain method of the antenna."""
         phi = [30, 60, 90, 45]
 
         # Test antenna1

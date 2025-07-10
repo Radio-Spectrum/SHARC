@@ -1,9 +1,12 @@
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from sharc.parameters.parameters_base import ParametersBase
 
 
 @dataclass
 class ParametersOrbit(ParametersBase):
+    """
+    Parameters for satellite orbit configuration, including planes, satellites per plane, and orbital elements.
+    """
     n_planes: int = 8
     sats_per_plane: int = 6
     phasing_deg: float = 7.5
@@ -21,15 +24,35 @@ class ParametersOrbit(ParametersBase):
         self.validate("ParametersOrbit")
 
     def validate(self, ctx: str):
+        """
+        Validate the orbit parameters for correctness.
+
+        Parameters
+        ----------
+        ctx : str
+            Context string for error messages.
+        Raises
+        ------
+        ValueError
+            If any parameter is invalid.
+        """
         if not (0 <= self.inclination_deg <= 180):
-            raise ValueError(f"Invalid {ctx}.inclination_deg = {self.inclination_deg}. \
+            raise ValueError(
+                f"Invalid {ctx}.inclination_deg = {
+                    self.inclination_deg}. \
                              Must be in the range [0, 180] degrees.")
         if self.perigee_alt_km < 0:
-            raise ValueError(f"Invalid {ctx}.perigee_alt_km = {self.perigee_alt_km}. \
+            raise ValueError(
+                f"Invalid {ctx}.perigee_alt_km = {
+                    self.perigee_alt_km}. \
                              Altitude must be non-negative.")
         if self.apogee_alt_km < self.perigee_alt_km:
-            raise ValueError(f"Invalid {ctx}.apogee_alt_km = {self.apogee_alt_km}. \
+            raise ValueError(
+                f"Invalid {ctx}.apogee_alt_km = {
+                    self.apogee_alt_km}. \
                              Must be greater than or equal to perigee_alt_km.")
         if not (0 <= self.phasing_deg <= 360):
-            raise ValueError(f"Invalid {ctx}.phasing_deg = {self.phasing_deg}. \
+            raise ValueError(
+                f"Invalid {ctx}.phasing_deg = {
+                    self.phasing_deg}. \
                              Must be in the range [0, 360] degrees.")

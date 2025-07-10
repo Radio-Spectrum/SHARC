@@ -1,7 +1,7 @@
 general:
     ###########################################################################
     # Number of simulation snapshots
-    num_snapshots: 50000
+    num_snapshots: 10000
     ###########################################################################
     # IMT link that will be simulated (DOWNLINK or UPLINK)
     imt_link: DOWNLINK
@@ -15,7 +15,7 @@ general:
     enable_adjacent_channel: false
     ###########################################################################
     # Seed for random number generator
-    seed: 101
+    seed: 67465
     ###########################################################################
     # if FALSE, then a new output directory is created
     overwrite_output: FALSE
@@ -36,10 +36,10 @@ imt:
     interfered_with: TRUE
     ###########################################################################
     # IMT center frequency [MHz]
-    frequency: 2300.0
+    frequency: 2160.0
     ###########################################################################
     # IMT bandwidth [MHz]
-    bandwidth: 20.0
+    bandwidth: 5.0
     ###########################################################################
     # IMT resource block bandwidth [MHz]
     rb_bandwidth: 0.180
@@ -92,7 +92,7 @@ imt:
     # IMT and other services in adjacent band
     # Possible values: SINGLE_ELEMENT, BEAMFORMING
     adjacent_antenna_model: SINGLE_ELEMENT
-    # Base station parameters
+    # Base station parameters - From 5D/716 NON-AAS Antenna - Urban
     bs:
         ###########################################################################
         # The load probability (or activity factor) models the statistical
@@ -160,10 +160,10 @@ imt:
                 element_theta_3db: 0
                 ###########################################################################
                 # BS/UE number of rows in antenna array
-                n_rows: 4
+                n_rows: 1
                 ###########################################################################
                 # BS/UE number of columns in antenna array
-                n_columns: 8
+                n_columns: 1
                 ###########################################################################
                 # BS/UE array horizontal element spacing (d/lambda)
                 element_horiz_spacing: 0.5
@@ -189,7 +189,7 @@ imt:
         ###########################################################################
         # Number of UEs that are allocated to each cell within handover margin.
         # Remember that in macrocell network each base station has 3 cells (sectors)
-        k: 1
+        k: 1  # Only one UE to access the worst-case interference from MSS-DC
         ###########################################################################
         # Multiplication factor that is used to ensure that the sufficient number
         # of UE's will distributed throughout ths system area such that the number
@@ -378,13 +378,13 @@ mss_d2d:
     # chosen spectral Mask
     spectral_mask: 3GPP E-UTRA
     # MSS_D2D system center frequency in MHz
-    frequency: 2300.0
+    frequency: 2160.0
     # MSS_D2d system bandwidth in MHz
     bandwidth: 5.0
     # MSS_D2D cell radius in network topology [m]
     cell_radius: 39475.0
     # Satellite power density in dBW/Hz
-    tx_power_density: -52.2
+    tx_power_density: -54.2
     # Number of sectors
     num_sectors: 1
     # conditional to select active satellites
@@ -422,6 +422,7 @@ mss_d2d:
         # Radial (l_r) and transverse (l_t) sizes of the effective radiating area of the satellite transmitt antenna (m)
         l_r: 1.6
         l_t: 1.6
+    polarization_loss: 0.0  # dB
     # channel model, possible values are "FSPL" (free-space path loss),
     #                                    "SatelliteSimple" (FSPL + 4 + clutter loss)
     #                                    "P619"

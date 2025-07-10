@@ -41,7 +41,8 @@ class ParametersAntennaImt(ParametersBase):
     """
     section_name: str = "imt_antenna"
 
-    # Normalization application flags for base station (BS) and user equipment (UE).
+    # Normalization application flags for base station (BS) and user equipment
+    # (UE).
     normalization: bool = False
 
     # Normalization files for BS and UE beamforming.
@@ -56,7 +57,8 @@ class ParametersAntennaImt(ParametersBase):
     # beamforming angle limitation [deg].
     # PS: it isn't implemented for UEs
     # and current implementation doesn't make sense for UEs
-    horizontal_beamsteering_range: tuple[float | int, float | int] = (-180., 180.)
+    horizontal_beamsteering_range: tuple[float |
+                                         int, float | int] = (-180., 180.)
     vertical_beamsteering_range: tuple[float | int, float | int] = (0., 180.)
 
     # Mechanical downtilt [degrees].
@@ -80,31 +82,66 @@ class ParametersAntennaImt(ParametersBase):
     element_horiz_spacing: float = 0.5
     element_vert_spacing: float = 0.5
 
-    # BS/UE front to back ratio and single element vertical sidelobe attenuation [dB].
+    # BS/UE front to back ratio and single element vertical sidelobe
+    # attenuation [dB].
     element_am: int = 30
     element_sla_v: int = 30
 
     # Multiplication factor k used to adjust the single-element pattern.
     multiplication_factor: int = 12
 
-    adjacent_antenna_model: typing.Literal["BEAMFORMING", "SINGLE_ELEMENT"] = None
+    adjacent_antenna_model: typing.Literal["BEAMFORMING",
+                                           "SINGLE_ELEMENT"] = None
 
-    subarray: ParametersAntennaSubarrayImt = field(default_factory=ParametersAntennaSubarrayImt)
+    subarray: ParametersAntennaSubarrayImt = field(
+        default_factory=ParametersAntennaSubarrayImt)
 
     def load_subparameters(self, ctx: str, params: dict, quiet=True):
         """
-        Loads the parameters when is placed as subparameter
+        Load parameters when this class is used as a subparameter.
+
+        Parameters
+        ----------
+        ctx : str
+            Context string for error messages.
+        params : dict
+            Dictionary of parameters to load.
+        quiet : bool, optional
+            If True, suppress output (default is True).
         """
         super().load_subparameters(ctx, params, quiet)
 
-    def set_external_parameters(self, *, adjacent_antenna_model: typing.Literal["BEAMFORMING", "SINGLE_ELEMENT"]):
+    def set_external_parameters(
+            self, *, adjacent_antenna_model: typing.Literal["BEAMFORMING", "SINGLE_ELEMENT"]):
+        """
+        Set the adjacent antenna model parameter.
+
+        Parameters
+        ----------
+        adjacent_antenna_model : Literal["BEAMFORMING", "SINGLE_ELEMENT"]
+            The adjacent antenna model to use.
+        """
         self.adjacent_antenna_model = adjacent_antenna_model
 
     def validate(self, ctx: str):
-        # Additional sanity checks specific to antenna parameters can be implemented here
+        """
+        Validate the antenna parameters for correctness.
+
+        Parameters
+        ----------
+        ctx : str
+            Context string for error messages.
+        Raises
+        ------
+        ValueError
+            If any parameter is invalid.
+        """
+        # Additional sanity checks specific to antenna parameters can be
+        # implemented here
 
         # Sanity check for adjacent_antenna_model
-        if self.adjacent_antenna_model not in ["SINGLE_ELEMENT", "BEAMFORMING"]:
+        if self.adjacent_antenna_model not in [
+                "SINGLE_ELEMENT", "BEAMFORMING"]:
             raise ValueError("adjacent_antenna_model must be 'SINGLE_ELEMENT'")
 
         # Sanity checks for normalization flags
@@ -117,17 +154,15 @@ class ParametersAntennaImt(ParametersBase):
                 f"Invalid element_pattern value {self.element_pattern}",
             )
         if isinstance(self.horizontal_beamsteering_range, list):
-            self.horizontal_beamsteering_range = tuple(self.horizontal_beamsteering_range)
+            self.horizontal_beamsteering_range = tuple(
+                self.horizontal_beamsteering_range)
 
         if not isinstance(self.horizontal_beamsteering_range, tuple):
             raise ValueError(
-                f"Invalid {ctx}.horizontal_beamsteering_range={self.horizontal_beamsteering_range}\n"
-                "It needs to be a tuple"
-            )
-        if len(self.horizontal_beamsteering_range) != 2\
-            or not all(map(
-                lambda x: isinstance(x, float) or isinstance(x, int), self.horizontal_beamsteering_range
-            )):
+                f"Invalid {ctx}.horizontal_beamsteering_range={
+                    self.horizontal_beamsteering_range}\n" "It needs to be a tuple")
+        if len(self.horizontal_beamsteering_range) != 2 or not all(map(lambda x: isinstance(
+                x, float) or isinstance(x, int), self.horizontal_beamsteering_range)):
             raise ValueError(
                 f"Invalid {ctx}.horizontal_beamsteering_range={self.horizontal_beamsteering_range}\n"
                 "It needs to contain two numbers delimiting the range of beamsteering in degrees"
@@ -137,25 +172,22 @@ class ParametersAntennaImt(ParametersBase):
                 f"Invalid {ctx}.horizontal_beamsteering_range={self.horizontal_beamsteering_range}\n"
                 "The second value must be bigger than the first"
             )
-        if not all(map(
-                lambda x: x >= -180. and x <= 180., self.horizontal_beamsteering_range
-            )):
+        if not all(map(lambda x: x >= -180. and x <= 180.,
+                   self.horizontal_beamsteering_range)):
             raise ValueError(
                 f"Invalid {ctx}.horizontal_beamsteering_range={self.horizontal_beamsteering_range}\n"
                 "Horizontal beamsteering limit angles must be in the range [-180, 180]"
             )
 
         if isinstance(self.vertical_beamsteering_range, list):
-            self.vertical_beamsteering_range = tuple(self.vertical_beamsteering_range)
+            self.vertical_beamsteering_range = tuple(
+                self.vertical_beamsteering_range)
         if not isinstance(self.vertical_beamsteering_range, tuple):
             raise ValueError(
-                f"Invalid {ctx}.vertical_beamsteering_range={self.vertical_beamsteering_range}\n"
-                "It needs to be a tuple"
-            )
-        if len(self.vertical_beamsteering_range) != 2\
-            or not all(map(
-                lambda x: isinstance(x, float) or isinstance(x, int), self.vertical_beamsteering_range
-            )):
+                f"Invalid {ctx}.vertical_beamsteering_range={
+                    self.vertical_beamsteering_range}\n" "It needs to be a tuple")
+        if len(self.vertical_beamsteering_range) != 2 or not all(map(lambda x: isinstance(
+                x, float) or isinstance(x, int), self.vertical_beamsteering_range)):
             raise ValueError(
                 f"Invalid {ctx}.vertical_beamsteering_range={self.vertical_beamsteering_range}\n"
                 "It needs to contain two numbers delimiting the range of beamsteering in degrees"
@@ -165,15 +197,22 @@ class ParametersAntennaImt(ParametersBase):
                 f"Invalid {ctx}.vertical_beamsteering_range={self.vertical_beamsteering_range}\n"
                 "The second value must be bigger than the first"
             )
-        if not all(map(
-                lambda x: x >= 0. and x <= 180., self.vertical_beamsteering_range
-            )):
+        if not all(map(lambda x: x >= 0. and x <= 180.,
+                   self.vertical_beamsteering_range)):
             raise ValueError(
                 f"Invalid {ctx}.vertical_beamsteering_range={self.vertical_beamsteering_range}\n"
                 "vertical beamsteering limit angles must be in the range [0, 180]"
             )
 
     def get_antenna_parameters(self) -> AntennaPar:
+        """
+        Get the antenna parameters as an AntennaPar object.
+
+        Returns
+        -------
+        AntennaPar
+            The antenna parameters object constructed from the current configuration.
+        """
         if self.normalization:
             # Load data, save it in dict and close it
             data = load(self.normalization_file)

@@ -66,9 +66,11 @@ class ParametersFs(ParametersBase):
     delta_N: float = 43.127
     # Percentage p. Float (0 to 100) or RANDOM
     percentage_p: str = "0.2"
-    # Distance over land from the transmit and receive antennas to the coast (km)
+    # Distance over land from the transmit and receive antennas to the coast
+    # (km)
     Dct: float = 70.0
-    # Distance over land from the transmit and receive antennas to the coast (km)
+    # Distance over land from the transmit and receive antennas to the coast
+    # (km)
     Dcr: float = 70.0
     # Effective height of interfering antenna (m)
     Hte: float = 20.0
@@ -80,7 +82,8 @@ class ParametersFs(ParametersBase):
     rx_lat: float = -23.17889
     # Antenna polarization
     polarization: str = "horizontal"
-    # Determine whether clutter loss following ITU-R P.2108 is added (TRUE/FALSE)
+    # Determine whether clutter loss following ITU-R P.2108 is added
+    # (TRUE/FALSE)
     clutter_loss: bool = True
 
     def load_parameters_from_file(self, config_file: str):
@@ -118,7 +121,6 @@ class ParametersFs(ParametersBase):
         # Sanity check for channel model
         if self.channel_model not in ["FSPL", "TerrestrialSimple", "P452"]:
             raise ValueError(
-                "Invalid channel_model, must be either 'FSPL', 'TerrestrialSimple', or 'P452'",
-            )
+                "Invalid channel_model, must be either 'FSPL', 'TerrestrialSimple', or 'P452'", )
         if self.channel_model == "P452":
             self.param_p452.load_from_paramters(self)

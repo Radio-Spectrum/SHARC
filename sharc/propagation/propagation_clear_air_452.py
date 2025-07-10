@@ -1,7 +1,5 @@
 # -*- coding: utf-8 -*-
-"""
-Created on Mon May 22 15:10:11 2017
-"""
+"""Implements ITU-R P.452 clear-air propagation model and related calculations."""
 import numpy as np
 from multipledispatch import dispatch
 
@@ -17,13 +15,13 @@ from sharc.propagation.propagation_building_entry_loss import PropagationBuildin
 
 
 class PropagationClearAir(Propagation):
-    """
-    Basic transmission loss due to free-space propagation and attenuation by atmospheric gases
-    """
-    # pylint: disable=function-redefined
-    # pylint: disable=arguments-renamed
+    """Basic transmission loss due to free-space propagation and attenuation by atmospheric gases."""
 
-    def __init__(self, random_number_gen: np.random.RandomState, model_params: ParametersP452):
+    def __init__(
+            self,
+            random_number_gen: np.random.RandomState,
+            model_params: ParametersP452):
+        """Initialize PropagationClearAir with a random number generator and model parameters."""
         super().__init__(random_number_gen)
 
         self.clutter = PropagationClutterLoss(random_number_gen)
@@ -35,7 +33,7 @@ class PropagationClearAir(Propagation):
 
     @staticmethod
     def closs_corr(f, d, h, zone, htg, hrg, ha_t, ha_r, dk_t, dk_r):
-        # closs clutter loss correction according to P.452 - 16
+        """Apply clutter loss correction according to ITU-R P.452-16."""
         index1 = 1
         index2 = d.size
 
@@ -49,7 +47,6 @@ class PropagationClearAir(Propagation):
         dk = dk_t
 
         if ha > htg:
-
             Ffc = 0.25 + 0.375 * (1 + np.tanh(7.5 * (f - 0.5)))  # (57a)
             Aht = 10.25 * Ffc * \
                 np.exp(-dk) * (1 - np.tanh(6 * (htg / ha - 0.625))) - \
@@ -83,7 +80,8 @@ class PropagationClearAir(Propagation):
 
         # Modify the path
 
-        if (index2 - index1 < 3):  # at least two points between the clutter at Tx and Rx sides
+        if (index2 - index1 <
+                3):  # at least two points between the clutter at Tx and Rx sides
             error_message = "tl_p452: closs_corr: the sum of clutter nominal distances is larger than the path length."
             raise ValueError(error_message)
 
@@ -95,6 +93,7 @@ class PropagationClearAir(Propagation):
 
     @staticmethod
     def longest_cont_dist(d, zone, zone_r):
+        """Return the longest continuous distance in a given zone."""
         dm = 0
 
         if zone_r == 12:
@@ -125,7 +124,23 @@ class PropagationClearAir(Propagation):
 
     @staticmethod
     def beta0(phi, dtm, dlm):
+        """Calculate the time percentage beta0 for anomalous propagation as per ITU-R P.452.
 
+        Parameters
+        ----------
+        phi : float
+            Latitude.
+        dtm : float
+            Longest continuous land path.
+        dlm : float
+            Longest continuous sea path.
+
+        Returns
+        -------
+        float
+            Time percentage beta0.
+        """
+        """Calculate the time percentage beta0 for anomalous propagation."""
         tau = 1 - np.exp(-(4.12 * 1e-4 * dlm ** 2.41))  # (3a)
 
         mu1 = (
@@ -147,6 +162,7 @@ class PropagationClearAir(Propagation):
 
     @staticmethod
     def earth_rad_eff(DN):
+        """Calculate the effective Earth radii (ae, ab) for the given refractivity lapse-rate DN."""
         k50 = 157 / (157 - DN)
         ae = 6371 * k50
 
@@ -158,6 +174,51 @@ class PropagationClearAir(Propagation):
 
     @staticmethod
     def smooth_earth_heights(d, h, htg, hrg, ae, f):
+        """Compute smooth Earth heights and related parameters for the path profile as per ITU-R P.452.
+
+        Parameters
+        ----------
+        d : np.ndarray
+            Distance array along the path.
+        h : np.ndarray
+            Height array along the path.
+        htg : float
+            Transmitter ground height.
+        hrg : float
+            Receiver ground height.
+        ae : float
+            Effective Earth radius.
+        f : float
+            Frequency in GHz.
+
+        Returns
+        -------
+        tuple
+            Smoothed heights and related parameters for the diffraction model.
+        """
+        """Compute smooth Earth heights and related parameters for the path profile as per ITU-R P.452.
+
+        Parameters
+        ----------
+        d : np.ndarray
+            Distance array along the path.
+        h : np.ndarray
+            Height array along the path.
+        htg : float
+            Transmitter ground height.
+        hrg : float
+            Receiver ground height.
+        ae : float
+            Effective Earth radius.
+        f : float
+            Frequency in GHz.
+
+        Returns
+        -------
+        tuple
+            Smoothed heights and related parameters for the diffraction model.
+        """
+        """Calculate smooth Earth heights for the path profile."""
         n = d.size
         dtot = d[-1]
 
@@ -261,8 +322,8 @@ class PropagationClearAir(Propagation):
             lamb = 0.3 / f
             Ce = 1 / ae
 
-            nu = (h[ii] + 500 * Ce * d[ii] * (dtot - d[ii]) - (hts * (dtot - d[ii]) + hrs * d[ii]) / dtot) * \
-                np.sqrt(0.002 * dtot / (lamb * d[ii] * (dtot - d[ii])))
+            nu = (h[ii] + 500 * Ce * d[ii] * (dtot - d[ii]) - (hts * (dtot - d[ii]) +
+                  hrs * d[ii]) / dtot) * np.sqrt(0.002 * dtot / (lamb * d[ii] * (dtot - d[ii])))
             numax = max(nu)
 
             kindex = np.nonzero(nu == numax)
@@ -287,7 +348,8 @@ class PropagationClearAir(Propagation):
         # Slope of the smooth - Earth surface
         m = (hsr - hst) / dtot
 
-        # The terminal effective heigts for the ducting / layer - reflection model
+        # The terminal effective heigts for the ducting / layer - reflection
+        # model
         hte = htg + h[0] - hst
         hre = hrg + h[-1] - hsr
 
@@ -298,6 +360,23 @@ class PropagationClearAir(Propagation):
 
     @staticmethod
     def path_fraction(d, zone, zone_r):
+        """Calculate the fraction of the path in a given zone as per ITU-R P.452.
+
+        Parameters
+        ----------
+        d : np.ndarray
+            Distance array along the path.
+        zone : np.ndarray
+            Zone type array.
+        zone_r : int
+            Zone type to search for.
+
+        Returns
+        -------
+        float
+            Fraction of the path in the specified zone.
+        """
+        """Calculate the fraction of the path in a given zone."""
         dm = 0
 
         aux = np.nonzero(zone == zone_r)
@@ -324,7 +403,453 @@ class PropagationClearAir(Propagation):
 
     @staticmethod
     def pl_los(d, f, p, b0, w, T, press, dlt, dlr):
+        """Calculate the basic transmission loss not exceeded for time percentage p due to LoS propagation.
 
+        Parameters
+        ----------
+        d : float
+            Path length.
+        f : float
+            Frequency in GHz.
+        p : float
+            Time percentage.
+        b0 : float
+            Reference time percentage for interpolation.
+        w : float
+            Water vapor density.
+        T : float
+            Temperature in Celsius.
+        press : float
+            Pressure in hPa.
+        dlt : float
+            Distance from transmitter to horizon.
+        dlr : float
+            Distance from receiver to horizon.
+
+        Returns
+        -------
+        tuple
+            Basic transmission loss due to free-space and atmospheric gases, and not exceeded for p% and b0% of the time.
+        """
+        """Calculate the basic transmission loss not exceeded for time percentage p due to LoS propagation."""
+        # water vapor density
+        rho = 7.5 + 2.5 * w
+
+        # compute specific attenuation due to dry air and water vapor:
+        [g_0, g_w] = p676_ga(f, press, rho, T, True)
+
+        Ag = (g_0 + g_w) * d
+
+        # Basic transmission loss due to free - space propagation and attenuation
+        # by atmospheric gases
+        Lbfsg = 92.5 + 20.0 * np.log10(f) + 20.0 * np.log10(d) + Ag
+
+        # Corrections for multipath and focusing effects at p and b0
+        Esp = 2.6 * (1 - np.exp(-0.1 * (dlt + dlr))) * np.log10(p / 50)
+        Esb = 2.6 * (1 - np.exp(-0.1 * (dlt + dlr))) * np.log10(b0 / 50)
+
+        # Basic transmission loss not exceeded for time percentage p % due to
+        # LoS propagation
+        Lb0p = Lbfsg + Esp
+
+        # Basic transmission loss not exceeded for time percentage b0 % due to
+        # LoS propagation
+        Lb0b = Lbfsg + Esb
+
+        return Lbfsg, Lb0p, Lb0b
+    # pylint: disable=function-redefined
+    # pylint: disable=arguments-renamed
+
+    def __init__(
+            self,
+            random_number_gen: np.random.RandomState,
+            model_params: ParametersP452):
+        """Initialize PropagationClearAir with a random number generator and model parameters."""
+        super().__init__(random_number_gen)
+
+        self.clutter = PropagationClutterLoss(random_number_gen)
+        self.building_entry = PropagationBuildingEntryLoss(
+            self.random_number_gen,
+        )
+        self.building_loss = 20
+        self.model_params = model_params
+
+    @staticmethod
+    def closs_corr(f, d, h, zone, htg, hrg, ha_t, ha_r, dk_t, dk_r):
+        """Apply clutter loss correction according to ITU-R P.452-16."""
+        index1 = 1
+        index2 = d.size
+
+        htgc = htg
+        hrgc = hrg
+
+        Aht = 0
+        Ahr = 0
+
+        ha = ha_t
+        dk = dk_t
+
+        if ha > htg:
+
+            Ffc = 0.25 + 0.375 * (1 + np.tanh(7.5 * (f - 0.5)))  # (57a)
+            Aht = 10.25 * Ffc * \
+                np.exp(-dk) * (1 - np.tanh(6 * (htg / ha - 0.625))) - \
+                0.33  # (57)
+
+            kk = np.nonzero(d >= dk)
+
+            if kk.size:
+                index1 = kk[0]
+            else:
+                index1 = d.size
+
+            htgc = ha_t
+
+        ha = ha_r
+        dk = dk_r
+
+        if ha > hrg:
+            Ffc = 0.25 + 0.375 * (1 + np.tanh(7.5 * (f - 0.5)))  # (57a)
+            Ahr = 10.25 * Ffc * \
+                np.exp(-dk) * (1 - np.tanh(6 * (hrg / ha - 0.625))) - \
+                0.33  # (57)
+
+            kk = np.nonzero(d <= d[-1] - dk)
+            if kk.size:
+                index2 = kk[-1]
+            else:
+                index2 = 1
+
+            hrgc = ha_r
+
+        # Modify the path
+
+        if (index2 - index1 <
+                3):  # at least two points between the clutter at Tx and Rx sides
+            error_message = "tl_p452: closs_corr: the sum of clutter nominal distances is larger than the path length."
+            raise ValueError(error_message)
+
+        dc = d[index1 - 1:index2] - d[index1 - 1]
+        hc = h[index1 - 1:index2]
+        zonec = zone[index1 - 1:index2]
+
+        return dc, hc, zonec, htgc, hrgc, Aht, Ahr
+
+    @staticmethod
+    def longest_cont_dist(d, zone, zone_r):
+        """Return the longest continuous distance in a given zone."""
+        dm = 0
+
+        if zone_r == 12:
+            aux = (zone == 1) + (zone == 2)
+        else:
+            aux = zone == zone_r
+
+        aux = np.append(0, np.append(aux, 0))
+        aux = np.diff(aux)
+        start = np.where(aux == 1)[0]
+        stop = np.where(aux == -1)[0] - 1
+
+        start = np.atleast_1d(start)
+        stop = np.atleast_1d(stop)
+        n = start.size
+
+        for i in range(n):
+            delta = 0
+            if (d[stop[i]] < d[-1]):
+                delta = delta + (d[stop[i] + 1] - d[stop[i]]) / 2.0
+
+            if (d[start[i]] > 0):
+                delta = delta + (d[stop[i]] - d[stop[i] - 1]) / 2.0
+
+            dm = max(d[stop[i]] - d[start[i]] + delta, dm)
+
+        return dm
+
+    @staticmethod
+    def beta0(phi, dtm, dlm):
+        """Calculate the time percentage beta0 for anomalous propagation as per ITU-R P.452.
+
+        Parameters
+        ----------
+        phi : float
+            Latitude.
+        dtm : float
+            Longest continuous land path.
+        dlm : float
+            Longest continuous sea path.
+
+        Returns
+        -------
+        float
+            Time percentage beta0.
+        """
+        tau = 1 - np.exp(-(4.12 * 1e-4 * dlm ** 2.41))  # (3a)
+
+        mu1 = (
+            10 ** (-dtm / (16 - 6.6 * tau)) + 10 **
+            (-5 * (0.496 + 0.354 * tau))
+        ) ** 0.2
+
+        indices = np.nonzero(mu1 > 1)
+        mu1[indices] = 1
+
+        if abs(phi) <= 70:
+            mu4 = 10 ** ((-0.935 + 0.0176 * abs(phi)) * np.log10(mu1))
+            b0 = 10 ** (-0.015 * abs(phi) + 1.67) * mu1 * mu4
+        else:
+            mu4 = 10 ^ (0.3 * np.log10(mu1))
+            b0 = 4.17 * mu1 * mu4
+
+        return b0
+
+    @staticmethod
+    def earth_rad_eff(DN):
+        """Calculate the effective Earth radii (ae, ab) for the given refractivity lapse-rate DN."""
+        k50 = 157 / (157 - DN)
+        ae = 6371 * k50
+
+        kbeta = 3
+
+        ab = 6371 * kbeta
+
+        return ae, ab
+
+    @staticmethod
+    def smooth_earth_heights(d, h, htg, hrg, ae, f):
+        """Compute smooth Earth heights and related parameters for the path profile as per ITU-R P.452.
+
+        Parameters
+        ----------
+        d : np.ndarray
+            Distance array along the path.
+        h : np.ndarray
+            Height array along the path.
+        htg : float
+            Transmitter ground height.
+        hrg : float
+            Receiver ground height.
+        ae : float
+            Effective Earth radius.
+        f : float
+            Frequency in GHz.
+
+        Returns
+        -------
+        tuple
+            Smoothed heights and related parameters for the diffraction model.
+        """
+        n = d.size
+        dtot = d[-1]
+
+        # Tx and Rx antenna heights above mean sea level amsl(m)
+        hts = h[0] + htg
+        hrs = h[-1] + hrg
+
+        # Section 5.1.6.2
+        v1 = 0
+        for ii in range(1, n):
+            v1 = v1 + (d[ii] - d[ii - 1]) * (h[ii] + h[ii - 1])  # Eq(161)
+
+        v2 = 0
+        for ii in range(2, n):
+            v2 = v2 + (d[ii] - d[ii - 1]) * (
+                h[ii] * (
+                    2 * d[ii] + d[ii - 1]
+                    # Eq(162)
+                ) + h[ii - 1] * (d[ii] + 2 * d[ii - 1])
+            )
+
+        hst = (2 * v1 * dtot - v2) / dtot ** 2  # Eq(163)
+        hsr = (v2 - v1 * dtot) / dtot ** 2  # Eq(164)
+
+        # Section 5.1.6.3
+        HH = h - (hts * (dtot - d) + hrs * d) / dtot  # Eq(165d)
+        hobs = max(HH[1:n - 1])  # Eq(165a)
+
+        alpha_obt = max(HH[1:n - 1] / d[1:n - 1])  # Eq(165b)
+        alpha_obr = max(HH[1:n - 1] / (dtot - d[1:n - 1]))  # Eq(165c)
+
+        # Calculate provisional values for the Tx and Rx smooth surface heights
+        gt = alpha_obt / (alpha_obt + alpha_obr)  # Eq(166e)
+        gr = alpha_obr / (alpha_obt + alpha_obr)  # Eq(166f)
+
+        if hobs <= 0:
+            hstp = hst
+            hsrp = hsr
+        else:
+            hstp = hst - hobs * gt
+            hsrp = hsr - hobs * gr
+
+        # calculate the final values as required by the diffraction model
+        if hstp >= h[0]:
+            hstd = h[0]
+        else:
+            hstd = hstp
+
+        if hsrp > h[-1]:
+            hsrd = h[-1]
+        else:
+            hsrd = hsrp
+
+        # Interfering antenna horizon elevation angle and distance
+        ii = np.arange(1, n - 1)
+
+        theta = 1000 * np.arctan((h[ii] - hts) /
+                                 (1000 * d[ii]) - d[ii] / (2 * ae))
+
+        # theta(theta < 0) = 0; % condition below equation(152)
+
+        theta_t = max(theta)
+
+        theta_td = 1000 * np.arctan((hrs - hts) /
+                                    (1000 * dtot) - dtot / (2 * ae))
+        theta_rd = 1000 * np.arctan((hts - hrs) /
+                                    (1000 * dtot) - dtot / (2 * ae))
+
+        if theta_t > theta_td:
+            pathtype = 2  # transhorizon
+        else:
+            pathtype = 1  # los
+
+        kindex = np.nonzero(theta == theta_t)
+
+        lt = kindex[0] + 1
+
+        dlt = d[lt]
+
+        # Interfered-with antenna horizon elevation angle and distance
+
+        theta = 1000 * \
+            np.arctan((h[ii] - hrs) / (1000 * (dtot - d[ii])) -
+                      (dtot - d[ii]) / (2 * ae))
+
+        # theta(theta < 0) = 0;
+
+        theta_r = max(theta)
+
+        kindex = np.nonzero(np.ravel(theta) == theta_r)
+        lr = kindex[-1] + 1
+
+        dlr = dtot - d[lr]
+
+        if pathtype == 1:
+            theta_t = theta_td
+            theta_r = theta_rd
+
+            ii = np.arange(1, n - 1)
+
+            lamb = 0.3 / f
+            Ce = 1 / ae
+
+            nu = (h[ii] + 500 * Ce * d[ii] * (dtot - d[ii]) - (hts * (dtot - d[ii]) +
+                  hrs * d[ii]) / dtot) * np.sqrt(0.002 * dtot / (lamb * d[ii] * (dtot - d[ii])))
+            numax = max(nu)
+
+            kindex = np.nonzero(nu == numax)
+            lt = kindex[-1] + 1
+            dlt = d[lt]
+            dlr = dtot - dlt
+            kindex = np.nonzero(dlr <= dtot - d[ii])
+            lr = kindex[0][-1] + 1
+
+        # Angular distance
+
+        theta_tot = 1e3 * dtot / ae + theta_t + theta_r
+
+        # Section 5.1.6.4 Ducting / layer-reflection model
+
+        # Calculate the smooth-Earth heights at transmitter and receiver as
+        # required for the roughness factor
+
+        hst = min(hst, h[0])
+        hsr = min(hsr, h[-1])
+
+        # Slope of the smooth - Earth surface
+        m = (hsr - hst) / dtot
+
+        # The terminal effective heigts for the ducting / layer - reflection
+        # model
+        hte = htg + h[0] - hst
+        hre = hrg + h[-1] - hsr
+
+        ii = np.arange(lt, lr + 1)
+        hm = max(h[ii] - (hst + m * d[ii]))
+
+        return hst, hsr, hstd, hsrd, hte, hre, hm, dlt, dlr, theta_t, theta_r, theta_tot, pathtype
+
+    @staticmethod
+    def path_fraction(d, zone, zone_r):
+        """Calculate the fraction of the path in a given zone as per ITU-R P.452.
+
+        Parameters
+        ----------
+        d : np.ndarray
+            Distance array along the path.
+        zone : np.ndarray
+            Zone type array.
+        zone_r : int
+            Zone type to search for.
+
+        Returns
+        -------
+        float
+            Fraction of the path in the specified zone.
+        """
+        dm = 0
+
+        aux = np.nonzero(zone == zone_r)
+        start = aux[0]  # actually find_intervals
+        stop = aux[-1]
+        start = np.atleast_1d(start)
+        stop = np.atleast_1d(stop)
+
+        n = start.size
+
+        for i in range(n):
+            delta = 0
+            if (d(stop[1]) < d[-1]):
+                delta = delta + (d(stop[i] + 1) - d(stop[i])) / 2.0
+
+            if (d(start[i]) > 0):
+                delta = delta + (d(stop[i]) - d(stop[i] - 1)) / 2.0
+
+            dm = dm + d(stop[i]) - d(start[i]) + delta
+
+        omega = dm / (d[-1] - d[0])
+
+        return omega
+
+    @staticmethod
+    def pl_los(d, f, p, b0, w, T, press, dlt, dlr):
+        """Calculate the basic transmission loss not exceeded for time percentage p due to LoS propagation.
+
+        Parameters
+        ----------
+        d : float
+            Path length.
+        f : float
+            Frequency in GHz.
+        p : float
+            Time percentage.
+        b0 : float
+            Reference time percentage for interpolation.
+        w : float
+            Water vapor density.
+        T : float
+            Temperature in Celsius.
+        press : float
+            Pressure in hPa.
+        dlt : float
+            Distance from transmitter to horizon.
+        dlr : float
+            Distance from receiver to horizon.
+
+        Returns
+        -------
+        tuple
+            Basic transmission loss due to free-space and atmospheric gases, and not exceeded for p% and b0% of the time.
+        """
         # water vapor density
         rho = 7.5 + 2.5 * w
 
@@ -353,7 +878,35 @@ class PropagationClearAir(Propagation):
 
     @staticmethod
     def tl_tropo(dtot, theta, f, p, T, press, N0, Gt, Gr):
+        """
+        Calculate the basic transmission loss due to troposcatter not exceeded for any time percentage p below 50.
 
+        Parameters
+        ----------
+        dtot : float
+            Total path length.
+        theta : float
+            Path inclination angle.
+        f : float
+            Frequency in GHz.
+        p : float
+            Time percentage.
+        T : float
+            Temperature in Celsius.
+        press : float
+            Pressure in hPa.
+        N0 : float
+            Surface refractivity.
+        Gt : float
+            Transmitter antenna gain.
+        Gr : float
+            Receiver antenna gain.
+
+        Returns
+        -------
+        float
+            Basic transmission loss due to troposcatter.
+        """
         # Frequency dependent loss
 
         Lf = 25 * np.log10(f) - 2.5 * (np.log10(f / 2)) ** 2
@@ -381,9 +934,39 @@ class PropagationClearAir(Propagation):
 
     @staticmethod
     def tl_anomalous(
-        dtot, dlt, dlr, dct, dcr, dlm, hts, hrs, hte, hre, hm, theta_t, theta_r, f, p, T, press,
-        omega, ae, b0,
+        dtot,
+        dlt,
+        dlr,
+        dct,
+        dcr,
+        dlm,
+        hts,
+        hrs,
+        hte,
+        hre,
+        hm,
+        theta_t,
+        theta_r,
+        f,
+        p,
+        T,
+        press,
+        omega,
+        ae,
+        b0,
     ):
+        """Calculate the basic transmission loss due to anomalous propagation (ducting/layer reflection).
+
+        Parameters
+        ----------
+        dtot, dlt, dlr, dct, dcr, dlm, hts, hrs, hte, hre, hm, theta_t, theta_r, f, p, T, press, omega, ae, b0 : float
+            Various path and environmental parameters as per ITU-R P.452.
+
+        Returns
+        -------
+        float
+            Basic transmission loss due to anomalous propagation.
+        """
         Alf = 0
 
         if f < 0.5:
@@ -468,9 +1051,8 @@ class PropagationClearAir(Propagation):
 
         # beta = max(beta, eps); % to avoid division by zero
 
-        Gamma = 1.076 / (2.0058 - np.log10(beta)) ** 1.012 * \
-            np.exp(
-                -(9.51 - 4.8 * np.log10(beta) + 0.198 * (np.log10(beta)) ** 2) * 1e-6 * dtot ** (1.13),)
+        Gamma = 1.076 / (2.0058 - np.log10(beta)) ** 1.012 * np.exp(-(9.51 - 4.8 * \
+                         np.log10(beta) + 0.198 * (np.log10(beta)) ** 2) * 1e-6 * dtot ** (1.13),)
 
         # time percentage variablity(cumulative distribution):
         Ap = -12 + (1.2 + 3.7e-3 * dtot) * \
@@ -492,7 +1074,8 @@ class PropagationClearAir(Propagation):
         Ag = (g_0 + g_w) * dtot
 
         # total of fixed coupling losses(except for local clutter losses) between
-        # the antennas and the anomalous propagation structure within the atmosphere (47)
+        # the antennas and the anomalous propagation structure within the
+        # atmosphere (47)
         Af = 102.45 + 20 * \
             np.log10(f) + 20 * np.log10(dlt + dlr) + \
             Alf + Ast + Asr + Act + Acr
@@ -506,6 +1089,28 @@ class PropagationClearAir(Propagation):
 
     @staticmethod
     def dl_bull(d, h, hts, hrs, ap, f):
+        """Calculate Bullington diffraction loss for a given path profile.
+
+        Parameters
+        ----------
+        d : np.ndarray
+            Distance array along the path.
+        h : np.ndarray
+            Height array along the path.
+        hts : float
+            Transmitter antenna height.
+        hrs : float
+            Receiver antenna height.
+        ap : float
+            Effective Earth radius.
+        f : float
+            Frequency in GHz.
+
+        Returns
+        -------
+        float
+            Bullington diffraction loss.
+        """
 
         # Effective Earth curvature Ce(km ^ -1)
         Ce = 1 / ap
@@ -530,7 +1135,8 @@ class PropagationClearAir(Propagation):
 
         if Stim < Str:  # Case 1, Path is LoS
 
-            # Find the intermediate profile point with the highest diffraction parameter nu:
+            # Find the intermediate profile point with the highest diffraction
+            # parameter nu:
             numax = np.max(
                 (
                     hi + 500 * Ce * di * (dtot - di) -
@@ -551,12 +1157,14 @@ class PropagationClearAir(Propagation):
                 (hi + 500 * Ce * di * (dtot - di) - hrs) / (dtot - di),
             )
 
-            # Calculate the distance of the Bullington point from the transmitter:
+            # Calculate the distance of the Bullington point from the
+            # transmitter:
             dbp = (hrs - hts + Srim * dtot) / (Stim + Srim)
 
-            # Calculate the diffraction parameter, nub, for the Bullington point
-            nub = (hts + Stim * dbp - (hts * (dtot - dbp) + hrs * dbp) / dtot) * \
-                np.sqrt(0.002 * dtot / (lamb * dbp * (dtot - dbp)))
+            # Calculate the diffraction parameter, nub, for the Bullington
+            # point
+            nub = (hts + Stim * dbp - (hts * (dtot - dbp) + hrs * dbp) /
+                   dtot) * np.sqrt(0.002 * dtot / (lamb * dbp * (dtot - dbp)))
 
             # The knife - edge loss for the Bullington point is given by
             Luc = 0
@@ -571,6 +1179,30 @@ class PropagationClearAir(Propagation):
 
     @staticmethod
     def dl_se_ft_inner(epsr, sigma, d, hte, hre, adft, f):
+        """Calculate the first-term part of the spherical-Earth diffraction loss for a given polarization and ground type.
+
+        Parameters
+        ----------
+        epsr : float
+            Relative permittivity of the ground.
+        sigma : float
+            Conductivity of the ground.
+        d : float
+            Path length.
+        hte : float
+            Transmitter antenna height.
+        hre : float
+            Receiver antenna height.
+        adft : float
+            Effective Earth radius for diffraction.
+        f : float
+            Frequency in GHz.
+
+        Returns
+        -------
+        np.ndarray
+            Spherical-Earth diffraction loss for horizontal and vertical polarizations.
+        """
         # Normalized factor for surface admittance for horizontal (1) and vertical
         # (2) polarizations
         K = np.empty(2)
@@ -630,6 +1262,28 @@ class PropagationClearAir(Propagation):
 
     @staticmethod
     def dl_se_ft(d, hte, hre, adft, f, omega):
+        """Calculate the first-term spherical-Earth diffraction loss over land and sea.
+
+        Parameters
+        ----------
+        d : float
+            Path length.
+        hte : float
+            Transmitter antenna height.
+        hre : float
+            Receiver antenna height.
+        adft : float
+            Effective Earth radius for diffraction.
+        f : float
+            Frequency in GHz.
+        omega : float
+            Fraction of path over sea.
+
+        Returns
+        -------
+        np.ndarray
+            Spherical-Earth diffraction loss for horizontal and vertical polarizations.
+        """
         # First - term part of the spherical - Earth diffraction loss over land
         epsr = 22
         sigma = 0.003
@@ -653,6 +1307,28 @@ class PropagationClearAir(Propagation):
 
     @staticmethod
     def dl_se(d, hte, hre, ap, f, omega):
+        """Calculate the spherical-Earth diffraction loss for a given path.
+
+        Parameters
+        ----------
+        d : float
+            Path length.
+        hte : float
+            Transmitter antenna height.
+        hre : float
+            Receiver antenna height.
+        ap : float
+            Effective Earth radius.
+        f : float
+            Frequency in GHz.
+        omega : float
+            Fraction of path over sea.
+
+        Returns
+        -------
+        np.ndarray
+            Spherical-Earth diffraction loss for horizontal and vertical polarizations.
+        """
         # Wavelength in meters
         lamb = 0.3 / f
 
@@ -703,6 +1379,34 @@ class PropagationClearAir(Propagation):
 
     @staticmethod
     def dl_delta_bull(d, h, hts, hrs, hstd, hsrd, ap, f, omega):
+        """Calculate the general diffraction loss using the Bullington and spherical-Earth methods.
+
+        Parameters
+        ----------
+        d : np.ndarray
+            Distance array along the path.
+        h : np.ndarray
+            Height array along the path.
+        hts : float
+            Transmitter antenna height.
+        hrs : float
+            Receiver antenna height.
+        hstd : float
+            Transmitter antenna height above ground.
+        hsrd : float
+            Receiver antenna height above ground.
+        ap : float
+            Effective Earth radius.
+        f : float
+            Frequency in GHz.
+        omega : float
+            Fraction of path over sea.
+
+        Returns
+        -------
+        np.ndarray
+            General diffraction loss for horizontal and vertical polarizations.
+        """
         # Use the method in 4.2 .1 for the actual terrain profile and antenna
         # heights.Set the resulting Bullington diffraction loss for the actual
         # path to Lbulla
@@ -735,6 +1439,38 @@ class PropagationClearAir(Propagation):
 
     @staticmethod
     def dl_p(d, h, hts, hrs, hstd, hsrd, f, omega, p, b0, DN):
+        """Calculate the diffraction loss not exceeded for a given time percentage using ITU-R P.452.
+
+        Parameters
+        ----------
+        d : np.ndarray
+            Distance array along the path.
+        h : np.ndarray
+            Height array along the path.
+        hts : float
+            Transmitter antenna height.
+        hrs : float
+            Receiver antenna height.
+        hstd : float
+            Transmitter antenna height above ground.
+        hsrd : float
+            Receiver antenna height above ground.
+        f : float
+            Frequency in GHz.
+        omega : float
+            Fraction of path over sea.
+        p : float
+            Time percentage.
+        b0 : float
+            Reference time percentage for interpolation.
+        DN : float
+            Surface refractivity lapse-rate.
+
+        Returns
+        -------
+        tuple
+            Diffraction loss not exceeded for p% of the time and for 50% of the time.
+        """
         # Use the method in 4.2.3 to calculate diffraction loss Ld for effective
         # Earth radius ap = ae as given by equation(6a). Set median diffractino
         # loss to Ldp50
@@ -765,12 +1501,14 @@ class PropagationClearAir(Propagation):
             else:
                 Fi = 1
 
-            # The diffraction loss Ldp not exceeded for p of time is now given by
+            # The diffraction loss Ldp not exceeded for p of time is now given
+            # by
             Ldp = Ld50 + Fi * (Ldb - Ld50)
 
         return Ldp, Ld50
 
-    @dispatch(Parameters, float, StationManager, StationManager, np.ndarray, np.ndarray)
+    @dispatch(Parameters, float, StationManager,
+              StationManager, np.ndarray, np.ndarray)
     def get_loss(
         self,
         params: Parameters,
@@ -830,7 +1568,8 @@ class PropagationClearAir(Propagation):
         )
 
     # pylint: disable=arguments-differ
-    @dispatch(np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray)
+    @dispatch(np.ndarray, np.ndarray, np.ndarray,
+              np.ndarray, np.ndarray, np.ndarray)
     def get_loss(
         self, distance: np.ndarray, frequency: np.ndarray,
         indoor_stations: np.ndarray, elevation: np.ndarray,
@@ -903,7 +1642,8 @@ class PropagationClearAir(Propagation):
         phi_path = (tx_lat + rx_lat) / 2
 
         # Compute dtm - the longest continuous land(inland + coastal) section of the great - circle path(km)
-        # Compute  dlm - the longest continuous inland section of the great-circle path (km)
+        # Compute  dlm - the longest continuous inland section of the
+        # great-circle path (km)
 
         dtm = np.empty(num_dists)
         dlm = np.empty(num_dists)
@@ -989,14 +1729,26 @@ class PropagationClearAir(Propagation):
                 dtot, frequency, p[ii], b0[ii], omega[ii], T, Ph, dlt, dlr,
             )
 
-            [Ldp, Ld50] = self.dl_p(
-                d[ii], h[ii], hts, hrs, hstd, hsrd, frequency, omega[ii], p[ii], b0[ii], deltaN,
-            )
+            [Ldp,
+             Ld50] = self.dl_p(d[ii],
+                               h[ii],
+                               hts,
+                               hrs,
+                               hstd,
+                               hsrd,
+                               frequency,
+                               omega[ii],
+                               p[ii],
+                               b0[ii],
+                               deltaN,
+                               )
 
-            # The median basic transmission loss associated with diffraction Eq (43)
+            # The median basic transmission loss associated with diffraction Eq
+            # (43)
             Lbd50 = Lbfsg + Ld50
 
-            # The basic tranmission loss associated with diffraction not exceeded for p % time Eq(44)
+            # The basic tranmission loss associated with diffraction not
+            # exceeded for p % time Eq(44)
             Lbd = Lb0p + Ldp
 
             # A notional minimum basic transmission loss associated with LoS
@@ -1012,9 +1764,26 @@ class PropagationClearAir(Propagation):
             eta = 2.5
 
             Lba = self.tl_anomalous(
-                dtot, dlt, dlr, Dct, Dcr, dlm[ii], hts, hrs, hte, hre, hm, theta_t, theta_r,
-                frequency, p[ii], T, Ph,
-                omega[ii], ae, b0[ii],
+                dtot,
+                dlt,
+                dlr,
+                Dct,
+                Dcr,
+                dlm[ii],
+                hts,
+                hrs,
+                hte,
+                hre,
+                hm,
+                theta_t,
+                theta_r,
+                frequency,
+                p[ii],
+                T,
+                Ph,
+                omega[ii],
+                ae,
+                b0[ii],
             )
 
             Lminbap = eta * np.log(np.exp(Lba / eta) + np.exp(Lb0p / eta))

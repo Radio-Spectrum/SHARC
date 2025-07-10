@@ -159,7 +159,8 @@ class SpectralMaskImt(SpectralMask):
             mask_dbm,
         ))
 
-    def get_alternative_mask_delta_f_lim(self, freq_mhz: float, band_mhz: float) -> np.array:
+    def get_alternative_mask_delta_f_lim(
+            self, freq_mhz: float, band_mhz: float) -> np.array:
         """
             Implements spectral masks for IMT-2020 outdoor BS's when freq < 26GHz,
                 according to Documents ITU-R SM.1541-6, ITU-R SM.1539-1 and ETSI TS 138 104 V16.6.0.
@@ -194,9 +195,11 @@ class SpectralMaskImt(SpectralMask):
             B_L = 0.5
             B_U = 500
         else:
-            raise ValueError(f"Invalid frequency value {freq_mhz} for mask ITU-R SM.1539-1")
+            raise ValueError(
+                f"Invalid frequency value {freq_mhz} for mask ITU-R SM.1539-1")
 
-        # ITU-R SM.1541-6 Table 1 (same as using only ITU-R SM.1539-1 Table 2, but with less hardcoded values)
+        # ITU-R SM.1541-6 Table 1 (same as using only ITU-R SM.1539-1 Table 2,
+        # but with less hardcoded values)
         B_L_separation = 2.5 * B_L
         B_U_separation = 1.5 * band_mhz + B_U
         B_N_separation = 2.5 * band_mhz
@@ -214,7 +217,8 @@ class SpectralMaskImt(SpectralMask):
             )
         ])
 
-        # band/2 is subtracted from delta_f_spurious beacuse that specific interval is from frequency center
+        # band/2 is subtracted from delta_f_spurious beacuse that specific
+        # interval is from frequency center
         rest_of_oob_and_spurious = np.array(
             [5, 10.0, delta_f_spurious - band_mhz / 2],
         )
@@ -263,8 +267,7 @@ class SpectralMaskImt(SpectralMask):
             )
         else:
             raise ValueError(
-                "Alternative mask should only be used for spurious emissions -13 and -30",
-            )
+                "Alternative mask should only be used for spurious emissions -13 and -30", )
 
         return np.concatenate((
             mask_dbm[::-1], np.array([self.p_tx]),

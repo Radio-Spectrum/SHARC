@@ -12,6 +12,9 @@ from sharc.results import Results
 
 
 class FieldStatistics:
+    """
+    Stores statistical properties of a data field, such as mean, median, and variance.
+    """
     field_name: str
     median: float
     mean: float
@@ -22,6 +25,9 @@ class FieldStatistics:
     def load_from_sample(
         self, field_name: str, sample: list[float], *, confidence=0.95
     ) -> "FieldStatistics":
+        """
+        Compute statistics from a sample and store them in the object.
+        """
         self.field_name = field_name
         self.median = np.median(sample)
         self.mean = np.mean(sample)
@@ -53,13 +59,13 @@ class FieldStatistics:
 
 
 class ResultsStatistics:
+    """Class that stores and computes statistics for results fields."""
+
     fields_statistics: list[FieldStatistics]
     results_output_dir: str = "default_output"
 
     def load_from_results(self, result: Results) -> "ResultsStatistics":
-        """
-        Loads all relevant attributes from result and generates their statistics
-        """
+        """Load all relevant attributes from result and generate their statistics."""
         self.results_output_dir = result.output_directory
         self.fields_statistics = []
         attr_names = result.get_relevant_attributes()
@@ -73,30 +79,26 @@ class ResultsStatistics:
 
         return self
 
-    def write_to_results_dir(self, filename="stats.txt") -> "ResultsStatistics":
-        """
-        Writes statistics file to the same directory of the results loaded into this class
-        """
+    def write_to_results_dir(
+            self,
+            filename="stats.txt") -> "ResultsStatistics":
+        """Write statistics file to the same directory of the results loaded into this class."""
         with open(os.path.join(self.results_output_dir, filename), "w") as f:
             f.write(str(self))
 
         return self
 
-    def get_stat_by_name(self, field_name: str) -> typing.Union[None, FieldStatistics]:
-        """
-        Gets a single field's statistics by its name.
-        E.g.: get_stat_by_name("system_dl_interf_power")
-        Returns
-            None if not found
-            FieldStatistics if found only one match
-        """
-        stats_found = filter(lambda field_stat: field_stat.field_name == field_name, self.fields_statistics)
+    def get_stat_by_name(
+            self, field_name: str) -> typing.Union[None, FieldStatistics]:
+        """Get a single field's statistics by its name."""
+        stats_found = filter(
+            lambda field_stat: field_stat.field_name == field_name,
+            self.fields_statistics)
 
         if len(stats_found) > 1:
             raise Exception(
-                f"ResultsStatistics.get_stat_by_name found more than one statistic by the field name '{field_name}'\n"
-                + "You probably loaded more than one result to the same ResultsStatistics object"
-            )
+                f"ResultsStatistics.get_stat_by_name found more than one statistic by the field name '{field_name}'\n" +
+                "You probably loaded more than one result to the same ResultsStatistics object")
 
         if len(stats_found) == 0:
             return None
@@ -104,9 +106,8 @@ class ResultsStatistics:
         return stats_found[0]
 
     def __str__(self):
-        stats_str = '\n'.join(list(map(str, self.fields_statistics)))
-        return f"[{self.results_output_dir}]\n{stats_str}"
-
+        """Return a string representation of the ResultsStatistics object."""
+        return f"[{self.results_output_dir}]\n{'\n'.join(list(map(str, self.fields_statistics)))}"
 
 
 @dataclass
@@ -254,7 +255,8 @@ class PostProcessor:
             "title": "[IMT] Aggregated DL external Power Flux Density (PFD)",
             "x_label": "PFD [dBW/m²/MHz]",
         },
-        # these ones were not plotted already, so will continue to not be plotted:
+        # these ones were not plotted already, so will continue to not be
+        # plotted:
         "imt_dl_tx_power_density": IGNORE_FIELD,
         "system_ul_coupling_loss": IGNORE_FIELD,
         "system_dl_coupling_loss": IGNORE_FIELD,
@@ -287,16 +289,19 @@ class PostProcessor:
         on the linestyle used
         """
         if self.linestyle_getter is not None:
-            raise ValueError("You are trying to set PostProcessor.linestyle_getter twice!")
+            raise ValueError(
+                "You are trying to set PostProcessor.linestyle_getter twice!")
         self.linestyle_getter = getter
 
     def add_plot_legend_pattern(
         self, *, dir_name_contains: str, legend: str
     ) -> "PostProcessor":
+        """Add a plot legend pattern for directory name matching and return self."""
         self.plot_legend_patterns.append(
             {"dir_name_contains": dir_name_contains, "legend": legend}
         )
-        self.plot_legend_patterns.sort(key=lambda p: -len(p["dir_name_contains"]))
+        self.plot_legend_patterns.sort(
+            key=lambda p: -len(p["dir_name_contains"]))
 
         return self
 
@@ -314,9 +319,8 @@ class PostProcessor:
         )
 
         if len(possible) == 0 and self.legends_generator is not None:
-            return [
-                {"legend": self.legends_generator(os.path.basename(result.output_directory))}
-            ]
+            return [{"legend": self.legends_generator(
+                os.path.basename(result.output_directory))}]
 
         return possible
 
@@ -371,25 +375,35 @@ class PostProcessor:
                     continue
                 if attr_name not in PostProcessor.RESULT_FIELDNAME_TO_PLOT_INFO:
                     print(
-                        f"[WARNING]: {attr_name} is not a plottable field, because it does not have a configuration set on PostProcessor."
-                    )
+                        f"[WARNING]: {attr_name} is not a plottable field, because it does not have a configuration set on PostProcessor.")
                     continue
                 attr_plot_info = PostProcessor.RESULT_FIELDNAME_TO_PLOT_INFO[attr_name]
                 if attr_plot_info == PostProcessor.IGNORE_FIELD:
                     print(
-                        f"[WARNING]: {attr_name} is currently being ignored on plots."
-                    )
+                        f"[WARNING]: {attr_name} is currently being ignored on plots.")
                     continue
                 if attr_name not in figs:
                     figs[attr_name] = go.Figure()
                     figs[attr_name].update_layout(
-                        title=f'CDF Plot for {attr_plot_info["title"]}',
+                        title=f'CDF Plot for {
+                            attr_plot_info["title"]}',
                         xaxis_title=attr_plot_info["x_label"],
-                        yaxis_title="CDF",
-                        yaxis=dict(tickmode="array", tickvals=[0, 0.25, 0.5, 0.75, 1]),
-                        xaxis=dict(tickmode="linear", dtick=5),
+                        yaxis_title="P(X <= x)",
+                        yaxis=dict(
+                            tickmode="array",
+                            tickvals=[
+                                0,
+                                0.25,
+                                0.5,
+                                0.75,
+                                1]),
+                        xaxis=dict(
+                            tickmode="linear",
+                            dtick=5),
                         legend_title="Labels",
-                        meta={"related_results_attribute": attr_name, "plot_type": "cdf"},
+                        meta={
+                            "related_results_attribute": attr_name,
+                            "plot_type": "cdf"},
                     )
 
                 # TODO: take this fn as argument, to plot more than only cdf's
@@ -435,8 +449,20 @@ class PostProcessor:
                 for a relevant attribute found in the Results objects.
         """
         figs: dict[str, list[go.Figure]] = {}
+        COLORS = DEFAULT_PLOTLY_COLORS
 
+        linestyle_color = {}
+
+        results.sort(key=lambda r: r.output_directory)
         for res in results:
+            if self.linestyle_getter is not None:
+                linestyle = self.linestyle_getter(res)
+            else:
+                linestyle = "solid"
+
+            if linestyle not in linestyle_color:
+                linestyle_color[linestyle] = 0
+
             possible_legends_mapping = self.get_results_possible_legends(res)
 
             if len(possible_legends_mapping):
@@ -460,25 +486,34 @@ class PostProcessor:
                     continue
                 if attr_name not in PostProcessor.RESULT_FIELDNAME_TO_PLOT_INFO:
                     print(
-                        f"[WARNING]: {attr_name} is not a plottable field, because it does not have a configuration set on PostProcessor."
-                    )
+                        f"[WARNING]: {attr_name} is not a plottable field, because it does not have a configuration set on PostProcessor.")
                     continue
                 attr_plot_info = PostProcessor.RESULT_FIELDNAME_TO_PLOT_INFO[attr_name]
                 if attr_plot_info == PostProcessor.IGNORE_FIELD:
                     print(
-                        f"[WARNING]: {attr_name} is currently being ignored on plots."
-                    )
+                        f"[WARNING]: {attr_name} is currently being ignored on plots.")
                     continue
                 if attr_name not in figs:
                     figs[attr_name] = go.Figure()
                     figs[attr_name].update_layout(
-                        title=f'CCDF Plot for {attr_plot_info["title"]}',
+                        title=f'CCDF Plot for {
+                            attr_plot_info["title"]}',
                         xaxis_title=attr_plot_info["x_label"],
-                        yaxis_title="$\\text{P } I > X$",
-                        yaxis=dict(tickmode="array", tickvals=ticks_at, type="log", range=[np.log10(cutoff_percentage), 0]),
-                        xaxis=dict(tickmode="linear", dtick=5),
+                        yaxis_title="P(X > x)",
+                        yaxis=dict(
+                            tickmode="array",
+                            tickvals=ticks_at,
+                            type="log",
+                            range=[
+                                np.log10(cutoff_percentage),
+                                0]),
+                        xaxis=dict(
+                            tickmode="linear",
+                            dtick=5),
                         legend_title="Labels",
-                        meta={"related_results_attribute": attr_name, "plot_type": "ccdf"},
+                        meta={
+                            "related_results_attribute": attr_name,
+                            "plot_type": "ccdf"},
                     )
 
                 # TODO: take this fn as argument, to plot more than only cdf's
@@ -492,6 +527,7 @@ class PostProcessor:
                         y=y,
                         mode="lines",
                         name=f"{legend}",
+                        line=dict(color=COLORS[linestyle_color[linestyle]], dash=linestyle)
                     ),
                 )
                 # A trick to plog semi-logy plots with better scientific aspect.
@@ -506,24 +542,39 @@ class PostProcessor:
                             yticks.append(j * (10**(-i)))
                     yticks = yticks + [1.0]
                     major_yticks = [10**(-i) for i in range(n_right_zeros)]
-                    ytick_text = [str(v) if v in major_yticks else "" for v in yticks]
+                    ytick_text = [
+                        str(v) if v in major_yticks else "" for v in yticks]
                     fig.update_yaxes(tickvals=yticks, ticktext=ytick_text)
+
+            linestyle_color[linestyle] += 1
+            if linestyle_color[linestyle] >= len(COLORS):
+                linestyle_color[linestyle] = 0
 
         return figs.values()
 
     def add_plots(self, plots: list[go.Figure]) -> None:
+        """Add a list of plotly Figure objects to the PostProcessor."""
         self.plots.extend(plots)
 
     def add_results(self, results: list[Results]) -> None:
+        """Add a list of Results objects to the PostProcessor."""
         self.results.extend(results)
 
-    def get_results_by_output_dir(self, dir_name_contains: str, *, single_result=True):
+    def get_results_by_output_dir(
+            self,
+            dir_name_contains: str,
+            *,
+            single_result=True):
+        """
+        Get results whose output directory contains the given string.
+        If single_result is True, return the first match; otherwise, return all matches.
+        """
         filtered_results = list(
             filter(
-                lambda res: dir_name_contains in os.path.basename(res.output_directory),
+                lambda res: dir_name_contains in os.path.basename(
+                    res.output_directory),
                 self.results,
-            )
-        )
+            ))
         if len(filtered_results) == 0:
             raise ValueError(
                 f"Could not find result that contains '{dir_name_contains}'"
@@ -531,12 +582,12 @@ class PostProcessor:
 
         if len(filtered_results) > 1:
             raise ValueError(
-                f"There is more than one possible result with pattern '{dir_name_contains}'"
-            )
+                f"There is more than one possible result with pattern '{dir_name_contains}'")
 
         return filtered_results[0]
 
-    def get_plot_by_results_attribute_name(self, attr_name: str, *, plot_type="cdf") -> go.Figure:
+    def get_plot_by_results_attribute_name(
+            self, attr_name: str, *, plot_type="cdf") -> go.Figure:
         """
         You can get a plot using an attribute name from Results.
         See Results class to check what attributes exist.
@@ -546,8 +597,7 @@ class PostProcessor:
             filter(
                 lambda x: x.layout.meta["related_results_attribute"] == attr_name and x.layout.meta["plot_type"] == plot_type,
                 self.plots,
-            )
-        )
+            ))
 
         if 0 == len(filtered):
             return None
@@ -585,9 +635,8 @@ class PostProcessor:
         """
         if ul_tdd_factor > 1 or ul_tdd_factor < 0:
             raise ValueError(
-                "PostProcessor.aggregate_results() was called with invalid ul_tdd_factor parameter."
-                + f"ul_tdd_factor must be in interval [0, 1], but is {ul_tdd_factor}"
-            )
+                "PostProcessor.aggregate_results() was called with invalid ul_tdd_factor parameter." +
+                f"ul_tdd_factor must be in interval [0, 1], but is {ul_tdd_factor}")
 
         segment_factor = round(n_bs_actual / n_bs_sim)
 
@@ -685,7 +734,10 @@ class PostProcessor:
                 height=height
             )
 
-            plot.write_image(os.path.join(dir, f"{plot.layout.title.text}.jpg"))
+            plot.write_image(
+                os.path.join(
+                    dir, f"{
+                        plot.layout.title.text}.jpg"))
 
             plot.update_layout(
                 autosize=prev_autosize,
@@ -695,8 +747,12 @@ class PostProcessor:
 
     @staticmethod
     def generate_statistics(result: Results) -> ResultsStatistics:
+        """Generate statistics for a Results object."""
         return ResultsStatistics().load_from_results(result)
 
     @staticmethod
-    def generate_sample_statistics(fieldname: str, sample: list[float]) -> ResultsStatistics:
+    def generate_sample_statistics(
+            fieldname: str,
+            sample: list[float]) -> ResultsStatistics:
+        """Generate statistics for a sample field."""
         return FieldStatistics().load_from_sample(fieldname, sample)

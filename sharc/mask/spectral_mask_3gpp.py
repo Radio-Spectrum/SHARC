@@ -13,6 +13,12 @@ import sys
 
 
 class SpectralMask3Gpp(SpectralMask):
+    """
+    Spectral emission mask implementation based on 3GPP standards.
+
+    This class defines the spectral mask for Wide Area Base Stations and User Equipment
+    according to 3GPP 36.104 and 3GPP 36.101 specifications.
+    """
 
     def __init__(
         self,
@@ -87,6 +93,14 @@ class SpectralMask3Gpp(SpectralMask):
         return delta_f_lim
 
     def set_mask(self, p_tx=0):
+        """
+        Set the spectral mask for the current configuration.
+
+        Parameters
+        ----------
+        p_tx : float, optional
+            Transmit power in dBm (default is 0).
+        """
         emission_limits = self.get_emission_limits(
             self.sta_type,
             self.band_mhz,
@@ -107,6 +121,23 @@ class SpectralMask3Gpp(SpectralMask):
         bandwidth: float,
         spurious_emissions: float,
     ) -> np.array:
+        """
+        Get the emission limits for the given station type and configuration.
+
+        Parameters
+        ----------
+        sta_type : StationType
+            The type of station (e.g., base station or user equipment).
+        bandwidth : float
+            Channel bandwidth in MHz.
+        spurious_emissions : float
+            Spurious emissions level in dBm.
+
+        Returns
+        -------
+        np.ndarray
+            Array of emission limits in dBm for the specified configuration.
+        """
         if sta_type is StationType.IMT_BS:
             # emission limits in dBm/MHz
             emission_limits = 3 - 7 / 5 * (np.arange(.05, 5, .1) - .05)

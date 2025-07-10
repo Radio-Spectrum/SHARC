@@ -3,6 +3,8 @@ import typing
 from pathlib import Path
 import geopandas as gpd
 
+from sharc.satellite.ngso.constants import EARTH_DEFAULT_CRS
+
 
 def is_float(s: str) -> bool:
     """Check if string represents a float value
@@ -25,19 +27,21 @@ def is_float(s: str) -> bool:
 
 
 def to_scalar(x):
+    """Convert a numpy scalar or array to a Python scalar if possible."""
     if isinstance(x, np.ndarray):
         return x.item()  # Works for 0-D or 1-element arrays
     return x
 
 
-def load_epsg4326_gdf(
+def load_gdf(
     country_shapes_filename: typing.Union[Path, str],
     filters: dict[str, list[str]],
-    err_ctx: str = "load_epsg4326_gdf",
+    err_ctx: str = "load_gdf",
 ) -> gpd.GeoDataFrame:
     """
-    It is assumed that the shapefile has a name column, and that it is in EPSG:4326
+    It is assumed that the shapefile is in EPSG:4326
         containing polygons specified by (lon, lat) points
+        and the results are returned considering the default earth used
     Parameters:
         country_shapes_filename: path to shapefile to be read
         country_names: list of names to filter by and return
@@ -79,6 +83,7 @@ def load_epsg4326_gdf(
                     f"{allowed_filter_vals}"
                 )
 
-        filtered_gdf = filtered_gdf[filtered_gdf[filter_name].isin(filter_vals)]
+        filtered_gdf = filtered_gdf[filtered_gdf[filter_name].isin(
+            filter_vals)]
 
-    return filtered_gdf
+    return filtered_gdf.to_crs(EARTH_DEFAULT_CRS)

@@ -12,11 +12,14 @@ from sharc.propagation.scintillation import Scintillation
 
 
 class TestScintillation(unittest.TestCase):
+    """Unit tests for the Scintillation class and its tropospheric attenuation calculations."""
 
     def setUp(self):
+        """Set up test fixtures for Scintillation tests."""
         self.scintillation = Scintillation(np.random.RandomState())
 
     def test_tropo_scintillation_attenuation(self):
+        """Test the calculation of tropospheric scintillation attenuation."""
         # compare with benchmark from ITU-R P-619 Fig. 8
         antenna_gain = 0.
         frequency_MHz = 30000.

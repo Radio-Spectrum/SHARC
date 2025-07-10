@@ -25,6 +25,21 @@ class AntennaModifiedS465(Antenna):
         self.envelope_angle = 10**((32 - self.envelope_gain) / 25.)
 
     def calculate_gain(self, *args, **kwargs) -> np.array:
+        """
+        Calculate the antenna gain for the given off-axis angles.
+
+        Parameters
+        ----------
+        *args : tuple
+            Positional arguments (not used).
+        **kwargs : dict
+            Keyword arguments, expects 'off_axis_angle_vec'.
+
+        Returns
+        -------
+        np.array
+            Calculated antenna gain values.
+        """
 
         phi = np.absolute(kwargs["off_axis_angle_vec"])
 

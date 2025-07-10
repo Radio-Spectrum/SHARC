@@ -85,7 +85,7 @@ imt:
             beam_radius: 39475.0
             # Number of sectors
             num_beams: 1
-            center_beam_positioning:
+            beam_positioning:
                 # type may be one of 
                 # "ANGLE_FROM_SUBSATELLITE", "ANGLE_AND_DISTANCE_FROM_SUBSATELLITE",
                 # "SERVICE_GRID"
@@ -514,6 +514,8 @@ single_earth_station:
   adjacent_ch_selectivity: 35
   # Channel model
   channel_model: FSPL
+  # NOTE: when using P.619 it is suggested that polarization loss = 3dB is good
+  polarization_loss: 0
   # Earth Station parameters
   geometry:
     height: 7

@@ -42,7 +42,8 @@ def eccentric_anomaly(e, M, terms=40, mod_2pi=True):
     M_expanded = M[None, ...]  # Add a new dimension to M, for broadcasting
 
     # Calculate series sum using Bessel functions and sine terms
-    series_sum = np.sum((1 / n) * jv(n, n * e) * np.sin(n * M_expanded), axis=0)
+    series_sum = np.sum((1 / n) * jv(n, n * e) *
+                        np.sin(n * M_expanded), axis=0)
 
     # Calculate eccentric anomaly
     E = M + 2 * series_sum
@@ -84,14 +85,17 @@ def keplerian2eci(a, e, delta, Omega, omega, nu):
     omega_rad = np.radians(omega)
     nu_rad = np.radians(nu)
 
-    # Compute gamma (angle between satellite position and ascending node in the orbital plane)
+    # Compute gamma (angle between satellite position and ascending node in
+    # the orbital plane)
     gamma = (nu_rad + omega_rad) % (2 * np.pi)
 
     # Trigonometric calculations
     cos_gamma = np.cos(gamma)
     sin_gamma = np.sin(gamma)
-    cos_raan = np.cos(-Omega_rad)[:, np.newaxis]  # Shape (N, 1) for broadcasting
-    sin_raan = np.sin(-Omega_rad)[:, np.newaxis]  # Shape (N, 1) for broadcasting
+    # Shape (N, 1) for broadcasting
+    cos_raan = np.cos(-Omega_rad)[:, np.newaxis]
+    # Shape (N, 1) for broadcasting
+    sin_raan = np.sin(-Omega_rad)[:, np.newaxis]
     cos_incl = np.cos(delta_rad)
     sin_incl = np.sin(delta_rad)
 
@@ -155,7 +159,12 @@ def eci2ecef(t, r_eci):
     return r_ecef
 
 
-def plot_ground_tracks(theta_deg, phi_deg, planes=None, satellites=None, title="Satellite Ground Tracks"):
+def plot_ground_tracks(
+        theta_deg,
+        phi_deg,
+        planes=None,
+        satellites=None,
+        title="Satellite Ground Tracks"):
     """
     Plots the satellite ground tracks as points based on latitude and longitude data.
 
@@ -169,11 +178,13 @@ def plot_ground_tracks(theta_deg, phi_deg, planes=None, satellites=None, title="
         title (str): Title for the plot.
     """
     # Determine the number of planes and satellites in the data
-    num_planes = len(np.unique(planes)) if planes is not None else theta_deg.shape[0]
+    num_planes = len(
+        np.unique(planes)) if planes is not None else theta_deg.shape[0]
     num_satellites_per_plane = theta_deg.shape[0] // num_planes
 
     # Set up the plot with Cartopy
-    fig, ax = plt.subplots(figsize=(12, 8), subplot_kw={'projection': ccrs.PlateCarree()})
+    fig, ax = plt.subplots(figsize=(12, 8), subplot_kw={
+                           'projection': ccrs.PlateCarree()})
     ax.set_global()
     ax.add_feature(cfeature.COASTLINE)
     ax.add_feature(cfeature.BORDERS, linestyle=':')
@@ -195,8 +206,10 @@ def plot_ground_tracks(theta_deg, phi_deg, planes=None, satellites=None, title="
 
             # Plot the ground track points for the selected satellite
             ax.scatter(
-                phi_deg[satellite_global_idx, :], theta_deg[satellite_global_idx, :],
-                label=f'Plane {plane_idx + 1}, Satellite {sat_idx + 1}', s=1,  # Size of each point
+                phi_deg[satellite_global_idx,
+                        :], theta_deg[satellite_global_idx, :],
+                # Size of each point
+                label=f'Plane {plane_idx + 1}, Satellite {sat_idx + 1}', s=1,
                 transform=ccrs.PlateCarree()
             )
 

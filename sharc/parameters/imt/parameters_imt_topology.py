@@ -12,6 +12,9 @@ from sharc.parameters.imt.parameters_single_bs import ParametersSingleBS
 
 @dataclass
 class ParametersImtTopology(ParametersBase):
+    """
+    Parameters for IMT topology configuration, including macrocell, hotspot, indoor, NTN, and MSS DC.
+    """
     nested_parameters_enabled = True
 
     type: typing.Literal[
@@ -32,6 +35,18 @@ class ParametersImtTopology(ParametersBase):
     mss_dc: ParametersImtMssDc = field(default_factory=ParametersImtMssDc)
 
     def validate(self, ctx):
+        """
+        Validate the IMT topology parameters and nested parameter sets.
+
+        Parameters
+        ----------
+        ctx : str
+            Context string for error messages.
+        Raises
+        ------
+        ValueError
+            If any nested parameter set is invalid.
+        """
         match self.type:
             case "MACROCELL":
                 self.macrocell.validate(f"{ctx}.macrocell")
@@ -46,4 +61,6 @@ class ParametersImtTopology(ParametersBase):
             case "MSS_DC":
                 self.mss_dc.validate(f"{ctx}.mss_dc")
             case _:
-                raise NotImplementedError(f"{ctx}.type == '{self.type}' may not be implemented")
+                raise NotImplementedError(
+                    f"{ctx}.type == '{
+                        self.type}' may not be implemented")

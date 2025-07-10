@@ -1,4 +1,6 @@
+
 # -*- coding: utf-8 -*-
+"""Antenna model for MSS adjacent channel systems."""
 from sharc.antenna.antenna import Antenna
 
 import numpy as np
@@ -14,13 +16,36 @@ class AntennaMSSAdjacent(Antenna):
     """
 
     def __init__(self, frequency_MHz: float):
+        """
+        Initialize the AntennaMSSAdjacent class.
+
+        Parameters
+        ----------
+        frequency_MHz : float
+            Frequency in MHz for the antenna model.
+        """
         super().__init__()
         self.frequency = frequency_MHz
 
     def calculate_gain(self, *args, **kwargs) -> np.array:
-        theta = np.absolute(kwargs["off_axis_angle_vec"])
+        """
+        Calculate the antenna gain for the given off-axis angles.
 
-        return 20 * np.log10(self.frequency / 2e3) + 10 * np.log10(np.cos(np.deg2rad(theta)))
+        Parameters
+        ----------
+        *args : tuple
+            Positional arguments (not used).
+        **kwargs : dict
+            Keyword arguments, expects 'off_axis_angle_vec' as input.
+
+        Returns
+        -------
+        np.array
+            Calculated antenna gain values.
+        """
+        theta = np.absolute(kwargs["off_axis_angle_vec"])
+        return 20 * np.log10(self.frequency / 2e3) + 10 * \
+            np.log10(np.cos(np.deg2rad(theta)))
 
 
 if __name__ == '__main__':
@@ -33,6 +58,25 @@ if __name__ == '__main__':
     gain = antenna.calculate_gain(off_axis_angle_vec=theta)
 
     def create_plot_adj_channel(frequency, theta, chn, ax=None):
+        """
+        Create a plot for the adjacent channel mask for MSS antennas.
+
+        Parameters
+        ----------
+        frequency : float
+            Frequency in MHz.
+        theta : np.array
+            Array of off-axis angles in degrees.
+        chn : int
+            Channel number (-1 or 1).
+        ax : matplotlib.axes.Axes, optional
+            Matplotlib axis to plot on. If None, a new figure and axis are created.
+
+        Returns
+        -------
+        matplotlib.axes.Axes
+            The axis with the plot.
+        """
         tranls = {
             -1: 0,
             1: -55.6,
@@ -75,4 +119,3 @@ if __name__ == '__main__':
     create_plot_adj_channel(frequency, theta, 2, ax)
     create_plot_adj_channel(frequency, theta, 3, ax)
     plt.show()
-

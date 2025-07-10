@@ -22,7 +22,10 @@ class PropagationHDFSSBuildingSide(Propagation):
 
     """
 
-    def __init__(self, param: ParametersHDFSS, random_number_gen: np.random.RandomState):
+    def __init__(
+            self,
+            param: ParametersHDFSS,
+            random_number_gen: np.random.RandomState):
         super().__init__(random_number_gen)
 
         self.param = param
@@ -134,6 +137,22 @@ class PropagationHDFSSBuildingSide(Propagation):
         return loss, build_loss, diff_loss
 
     def get_building_loss(self, imt_sta_type, f, elevation):
+        """Calculate the building entry loss for a given IMT station type, frequency, and elevation.
+
+        Parameters
+        ----------
+        imt_sta_type : StationType
+            Type of IMT station (UE or BS).
+        f : float
+            Frequency in Hz or GHz (as required by model).
+        elevation : float or np.ndarray
+            Elevation angle(s) in degrees or radians.
+
+        Returns
+        -------
+        float or np.ndarray
+            Calculated building entry loss.
+        """
         if imt_sta_type is StationType.IMT_UE:
             build_loss = self.building_entry.get_loss(f, elevation)
         elif imt_sta_type is StationType.IMT_BS:
@@ -155,6 +174,20 @@ class PropagationHDFSSBuildingSide(Propagation):
         return build_loss
 
     def is_same_building(self, imt_x, imt_y, es_x, es_y):
+        """Determine if the IMT and earth station coordinates are within the same building.
+
+        Parameters
+        ----------
+        imt_x, imt_y : float or np.ndarray
+            IMT station x and y coordinates.
+        es_x, es_y : float or np.ndarray
+            Earth station x and y coordinates.
+
+        Returns
+        -------
+        np.ndarray
+            Boolean array indicating if each IMT is in the same building as the earth station.
+        """
 
         building_x_range = es_x + (1 + self.b_tol) * \
             np.array([-self.b_w / 2, +self.b_w / 2])
@@ -173,6 +206,20 @@ class PropagationHDFSSBuildingSide(Propagation):
         return is_in_building
 
     def get_same_build_loss(self, imt_z, es_z):
+        """Calculate the loss due to being on different floors in the same building.
+
+        Parameters
+        ----------
+        imt_z : float or np.ndarray
+            IMT station z (height or floor).
+        es_z : float or np.ndarray
+            Earth station z (height or floor).
+
+        Returns
+        -------
+        np.ndarray
+            Loss per floor between IMT and earth station.
+        """
         floor_number = imt_z - es_z
         floor_number[floor_number >= 0] = np.floor(
             floor_number[floor_number >= 0] / self.b_h,
@@ -186,6 +233,20 @@ class PropagationHDFSSBuildingSide(Propagation):
         return loss
 
     def is_next_building(self, imt_x, imt_y, es_x, es_y):
+        """Determine if the IMT and earth station coordinates are in adjacent buildings.
+
+        Parameters
+        ----------
+        imt_x, imt_y : float or np.ndarray
+            IMT station x and y coordinates.
+        es_x, es_y : float or np.ndarray
+            Earth station x and y coordinates.
+
+        Returns
+        -------
+        np.ndarray
+            Boolean array indicating if each IMT is in the next building relative to the earth station.
+        """
         same_building_x_range = es_x + \
             (1 + self.b_tol) * np.array([-self.b_w / 2, +self.b_w / 2])
         same_building_y_range = (
@@ -196,10 +257,12 @@ class PropagationHDFSSBuildingSide(Propagation):
         next_building_y_range = same_building_y_range + self.b_d + self.s_w
 
         is_in_x = np.logical_and(
-            imt_x >= next_building_x_range[0], imt_x <= next_building_x_range[1],
+            imt_x >= next_building_x_range[0],
+            imt_x <= next_building_x_range[1],
         )
         is_in_y = np.logical_and(
-            imt_y >= next_building_y_range[0], imt_y <= next_building_y_range[1],
+            imt_y >= next_building_y_range[0],
+            imt_y <= next_building_y_range[1],
         )
 
         is_in_next_building = np.logical_and(is_in_x, is_in_y)

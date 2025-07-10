@@ -13,11 +13,13 @@ from sharc.topology.topology_macrocell import TopologyMacrocell
 
 
 class TopologyMacrocellTest(unittest.TestCase):
+    """Unit tests for the TopologyMacrocell class, including intersite distance and cluster logic."""
 
     def setUp(self):
-        pass
+        """Set up for TopologyMacrocell tests (placeholder)."""
 
     def test_intersite_distance(self):
+        """Test calculation of intersite distance and cell radius."""
         intersite_distance = 1000
         num_clusters = 1
         topology = TopologyMacrocell(intersite_distance, num_clusters)
@@ -42,6 +44,7 @@ class TopologyMacrocellTest(unittest.TestCase):
         self.assertAlmostEqual(topology.cell_radius, 1000, places=2)
 
     def test_num_clusters(self):
+        """Test calculation of the number of clusters in the topology."""
         # set to 1 cluster
         intersite_distance = 1000
         num_clusters = 1

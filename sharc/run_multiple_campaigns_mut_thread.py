@@ -6,11 +6,24 @@ from concurrent.futures import ThreadPoolExecutor
 
 
 def run_command(param_file, main_cli_path):
+    """
+    Run the main_cli.py script with the specified parameter file.
+
+    Args:
+        param_file (str): Path to the parameter file.
+        main_cli_path (str): Path to the main_cli.py script.
+    """
     command = [sys.executable, main_cli_path, "-p", param_file]
     subprocess.run(command)
 
 
 def run_campaign(campaign_name):
+    """
+    Run a campaign by executing main_cli.py for each parameter file in the campaign's input directory using multiple threads.
+
+    Args:
+        campaign_name (str): Name of the campaign to run.
+    """
     # Path to the working directory
     workfolder = os.path.dirname(os.path.abspath(__file__))
     main_cli_path = os.path.join(workfolder, "main_cli.py")
@@ -46,11 +59,13 @@ def run_campaign(campaign_name):
 
 def run_campaign_re(campaign_name, param_name_regex):
     """
-    Runs a campaign by executing main_cli.py for each parameter file in the specified campaign's input directory
+    Run a campaign for parameter files matching a given regular expression.
+
+    Execute main_cli.py for each parameter file in the specified campaign's input directory
     whose filename matches the given regular expression.
 
     Args:
-        campaign_name (str): The name of the campaign.
+        campaign_name (str): Name of the campaign.
         param_name_regex (str): Regular expression to filter parameter file names.
     """
     # Path to the working directory

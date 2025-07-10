@@ -29,7 +29,8 @@ class ParametersNTN(ParametersBase):
     intersite_distance: float = None
 
     # BS azimuth
-    # TODO: Put this elsewhere (in a bs.geometry for example) if needed by another model
+    # TODO: Put this elsewhere (in a bs.geometry for example) if needed by
+    # another model
     bs_azimuth: float = 45
     # BS elevation
     bs_elevation: float = 90
@@ -48,10 +49,14 @@ class ParametersNTN(ParametersBase):
     bs_n_columns_layer2: int = 2
 
     def load_subparameters(self, ctx: str, params: dict, quiet=True):
+        """
+        Load and validate NTN-specific subparameters, updating intersite distance and cell radius as needed.
+        """
         super().load_subparameters(ctx, params, quiet)
 
         if self.cell_radius is not None and self.intersite_distance is not None:
-            raise ValueError(f"You cannot set both {ctx}.intersite_distance and {ctx}.cell_radius.")
+            raise ValueError(
+                f"You cannot set both {ctx}.intersite_distance and {ctx}.cell_radius.")
 
         if self.cell_radius is not None:
             self.intersite_distance = self.cell_radius * np.sqrt(3)
@@ -61,13 +66,28 @@ class ParametersNTN(ParametersBase):
 
     def set_external_parameters(self, *, bs_height: float):
         """
-            This method is used to "propagate" parameters from external context
-            to the values required by ntn topology. It's not ideal, but it's done
-            this way until we decide on a better way to model context.
+        Propagate parameters from external context to NTN topology values.
+
+        Parameters
+        ----------
+        bs_height : float
+            Base station height to set.
         """
         self.bs_height = bs_height
 
     def validate(self, ctx: str):
+        """
+        Validate the NTN parameters for correctness.
+
+        Parameters
+        ----------
+        ctx : str
+            Context string for error messages.
+        Raises
+        ------
+        ValueError
+            If any parameter is invalid.
+        """
         # Now do the sanity check for some parameters
         if self.num_sectors not in [1, 7, 19]:
             raise ValueError(
@@ -76,30 +96,30 @@ class ParametersNTN(ParametersBase):
 
         if self.bs_height <= 0:
             raise ValueError(
-                f"ParametersNTN: bs_height must be greater than 0, but is {self.bs_height}",
-            )
+                f"ParametersNTN: bs_height must be greater than 0, but is {
+                    self.bs_height}", )
 
         if self.cell_radius <= 0:
             raise ValueError(
-                f"ParametersNTN: cell_radius must be greater than 0, but is {self.cell_radius}",
-            )
+                f"ParametersNTN: cell_radius must be greater than 0, but is {
+                    self.cell_radius}", )
 
         if self.intersite_distance <= 0:
             raise ValueError(
-                f"ParametersNTN: intersite_distance must be greater than 0, but is {self.intersite_distance}",
-            )
+                f"ParametersNTN: intersite_distance must be greater than 0, but is {
+                    self.intersite_distance}", )
 
-        if not isinstance(self.bs_backoff_power, int) or self.bs_backoff_power < 0:
+        if not isinstance(
+                self.bs_backoff_power,
+                int) or self.bs_backoff_power < 0:
             raise ValueError(
-                f"ParametersNTN: bs_backoff_power must be a non-negative integer, but is {self.bs_backoff_power}",
-            )
+                f"ParametersNTN: bs_backoff_power must be a non-negative integer, but is {
+                    self.bs_backoff_power}", )
 
         if not np.all((0 <= self.bs_azimuth) & (self.bs_azimuth <= 360)):
             raise ValueError(
-                "ParametersNTN: bs_azimuth values must be between 0 and 360 degrees",
-            )
+                "ParametersNTN: bs_azimuth values must be between 0 and 360 degrees", )
 
         if not np.all((0 <= self.bs_elevation) & (self.bs_elevation <= 90)):
             raise ValueError(
-                "ParametersNTN: bs_elevation values must be between 0 and 90 degrees",
-            )
+                "ParametersNTN: bs_elevation values must be between 0 and 90 degrees", )

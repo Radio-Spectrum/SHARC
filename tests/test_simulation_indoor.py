@@ -13,15 +13,14 @@ import os.path as path
 
 from sharc.simulation_downlink import SimulationDownlink
 from sharc.parameters.parameters import Parameters
-from sharc.antenna.antenna_omni import AntennaOmni
 from sharc.station_factory import StationFactory
-from sharc.parameters.imt.parameters_imt_topology import ParametersImtTopology
-from sharc.parameters.imt.parameters_indoor import ParametersIndoor
 
 
 class SimulationIndoorTest(unittest.TestCase):
+    """Unit tests for the SimulationDownlink class in indoor scenarios."""
 
     def setUp(self):
+        """Set up test fixtures for SimulationDownlink indoor tests."""
         self.param = Parameters()
 
         self.param.general.imt_link = "DOWNLINK"
@@ -74,11 +73,9 @@ class SimulationIndoorTest(unittest.TestCase):
         self.param.imt.ue.antenna.array.adjacent_antenna_model = "SINGLE_ELEMENT"
         self.param.imt.bs.antenna.array.normalization = False
         self.param.imt.bs.antenna.array.normalization_file = path.join(
-            '..', 'sharc', 'antenna', 'beamforming_normalization', 'bs_indoor_norm.npz',
-        )
+            '..', 'sharc', 'antenna', 'beamforming_normalization', 'bs_indoor_norm.npz', )
         self.param.imt.ue.antenna.array.normalization_file = path.join(
-            '..', 'sharc', 'antenna', 'beamforming_normalization', 'ue_norm.npz',
-        )
+            '..', 'sharc', 'antenna', 'beamforming_normalization', 'ue_norm.npz', )
         self.param.imt.bs.antenna.array.element_pattern = "M2101"
         self.param.imt.bs.antenna.array.minimum_array_gain = -200
         self.param.imt.bs.antenna.array.element_max_g = 5
@@ -139,6 +136,7 @@ class SimulationIndoorTest(unittest.TestCase):
         self.param.fss_es.polarization_loss = 3.0
 
     def test_simulation_fss_es(self):
+        """Test simulation for FSS-ES scenario in indoor environments."""
         # Initialize stations
         self.param.general.system = "FSS_ES"
 
@@ -171,7 +169,8 @@ class SimulationIndoorTest(unittest.TestCase):
 #        self.simulation.plot_scenario()
         self.simulation.ue.x = np.array([0.0, 45.0, 75.0, 120.0])
         self.simulation.ue.y = np.array([0.0, 50.0, 0.0, 50.0])
-        self.simulation.ue.z = np.ones_like(self.simulation.ue.x) * self.param.imt.ue.height
+        self.simulation.ue.z = np.ones_like(
+            self.simulation.ue.x) * self.param.imt.ue.height
 #        print("Forced position:")
 #        self.simulation.plot_scenario()
 

@@ -76,7 +76,8 @@ class ParametersMssSs(ParametersBase):
     antenna_3_dB_bw: float = 4.4127
 
     # Paramters for the ITU-R-S.1528 antenna patterns
-    antenna_s1528: ParametersAntennaS1528 = field(default_factory=ParametersAntennaS1528)
+    antenna_s1528: ParametersAntennaS1528 = field(
+        default_factory=ParametersAntennaS1528)
 
     # paramters for channel model
     param_p619: ParametersP619 = field(default_factory=ParametersP619)
@@ -109,10 +110,14 @@ class ParametersMssSs(ParametersBase):
 
         # Now do the sanity check for some parameters
         if self.num_sectors not in [1, 7, 19]:
-            raise ValueError(f"ParametersMssSs: Invalid number of sectors {self.num_sectors}")
+            raise ValueError(
+                f"ParametersMssSs: Invalid number of sectors {
+                    self.num_sectors}")
 
         if self.cell_radius <= 0:
-            raise ValueError(f"ParametersMssSs: cell_radius must be greater than 0, but is {self.cell_radius}")
+            raise ValueError(
+                f"ParametersMssSs: cell_radius must be greater than 0, but is {
+                    self.cell_radius}")
         else:
             self.intersite_distance = np.sqrt(3) * self.cell_radius
 
@@ -125,16 +130,23 @@ class ParametersMssSs(ParametersBase):
                 "ParametersMssSs: bs_elevation values must be between 0 and 90 degrees")
 
         if self.spectral_mask.upper() not in ["IMT-2020", "3GPP E-UTRA"]:
-            raise ValueError(f"""ParametersImt: Inavlid Spectral Mask Name {self.spectral_mask}""")
+            raise ValueError(
+                f"""ParametersImt: Inavlid Spectral Mask Name {
+                    self.spectral_mask}""")
 
-        self.antenna_s1528.set_external_parameters(frequency=self.frequency,
-                                                   bandwidth=self.bandwidth,
-                                                   antenna_gain=self.antenna_gain,
-                                                   antenna_l_s=self.antenna_l_s,
-                                                   antenna_3_dB_bw=self.antenna_3_dB_bw,)
+        self.antenna_s1528.set_external_parameters(
+            frequency=self.frequency,
+            bandwidth=self.bandwidth,
+            antenna_gain=self.antenna_gain,
+            antenna_l_s=self.antenna_l_s,
+            antenna_3_dB_bw=self.antenna_3_dB_bw,
+        )
 
-        if self.channel_model.upper() not in ["FSPL", "P619", "SATELLITESIMPLE"]:
-            raise ValueError(f"Invalid channel model name {self.channel_model}")
+        if self.channel_model.upper() not in [
+                "FSPL", "P619", "SATELLITESIMPLE"]:
+            raise ValueError(
+                f"Invalid channel model name {
+                    self.channel_model}")
 
         if self.channel_model == "P619":
             self.param_p619.set_external_parameters(

@@ -57,12 +57,7 @@ class TopologyIndoor(Topology):
         self.height = np.empty(0)
 
     def calculate_coordinates(self, random_number_gen=np.random.RandomState()):
-        """
-        Calculates the coordinates of the stations according to the inter-site
-        distance parameter. This method is invoked in all snapshots but it can
-        be called only once for the indoor topology. So we set
-        static_base_stations to True to avoid unnecessary calculations.
-        """
+        """Calculate the coordinates of the stations for the indoor topology."""
         if not self.static_base_stations:
             self.reset()
             self.static_base_stations = self.all_buildings
@@ -101,12 +96,14 @@ class TopologyIndoor(Topology):
 
             # In the end, we have to update the number of base stations
             self.num_base_stations = len(self.x)
-            self.z = np.zeros_like(self.height)  # height will be added to z in station_factory
+            # height will be added to z in station_factory
+            self.z = np.zeros_like(self.height)
 
             self.azimuth = np.zeros(self.num_base_stations)
             self.indoor = np.ones(self.num_base_stations, dtype=bool)
 
     def reset(self):
+        """Reset the topology state to initial empty values."""
         self.x = np.empty(0)
         self.y = np.empty(0)
         self.height = np.empty(0)
@@ -116,12 +113,14 @@ class TopologyIndoor(Topology):
         self.static_base_stations = False
 
     def plot(self, ax: matplotlib.axes.Axes, top_view=True):
+        """Plot the indoor topology, either top or side view."""
         if top_view:
             self.plot_top_view(ax)
         else:
             self.plot_side_view(ax)
 
     def plot_top_view(self, ax: matplotlib.axes.Axes):
+        """Plot the top view of the indoor topology on the given axis."""
         # create the building
         for b in range(int(self.num_base_stations / self.num_cells)):
             x_b = self.x[self.num_cells * b] - self.cell_radius
@@ -168,6 +167,7 @@ class TopologyIndoor(Topology):
         )
 
     def plot_side_view(self, ax: matplotlib.axes.Axes):
+        """Plot the side view of the indoor topology on the given axis."""
 
         # Loop on each floor of each column of buildings
         for f in range(int(self.num_floors)):

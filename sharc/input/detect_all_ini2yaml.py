@@ -13,7 +13,19 @@ num_spaces_ident = 4
 
 
 def convert_ini_to_yaml(input_file, output_file):
+    """
+    Convert a .ini file to a .yaml file.
 
+    Read the contents of the input .ini file, parse its sections and key-value pairs,
+    and write them in YAML format to the output file. Note: Lists in .ini files are not parsed.
+
+    Parameters
+    ----------
+    input_file : str
+        Path to the input .ini file.
+    output_file : str
+        Path to the output .yaml file.
+    """
     print("Reading from file: ", input_file)
     print("Writing to file: ", output_file)
 
@@ -51,18 +63,24 @@ def convert_ini_to_yaml(input_file, output_file):
                 try:
                     current_attr_name = re.findall(r"(.+) *=(.+)", line)[0][0]
                     current_attr_value = re.findall(r"(.+) *=(.+)", line)[0][1]
-                    if (current_attr_value == 'TRUE' or current_attr_value == 'True'):
+                    if (current_attr_value ==
+                            'TRUE' or current_attr_value == 'True'):
                         current_attr_value = 'true'
-                    if (current_attr_value == 'FALSE' or current_attr_value == 'False'):
+                    if (current_attr_value ==
+                            'FALSE' or current_attr_value == 'False'):
                         current_attr_value = 'false'
                     for comment in current_attr_comments:
                         output_file.write(' ' * current_ident + comment)
                     current_attr_comments = []
                     output_file.write(
-                        ' ' * current_ident + f"{current_attr_name} :{current_attr_value}\n",
+                        ' ' *
+                        current_ident +
+                        f"{current_attr_name} :{current_attr_value}\n",
                     )
                 except IndexError:
-                    print(input_file, 'did not match the expected format. Skipping...')
+                    print(
+                        input_file,
+                        'did not match the expected format. Skipping...')
 
     print(f"Conversion complete: {output_file.name}")
 

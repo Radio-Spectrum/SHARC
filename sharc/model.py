@@ -28,9 +28,25 @@ class Model(Observable):
         self.param_file = None
 
     def add_observer(self, observer: Observer):
+        """
+        Add an observer to the model.
+
+        Parameters
+        ----------
+        observer : Observer
+            The observer to add.
+        """
         Observable.add_observer(self, observer)
 
     def set_param_file(self, param_file):
+        """
+        Set the parameter file for the model.
+
+        Parameters
+        ----------
+        param_file : str
+            Path to the parameter file.
+        """
         self.param_file = param_file
         self.notify_observers(
             source=__name__,
@@ -77,6 +93,14 @@ class Model(Observable):
             self.secondary_seeds[index] = random.randint(1, max_seed)
 
     def get_description(self) -> str:
+        """
+        Get a formatted string describing the current simulation parameters.
+
+        Returns
+        -------
+        str
+            Description of the IMT system and simulation configuration.
+        """
         param_system = self.simulation.param_system
 
         description = "\nIMT:\n" \
@@ -97,7 +121,10 @@ class Model(Observable):
 
     def snapshot(self):
         """
-        Performs one simulation step and collects the results
+        Perform one simulation step and collect the results.
+
+        Advances the simulation by one snapshot, updates the current snapshot index,
+        and notifies observers as needed. Optionally writes results to file every 10 snapshots.
         """
         write_to_file = False
         self.current_snapshot += 1

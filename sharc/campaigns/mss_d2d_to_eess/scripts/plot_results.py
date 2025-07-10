@@ -23,22 +23,42 @@ samples_for_cdf = [
     "system_inr", "ccdf"
 ]
 
-ccdf_results = Results.load_many_from_dir(os.path.join(campaign_base_dir, "output"),
-                                          filter_fn=lambda x: "mss_d2d_to_eess" in x,
-                                          only_latest=True,
-                                          only_samples=samples_for_ccdf)
+ccdf_results = Results.load_many_from_dir(
+    os.path.join(
+        campaign_base_dir,
+        "output"),
+    filter_fn=lambda x: "mss_d2d_to_eess" in x,
+    only_latest=True,
+    only_samples=samples_for_ccdf)
 
-cdf_results = Results.load_many_from_dir(os.path.join(campaign_base_dir, "output"),
-                                         filter_fn=lambda x: "mss_d2d_to_eess" in x,
-                                         only_latest=True,
-                                         only_samples=samples_for_cdf)
+cdf_results = Results.load_many_from_dir(
+    os.path.join(
+        campaign_base_dir,
+        "output"),
+    filter_fn=lambda x: "mss_d2d_to_eess" in x,
+    only_latest=True,
+    only_samples=samples_for_cdf)
 
 readable_name = {
     "system_d": "System D",
     "system_b": "System B",
 }
 
+
 def linestyle_getter(results):
+    """
+    Determine the line style for plotting based on the results' output directory.
+
+    Parameters
+    ----------
+    results : Results
+        The results object containing the output directory information.
+
+    Returns
+    -------
+    str
+        The line style to use for plotting (e.g., 'dash' or 'solid').
+    """
     if "system_d" in results.output_directory:
         return "dash"
     return "solid"
@@ -81,14 +101,23 @@ post_processor.add_plots(plots)
 # Add a protection criteria line:
 protection_criteria = -154.0  # dBm/MHz
 perc_time = 0.01
-system_dl_interf_power_per_mhz = post_processor.get_plot_by_results_attribute_name("system_dl_interf_power_per_mhz",
-                                                                                   plot_type="ccdf")
-system_dl_interf_power_per_mhz.add_vline(protection_criteria, line_dash="dash", annotation=dict(
-    text="Protection Criteria: " + str(protection_criteria) + " dB[W/MHz]",
-    xref="x", yref="y",
-    x=protection_criteria + 0.5, y=0.8,
-    font=dict(size=12, color="red")
-))
+system_dl_interf_power_per_mhz = post_processor.get_plot_by_results_attribute_name(
+    "system_dl_interf_power_per_mhz", plot_type="ccdf")
+system_dl_interf_power_per_mhz.add_vline(
+    protection_criteria,
+    line_dash="dash",
+    annotation=dict(
+        text="Protection Criteria: " +
+        str(protection_criteria) +
+        " dB[W/MHz]",
+        xref="x",
+        yref="y",
+        x=protection_criteria +
+        0.5,
+        y=0.8,
+        font=dict(
+            size=12,
+             color="red")))
 system_dl_interf_power_per_mhz.add_hline(perc_time, line_dash="dash", annotation=dict(
     text="Time Percentage: " + str(perc_time * 100) + "%",
     xref="x", yref="y",

@@ -5,6 +5,12 @@ import re
 
 
 def run_campaign(campaign_name):
+    """
+    Run a campaign by executing main_cli.py for each parameter file in the campaign's input directory.
+
+    Args:
+        campaign_name (str): Name of the campaign to run.
+    """
     # Get the current working directory
     workfolder = os.path.dirname(os.path.abspath(__file__))
 

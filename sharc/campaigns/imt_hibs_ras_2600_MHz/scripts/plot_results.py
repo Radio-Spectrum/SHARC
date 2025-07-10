@@ -1,3 +1,7 @@
+"""
+Script for post-processing and plotting IMT HIBS RAS 2600 MHz simulation results.
+Adds legends to result folders and generates plots using SHARC's PostProcessor.
+"""
 import os
 from pathlib import Path
 from sharc.results import Results
@@ -25,7 +29,11 @@ post_processor\
 
 campaign_base_dir = str((Path(__file__) / ".." / "..").resolve())
 
-many_results = Results.load_many_from_dir(os.path.join(campaign_base_dir, "output"), only_latest=True)
+many_results = Results.load_many_from_dir(
+    os.path.join(
+        campaign_base_dir,
+        "output"),
+    only_latest=True)
 # ^: typing.List[Results]
 
 post_processor.add_results(many_results)

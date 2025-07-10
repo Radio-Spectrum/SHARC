@@ -30,6 +30,21 @@ class AntennaF699(Antenna):
         self.phi_r = 15.85 * math.pow(self.d_lmbda, -0.6)
 
     def calculate_gain(self, *args, **kwargs) -> np.array:
+        """
+        Calculate the antenna gain for the given off-axis angles.
+
+        Parameters
+        ----------
+        *args : tuple
+            Positional arguments (not used).
+        **kwargs : dict
+            Keyword arguments, expects 'off_axis_angle_vec'.
+
+        Returns
+        -------
+        np.array
+            Calculated antenna gain values.
+        """
         phi = np.absolute(kwargs["off_axis_angle_vec"])
 
         if self.d_lmbda > 100:

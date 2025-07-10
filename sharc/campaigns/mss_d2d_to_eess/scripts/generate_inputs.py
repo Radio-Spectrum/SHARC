@@ -50,12 +50,14 @@ class ESParams():
                 lmbda * np.sqrt(G / n) / np.pi, decimals=2
             ))
             print(
-                f"Earth station {self.name} antenna diameter of {self.antenna_diameter} "
-                f"has been assumed for an efficiency of {n}."
-            )
+                f"Earth station {
+                    self.name} antenna diameter of {
+                    self.antenna_diameter} " f"has been assumed for an efficiency of {n}.")
 
 
-yaml.SafeLoader.add_constructor('tag:yaml.org,2002:python/tuple', tuple_constructor)
+yaml.SafeLoader.add_constructor(
+    'tag:yaml.org,2002:python/tuple',
+    tuple_constructor)
 
 local_dir = os.path.dirname(os.path.abspath(__file__))
 input_dir = os.path.join(local_dir, "../input")
@@ -67,7 +69,8 @@ with open(parameter_file_name, 'r') as file:
     gen_parameters = yaml.safe_load(file)
 
 # doesn't matter from which, both will give same result
-output_prefix_pattern = gen_parameters['general']['output_dir_prefix'].replace("_base", "_<specific>")
+output_prefix_pattern = gen_parameters['general']['output_dir_prefix'].replace(
+    "_base", "_<specific>")
 
 freq = 2200
 
@@ -111,7 +114,8 @@ for sys in [
         parameters['single_earth_station']['geometry']['elevation']['fixed'] = eess_elev
 
         specific = f"{eess_elev}elev_{sys.name}"
-        parameters['general']['output_dir_prefix'] = output_prefix_pattern.replace("<specific>", specific)
+        parameters['general']['output_dir_prefix'] = output_prefix_pattern.replace(
+            "<specific>", specific)
 
         with open(
             os.path.join(input_dir, f"./parameters_mss_d2d_to_eess_{specific}.yaml"),
@@ -123,12 +127,11 @@ for sys in [
     parameters = deepcopy(sys_parameters)
     parameters['single_earth_station']['geometry']['elevation']['type'] = "UNIFORM_DIST"
     parameters['single_earth_station']['geometry']['elevation']['uniform_dist'] = {
-        'min': 5,
-        'max': 90,
-    }
+        'min': 5, 'max': 90, }
 
     specific = f"uniform_elev_{sys.name}"
-    parameters['general']['output_dir_prefix'] = output_prefix_pattern.replace("<specific>", specific)
+    parameters['general']['output_dir_prefix'] = output_prefix_pattern.replace(
+        "<specific>", specific)
 
     with open(
         os.path.join(input_dir, f"./parameters_mss_d2d_to_eess_{specific}.yaml"),

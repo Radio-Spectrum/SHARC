@@ -15,8 +15,10 @@ from sharc.parameters.parameters_fss_es import ParametersFssEs
 
 
 class AntennaS1855Test(unittest.TestCase):
+    """Unit tests for the AntennaS1855 class."""
 
     def setUp(self):
+        """Set up test fixtures for AntennaS1855 tests."""
         # Earth Station Antenna parameters
         params = ParametersFssEs()
         params.diameter = 9.1
@@ -29,7 +31,7 @@ class AntennaS1855Test(unittest.TestCase):
         self.antenna = AntennaS1855(params)
 
     def test_get_gain(self):
-
+        """Test calculation of antenna gain for given off-axis and theta angles."""
         off_axis_angle = np.array([7, 8, 15, 100])
         theta = np.array([90, 45, 45, 45])
         expected_result = np.array([10.87, 8.71, 2.59, -10])

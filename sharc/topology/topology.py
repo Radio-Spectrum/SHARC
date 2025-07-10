@@ -11,6 +11,7 @@ import matplotlib.axes
 
 
 class Topology(object):
+    """Abstract base class for network topology representations."""
 
     __metaclass__ = ABCMeta
 
@@ -19,6 +20,7 @@ class Topology(object):
         intersite_distance: float,
         cell_radius: float,
     ):
+        """Initialize a Topology instance with intersite distance and cell radius."""
         self.intersite_distance = intersite_distance
         self.cell_radius = cell_radius
 
@@ -35,13 +37,17 @@ class Topology(object):
 
     @abstractmethod
     def calculate_coordinates(self, random_number_gen=np.random.RandomState()):
-        """
-        Calculates the coordinates of the stations according to the class
-        atributes.
-        """
+        """Calculate the coordinates of the stations according to class attributes."""
 
-    # by default, a sharc topology will translate the UE distribution by the BS position
-    def transform_ue_xyz(self, bs_i: int, x: np.array, y: np.array, z: np.array):
+    # by default, a sharc topology will translate the UE distribution by the
+    # BS position
+    def transform_ue_xyz(
+            self,
+            bs_i: int,
+            x: np.array,
+            y: np.array,
+            z: np.array):
+        """Translate UE coordinates by the position of the specified base station."""
         return (
             x + self.x[bs_i],
             y + self.y[bs_i],
@@ -50,6 +56,4 @@ class Topology(object):
 
     @abstractmethod
     def plot(self, ax: matplotlib.axes.Axes):
-        """
-        Plots the topology on the given axis.
-        """
+        """Plot the topology on the given axis."""

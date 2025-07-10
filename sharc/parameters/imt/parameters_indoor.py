@@ -6,6 +6,9 @@ from sharc.parameters.parameters_base import ParametersBase
 
 @dataclass
 class ParametersIndoor(ParametersBase):
+    """
+    Parameters for indoor topology simulation, including path loss model and building configuration.
+    """
     # Basic path loss model for indoor topology. Possible values:
     #       "FSPL" (free-space path loss),
     #       "INH_OFFICE" (3GPP Indoor Hotspot - Office)

@@ -19,15 +19,16 @@ class StationFactoryTest(unittest.TestCase):
     """Test cases for StationFactory."""
 
     def setUp(self):
+        """Set up a StationFactory instance for testing."""
         self.station_factory = StationFactory()
 
     def test_generate_imt_base_stations(self):
-        pass
+        """Test IMT base station generation (placeholder)."""
 
     def test_generate_imt_base_stations_ntn(self):
         """Test for IMT-NTN space station generation."""
-        seed = 100
-        rng = np.random.RandomState(seed)
+        # seed = 100  # Unused variable removed
+        rng = np.random.RandomState(100)
 
         param_imt = ParametersImt()
         param_imt.topology.type = "NTN"
@@ -49,10 +50,14 @@ class StationFactoryTest(unittest.TestCase):
         )
 
         ntn_topology.calculate_coordinates()
-        ntn_bs = StationFactory.generate_imt_base_stations(param_imt, param_imt.bs.antenna.array, ntn_topology, rng)
+        ntn_bs = StationFactory.generate_imt_base_stations(
+            param_imt, param_imt.bs.antenna.array, ntn_topology, rng)
         npt.assert_equal(ntn_bs.height, param_imt.topology.ntn.bs_height)
         # the azimuth seen from BS antenna
-        npt.assert_almost_equal(ntn_bs.azimuth[0], param_imt.topology.ntn.bs_azimuth - 180, 1e-3)
+        npt.assert_almost_equal(
+            ntn_bs.azimuth[0],
+            param_imt.topology.ntn.bs_azimuth - 180,
+            1e-3)
         # Elevation w.r.t to xy plane
         npt.assert_almost_equal(ntn_bs.elevation[0], -45.0, 1e-2)
         npt.assert_almost_equal(
@@ -92,14 +97,16 @@ class StationFactoryTest(unittest.TestCase):
         )
 
         ntn_topology.calculate_coordinates()
-        ntn_ue = StationFactory.generate_imt_ue_outdoor(param_imt, param_imt.ue.antenna.array, rng, ntn_topology)
+        ntn_ue = StationFactory.generate_imt_ue_outdoor(
+            param_imt, param_imt.ue.antenna.array, rng, ntn_topology)
         dist = np.sqrt(ntn_ue.x**2 + ntn_ue.y**2)
-        # test if the maximum distance is close to the cell radius within a 100km range
-        npt.assert_almost_equal(dist.max(), param_imt.topology.ntn.cell_radius, -2)
+        # test if the maximum distance is close to the cell radius within a
+        # 100km range
+        npt.assert_almost_equal(
+            dist.max(), param_imt.topology.ntn.cell_radius, -2)
 
     def test_generate_single_space_station(self):
         """Basic test for space station generation."""
-        seed = 100
 
         param = ParametersSingleSpaceStation()
         # just passing required parameters:
@@ -127,11 +134,17 @@ class StationFactoryTest(unittest.TestCase):
         max_gso_fov = 81.30784
 
         def get_ground_elevation(ss):
-            return np.rad2deg(np.arctan2(ss.height, np.sqrt(ss.x**2 + ss.y**2)))
+            return np.rad2deg(
+                np.arctan2(
+                    ss.height,
+                    np.sqrt(
+                        ss.x**2 +
+                        ss.y**2)))
 
         space_station = StationFactory.generate_single_space_station(param)
 
-        # test if the maximum distance is close to the cell radius within a 100km range
+        # test if the maximum distance is close to the cell radius within a
+        # 100km range
         npt.assert_almost_equal(space_station.height, param.geometry.altitude)
         npt.assert_almost_equal(get_ground_elevation(space_station), 90)
 

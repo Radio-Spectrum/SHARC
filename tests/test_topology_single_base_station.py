@@ -13,11 +13,13 @@ from sharc.topology.topology_single_base_station import TopologySingleBaseStatio
 
 
 class TopologySingleBaseStationTest(unittest.TestCase):
+    """Unit tests for the TopologySingleBaseStation class, including coordinate and cluster logic."""
 
     def setUp(self):
-        pass
+        """Set up for TopologySingleBaseStation tests (placeholder)."""
 
     def test_coordinates(self):
+        """Test calculation of coordinates for single and multiple clusters."""
         cell_radius = 1500
         num_clusters = 1
         topology = TopologySingleBaseStation(cell_radius, num_clusters)
@@ -33,6 +35,7 @@ class TopologySingleBaseStationTest(unittest.TestCase):
         npt.assert_equal(topology.y, np.array([0, 0]))
 
     def test_num_clusters(self):
+        """Test calculation of the number of clusters in the topology."""
         cell_radius = 1500
         num_clusters = 1
         topology = TopologySingleBaseStation(cell_radius, num_clusters)
@@ -51,6 +54,7 @@ class TopologySingleBaseStationTest(unittest.TestCase):
             topology = TopologySingleBaseStation(cell_radius, num_clusters)
 
     def test_intersite_distance(self):
+        """Test calculation of intersite distance for the topology."""
         cell_radius = 1500
         num_clusters = 1
         topology = TopologySingleBaseStation(cell_radius, num_clusters)
@@ -64,6 +68,7 @@ class TopologySingleBaseStationTest(unittest.TestCase):
         self.assertEqual(topology.intersite_distance, 2000)
 
     def test_cell_radius(self):
+        """Test calculation of cell radius for the topology."""
         cell_radius = 1500
         num_clusters = 1
         topology = TopologySingleBaseStation(cell_radius, num_clusters)
@@ -77,6 +82,7 @@ class TopologySingleBaseStationTest(unittest.TestCase):
         self.assertEqual(topology.cell_radius, 1000)
 
     def test_azimuth(self):
+        """Test calculation of azimuth for the topology."""
         cell_radius = 1500
         num_clusters = 1
         topology = TopologySingleBaseStation(cell_radius, num_clusters)

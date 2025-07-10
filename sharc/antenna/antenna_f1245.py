@@ -29,6 +29,21 @@ class AntennaF1245(Antenna):
         self.phi_r = 12.02 * math.pow(self.d_lmbda, -0.6)
 
     def calculate_gain(self, *args, **kwargs) -> np.array:
+        """
+        Calculate the antenna gain for the given parameters.
+
+        Parameters
+        ----------
+        *args : tuple
+            Positional arguments (not used).
+        **kwargs : dict
+            Keyword arguments, expects 'phi_vec', 'theta_vec', and 'beams_l'.
+
+        Returns
+        -------
+        np.array
+            Calculated antenna gain values.
+        """
         phi_vec = np.absolute(kwargs["phi_vec"])
         theta_vec = np.absolute(kwargs["theta_vec"])
         beams_l = np.absolute(kwargs["beams_l"])
@@ -90,15 +105,48 @@ class AntennaF1245(Antenna):
         return gain
 
     def add_beam(self, phi: float, theta: float):
+        """
+        Add a new beam to the antenna.
+
+        Parameters
+        ----------
+        phi : float
+            Azimuth angle in degrees.
+        theta : float
+            Elevation angle in degrees.
+        """
         self.beams_list.append((phi, theta))
 
     def calculate_off_axis_angle(self, Az, b):
+        """
+        Calculate the off-axis angle between the main beam and a given direction.
+
+        Parameters
+        ----------
+        Az : float or np.array
+            Azimuth angle(s) in degrees.
+        b : float or np.array
+            Elevation angle(s) in degrees.
+
+        Returns
+        -------
+        float or np.array
+            Off-axis angle(s) in degrees.
+        """
         Az0 = self.beams_list[0][0]
         a = 90 - self.beams_list[0][1]
         C = Az0 - Az
         off_axis_rad = np.arccos(
-            np.cos(np.radians(a)) * np.cos(np.radians(b)) + np.sin(np.radians(a)) *
-            np.sin(np.radians(b)) * np.cos(np.radians(C)),
+            np.cos(
+                np.radians(a)) *
+            np.cos(
+                np.radians(b)) +
+            np.sin(
+                np.radians(a)) *
+            np.sin(
+                np.radians(b)) *
+            np.cos(
+                np.radians(C)),
         )
         off_axis_deg = np.degrees(off_axis_rad)
         return off_axis_deg

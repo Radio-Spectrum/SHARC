@@ -11,12 +11,13 @@ import numpy.testing as npt
 
 from sharc.antenna.antenna_element_imt_f1336 import AntennaElementImtF1336
 from sharc.parameters.imt.parameters_antenna_imt import ParametersAntennaImt
-from sharc.support.enumerations import StationType
 
 
 class AntennaElementImtF1336Test(unittest.TestCase):
+    """Unit tests for the AntennaElementImtF1336 class."""
 
     def setUp(self):
+        """Set up test fixtures for AntennaElementImtF1336 tests."""
         # Element parameters
         self.bs_param = ParametersAntennaImt()
 
@@ -44,15 +45,19 @@ class AntennaElementImtF1336Test(unittest.TestCase):
         self.antenna1 = AntennaElementImtF1336(par)
 
     def test_g_max(self):
+        """Test maximum element gain property."""
         self.assertEqual(self.antenna1.g_max, 18)
 
     def test_phi_3db(self):
+        """Test phi_3db property of the antenna element."""
         self.assertEqual(self.antenna1.phi_3db, 65)
 
     def test_theta_3db(self):
+        """Test theta_3db property of the antenna element."""
         self.assertAlmostEqual(self.antenna1.theta_3db, 7.55, delta=1e-2)
 
     def test_antenna_parameters(self):
+        """Test various antenna parameter calculations."""
         self.assertAlmostEqual(self.antenna1.k_a, 0.7, delta=1e-2)
         self.assertAlmostEqual(self.antenna1.k_p, 0.7, delta=1e-2)
         self.assertAlmostEqual(self.antenna1.k_h, 0.7, delta=1e-2)
@@ -65,6 +70,7 @@ class AntennaElementImtF1336Test(unittest.TestCase):
         self.assertAlmostEqual(self.antenna1.g_hr_0, 0, delta=1e-2)
 
     def test_horizontal_pattern(self):
+        """Test horizontal pattern calculation for various phi values."""
         phi = 0
         h_att = self.antenna1.horizontal_pattern(phi)
         self.assertAlmostEqual(h_att, 0, delta=1e-2)
@@ -83,6 +89,7 @@ class AntennaElementImtF1336Test(unittest.TestCase):
         npt.assert_allclose(h_att, np.array([0, -2.55, -24.45]), atol=1e-2)
 
     def test_vertical_pattern(self):
+        """Test vertical pattern calculation for various theta values."""
         theta = 90
         v_att = self.antenna1.vertical_pattern(theta)
         self.assertAlmostEqual(v_att, 0, delta=1e-2)
@@ -101,6 +108,7 @@ class AntennaElementImtF1336Test(unittest.TestCase):
         npt.assert_allclose(v_att, np.array([0, -18.90, -24.45]), atol=1e-2)
 
     def test_element_pattern(self):
+        """Test element pattern calculation for various phi/theta values."""
         phi = 0
         theta = 90
         e_gain = self.antenna1.element_pattern(phi, theta)

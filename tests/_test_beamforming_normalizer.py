@@ -16,8 +16,10 @@ from sharc.antenna.antenna_beamforming_imt import AntennaBeamformingImt
 
 
 class BeamformingNormalizerTest(unittest.TestCase):
+    """Unit tests for the BeamformingNormalizer class."""
 
     def setUp(self):
+        """Set up test fixtures for BeamformingNormalizer tests."""
         # Test 1
         resolution = 30
         tolerance = 1e-2
@@ -136,6 +138,7 @@ class BeamformingNormalizerTest(unittest.TestCase):
         )
 
     def test_construction(self):
+        """Test construction and initialization of BeamformingNormalizer."""
         # Test 1
         self.assertEqual(self.norm_1.resolution_deg, 30)
         self.assertEqual(self.norm_1.phi_min_deg, -180)
@@ -150,6 +153,7 @@ class BeamformingNormalizerTest(unittest.TestCase):
         npt.assert_equal(self.norm_1.theta_vals_deg, np.arange(0, 180, 30))
 
     def test_calculate_correction_factor(self):
+        """Test calculation of correction factor for various antenna patterns."""
         # Test 1: omni pattern
         azi = 0
         ele = 0
@@ -194,6 +198,7 @@ class BeamformingNormalizerTest(unittest.TestCase):
         self.assertLess(err[1], 8.5)
 
     def test_generate_correction_matrix(self):
+        """Test generation of correction matrix and file output."""
         # Test 3.1: BS element pattern
         file_name = "test_2.npz"
         self.norm_3.generate_correction_matrix(self.par_3, file_name, True)

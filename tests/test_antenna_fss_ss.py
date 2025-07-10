@@ -15,8 +15,10 @@ import numpy.testing as npt
 
 
 class AntennaFssSsTest(unittest.TestCase):
+    """Unit tests for the AntennaFssSs class."""
 
     def setUp(self):
+        """Set up test fixtures for AntennaFssSs tests."""
         param = ParametersFssSs()
         param.antenna_gain = 50
         param.antenna_pattern = "FSS_SS"
@@ -29,6 +31,7 @@ class AntennaFssSsTest(unittest.TestCase):
         self.antenna30 = AntennaFssSs(param)
 
     def test_calculate_gain(self):
+        """Test calculate_gain method for different antenna_l_s values."""
         psi = np.array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 100])
 
         ref_gain25 = np.array(

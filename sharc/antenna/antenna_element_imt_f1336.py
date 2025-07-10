@@ -40,8 +40,7 @@ class AntennaElementImtF1336(object):
         else:
             if self.phi_3db > 120.:
                 sys.stderr.write(
-                    "ERROR\nvertical beamwidth must be givem if horizontal beamwidth > 120 degrees",
-                )
+                    "ERROR\nvertical beamwidth must be givem if horizontal beamwidth > 120 degrees", )
                 sys.exit(1)
             # calculate based on F1336
             self.theta_3db = (31000 * 10**(-.1 * self.g_max)) / self.phi_3db

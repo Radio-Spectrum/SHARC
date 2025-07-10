@@ -1,13 +1,47 @@
+
+"""
+This module provides functions to plot cumulative distribution functions (CDFs) for various metrics.
+
+These functions use Plotly for visualization and operate on campaign output data.
+"""
+
 import os
 import pandas as pd
 import plotly.graph_objects as go
 
 
 def plot_cdf(
-    base_dir, file_prefix, passo_xticks=5, xaxis_title='Value', legends=None, subfolders=None, save_file=True,
+    base_dir,
+    file_prefix,
+    passo_xticks=5,
+    xaxis_title='Value',
+    legends=None,
+    subfolders=None,
+    save_file=True,
     show_plot=False,
 ):
+    """
+    Plot the cumulative distribution function (CDF) for a given metric from campaign output data.
 
+    Parameters
+    ----------
+    base_dir : str
+        Base directory for campaign outputs.
+    file_prefix : str
+        Prefix of the CSV files to plot.
+    passo_xticks : int, optional
+        Step size for x-axis ticks. Default is 5.
+    xaxis_title : str, optional
+        Label for the x-axis. Default is 'Value'.
+    legends : list, optional
+        List of legend labels. Default is None.
+    subfolders : list, optional
+        List of subfolders to include. Default is None.
+    save_file : bool, optional
+        Whether to save the figure. Default is True.
+    show_plot : bool, optional
+        Whether to show the plot. Default is False.
+    """
     label = 'CDF'
     # Ensure at least one of save_file or show_plot is true
     if not save_file and not show_plot:
@@ -30,7 +64,8 @@ def plot_cdf(
     if not os.path.exists(figs_folder):
         os.makedirs(figs_folder)
 
-    # List all subfolders in the base directory or only those specified by the user
+    # List all subfolders in the base directory or only those specified by the
+    # user
     if subfolders:
         subdirs = [
             os.path.join(csv_folder, d) for d in subfolders if os.path.isdir(
@@ -39,9 +74,13 @@ def plot_cdf(
         ]
     else:
         subdirs = [
-            os.path.join(csv_folder, d) for d in os.listdir(csv_folder)
-            if os.path.isdir(os.path.join(csv_folder, d)) and d.startswith(f"output_{base_dir}_")
-        ]
+            os.path.join(
+                csv_folder,
+                d) for d in os.listdir(csv_folder) if os.path.isdir(
+                os.path.join(
+                    csv_folder,
+                    d)) and d.startswith(
+                    f"output_{base_dir}_")]
 
     # Validate the number of legends
     if legends and len(legends) != len(subdirs):
@@ -55,15 +94,15 @@ def plot_cdf(
 
     # First, calculate the global min and max values
     for subdir in subdirs:
-        all_files = [
-            f for f in os.listdir(subdir) if f.endswith('.csv',) and label in f and file_prefix in f
-        ]
+        all_files = [f for f in os.listdir(subdir) if f.endswith(
+            '.csv',) and label in f and file_prefix in f]
 
         for file_name in all_files:
             file_path = os.path.join(subdir, file_name)
             if os.path.exists(file_path):
                 try:
-                    # Try reading the .csv file using pandas with different delimiters
+                    # Try reading the .csv file using pandas with different
+                    # delimiters
                     try:
                         data = pd.read_csv(
                             file_path, delimiter=',', skiprows=1,
@@ -76,8 +115,7 @@ def plot_cdf(
                     # Ensure the data has at least two columns
                     if data.shape[1] < 2:
                         print(
-                            f"The file {file_name} does not have enough columns to plot.",
-                        )
+                            f"The file {file_name} does not have enough columns to plot.", )
                         continue
 
                     # Remove rows that do not contain valid numeric values
@@ -89,16 +127,16 @@ def plot_cdf(
                 except Exception as e:
                     print(f"Error processing the file {file_name}: {e}")
 
-    # If no valid data was found, set reasonable defaults for global_min and global_max
+    # If no valid data was found, set reasonable defaults for global_min and
+    # global_max
     if global_min == float('inf') or global_max == float('-inf'):
         global_min, global_max = 0, 1
 
     # Plot the graphs adjusting the axes
     fig = go.Figure()
     for idx, subdir in enumerate(subdirs):
-        all_files = [
-            f for f in os.listdir(subdir) if f.endswith('.csv',) and label in f and file_prefix in f
-        ]
+        all_files = [f for f in os.listdir(subdir) if f.endswith(
+            '.csv',) and label in f and file_prefix in f]
         legenda = legends[idx] if legends else os.path.basename(
             subdir,
         ).split(f"output_{base_dir}_")[1]
@@ -107,7 +145,8 @@ def plot_cdf(
             file_path = os.path.join(subdir, file_name)
             if os.path.exists(file_path):
                 try:
-                    # Try reading the .csv file using pandas with different delimiters
+                    # Try reading the .csv file using pandas with different
+                    # delimiters
                     try:
                         data = pd.read_csv(
                             file_path, delimiter=',', skiprows=1,
@@ -120,8 +159,7 @@ def plot_cdf(
                     # Ensure the data has at least two columns
                     if data.shape[1] < 2:
                         print(
-                            f"The file {file_name} does not have enough columns to plot.",
-                        )
+                            f"The file {file_name} does not have enough columns to plot.", )
                         continue
 
                     # Remove rows that do not contain valid numeric values
@@ -130,14 +168,12 @@ def plot_cdf(
                     # Check if there are enough data points to plot
                     if data.empty or data.shape[0] < 2:
                         print(
-                            f"The file {file_name} does not have enough data to plot.",
-                        )
+                            f"The file {file_name} does not have enough data to plot.", )
                         continue
 
                     # Plot the CDF
-                    fig.add_trace(
-                        go.Scatter(x=data.iloc[:, 0], y=data.iloc[:, 1], mode='lines', name=f'{legenda}',),
-                    )
+                    fig.add_trace(go.Scatter(
+                        x=data.iloc[:, 0], y=data.iloc[:, 1], mode='lines', name=f'{legenda}',), )
                 except Exception as e:
                     print(f"Error processing the file {file_name}: {e}")
 
@@ -170,44 +206,218 @@ def plot_bs_antenna_gain_towards_the_ue(
     base_dir, passo_xticks=5, legends=None, subfolders=None, save_file=True,
     show_plot=True,
 ):
+    """
+    Plot the CDF of base station antenna gain towards the user equipment (UE).
+
+    Parameters
+    ----------
+    base_dir : str
+        Base directory for campaign outputs.
+    passo_xticks : int, optional
+        Step size for x-axis ticks. Default is 5.
+    legends : list, optional
+        List of legend labels. Default is None.
+    subfolders : list, optional
+        List of subfolders to include. Default is None.
+    save_file : bool, optional
+        Whether to save the figure. Default is True.
+    show_plot : bool, optional
+        Whether to show the plot. Default is True.
+    """
     plot_cdf(
-        base_dir, 'IMT_CDF_of_BS_antenna_gain_towards_the_UE', passo_xticks, xaxis_title='Antenna Gain (dB)',
-        legends=legends, subfolders=subfolders, save_file=save_file, show_plot=show_plot,
+        base_dir,
+        'IMT_CDF_of_BS_antenna_gain_towards_the_UE',
+        passo_xticks,
+        xaxis_title='Antenna Gain (dB)',
+        legends=legends,
+        subfolders=subfolders,
+        save_file=save_file,
+        show_plot=show_plot,
     )
 
 
-def plot_coupling_loss(base_dir, passo_xticks=5, legends=None, subfolders=None, save_file=True, show_plot=True):
+def plot_coupling_loss(
+        base_dir,
+        passo_xticks=5,
+        legends=None,
+        subfolders=None,
+        save_file=True,
+        show_plot=True):
+    """
+    Plot the CDF of coupling loss.
+
+    Parameters
+    ----------
+    base_dir : str
+        Base directory for campaign outputs.
+    passo_xticks : int, optional
+        Step size for x-axis ticks. Default is 5.
+    legends : list, optional
+        List of legend labels. Default is None.
+    subfolders : list, optional
+        List of subfolders to include. Default is None.
+    save_file : bool, optional
+        Whether to save the figure. Default is True.
+    show_plot : bool, optional
+        Whether to show the plot. Default is True.
+    """
     plot_cdf(
-        base_dir, 'IMT_CDF_of_coupling_loss', passo_xticks, xaxis_title='Coupling Loss (dB)',
-        legends=legends, subfolders=subfolders, save_file=save_file, show_plot=show_plot,
+        base_dir,
+        'IMT_CDF_of_coupling_loss',
+        passo_xticks,
+        xaxis_title='Coupling Loss (dB)',
+        legends=legends,
+        subfolders=subfolders,
+        save_file=save_file,
+        show_plot=show_plot,
     )
 
 
-def plot_dl_sinr(base_dir, passo_xticks=5, legends=None, subfolders=None, save_file=True, show_plot=True):
+def plot_dl_sinr(
+        base_dir,
+        passo_xticks=5,
+        legends=None,
+        subfolders=None,
+        save_file=True,
+        show_plot=True):
+    """
+    Plot the CDF of downlink SINR (Signal to Interference plus Noise Ratio).
+
+    Parameters
+    ----------
+    base_dir : str
+        Base directory for campaign outputs.
+    passo_xticks : int, optional
+        Step size for x-axis ticks. Default is 5.
+    legends : list, optional
+        List of legend labels. Default is None.
+    subfolders : list, optional
+        List of subfolders to include. Default is None.
+    save_file : bool, optional
+        Whether to save the figure. Default is True.
+    show_plot : bool, optional
+        Whether to show the plot. Default is True.
+    """
     plot_cdf(
-        base_dir, 'IMT_CDF_of_DL_SINR', passo_xticks, xaxis_title='DL SINR (dB)',
-        legends=legends, subfolders=subfolders, save_file=save_file, show_plot=show_plot,
+        base_dir,
+        'IMT_CDF_of_DL_SINR',
+        passo_xticks,
+        xaxis_title='DL SINR (dB)',
+        legends=legends,
+        subfolders=subfolders,
+        save_file=save_file,
+        show_plot=show_plot,
     )
 
 
-def plot_dl_snr(base_dir, passo_xticks=5, legends=None, subfolders=None, save_file=True, show_plot=True):
+def plot_dl_snr(
+        base_dir,
+        passo_xticks=5,
+        legends=None,
+        subfolders=None,
+        save_file=True,
+        show_plot=True):
+    """
+    Plot the CDF of downlink SNR (Signal to Noise Ratio).
+
+    Parameters
+    ----------
+    base_dir : str
+        Base directory for campaign outputs.
+    passo_xticks : int, optional
+        Step size for x-axis ticks. Default is 5.
+    legends : list, optional
+        List of legend labels. Default is None.
+    subfolders : list, optional
+        List of subfolders to include. Default is None.
+    save_file : bool, optional
+        Whether to save the figure. Default is True.
+    show_plot : bool, optional
+        Whether to show the plot. Default is True.
+    """
     plot_cdf(
-        base_dir, 'IMT_CDF_of_DL_SNR', passo_xticks, xaxis_title='DL SNR (dB)',
-        legends=legends, subfolders=subfolders, save_file=save_file, show_plot=show_plot,
+        base_dir,
+        'IMT_CDF_of_DL_SNR',
+        passo_xticks,
+        xaxis_title='DL SNR (dB)',
+        legends=legends,
+        subfolders=subfolders,
+        save_file=save_file,
+        show_plot=show_plot,
     )
 
 
-def plot_dl_throughput(base_dir, passo_xticks=5, legends=None, subfolders=None, save_file=True, show_plot=True):
+def plot_dl_throughput(
+        base_dir,
+        passo_xticks=5,
+        legends=None,
+        subfolders=None,
+        save_file=True,
+        show_plot=True):
+    """
+    Plot the CDF of downlink throughput.
+
+    Parameters
+    ----------
+    base_dir : str
+        Base directory for campaign outputs.
+    passo_xticks : int, optional
+        Step size for x-axis ticks. Default is 5.
+    legends : list, optional
+        List of legend labels. Default is None.
+    subfolders : list, optional
+        List of subfolders to include. Default is None.
+    save_file : bool, optional
+        Whether to save the figure. Default is True.
+    show_plot : bool, optional
+        Whether to show the plot. Default is True.
+    """
     plot_cdf(
-        base_dir, 'IMT_CDF_of_DL_throughput', passo_xticks, xaxis_title='DL Throughput (Mbps)',
-        legends=legends, subfolders=subfolders, save_file=save_file, show_plot=show_plot,
+        base_dir,
+        'IMT_CDF_of_DL_throughput',
+        passo_xticks,
+        xaxis_title='DL Throughput (Mbps)',
+        legends=legends,
+        subfolders=subfolders,
+        save_file=save_file,
+        show_plot=show_plot,
     )
 
 
-def plot_dl_transmit_power(base_dir, passo_xticks=5, legends=None, subfolders=None, save_file=True, show_plot=True):
+def plot_dl_transmit_power(
+        base_dir,
+        passo_xticks=5,
+        legends=None,
+        subfolders=None,
+        save_file=True,
+        show_plot=True):
+    """
+    Plot the CDF of downlink transmit power.
+
+    Parameters
+    ----------
+    base_dir : str
+        Base directory for campaign outputs.
+    passo_xticks : int, optional
+        Step size for x-axis ticks. Default is 5.
+    legends : list, optional
+        List of legend labels. Default is None.
+    subfolders : list, optional
+        List of subfolders to include. Default is None.
+    save_file : bool, optional
+        Whether to save the figure. Default is True.
+    show_plot : bool, optional
+        Whether to show the plot. Default is True.
+    """
     plot_cdf(
-        base_dir, 'IMT_CDF_of_DL_transmit_power', passo_xticks, xaxis_title='DL Transmit Power (dBm)',
-        legends=legends, subfolders=subfolders, save_file=save_file, show_plot=show_plot,
+        base_dir,
+        'IMT_CDF_of_DL_transmit_power',
+        passo_xticks,
+        xaxis_title='DL Transmit Power (dBm)',
+        legends=legends,
+        subfolders=subfolders,
+        save_file=save_file,
+        show_plot=show_plot,
     )
 
 
@@ -215,17 +425,36 @@ def plot_imt_station_antenna_gain_towards_system(
     base_dir, passo_xticks=5, legends=None, subfolders=None, save_file=True,
     show_plot=True,
 ):
+    """Plot the CDF of IMT station antenna gain towards the system."""
     plot_cdf(
-        base_dir, 'IMT_CDF_of_IMT_station_antenna_gain_towards_system', passo_xticks,
-        xaxis_title='Antenna Gain (dB)', legends=legends, subfolders=subfolders, save_file=save_file,
+        base_dir,
+        'IMT_CDF_of_IMT_station_antenna_gain_towards_system',
+        passo_xticks,
+        xaxis_title='Antenna Gain (dB)',
+        legends=legends,
+        subfolders=subfolders,
+        save_file=save_file,
         show_plot=show_plot,
     )
 
 
-def plot_path_loss(base_dir, passo_xticks=5, legends=None, subfolders=None, save_file=True, show_plot=True):
+def plot_path_loss(
+        base_dir,
+        passo_xticks=5,
+        legends=None,
+        subfolders=None,
+        save_file=True,
+        show_plot=True):
+    """Plot the CDF of path loss."""
     plot_cdf(
-        base_dir, 'IMT_CDF_of_path_loss', passo_xticks, xaxis_title='Path Loss (dB)',
-        legends=legends, subfolders=subfolders, save_file=save_file, show_plot=show_plot,
+        base_dir,
+        'IMT_CDF_of_path_loss',
+        passo_xticks,
+        xaxis_title='Path Loss (dB)',
+        legends=legends,
+        subfolders=subfolders,
+        save_file=save_file,
+        show_plot=show_plot,
     )
 
 
@@ -233,9 +462,16 @@ def plot_ue_antenna_gain_towards_the_bs(
     base_dir, passo_xticks=5, legends=None, subfolders=None, save_file=True,
     show_plot=True,
 ):
+    """Plot the CDF of UE antenna gain towards the BS."""
     plot_cdf(
-        base_dir, 'IMT_CDF_of_UE_antenna_gain_towards_the_BS', passo_xticks, xaxis_title='Antenna Gain (dB)',
-        legends=legends, subfolders=subfolders, save_file=save_file, show_plot=show_plot,
+        base_dir,
+        'IMT_CDF_of_UE_antenna_gain_towards_the_BS',
+        passo_xticks,
+        xaxis_title='Antenna Gain (dB)',
+        legends=legends,
+        subfolders=subfolders,
+        save_file=save_file,
+        show_plot=show_plot,
     )
 
 
@@ -243,9 +479,16 @@ def plot_imt_to_system_path_loss(
     base_dir, passo_xticks=5, legends=None, subfolders=None, save_file=True,
     show_plot=True,
 ):
+    """Plot the CDF of IMT to system path loss."""
     plot_cdf(
-        base_dir, 'SYS_CDF_of_IMT_to_system_path_loss', passo_xticks, xaxis_title='Path Loss (dB)',
-        legends=legends, subfolders=subfolders, save_file=save_file, show_plot=show_plot,
+        base_dir,
+        'SYS_CDF_of_IMT_to_system_path_loss',
+        passo_xticks,
+        xaxis_title='Path Loss (dB)',
+        legends=legends,
+        subfolders=subfolders,
+        save_file=save_file,
+        show_plot=show_plot,
     )
 
 
@@ -253,17 +496,36 @@ def plot_system_antenna_towards_imt_stations(
     base_dir, passo_xticks=5, legends=None, subfolders=None, save_file=True,
     show_plot=True,
 ):
+    """Plot the CDF of system antenna gain towards IMT stations."""
     plot_cdf(
-        base_dir, 'SYS_CDF_of_system_antenna_gain_towards_IMT_stations', passo_xticks,
-        xaxis_title='Antenna Gain (dB)', legends=legends, subfolders=subfolders, save_file=save_file,
+        base_dir,
+        'SYS_CDF_of_system_antenna_gain_towards_IMT_stations',
+        passo_xticks,
+        xaxis_title='Antenna Gain (dB)',
+        legends=legends,
+        subfolders=subfolders,
+        save_file=save_file,
         show_plot=show_plot,
     )
 
 
-def plot_system_inr(base_dir, passo_xticks=5, legends=None, subfolders=None, save_file=True, show_plot=True):
+def plot_system_inr(
+        base_dir,
+        passo_xticks=5,
+        legends=None,
+        subfolders=None,
+        save_file=True,
+        show_plot=True):
+    """Plot the CDF of system INR."""
     plot_cdf(
-        base_dir, 'SYS_CDF_of_system_INR', passo_xticks, xaxis_title='INR (dB)',
-        legends=legends, subfolders=subfolders, save_file=save_file, show_plot=show_plot,
+        base_dir,
+        'SYS_CDF_of_system_INR',
+        passo_xticks,
+        xaxis_title='INR (dB)',
+        legends=legends,
+        subfolders=subfolders,
+        save_file=save_file,
+        show_plot=show_plot,
     )
 
 
@@ -271,9 +533,15 @@ def plot_system_interference_power_from_imt_dl(
     base_dir, passo_xticks=5, legends=None, subfolders=None, save_file=True,
     show_plot=True,
 ):
+    """Plot the CDF of system interference power from IMT downlink."""
     plot_cdf(
-        base_dir, 'SYS_CDF_of_system_interference_power_from_IMT_DL', passo_xticks,
-        xaxis_title='Interference Power (dBm/MHz)', legends=legends, subfolders=subfolders, save_file=save_file,
+        base_dir,
+        'SYS_CDF_of_system_interference_power_from_IMT_DL',
+        passo_xticks,
+        xaxis_title='Interference Power (dBm/MHz)',
+        legends=legends,
+        subfolders=subfolders,
+        save_file=save_file,
         show_plot=show_plot,
     )
 
@@ -282,32 +550,89 @@ def plot_system_interference_power_from_imt_ul(
     base_dir, passo_xticks=5, legends=None, subfolders=None, save_file=True,
     show_plot=True,
 ):
+    """Plot the CDF of system interference power from IMT uplink."""
     plot_cdf(
-        base_dir, 'SYS_CDF_of_system_interference_power_from_IMT_UL', passo_xticks,
-        xaxis_title='Interference Power (dBm/MHz)', legends=legends, subfolders=subfolders, save_file=save_file,
+        base_dir,
+        'SYS_CDF_of_system_interference_power_from_IMT_UL',
+        passo_xticks,
+        xaxis_title='Interference Power (dBm/MHz)',
+        legends=legends,
+        subfolders=subfolders,
+        save_file=save_file,
         show_plot=show_plot,
     )
 
 
-def plot_system_pfd(base_dir, passo_xticks=5, legends=None, subfolders=None, save_file=True, show_plot=True):
+def plot_system_pfd(
+        base_dir,
+        passo_xticks=5,
+        legends=None,
+        subfolders=None,
+        save_file=True,
+        show_plot=True):
+    """Plot the CDF of system PFD."""
     plot_cdf(
-        base_dir, 'SYS_CDF_of_system_PFD', passo_xticks, xaxis_title='PFD (dBW/m²)',
-        legends=legends, subfolders=subfolders, save_file=save_file, show_plot=show_plot,
+        base_dir,
+        'SYS_CDF_of_system_PFD',
+        passo_xticks,
+        xaxis_title='PFD (dBW/m²)',
+        legends=legends,
+        subfolders=subfolders,
+        save_file=save_file,
+        show_plot=show_plot,
     )
 
 
-def plot_inr_samples(base_dir, passo_xticks=5, legends=None, subfolders=None, save_file=True, show_plot=True):
+def plot_inr_samples(
+        base_dir,
+        passo_xticks=5,
+        legends=None,
+        subfolders=None,
+        save_file=True,
+        show_plot=True):
+    """Plot the CDF of INR samples."""
     plot_cdf(
-        base_dir, 'INR_samples', passo_xticks, xaxis_title='INR Samples (dB)',
-        legends=legends, subfolders=subfolders, save_file=save_file, show_plot=show_plot,
+        base_dir,
+        'INR_samples',
+        passo_xticks,
+        xaxis_title='INR Samples (dB)',
+        legends=legends,
+        subfolders=subfolders,
+        save_file=save_file,
+        show_plot=show_plot,
     )
 
 # Main function to identify labels and call the appropriate functions
 
 
-def all_plots(base_dir, legends=None, subfolders=None, save_file=True, show_plot=False):
+def all_plots(
+        base_dir,
+        legends=None,
+        subfolders=None,
+        save_file=True,
+        show_plot=False):
+    """
+    Run all CDF plotting functions for a given campaign output directory.
+
+    Parameters
+    ----------
+    base_dir : str
+        Base directory for campaign outputs.
+    legends : list, optional
+        List of legend labels. Default is None.
+    subfolders : list, optional
+        List of subfolders to include. Default is None.
+    save_file : bool, optional
+        Whether to save the figures. Default is True.
+    show_plot : bool, optional
+        Whether to show the plots. Default is False.
+    """
     plot_bs_antenna_gain_towards_the_ue(
-        base_dir, legends=legends, subfolders=subfolders, save_file=save_file, show_plot=show_plot,
+        base_dir,
+        legends=legends,
+        subfolders=subfolders,
+        save_file=save_file,
+        show_plot=show_plot,
     )
     plot_coupling_loss(
         base_dir, legends=legends, subfolders=subfolders,
@@ -330,30 +655,54 @@ def all_plots(base_dir, legends=None, subfolders=None, save_file=True, show_plot
         subfolders=subfolders, save_file=save_file, show_plot=show_plot,
     )
     plot_imt_station_antenna_gain_towards_system(
-        base_dir, legends=legends, subfolders=subfolders, save_file=save_file, show_plot=show_plot,
+        base_dir,
+        legends=legends,
+        subfolders=subfolders,
+        save_file=save_file,
+        show_plot=show_plot,
     )
     plot_path_loss(
         base_dir, legends=legends, subfolders=subfolders,
         save_file=save_file, show_plot=show_plot,
     )
     plot_ue_antenna_gain_towards_the_bs(
-        base_dir, legends=legends, subfolders=subfolders, save_file=save_file, show_plot=show_plot,
+        base_dir,
+        legends=legends,
+        subfolders=subfolders,
+        save_file=save_file,
+        show_plot=show_plot,
     )
     plot_imt_to_system_path_loss(
-        base_dir, legends=legends, subfolders=subfolders, save_file=save_file, show_plot=show_plot,
+        base_dir,
+        legends=legends,
+        subfolders=subfolders,
+        save_file=save_file,
+        show_plot=show_plot,
     )
     plot_system_antenna_towards_imt_stations(
-        base_dir, legends=legends, subfolders=subfolders, save_file=save_file, show_plot=show_plot,
+        base_dir,
+        legends=legends,
+        subfolders=subfolders,
+        save_file=save_file,
+        show_plot=show_plot,
     )
     plot_system_inr(
         base_dir, legends=legends, subfolders=subfolders,
         save_file=save_file, show_plot=show_plot,
     )
     plot_system_interference_power_from_imt_dl(
-        base_dir, legends=legends, subfolders=subfolders, save_file=save_file, show_plot=show_plot,
+        base_dir,
+        legends=legends,
+        subfolders=subfolders,
+        save_file=save_file,
+        show_plot=show_plot,
     )
     plot_system_interference_power_from_imt_ul(
-        base_dir, legends=legends, subfolders=subfolders, save_file=save_file, show_plot=show_plot,
+        base_dir,
+        legends=legends,
+        subfolders=subfolders,
+        save_file=save_file,
+        show_plot=show_plot,
     )
     plot_system_pfd(
         base_dir, legends=legends, subfolders=subfolders,

@@ -2,6 +2,7 @@ import numpy as np
 
 
 def inv_cum_norm(x):
+    """Compute the inverse cumulative normal distribution for a given probability x."""
     if x < 0.000001:
         x = 0.000001
 
@@ -23,6 +24,7 @@ def inv_cum_norm(x):
 
 
 def p676_ga(f, p, rho, T, d11):
+    """Calculate specific attenuation using ITU-R P.676 model for atmospheric gases."""
     # spectroscopic data for oxygen
     # f0 a1 a2 a3 a4  a5 a6
     oxygen = [

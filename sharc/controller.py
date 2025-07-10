@@ -19,12 +19,28 @@ class Controller:
     """
 
     def __init__(self):
-        pass
+        """Initialize the Controller class."""
 
     def set_model(self, model: Model):
+        """
+        Set the model for the controller.
+
+        Parameters
+        ----------
+        model : Model
+            The model instance to be set.
+        """
         self.model = model
 
     def get_model(self):
+        """
+        Get the model instance associated with the controller.
+
+        Returns
+        -------
+        Model
+            The model instance currently set in the controller.
+        """
         return self.model
 
     def action(self, *args, **kwargs):

@@ -21,7 +21,6 @@ import numpy as np
 import numpy.testing as npt
 
 # Added the matplotlib for plotting the footprint generated in the test
-import matplotlib.pyplot as plt
 
 
 class FootprintTest(unittest.TestCase):
@@ -113,12 +112,12 @@ class FootprintTest(unittest.TestCase):
         fp_long, fp_lat = self.fa1.calc_footprint(4)
         npt.assert_allclose(
             fp_long, np.array(
-            [0.0, 0.487, -0.487, 0.0],
+                [0.0, 0.487, -0.487, 0.0],
             ), atol=1e-2,
         )
         npt.assert_allclose(
             fp_lat, np.array(
-            [-0.562, 0.281, 0.281, -0.562],
+                [-0.562, 0.281, 0.281, -0.562],
             ), atol=1e-2,
         )
 

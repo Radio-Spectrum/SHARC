@@ -260,8 +260,8 @@ class SimulationDownlink(Simulation):
                     pass
                 else:
                     raise ValueError(
-                        f"No implementation for parameters.imt.adjacent_ch_reception == {
-                            self.parameters.imt.adjacent_ch_reception}")
+                        f"No implementation for parameters.imt.adjacent_ch_reception == {self.parameters.imt.adjacent_ch_reception}"
+                        )
 
                 # for tx oob we accept ACLR and spectral mask
                 if self.param_system.adjacent_ch_emissions == "SPECTRAL_MASK":
@@ -290,8 +290,7 @@ class SimulationDownlink(Simulation):
                     pass
                 else:
                     raise ValueError(
-                        f"No implementation for param_system.adjacent_ch_emissions == {
-                            self.param_system.adjacent_ch_emissions}"
+                        f"No implementation for param_system.adjacent_ch_emissions == {self.param_system.adjacent_ch_emissions}"
                     )
 
                 # Out of band power
@@ -431,8 +430,8 @@ class SimulationDownlink(Simulation):
                     pass
                 else:
                     raise ValueError(
-                        f"No implementation for self.parameters.imt.adjacent_ch_emissions == {
-                            self.parameters.imt.adjacent_ch_emissions}")
+                        f"No implementation for self.parameters.imt.adjacent_ch_emissions == {self.parameters.imt.adjacent_ch_emissions}"
+                            )
 
                 # Calculate how much power is received in the adjacent channel
                 if self.param_system.adjacent_ch_reception == "ACS":
@@ -456,8 +455,8 @@ class SimulationDownlink(Simulation):
                             " cannot be both set to \"OFF\"")
                 else:
                     raise ValueError(
-                        f"No implementation for self.param_system.adjacent_ch_reception == {
-                            self.param_system.adjacent_ch_reception}")
+                        f"No implementation for self.param_system.adjacent_ch_reception == {self.param_system.adjacent_ch_reception}"
+                            )
 
                 # Out of band power
                 # sum linearly power leaked into band and power received in the

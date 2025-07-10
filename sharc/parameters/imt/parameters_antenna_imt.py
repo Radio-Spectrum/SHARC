@@ -5,12 +5,13 @@ Created on Sat Apr 15 16:29:36 2017
 @author: Calil
 """
 
-from sharc.support.named_tuples import AntennaPar
-from numpy import load
 import typing
-
 from dataclasses import dataclass, field
+
+from numpy import load
+
 from sharc.parameters.parameters_base import ParametersBase
+from sharc.support.named_tuples import AntennaPar
 
 
 @dataclass
@@ -159,8 +160,8 @@ class ParametersAntennaImt(ParametersBase):
 
         if not isinstance(self.horizontal_beamsteering_range, tuple):
             raise ValueError(
-                f"Invalid {ctx}.horizontal_beamsteering_range={
-                    self.horizontal_beamsteering_range}\n" "It needs to be a tuple")
+                f"Invalid {ctx}.horizontal_beamsteering_range={self.horizontal_beamsteering_range}\n" "It needs to be a tuple"
+                    )
         if len(self.horizontal_beamsteering_range) != 2 or not all(map(lambda x: isinstance(
                 x, float) or isinstance(x, int), self.horizontal_beamsteering_range)):
             raise ValueError(
@@ -184,8 +185,8 @@ class ParametersAntennaImt(ParametersBase):
                 self.vertical_beamsteering_range)
         if not isinstance(self.vertical_beamsteering_range, tuple):
             raise ValueError(
-                f"Invalid {ctx}.vertical_beamsteering_range={
-                    self.vertical_beamsteering_range}\n" "It needs to be a tuple")
+                f"Invalid {ctx}.vertical_beamsteering_range={self.vertical_beamsteering_range}\n" "It needs to be a tuple"
+                    )
         if len(self.vertical_beamsteering_range) != 2 or not all(map(lambda x: isinstance(
                 x, float) or isinstance(x, int), self.vertical_beamsteering_range)):
             raise ValueError(

@@ -1,11 +1,11 @@
-from dataclasses import dataclass, field
 import typing
+from dataclasses import dataclass, field
 
-from sharc.parameters.parameters_base import ParametersBase
 from sharc.parameters.parameters_antenna import ParametersAntenna
-from sharc.parameters.parameters_p619 import ParametersP619
-from sharc.parameters.parameters_p452 import ParametersP452
+from sharc.parameters.parameters_base import ParametersBase
 from sharc.parameters.parameters_hdfss import ParametersHDFSS
+from sharc.parameters.parameters_p452 import ParametersP452
+from sharc.parameters.parameters_p619 import ParametersP619
 
 
 @dataclass
@@ -131,8 +131,7 @@ class ParametersSingleEarthStation(ParametersBase):
                 """Validate the parameters for uniform or fixed distributions."""
                 if self.type not in self.__EXISTING_TYPES:
                     raise ValueError(
-                        f"Invalid value for {ctx}.type. Should be one of {
-                            self.__EXISTING_TYPES}", )
+                        f"Invalid value for {ctx}.type. Should be one of {self.__EXISTING_TYPES}", )
 
                 match self.type:
                     case "UNIFORM_DIST":
@@ -146,8 +145,7 @@ class ParametersSingleEarthStation(ParametersBase):
                             raise ValueError(f"{ctx}.fixed should be a number")
                     case _:
                         raise NotImplementedError(
-                            f"Validation for {ctx}.type = {
-                                self.type} is not implemented", )
+                            f"Validation for {ctx}.type = {self.type} is not implemented", )
 
         azimuth: FixedOrUniformDist = field(default_factory=FixedOrUniformDist)
         elevation: FixedOrUniformDist = field(
@@ -255,8 +253,7 @@ class ParametersSingleEarthStation(ParametersBase):
                         self.uniform_dist.validate(f"{ctx}.uniform_dist")
                     case _:
                         raise NotImplementedError(
-                            f"ParametersSingleEarthStation.Location.type = {
-                                self.type} has no validation implemented!", )
+                            f"ParametersSingleEarthStation.Location.type = {self.type} has no validation implemented!", )
 
         location: Location = field(default_factory=Location)
 

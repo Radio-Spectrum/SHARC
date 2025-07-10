@@ -2,12 +2,14 @@
 # -*- coding: utf-8 -*-
 """Antenna model for ITU-R RA.7-3 recommendations."""
 
-from sharc.antenna.antenna import Antenna
-from sharc.parameters.parameters_antenna_with_diameter import ParametersAntennaWithDiameter
-from sharc.antenna.antenna_s465 import AntennaS465
+import math
 
 import numpy as np
-import math
+
+from sharc.antenna.antenna import Antenna
+from sharc.antenna.antenna_s465 import AntennaS465
+from sharc.parameters.parameters_antenna_with_diameter import \
+    ParametersAntennaWithDiameter
 
 
 class AntennaReg_RR_A7_3(Antenna):
@@ -46,9 +48,8 @@ class AntennaReg_RR_A7_3(Antenna):
         # since the document doesn't specify
         if self.phi_m >= self.phi_r:
             raise ValueError(
-                f"Recommendation doesn't specify what to do when phi_m ({
-                    self.phi_m}) >= phi_r ({
-                    self.phi_r})")
+                f"Recommendation doesn't specify what to do when phi_m ({ self.phi_m}) >= phi_r({self.phi_r})")
+                    
 
     def calculate_gain(self, *args, **kwargs) -> np.array:
         """

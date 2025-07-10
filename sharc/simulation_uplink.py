@@ -5,13 +5,14 @@ Created on Fri Apr  7 17:02:35 2017
 @author: edgar
 """
 
-import numpy as np
 import math
 
-from sharc.simulation import Simulation
-from sharc.parameters.parameters import Parameters
-from sharc.station_factory import StationFactory
+import numpy as np
+
 from sharc.parameters.constants import BOLTZMANN_CONSTANT
+from sharc.parameters.parameters import Parameters
+from sharc.simulation import Simulation
+from sharc.station_factory import StationFactory
 
 
 class SimulationUplink(Simulation):
@@ -208,8 +209,7 @@ class SimulationUplink(Simulation):
                 pass
             else:
                 raise ValueError(
-                    f"No implementation for parameters.imt.adjacent_ch_reception == {
-                        self.parameters.imt.adjacent_ch_reception}")
+                    f"No implementation for parameters.imt.adjacent_ch_reception == {self.parameters.imt.adjacent_ch_reception}")
 
             # for tx oob we accept ACLR and spectral mask
             if self.param_system.adjacent_ch_emissions == "SPECTRAL_MASK":
@@ -230,8 +230,7 @@ class SimulationUplink(Simulation):
                 pass
             else:
                 raise ValueError(
-                    f"No implementation for param_system.adjacent_ch_emissions == {
-                        self.param_system.adjacent_ch_emissions}")
+                    f"No implementation for param_system.adjacent_ch_emissions == {self.param_system.adjacent_ch_emissions}")
 
             # Out of band power
             # sum linearly power leaked into band and power received in the

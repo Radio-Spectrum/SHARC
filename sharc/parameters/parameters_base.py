@@ -1,6 +1,7 @@
-import yaml
-from dataclasses import dataclass
 from copy import deepcopy
+from dataclasses import dataclass
+
+import yaml
 
 
 # Register a tuple constructor with PyYAML
@@ -57,8 +58,8 @@ class ParametersBase:
             elif isinstance(default_attr_value, ParametersBase):
                 if not isinstance(params[attr_name], dict):
                     raise ValueError(
-                        f"ERROR: Cannot parse section {ctx}.{attr_name}, is {
-                            params[attr_name]} instead of a dictionary", )
+                        f"ERROR: Cannot parse section {ctx}.{attr_name}, is {params[attr_name]} instead of a dictionary"
+                            , )
 
                 # try to recursively set config
                 # is a bit hacky and limits some stuff, since it doesn't know the context it is in
@@ -132,9 +133,9 @@ class ParametersBase:
         if self.section_name.lower() not in config.keys():
             if not quiet:
                 print(
-                    f"ParameterBase: section {
-                        self.section_name} not in parameter file.\
-                    Only default parameters where loaded.")
+                    f"ParameterBase: section {self.section_name} not in parameter file.\
+                    Only default parameters where loaded." 
+                         )
             return
 
         # Load all the parameters from the configuration file
@@ -148,8 +149,8 @@ class ParametersBase:
         for k in params_keys:
             if k not in attr_list:
                 raise ValueError(
-                    f"The parameter {
-                        self.section_name}.{k} was passed, but it doesn't exist on parameters definitions!")
+                    f"The parameter {self.section_name}.{k} was passed, but it doesn't exist on parameters definitions!"
+                        )
 
         for attr_name in attr_list:
             try:
@@ -166,8 +167,8 @@ class ParametersBase:
                         # its a regular string. Let the specific class implementation
                         # do the sanity check
                         print(
-                            f"ParametersBase: could not convert string to tuple \"{
-                                self.section_name}.{attr_name}\"", )
+                            f"ParametersBase: could not convert string to tuple \"{self.section_name}.{attr_name}\"",
+                                 )
                         exit()
 
                 # TODO: make every parameters use this way of setting its own attributes, and remove
@@ -218,6 +219,6 @@ class ParametersBase:
             except KeyError:
                 if not quiet:
                     print(
-                        f"ParametersBase: NOTICE! Configuration parameter \"{
-                            self.section_name}.{attr_name}\" \
-                            is not set in configuration file. Using default value {attr_val}", )
+                        f"ParametersBase: NOTICE! Configuration parameter \"{self.section_name}.{attr_name}\" \
+                            is not set in configuration file. Using default value {attr_val}", 
+                            )

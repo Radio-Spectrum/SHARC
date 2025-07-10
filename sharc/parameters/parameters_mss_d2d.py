@@ -1,10 +1,14 @@
+from dataclasses import asdict, dataclass, field
+
 import numpy as np
-from dataclasses import dataclass, field, asdict
+
+from sharc.parameters.antenna.parameters_antenna_s1528 import \
+    ParametersAntennaS1528
+from sharc.parameters.imt.parameters_imt_mss_dc import (
+    ParametersSectorPositioning, ParametersSelectActiveSatellite)
 from sharc.parameters.parameters_base import ParametersBase
 from sharc.parameters.parameters_orbit import ParametersOrbit
-from sharc.parameters.imt.parameters_imt_mss_dc import ParametersSelectActiveSatellite, ParametersSectorPositioning
 from sharc.parameters.parameters_p619 import ParametersP619
-from sharc.parameters.antenna.parameters_antenna_s1528 import ParametersAntennaS1528
 
 
 @dataclass
@@ -147,34 +151,29 @@ class ParametersMssD2d(ParametersBase):
         # Now do the sanity check for some parameters
         if self.num_sectors not in [1, 7, 19]:
             raise ValueError(
-                f"ParametersMssD2d: Invalid number of sectors {
-                    self.num_sectors}")
+                f"ParametersMssD2d: Invalid number of sectors {self.num_sectors}")
         self.num_beams = self.num_sectors
 
         if self.cell_radius <= 0:
             raise ValueError(
-                f"ParametersMssD2d: cell_radius must be greater than 0, but is {
-                    self.cell_radius}")
+                f"ParametersMssD2d: cell_radius must be greater than 0, but is {self.cell_radius}")
         else:
             self.intersite_distance = np.sqrt(3) * self.cell_radius
             self.beam_radius = self.cell_radius
 
         if self.adjacent_ch_emissions not in ["SPECTRAL_MASK", "ACLR", "OFF"]:
             raise ValueError(
-                f"""ParametersMssD2d: Invalid adjacent channel emissions {
-                    self.adjacent_ch_emissions}""")
+                f"""ParametersMssD2d: Invalid adjacent channel emissions {self.adjacent_ch_emissions}""")
 
         if self.spectral_mask.upper() not in [
                 "IMT-2020", "3GPP E-UTRA", "MSS"]:
             raise ValueError(
-                f"""ParametersMssD2d: Inavlid Spectral Mask Name {
-                    self.spectral_mask}""")
+                f"""ParametersMssD2d: Inavlid Spectral Mask Name {self.spectral_mask}""")
 
         if self.channel_model.upper() not in [
                 "FSPL", "P619", "SATELLITESIMPLE"]:
             raise ValueError(
-                f"Invalid channel model name {
-                    self.channel_model}")
+                f"Invalid channel model name {self.channel_model}")
 
         if self.beams_load_factor < 0.0 or self.beams_load_factor > 1.0:
             raise ValueError(

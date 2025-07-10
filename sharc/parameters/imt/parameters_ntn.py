@@ -5,6 +5,7 @@
 # can't be set if another topology is chosen
 
 from dataclasses import dataclass
+
 import numpy as np
 
 from sharc.parameters.parameters_base import ParametersBase
@@ -96,25 +97,21 @@ class ParametersNTN(ParametersBase):
 
         if self.bs_height <= 0:
             raise ValueError(
-                f"ParametersNTN: bs_height must be greater than 0, but is {
-                    self.bs_height}", )
+                f"ParametersNTN: bs_height must be greater than 0, but is {self.bs_height}", )
 
         if self.cell_radius <= 0:
             raise ValueError(
-                f"ParametersNTN: cell_radius must be greater than 0, but is {
-                    self.cell_radius}", )
+                f"ParametersNTN: cell_radius must be greater than 0, but is {self.cell_radius}", )
 
         if self.intersite_distance <= 0:
             raise ValueError(
-                f"ParametersNTN: intersite_distance must be greater than 0, but is {
-                    self.intersite_distance}", )
+                f"ParametersNTN: intersite_distance must be greater than 0, but is {self.intersite_distance}", )
 
         if not isinstance(
                 self.bs_backoff_power,
                 int) or self.bs_backoff_power < 0:
             raise ValueError(
-                f"ParametersNTN: bs_backoff_power must be a non-negative integer, but is {
-                    self.bs_backoff_power}", )
+                f"ParametersNTN: bs_backoff_power must be a non-negative integer, but is {self.bs_backoff_power}", )
 
         if not np.all((0 <= self.bs_azimuth) & (self.bs_azimuth <= 360)):
             raise ValueError(

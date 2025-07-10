@@ -10,6 +10,7 @@ import sys
 from warnings import warn
 
 import numpy as np
+from parameters.parameters_fs import ParametersFs
 
 from sharc.antenna.antenna import Antenna
 from sharc.antenna.antenna_beamforming_imt import AntennaBeamformingImt
@@ -17,6 +18,8 @@ from sharc.antenna.antenna_f699 import AntennaF699
 from sharc.antenna.antenna_f1891 import AntennaF1891
 from sharc.antenna.antenna_factory import AntennaFactory
 from sharc.antenna.antenna_fss_ss import AntennaFssSs
+from sharc.antenna.antenna_hemispheric import HemisphericAntennaPattern
+from sharc.antenna.antenna_modified_s465 import AntennaModifiedS465
 from sharc.antenna.antenna_mss_adjacent import AntennaMSSAdjacent
 from sharc.antenna.antenna_omni import AntennaOmni
 from sharc.antenna.antenna_rra7_3 import AntennaReg_RR_A7_3
@@ -31,16 +34,33 @@ from sharc.antenna.antenna_s672 import AntennaS672
 from sharc.antenna.antenna_s1528 import (AntennaS1528, AntennaS1528Leo,
                                          AntennaS1528Taylor)
 from sharc.antenna.antenna_s1855 import AntennaS1855
-from sharc.antenna.antenna_s1528 import AntennaS1528, AntennaS1528Leo, AntennaS1528Taylor
-from sharc.antenna.antenna_beamforming_imt import AntennaBeamformingImt
-from sharc.topology.topology import Topology
-from sharc.topology.topology_ntn import TopologyNTN
-from sharc.topology.topology_macrocell import TopologyMacrocell
-from sharc.topology.topology_imt_mss_dc import TopologyImtMssDc
 from sharc.mask.spectral_mask_3gpp import SpectralMask3Gpp
 from sharc.mask.spectral_mask_imt import SpectralMaskImt
 from sharc.mask.spectral_mask_mss import SpectralMaskMSS
+from sharc.parameters.imt.parameters_antenna_imt import ParametersAntennaImt
+from sharc.parameters.imt.parameters_imt import ParametersImt
+from sharc.parameters.parameters import Parameters
+from sharc.parameters.parameters_eess_ss import ParametersEessSS
+from sharc.parameters.parameters_fss_es import ParametersFssEs
+from sharc.parameters.parameters_fss_ss import ParametersFssSs
+from sharc.parameters.parameters_haps import ParametersHaps
+from sharc.parameters.parameters_metsat_ss import ParametersMetSatSS
+from sharc.parameters.parameters_mss_d2d import ParametersMssD2d
+from sharc.parameters.parameters_mss_ss import ParametersMssSs
+from sharc.parameters.parameters_ras import ParametersRas
+from sharc.parameters.parameters_rns import ParametersRns
+from sharc.parameters.parameters_single_earth_station import \
+    ParametersSingleEarthStation
+from sharc.parameters.parameters_single_space_station import \
+    ParametersSingleSpaceStation
+from sharc.parameters.parameters_space_station import ParametersSpaceStation
+from sharc.station import StationType
+from sharc.station_manager import StationManager
 from sharc.support.sharc_geom import GeometryConverter
+from sharc.topology.topology import Topology
+from sharc.topology.topology_imt_mss_dc import TopologyImtMssDc
+from sharc.topology.topology_macrocell import TopologyMacrocell
+from sharc.topology.topology_ntn import TopologyNTN
 
 
 class StationFactory(object):
@@ -794,8 +814,8 @@ class StationFactory(object):
             space_station.azimuth = param.geometry.azimuth.fixed
         else:
             raise ValueError(
-                f"Did not recognize azimuth type of {
-                    param.geometry.azimuth.type}")
+                f"Did not recognize azimuth type of {param.geometry.azimuth.type}")
+                    
 
         if param.geometry.azimuth.type == "POINTING_AT_IMT":
             gnd_elev = np.rad2deg(
@@ -811,8 +831,8 @@ class StationFactory(object):
             space_station.elevation = param.geometry.elevation.fixed
         else:
             raise ValueError(
-                f"Did not recognize elevation type of {
-                    param.geometry.elevation.type}")
+                f"Did not recognize elevation type of {param.geometry.elevation.type}")
+                    
 
         space_station.active = np.array([True])
         space_station.tx_power = np.array(

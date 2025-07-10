@@ -11,10 +11,7 @@ The azimuth and elevation angles are also rotated to the new coordinate system.
 The visible Space Stations are then used to generate the IMT Base Stations.
 """
 
-import numpy as np
-import geopandas as gpd
 import functools
-
 from collections import defaultdict
 
 import geopandas as gpd
@@ -22,10 +19,14 @@ import numpy as np
 
 from sharc.parameters.imt.parameters_imt_mss_dc import ParametersImtMssDc
 from sharc.parameters.parameters_orbit import ParametersOrbit
+from sharc.satellite.ngso.constants import EARTH_DEFAULT_CRS
 from sharc.satellite.ngso.orbit_model import OrbitModel
 from sharc.satellite.utils.sat_utils import calc_elevation
-from sharc.support.sharc_geom import lla2ecef, cartesian_to_polar, polar_to_cartesian
-from sharc.satellite.ngso.constants import EARTH_DEFAULT_CRS
+from sharc.support.sharc_geom import (GeometryConverter, cartesian_to_polar,
+                                      lla2ecef, polar_to_cartesian,
+                                      rotate_angles_based_on_new_nadir)
+from sharc.topology.topology import Topology
+from sharc.topology.topology_ntn import TopologyNTN
 
 
 class TopologyImtMssDc(Topology):
@@ -510,8 +511,7 @@ class TopologyImtMssDc(Topology):
             )
             if azim_add is None:
                 raise ValueError(
-                    f"mss_d2d_params.beam_positioning.angle_from_subsatellite_phi.type = \n" f"'{
-                        orbit_params.beam_positioning.angle_from_subsatellite_phi.type}' is not recognized!")
+                    f"mss_d2d_params.beam_positioning.angle_from_subsatellite_phi.type = \n" f"'{orbit_params.beam_positioning.angle_from_subsatellite_phi.type}' is not recognized!")
 
             subsatellite_distance_add = TopologyImtMssDc.get_distr(
                 random_number_gen,
@@ -523,8 +523,7 @@ class TopologyImtMssDc(Topology):
             )
             if subsatellite_distance_add is None:
                 raise ValueError(
-                    f"mss_d2d_params.beam_positioning.distance_from_subsatellite.type = \n" f"'{
-                        orbit_params.beam_positioning.angle_from_subsatellite_theta.type}' is not recognized!")
+                    f"mss_d2d_params.beam_positioning.distance_from_subsatellite.type = \n" f"'{orbit_params.beam_positioning.angle_from_subsatellite_theta.type}' is not recognized!")
 
         elif orbit_params.beam_positioning.type == "ANGLE_FROM_SUBSATELLITE":
             off_nadir_add = TopologyImtMssDc.get_distr(
@@ -537,8 +536,7 @@ class TopologyImtMssDc(Topology):
             )
             if off_nadir_add is None:
                 raise ValueError(
-                    f"mss_d2d_params.beam_positioning.angle_from_subsatellite_theta.type = \n" f"'{
-                        orbit_params.beam_positioning.angle_from_subsatellite_theta.type}' is not recognized!")
+                    f"mss_d2d_params.beam_positioning.angle_from_subsatellite_theta.type = \n" f"'{orbit_params.beam_positioning.angle_from_subsatellite_theta.type}' is not recognized!")
             subsatellite_distance_add = sat_altitude * np.tan(off_nadir_add)
 
             azim_add = TopologyImtMssDc.get_distr(
@@ -551,8 +549,7 @@ class TopologyImtMssDc(Topology):
             )
             if azim_add is None:
                 raise ValueError(
-                    f"mss_d2d_params.beam_positioning.angle_from_subsatellite_phi.type = \n" f"'{
-                        orbit_params.beam_positioning.angle_from_subsatellite_phi.type}' is not recognized!")
+                    f"mss_d2d_params.beam_positioning.angle_from_subsatellite_phi.type = \n" f"'{orbit_params.beam_positioning.angle_from_subsatellite_phi.type}' is not recognized!")
         else:
             subsatellite_distance_add = np.zeros(total_active_satellites)
             azim_add = np.zeros(total_active_satellites)

@@ -1,15 +1,17 @@
 # Parameters for the IMT MSS-DC topology.
-from dataclasses import dataclass, field
-import numpy as np
 import typing
+from dataclasses import dataclass, field
 from pathlib import Path
+
+import numpy as np
 import shapely as shp
 
-from sharc.support.sharc_utils import load_gdf
-from sharc.support.sharc_geom import shrink_countries_by_km, generate_grid_in_multipolygon
-from sharc.satellite.utils.sat_utils import lla2ecef
 from sharc.parameters.parameters_base import ParametersBase
 from sharc.parameters.parameters_orbit import ParametersOrbit
+from sharc.satellite.utils.sat_utils import lla2ecef
+from sharc.support.sharc_geom import (generate_grid_in_multipolygon,
+                                      shrink_countries_by_km)
+from sharc.support.sharc_utils import load_gdf
 
 SHARC_ROOT_DIR = (Path(__file__) / ".." / ".." / ".." / "..").resolve()
 
@@ -60,9 +62,9 @@ class ParametersSectorPositioning(ParametersBase):
             """
             if self.type not in self.__ALLOWED_TYPES:
                 raise ValueError(
-                    f"{ctx}.type = {
-                        self.type} is not one of the accepted values:\n{
-                        self.__ALLOWED_TYPES}")
+                    f"{ctx}.type = {self.type} is not one of the accepted values:\n{self.__ALLOWED_TYPES}"
+                        
+                        )
             match self.type:
                 case "FIXED":
                     if not (
@@ -75,13 +77,13 @@ class ParametersSectorPositioning(ParametersBase):
                     if self.MIN_VALUE is not None:
                         if self.fixed < self.MIN_VALUE:
                             raise ValueError(
-                                f"{ctx}.fixed must be at least {
-                                    self.MIN_VALUE}")
+                                f"{ctx}.fixed must be at least {self.MIN_VALUE}"
+                                    )
                     if self.MAX_VALUE is not None:
                         if self.fixed > self.MAX_VALUE:
                             raise ValueError(
-                                f"{ctx}.fixed must be at least {
-                                    self.MAX_VALUE}")
+                                f"{ctx}.fixed must be at least {self.MAX_VALUE}"
+                                    )
                 case "~U(MIN,MAX)":
                     if not (
                         isinstance(
@@ -108,26 +110,26 @@ class ParametersSectorPositioning(ParametersBase):
                     if self.MIN_VALUE is not None:
                         if self.distribution.min < self.MIN_VALUE:
                             raise ValueError(
-                                f"{ctx}.distribution.min must be at least {
-                                    self.MIN_VALUE}")
+                                f"{ctx}.distribution.min must be at least {self.MIN_VALUE}"
+                                    )
                         if self.distribution.max < self.MIN_VALUE:
                             raise ValueError(
-                                f"{ctx}.distribution.max must be at least {
-                                    self.MIN_VALUE}")
+                                f"{ctx}.distribution.max must be at least {self.MIN_VALUE}"
+                                    )
 
                     if self.MAX_VALUE is not None:
                         if self.distribution.min > self.MAX_VALUE:
                             raise ValueError(
-                                f"{ctx}.distribution.min must be at least {
-                                    self.MAX_VALUE}")
+                                f"{ctx}.distribution.min must be at least {self.MAX_VALUE}"
+                                   )
                         if self.distribution.max > self.MAX_VALUE:
                             raise ValueError(
-                                f"{ctx}.distribution.max must be at least {
-                                    self.MAX_VALUE}")
+                                f"{ctx}.distribution.max must be at least {self.MAX_VALUE}"
+                                    )
                 case _:
                     raise NotImplementedError(
-                        f"No validation implemented for {ctx}.type = {
-                            self.type}")
+                        f"No validation implemented for {ctx}.type = {self.type}"
+                            )
 
     @dataclass
     class ParametersServiceGrid(ParametersBase):
@@ -298,9 +300,7 @@ class ParametersSectorPositioning(ParametersBase):
         """
         if self.type not in self.__ALLOWED_TYPES:
             raise ValueError(
-                f"{ctx}.type = {
-                    self.type} is not one of the accepted values:\n{
-                    self.__ALLOWED_TYPES}")
+                f"{ctx}.type = {self.type} is not one of the accepted values:\n{self.__ALLOWED_TYPES}")
         match self.type:
             case "ANGLE_FROM_SUBSATELLITE":
                 self.angle_from_subsatellite_theta.validate(
@@ -459,9 +459,7 @@ class ParametersSelectActiveSatellite(ParametersBase):
 
         if any(cond not in self.__ALLOWED_CONDITIONS for cond in self.conditions):
             raise ValueError(
-                f"{ctx}.conditions = {
-                    self.conditions}\n" f"However, only the following are allowed: {
-                    self.__ALLOWED_CONDITIONS}")
+                f"{ctx}.conditions = {self.conditions}\n" f"However, only the following are allowed: {self.__ALLOWED_CONDITIONS}")
 
         if len(set(self.conditions)) != len(self.conditions):
             raise ValueError(
@@ -528,13 +526,11 @@ class ParametersImtMssDc(ParametersBase):
         # Now do the sanity check for some parameters
         if self.num_beams not in [1, 7, 19]:
             raise ValueError(
-                f"{ctx}.num_beams: Invalid number of sectors {
-                    self.num_sectors}")
+                f"{ctx}.num_beams: Invalid number of sectors {self.num_sectors}")
 
         if self.beam_radius <= 0:
             raise ValueError(
-                f"{ctx}.beam_radius: cell_radius must be greater than 0, but is {
-                    self.cell_radius}")
+                f"{ctx}.beam_radius: cell_radius must be greater than 0, but is {self.cell_radius}")
         else:
             self.cell_radius = self.beam_radius
             self.intersite_distance = np.sqrt(3) * self.cell_radius

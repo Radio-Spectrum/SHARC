@@ -6,21 +6,24 @@ Created on Mon Apr 17 15:35:00 2017
 """
 
 
-import os
 import csv
-from scipy.interpolate import interp1d
+import os
+
 import numpy as np
 from multipledispatch import dispatch
-from sharc.station_manager import StationManager
-from sharc.parameters.parameters import Parameters
-from sharc.propagation.propagation import Propagation
-from sharc.propagation.propagation_free_space import PropagationFreeSpace
-from sharc.propagation.propagation_clutter_loss import PropagationClutterLoss
-from sharc.propagation.propagation_building_entry_loss import PropagationBuildingEntryLoss
-from sharc.propagation.atmosphere import ReferenceAtmosphere
-from sharc.support.enumerations import StationType
-from sharc.propagation.scintillation import Scintillation
+from scipy.interpolate import interp1d
+
 from sharc.parameters.constants import EARTH_RADIUS
+from sharc.parameters.parameters import Parameters
+from sharc.propagation.atmosphere import ReferenceAtmosphere
+from sharc.propagation.propagation import Propagation
+from sharc.propagation.propagation_building_entry_loss import \
+    PropagationBuildingEntryLoss
+from sharc.propagation.propagation_clutter_loss import PropagationClutterLoss
+from sharc.propagation.propagation_free_space import PropagationFreeSpace
+from sharc.propagation.scintillation import Scintillation
+from sharc.station_manager import StationManager
+from sharc.support.enumerations import StationType
 
 
 class PropagationP619(Propagation):
@@ -131,11 +134,7 @@ class PropagationP619(Propagation):
             # Define the path to the CSV file
             output_dir = os.path.join(os.path.dirname(__file__), 'Dataset')
             csv_file = os.path.join(
-                output_dir, f'{
-                    self.city_name}_{
-                    int(frequency_MHz)}_{
-                    int(
-                        self.earth_station_alt_m)}m.csv', )
+                output_dir, f'{self.city_name}_{int(frequency_MHz)}_{int(self.earth_station_alt_m)}m.csv', )
             if os.path.exists(csv_file):
                 elevations = []
                 losses = []
@@ -506,15 +505,12 @@ if __name__ == '__main__':
     import matplotlib.pyplot as plt
 
     # params = Parameters()
-
     # propagation_path = os.getcwd()
     # sharc_path = os.path.dirname(propagation_path)
     # param_file = os.path.join(sharc_path, "parameters", "parameters.ini")
     # deprecated
-
     # params.set_file_name(param_file)
     # params.read_params()
-
     # sat_params = params.fss_ss
 
     space_station_alt_m = 20000.0

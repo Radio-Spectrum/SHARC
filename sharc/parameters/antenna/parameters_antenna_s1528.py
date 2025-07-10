@@ -88,8 +88,7 @@ class ParametersAntennaS1528(ParametersBase):
                 setattr(self, k, v)
             else:
                 raise ValueError(
-                    f"Parameter {k} is not a valid attribute of {
-                        self.__class__.__name__}")
+                    f"Parameter {k} is not a valid attribute of {self.__class__.__name__}")
 
         self.validate("S.1528")
 

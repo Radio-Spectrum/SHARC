@@ -1,17 +1,19 @@
 
 """Antenna factory module for creating antenna instances based on parameters."""
-from sharc.parameters.parameters_antenna import ParametersAntenna
-
+from sharc.antenna.antenna_beamforming_imt import AntennaBeamformingImt
+from sharc.antenna.antenna_f699 import AntennaF699
+from sharc.antenna.antenna_hemispheric import HemisphericAntennaPattern
 from sharc.antenna.antenna_mss_adjacent import AntennaMSSAdjacent
 from sharc.antenna.antenna_omni import AntennaOmni
-from sharc.antenna.antenna_f699 import AntennaF699
-from sharc.antenna.antenna_s465 import AntennaS465
 from sharc.antenna.antenna_rra7_3 import AntennaReg_RR_A7_3
+from sharc.antenna.antenna_s465 import AntennaS465
 from sharc.antenna.antenna_s580 import AntennaS580
-from sharc.antenna.antenna_s1528 import AntennaS1528
+from sharc.antenna.antenna_s1528 import (AntennaS1528, AntennaS1528Leo,
+                                         AntennaS1528Taylor)
 from sharc.antenna.antenna_s1855 import AntennaS1855
-from sharc.antenna.antenna_s1528 import AntennaS1528, AntennaS1528Leo, AntennaS1528Taylor
-from sharc.antenna.antenna_beamforming_imt import AntennaBeamformingImt
+#from sharc.parameters.antenna.parameters_antenna_hemispheric import \
+#    ParametersHemisphericAntenna
+from sharc.parameters.parameters_antenna import ParametersAntenna
 
 
 class AntennaFactory():
@@ -54,7 +56,10 @@ class AntennaFactory():
                     azimuth,
                     elevation
                 )
+            case "HEMISPHERIC":
+                return HemisphericAntennaPattern(antenna_params.hemispheric)
             case _:
                 raise ValueError(
-                    f"Antenna factory does not support pattern {
-                        antenna_params.pattern}")
+                    f"Antenna factory does not support pattern {antenna_params.pattern}")
+
+                        

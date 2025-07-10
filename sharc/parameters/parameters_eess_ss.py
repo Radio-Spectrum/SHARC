@@ -100,14 +100,12 @@ class ParametersEessSS(ParametersSpaceStation):
             "ITU-R RS.2043", "OMNI",
         ]:
             raise ValueError(
-                f"Invalid antenna_pattern: {
-                    self.antenna_pattern}")
+                f"Invalid antenna_pattern: {self.antenna_pattern}")
 
         if self.antenna_pattern == "ITU-R RS.2043" and \
                 (self.frequency <= 9000.0 or self.frequency >= 10999.0):
             raise ValueError(
-                f"Frequency {
-                    self.frequency} MHz is not in the range for antenna pattern \"ITU-R RS.2043\"",
+                f"Frequency {self.frequency} MHz is not in the range for antenna pattern \"ITU-R RS.2043\"",
             )
 
         # Check channel model

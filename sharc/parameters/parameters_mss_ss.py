@@ -3,10 +3,12 @@
 """
 from dataclasses import dataclass, field
 
+import numpy as np
+
+from sharc.parameters.antenna.parameters_antenna_s1528 import \
+    ParametersAntennaS1528
 from sharc.parameters.parameters_base import ParametersBase
 from sharc.parameters.parameters_p619 import ParametersP619
-from sharc.parameters.antenna.parameters_antenna_s1528 import ParametersAntennaS1528
-import numpy as np
 
 
 @dataclass
@@ -111,13 +113,11 @@ class ParametersMssSs(ParametersBase):
         # Now do the sanity check for some parameters
         if self.num_sectors not in [1, 7, 19]:
             raise ValueError(
-                f"ParametersMssSs: Invalid number of sectors {
-                    self.num_sectors}")
+                f"ParametersMssSs: Invalid number of sectors {self.num_sectors}")
 
         if self.cell_radius <= 0:
             raise ValueError(
-                f"ParametersMssSs: cell_radius must be greater than 0, but is {
-                    self.cell_radius}")
+                f"ParametersMssSs: cell_radius must be greater than 0, but is {self.cell_radius}")
         else:
             self.intersite_distance = np.sqrt(3) * self.cell_radius
 
@@ -145,8 +145,7 @@ class ParametersMssSs(ParametersBase):
         if self.channel_model.upper() not in [
                 "FSPL", "P619", "SATELLITESIMPLE"]:
             raise ValueError(
-                f"Invalid channel model name {
-                    self.channel_model}")
+                f"Invalid channel model name {self.channel_model}")
 
         if self.channel_model == "P619":
             self.param_p619.set_external_parameters(

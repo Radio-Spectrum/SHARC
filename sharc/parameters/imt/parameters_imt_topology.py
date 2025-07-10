@@ -1,13 +1,13 @@
 import typing
-from dataclasses import field, dataclass
+from dataclasses import dataclass, field
 
-from sharc.parameters.parameters_base import ParametersBase
 from sharc.parameters.imt.parameters_hotspot import ParametersHotspot
+from sharc.parameters.imt.parameters_imt_mss_dc import ParametersImtMssDc
 from sharc.parameters.imt.parameters_indoor import ParametersIndoor
 from sharc.parameters.imt.parameters_macrocell import ParametersMacrocell
 from sharc.parameters.imt.parameters_ntn import ParametersNTN
-from sharc.parameters.imt.parameters_imt_mss_dc import ParametersImtMssDc
 from sharc.parameters.imt.parameters_single_bs import ParametersSingleBS
+from sharc.parameters.parameters_base import ParametersBase
 
 
 @dataclass
@@ -62,5 +62,5 @@ class ParametersImtTopology(ParametersBase):
                 self.mss_dc.validate(f"{ctx}.mss_dc")
             case _:
                 raise NotImplementedError(
-                    f"{ctx}.type == '{
-                        self.type}' may not be implemented")
+                    f"{ctx}.type == '{self.type}' may not be implemented"
+                       )

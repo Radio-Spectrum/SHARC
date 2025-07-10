@@ -1,11 +1,13 @@
-from sharc.topology.topology import Topology
-import numpy as np
 import math
-import matplotlib.pyplot as plt
-import matplotlib.axes
-import geopandas as gpd
-from shapely.geometry import Polygon, MultiPolygon
 from pathlib import Path
+
+import geopandas as gpd
+import matplotlib.axes
+import matplotlib.pyplot as plt
+import numpy as np
+from shapely.geometry import MultiPolygon, Polygon
+
+from sharc.topology.topology import Topology
 
 
 class TopologyNTN(Topology):
@@ -39,8 +41,7 @@ class TopologyNTN(Topology):
 
         if num_sectors not in self.ALLOWED_NUM_SECTORS:
             raise ValueError(
-                f"Invalid number of sectors: {num_sectors}. Allowed values are {
-                    self.ALLOWED_NUM_SECTORS}.", )
+                f"Invalid number of sectors: {num_sectors}. Allowed values are {self.ALLOWED_NUM_SECTORS}.", )
 
         # Call to the superclass constructor to set common properties
         super().__init__(intersite_distance, cell_radius)
@@ -285,26 +286,21 @@ class TopologyNTN(Topology):
             edgecolor='k',
             linewidth=1,
             alpha=1,
-            label=f"Satellite (φ={
-                np.degrees(
-                    self.bs_azimuth):.1f}°, θ={
-                np.degrees(
-                    self.bs_elevation):.1f}°)",
-        )
+            label=f"Satellite (φ={np.degrees(self.bs_azimuth):.1f}°, θ={np.degrees(self.bs_elevation):.1f}°)",  
+            )
         # Plot the height line
         axis.plot([self.space_station_x /
                    1000, self.space_station_x /
                    1000], [self.space_station_y /
                            1000, self.space_station_y /
                            1000], [0, self.space_station_z /
-                                   1000], 'b-', label=f'Height = {self.space_station_z /
-                                                                  1000:.1f} km', )
+                                   1000], 'b-', label=f'Height = {self.space_station_z /1000:.1f} km', )
         # Plot the slant range line
         axis.plot([0, self.space_station_x /
                    1000], [0, self.space_station_y /
                            1000], [0, self.space_station_z /
-                                   1000], 'g--', label=f'Slant range = {self.bs_radius /
-                                                                        1000:.1f} km', )
+                                   1000], 'g--', label=f'Slant range = {self.bs_radius /1000:.1f} km', )
+                                                                        
         # Add labels and title
         axis.set_xlabel("x-coordinate [km]")
         axis.set_ylabel("y-coordinate [km]")

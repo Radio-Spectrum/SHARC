@@ -33,7 +33,8 @@ class ParametersAntenna(ParametersBase):
         "ITU-R-S.1528-Taylor",
         "ITU-R-S.1528-Section1.2",
         "ITU-R-S.1528-LEO",
-        "MSS Adjacent"]
+        "MSS Adjacent",
+        "HEMISPHERIC"]
 
     # chosen antenna radiation pattern
     pattern: typing.Literal["OMNI",
@@ -47,7 +48,8 @@ class ParametersAntenna(ParametersBase):
                             "ITU-R-S.1528-Taylor",
                             "ITU-R-S.1528-Section1.2",
                             "ITU-R-S.1528-LEO",
-                            "MSS Adjacent"] = None
+                            "MSS Adjacent",
+                            "HEMISPHERIC"] = None
 
     # antenna gain [dBi]
     gain: float = None
@@ -83,6 +85,10 @@ class ParametersAntenna(ParametersBase):
     array: ParametersAntennaImt = field(
         default_factory=lambda: ParametersAntennaImt(
             downtilt=0.0))
+    
+    hemispheric: ParametersHemisphericAntenna = field(
+    default_factory=ParametersHemisphericAntenna,
+)
 
     # TODO: maybe separate each different S.1528 parameter?
     itu_r_s_1528: ParametersAntennaS1528 = field(
@@ -151,8 +157,7 @@ class ParametersAntenna(ParametersBase):
 
         if self.pattern not in self.__SUPPORTED_ANTENNA_PATTERNS:
             raise ValueError(
-                f"Invalid {ctx}.pattern. It should be one of: {
-                    self.__SUPPORTED_ANTENNA_PATTERNS}.", )
+                f"Invalid {ctx}.pattern. It should be one of: {self.__SUPPORTED_ANTENNA_PATTERNS}.", )
 
         match self.pattern:
             case "OMNI":

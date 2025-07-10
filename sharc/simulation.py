@@ -5,21 +5,21 @@ Created on Wed Jan 11 19:04:03 2017
 @author: edgar
 """
 
-from abc import ABC, abstractmethod
-from sharc.support.observable import Observable
-
-import numpy as np
 import math
 import sys
-import matplotlib.pyplot as plt
+from abc import ABC, abstractmethod
 
-from sharc.support.enumerations import StationType
-from sharc.topology.topology_factory import TopologyFactory
-from sharc.support.sharc_geom import GeometryConverter
+import matplotlib.pyplot as plt
+import numpy as np
+
 from sharc.parameters.parameters import Parameters
-from sharc.station_manager import StationManager
-from sharc.results import Results
 from sharc.propagation.propagation_factory import PropagationFactory
+from sharc.results import Results
+from sharc.station_manager import StationManager
+from sharc.support.enumerations import StationType
+from sharc.support.observable import Observable
+from sharc.support.sharc_geom import GeometryConverter
+from sharc.topology.topology_factory import TopologyFactory
 
 
 class Simulation(ABC, Observable):
@@ -327,8 +327,7 @@ class Simulation(ABC, Observable):
         else:
             # should never reach this line
             return ValueError(
-                f"Invalid IMT StationType! {
-                    imt_station.station_type}")
+                f"Invalid IMT StationType! {imt_station.station_type}")
 
         # TODO: this performance betterment doesn't work when one of the stations is IMT_BS
         # so do something that works for it

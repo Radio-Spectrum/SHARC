@@ -6,16 +6,18 @@ Created on Sat Apr 15 15:35:51 2017
 """
 
 import sys
-import numpy as np
-import matplotlib.pyplot as plt
 
-from sharc.antenna.antenna_element_imt_m2101 import AntennaElementImtM2101
-from sharc.antenna.antenna_element_imt_f1336 import AntennaElementImtF1336
-from sharc.antenna.antenna_element_imt_const import AntennaElementImtConst
-from sharc.antenna.antenna_subarray_imt import AntennaSubarrayIMT
+import matplotlib.pyplot as plt
+import numpy as np
+
 from sharc.antenna.antenna import Antenna
+from sharc.antenna.antenna_element_imt_const import AntennaElementImtConst
+from sharc.antenna.antenna_element_imt_f1336 import AntennaElementImtF1336
+from sharc.antenna.antenna_element_imt_m2101 import AntennaElementImtM2101
+from sharc.antenna.antenna_subarray_imt import AntennaSubarrayIMT
+from sharc.parameters.imt.parameters_antenna_imt import (
+    ParametersAntennaImt, ParametersAntennaSubarrayImt)
 from sharc.support.named_tuples import AntennaPar
-from sharc.parameters.imt.parameters_antenna_imt import ParametersAntennaImt, ParametersAntennaSubarrayImt
 
 
 class AntennaBeamformingImt(Antenna):
@@ -74,8 +76,8 @@ class AntennaBeamformingImt(Antenna):
             self.element = AntennaElementImtConst(par)
         else:
             sys.stderr.write(
-                f"ERROR\nantenna element type {
-                    par.element_pattern} not supported", )
+                f"ERROR\nantenna element type {par.element_pattern} not supported", )
+                   
             sys.exit(1)
 
         if subarray.is_enabled:

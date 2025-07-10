@@ -1,14 +1,14 @@
 # -*- coding: utf-8 -*-
 """Parameters definitions for IMT systems
 """
-from dataclasses import dataclass, field
 import typing
+from dataclasses import dataclass, field
 
+from sharc.parameters.imt.parameters_antenna_imt import ParametersAntennaImt
+from sharc.parameters.imt.parameters_imt_topology import ParametersImtTopology
+from sharc.parameters.parameters_antenna import ParametersAntenna
 from sharc.parameters.parameters_base import ParametersBase
 from sharc.parameters.parameters_p619 import ParametersP619
-from sharc.parameters.imt.parameters_antenna_imt import ParametersAntennaImt
-from sharc.parameters.parameters_antenna import ParametersAntenna
-from sharc.parameters.imt.parameters_imt_topology import ParametersImtTopology
 
 
 @dataclass
@@ -189,8 +189,8 @@ class ParametersImt(ParametersBase):
         if self.topology.type == "NTN" and self.channel_model not in [
                 "FSPL", "P619"]:
             raise ValueError(
-                f"ParametersImt: Invalid channel model {
-                    self.channel_model} for topology NTN", )
+                f"ParametersImt: Invalid channel model {self.channel_model} for topology NTN",
+                    )
 
         if self.season not in ["SUMMER", "WINTER"]:
             raise ValueError(f"ParamtersImt: \

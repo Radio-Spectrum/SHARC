@@ -1,8 +1,8 @@
-from dataclasses import dataclass, field
 import typing
+from dataclasses import dataclass, field
 
-from sharc.parameters.parameters_base import ParametersBase
 from sharc.parameters.parameters_antenna import ParametersAntenna
+from sharc.parameters.parameters_base import ParametersBase
 from sharc.parameters.parameters_p619 import ParametersP619
 
 
@@ -72,8 +72,7 @@ class ParametersSingleSpaceStation(ParametersBase):
                 """
                 if self.type not in self.__EXISTING_TYPES:
                     raise ValueError(
-                        f"Invalid value for {ctx}.type. Should be one of {
-                            self.__EXISTING_TYPES}", )
+                        f"Invalid value for {ctx}.type. Should be one of {self.__EXISTING_TYPES}", )
 
                 match self.type:
                     case "FIXED":
@@ -87,8 +86,7 @@ class ParametersSingleSpaceStation(ParametersBase):
                         pass
                     case _:
                         raise NotImplementedError(
-                            f"Validation for {ctx}.type = {
-                                self.type} is not implemented", )
+                            f"Validation for {ctx}.type = {self.type} is not implemented", )
 
         azimuth: PointingParam = field(
             default_factory=lambda: ParametersSingleSpaceStation.SpaceStationGeometry.PointingParam(
@@ -142,8 +140,7 @@ class ParametersSingleSpaceStation(ParametersBase):
                         self.fixed.validate(f"{ctx}.fixed")
                     case _:
                         raise NotImplementedError(
-                            f"ParametersSingleSpaceStation.Location.type = {
-                                self.type} has no validation implemented!", )
+                            f"ParametersSingleSpaceStation.Location.type = {self.type} has no validation implemented!", )
 
         location: Location = field(default_factory=Location)
 

@@ -44,7 +44,7 @@ imt:
     # IMT resource block bandwidth [MHz]
     rb_bandwidth: 0.180
     # IMT resource block bandwidth [MHz]
-    adjacent_ch_reception: "OFF"
+    adjacent_ch_reception: "ACS"
     ###########################################################################
     # IMT spectrum emission mask. Options are:
     #   "IMT-2020" : for mmWave as described in ITU-R TG 5/1 Contribution 36

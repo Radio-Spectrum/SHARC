@@ -371,6 +371,7 @@ class ParametersTest(unittest.TestCase):
                 expected_orbit_params[i]['phasing_deg'])
 
     def test_imt_validation(self):
+        """Unit test for IMT validation logic."""
         with self.assertRaises(ValueError) as err_context:
             self.parameters.imt.ue.k = 2
             self.parameters.imt.adjacent_antenna_model = "BEAMFORMING"

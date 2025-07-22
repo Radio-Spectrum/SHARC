@@ -220,6 +220,7 @@ class ParametersImt(ParametersBase):
         self.validate("imt")
 
     def validate(self, ctx):
+        """Validate IMT parameters for consistency and supported configurations."""
         super().validate(ctx)
 
         if self.adjacent_antenna_model != "SINGLE_ELEMENT" \

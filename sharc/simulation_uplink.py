@@ -16,6 +16,7 @@ from sharc.parameters.constants import BOLTZMANN_CONSTANT
 
 warn = warnings.warn
 
+
 class SimulationUplink(Simulation):
     """
     Implements the flowchart of simulation downlink method

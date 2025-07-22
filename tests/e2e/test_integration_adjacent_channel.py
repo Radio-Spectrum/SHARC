@@ -494,7 +494,6 @@ class SimulationE2EAdjacentTest(unittest.TestCase):
         imt_non_overlap = self.param.imt.bandwidth - overlap
         sys_non_overlap = self.param.single_earth_station.bandwidth - overlap
 
-        sys_measurement_bw = self.param.single_earth_station.bandwidth
         imt_measurement_bw = self.param.imt.bandwidth
 
         """
@@ -827,7 +826,6 @@ class SimulationE2EAdjacentTest(unittest.TestCase):
         imt_non_overlap = self.param.imt.bandwidth - overlap
         sys_non_overlap = self.param.single_earth_station.bandwidth - overlap
 
-        sys_measurement_bw = self.param.single_earth_station.bandwidth
         imt_measurement_bw = self.param.imt.bandwidth
 
         """
@@ -1078,9 +1076,6 @@ class SimulationE2EAdjacentTest(unittest.TestCase):
             ) * self.param.imt.bandwidth - overlap) / 3
         sys_non_overlap = self.param.single_earth_station.bandwidth - overlap
 
-        sys_measurement_bw = self.param.single_earth_station.bandwidth
-        imt_measurement_bw = self.param.imt.bandwidth
-
         """
         Calculating received power from filter imperfections,
         the oob for IMT and co-channel for System
@@ -1088,9 +1083,7 @@ class SimulationE2EAdjacentTest(unittest.TestCase):
             tx_pow_adj_lin = PSD * non_overlap_imt_bw
             rx_oob = tx_pow_adj_lin / acs
         """
-        psd = self.lin(
-                self.param.single_earth_station.tx_power_density
-            )
+        psd = self.lin(self.param.single_earth_station.tx_power_density)
         rx_oob_lin = psd * sys_non_overlap * 1e6 / self.lin(
             self.param.imt.ue.adjacent_ch_selectivity
         )
@@ -1309,8 +1302,6 @@ class SimulationE2EAdjacentTest(unittest.TestCase):
         sys_non_overlap = self.param.single_earth_station.bandwidth - overlap
 
         sys_measurement_bw = self.param.single_earth_station.bandwidth
-        imt_measurement_bw = self.param.imt.bandwidth
-
         """
         Calculating received power from filter imperfections,
         the oob for system and co-channel for IMT

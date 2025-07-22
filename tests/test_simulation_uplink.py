@@ -463,7 +463,6 @@ class SimulationUplinkTest(unittest.TestCase):
             self.simulation.ue, self.simulation.bs, )
 
         self.simulation.scheduler()
-        bandwidth_per_ue = math.trunc((1 - 0.1) * 100 / 2)
         bandwidth_per_beam = math.trunc((1 - 0.1) * 100 / 2)
         self.simulation.power_control()
 
@@ -752,7 +751,6 @@ class SimulationUplinkTest(unittest.TestCase):
 
         self.simulation.scheduler()
         bandwidth_per_beam = math.trunc((1 - 0.1) * 100 / 2)
-        bandwidth_per_ue = math.trunc((1 - 0.1) * 100 / 2)
         self.simulation.power_control()
 
         self.simulation.calculate_sinr()

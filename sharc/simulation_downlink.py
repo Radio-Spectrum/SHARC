@@ -224,10 +224,8 @@ class SimulationDownlink(Simulation):
                     # in_band_interf_power = self.param_system.tx_power_density + \
                     #     10 * np.log10(self.overlapping_bandwidth * 1e6) + 30
                     in_band_interf_power = \
-                        self.param_system.tx_power_density + 10 * np.log10(
-                            self.ue.bandwidth[ue, np.newaxis] * 1e6
-                        ) + 10 * np.log10(weights)[:, np.newaxis] - \
-                            self.coupling_loss_imt_system[ue, :][:, active_sys]
+                        self.param_system.tx_power_density + 10 * np.log10(self.ue.bandwidth[ue, np.newaxis] * 1e6) + \
+                        10 * np.log10(weights)[:, np.newaxis] - self.coupling_loss_imt_system[ue, :][:, active_sys]
 
             oob_power = np.resize(-500., (len(ue), 1))
             if self.adjacent_channel:

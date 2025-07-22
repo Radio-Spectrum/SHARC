@@ -5,13 +5,16 @@ Created on Fri Aug 11 13:17:14 2017
 @author: edgar
 """
 
-from sharc.support.sharc_logger import Logging
+import os
+import sys
+import getopt
+
+from sharc.support.sharc_logger import Logging, SimulationLogger
 from sharc.controller import Controller
 from sharc.gui.view_cli import ViewCli
 from sharc.model import Model
-import sys
-import getopt
-import os
+
+
 sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 
 
@@ -29,10 +32,10 @@ def main(argv):
     """
     print("Welcome to SHARC!\n")
 
-    param_file = ''
+    param_file = ""
 
     try:
-        opts, args = getopt.getopt(argv, "hp:")
+        opts, _ = getopt.getopt(argv, "hp:")
     except getopt.GetoptError:
         print("usage: main_cli.py -p <param_file>")
         sys.exit(2)
@@ -45,7 +48,11 @@ def main(argv):
                 print("usage: main_cli.py -p <param_file>")
                 sys.exit()
             elif opt == "-p":
-                param_file = param_file = os.path.join(os.getcwd(), arg)
+                param_file = os.path.join(os.getcwd(), arg)
+
+    # Logger setup start
+    sim_logger = SimulationLogger(param_file)
+    sim_logger.start()
 
     Logging.setup_logging()
 
@@ -57,7 +64,10 @@ def main(argv):
     controller.set_model(model)
     model.add_observer(view_cli)
 
-    view_cli.initialize(param_file)
+    try:
+        view_cli.initialize(param_file)
+    finally:
+        sim_logger.end()
 
 
 if __name__ == "__main__":

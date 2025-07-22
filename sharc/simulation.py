@@ -532,7 +532,10 @@ class Simulation(ABC, Observable):
         )
         for bs in bs_active:
             ue = self.link[bs]
-            self.bs.bandwidth[bs] = self.num_rb_per_ue * \
+            # NOTE: since all calculations are done per beam, we consider tx bw
+            # instead of channel bw
+            num_rb_per_beam = self.num_rb_per_ue
+            self.bs.bandwidth[bs] = num_rb_per_beam * \
                 self.parameters.imt.rb_bandwidth
             self.ue.bandwidth[ue] = self.num_rb_per_ue * \
                 self.parameters.imt.rb_bandwidth
@@ -540,7 +543,7 @@ class Simulation(ABC, Observable):
                 self.parameters.imt.frequency +
                 self.num_rb_per_ue * self.parameters.imt.rb_bandwidth * (i - (len(ue) - 1) / 2) for i in range(len(ue))
             ])
-            # bs beam has same tx bw as its assigned UEs
+            # NOTE: bs beam has same tx bw as its assigned UEs
             self.bs.center_freq[bs] = self.ue.center_freq[ue]
 
     def calculate_gains(

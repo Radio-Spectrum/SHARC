@@ -371,7 +371,13 @@ class ParametersTest(unittest.TestCase):
                 expected_orbit_params[i]['phasing_deg'])
 
     def test_imt_validation(self):
-        """Unit test for IMT validation logic."""
+        """
+        Test the validation logic for IMT parameters.
+        This test sets specific IMT parameter values and asserts that the
+        `validate` method raises a ValueError when the configuration is invalid.
+        It also checks that the exception message contains the expected text
+        indicating an issue with the 'adjacent_antenna_model' parameter.
+        """
         with self.assertRaises(ValueError) as err_context:
             self.parameters.imt.ue.k = 2
             self.parameters.imt.adjacent_antenna_model = "BEAMFORMING"

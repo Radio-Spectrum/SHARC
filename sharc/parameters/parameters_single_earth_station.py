@@ -60,6 +60,9 @@ class ParametersSingleEarthStation(ParametersBase):
     # "SPECTRAL_MASK"
     spectral_mask: str | None = None
 
+    # Spurious emissions used for spectral mask [dBm/MHz]
+    spurious_emissions: float | None = None
+
     # Peak transmit power spectral density (clear sky) [dBW/Hz]
     tx_power_density: float = None
 

@@ -211,7 +211,7 @@ class SimulationUplink(Simulation):
                     float(self.param_system.bandwidth),
                     float(self.param_system.frequency),)
 
-            in_band_interf_power = -500.
+            in_band_interf_lin = np.array([0.0])
             if self.co_channel:
                 # TODO: test this in integration testing
                 # Inteferer transmit power in dBm over the overlapping band (MHz)
@@ -220,12 +220,13 @@ class SimulationUplink(Simulation):
                     warnings.filterwarnings("ignore",
                                             category=RuntimeWarning,
                                             message="divide by zero encountered in log10")
-                    in_band_interf_power = self.param_system.tx_power_density + \
+                    in_band_interf = self.param_system.tx_power_density + \
                         10 * np.log10(beams_bw[:, np.newaxis] * 1e6) + \
                         10 * np.log10(weights)[:, np.newaxis] - \
                         self.coupling_loss_imt_system[active_beams, :][:, sys_active]
+                    in_band_interf_lin = 10 ** (in_band_interf / 10)
 
-            oob_power = np.resize(-500., (len(active_beams), 1))
+            oob_interf_lin = 0
             if self.adjacent_channel:
                 # emissions outside of tx bandwidth and inside of rx bw
                 # due to oob emissions on tx side
@@ -244,7 +245,7 @@ class SimulationUplink(Simulation):
                             "You're trying to use ACS on a partially overlapping band "
                             "with UEs.\n\tVerify the code implements the behavior you expect!!"
                         )
-                    acs_dB = self.parameters.imt.ue.adjacent_ch_selectivity
+                    acs_dB = self.parameters.imt.bs.adjacent_ch_selectivity
                     rx_oob[::] = self.param_system.tx_power_density + 10 * np.log10(non_overlap_sys_bw * 1e6) - acs_dB
                 elif self.parameters.imt.adjacent_ch_reception == "OFF":
                     pass
@@ -307,10 +308,12 @@ class SimulationUplink(Simulation):
                 # Out of band power
                 # sum linearly power leaked into band and power received in the
                 # adjacent band
-                oob_power = 10 * np.log10(10 ** (0.1 * tx_oob) + 10 ** (0.1 * rx_oob))
+
+                # linear [W]:
+                oob_interf_lin = 10 ** (0.1 * tx_oob) + 10 ** (0.1 * rx_oob)
 
             # [dBm]
-            ext_interference = 10 * np.log10(10**(0.1 * in_band_interf_power) + 10**(0.1 * oob_power)) + 30
+            ext_interference = 10 * np.log10(in_band_interf_lin + oob_interf_lin) + 30
 
             # Sum all the interferers from each active system transmitters for each bs
             self.bs.ext_interference[bs] = 10 * np.log10(

@@ -98,11 +98,14 @@ else:
 
 if args.channel == "co":
     ul_parameters["general"]["enable_cochannel"] = True
-    ul_parameters["general"]["enable_adjacent_channel"] = False
+    ul_parameters["general"]["enable_adjacent_channel"] = True
     ul_parameters["mss_d2d"]["frequency"] = imt_freq
 elif args.channel == "adj":
     ul_parameters["general"]["enable_cochannel"] = False
     ul_parameters["general"]["enable_adjacent_channel"] = True
+    ul_parameters["imt"]["adjacent_ch_reception"] = "ACS"
+    ul_parameters["imt"]["bs"]["adjacent_ch_selectivity"] = 45.0  # dB
+    ul_parameters["imt"]["ue"]["adjacent_ch_selectivity"] = 35.0  # dB
     ul_parameters["mss_d2d"]["frequency"] = imt_freq + imt_bw / 2 + ul_parameters["mss_d2d"]["bandwidth"] / 2
 else:
     raise ValueError("Should be impossible to fall here")
@@ -125,7 +128,6 @@ ue_tx_bw_mhz = math.trunc(n_rb_per_bw / ul_parameters["imt"]["ue"]["k"]) * ul_pa
 dl_parameters["imt"]["bandwidth"] = imt_bw
 # round(ue_tx_bw_mhz / (1 - ul_parameters["imt"]["guard_band_ratio"]), 2)
 dl_parameters["imt"]["guard_band_ratio"] = ue_tx_bw_mhz / imt_bw
-dl_parameters["imt"]["ue"]["k"] = 1
 
 cell_radius_km = ul_parameters["mss_d2d"]["cell_radius"] / 1e3
 

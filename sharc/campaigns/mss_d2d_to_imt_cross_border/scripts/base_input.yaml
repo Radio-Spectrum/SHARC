@@ -1,7 +1,7 @@
 general:
     ###########################################################################
     # Number of simulation snapshots
-    num_snapshots: 10000
+    num_snapshots: 500
     ###########################################################################
     # IMT link that will be simulated (DOWNLINK or UPLINK)
     imt_link: UPLINK
@@ -44,7 +44,7 @@ imt:
     # IMT resource block bandwidth [MHz]
     rb_bandwidth: 0.180
     # IMT resource block bandwidth [MHz]
-    adjacent_ch_reception: "ACS"
+    adjacent_ch_reception: "OFF"
     ###########################################################################
     # IMT spectrum emission mask. Options are:
     #   "IMT-2020" : for mmWave as described in ITU-R TG 5/1 Contribution 36
@@ -182,6 +182,11 @@ imt:
     # IMT and other services in adjacent band
     # Possible values: SINGLE_ELEMENT, BEAMFORMING
     adjacent_antenna_model: SINGLE_ELEMENT
+    ###########################################################################
+    # Type of adjacent channel reception
+    # Possible values: "OFF", "ACS" (Adjacent Channel Selectivity)
+    # adjacent_ch_reception: OFF
+    #############################################################################
     # Base station parameters
     # Values taken from 5D/716 Section 3.2.1.6
     # Beamforming antenna characteristics for IMT in 1710-4990 MHz

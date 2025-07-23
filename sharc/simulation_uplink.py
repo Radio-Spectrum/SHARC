@@ -240,11 +240,13 @@ class SimulationUplink(Simulation):
                 # "The ACIR value should be calculated based on per UE allocated number of resource blocks"
                 if self.parameters.imt.adjacent_ch_reception == "ACS":
                     non_overlap_sys_bw = self.param_system.bandwidth - self.overlapping_bandwidth
-                    if non_overlap_sys_bw > 0:
-                        warn(
-                            "You're trying to use ACS on a partially overlapping band "
-                            "with UEs.\n\tVerify the code implements the behavior you expect!!"
-                        )
+                    if self.overlapping_bandwidth > 0:
+                        if not hasattr(self, "_acs_warned"):
+                            warn(
+                                "You're trying to use ACS on a partially overlapping band "
+                                "with UEs.\n\tVerify the code implements the behavior you expect!!"
+                            )
+                            self._acs_warned = True
                     acs_dB = self.parameters.imt.bs.adjacent_ch_selectivity
                     rx_oob[::] = self.param_system.tx_power_density + 10 * np.log10(non_overlap_sys_bw * 1e6) - acs_dB
                 elif self.parameters.imt.adjacent_ch_reception == "OFF":
@@ -258,14 +260,18 @@ class SimulationUplink(Simulation):
 
                 # for tx oob we accept ACLR and spectral mask
                 if self.param_system.adjacent_ch_emissions == "SPECTRAL_MASK":
-                    # mask returns dBm
-                    # so we convert to [dB]
-                    for i, center_freq, bw in zip(
-                            range(len(self.bs.center_freq[bs])), self.bs.center_freq[bs], beams_bw):
-                        tx_oob[i] = self.system.spectral_mask.power_calc(
-                            center_freq,
-                            bw
-                        ) - 30
+                    with warnings.catch_warnings():
+                        warnings.filterwarnings("ignore",
+                                                category=RuntimeWarning,
+                                                message="divide by zero encountered in log10")
+                        for i, center_freq, bw in zip(
+                                range(len(self.bs.center_freq[bs])), self.bs.center_freq[bs], beams_bw):
+                            # mask returns dBm
+                            # so we convert to [dB]
+                            tx_oob[i] = self.system.spectral_mask.power_calc(
+                                center_freq,
+                                bw
+                            ) - 30
                 elif self.param_system.adjacent_ch_emissions == "ACLR":
                     # consider ACLR only over non co-channel RBs
                     # This should diminish some of the ACLR interference

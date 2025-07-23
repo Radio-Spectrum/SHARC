@@ -7,12 +7,14 @@ Created on Wed Jan 11 19:06:41 2017
 
 import numpy as np
 import math
-from warnings import warn
+import warnings
 
 from sharc.simulation import Simulation
 from sharc.parameters.parameters import Parameters
 from sharc.station_factory import StationFactory
 from sharc.parameters.constants import BOLTZMANN_CONSTANT
+
+warn = warnings.warn
 
 
 class SimulationDownlink(Simulation):
@@ -255,10 +257,12 @@ class SimulationDownlink(Simulation):
 
                 if self.parameters.imt.adjacent_ch_reception == "ACS":
                     if self.overlapping_bandwidth:
-                        warn(
-                            "You're trying to use ACS on a partially overlapping band "
-                            "with UEs.\n\tVerify the code implements the behavior you expect!!"
-                        )
+                        if getattr(self, "_acs_warned"):
+                            warn(
+                                "You're trying to use ACS on a partially overlapping band "
+                                "with UEs.\n\tVerify the code implements the behavior you expect!!"
+                            )
+                            self._acs_warned = True
                     non_overlap_sys_bw = self.param_system.bandwidth - self.overlapping_bandwidth
                     acs_dB = self.parameters.imt.ue.adjacent_ch_selectivity
 
@@ -278,14 +282,18 @@ class SimulationDownlink(Simulation):
                     ue_bws = self.ue.bandwidth[ue]
                     center_freqs = self.ue.center_freq[ue]
 
-                    for i, center_freq, bw in zip(
-                            range(len(center_freqs)), center_freqs, ue_bws):
-                        # calculate tx emissions in UE in use bandwidth only
-                        # [dB]
-                        tx_oob[i] = self.system.spectral_mask.power_calc(
-                            center_freq,
-                            bw
-                        ) - 30
+                    with warnings.catch_warnings():
+                        warnings.filterwarnings("ignore",
+                                                category=RuntimeWarning,
+                                                message="divide by zero encountered in log10")
+                        for i, center_freq, bw in zip(
+                                range(len(center_freqs)), center_freqs, ue_bws):
+                            # calculate tx emissions in UE in use bandwidth only
+                            # [dB]
+                            tx_oob[i] = self.system.spectral_mask.power_calc(
+                                center_freq,
+                                bw
+                            ) - 30
                 elif self.param_system.adjacent_ch_emissions == "ACLR":
                     # consider ACLR only over non co-channel RBs
                     # This should diminish some of the ACLR interference

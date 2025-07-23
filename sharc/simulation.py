@@ -33,6 +33,8 @@ class Simulation(ABC, Observable):
         ABC.__init__(self)
         Observable.__init__(self)
 
+        self._acs_warned = False  # Flag to avoid multiple ACS warnings
+
         self.parameters = parameters
         self.parameters_filename = parameter_file
 

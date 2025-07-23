@@ -34,12 +34,7 @@ class ParametersImt(ParametersBase):
     # Possible values are "ACLR", "SPECTRAL_MASK" and "OFF"
     adjacent_ch_emissions: str = "OFF"
 
-    # Adjacent channel leakage ratio in dB used if adjacent_ch_emissions is
-    # set to "ACLR"
-    adjacent_ch_leak_ratio: float = 45.0
-
-    # Spectral mask used for the IMT system when adjacent_ch_emissions is set
-    # to "SPECTRAL_MASK"
+    # Spectral mask used for the IMT system when adjacent_ch_emissions is set to "SPECTRAL_MASK"
     spectral_mask: str = "IMT-2020"
 
     @dataclass
@@ -53,6 +48,8 @@ class ParametersImt(ParametersBase):
         ohmic_loss: float = 3.0
         # Adjacent Channel Selectivity in dB
         adjacent_ch_selectivity: float = None
+        # Adjacent channel leakage ratio in dB used if adjacent_ch_emissions is set to "ACLR"
+        adjacent_ch_leak_ratio: float = 45.0
         antenna: ParametersAntenna = field(
             default_factory=lambda: ParametersAntenna(
                 pattern="ARRAY", array=ParametersAntennaImt(
@@ -77,7 +74,9 @@ class ParametersImt(ParametersBase):
 
     @dataclass
     class ParametersUE(ParametersBase):
-        """Dataclass containing the IMT User Equipment (UE) parameters."""
+        """
+        Dataclass containing the IMT User Equipment (UE) parameters.
+        """
 
         k: int = 3
         k_m: int = 1
@@ -96,6 +95,8 @@ class ParametersImt(ParametersBase):
         ohmic_loss: float = 3.0
         body_loss: float = 4.0
         adjacent_ch_selectivity: float = 33  # Adjacent Channel Selectivity in dB
+        # Adjacent channel leakage ratio in dB used if adjacent_ch_emissions is set to "ACLR"
+        adjacent_ch_leak_ratio: float = 45.0
         antenna: ParametersAntenna = field(
             default_factory=lambda: ParametersAntenna(
                 pattern="ARRAY"))
@@ -112,6 +113,7 @@ class ParametersImt(ParametersBase):
 
     @dataclass
     class ParamatersDL(ParametersBase):
+        """Dataclass containing the IMT Downlink (DL) parameters."""
         attenuation_factor: float = 0.6
         sinr_min: float = -10.0
         sinr_max: float = 30.0
@@ -220,3 +222,18 @@ class ParametersImt(ParametersBase):
         )
 
         self.validate("imt")
+
+    def validate(self, ctx):
+        """Validate the IMT system parameters."""
+        super().validate(ctx)
+
+        if self.adjacent_antenna_model != "SINGLE_ELEMENT" \
+                and self.adjacent_ch_emissions == "SPECTRAL_MASK" and self.ue.k > 1:
+            # NOTE: there is no way to reconcile multiple beams with spectral power mask
+            # the mask specifies emission limits, it doesn't sound correct to say that each
+            # beam emits an equal portion of the limit, or that they emmit different portions
+            # The limit is normally a regulatory one, not a technical one
+            raise ValueError(
+                "There currently is no support for using IMT 'SPECTRAL_MASK' with ue.k > 1"
+                " and adjacent_antenna_model different than 'SINGLE_ELEMENT'"
+            )

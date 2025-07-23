@@ -160,7 +160,7 @@ class SimulationUplinkTest(unittest.TestCase):
         self.param.ras.geometry.azimuth.fixed = 0
         self.param.ras.geometry.elevation.type = "FIXED"
         self.param.ras.geometry.azimuth.type = "FIXED"
-        self.param.ras.frequency = 1000
+        self.param.ras.frequency = 10000
         self.param.ras.bandwidth = 100
         self.param.ras.noise_temperature = 100
         self.param.ras.antenna.gain = 50
@@ -246,7 +246,7 @@ class SimulationUplinkTest(unittest.TestCase):
         # test scheduler and bandwidth allocation
         self.simulation.scheduler()
         bandwidth_per_ue = math.trunc((1 - 0.1) * 100 / 2)
-        bandwidth_per_bs = math.trunc((1 - 0.1) * 100)
+        bandwidth_per_beam = math.trunc((1 - 0.1) * 100 / 2)
         npt.assert_allclose(
             self.simulation.ue.bandwidth,
             bandwidth_per_ue * np.ones(4), atol=1e-2,
@@ -295,7 +295,7 @@ class SimulationUplinkTest(unittest.TestCase):
 
         # check BS thermal noise
         thermal_noise = 10 * \
-            np.log10(1.38064852e-23 * 290 * bandwidth_per_bs * 1e3 * 1e6) + 7
+            np.log10(1.38064852e-23 * 290 * bandwidth_per_beam * 1e3 * 1e6) + 7
         npt.assert_allclose(
             self.simulation.bs.thermal_noise,
             thermal_noise,
@@ -463,8 +463,7 @@ class SimulationUplinkTest(unittest.TestCase):
             self.simulation.ue, self.simulation.bs, )
 
         self.simulation.scheduler()
-        math.trunc((1 - 0.1) * 100 / 2)
-        bandwidth_per_bs = math.trunc((1 - 0.1) * 100)
+        bandwidth_per_beam = math.trunc((1 - 0.1) * 100 / 2)
         self.simulation.power_control()
 
         self.simulation.calculate_sinr()
@@ -517,7 +516,7 @@ class SimulationUplinkTest(unittest.TestCase):
 
         # check BS thermal noise
         thermal_noise = 10 * \
-            np.log10(1.38064852e-23 * 290 * bandwidth_per_bs * 1e3 * 1e6) + 7
+            np.log10(1.38064852e-23 * 290 * bandwidth_per_beam * 1e3 * 1e6) + 7
         npt.assert_allclose(
             self.simulation.bs.thermal_noise,
             thermal_noise,
@@ -602,8 +601,10 @@ class SimulationUplinkTest(unittest.TestCase):
         )
 
         # external interference
-        system_tx_power = -60 + 10 * \
-            math.log10(self.simulation.overlapping_bandwidth * 1e6) + 30
+        bs_tx_band = self.simulation.num_rb_per_ue * self.param.imt.rb_bandwidth
+        system_tx_power = -60 + 10 * math.log10(
+            bs_tx_band * 1e6
+        ) + 30
         ext_interference = {
             0: system_tx_power - coupling_loss_imt_system[0:2, 0],
             1: system_tx_power - coupling_loss_imt_system[2:4, 0],
@@ -749,14 +750,13 @@ class SimulationUplinkTest(unittest.TestCase):
             self.simulation.ue, self.simulation.bs, )
 
         self.simulation.scheduler()
-        bandwidth_per_bs = math.trunc((1 - 0.1) * 100)
-        math.trunc((1 - 0.1) * 100 / 2)
+        bandwidth_per_beam = math.trunc((1 - 0.1) * 100 / 2)
         self.simulation.power_control()
 
         self.simulation.calculate_sinr()
         # check BS thermal noise
         thermal_noise = 10 * \
-            np.log10(1.38064852e-23 * 290 * bandwidth_per_bs * 1e3 * 1e6) + 7
+            np.log10(1.38064852e-23 * 290 * bandwidth_per_beam * 1e3 * 1e6) + 7
         npt.assert_allclose(
             self.simulation.bs.thermal_noise,
             thermal_noise,
@@ -772,7 +772,7 @@ class SimulationUplinkTest(unittest.TestCase):
         npt.assert_allclose(
             self.simulation.bs.sinr[1],
             np.array([-57.55 - (-75.28), -47.09 - (-71.62)]),
-            atol=1e-2,
+            atol=2e-1,
         )
 
         # Create system

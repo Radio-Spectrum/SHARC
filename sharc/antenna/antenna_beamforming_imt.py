@@ -215,28 +215,14 @@ class AntennaBeamformingImt(Antenna):
                 )\
                     + correction_factor[correction_factor_idx[g]]
         else:
-            if self.subarray is not None:
-                subarr_g = self.subarray.calculate_gain(
+            for g in range(n_direct):
+                elem_g = self.element.element_pattern(
                     lo_phi_vec[g],
                     lo_theta_vec[g],
                 )
 
-                gains[g] = subarr_g \
+                gains[g] = elem_g \
                     + self.adj_correction_factor
-
-                if self.adj_correction_factor != 0:
-                    raise NotImplementedError(
-                        "Not sure how adjacent correction factor should be dealt with when considering subarray.\n" +
-                        "Even though i 'think' it would make no difference")
-            else:
-                for g in range(n_direct):
-                    elem_g = self.element.element_pattern(
-                        lo_phi_vec[g],
-                        lo_theta_vec[g],
-                    )
-
-                    gains[g] = elem_g \
-                        + self.adj_correction_factor
 
         gains = np.maximum(gains, self.minimum_array_gain)
 

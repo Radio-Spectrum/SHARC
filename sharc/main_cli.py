@@ -5,7 +5,11 @@ Created on Fri Aug 11 13:17:14 2017
 @author: edgar
 """
 
-from sharc.support.sharc_logger import Logging
+import os
+import sys
+import getopt
+
+from sharc.support.sharc_logger import Logging, SimulationLogger
 from sharc.controller import Controller
 from sharc.gui.view_cli import ViewCli
 from sharc.model import Model
@@ -31,7 +35,7 @@ def main(argv):
     """
     print("Welcome to SHARC!\n")
 
-    param_file = ''
+    param_file = ""
 
     parser = argparse.ArgumentParser(description="Run the SHARC command-line interface.")
     parser.add_argument(
@@ -53,6 +57,10 @@ def main(argv):
     log_level = getattr(logging, args.log_level.upper(), logging.INFO)
     Logging.setup_logging(default_level=log_level)
 
+    # Logger setup start
+    sim_logger = SimulationLogger(param_file)
+    sim_logger.start()
+
     model = Model()
     view_cli = ViewCli()
     controller = Controller()
@@ -61,7 +69,10 @@ def main(argv):
     controller.set_model(model)
     model.add_observer(view_cli)
 
-    view_cli.initialize(param_file)
+    try:
+        view_cli.initialize(param_file)
+    finally:
+        sim_logger.end()
 
 
 if __name__ == "__main__":

@@ -1237,6 +1237,18 @@ class StationFactory(object):
         single_earth_station.thermal_noise = np.array([-500])
         single_earth_station.total_interference = np.array([-500])
 
+        if param.adjacent_ch_emissions == "SPECTRAL_MASK":
+            if param.spectral_mask == "MSS":
+                single_earth_station.spectral_mask = SpectralMaskMSS(
+                    param.frequency,
+                    param.bandwidth,
+                    param.spurious_emissions
+                )
+            else:
+                raise ValueError(f"Invalid or not implemented spectral mask - {param.spectral_mask}")
+
+            single_earth_station.spectral_mask.set_mask(param.tx_power_density + 10 * np.log10(param.bandwidth * 1e6))
+
         return single_earth_station
 
     @staticmethod

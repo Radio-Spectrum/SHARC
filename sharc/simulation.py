@@ -36,6 +36,8 @@ class Simulation(ABC, Observable):
         ABC.__init__(self)
         Observable.__init__(self)
 
+        self._acs_warned = False  # Flag to avoid multiple ACS warnings
+
         self.parameters = parameters
         self.parameters_filename = parameter_file
 
@@ -104,6 +106,7 @@ class Simulation(ABC, Observable):
         self.imt_ue_antenna_gain = list()
         self.system_imt_antenna_gain = list()
         self.imt_system_antenna_gain = list()
+        self.imt_system_antenna_gain_adjacent = list()
         self.imt_system_path_loss = list()
         self.imt_system_build_entry_loss = list()
         self.imt_system_diffraction_loss = list()
@@ -377,11 +380,15 @@ class Simulation(ABC, Observable):
             )
 
         self.system_imt_antenna_gain = gain_sys_to_imt
-        self.imt_system_antenna_gain = gain_imt_to_sys
+
+        if is_co_channel:
+            self.imt_system_antenna_gain = gain_imt_to_sys
+        else:
+            self.imt_system_antenna_gain_adjacent = gain_imt_to_sys
 
         # calculate coupling loss
-        coupling_loss = self.imt_system_path_loss - self.system_imt_antenna_gain - \
-            self.imt_system_antenna_gain + additional_loss
+        coupling_loss = \
+            self.imt_system_path_loss - self.system_imt_antenna_gain - gain_imt_to_sys + additional_loss
 
         # Simulator expects imt_stations x system_stations shape
         return np.transpose(coupling_loss)
@@ -529,9 +536,15 @@ class Simulation(ABC, Observable):
         a given BS
         """
         bs_active = np.where(self.bs.active)[0]
+        self.bs.center_freq = np.zeros(
+            (self.bs.num_stations, self.parameters.imt.ue.k)
+        )
         for bs in bs_active:
             ue = self.link[bs]
-            self.bs.bandwidth[bs] = self.num_rb_per_bs * \
+            # NOTE: since all calculations are done per beam, we consider tx bw
+            # instead of channel bw
+            num_rb_per_beam = self.num_rb_per_ue
+            self.bs.bandwidth[bs] = num_rb_per_beam * \
                 self.parameters.imt.rb_bandwidth
             self.ue.bandwidth[ue] = self.num_rb_per_ue * \
                 self.parameters.imt.rb_bandwidth
@@ -539,6 +552,8 @@ class Simulation(ABC, Observable):
                 self.parameters.imt.frequency +
                 self.num_rb_per_ue * self.parameters.imt.rb_bandwidth * (i - (len(ue) - 1) / 2) for i in range(len(ue))
             ])
+            # NOTE: bs beam has same tx bw as its assigned UEs
+            self.bs.center_freq[bs] = self.ue.center_freq[ue]
 
     def calculate_gains(
         self,
@@ -703,10 +718,11 @@ class Simulation(ABC, Observable):
         sys_min_f = fc_sys - bw_sys / 2
         sys_max_f = fc_sys + bw_sys / 2
 
-        overlap = np.maximum(
-            0,
+        # NOTE: using clip is necessary to prevent
+        # floating point error to impact the expected result range [0, 1]
+        overlap = np.clip((
             np.minimum(ue_max_f, sys_max_f) - np.maximum(ue_min_f, sys_min_f)
-        ) / bw_ue
+        ) / bw_ue, 0.0, 1.0)
 
         return overlap
 

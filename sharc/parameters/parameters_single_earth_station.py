@@ -60,6 +60,9 @@ class ParametersSingleEarthStation(ParametersBase):
     # "SPECTRAL_MASK"
     spectral_mask: str | None = None
 
+    # Spurious emissions used for spectral mask [dBm/MHz]
+    spurious_emissions: float | None = None
+
     # Peak transmit power spectral density (clear sky) [dBW/Hz]
     tx_power_density: float = None
 
@@ -315,7 +318,12 @@ class ParametersSingleEarthStation(ParametersBase):
         """
         super().validate(ctx)
 
-        if None in [self.frequency, self.bandwidth, self.channel_model]:
+        if None in [
+            self.frequency, self.bandwidth,
+            self.channel_model,
+            self.noise_temperature,
+            self.tx_power_density
+        ]:
             raise ValueError(
                 "ParametersSingleEarthStation required parameters are not all set", )
 

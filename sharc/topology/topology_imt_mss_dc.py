@@ -287,7 +287,7 @@ class TopologyImtMssDc(Topology):
         _, all_azimuth, all_elevation = cartesian_to_polar(
             pointing_vec_x, pointing_vec_y, pointing_vec_z)
 
-        beams_elev, beams_azim, sx, sy = TopologyImtMssDc.get_satellite_pointing(
+        beams_elev, beams_azim, sx, sy, num_beams_per_satellite = TopologyImtMssDc.get_satellite_pointing(
             random_number_gen,
             geometry_converter,
             orbit_params,
@@ -360,7 +360,8 @@ class TopologyImtMssDc(Topology):
             "sat_antenna_azim": azimuth,
             "sectors_x": sx,
             "sectors_y": sy,
-            "sectors_z": np.zeros_like(sx)
+            "sectors_z": np.zeros_like(sx),
+            "num_beams_per_satellite": num_beams_per_satellite,
         }
 
     @staticmethod
@@ -467,10 +468,13 @@ class TopologyImtMssDc(Topology):
             beams_azim = []
             beams_elev = []
             n = 0
+            # Statistics for the number of beams per satellite
+            num_beams_per_satellite = []
 
             for act_sat in active_satellite_idxs:
                 if act_sat in sat_points_towards:
                     n += len(sat_points_towards[act_sat])
+                    num_beams_per_satellite.append(len(sat_points_towards[act_sat]))
                     beams_azim.append(azim[sat_points_towards[act_sat]])
                     beams_elev.append(elev[sat_points_towards[act_sat]])
                 else:
@@ -482,7 +486,8 @@ class TopologyImtMssDc(Topology):
             sx = np.zeros(n)
             sy = np.zeros(n)
 
-            return beams_elev, beams_azim, sx, sy
+            return beams_elev, beams_azim, sx, sy, num_beams_per_satellite
+
         # We borrow the TopologyNTN method to calculate the sectors azimuth and elevation angles from their
         # respective x and y boresight coordinates
         sx, sy = TopologyNTN.get_sectors_xy(
@@ -537,8 +542,9 @@ class TopologyImtMssDc(Topology):
             )
             if off_nadir_add is None:
                 raise ValueError(
-                    f"mss_d2d_params.beam_positioning.angle_from_subsatellite_theta.type = \n" f"'{
-                        orbit_params.beam_positioning.angle_from_subsatellite_theta.type}' is not recognized!")
+                    f"mss_d2d_params.beam_positioning.angle_from_subsatellite_theta.type = \n"
+                    f"'{orbit_params.beam_positioning.angle_from_subsatellite_theta.type}' is not recognized!"
+                )
             subsatellite_distance_add = sat_altitude * np.tan(off_nadir_add)
 
             azim_add = TopologyImtMssDc.get_distr(
@@ -598,7 +604,11 @@ class TopologyImtMssDc(Topology):
                 nadir_azim[i]
             )
 
-        return beams_elev, beams_azim, sx, sy
+        # Statistics for the number of beams per satellite
+        # That makes sense only for SERVICE_GRID but we return it anyway
+        num_beams_per_satellite = [orbit_params.num_beams] * total_active_satellites
+
+        return beams_elev, beams_azim, sx, sy, num_beams_per_satellite
 
     @staticmethod
     def get_distr(

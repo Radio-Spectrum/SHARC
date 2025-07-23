@@ -21,7 +21,7 @@ class SampleList(list):
     """
 
 
-class Results(object):
+class ResultsManager(object):
     """Handle the output of the simulator"""
 
     # This should always be true for 1st samples flush
@@ -54,6 +54,9 @@ class Results(object):
         self.system_imt_antenna_gain = SampleList()
         # Antenna gain [dBi]
         self.imt_system_antenna_gain = SampleList()
+        # Antenna gain [dBi]
+        self.imt_system_antenna_gain_adjacent = SampleList()
+
         # Path Loss [dB]
         self.imt_system_path_loss = SampleList()
         # Building entry loss [dB]
@@ -190,6 +193,22 @@ class Results(object):
 
         return results_relevant_attr_names
 
+    def register_new_sample(
+        self, sample_name: str,
+    ) -> None:
+        """
+        Register a new sample value for a given sample name.
+
+        Parameters
+        ----------
+        sample_name : str
+            Name of the sample to register.
+        """
+        if not hasattr(self, sample_name):
+            setattr(self, sample_name, SampleList())
+        else:
+            pass  # SampleList already exists, no need to create it again
+
     def write_files(self, snapshot_number: int):
         """Writes the sample data to the output file
 
@@ -223,10 +242,10 @@ class Results(object):
         *,
         only_latest=True,
         only_samples: list[str] = None,
-        filter_fn=None,
-    ) -> list["Results"]:
+        filter_fn=None
+    ) -> list["ResultsManager"]:
         """
-        Load multiple Results objects from a directory containing output folders.
+        Load multiple ResultsManager objects from a directory containing output folders.
 
         Args:
             root_dir (str): The root directory to search for output folders.
@@ -235,15 +254,15 @@ class Results(object):
             filter_fn (callable, optional): Function to filter output directories. Defaults to None.
 
         Returns:
-            list[Results]: A list of loaded Results objects.
+            list[ResultsManager]: A list of loaded ResultsManager objects.
         """
         output_dirs = sorted(list(glob.glob(f"{root_dir}/output_*")))
 
         if len(output_dirs) == 0:
-            print("[WARNING]: Results.load_many_from_dir did not find any results")
+            print("[WARNING]: ResultsManager.load_many_from_dir did not find any results")
 
         if only_latest:
-            output_dirs = Results.get_most_recent_outputs_for_each_prefix(
+            output_dirs = ResultsManager.get_most_recent_outputs_for_each_prefix(
                 output_dirs)
 
         if filter_fn:
@@ -251,7 +270,7 @@ class Results(object):
 
         all_res = []
         for output_dir in output_dirs:
-            res = Results()
+            res = ResultsManager()
             res.load_from_dir(output_dir, only_samples=only_samples)
             all_res.append(res)
 
@@ -261,7 +280,7 @@ class Results(object):
             self,
             abs_path: str,
             *,
-            only_samples: list[str] = None) -> "Results":
+            only_samples: list[str] = None) -> "ResultsManager":
         """
         Load results from a specified directory, optionally loading only specified samples.
 
@@ -270,7 +289,7 @@ class Results(object):
             only_samples (list[str], optional): List of sample names to load. If None, load all samples. Defaults to None.
 
         Returns:
-            Results: The Results object with loaded data.
+            Results: The ResultsManager object with loaded data.
         """
         self.output_directory = abs_path
 
@@ -330,7 +349,7 @@ class Results(object):
         res = {}
 
         for dirname in dirnames:
-            prefix, date, id = Results.get_prefix_date_and_id(dirname)
+            prefix, date, id = ResultsManager.get_prefix_date_and_id(dirname)
             res.setdefault(
                 prefix, {
                     "date": date, "id": id, "dirname": dirname})
@@ -360,3 +379,7 @@ class Results(object):
             dirname)
         prefix, date, id = mtch.group(1), mtch.group(2), mtch.group(3)
         return prefix, date, id
+
+
+# Create a global instance of ResultsManager
+Results = ResultsManager()

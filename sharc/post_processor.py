@@ -1,4 +1,4 @@
-from sharc.results import Results
+from sharc.results import ResultsManager
 
 from dataclasses import dataclass, field
 import plotly.graph_objects as go
@@ -64,7 +64,7 @@ class ResultsStatistics:
     fields_statistics: list[FieldStatistics]
     results_output_dir: str = "default_output"
 
-    def load_from_results(self, result: Results) -> "ResultsStatistics":
+    def load_from_results(self, result: ResultsManager) -> "ResultsStatistics":
         """Load all relevant attributes from result and generate their statistics."""
         self.results_output_dir = result.output_directory
         self.fields_statistics = []
@@ -268,7 +268,7 @@ class PostProcessor:
     linestyle_getter = None
 
     plots: list[go.Figure] = field(default_factory=list)
-    results: list[Results] = field(default_factory=list)
+    results: list[ResultsManager] = field(default_factory=list)
 
     def add_plot_legend_generator(
         self, generator
@@ -305,7 +305,7 @@ class PostProcessor:
 
         return self
 
-    def get_results_possible_legends(self, result: Results) -> list[dict]:
+    def get_results_possible_legends(self, result: ResultsManager) -> list[dict]:
         """
         You get a list with dicts tha have at least { "legend": str } in them.
         They may also have { "dir_name_contains": str }
@@ -325,7 +325,7 @@ class PostProcessor:
         return possible
 
     def generate_cdf_plots_from_results(
-        self, results: list[Results], *, n_bins=None
+        self, results: list[ResultsManager], *, n_bins=None
     ) -> list[go.Figure]:
         """
         Generates CDF (Cumulative Distribution Function) plots from a list of Results objects.
@@ -428,7 +428,7 @@ class PostProcessor:
         return figs.values()
 
     def generate_ccdf_plots_from_results(
-        self, results: list[Results], *, n_bins=None, cutoff_percentage=0.001, logy=True
+        self, results: list[ResultsManager], *, n_bins=None, cutoff_percentage=0.001, logy=True
     ) -> list[go.Figure]:
         """
         Generates CCDF (Complementary Cumulative Distribution Function) plots from a list of Results objects.
@@ -556,7 +556,7 @@ class PostProcessor:
         """Add a list of plotly Figure objects to the PostProcessor."""
         self.plots.extend(plots)
 
-    def add_results(self, results: list[Results]) -> None:
+    def add_results(self, results: list[ResultsManager]) -> None:
         """Add a list of Results objects to the PostProcessor."""
         self.results.extend(results)
 
@@ -746,7 +746,7 @@ class PostProcessor:
             )
 
     @staticmethod
-    def generate_statistics(result: Results) -> ResultsStatistics:
+    def generate_statistics(result: ResultsManager) -> ResultsStatistics:
         """Generate statistics for a Results object."""
         return ResultsStatistics().load_from_results(result)
 

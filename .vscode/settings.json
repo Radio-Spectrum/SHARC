@@ -11,9 +11,11 @@
     },
     "flake8.args": [
         "--count",
-        "--max-line-length=127",
+        "--exclude=docs,venv,.venv,.tox",
+        "--max-line-length=120",
         "--statistics",
-        "--ignore=W605,W504,E266,F811,E131,C0209,C0103,C0115,C0115,C0116,C0201"
+        "--ignore=W605,W504,E266,F811,E131,C0209,C0103,C0115,C0115,C0116,C0201",
+        "--select=E9,F63,F7,F82,F841,W191,W291,W292,W293,W391,E131,E2,E3,E266,D101,D102,D103"
     ],
     "autopep8.args": [
         "--max-line-length 120",

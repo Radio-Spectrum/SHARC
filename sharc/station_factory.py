@@ -663,6 +663,7 @@ class StationFactory(object):
         else:
             raise ValueError(f"Did not recognize elevation type of {param.geometry.elevation.type}")
 
+        space_station.z = space_station.height
         space_station.active = np.array([True])
         space_station.tx_power = np.array(
             [param.tx_power_density + 10 *

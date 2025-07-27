@@ -335,7 +335,7 @@ class PropagationP619(Propagation):
         # Elevation angles seen from the station on Earth.
         elevation_angles = {}
         if station_a.is_space_station:
-            elevation_angles["free_space"] = station_b.get_elevation(station_a)
+            elevation_angles["free_space"] = station_a.get_elevation(station_b)
             earth_station_antenna_gain = station_b_gains
             # if (station_b_gains.shape != distance.shape):
             #     raise ValueError(f"Invalid shape for station_b_gains = {station_b_gains.shape}")

@@ -230,7 +230,7 @@ class StationManager(object):
                 np.power(self.y[i] - station.y, 2),
             )
             rel_z = station.z - self.z[i]
-            elevation[i] = np.degrees(np.arctan2(rel_z, distance))
+            elevation[i] = np.degrees(np.arctan2(-rel_z, distance))
 
         return elevation
 

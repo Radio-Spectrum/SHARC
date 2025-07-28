@@ -671,6 +671,7 @@ class StationFactory(object):
                                           space_station.elevation[0])
         ])
 
+        space_station.z = space_station.height
         space_station.bandwidth = param.bandwidth
         space_station.noise_temperature = param.noise_temperature
         space_station.thermal_noise = -500

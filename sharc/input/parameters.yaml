@@ -495,6 +495,11 @@ imt:
         # difference between longitudes of IMT-NTN station and FSS-ES system [deg]
         #   (positive if space-station is to the East of earth-station)
         earth_station_long_diff_deg: 0
+        # High for clutter. According to 2018 it can be "low", "mid" or "high"
+        mean_clutter_height: "high" 
+        # Percentage of stations below rooftop (To apply clutter)
+        below_rooftop: 100
+
 single_earth_station:
     ###########################################################################
     # Sensor center frequency [MHz]
@@ -640,7 +645,10 @@ single_earth_station:
         # difference between longitudes of IMT-NTN station and FSS-ES system [deg]
         #   (positive if space-station is to the East of earth-station)
         earth_station_long_diff_deg: 10
-
+        # High for clutter. According to 2018 it can be "low", "mid" or "high"
+        mean_clutter_height: "high" 
+        # Percentage of stations below rooftop (To apply clutter)
+        below_rooftop: 100
     ###########################################################################
     # season - season of the year.
     #   Only actually useful for P619, but we can't put it inside param_p619 without changing more code
@@ -688,7 +696,9 @@ single_earth_station:
         ###########################################################################
         # determine whether clutter loss following ITU-R P.2108 is added (TRUE/FALSE)
         clutter_loss: TRUE
-
+        # Determine if clutter is applied to "one-end" or "both-ends"
+        clutter_type: "one-end"
+        
     # HDFSS propagation parameters
     param_hdfss:
         ###########################################################################
@@ -903,7 +913,10 @@ mss_d2d:
         ###########################################################################
         # year season: SUMMER of WINTER
         season: SUMMER
-
+        # High for clutter. According to 2018 it can be "low", "mid" or "high"
+        mean_clutter_height: "high" 
+        # Percentage of stations below rooftop (To apply clutter)
+        below_rooftop: 100
     # Orbit parameters
     orbit:
         # Number of planes

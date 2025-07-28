@@ -5,7 +5,6 @@ from sharc.support.enumerations import StationType
 
 import numpy as np
 import scipy
-import math
 import matplotlib.pyplot as plt
 
 
@@ -75,7 +74,6 @@ class PropagationClutterLoss(Propagation):
         f = kwargs["frequency"]
         loc_per = kwargs.pop("loc_percentage", "RANDOM")
         type = kwargs["station_type"]
-
         d = kwargs["distance"]
 
         if f.size == 1:
@@ -89,53 +87,135 @@ class PropagationClutterLoss(Propagation):
             p2 = loc_per * np.ones(d.shape)
 
         if type is StationType.IMT_BS or type is StationType.IMT_UE or type is StationType.FSS_ES:
-            loss = self.get_terrestrial_clutter_loss(f, d, p1, True) + self.get_terrestrial_clutter_loss(f, d, p2, False)
+            clutter_type = kwargs["clutter_type"]
+            if clutter_type == 'one_end':
+                loss = self.get_terrestrial_clutter_loss(f, d, p1, True)
+            else:
+                loss = self.get_terrestrial_clutter_loss(f, d, p1, True) + self.get_terrestrial_clutter_loss(f, d, p2, False)
         else:
             theta = kwargs["elevation"]
-            loss = self.get_spacial_clutter_loss(f, theta, p1)
+            earth_station_height = kwargs["earth_station_height"]
+            mean_clutter_height = kwargs["mean_clutter_height"]
+            below_rooftop = kwargs["below_rooftop"]
+            loss = self.get_spacial_clutter_loss(f, theta, p1, earth_station_height, mean_clutter_height)
+            mult_1 = np.zeros(d.shape)
+            num_ones = int(np.round(mult_1.size * below_rooftop / 100))
+            indices = np.random.choice(mult_1.size, size=num_ones, replace=False)
+            mult_1.flat[indices] = 1
+            loss *= mult_1
         return loss
 
     def get_spacial_clutter_loss(
         self, frequency: float,
         elevation_angle: float,
         loc_percentage,
+        earth_station_height,
+        mean_clutter_height
     ):
         """
-        This method models the calculation of the statistical distribution of
-        clutter loss where one end of the interference path is within man-made
-        clutter, and the other is a satellite, aeroplane, or other platform
-        above the surface of the Earth. An additional "loss" is calculated
-        which can be added to the basic transmission loss of a path calculated.
-        This model is applicable to urban and suburban environments. The method
-        used to develop this model is described in Report ITU-R P.2402-0. The
-        clutter loss not exceeded for loc_percentage% of locations "loss" for
-        the terrestrial to airborne or satellite path is given by this method.
+        Computes clutter loss according to ITU-R P.2108-2 §3.3 for Earth-space and aeronautical paths.
 
-        Parameters
-        ----
-            frequency : center frequency [MHz] - Frequency range: 10 to 100 GHz
-            elevation_angle : elevation angle [degrees] - Elevation angle
-                              range: 0 to 90 degrees
-            loc_percentage : percentage of locations - Percentage locations
-                             range: 0 < p < 100
+        Parameters:
+        - frequency: Frequency (GHz), 0.5 <= frequency <= 100
+        - elevation_angle: Elevation angle (degrees), 0 <= elevation_angle <= 90
+        - loc_percentage: Percentage of locations (%), 0 < loc_percentage < 100
+        - earth_station_height: Ground station height (m), >= 1
+        - mean_clutter_height: Median clutter height (m): Low-rise: <= 8; Mid-rise: 8 < ... <= 20; High-rise: > 20
 
-        Returns
-        -------
-            loss : The clutter loss not exceeded for loc_percentage% of
-                   locations for the terrestrial to terrestrial path
+        Returns:
+        - Lces: Clutter loss according to P.2108 §3.3 (dB)
         """
-        k1 = 93 * (frequency * 1e-3)**0.175
-        A1 = 0.05
+        # Converting to GHz
+        frequency = frequency / 1000
+        # --- Table 7: plos parameters ---
+        if mean_clutter_height == "Low":
+            ak, bk, ck = 4.9, 6.7, 2.6
+            aC, bC = 0.19, 0
+            aV, bV = 1.4, 74
+        elif mean_clutter_height == "Mid":
+            ak, bk, ck = -2.6, 6.6, 2.0
+            aC, bC = 0.42, -6.7
+            aV, bV = 0.15, 97
+        else:
+            ak, bk, ck = 2.4, 7.0, 1.0
+            aC, bC = 0.19, -2.7
+            aV, bV = 0.15, 98
 
-        y = np.tan(A1 * (1 - (elevation_angle / 90)) +
-                   math.pi * (elevation_angle / 180))
-        cot = (1 / y)
+        # --- Table 8: p_fclo_los parameters ---
+        if mean_clutter_height == "Low":
+            akp, bkp = 6.0, 0.07
+            aCp, bC1p, bC2p = 0.15, 5.4, -0.3
+            bC3p, bC4p = 3.2, 0.07
+            cCp, aVp, bVp = -27, 1.6, -17
+        elif mean_clutter_height == "Mid":
+            akp, bkp = 3.6, 0.05
+            aCp, bC1p, bC2p = 0.17, 13, -0.2
+            bC3p, bC4p = 3.7, 0.05
+            cCp, aVp, bVp = -41, 1, -21
+        else:
+            akp, bkp = 5.0, 0.003
+            aCp, bC1p, bC2p = 0.17, 32.6, 0.012
+            bC3p, bC4p = -23.9, -0.07
+            cCp, aVp, bVp = -41, 1, -18
 
-        invQ = np.sqrt(2) * scipy.special.erfcinv(2 * loc_percentage)
+        # --- LoS probability (eqs. 7-8) ---
+        Vmax = np.minimum(aV * earth_station_height + bV, 100)
+        Ce = aC * earth_station_height + bC
+        k = ((earth_station_height + ak) / bk) ** ck
+        num = 1 - np.exp(-k * (elevation_angle + Ce) / 90)
+        den = 1 - np.exp(-k * (90 + Ce) / 90)
+        pLoS = np.maximum(0, Vmax * (num / den))
 
-        loss = (-k1 * (np.log(1 - loc_percentage)) * cot)**(0.5 * (90 - elevation_angle) / 90) - 1 - 0.6 * invQ
+        # --- Conditional probability of Fresnel clearance (eqs. 9-10) ---
+        Vmaxp = np.minimum(aVp * earth_station_height + bVp, 0) * frequency ** (-0.55) + 100
+        Cep = (frequency * 1e9) ** aCp + bC1p * np.exp(bC2p * earth_station_height) + bC3p * np.exp(bC4p *
+                                                                                                    earth_station_height) + cCp
+        kp = akp * np.exp(bkp * earth_station_height)
+        nump = 1 - np.exp(-kp * (elevation_angle + Cep) / 90)
+        denp = 1 - np.exp(-kp * (90 + Cep) / 90)
+        pFcLoS_LoS = np.maximum(0, Vmaxp * (nump / denp))
+        pFcLoS = pLoS * pFcLoS_LoS / 100
 
-        return loss
+        # Table 9 constants
+        alpha1, alpha2 = 8.54, 0.056
+        beta1, beta2 = 17.57, 6.32
+        gamma1, gamma2 = 0.63, 0.19
+
+        mu = alpha1 + beta1 * np.log(1 + (90 - elevation_angle) / 90) + frequency ** gamma1
+        sigma = alpha2 + beta2 * np.log(1 + (90 - elevation_angle) / 90) + frequency ** gamma2
+
+        # Table 10 constants
+        theta1, theta2 = -3.542, -155.1
+        sigma1, sigma2 = -1.06, -6.342
+
+        # Prepare output array
+        Lces = np.zeros_like(frequency, dtype=float)
+
+        # Branch logic: mask arrays for each regime
+        mask_nlos = loc_percentage > pLoS
+        mask_fclo = loc_percentage <= pFcLoS
+        mask_between = (~mask_nlos) & (~mask_fclo)
+
+        # NLoS branch
+        if np.any(mask_nlos):
+            pp = (loc_percentage[mask_nlos] - pLoS[mask_nlos]) / (100 - pLoS[mask_nlos])
+            Finv = -np.sqrt(2) * scipy.special.erfcinv(2 * pp)
+            Lces_nlos = mu[mask_nlos] + sigma[mask_nlos] * Finv
+            Lces[mask_nlos] = np.maximum(Lces_nlos, 6)
+
+        # Fresnel-clear branch
+        if np.any(mask_fclo):
+            ratio = loc_percentage[mask_fclo] / pFcLoS[mask_fclo]
+            Lces[mask_fclo] = (theta1 * np.exp(theta2 * ratio) + sigma1 * np.exp(sigma2 * ratio))
+
+        # Between
+        if np.any(mask_between):
+            Lces[mask_between] = (
+                6 * (loc_percentage[mask_between] - pFcLoS[mask_between]) /
+                (pLoS[mask_between] - pFcLoS[mask_between])
+            )
+
+        return Lces
 
     def get_terrestrial_clutter_loss(
         self,
@@ -227,32 +307,34 @@ class PropagationClutterLoss(Propagation):
 if __name__ == '__main__':
 
     elevation_angle = np.array([90, 80, 70, 60, 50, 40, 30, 20, 15, 10, 5, 0])
-    loc_percentage = np.linspace(0.01, 0.995, 1000)
-    frequency = 30000 * np.ones(elevation_angle.shape)
-
+    loc_percentage = np.linspace(0.1, 99.9, 1001)
+    frequency = 3000 * np.ones(loc_percentage.shape)
+    earth_station_height = 5 * np.ones(loc_percentage.shape)
     random_number_gen = np.random.RandomState(101)
     cl = PropagationClutterLoss(random_number_gen)
     clutter_loss = np.empty([len(elevation_angle), len(loc_percentage)])
 
-    for i in range(len(loc_percentage)):
-        clutter_loss[:, i] = cl.get_spacial_clutter_loss(
+    for i in range(len(elevation_angle)):
+        clutter_loss[i, :] = cl.get_spacial_clutter_loss(
             frequency,
-            elevation_angle,
-            loc_percentage[i],
+            elevation_angle[i],
+            loc_percentage,
+            earth_station_height,
+            'Low',
         )
 
     fig = plt.figure(figsize=(8, 6), facecolor='w', edgecolor='k')
     ax = fig.gca()
 
     for j in range(len(elevation_angle)):
-        ax.plot(clutter_loss[j, :], 100 * loc_percentage,
+        ax.plot(clutter_loss[j, :], loc_percentage,
                 label="%i deg" % elevation_angle[j], linewidth=1)
 
     plt.title("Cumulative distribution of clutter loss not exceeded for 30 GHz")
     plt.xlabel("clutter loss [dB]")
 
     plt.ylabel("percent of locations [%]")
-    plt.xlim((-10, 70))
+    plt.xlim((-5, 30))
     plt.ylim((0, 100))
     plt.legend(loc="lower right")
     plt.tight_layout()

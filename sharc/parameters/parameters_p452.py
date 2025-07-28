@@ -34,6 +34,8 @@ class ParametersP452(ParametersBase):
     polarization: str = "horizontal"
     # determine whether clutter loss following ITU-R P.2108 is added (TRUE/FALSE)
     clutter_loss: bool = True
+    # Determine if clutter is applied to "one-end" or "both-ends"
+    clutter_type: str = "one-end"
 
     def load_from_paramters(self, param: ParametersBase):
         """Used to load parameters of P.452 from IMT or system parameters
@@ -56,3 +58,4 @@ class ParametersP452(ParametersBase):
         self.rx_lat = param.rx_lat
         self.polarization = param.polarization
         self.clutter_loss = param.clutter_loss
+        self.clutter_type = param.clutter_type

@@ -39,6 +39,8 @@ class PropagationP619(Propagation):
         earth_station_lat_deg: float,
         earth_station_long_diff_deg: float,
         season: str,
+        mean_clutter_height: str,
+        below_rooftop: float
     ):
         """Implements the earth-to-space channel model from ITU-R P.619
 
@@ -82,7 +84,8 @@ class PropagationP619(Propagation):
         self.earth_station_alt_m = earth_station_alt_m
         self.earth_station_lat_deg = earth_station_lat_deg
         self.earth_station_long_diff_deg = earth_station_long_diff_deg
-
+        self.mean_clutter_height = mean_clutter_height
+        self.below_rooftop = below_rooftop
         if season.upper() not in ["SUMMER", "WINTER"]:
             raise ValueError(
                 f"PropagationP619: Invalid value for parameter season - {season}. Possible values are \"SUMMER\", \"WINTER\".",
@@ -382,7 +385,9 @@ class PropagationP619(Propagation):
             else:
                 is_earth_to_space_link = False if imt_station.is_space_station else True
                 is_single_entry_interf = False
-
+        earth_station_height = station_b.height
+        mean_clutter_height = self.mean_clutter_height
+        below_rooftop = self.below_rooftop
         loss = self.get_loss(
             distance,
             frequency,
@@ -391,11 +396,14 @@ class PropagationP619(Propagation):
             is_earth_to_space_link,
             earth_station_antenna_gain,
             is_single_entry_interf,
+            earth_station_height,
+            mean_clutter_height,
+            below_rooftop,
         )
 
         return loss
 
-    @dispatch(np.ndarray, np.ndarray, np.ndarray, dict, bool, np.ndarray, bool)
+    @dispatch(np.ndarray, np.ndarray, np.ndarray, dict, bool, np.ndarray, bool, np.ndarray, str, int)
     def get_loss(
         self,
         distance: np.array,
@@ -405,6 +413,9 @@ class PropagationP619(Propagation):
         earth_to_space: bool,
         earth_station_antenna_gain: np.array,
         single_entry: bool,
+        earth_station_height: np.array,
+        mean_clutter_height: np.str_,
+        below_rooftop: float
     ) -> np.array:
         """
         Calculates path loss for earth-space link
@@ -465,6 +476,9 @@ class PropagationP619(Propagation):
                     distance=distance,
                     elevation=elevation["free_space"],
                     station_type=StationType.FSS_SS,
+                    earth_station_height=earth_station_height,
+                    mean_clutter_height=mean_clutter_height,
+                    below_rooftop = below_rooftop,
                 )
             building_loss = self.building_entry.get_loss(
                 frequency, elevation["apparent"],

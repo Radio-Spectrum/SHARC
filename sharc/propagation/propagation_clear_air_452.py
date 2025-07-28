@@ -1055,6 +1055,7 @@ class PropagationClearAir(Propagation):
                 frequency=frequency * 1000,
                 distance=distance * 1000,
                 station_type=StationType.FSS_ES,
+                clutter_type=self.model_params.clutter_type
             )
         else:
             clutter_loss = np.zeros(distance.shape)

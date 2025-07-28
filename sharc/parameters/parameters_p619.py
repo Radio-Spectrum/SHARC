@@ -29,6 +29,8 @@ class ParametersP619(ParametersBase):
     season: str = "SUMMER"
     shadowing: bool = True
     noise_temperature: float = 290.0
+    mean_clutter_height: str = "high"
+    below_rooftop: float = 100
 
     def load_from_paramters(self, param: ParametersBase):
         """Used to load parameters of P.619 from IMT or system parameters

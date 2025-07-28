@@ -15,6 +15,7 @@ import pathlib
 import pandas as pd
 from shutil import copy
 from sharc.support.sharc_logger import SimulationLogger
+from pathlib import Path
 
 
 class SampleList(list):
@@ -288,6 +289,64 @@ class Results(object):
 
         return all_res
 
+    def load_csvs_from_dir(
+            self,
+            abs_path: str,
+            *,
+            only_samples: list[str] = None) -> "Results":
+        """
+        LEGACY METHOD
+        Load results from a specified directory, optionally loading only specified samples.
+
+        Args:
+            abs_path (str): Absolute path to the output directory.
+            only_samples (list[str], optional): List of sample names to load. If None, load all samples. Defaults to None.
+
+        Returns:
+            Results: The Results object with loaded data.
+        """
+        self.output_directory = abs_path
+
+        self_dict = self.__dict__
+        if only_samples is not None:
+            results_relevant_attr_names = only_samples
+        else:
+            results_relevant_attr_names = filter(
+                lambda x: isinstance(getattr(self, x), SampleList), self_dict
+            )
+
+        for attr_name in results_relevant_attr_names:
+            file_path = os.path.join(abs_path, f"{attr_name}.csv")
+            if os.path.exists(file_path):
+                try:
+                    # Try reading the .csv file using pandas with different
+                    # delimiters
+                    try:
+                        data = pd.read_csv(file_path, delimiter=",")
+                    except pd.errors.ParserError:
+                        data = pd.read_csv(file_path, delimiter=";")
+
+                    # Ensure the data has exactly one column
+                    if data.shape[1] != 1:
+                        raise Exception(
+                            f"The file with samples of {attr_name} should have a single column.", )
+
+                    # Remove rows that do not contain valid numeric values
+                    data = data.apply(pd.to_numeric, errors="coerce").dropna()
+
+                    # Ignore if there is no data
+                    if data.empty:
+                        continue
+                    # Check if there is enough data to load results from.
+
+                    setattr(self, attr_name, SampleList(data.to_numpy()[:, 0]))
+
+                except Exception as e:
+                    print(e)
+                    raise Exception(
+                        f"Error processing the sample file ({attr_name}.csv) for {attr_name}: {e}")
+
+        return self
     def load_from_dir(
             self,
             abs_path: str,
@@ -304,6 +363,9 @@ class Results(object):
             Results: The Results object with loaded data.
         """
         self.output_directory = abs_path
+        if not any([".parquet" in str(f.name) for f in Path(abs_path).iterdir()]):
+            self.load_csvs_from_dir(abs_path, only_samples=only_samples)
+            return
 
         self_dict = self.__dict__
         if only_samples is not None:

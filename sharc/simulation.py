@@ -265,6 +265,7 @@ class Simulation(ABC, Observable):
         """
         snapshot_number = kwargs["snapshot_number"]
         self.results.write_files(snapshot_number)
+        self.results.close_writers()
 
     def calculate_coupling_loss_system_imt(
         self,

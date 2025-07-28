@@ -5,6 +5,8 @@ Created on Thu Mar 23 08:47:46 2017
 @author: edgar
 """
 
+import pyarrow as pa
+import pyarrow.parquet as pq
 import glob
 import os
 import datetime
@@ -107,6 +109,20 @@ class Results(object):
 
         self.__sharc_dir = pathlib.Path(__file__).parent.resolve()
 
+        # for parquet:
+        self._writers = {}  # key: attr_name, value: ParquetWriter
+        self._schemas = {}
+
+    def __exit__(self):
+        self.close_writers()
+    def __del__(self):
+        self.close_writers()
+
+    def close_writers(self):
+        for writer in self._writers.values():
+            writer.close()
+        self._writers.clear()
+
     def prepare_to_write(
         self,
         parameters_filename: str,
@@ -193,28 +209,40 @@ class Results(object):
 
         return results_relevant_attr_names
 
-    def write_files(self, snapshot_number: int):
-        """Writes the sample data to the output file
 
-        Parameters
-        ----------
-        snapshot_number : int
-            Current snapshot number
-        """
-        results_relevant_attr_names = self.get_relevant_attributes()
-        for attr_name in results_relevant_attr_names:
-            file_path = os.path.join(
-                self.output_directory,
-                attr_name + ".csv",
-            )
+    def write_files(self, snapshot_number: int):
+        for attr_name in self.get_relevant_attributes():
             samples = getattr(self, attr_name)
             if len(samples) == 0:
                 continue
-            df = pd.DataFrame({"samples": samples})
-            if self.overwrite_sample_files:
-                df.to_csv(file_path, mode="w", index=False)
-            else:
-                df.to_csv(file_path, mode="a", index=False, header=False)
+
+            file_path = os.path.join(self.output_directory, attr_name + ".parquet")
+
+            if self.overwrite_sample_files or attr_name not in self._writers:
+                schema = pa.schema([
+                    # numpy uses float64 as default, but we want to compress
+                    # so goodbie to those 32 bits
+                    ("samples", pa.float32()),
+                ])
+                self._schemas[attr_name] = schema
+
+                file_path = os.path.join(
+                    self.output_directory,
+                    attr_name + ".parquet",
+                )
+                writer = pq.ParquetWriter(file_path, schema=schema, compression='zstd')
+                # writer = pq.ParquetWriter(file_path, schema=schema, compression='snappy')
+                self._writers[attr_name] = writer
+
+            schema = self._schemas[attr_name]
+            df = pd.DataFrame({
+                "samples": samples
+            })
+            table = pa.Table.from_pandas(df, schema=schema)
+
+            writer = self._writers[attr_name]
+            writer.write_table(table)
+
             setattr(self, attr_name, SampleList())
 
         if self.overwrite_sample_files:
@@ -286,23 +314,17 @@ class Results(object):
             )
 
         for attr_name in results_relevant_attr_names:
-            file_path = os.path.join(abs_path, f"{attr_name}.csv")
+            file_path = os.path.join(abs_path, f"{attr_name}.parquet")
             if os.path.exists(file_path):
                 try:
-                    # Try reading the .csv file using pandas with different
-                    # delimiters
-                    try:
-                        data = pd.read_csv(file_path, delimiter=",")
-                    except pd.errors.ParserError:
-                        data = pd.read_csv(file_path, delimiter=";")
+                    data = pd.read_parquet(file_path)
 
-                    # Ensure the data has exactly one column
-                    if data.shape[1] != 1:
-                        raise Exception(
-                            f"The file with samples of {attr_name} should have a single column.", )
+                    if 'samples' not in data.columns:
+                        raise Exception(f"Parquet file {attr_name}.parquet missing 'samples' column")
+
 
                     # Remove rows that do not contain valid numeric values
-                    data = data.apply(pd.to_numeric, errors="coerce").dropna()
+                    data = data.apply(pd.to_numeric, errors="coerce").dropna(subset="samples")
 
                     # Ignore if there is no data
                     if data.empty:
@@ -314,7 +336,7 @@ class Results(object):
                 except Exception as e:
                     print(e)
                     raise Exception(
-                        f"Error processing the sample file ({attr_name}.csv) for {attr_name}: {e}")
+                        f"Error processing the sample file ({attr_name}.parquet) for {attr_name}: {e}")
 
         return self
 

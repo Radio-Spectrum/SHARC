@@ -94,9 +94,6 @@ class ParametersMssD2d(ParametersBase):
 
     # paramters for channel model
     param_p619: ParametersP619 = field(default_factory=ParametersP619)
-    earth_station_alt_m: float = 0.0
-    earth_station_lat_deg: float = 0.0
-    earth_station_long_diff_deg: float = 0.0
     season: str = "SUMMER"
     # Channel parameters
     # channel model, possible values are "FSPL" (free-space path loss),
@@ -207,13 +204,7 @@ class ParametersMssD2d(ParametersBase):
                 m_alt += orbit.perigee_alt_km * 1e3
             m_alt /= len(self.orbits)
 
-            self.param_p619.set_external_parameters(
-                space_station_alt_m=m_alt,
-                earth_station_alt_m=self.earth_station_alt_m,
-                earth_station_lat_deg=self.earth_station_lat_deg,
-                earth_station_long_diff_deg=self.earth_station_long_diff_deg,
-                season=self.season
-            )
+            self.param_p619.space_station_alt_m = m_alt
 
 
 if __name__ == "__main__":

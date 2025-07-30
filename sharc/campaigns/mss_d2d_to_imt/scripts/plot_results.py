@@ -4,23 +4,15 @@ from sharc.results import Results
 from sharc.post_processor import PostProcessor
 import argparse
 import csv
+import pandas as pd
+import numpy as np
 
 # Command line argument parser
 parser = argparse.ArgumentParser(description="Generate and plot results.")
-parser.add_argument(
-    "--auto_open",
-    action="store_true",
-    default=False,
-    help="Set this flag to open plots in a browser.")
-parser.add_argument(
-    "--scenario",
-    type=int,
-    choices=[
-        0,
-        1],
-    required=True,
-    help="Scenario parameter: 0 or 1. 0 for MSS-D2D to IMT-UL/DL,"
-    "1 for MSS-D2D to IMT-UL/DL with varying latitude.")
+parser.add_argument("--auto_open", action="store_true", default=False, help="Set this flag to open plots in a browser.")
+parser.add_argument("--scenario", type=int, choices=[0, 1], default=0,
+                    help="Scenario parameter: 0 or 1. 0 for MSS-D2D to IMT-UL/DL,"
+                    "1 for MSS-D2D to IMT-UL/DL with varying latitude.")
 args = parser.parse_args()
 scenario = args.scenario
 auto_open = args.auto_open
@@ -128,8 +120,31 @@ imt_dl_inr.add_trace({
     "x": x,
     "y": y,
     "mode": "lines",
-    "name": "Apple IMT-DL"
+    "name": "Rabie IMT-DL"
 })
+
+# Add a trace with IMT-UL from Rabie.
+# Read IoverN.csv file and add trace to plot
+
+iovern_csv = os.path.join(campaign_base_dir, "scripts", "IoverN.csv")
+parsed_samples = []
+if os.path.exists(iovern_csv):
+    with open(iovern_csv, 'r') as file:
+        for line in file:
+            parsed_samples.extend(line.split(","))
+    # df = pd.read_csv(iovern_csv, sep=',')
+    # df = df.transpose().reset_index().rename(columns={"index": "samples"})
+    parsed_samples = [float(sample) for sample in parsed_samples if sample.strip()]
+    df = pd.DataFrame(parsed_samples, columns=["samples"])
+    x = df['samples'].sort_values()
+    y = np.arange(1, len(x) + 1) / len(x)
+    # if "x" in df.columns and "y" in df.columns:
+    imt_dl_inr.add_trace({
+        "x": x,
+        "y": y,
+        "mode": "lines",
+        "name": "Rabie IMT-UL (from IoverN.csv)"
+    })
 
 # Update layout if needed
 imt_dl_inr.update_layout(title_text="CDF Plot for IMT Downlink and Uplink INR",
@@ -202,6 +217,12 @@ imt_dl_inr_ccdf.update_layout(
     # log_x=True
 )
 imt_dl_inr_ccdf.write_image(file=os.path.join(campaign_base_dir, "output", "imt_dl_inr_ccdf.png"))
+
+
+file = os.path.join(campaign_base_dir, "output", "imt_bs_antenna_gain.html")
+imt_bs_antenna_gain = post_processor.get_plot_by_results_attribute_name("imt_bs_antenna_gain")
+imt_bs_antenna_gain.write_html(file=file, include_plotlyjs="cdn", auto_open=auto_open)
+
 
 for result in many_results:
     # This generates the mean, median, variance, etc

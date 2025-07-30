@@ -20,7 +20,7 @@ params = ParametersMssD2d()
 params.load_parameters_from_file(param_file)
 
 antenna_params = params.antenna_s1528
-antenna_params.frequency = 2e3
+antenna_params.frequency = 2.0e3
 
 # Create an instance of AntennaS1528Taylor
 antenna = AntennaS1528Taylor(antenna_params)
@@ -97,14 +97,14 @@ fig.update_layout(
 # Load the reference data from the CSV file
 # Define the path to the current directory and the reference CSV file
 current_dir = Path(__file__).parent
-ref_file = current_dir / "ref-s1528-system-a.csv"
+ref_file = current_dir / "antenna_gain_data_matched_with_apple.csv"
 
 # Load the reference data from the CSV file
 ref_data = pd.read_csv(ref_file)
 
 # Extract theta and gain values from the reference data
-ref_theta = ref_data['x']
-ref_gain = ref_data['y']
+ref_theta = ref_data['theta']
+ref_gain = ref_data['gain']
 
 # Add a trace for the reference antenna gain
 fig.add_trace(go.Scatter(x=ref_theta, y=ref_gain, mode='lines', name='Reference Gain'))

@@ -1,7 +1,7 @@
 general:
     ###########################################################################
     # Number of simulation snapshots
-    num_snapshots: 20000
+    num_snapshots: 1000
     ###########################################################################
     # IMT link that will be simulated (DOWNLINK or UPLINK)
     imt_link: DOWNLINK
@@ -209,7 +209,7 @@ imt:
         #                                   given distributions for angle and
         #                                   distance. In this case, these must be
         #                                   defined later.
-        distribution_type: UNIFORM_IN_CELL
+        distribution_type: ANGLE_AND_DISTANCE
         ###########################################################################
         # Regarding the distribution of active UE's over the cell area, this
         # parameter models the distance between UE's and BS.

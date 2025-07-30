@@ -259,11 +259,11 @@ class PostProcessor:
             "x_label": "Off axis angle [degrees]",
             "title": "[SYS] Off axis angle",
         },
-        "bs_to_sys_phi": {
+        "bs_to_ue_phi": {
             "x_label": "Azimuth angle [degrees]",
             "title": "[SYS] Azimuth angle of BS to system",
         },
-        "bs_to_sys_theta": {
+        "bs_to_ue_theta": {
             "x_label": "Elevation angle [degrees]",
             "title": "[SYS] Elevation angle of BS to system",
         },

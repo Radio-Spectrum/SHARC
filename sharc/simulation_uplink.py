@@ -558,9 +558,9 @@ class SimulationUplink(Simulation):
                 self.results.imt_system_antenna_gain.extend(
                     self.imt_system_antenna_gain[np.ix_(sys_active, active_beams)].flatten(),
                 )
-                self.results.imt_system_antenna_gain_adjacent.extend(
-                    self.imt_system_antenna_gain_adjacent[np.ix_(sys_active, active_beams)].flatten(),
-                )
+                # self.results.imt_system_antenna_gain_adjacent.extend(
+                #     self.imt_system_antenna_gain_adjacent[np.ix_(sys_active, active_beams)].flatten(),
+                # )
                 self.results.imt_system_path_loss.extend(
                     self.imt_system_path_loss[np.ix_(sys_active, active_beams)].flatten(),
                 )
@@ -572,8 +572,8 @@ class SimulationUplink(Simulation):
                         self.imt_system_diffraction_loss[np.ix_(sys_active, active_beams)],
                     )
                 
-                self.results.bs_to_sys_phi.extend(self.bs_to_sys_phi)
-                self.results.bs_to_sys_theta.extend(self.bs_to_sys_theta)
+                # self.results.bs_to_ue_phi.extend(self.bs_to_ue_phi.flatten())
+                # self.results.bs_to_ue_theta.extend(self.bs_to_ue_theta.flatten())
 
             else:  # IMT is the interferer
                 self.results.system_imt_antenna_gain.extend(

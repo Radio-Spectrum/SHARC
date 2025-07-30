@@ -20,8 +20,13 @@ class PropagationABG(Propagation):
     """
 
     def __init__(
-        self, random_number_gen: np.random.RandomState,
-        alpha=3.4, beta=19.2, gamma=2.3, building_loss=20, shadowing_sigma_dB=6.5,
+        self,
+        random_number_gen: np.random.RandomState,
+        alpha=3.4,
+        beta=19.2,
+        gamma=2.3,
+        building_loss=20,
+        shadowing_sigma_dB=6.5,
     ):
         super().__init__(random_number_gen)
         self.alpha = alpha
@@ -30,7 +35,8 @@ class PropagationABG(Propagation):
         self.building_loss = 20
         self.shadowing_sigma_dB = 6.5
 
-    @dispatch(Parameters, float, StationManager, StationManager, np.ndarray, np.ndarray)
+    @dispatch(Parameters, float, StationManager,
+              StationManager, np.ndarray, np.ndarray)
     def get_loss(
         self,
         params: Parameters,
@@ -61,10 +67,10 @@ class PropagationABG(Propagation):
         wrap_around_enabled = False
         if params.imt.topology.type == "MACROCELL":
             wrap_around_enabled = params.imt.topology.macrocell.wrap_around \
-                                    and params.imt.topology.macrocell.num_clusters == 1
+                and params.imt.topology.macrocell.num_clusters == 1
         if params.imt.topology.type == "HOTSPOT":
             wrap_around_enabled = params.imt.topology.hotspot.wrap_around \
-                                    and params.imt.topology.hotspot.num_clusters == 1
+                and params.imt.topology.hotspot.num_clusters == 1
 
         if wrap_around_enabled:
             _, distances_3d, _, _ = \
@@ -85,7 +91,12 @@ class PropagationABG(Propagation):
         return loss
 
     @dispatch(np.ndarray, np.ndarray, np.ndarray, bool)
-    def get_loss(self, distance: np.array, frequency: np.array, indoor_stations: np.array, shadowing: bool) -> np.array:
+    def get_loss(
+            self,
+            distance: np.array,
+            frequency: np.array,
+            indoor_stations: np.array,
+            shadowing: bool) -> np.array:
         """
         Calculates path loss for LOS and NLOS cases with respective shadowing
         (if shadowing is to be added)
@@ -112,10 +123,11 @@ class PropagationABG(Propagation):
         else:
             shadowing = 0
 
-        building_loss = self.building_loss * np.tile(indoor_stations, (distance.shape[1], 1)).transpose()
+        building_loss = self.building_loss * \
+            np.tile(indoor_stations, (distance.shape[1], 1)).transpose()
 
-        loss = 10 * self.alpha * np.log10(distance) + self.beta + 10 * self.gamma * np.log10(frequency * 1e-3) + \
-            shadowing + building_loss
+        loss = 10 * self.alpha * np.log10(distance) + self.beta + 10 * \
+            self.gamma * np.log10(frequency * 1e-3) + shadowing + building_loss
 
         return loss
 
@@ -158,7 +170,8 @@ if __name__ == '__main__':
         distance_2D, distance_3D, freq, h_bs, h_ue, h_e, shadowing_std,
     )
     fs = freespace.get_loss(distance_2D, freq)
-    abg_los = abg.get_loss(distance_2D, freq, np.zeros(shape=distance_2D.shape, dtype=bool,), False,)
+    abg_los = abg.get_loss(distance_2D, freq, np.zeros(
+        shape=distance_2D.shape, dtype=bool,), False,)
 
     fig = plt.figure(figsize=(8, 6), facecolor='w', edgecolor='k')
     ax = fig.gca()

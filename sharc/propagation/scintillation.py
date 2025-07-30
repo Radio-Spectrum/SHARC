@@ -59,11 +59,13 @@ class Scintillation():
         wet_refractivity = kwargs.pop("wet_refractivity", False)
 
         if not wet_refractivity:
-            for p in ["earth_station_alt_m", "earth_station_lat_deg", "season"]:
+            for p in [
+                "earth_station_alt_m",
+                "earth_station_lat_deg",
+                    "season"]:
                 if p not in kwargs:
                     raise ValueError(
-                        f"Scintillation: parameter {p} is mandatory if wet_refractivity is set.",
-                    )
+                        f"Scintillation: parameter {p} is mandatory if wet_refractivity is set.", )
 
             temperature, \
                 pressure, \
@@ -103,7 +105,8 @@ class Scintillation():
                 elevation_rad.size,
             ).reshape(elevation_rad.shape)
 
-        # tropospheric scintillation attenuation not exceeded for time_percentage percent time
+        # tropospheric scintillation attenuation not exceeded for
+        # time_percentage percent time
         time_percentage = time_ratio * 100.
 
         num_el = 1

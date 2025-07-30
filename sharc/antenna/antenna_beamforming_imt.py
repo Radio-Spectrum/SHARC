@@ -44,9 +44,12 @@ class AntennaBeamformingImt(Antenna):
     """
 
     def __init__(
-         self, par: AntennaPar, azimuth: float, elevation: float,
-         subarray: ParametersAntennaSubarrayImt = ParametersAntennaSubarrayImt(is_enabled=False)
-     ):
+            self,
+            par: AntennaPar,
+            azimuth: float,
+            elevation: float,
+            subarray: ParametersAntennaSubarrayImt = ParametersAntennaSubarrayImt(
+            is_enabled=False)):
         """
         Constructs an AntennaBeamformingImt object.
         Does not receive angles in local coordinate system.
@@ -71,8 +74,8 @@ class AntennaBeamformingImt(Antenna):
             self.element = AntennaElementImtConst(par)
         else:
             sys.stderr.write(
-                f"ERROR\nantenna element type {par.element_pattern} not supported",
-            )
+                f"ERROR\nantenna element type {
+                    par.element_pattern} not supported", )
             sys.exit(1)
 
         if subarray.is_enabled:
@@ -212,29 +215,14 @@ class AntennaBeamformingImt(Antenna):
                 )\
                     + correction_factor[correction_factor_idx[g]]
         else:
-            if self.subarray is not None:
-                subarr_g = self.subarray.calculate_gain(
+            for g in range(n_direct):
+                elem_g = self.element.element_pattern(
                     lo_phi_vec[g],
                     lo_theta_vec[g],
                 )
 
-                gains[g] = subarr_g \
+                gains[g] = elem_g \
                     + self.adj_correction_factor
-
-                if self.adj_correction_factor != 0:
-                    raise NotImplementedError(
-                        "Not sure how adjacent correction factor should be dealt with when considering subarray.\n"
-                        + "Even though i 'think' it would make no difference"
-                    )
-            else:
-                for g in range(n_direct):
-                    elem_g = self.element.element_pattern(
-                        lo_phi_vec[g],
-                        lo_theta_vec[g],
-                    )
-
-                    gains[g] = elem_g \
-                        + self.adj_correction_factor
 
         gains = np.maximum(gains, self.minimum_array_gain)
 
@@ -421,6 +409,18 @@ class PlotAntennaPattern(object):
         sta_type: str,
         plot_type: str,
     ):
+        """
+        Plot the element or array pattern for a given antenna.
+
+        Parameters
+        ----------
+        antenna : AntennaBeamformingImt
+            The antenna object to plot.
+        sta_type : str
+            The station type (e.g., 'BS', 'UE').
+        plot_type : str
+            The type of pattern to plot ('ELEMENT' or 'ARRAY').
+        """
 
         phi_escan = 0
         theta_tilt = 90
@@ -441,7 +441,8 @@ class PlotAntennaPattern(object):
             )
         elif plot_type == "SUBARRAY":
             if antenna.subarray is None:
-                print("An attempt to plot antenna subarrays was done, but antenna has no subarray!")
+                print(
+                    "An attempt to plot antenna subarrays was done, but antenna has no subarray!")
                 return
             gain = antenna.subarray.calculate_gain(
                 phi,
@@ -466,7 +467,10 @@ class PlotAntennaPattern(object):
         elif plot_type == "ARRAY":
             ax1.set_title("IMT " + sta_type + " horizontal antenna pattern")
         elif plot_type == "SUBARRAY":
-            ax1.set_title("IMT " + sta_type + " subarray horizontal antenna pattern")
+            ax1.set_title(
+                "IMT " +
+                sta_type +
+                " subarray horizontal antenna pattern")
 
         ax1.set_xlim(-180, 180)
 
@@ -484,7 +488,8 @@ class PlotAntennaPattern(object):
             )
         elif plot_type == "SUBARRAY":
             if antenna.subarray is None:
-                print("An attempt to plot antenna subarrays was done, but antenna has no subarray!")
+                print(
+                    "An attempt to plot antenna subarrays was done, but antenna has no subarray!")
                 return
             gain = antenna.subarray.calculate_gain(
                 phi,
@@ -506,7 +511,10 @@ class PlotAntennaPattern(object):
         elif plot_type == "ARRAY":
             ax2.set_title("IMT " + sta_type + " vertical antenna pattern")
         elif plot_type == "SUBARRAY":
-            ax2.set_title("IMT " + sta_type + " subarray vertical antenna pattern")
+            ax2.set_title(
+                "IMT " +
+                sta_type +
+                " subarray vertical antenna pattern")
 
         ax2.set_xlim(0, 180)
         if np.max(gain) > top_y_lim:
@@ -579,6 +587,7 @@ if __name__ == '__main__':
     # Plot BS TX radiation patterns
     par = bs_param.get_antenna_parameters()
     bs_array = AntennaBeamformingImt(par, 0, 0, bs_param.subarray)
+    bs_array = AntennaBeamformingImt(par, 0, 0, bs_param.subarray)
     f = plot.plot_element_pattern(bs_array, "BS", "ELEMENT")
     # f.savefig(figs_dir + "BS_element.pdf", bbox_inches='tight')
     f = plot.plot_element_pattern(bs_array, "TX", "ARRAY")
@@ -586,6 +595,7 @@ if __name__ == '__main__':
 
     # Plot UE TX radiation patterns
     par = ue_param.get_antenna_parameters()
+    ue_array = AntennaBeamformingImt(par, 0, 0, ue_param.subarray)
     ue_array = AntennaBeamformingImt(par, 0, 0, ue_param.subarray)
     plot.plot_element_pattern(ue_array, "UE", "ELEMENT")
     plot.plot_element_pattern(ue_array, "UE", "ARRAY")

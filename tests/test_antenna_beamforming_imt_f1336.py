@@ -11,13 +11,13 @@ import numpy.testing as npt
 
 from sharc.antenna.antenna_beamforming_imt import AntennaBeamformingImt
 from sharc.parameters.imt.parameters_antenna_imt import ParametersAntennaImt
-from sharc.support.named_tuples import AntennaPar
-from sharc.support.enumerations import StationType
 
 
 class AntennaBeamformingImtF1336Test(unittest.TestCase):
+    """Unit tests for the AntennaBeamformingImt class with F1336 pattern."""
 
     def setUp(self):
+        """Set up test fixtures for AntennaBeamformingImt F1336 tests."""
         # Array parameters
         self.bs_param = ParametersAntennaImt()
 
@@ -45,35 +45,45 @@ class AntennaBeamformingImtF1336Test(unittest.TestCase):
         self.antenna1 = AntennaBeamformingImt(par, 300, -10)
 
     def test_azimuth(self):
+        """Test azimuth property of the antenna."""
         self.assertEqual(self.antenna1.azimuth, 300)
 
     def test_elevation(self):
+        """Test elevation property of the antenna."""
         self.assertEqual(self.antenna1.elevation, -10)
 
     def test_g_max(self):
+        """Test maximum gain property of the antenna element."""
         self.assertEqual(self.antenna1.element.g_max, 18)
 
     def test_phi_3db(self):
+        """Test phi_3db property of the antenna element."""
         self.assertEqual(self.antenna1.element.phi_3db, 65)
 
     def test_theta_3db(self):
+        """Test theta_3db property of the antenna element."""
         self.assertAlmostEqual(
             self.antenna1.element.theta_3db, 7.55, delta=1e-2,
         )
 
     def test_n_rows(self):
+        """Test n_rows property of the antenna."""
         self.assertEqual(self.antenna1.n_rows, 1)
 
     def test_n_cols(self):
+        """Test n_cols property of the antenna."""
         self.assertEqual(self.antenna1.n_cols, 1)
 
     def test_beams_list(self):
+        """Test beams_list property of the antenna."""
         self.assertEqual(len(self.antenna1.beams_list), 0)
 
     def test_w_vec_list(self):
+        """Test w_vec_list property of the antenna."""
         self.assertEqual(len(self.antenna1.w_vec_list), 0)
 
     def test_super_position_vector(self):
+        """Test _super_position_vector method of the antenna."""
         phi = 0
         theta = 0
         v_vec = self.antenna1._super_position_vector(phi, theta)
@@ -134,6 +144,7 @@ class AntennaBeamformingImtF1336Test(unittest.TestCase):
         )
 
     def test_weight_vector(self):
+        """Test _weight_vector method of the antenna."""
         phi_scan = 0
         theta_tilt = 0
         w_vec = self.antenna1._weight_vector(phi_scan, theta_tilt)
@@ -210,6 +221,7 @@ class AntennaBeamformingImtF1336Test(unittest.TestCase):
         )
 
     def test_add_beam(self):
+        """Test add_beam method of the antenna."""
         eps = 1e-5
         par = self.bs_param.get_antenna_parameters()
         self.antenna1 = AntennaBeamformingImt(par, 0, 0)
@@ -271,6 +283,7 @@ class AntennaBeamformingImtF1336Test(unittest.TestCase):
         self.assertEqual(len(self.antenna1.w_vec_list), 0)
 
     def test_beam_gain(self):
+        """Test _beam_gain method of the antenna."""
         # Error margin and antenna
         eps = 1e-2
         par = self.bs_param.get_antenna_parameters()
@@ -303,6 +316,7 @@ class AntennaBeamformingImtF1336Test(unittest.TestCase):
         self.assertAlmostEqual(beam_g, -6.45, delta=eps)
 
     def test_calculate_gain(self):
+        """Test calculate_gain method of the antenna."""
         # Error margin and antenna
         eps = 1e-2
         par = self.bs_param.get_antenna_parameters()

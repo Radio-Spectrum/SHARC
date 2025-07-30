@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 
-from sharc.support.enumerations import StationType
 from sharc.mask.spectral_mask import SpectralMask
 
 import numpy as np
@@ -52,7 +51,8 @@ class SpectralMaskMSS(SpectralMask):
         if freq_mhz < 15000:
             if band_mhz > 20 and not self.ALREADY_WARNED_AGAINST_LONG_CALCULATIONS:
                 self.ALREADY_WARNED_AGAINST_LONG_CALCULATIONS = True
-                print("WARNING: SpectralMaskMSS may take noticeably long to calculate. Consider changing its integral step.")
+                print(
+                    "WARNING: SpectralMaskMSS may take noticeably long to calculate. Consider changing its integral step.")
             self.reference_bandwidth = 0.004
         else:
             self.reference_bandwidth = 1
@@ -62,7 +62,8 @@ class SpectralMaskMSS(SpectralMask):
             0., self.spurious_boundary - self.reference_bandwidth,
             math.ceil(self.spurious_boundary / self.reference_bandwidth)
         )
-        self.delta_f_lim = np.concatenate((self.delta_f_lim, [self.spurious_boundary]))
+        self.delta_f_lim = np.concatenate(
+            (self.delta_f_lim, [self.spurious_boundary]))
 
         # Attributes
         self.band_mhz = band_mhz
@@ -138,7 +139,11 @@ if __name__ == '__main__':
     plt.grid()
     plt.show()
 
-    oob_idxs = np.where((freqs > freq - msk.spurious_boundary) & (freqs < freq + msk.spurious_boundary))[0]
+    oob_idxs = np.where(
+        (freqs > freq -
+         msk.spurious_boundary) & (
+            freqs < freq +
+            msk.spurious_boundary))[0]
 
     # Plot
     plt.plot(freqs[oob_idxs], mask_val[oob_idxs])

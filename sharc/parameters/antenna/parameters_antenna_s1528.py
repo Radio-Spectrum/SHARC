@@ -16,7 +16,8 @@ class ParametersAntennaS1528(ParametersBase):
     # Peak antenna gain [dBi]
     antenna_gain: float = None
     # Antenna pattern from ITU-R S.1528
-    # Possible values: "ITU-R-S.1528-Section1.2", "ITU-R-S.1528-LEO", "ITU-R-S.1528-Taylor"
+    # Possible values: "ITU-R-S.1528-Section1.2", "ITU-R-S.1528-LEO",
+    # "ITU-R-S.1528-Taylor"
     antenna_pattern: str = "ITU-R-S.1528-LEO"
     # The required near-in-side-lobe level (dB) relative to peak gain
     # according to ITU-R S.672-4
@@ -31,10 +32,12 @@ class ParametersAntennaS1528(ParametersBase):
     # gain and the gain at the peak of the first side lobe.
     slr: float = 20.0
 
-    # Number of secondary lobes considered in the diagram (coincide with the roots of the Bessel function)
+    # Number of secondary lobes considered in the diagram (coincide with the
+    # roots of the Bessel function)
     n_side_lobes: int = 2
 
-    # Radial (l_r) and transverse (l_t) sizes of the effective radiating area of the satellite transmitt antenna (m)
+    # Radial (l_r) and transverse (l_t) sizes of the effective radiating area
+    # of the satellite transmitt antenna (m)
     l_r: float = 1.6
     l_t: float = 1.6
 
@@ -84,18 +87,33 @@ class ParametersAntennaS1528(ParametersBase):
             if k in attr_list:
                 setattr(self, k, v)
             else:
-                raise ValueError(f"Parameter {k} is not a valid attribute of {self.__class__.__name__}")
+                raise ValueError(
+                    f"Parameter {k} is not a valid attribute of {
+                        self.__class__.__name__}")
 
         self.validate("S.1528")
 
     def validate(self, ctx: str):
+        """
+        Validate the parameters for the S.1528 antenna configuration.
+
+        Checks that required attributes are set and that the antenna pattern is valid.
+
+        Parameters
+        ----------
+        ctx : str
+            Context string for error messages.
+        """
         # Now do the sanity check for some parameters
         if None in [self.frequency, self.bandwidth]:
             raise ValueError(
                 f"{ctx}.[frequency, bandwidth, antenna_gain] = {[self.frequency, self.bandwidth]}.\
                 They need to all be set!")
 
-        if self.antenna_pattern not in ["ITU-R-S.1528-Section1.2", "ITU-R-S.1528-LEO", "ITU-R-S.1528-Taylor"]:
+        if self.antenna_pattern not in [
+            "ITU-R-S.1528-Section1.2",
+            "ITU-R-S.1528-LEO",
+                "ITU-R-S.1528-Taylor"]:
             raise ValueError(f"{ctx}: \
                              invalid value for parameter antenna_pattern - {self.antenna_pattern}. \
                              Possible values \

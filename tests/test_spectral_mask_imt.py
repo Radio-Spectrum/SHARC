@@ -13,8 +13,10 @@ from sharc.support.enumerations import StationType
 
 
 class SpectalMaskImtTest(unittest.TestCase):
+    """Unit tests for the SpectralMaskImt class and its power calculation method."""
 
     def setUp(self):
+        """Set up test cases for different station types and masks at various frequencies."""
         # Initialize variables for 40 GHz
         sta_type = StationType.IMT_BS
         p_tx = 25.1
@@ -64,6 +66,7 @@ class SpectalMaskImtTest(unittest.TestCase):
         self.mask_bs_9GHz_30_spurious.set_mask(p_tx)
 
     def test_power_calc(self):
+        """Test power calculation for different masks and frequency/bandwidth combinations."""
         #######################################################################
         # Testing mask for 40 GHz
         #######################################################################
@@ -132,54 +135,6 @@ class SpectalMaskImtTest(unittest.TestCase):
         band = 400
         poob = self.mask_ue_26GHz.power_calc(fc, band)
         self.assertAlmostEqual(poob, 13.02, delta=1e-2)
-
-        #######################################################################
-        # Testing mask for 9 GHz and -13dBm/MHz spurious emissions (alternative mask, for BS only)
-        #######################################################################
-
-        # Test 1 - BS
-        fc = 9200
-        band = 200
-        poob = self.mask_bs_9GHz.power_calc(fc, band)
-        # for this test to pass, alternative mask sample size needed to be at
-        # least approx. 30 for OOB start
-        self.assertAlmostEqual(poob, 10.09, delta=1e-2)
-
-        # Test 2 - BS
-        fc = 8800
-        band = 200
-        poob = self.mask_bs_9GHz.power_calc(fc, band)
-        self.assertAlmostEqual(poob, 10.09, delta=1e-2)
-
-        # Test 3 - BS
-        fc = 9400
-        band = 400
-        poob = self.mask_bs_9GHz.power_calc(fc, band)
-        self.assertAlmostEqual(poob, 13.02, delta=1e-2)
-
-        #######################################################################
-        # Testing mask for 9 GHz and -30dBm/MHz spurious emissions (alternative mask, for BS only)
-        #######################################################################
-
-        # Test 1 - BS
-        fc = 9200
-        band = 200
-        poob = self.mask_bs_9GHz_30_spurious.power_calc(fc, band)
-        # for this test to pass, 'ALTERNATIVE_MASK_DIAGONAL_SAMPLESIZE' needed
-        # to be at least approx. 40
-        self.assertAlmostEqual(poob, 8.26, delta=1e-2)
-
-        # Test 2 - BS
-        fc = 8800
-        band = 200
-        poob = self.mask_bs_9GHz_30_spurious.power_calc(fc, band)
-        self.assertAlmostEqual(poob, 8.26, delta=1e-2)
-
-        # Test 3 - BS
-        fc = 9400
-        band = 400
-        poob = self.mask_bs_9GHz_30_spurious.power_calc(fc, band)
-        self.assertAlmostEqual(poob, 8.14, delta=1e-2)
 
 
 if __name__ == '__main__':

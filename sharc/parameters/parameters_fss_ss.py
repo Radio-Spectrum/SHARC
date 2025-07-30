@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 from dataclasses import dataclass, field
-import numpy as np
+import typing
 
 from sharc.parameters.parameters_base import ParametersBase
 from sharc.parameters.parameters_p619 import ParametersP619
@@ -31,6 +31,8 @@ class ParametersFssSs(ParametersBase):
     azimuth: float = 0.0
     # System receive noise temperature [K]
     noise_temperature: float = 950.0
+    # Adjacent channel reception type.
+    adjacent_ch_reception: typing.Literal["ACS", "OFF"] = "ACS"
     # Adjacent channel selectivity (dB)
     adjacent_ch_selectivity: float = 0.0
 
@@ -45,7 +47,8 @@ class ParametersFssSs(ParametersBase):
     # according to ITU-R S.672-4
     antenna_l_s: float = -20.0
     # Parameters if antenna_pattern = ITU_R S.1528
-    antenna_s1528: ParametersAntennaS1528 = field(default_factory=ParametersAntennaS1528)
+    antenna_s1528: ParametersAntennaS1528 = field(
+        default_factory=ParametersAntennaS1528)
 
     ############################
     # Parameters for the P.619 propagation model
@@ -84,7 +87,8 @@ class ParametersFssSs(ParametersBase):
         super().load_parameters_from_file(config_file)
 
         # Now do the sanity check for some parameters
-        if self.antenna_pattern not in ["ITU-R S.672", "ITU-R S.1528", "FSS_SS", "OMNI"]:
+        if self.antenna_pattern not in [
+                "ITU-R S.672", "ITU-R S.1528", "FSS_SS", "OMNI"]:
             raise ValueError(f"ParametersFssSs: \
                              invalid value for parameter antenna_pattern - {self.antenna_pattern}. \
                              Possible values \
@@ -95,13 +99,16 @@ class ParametersFssSs(ParametersBase):
                              Invalid value for parameter season - {self.season}. \
                              Possible values are \"SUMMER\", \"WINTER\".")
 
-        if self.channel_model.upper() not in ["FSPL", "SATELLITESIMPLE", "P619"]:
+        if self.channel_model.upper() not in [
+                "FSPL", "SATELLITESIMPLE", "P619"]:
             raise ValueError(f"ParametersFssSs: \
                              Invalid value for paramter channel_model = {self.channel_model}. \
                              Possible values are \"FSPL\", \"SatelliteSimple\", \"P619\".")
         self.param_p619.load_from_paramters(self)
-        self.antenna_s1528.set_external_parameters(frequency=self.frequency,
-                                                   bandwidth=self.bandwidth,
-                                                   antenna_gain=self.antenna_gain,
-                                                   antenna_l_s=self.antenna_l_s,
-                                                   antenna_3_dB_bw=self.antenna_3_dB,)
+        self.antenna_s1528.set_external_parameters(
+            frequency=self.frequency,
+            bandwidth=self.bandwidth,
+            antenna_gain=self.antenna_gain,
+            antenna_l_s=self.antenna_l_s,
+            antenna_3_dB_bw=self.antenna_3_dB,
+        )

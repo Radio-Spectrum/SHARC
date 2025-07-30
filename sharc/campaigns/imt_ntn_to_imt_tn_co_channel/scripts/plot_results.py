@@ -20,7 +20,11 @@ for dist in border_distances_array:
 
 campaign_base_dir = str((Path(__file__) / ".." / "..").resolve())
 
-many_results = Results.load_many_from_dir(os.path.join(campaign_base_dir, "output"), only_latest=True)
+many_results = Results.load_many_from_dir(
+    os.path.join(
+        campaign_base_dir,
+        "output"),
+    only_latest=True)
 # ^: typing.List[Results]
 
 post_processor.add_results(many_results)

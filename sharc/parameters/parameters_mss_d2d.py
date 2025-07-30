@@ -20,7 +20,8 @@ class ParametersMssD2d(ParametersBase):
     name: str = "Default"
 
     # Orbit parameters
-    orbits: list[ParametersOrbit] = field(default_factory=lambda: [ParametersOrbit()])
+    orbits: list[ParametersOrbit] = field(
+        default_factory=lambda: [ParametersOrbit()])
 
     # MSS_D2D system center frequency in MHz
     frequency: float = 2110.0
@@ -29,15 +30,18 @@ class ParametersMssD2d(ParametersBase):
     bandwidth: float = 5.0
 
     # Polarization loss [dB]
-    # P.619 suggests 3dB polarization loss as good constant value for monte carlo
+    # P.619 suggests 3dB polarization loss as good constant value for monte
+    # carlo
     polarization_loss: float = None
 
     # In case you want to use a load factor for beams
-    # that means that each beam has a probability of `beams_load_factor` to be active
+    # that means that each beam has a probability of `beams_load_factor` to be
+    # active
     beams_load_factor: float = 1.0
 
     # Central beam positioning
-    beam_positioning: ParametersSectorPositioning = field(default_factory=ParametersSectorPositioning)
+    beam_positioning: ParametersSectorPositioning = field(
+        default_factory=ParametersSectorPositioning)
 
     # Adjacent channel emissions type
     # Possible values are "ACLR", "SPECTRAL_MASK" and "OFF"
@@ -82,9 +86,11 @@ class ParametersMssD2d(ParametersBase):
     antenna_3_dB_bw: float = 4.4127
 
     # Paramters for the ITU-R-S.1528 antenna patterns
-    antenna_s1528: ParametersAntennaS1528 = field(default_factory=ParametersAntennaS1528)
+    antenna_s1528: ParametersAntennaS1528 = field(
+        default_factory=ParametersAntennaS1528)
 
-    sat_is_active_if: ParametersSelectActiveSatellite = field(default_factory=ParametersSelectActiveSatellite)
+    sat_is_active_if: ParametersSelectActiveSatellite = field(
+        default_factory=ParametersSelectActiveSatellite)
 
     # paramters for channel model
     param_p619: ParametersP619 = field(default_factory=ParametersP619)
@@ -126,37 +132,67 @@ class ParametersMssD2d(ParametersBase):
         self.num_beams = self.num_sectors
 
     def validate(self, ctx):
+        """
+        Validate the MSS D2D parameters for correctness.
+
+        Parameters
+        ----------
+        ctx : str
+            Context string for error messages.
+        Raises
+        ------
+        ValueError
+            If any parameter is invalid.
+        """
         # Now do the sanity check for some parameters
         if self.num_sectors not in [1, 7, 19]:
-            raise ValueError(f"ParametersMssD2d: Invalid number of sectors {self.num_sectors}")
+            raise ValueError(
+                f"ParametersMssD2d: Invalid number of sectors {
+                    self.num_sectors}")
         self.num_beams = self.num_sectors
 
         if self.cell_radius <= 0:
-            raise ValueError(f"ParametersMssD2d: cell_radius must be greater than 0, but is {self.cell_radius}")
+            raise ValueError(
+                f"ParametersMssD2d: cell_radius must be greater than 0, but is {
+                    self.cell_radius}")
         else:
             self.intersite_distance = np.sqrt(3) * self.cell_radius
             self.beam_radius = self.cell_radius
 
         if self.adjacent_ch_emissions not in ["SPECTRAL_MASK", "ACLR", "OFF"]:
-            raise ValueError(f"""ParametersMssD2d: Invalid adjacent channel emissions {self.adjacent_ch_emissions}""")
+            raise ValueError(
+                f"""ParametersMssD2d: Invalid adjacent channel emissions {
+                    self.adjacent_ch_emissions}""")
 
-        if self.spectral_mask.upper() not in ["IMT-2020", "3GPP E-UTRA", "MSS"]:
-            raise ValueError(f"""ParametersMssD2d: Inavlid Spectral Mask Name {self.spectral_mask}""")
+        if self.spectral_mask.upper() not in [
+                "IMT-2020", "3GPP E-UTRA", "MSS"]:
+            raise ValueError(
+                f"""ParametersMssD2d: Inavlid Spectral Mask Name {
+                    self.spectral_mask}""")
 
-        if self.channel_model.upper() not in ["FSPL", "P619", "SATELLITESIMPLE"]:
-            raise ValueError(f"Invalid channel model name {self.channel_model}")
+        if self.channel_model.upper() not in [
+                "FSPL", "P619", "SATELLITESIMPLE"]:
+            raise ValueError(
+                f"Invalid channel model name {
+                    self.channel_model}")
 
         if self.beams_load_factor < 0.0 or self.beams_load_factor > 1.0:
-            raise ValueError(f"{ctx}.beams_load_factor must be in interval [0.0, 1.0]")
+            raise ValueError(
+                f"{ctx}.beams_load_factor must be in interval [0.0, 1.0]")
 
         super().validate(ctx)
 
     def propagate_parameters(self):
-        self.antenna_s1528.set_external_parameters(antenna_pattern=self.antenna_pattern,
-                                                   frequency=self.frequency,
-                                                   bandwidth=self.bandwidth,
-                                                   antenna_l_s=self.antenna_l_s,
-                                                   antenna_3_dB_bw=self.antenna_3_dB_bw,)
+        """
+        Propagate relevant parameters to nested antenna and beam positioning objects.
+        """
+        self.antenna_s1528.set_external_parameters(
+            antenna_pattern=self.antenna_pattern,
+            frequency=self.frequency,
+            bandwidth=self.bandwidth,
+            antenna_l_s=self.antenna_l_s,
+            antenna_3_dB_bw=self.antenna_3_dB_bw,
+        )
         if self.beam_positioning.service_grid.beam_radius is None:
             self.beam_positioning.service_grid.beam_radius = self.cell_radius
 
@@ -186,7 +222,10 @@ if __name__ == "__main__":
     import pprint
 
     # Load default simulator parameters
-    yaml_file_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), "../input/parameters.yaml")
+    yaml_file_path = os.path.join(
+        os.path.dirname(
+            os.path.realpath(__file__)),
+        "../input/parameters.yaml")
     mss_d2d_params = ParametersMssD2d()
     mss_d2d_params.load_parameters_from_file(yaml_file_path)
     pprint.pprint(asdict(mss_d2d_params), sort_dicts=False)

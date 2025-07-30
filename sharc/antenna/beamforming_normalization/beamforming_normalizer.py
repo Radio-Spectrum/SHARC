@@ -109,8 +109,8 @@ class BeamformingNormalizer(object):
                 if not testing:
                     print(s)
                 stdout.flush()
-                correction_factor_co[phi_idx, theta_idx], error_co[phi_idx, theta_idx] = \
-                    self.calculate_correction_factor(phi, theta, True)
+                correction_factor_co[phi_idx, theta_idx], error_co[phi_idx,
+                                                                   theta_idx] = self.calculate_correction_factor(phi, theta, True)
 
         correction_factor_adj, error_adj = self.calculate_correction_factor(
             0, 0, False,
@@ -126,7 +126,11 @@ class BeamformingNormalizer(object):
             file_name,
         )
 
-    def calculate_correction_factor(self, phi_beam: float, theta_beam: float, c_chan: bool):
+    def calculate_correction_factor(
+            self,
+            phi_beam: float,
+            theta_beam: float,
+            c_chan: bool):
         """
         Calculates single correction factor
 
@@ -146,10 +150,17 @@ class BeamformingNormalizer(object):
             beam = int(len(self.antenna.beams_list) - 1)
 
             def int_f(t, p):
-                return np.power(10, self.antenna._beam_gain(np.rad2deg(p), np.rad2deg(t), beam) / 10) * np.sin(t)
+                return np.power(
+                    10,
+                    self.antenna._beam_gain(
+                        np.rad2deg(p),
+                        np.rad2deg(t),
+                        beam) / 10) * np.sin(t)
         else:
             def int_f(t, p):
-                return np.power(10, self.antenna.element.element_pattern(np.rad2deg(p), np.rad2deg(t)) / 10) * np.sin(t)
+                return np.power(
+                    10, self.antenna.element.element_pattern(
+                        np.rad2deg(p), np.rad2deg(t)) / 10) * np.sin(t)
 
         integral_val, err = dblquad(
             int_f, self.phi_min_rad, self.phi_max_rad,

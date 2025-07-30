@@ -39,6 +39,22 @@ class AntennaSA509(Antenna):
         self.phi_2 = 10**((49 - self.g_0) / 25)
 
     def calculate_gain(self, *args, **kwargs) -> np.array:
+        """
+        Calculate the antenna gain for given off-axis angles using the SA.509 model.
+
+        Parameters
+        ----------
+        *args : tuple
+            Positional arguments (unused).
+        **kwargs : dict
+            Keyword arguments containing:
+                - off_axis_angle_vec: off-axis angles (degrees)
+
+        Returns
+        -------
+        np.array
+            Calculated gain values for the given angles.
+        """
         phi = np.absolute(kwargs["off_axis_angle_vec"])
 
         gain = np.zeros_like(phi)

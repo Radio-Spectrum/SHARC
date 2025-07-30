@@ -50,6 +50,21 @@ class AntennaFssSs(Antenna):
             np.power(10, (self.peak_gain + self.l_s + 20) / 25)
 
     def calculate_gain(self, *args, **kwargs) -> np.array:
+        """
+        Calculate the antenna gain for the given off-axis angles.
+
+        Parameters
+        ----------
+        *args : tuple
+            Positional arguments (not used).
+        **kwargs : dict
+            Keyword arguments, expects 'off_axis_angle_vec'.
+
+        Returns
+        -------
+        np.array
+            Calculated antenna gain values.
+        """
         psi = np.absolute(kwargs["off_axis_angle_vec"])
 
         gain = np.zeros(len(psi)) - 3

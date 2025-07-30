@@ -32,7 +32,11 @@ class PropagationIndoor(Propagation):
     # interference is much higher than inter-building interference
     HIGH_PATH_LOSS = 400
 
-    def __init__(self, random_number_gen: np.random.RandomState, param: ParametersIndoor, ue_per_cell):
+    def __init__(
+            self,
+            random_number_gen: np.random.RandomState,
+            param: ParametersIndoor,
+            ue_per_cell):
         super().__init__(random_number_gen)
 
         if param.basic_path_loss == "FSPL":
@@ -41,7 +45,8 @@ class PropagationIndoor(Propagation):
             self.bpl = PropagationInhOffice(random_number_gen)
         else:
             sys.stderr.write(
-                "ERROR\nInvalid indoor basic path loss model: " + param.basic_path_loss,
+                "ERROR\nInvalid indoor basic path loss model: " +
+                param.basic_path_loss,
             )
             sys.exit(1)
 
@@ -50,7 +55,8 @@ class PropagationIndoor(Propagation):
         self.bs_per_building = param.num_cells
         self.ue_per_building = ue_per_cell * param.num_cells
 
-    @dispatch(Parameters, float, StationManager, StationManager, np.ndarray, np.ndarray)
+    @dispatch(Parameters, float, StationManager,
+              StationManager, np.ndarray, np.ndarray)
     def get_loss(
         self,
         params: Parameters,
@@ -87,10 +93,10 @@ class PropagationIndoor(Propagation):
         wrap_around_enabled = False
         if params.imt.topology.type == "MACROCELL":
             wrap_around_enabled = params.imt.topology.macrocell.wrap_around \
-                                    and params.imt.topology.macrocell.num_clusters == 1
+                and params.imt.topology.macrocell.num_clusters == 1
         if params.imt.topology.type == "HOTSPOT":
             wrap_around_enabled = params.imt.topology.hotspot.wrap_around \
-                                    and params.imt.topology.hotspot.num_clusters == 1
+                and params.imt.topology.hotspot.num_clusters == 1
 
         if wrap_around_enabled:
             bs_to_ue_dist_2d, bs_to_ue_dist_3d, _, _ = \
@@ -118,8 +124,13 @@ class PropagationIndoor(Propagation):
     # pylint: disable=arguments-renamed
     @dispatch(np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, bool)
     def get_loss(
-        self, distance_3D: np.ndarray, distance_2D: np.ndarray, frequency: float,
-        elevation: np.ndarray, indoor_stations: np.ndarray, shadowing_flag: bool,
+        self,
+        distance_3D: np.ndarray,
+        distance_2D: np.ndarray,
+        frequency: float,
+        elevation: np.ndarray,
+        indoor_stations: np.ndarray,
+        shadowing_flag: bool,
     ) -> np.array:
         """
         Calculates path loss for LOS and NLOS cases with respective shadowing
@@ -158,9 +169,14 @@ class PropagationIndoor(Propagation):
 
             # calculates the additional building entry loss for outdoor UE's
             # that are served by indoor BS's
-            bel = (~ indoor_stations[0, ui:uf]) * self.bel.get_loss(
-                frequency[bi:bf, ui:uf], elevation[bi:bf, ui:uf], "RANDOM", self.building_class,
-            )
+            bel = (~ indoor_stations[0,
+                                     ui:uf]) * self.bel.get_loss(frequency[bi:bf,
+                                                                           ui:uf],
+                                                                 elevation[bi:bf,
+                                                                           ui:uf],
+                                                                 "RANDOM",
+                                                                 self.building_class,
+                                                                 )
 
             loss[bi:bf, ui:uf] = loss[bi:bf, ui:uf] + bel
 

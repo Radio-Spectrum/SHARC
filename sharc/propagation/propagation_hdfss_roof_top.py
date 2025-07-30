@@ -29,7 +29,10 @@ class PropagationHDFSSRoofTop(Propagation):
         P.1411 NLOS for distances distance > 260m
     """
 
-    def __init__(self, param: ParametersHDFSS, random_number_gen: np.random.RandomState):
+    def __init__(
+            self,
+            param: ParametersHDFSS,
+            random_number_gen: np.random.RandomState):
         super().__init__(random_number_gen)
 
         self.param = param
@@ -204,6 +207,22 @@ class PropagationHDFSSRoofTop(Propagation):
         return loss, build_loss, diff_loss
 
     def interpolate_fspl_to_los(self, dist, freq, shad):
+        """Interpolate between free-space path loss and line-of-sight loss for a given distance and frequency.
+
+        Parameters
+        ----------
+        dist : float or np.ndarray
+            Distance(s) at which to interpolate.
+        freq : float
+            Frequency value.
+        shad : bool
+            Whether to include shadow fading in the interpolation.
+
+        Returns
+        -------
+        float or np.ndarray
+            Interpolated loss value(s).
+        """
         fspl_loss = self.propagation_fspl.get_free_space_loss(
             distance=self.fspl_dist,
             frequency=freq,
@@ -219,13 +238,29 @@ class PropagationHDFSSRoofTop(Propagation):
             (self.fspl_to_los_dist - self.fspl_dist) + fspl_loss
 
         if shad:
-            interp_sigma = (dist - self.fspl_dist) * (self.propagation_p1411.los_sigma) / \
-                (self.fspl_to_los_dist - self.fspl_dist)
+            interp_sigma = (dist - self.fspl_dist) * (self.propagation_p1411.los_sigma) / (
+                self.fspl_to_los_dist - self.fspl_dist)
             loss = loss + self.random_number_gen.normal(0.0, interp_sigma)
 
         return loss
 
     def interpolate_los_to_nlos(self, dist, freq, shad):
+        """Interpolate between line-of-sight and non-line-of-sight loss for a given distance and frequency.
+
+        Parameters
+        ----------
+        dist : float or np.ndarray
+            Distance(s) at which to interpolate.
+        freq : float
+            Frequency value.
+        shad : bool
+            Whether to include shadow fading in the interpolation.
+
+        Returns
+        -------
+        float or np.ndarray
+            Interpolated loss value(s).
+        """
         los_loss = self.propagation_p1411.get_loss(
             distance_3D=self.los_dist,
             frequency=freq,
@@ -252,6 +287,22 @@ class PropagationHDFSSRoofTop(Propagation):
         return loss
 
     def get_building_loss(self, imt_sta_type, f, elevation):
+        """Calculate the building entry loss for a given IMT station type, frequency, and elevation.
+
+        Parameters
+        ----------
+        imt_sta_type : StationType
+            Type of IMT station (UE or BS).
+        f : float
+            Frequency in Hz or GHz (as required by model).
+        elevation : float or np.ndarray
+            Elevation angle(s) in degrees or radians.
+
+        Returns
+        -------
+        float or np.ndarray
+            Calculated building entry loss.
+        """
         if imt_sta_type is StationType.IMT_UE:
             build_loss = self.building_entry.get_loss(f, elevation)
         elif imt_sta_type is StationType.IMT_BS:
@@ -273,6 +324,20 @@ class PropagationHDFSSRoofTop(Propagation):
         return build_loss
 
     def is_same_building(self, imt_x, imt_y, es_x, es_y):
+        """Determine if the IMT and earth station coordinates are within the same building.
+
+        Parameters
+        ----------
+        imt_x, imt_y : float or np.ndarray
+            IMT station x and y coordinates.
+        es_x, es_y : float or np.ndarray
+            Earth station x and y coordinates.
+
+        Returns
+        -------
+        np.ndarray
+            Boolean array indicating if each IMT is in the same building as the earth station.
+        """
 
         building_x_range = es_x + (1 + self.b_tol) * \
             np.array([-self.b_w / 2, +self.b_w / 2])
@@ -291,13 +356,51 @@ class PropagationHDFSSRoofTop(Propagation):
         return is_in_building
 
     def get_same_build_loss(self, imt_z, es_z):
+        """Calculate the loss due to being on different floors in the same building.
+
+        Parameters
+        ----------
+        imt_z : float or np.ndarray
+            IMT station z (height or floor).
+        es_z : float or np.ndarray
+            Earth station z (height or floor).
+
+        Returns
+        -------
+        np.ndarray
+            Loss per floor between IMT and earth station.
+        """
         floor_number = np.floor_divide((es_z - imt_z), 3) + 1
 
         loss = self.LOSS_PER_FLOOR * floor_number
 
         return loss
 
-    def get_diff_distances(self, imt_x, imt_y, imt_z, es_x, es_y, es_z, dist_2D=False):
+    def get_diff_distances(
+            self,
+            imt_x,
+            imt_y,
+            imt_z,
+            es_x,
+            es_y,
+            es_z,
+            dist_2D=False):
+        """Compute distances for diffraction calculations between IMT and earth station.
+
+        Parameters
+        ----------
+        imt_x, imt_y, imt_z : float or np.ndarray
+            IMT station x, y, z coordinates.
+        es_x, es_y, es_z : float or np.ndarray
+            Earth station x, y, z coordinates.
+        dist_2D : bool, optional
+            If True, return only 2D distances.
+
+        Returns
+        -------
+        tuple
+            Distances for diffraction calculations (varies by dist_2D).
+        """
 
         build_poly = Polygon([
             [es_x + self.b_w / 2, es_y + self.b_d / 2],
@@ -332,6 +435,24 @@ class PropagationHDFSSRoofTop(Propagation):
         return h, d1, d2
 
     def get_diffraction_loss(self, h, d1, d2, f):
+        """Calculate the diffraction loss for given geometry and frequency.
+
+        Parameters
+        ----------
+        h : float or np.ndarray
+            Height difference for diffraction.
+        d1 : float or np.ndarray
+            Distance from source to obstacle.
+        d2 : float or np.ndarray
+            Distance from obstacle to receiver.
+        f : float
+            Frequency value.
+
+        Returns
+        -------
+        np.ndarray
+            Diffraction loss values.
+        """
 
         wavelength = self.SPEED_OF_LIGHT / (f * 1e6)
 

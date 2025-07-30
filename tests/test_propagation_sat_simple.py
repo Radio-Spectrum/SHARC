@@ -13,14 +13,17 @@ from sharc.propagation.propagation_sat_simple import PropagationSatSimple
 
 
 class PropagationSatSimpleTest(unittest.TestCase):
+    """Unit tests for the PropagationSatSimple class and its satellite propagation loss calculations."""
 
     def setUp(self):
+        """Set up test fixtures for PropagationSatSimple tests."""
         self.propagation = PropagationSatSimple(
             random_number_gen=np.random.RandomState(),
             enable_clutter_loss=False,
         )
 
     def test_loss(self):
+        """Test the get_loss method for various satellite propagation scenarios."""
         d = np.array(10)
         f = np.array(10)
         elevation = {

@@ -11,8 +11,10 @@ from sharc.topology.topology_ntn import TopologyNTN
 
 
 class TopologyNTNTest(unittest.TestCase):
+    """Unit tests for the TopologyNTN class, including coordinate and sector logic."""
 
     def setUp(self):
+        """Set up parameters for TopologyNTN tests, including geometry and sector configuration."""
         self.bs_height = 1000e3  # meters
         self.bs_azimuth = 45  # degrees
         self.bs_elevation = 45  # degrees
@@ -27,6 +29,7 @@ class TopologyNTNTest(unittest.TestCase):
         self.tan = lambda x: np.tan(np.radians(x))
 
     def test_single_sector(self):
+        """Test coordinate and angle calculation for a single sector."""
         topology = TopologyNTN(
             self.intersite_distance,
             self.cell_radius,
@@ -54,6 +57,7 @@ class TopologyNTNTest(unittest.TestCase):
             self.assertAlmostEqual(actual_elev, expected_elev, places=3)
 
     def test_seven_sectors(self):
+        """Test coordinate and angle calculation for seven sectors."""
         topology = TopologyNTN(
             self.intersite_distance,
             self.cell_radius,
@@ -115,6 +119,7 @@ class TopologyNTNTest(unittest.TestCase):
             self.assertAlmostEqual(actual_elev, expected_elev, places=3)
 
     def test_nineteen_sectors(self):
+        """Test coordinate and angle calculation for nineteen sectors."""
         topology = TopologyNTN(
             self.intersite_distance,
             self.cell_radius,

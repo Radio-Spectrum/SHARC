@@ -26,18 +26,54 @@ class ReferenceAtmosphere:
             1013.25, 226.323, 54.750, 8.68, 1.109, 0.669, 0.04,
         ]
 
-        # Tables 1 and 2, Spectroscopic data for oxygen and water attenuation, in ITU-T P.676-11
-        self.p676_oxygen_f0 = np.array(
-            [
-                50.474214, 50.987745, 51.503360, 52.021429, 52.542418, 53.066934, 53.595775,
-                54.130025, 54.671180, 55.221384, 55.783815, 56.264774, 56.363399, 56.968211,
-                57.612486, 58.323877, 58.446588, 59.164204, 59.590983, 60.306056, 60.434778,
-                61.150562, 61.800158, 62.411220, 62.486253, 62.997984, 63.568526, 64.127775,
-                64.678910, 65.224078, 65.764779, 66.302096, 66.836834, 67.369601, 67.900868,
-                68.431006, 68.960312, 118.750334, 368.498246, 424.763020, 487.249273, 715.392902,
-                773.839490, 834.145546,
-            ],
-        )
+        # Tables 1 and 2, Spectroscopic data for oxygen and water attenuation,
+        # in ITU-T P.676-11
+        self.p676_oxygen_f0 = np.array([50.474214,
+                                        50.987745,
+                                        51.503360,
+                                        52.021429,
+                                        52.542418,
+                                        53.066934,
+                                        53.595775,
+                                        54.130025,
+                                        54.671180,
+                                        55.221384,
+                                        55.783815,
+                                        56.264774,
+                                        56.363399,
+                                        56.968211,
+                                        57.612486,
+                                        58.323877,
+                                        58.446588,
+                                        59.164204,
+                                        59.590983,
+                                        60.306056,
+                                        60.434778,
+                                        61.150562,
+                                        61.800158,
+                                        62.411220,
+                                        62.486253,
+                                        62.997984,
+                                        63.568526,
+                                        64.127775,
+                                        64.678910,
+                                        65.224078,
+                                        65.764779,
+                                        66.302096,
+                                        66.836834,
+                                        67.369601,
+                                        67.900868,
+                                        68.431006,
+                                        68.960312,
+                                        118.750334,
+                                        368.498246,
+                                        424.763020,
+                                        487.249273,
+                                        715.392902,
+                                        773.839490,
+                                        834.145546,
+                                        ],
+                                       )
         self.p676_a = np.array(
             [
                 [0.975, 9.651, 6.690, 0.0, 2.566, 6.850], [2.529, 8.653, 7.170, 0.0, 2.246, 6.800],
@@ -195,7 +231,12 @@ class ReferenceAtmosphere:
             ],
         )
 
-    def _get_specific_attenuation(self, pressure, water_vapour_pressure, temperature, frequency_MHz):
+    def _get_specific_attenuation(
+            self,
+            pressure,
+            water_vapour_pressure,
+            temperature,
+            frequency_MHz):
         """
          Calculates specific attenuation (dB/km) of an atmosphere layer according to ITU-T P.676-11
 
@@ -217,20 +258,21 @@ class ReferenceAtmosphere:
         # line strength
         s_oxygen = self.p676_a[:, 0] * 1e-7 * pressure * theta ** 3 * \
             np.exp(self.p676_a[:, 1] * (1 - theta))
-        s_vapour = self.p676_b[:, 0] * 1e-1 * water_vapour_pressure * theta ** 3.5 \
-            * np.exp(self.p676_b[:, 1] * (1 - theta))
+        s_vapour = self.p676_b[:, 0] * 1e-1 * water_vapour_pressure * \
+            theta ** 3.5 * np.exp(self.p676_b[:, 1] * (1 - theta))
         # line width
         df_oxygen = self.p676_a[:, 2] * 1e-4 * (
             pressure * theta ** (.8 - self.p676_a[:, 3]) +
             1.1 * water_vapour_pressure * theta
         )
-        df_vapour = self.p676_b[:, 2] * 1e-4 * (
-            pressure * theta ** (self.p676_b[:, 3]) +
-            self.p676_b[:, 4] * water_vapour_pressure * theta ** self.p676_b[:, 5]
-        )
+        df_vapour = self.p676_b[:,
+                                2] * 1e-4 * (pressure * theta ** (self.p676_b[:,
+                                                                              3]) + self.p676_b[:,
+                                                                                                4] * water_vapour_pressure * theta ** self.p676_b[:,
+                                                                                                                                                  5])
         # correction factor
-        delta_oxygen = (self.p676_a[:, 4] + self.p676_a[:, 5] * theta) * 1e-4 * \
-                       (pressure + water_vapour_pressure) * theta ** .8
+        delta_oxygen = (self.p676_a[:, 4] + self.p676_a[:, 5] * theta) * \
+            1e-4 * (pressure + water_vapour_pressure) * theta ** .8
 
         # line shape factor
         sf_oxygen = f_GHz / self.p676_oxygen_f0 * \
@@ -247,7 +289,8 @@ class ReferenceAtmosphere:
 
         # Debye spectrum width
         dw = 5.6e-4 * (pressure + water_vapour_pressure) * theta ** .8
-        # dry continuum due to pressure-induced nitrogen absorption and the Debye spectrum
+        # dry continuum due to pressure-induced nitrogen absorption and the
+        # Debye spectrum
         nd = f_GHz * pressure * theta ** 2 * \
             (
                 6.14e-5 / (dw * (1 + (f_GHz / dw) ** 2)) +
@@ -260,7 +303,11 @@ class ReferenceAtmosphere:
 
         return specific_attenuation
 
-    def get_atmospheric_params(self, altitude_km, water_vapour_density_sea_level, f_MHz):
+    def get_atmospheric_params(
+            self,
+            altitude_km,
+            water_vapour_density_sea_level,
+            f_MHz):
         """
          Calculates atmospheric parameters based on ITU-R P.619, Atttachment C.5
 
@@ -279,7 +326,8 @@ class ReferenceAtmosphere:
              specific_attenuation (float): specific gaseous attenuation (dB/km)
          """
 
-        index = np.where(altitude_km >= np.array(self.ref_atmosphere_altitude_km,),)[0][-1]
+        index = np.where(altitude_km >= np.array(
+            self.ref_atmosphere_altitude_km,),)[0][-1]
 
         Ti = self.ref_atmosphere_temperature[index]
         Li = self.ref_atmosphere_temp_grad[index]
@@ -310,10 +358,16 @@ class ReferenceAtmosphere:
             temperature, f_MHz,
         )
 
-        return [temperature, pressure, water_vapour_pressure, refractive_index, specific_attenuation]
+        return [
+            temperature,
+            pressure,
+            water_vapour_pressure,
+            refractive_index,
+            specific_attenuation]
 
     @staticmethod
-    def get_reference_atmosphere_p835(latitude, altitude=1000, season="summer"):
+    def get_reference_atmosphere_p835(
+            latitude, altitude=1000, season="summer"):
         """
         Returns reference atmosphere parameters based on ITU-R P835-5
 

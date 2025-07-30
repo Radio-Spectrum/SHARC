@@ -165,8 +165,8 @@ class Footprint(object):
             ),
         )
 
-        eps_n = arctan2(sin(self.bore_subsat_long_rad), tan(self.bore_lat_rad)) + \
-            phi_n
+        eps_n = arctan2(sin(self.bore_subsat_long_rad),
+                        tan(self.bore_lat_rad)) + phi_n
 
         beta_n = arcsin((1 / self.sigma) * sin(gamma_n)) - gamma_n
         beta_n[where(gamma_n > self.max_gamma_rad)] = self.max_beta_rad
@@ -198,9 +198,33 @@ class Footprint(object):
         return earthArea(obj) * 1e-6
 
     def cot(self, angle):
+        """Return the cotangent of the given angle (in radians).
+
+        Parameters
+        ----------
+        angle : float
+            Angle in radians.
+
+        Returns
+        -------
+        float
+            Cotangent of the angle.
+        """
         return tan(pi / 2 - angle)
 
     def arccot(self, x):
+        """Return the inverse cotangent (arccot) of x, in radians.
+
+        Parameters
+        ----------
+        x : float
+            Value to compute arccot for.
+
+        Returns
+        -------
+        float
+            Arccotangent of x, in radians.
+        """
         return pi / 2 - arctan(x)
 
 

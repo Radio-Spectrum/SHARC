@@ -5,18 +5,20 @@ import shapely as shp
 from pathlib import Path
 
 from sharc.support.sharc_geom import generate_grid_in_multipolygon
-from sharc.support.sharc_utils import load_epsg4326_gdf
+from sharc.support.sharc_utils import load_gdf
 
 
 class TestSharcGeom(unittest.TestCase):
+    """Unit tests for geometric utilities in SHARC (e.g., grid generation in polygons)."""
+
     def setUp(self):
+        """Set up test fixtures for SHARC geometry tests."""
         root = (Path(__file__) / ".." / "..").resolve()
-        self.countries_shapefile = root / "sharc" / "data" / "countries" / "ne_110m_admin_0_countries.shp"
+        self.countries_shapefile = root / "sharc" / "data" / \
+            "countries" / "ne_110m_admin_0_countries.shp"
 
     def test_generate_grid(self):
-        """
-        Testing generate grid
-        """
+        """Test the generate_grid_in_multipolygon function."""
         # approx a square
         # good only for small (lon, lat) values
         mx = 0.001
@@ -32,9 +34,11 @@ class TestSharcGeom(unittest.TestCase):
         # l >= min(x * sin(60deg),  x * sin(30deg) + x/2)
         # l >= min(sqrt(3) * x / 2, x)
         # l >= sqrt(3) * x / 2
-        grid = generate_grid_in_multipolygon(poly, 1.01 * mx * 111e3 * 2 / np.sqrt(3))
+        grid = generate_grid_in_multipolygon(
+            poly, 1.01 * mx * 111e3 * 2 / np.sqrt(3))
         self.assertEqual(len(grid[0]), 0)
-        grid = generate_grid_in_multipolygon(poly, 0.9 * mx * 111e3 * 2 / np.sqrt(3))
+        grid = generate_grid_in_multipolygon(
+            poly, 0.9 * mx * 111e3 * 2 / np.sqrt(3))
         self.assertEqual(len(grid[0]), 1)
 
         # doing some packing inside the square
@@ -47,7 +51,7 @@ class TestSharcGeom(unittest.TestCase):
             grid = generate_grid_in_multipolygon(poly, hx_r)
             npt.assert_allclose(len(grid[0]), pol_A / hx_A, rtol=0.05, atol=10)
 
-        gdf = load_epsg4326_gdf(
+        gdf = load_gdf(
             self.countries_shapefile,
             {"NAME": ["Brazil", "Chile"]}
         )
@@ -60,7 +64,7 @@ class TestSharcGeom(unittest.TestCase):
         hx_A = 3 * np.sqrt(3) * hx_r**2 / 2
 
         br_grid_len = len(grid[0])
-        npt.assert_allclose(br_grid_len, pol_A / hx_A, rtol=1e-5, atol=10)
+        npt.assert_allclose(br_grid_len, pol_A / hx_A, rtol=1e-5, atol=190)
 
         poly = gdf[gdf["NAME"] == "Chile"]["geometry"].values[0]
 

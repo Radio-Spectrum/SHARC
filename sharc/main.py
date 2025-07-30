@@ -15,6 +15,12 @@ sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 
 
 def main():
+    """
+    Run the main entry point for the SHARC application.
+
+    Sets up logging, initializes the Model, View, and Controller,
+    connects them, and starts the main event loop for the GUI.
+    """
     Logging.setup_logging()
 
     model = Model()

@@ -13,16 +13,13 @@ import unittest
 
 
 class PropagationIndoorTest(unittest.TestCase):
-    """Tests PropagationIndoor class
-    """
+    """Unit tests for the PropagationIndoor class and its loss calculations."""
 
     def setUp(self):
-        pass
+        """Set up test fixtures for PropagationIndoor tests."""
 
     def test_loss(self):
-        """Tests the get_loss method
-        """
-        pass
+        """Test the get_loss method for indoor propagation loss calculation."""
     #     params = ParametersIndoor()
     #     params.basic_path_loss = "INH_OFFICE"
     #     params.n_rows = 3

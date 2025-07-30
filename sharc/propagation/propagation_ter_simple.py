@@ -29,7 +29,8 @@ class PropagationTerSimple(Propagation):
         self.free_space = PropagationFreeSpace(np.random.RandomState(101))
         self.building_loss = 20
 
-    @dispatch(Parameters, float, StationManager, StationManager, np.ndarray, np.ndarray)
+    @dispatch(Parameters, float, StationManager,
+              StationManager, np.ndarray, np.ndarray)
     def get_loss(
         self,
         params: Parameters,
@@ -74,7 +75,10 @@ class PropagationTerSimple(Propagation):
     # pylint: disable=arguments-differ
     @dispatch(np.ndarray, np.ndarray, np.ndarray, float)
     def get_loss(
-        self, distance: np.ndarray, frequency: np.ndarray, indoor_stations: np.ndarray,
+        self,
+        distance: np.ndarray,
+        frequency: np.ndarray,
+        indoor_stations: np.ndarray,
         loc_percentage: float,
     ) -> np.array:
         """Calculates loss with a simple terrestrial model:

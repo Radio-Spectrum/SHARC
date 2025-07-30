@@ -89,7 +89,8 @@ class PropagationClutterLoss(Propagation):
             p2 = loc_per * np.ones(d.shape)
 
         if type is StationType.IMT_BS or type is StationType.IMT_UE or type is StationType.FSS_ES:
-            loss = self.get_terrestrial_clutter_loss(f, d, p1, True) + self.get_terrestrial_clutter_loss(f, d, p2, False)
+            loss = self.get_terrestrial_clutter_loss(
+                f, d, p1, True) + self.get_terrestrial_clutter_loss(f, d, p2, False)
         else:
             theta = kwargs["elevation"]
             loss = self.get_spacial_clutter_loss(f, theta, p1)
@@ -133,7 +134,8 @@ class PropagationClutterLoss(Propagation):
 
         invQ = np.sqrt(2) * scipy.special.erfcinv(2 * loc_percentage)
 
-        loss = (-k1 * (np.log(1 - loc_percentage)) * cot)**(0.5 * (90 - elevation_angle) / 90) - 1 - 0.6 * invQ
+        loss = (-k1 * (np.log(1 - loc_percentage)) * cot)**(0.5 * \
+                (90 - elevation_angle) / 90) - 1 - 0.6 * invQ
 
         return loss
 
@@ -190,10 +192,12 @@ class PropagationClutterLoss(Propagation):
         loss_2km = np.zeros(d.shape)
 
         if apply_both_ends:
-            # minimum path length for the correction to be applied at only one end of the path
+            # minimum path length for the correction to be applied at only one
+            # end of the path
             id_d = np.where(d >= 1000)[0]
         else:
-            # minimum path length for the correction to be applied at both ends of the path
+            # minimum path length for the correction to be applied at both ends
+            # of the path
             id_d = np.where(d >= 250)[0]
 
         if len(id_d):
@@ -203,16 +207,17 @@ class PropagationClutterLoss(Propagation):
             Ls_temp = 32.98 + 3.0 * np.log10(f[id_d] * 1e-3)
             Ls = 23.9 * np.log10(d[id_d] * 1e-3) + Ls_temp
             invQ = np.sqrt(2) * scipy.special.erfcinv(2 * (p[id_d]))
-            sigma_cb = np.sqrt(((sigma_l**(2.0)) * (10.0**(-0.2 * Ll)) + (sigma_s**(2.0)) *
-                               (10.0**(-0.2 * Ls))) / (10.0**(-0.2 * Ll) + 10.0**(-0.2 * Ls)))
+            sigma_cb = np.sqrt(((sigma_l**(2.0)) * (10.0**(-0.2 * Ll)) + (sigma_s**(
+                2.0)) * (10.0**(-0.2 * Ls))) / (10.0**(-0.2 * Ll) + 10.0**(-0.2 * Ls)))
             loss[id_d] = -5.0 * \
                 np.log10(10 ** (-0.2 * Ll) + 10 **
                          (-0.2 * Ls)) - sigma_cb * invQ
 
-            # The clutter loss must not exceed a maximum value calculated for 𝑑 = 2 𝑘m (loss_2km)
+            # The clutter loss must not exceed a maximum value calculated for 𝑑
+            # = 2 𝑘m (loss_2km)
             Ls_2km = 23.9 * np.log10(2) + Ls_temp
-            sigma_cb_2km = np.sqrt(((sigma_l**(2.0)) * (10.0**(-0.2 * Ll)) + (sigma_s**(2.0)) *
-                                   (10.0**(-0.2 * Ls_2km))) / (10.0**(-0.2 * Ll) + 10.0**(-0.2 * Ls_2km)))
+            sigma_cb_2km = np.sqrt(((sigma_l**(2.0)) * (10.0**(-0.2 * Ll)) + (sigma_s**(
+                2.0)) * (10.0**(-0.2 * Ls_2km))) / (10.0**(-0.2 * Ll) + 10.0**(-0.2 * Ls_2km)))
             loss_2km[id_d] = -5.0 * \
                 np.log10(10 ** (-0.2 * Ll) + 10 ** (-0.2 * Ls_2km)) - \
                 sigma_cb_2km * invQ

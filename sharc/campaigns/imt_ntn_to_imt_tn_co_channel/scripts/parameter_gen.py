@@ -9,10 +9,13 @@ import os
 
 from sharc.parameters.parameters_base import tuple_constructor
 
-yaml.SafeLoader.add_constructor('tag:yaml.org,2002:python/tuple', tuple_constructor)
+yaml.SafeLoader.add_constructor(
+    'tag:yaml.org,2002:python/tuple',
+    tuple_constructor)
 
 local_dir = os.path.dirname(os.path.abspath(__file__))
-parameter_file_name = os.path.join(local_dir, "../input/parameters_imt_ntn_to_imt_tn_sep_distance_template.yaml")
+parameter_file_name = os.path.join(
+    local_dir, "../input/parameters_imt_ntn_to_imt_tn_sep_distance_template.yaml")
 
 # load the base parameters from the yaml file
 with open(parameter_file_name, 'r') as file:
@@ -28,14 +31,21 @@ for dist in border_distances_array:
     params = parameters_template.copy()
 
     ntn_footprint_left_edge = - 4 * params['mss_ss']['cell_radius']
-    ntn_footprint_radius = 5 * params['mss_ss']['cell_radius'] * np.sin(np.pi / 3)
-    macro_topology_radius = 4 * params['imt']['topology']['macrocell']['intersite_distance'] / 3
-    params['mss_ss']['x'] = float(macro_topology_radius + ntn_footprint_radius + dist)
+    ntn_footprint_radius = 5 * \
+        params['mss_ss']['cell_radius'] * np.sin(np.pi / 3)
+    macro_topology_radius = 4 * \
+        params['imt']['topology']['macrocell']['intersite_distance'] / 3
+    params['mss_ss']['x'] = float(
+        macro_topology_radius +
+        ntn_footprint_radius +
+        dist)
 
     # Set the right campaign prefix
-    params['general']['output_dir_prefix'] = 'output_imt_ntn_to_imt_tn_co_channel_sep_' + str(dist / 1e3) + "_km"
+    params['general']['output_dir_prefix'] = 'output_imt_ntn_to_imt_tn_co_channel_sep_' + \
+        str(dist / 1e3) + "_km"
     # Save the parameters to a new yaml file
-    parameter_file_name = "../input/parameters_imt_ntn_to_imt_tn_co_channel_sep_" + str(dist / 1e3) + "_km.yaml"
+    parameter_file_name = "../input/parameters_imt_ntn_to_imt_tn_co_channel_sep_" + \
+        str(dist / 1e3) + "_km.yaml"
     with open(os.path.join(local_dir, parameter_file_name), 'w') as file:
         yaml.dump(params, file, default_flow_style=False)
 

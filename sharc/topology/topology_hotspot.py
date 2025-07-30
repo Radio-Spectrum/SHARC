@@ -25,10 +25,15 @@ class TopologyHotspot(Topology):
     network topology (macro cell with hotspots).
     """
 
-    # Maximum number of tentatives when creating hotspots and checking if they overlap
+    # Maximum number of tentatives when creating hotspots and checking if they
+    # overlap
     MAX_NUM_LOOPS = 1000
 
-    def __init__(self, param: ParametersHotspot, intersite_distance: float, num_clusters: int):
+    def __init__(
+            self,
+            param: ParametersHotspot,
+            intersite_distance: float,
+            num_clusters: int):
         """
         Constructor method that sets the parameters and already calls the
         calculation methods.
@@ -55,7 +60,8 @@ class TopologyHotspot(Topology):
         x = np.empty(0)
         y = np.empty(0)
         azimuth = np.empty(0)
-        for cell_x, cell_y, cell_azimuth in zip(self.macrocell.x, self.macrocell.y, self.macrocell.azimuth):
+        for cell_x, cell_y, cell_azimuth in zip(
+                self.macrocell.x, self.macrocell.y, self.macrocell.azimuth):
             # print("base station #{}".format(i))
             i += 1
             # find the center coordinates of the sector (hexagon)
@@ -86,7 +92,8 @@ class TopologyHotspot(Topology):
                         np.sin(hotspot_angle) + macro_cell_y
                     candidate_azimuth = 360 * random_number_gen.rand(1)
                     if hs == 0:
-                        # the candidate is valid if it is the first to be created
+                        # the candidate is valid if it is the first to be
+                        # created
                         hotspot_x = candidate_x
                         hotspot_y = candidate_y
                         hotspot_azimuth = candidate_azimuth
@@ -138,10 +145,10 @@ class TopologyHotspot(Topology):
 
         self.x = x
         self.y = y
-        self.z = np.zeros(self.num_base_stations)
         self.azimuth = azimuth
         # In the end, we have to update the number of base stations
         self.num_base_stations = len(self.x)
+        self.z = np.zeros(self.num_base_stations)
         self.indoor = np.zeros(self.num_base_stations, dtype=bool)
 
     def overlapping_hotspots(
@@ -181,20 +188,40 @@ class TopologyHotspot(Topology):
             set_points = list()
             set_points.append((x, y))
             for a in range(len(azimuth_values)):
-                set_points.append((
-                    x + radius * math.cos(np.radians(azimuth + azimuth_values[a])),
-                    y + radius * math.sin(np.radians(azimuth + azimuth_values[a])),
-                ))
+                set_points.append(
+                    (x +
+                     radius *
+                     math.cos(
+                         np.radians(
+                             azimuth +
+                             azimuth_values[a])),
+                        y +
+                        radius *
+                        math.sin(
+                         np.radians(
+                             azimuth +
+                             azimuth_values[a])),
+                     ))
             set_polygons.append(Polygon(set_points))
 
         # Creating the candidate polygon
         points = list()
         points.append((candidate_x, candidate_y))
         for a in range(len(azimuth_values)):
-            points.append((
-                candidate_x + radius * math.cos(np.radians(candidate_azimuth + azimuth_values[a])),
-                candidate_y + radius * math.sin(np.radians(candidate_azimuth + azimuth_values[a])),
-            ))
+            points.append(
+                (candidate_x +
+                 radius *
+                 math.cos(
+                     np.radians(
+                         candidate_azimuth +
+                         azimuth_values[a])),
+                    candidate_y +
+                    radius *
+                    math.sin(
+                     np.radians(
+                         candidate_azimuth +
+                         azimuth_values[a])),
+                 ))
         polygon = Polygon(points)
 
         # Check if there is overlapping between the candidate hotspot and
@@ -207,7 +234,8 @@ class TopologyHotspot(Topology):
                 # need to check other combinations
                 return True
 
-        # If this point is reached, then there is no intersection between polygons
+        # If this point is reached, then there is no intersection between
+        # polygons
         return False
 
     def validade_min_dist_bs_hotspot(
@@ -242,6 +270,7 @@ class TopologyHotspot(Topology):
         return len(occ) == 0
 
     def plot(self, ax: matplotlib.axes.Axes):
+        """Plot the macrocell and hotspot topology on the given axis."""
         # plot macrocells
         self.macrocell.plot(ax)
 

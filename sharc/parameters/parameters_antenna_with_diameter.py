@@ -5,6 +5,9 @@ from dataclasses import dataclass
 
 @dataclass
 class ParametersAntennaWithDiameter(ParametersBase):
+    """
+    Parameters for antennas that require diameter, gain, and frequency.
+    """
     antenna_gain: float = None
     frequency: float = None
     diameter: float = None
@@ -13,6 +16,18 @@ class ParametersAntennaWithDiameter(ParametersBase):
     # since parser is a bit hacky, this is created without acces to system freq and antenna gain
     # so validation needs to happen manually afterwards
     def validate(self, ctx):
+        """
+        Validate the antenna with diameter parameters for correctness.
+
+        Parameters
+        ----------
+        ctx : str
+            Context string for error messages.
+        Raises
+        ------
+        ValueError
+            If any parameter is invalid.
+        """
         if None in [
             self.antenna_gain,
             self.diameter,
@@ -20,11 +35,20 @@ class ParametersAntennaWithDiameter(ParametersBase):
         ]:
             raise ValueError(f"{ctx} needs to have all its parameters set")
 
-        if not isinstance(self.antenna_gain, int) and not isinstance(self.antenna_gain, float):
+        if not isinstance(
+                self.antenna_gain,
+                int) and not isinstance(
+                self.antenna_gain,
+                float):
             raise ValueError(f"{ctx}.antenna_gain needs to be a number")
 
-        if (not isinstance(self.diameter, int) and not isinstance(self.diameter, float)) or self.diameter <= 0:
+        if (not isinstance(self.diameter, int) and not isinstance(
+                self.diameter, float)) or self.diameter <= 0:
             raise ValueError(f"{ctx}.diameter needs to be a positive number")
 
-        if not isinstance(self.frequency, int) and not isinstance(self.frequency, float):
+        if not isinstance(
+                self.frequency,
+                int) and not isinstance(
+                self.frequency,
+                float):
             raise ValueError(f"{ctx}.frequency needs to be a number")

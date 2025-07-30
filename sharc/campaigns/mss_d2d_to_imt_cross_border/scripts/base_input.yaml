@@ -313,7 +313,7 @@ imt:
         #                                   given distributions for angle and
         #                                   distance. In this case, these must be
         #                                   defined later.
-        distribution_type: UNIFORM_IN_CELL
+        distribution_type: ANGLE_AND_DISTANCE
         ###########################################################################
         # Regarding the distribution of active UE's over the cell area, this
         # parameter models the distance between UE's and BS.
@@ -533,9 +533,7 @@ mss_d2d:
     # channel model, possible values are "FSPL" (free-space path loss),
     #                                    "SatelliteSimple" (FSPL + 4 + clutter loss)
     #                                    "P619"
-    channel_model: SatelliteSimple
-    # ###########################################################################
-    # # P619 parameters
+    channel_model: FSPL
     # param_p619:
     #     ###########################################################################
     #     # altitude of ES system [m]

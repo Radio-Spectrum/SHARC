@@ -5,6 +5,9 @@ from dataclasses import dataclass
 
 @dataclass
 class ParametersAntennaWithEnvelopeGain(ParametersBase):
+    """
+    Parameters for antennas that require envelope gain and antenna gain.
+    """
     antenna_gain: float = None
     envelope_gain: float = None
 
@@ -12,6 +15,18 @@ class ParametersAntennaWithEnvelopeGain(ParametersBase):
     # since parser is a bit hacky, this is created without acces to system freq and antenna gain
     # so validation needs to happen manually afterwards
     def validate(self, ctx):
+        """
+        Validate the antenna with envelope gain parameters for correctness.
+
+        Parameters
+        ----------
+        ctx : str
+            Context string for error messages.
+        Raises
+        ------
+        ValueError
+            If any parameter is invalid.
+        """
         if None in [
             self.antenna_gain,
             self.envelope_gain,
@@ -21,5 +36,9 @@ class ParametersAntennaWithEnvelopeGain(ParametersBase):
         if not isinstance(self.gain, int) and not isinstance(self.gain, float):
             raise ValueError(f"{ctx}.gain needs to be a number")
 
-        if not isinstance(self.envelope_gain, int) and not isinstance(self.envelope_gain, float):
+        if not isinstance(
+                self.envelope_gain,
+                int) and not isinstance(
+                self.envelope_gain,
+                float):
             raise ValueError(f"{ctx}.envelope_gain needs to be a number")

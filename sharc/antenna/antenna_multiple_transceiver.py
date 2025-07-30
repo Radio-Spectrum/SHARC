@@ -1,10 +1,15 @@
+
+"""Antenna model for multiple transceiver systems."""
 from sharc.antenna.antenna import Antenna
 
 import numpy as np
-import math
 
 
 class AntennaMultipleTransceiver(Antenna):
+    """
+    Antenna class for systems with multiple transceivers, each with its own orientation.
+    """
+
     def __init__(
         self,
         *,
@@ -39,7 +44,8 @@ class AntennaMultipleTransceiver(Antenna):
         phi_vec = kwargs["phi_vec"]
         theta_vec = kwargs["theta_vec"]
 
-        off_axis_angles = self.get_off_axis_angle(self.theta, self.phi, theta_vec, phi_vec)
+        off_axis_angles = self.get_off_axis_angle(
+            self.theta, self.phi, theta_vec, phi_vec)
 
         gains = self.transceiver_radiation_pattern.calculate_gain(
             off_axis_angle_vec=off_axis_angles,
@@ -89,8 +95,17 @@ class AntennaMultipleTransceiver(Antenna):
         relative_phi = antenna_phi[:, np.newaxis] - obj_phi
         antenna_theta = antenna_theta[:, np.newaxis]
 
-        rel_cos = (np.cos(np.radians(antenna_theta)) * np.cos(np.radians(obj_theta)) +
-            np.sin(np.radians(antenna_theta)) * np.sin(np.radians(obj_theta)) * np.cos(np.radians(relative_phi)))
+        rel_cos = (
+            np.cos(
+                np.radians(antenna_theta)) *
+            np.cos(
+                np.radians(obj_theta)) +
+            np.sin(
+                np.radians(antenna_theta)) *
+            np.sin(
+                np.radians(obj_theta)) *
+            np.cos(
+                np.radians(relative_phi)))
 
         rel = np.arccos(
             # sometimes floating point error accumulates enough
@@ -104,4 +119,3 @@ class AntennaMultipleTransceiver(Antenna):
         """
         TODO: rotate phi angles when transforming base station
         """
-        pass

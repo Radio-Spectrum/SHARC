@@ -1,0 +1,1 @@
+./docs/docusaurus/docs/How to/Run the simulator using main interface.md

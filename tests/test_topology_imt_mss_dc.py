@@ -25,6 +25,7 @@ class TestTopologyImtMssDc(unittest.TestCase):
     """
 
     def setUp(self):
+        """Set up test environment, including parameters and geometry converter."""
         # Define the parameters for the IMT MSS-DC topology
         orbit = ParametersOrbit(
             n_planes=20,
@@ -58,33 +59,42 @@ class TestTopologyImtMssDc(unittest.TestCase):
         self.earth_center_z = np.array([-np.sqrt(x * x + y * y + z * z)])
 
         # Instantiate the IMT MSS-DC topology
-        self.imt_mss_dc_topology = TopologyImtMssDc(self.params, self.geometry_converter)
+        self.imt_mss_dc_topology = TopologyImtMssDc(
+            self.params, self.geometry_converter)
 
     def test_initialization(self):
+        """Test initialization of the IMT MSS-DC topology."""
         self.assertTrue(self.imt_mss_dc_topology.is_space_station)
-        self.assertEqual(self.imt_mss_dc_topology.num_sectors, self.params.num_beams)
-        self.assertEqual(len(self.imt_mss_dc_topology.orbits), len(self.params.orbits))
+        self.assertEqual(
+            self.imt_mss_dc_topology.num_sectors,
+            self.params.num_beams)
+        self.assertEqual(len(self.imt_mss_dc_topology.orbits),
+                         len(self.params.orbits))
 
     def test_calculate_coordinates(self):
+        """Test calculation of coordinates for the topology."""
         self.imt_mss_dc_topology.calculate_coordinates()
-        center_beam_idxs = np.arange(self.imt_mss_dc_topology.num_base_stations // self.imt_mss_dc_topology.num_sectors) *\
-            self.imt_mss_dc_topology.num_sectors
+        center_beam_idxs = np.arange(self.imt_mss_dc_topology.num_base_stations //
+                                     self.imt_mss_dc_topology.num_sectors) * self.imt_mss_dc_topology.num_sectors
         self.assertIsNotNone(self.imt_mss_dc_topology.space_station_x)
         self.assertIsNotNone(self.imt_mss_dc_topology.space_station_y)
         self.assertIsNotNone(self.imt_mss_dc_topology.space_station_z)
         self.assertIsNotNone(self.imt_mss_dc_topology.elevation)
         self.assertIsNotNone(self.imt_mss_dc_topology.azimuth)
-        self.assertEqual(len(self.imt_mss_dc_topology.space_station_x), self.imt_mss_dc_topology.num_base_stations)
-        self.assertEqual(len(self.imt_mss_dc_topology.space_station_y), self.imt_mss_dc_topology.num_base_stations)
-        self.assertEqual(len(self.imt_mss_dc_topology.space_station_z), self.imt_mss_dc_topology.num_base_stations)
+        self.assertEqual(len(self.imt_mss_dc_topology.space_station_x),
+                         self.imt_mss_dc_topology.num_base_stations)
+        self.assertEqual(len(self.imt_mss_dc_topology.space_station_y),
+                         self.imt_mss_dc_topology.num_base_stations)
+        self.assertEqual(len(self.imt_mss_dc_topology.space_station_z),
+                         self.imt_mss_dc_topology.num_base_stations)
 
         # Test: check if azimuth is pointing towards correct direction
         # y > 0 <=> azimuth < 0
         # y < 0 <=> azimuth > 0
         npt.assert_array_equal(
-            np.sign(self.imt_mss_dc_topology.azimuth[center_beam_idxs]),
-            -np.sign(self.imt_mss_dc_topology.space_station_y[center_beam_idxs]),
-        )
+            np.sign(
+                self.imt_mss_dc_topology.azimuth[center_beam_idxs]), -np.sign(
+                self.imt_mss_dc_topology.space_station_y[center_beam_idxs]), )
 
         # Test: check if the altitude is calculated correctly
         rx = self.imt_mss_dc_topology.space_station_x - self.earth_center_x
@@ -92,7 +102,10 @@ class TestTopologyImtMssDc(unittest.TestCase):
         rz = self.imt_mss_dc_topology.space_station_z - self.earth_center_z
         r = np.sqrt(rx**2 + ry**2 + rz**2)
         expected_alt_km = (r - np.abs(self.earth_center_z)) / 1e3
-        npt.assert_array_almost_equal(expected_alt_km, self.params.orbits[0].apogee_alt_km, decimal=0)
+        npt.assert_array_almost_equal(
+            expected_alt_km,
+            self.params.orbits[0].apogee_alt_km,
+            decimal=0)
 
         # by default, satellites should always point to nadir (earth center)
         ref_earth_center = StationManager(1)
@@ -100,33 +113,45 @@ class TestTopologyImtMssDc(unittest.TestCase):
         ref_earth_center.y = self.earth_center_y
         ref_earth_center.z = self.earth_center_z
 
-        ref_space_stations = StationManager(self.imt_mss_dc_topology.num_base_stations)
+        ref_space_stations = StationManager(
+            self.imt_mss_dc_topology.num_base_stations)
         ref_space_stations.x = self.imt_mss_dc_topology.space_station_x
         ref_space_stations.y = self.imt_mss_dc_topology.space_station_y
         ref_space_stations.z = self.imt_mss_dc_topology.space_station_z
 
-        phi, theta = ref_space_stations.get_pointing_vector_to(ref_earth_center)
+        phi, theta = ref_space_stations.get_pointing_vector_to(
+            ref_earth_center)
         npt.assert_array_almost_equal(
-            np.squeeze(phi[center_beam_idxs]), self.imt_mss_dc_topology.azimuth[center_beam_idxs],
+            np.squeeze(
+                phi[center_beam_idxs]),
+            self.imt_mss_dc_topology.azimuth[center_beam_idxs],
             decimal=3,
         )
         npt.assert_array_almost_equal(
-            np.squeeze(theta[center_beam_idxs]), 90 - self.imt_mss_dc_topology.elevation[center_beam_idxs],
+            np.squeeze(
+                theta[center_beam_idxs]),
+            90 -
+            self.imt_mss_dc_topology.elevation[center_beam_idxs],
             decimal=3,
         )
 
     def test_visible_satellites(self):
-        self.imt_mss_dc_topology.calculate_coordinates(random_number_gen=np.random.RandomState(8))
+        """Test visibility of satellites based on elevation angle."""
+        self.imt_mss_dc_topology.calculate_coordinates(
+            random_number_gen=np.random.RandomState(8))
         min_elevation_angle = 5.0
 
         # calculate the elevation angles with respect to the x-y plane
         xy_plane_elevations = np.degrees(
             np.arctan2(
                 self.imt_mss_dc_topology.space_station_z,
-                np.sqrt(self.imt_mss_dc_topology.space_station_x**2 + self.imt_mss_dc_topology.space_station_y**2),
+                np.sqrt(
+                    self.imt_mss_dc_topology.space_station_x**2 +
+                    self.imt_mss_dc_topology.space_station_y**2),
             ),
         )
-        # Add a tolerance to the elevation angle because of the Earth oblateness
+        # Add a tolerance to the elevation angle because of the Earth
+        # oblateness
         npt.assert_array_less(min_elevation_angle, xy_plane_elevations)
 
 

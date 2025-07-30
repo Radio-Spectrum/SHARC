@@ -17,18 +17,21 @@ from sharc.propagation.propagation_factory import PropagationFactory
 
 
 class SimulationDownlinkTvroTest(unittest.TestCase):
+    """Unit tests for the SimulationDownlink class in TVRO scenarios."""
 
     def setUp(self):
+        """Set up test fixtures for SimulationDownlink TVRO tests."""
         self.param = Parameters()
 
         self.param.general.imt_link = "DOWNLINK"
         self.param.system = "FSS_ES"
-        self.param.general.enable_cochannel = True
-        self.param.general.enable_adjacent_channel = False
+        self.param.general.enable_cochannel = False
+        self.param.general.enable_adjacent_channel = True
         self.param.general.seed = 101
         self.param.general.overwrite_output = True
 
         self.param.imt.topology.type = "SINGLE_BS"
+        self.param.imt.adjacent_ch_emissions = "OFF"
         self.param.imt.topology.single_bs.num_clusters = 2
         self.param.imt.topology.single_bs.intersite_distance = 150
         self.param.imt.topology.single_bs.cell_radius = 100
@@ -122,6 +125,7 @@ class SimulationDownlinkTvroTest(unittest.TestCase):
         self.param.fss_es.frequency = 3628
         self.param.fss_es.bandwidth = 6
         self.param.fss_es.noise_temperature = 100
+        self.param.fss_es.adjacent_ch_reception = "ACS"
         self.param.fss_es.adjacent_ch_selectivity = 0
         self.param.fss_es.tx_power_density = -60
         self.param.fss_es.antenna_gain = 32
@@ -133,13 +137,15 @@ class SimulationDownlinkTvroTest(unittest.TestCase):
         self.param.fss_es.polarization_loss = 3.0
 
     def test_simulation_1bs_1ue_tvro(self):
+        """Test simulation with 1 base station and 1 UE for TVRO scenario."""
         self.param.general.system = "FSS_ES"
 
         self.simulation = SimulationDownlink(self.param, "")
         self.simulation.initialize()
         random_number_gen = np.random.RandomState(self.param.general.seed)
 
-        self.assertTrue(self.simulation.co_channel)
+        self.assertTrue(self.simulation.adjacent_channel)
+        self.assertFalse(self.simulation.co_channel)
 
         self.simulation.bs = StationFactory.generate_imt_base_stations(
             self.param.imt,
@@ -181,9 +187,7 @@ class SimulationDownlinkTvroTest(unittest.TestCase):
 
         # test coupling loss method
         self.simulation.coupling_loss_imt = self.simulation.calculate_intra_imt_coupling_loss(
-            self.simulation.ue,
-            self.simulation.bs,
-        )
+            self.simulation.ue, self.simulation.bs, )
         path_loss_imt = np.array([
             [74.49, 79.50, 90.43, 93.11],
             [90.81, 91.87, 72.25, 83.69],
@@ -216,12 +220,12 @@ class SimulationDownlinkTvroTest(unittest.TestCase):
         tx_power = 46 - 10 * np.log10(2)
         npt.assert_allclose(
             self.simulation.bs.tx_power[0], np.array(
-            [tx_power, tx_power],
+                [tx_power, tx_power],
             ), atol=1e-2,
         )
         npt.assert_allclose(
             self.simulation.bs.tx_power[1], np.array(
-            [tx_power, tx_power],
+                [tx_power, tx_power],
             ), atol=1e-2,
         )
 
@@ -260,7 +264,9 @@ class SimulationDownlinkTvroTest(unittest.TestCase):
                 np.power(10, 0.1 * thermal_noise),
             )
         npt.assert_allclose(
-            self.simulation.ue.total_interference, total_interference, atol=1e-1,
+            self.simulation.ue.total_interference,
+            total_interference,
+            atol=1e-1,
         )
 
         # check SNR
@@ -298,7 +304,7 @@ class SimulationDownlinkTvroTest(unittest.TestCase):
             + self.param.imt.bs.ohmic_loss
 
         npt.assert_allclose(
-            self.simulation.coupling_loss_imt_system,
+            self.simulation.coupling_loss_imt_system_adjacent,
             coupling_loss_imt_system.reshape(-1, 1),
             atol=1e-1,
         )

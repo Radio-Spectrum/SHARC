@@ -20,7 +20,8 @@ class ParametersSpaceStation(ParametersBase):
     # Satellite bandwidth [MHz]
     bandwidth: float = 0.0  # Bandwidth of the satellite in MHz
 
-    # Off-nadir pointing angle [deg]. Should only be set if elevation is not set
+    # Off-nadir pointing angle [deg]. Should only be set if elevation is not
+    # set
     nadir_angle: float = 0.0  # Angle in degrees away from the nadir point
     # Elevation angle [deg]. Should only be set if nadir_angle is not set
     elevation: float = 0.0
@@ -85,7 +86,8 @@ class ParametersSpaceStation(ParametersBase):
             )
 
         if self.nadir_angle != 0 and self.elevation != 0:
-            raise ValueError("'elevation' and 'nadir_angle' should not both be set at the same time. Choose either\
+            raise ValueError(
+                "'elevation' and 'nadir_angle' should not both be set at the same time. Choose either\
                              parameter to set")
 
         # Check channel model
@@ -97,9 +99,13 @@ class ParametersSpaceStation(ParametersBase):
         if self.channel_model == "P619":
             # check necessary parameters for P619
             if None in [
-                self.param_p619, self.earth_station_alt_m, self.earth_station_lat_deg, self.earth_station_long_diff_deg,
+                self.param_p619,
+                self.earth_station_alt_m,
+                self.earth_station_lat_deg,
+                self.earth_station_long_diff_deg,
             ]:
-                raise ValueError("When using P619 should set 'self.earth_station_alt_m', 'self.earth_station_lat_deg',\
+                raise ValueError(
+                    "When using P619 should set 'self.earth_station_alt_m', 'self.earth_station_lat_deg',\
                                  'self.earth_station_long_diff_deg' deafult or on parameter file and 'param_p619' \
                                  on child class default")
             # Check season
@@ -111,6 +117,12 @@ class ParametersSpaceStation(ParametersBase):
         self.set_derived_parameters()
 
     def set_derived_parameters(self):
+        """
+        Set derived parameters for the space station.
+
+        This method sets the derived parameters such as space station altitude and nadir angle
+        based on the current configuration. It also updates the P619 parameters if applicable.
+        """
         self.space_station_alt_m = self.altitude
 
         if self.param_p619:
@@ -126,7 +138,8 @@ class ParametersSpaceStation(ParametersBase):
             )
         elif self.nadir_angle != 0.0:
             # this relationship comes directly from law of sines
-            # can also be derived from incidence angle according to Rec. ITU-R RS.1861-0
+            # can also be derived from incidence angle according to Rec. ITU-R
+            # RS.1861-0
             self.elevation = math.degrees(
                 math.asin(
                     (EARTH_RADIUS + self.altitude) *

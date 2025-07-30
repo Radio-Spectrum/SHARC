@@ -14,21 +14,23 @@ from sharc.parameters.parameters_antenna_with_diameter import ParametersAntennaW
 
 
 class AntennaReg_RR_A7_3Test(unittest.TestCase):
+    """Unit tests for the AntennaReg_RR_A7_3 class."""
 
     def setUp(self):
+        """Set up test fixtures for AntennaReg_RR_A7_3 tests."""
         self.antenna1_params = ParametersAntennaWithDiameter(
-                diameter=3,
-                frequency=10000,
-                antenna_gain=50,
+            diameter=3,
+            frequency=10000,
+            antenna_gain=50,
         )
 
         self.antenna1 = AntennaReg_RR_A7_3(
             self.antenna1_params,
         )
         self.antenna2_params = ParametersAntennaWithDiameter(
-                diameter=3,
-                frequency=4000,
-                antenna_gain=30,
+            diameter=3,
+            frequency=4000,
+            antenna_gain=30,
         )
         self.antenna2 = AntennaReg_RR_A7_3(
             self.antenna2_params,
@@ -42,7 +44,7 @@ class AntennaReg_RR_A7_3Test(unittest.TestCase):
         )
 
     def test_diameter_inference(self):
-        """Document specifies a diameter to assume for when no diameter is given"""
+        """Test diameter inference when no diameter is given."""
         self.assertAlmostEqual(
             20 * math.log10(self.antenna3.D_lmbda),
             self.antenna3_params.antenna_gain - 7.7,
@@ -50,24 +52,25 @@ class AntennaReg_RR_A7_3Test(unittest.TestCase):
         )
 
     def test_gain(self):
-        self.assertEqual(self.antenna1.peak_gain, self.antenna1_params.antenna_gain)
+        """Test gain and related properties of the antenna."""
+        self.assertEqual(
+            self.antenna1.peak_gain,
+            self.antenna1_params.antenna_gain)
         self.assertEqual(self.antenna1.D_lmbda, 100)
         self.assertEqual(self.antenna1.g1, 29)
         self.assertAlmostEqual(self.antenna1.phi_r, 1.000067391, delta=1e-11)
         self.assertAlmostEqual(self.antenna1.phi_m, 0.91651513899, delta=1e-11)
 
-        self.assertEqual(self.antenna2.peak_gain, self.antenna2_params.antenna_gain)
+        self.assertEqual(
+            self.antenna2.peak_gain,
+            self.antenna2_params.antenna_gain)
         self.assertEqual(self.antenna2.D_lmbda, 40)
         self.assertAlmostEqual(self.antenna2.g1, 19.0514997832, delta=1e-11)
         self.assertAlmostEqual(self.antenna2.phi_r, 2.5, delta=1e-11)
         self.assertAlmostEqual(self.antenna2.phi_m, 1.65442589867, delta=1e-11)
 
     def test_invalid_antenna(self):
-        """
-        The appendix 7 Annex 3 does not specify what should happen
-        in case phi_r < phi_m. We're throwing an error, but if you
-        happen to know that isn't an error, remove it and verify the behavior you want
-        """
+        """Test error is raised when phi_r < phi_m for the antenna."""
 
         with self.assertRaises(ValueError):
             AntennaReg_RR_A7_3(
@@ -79,6 +82,7 @@ class AntennaReg_RR_A7_3Test(unittest.TestCase):
             )
 
     def test_calculate_gain(self):
+        """Test calculate_gain method of the antenna."""
         # Test antenna1
         phi = [
             0.9,
@@ -88,14 +92,19 @@ class AntennaReg_RR_A7_3Test(unittest.TestCase):
             36,
             180,
         ]
-        expected = [
-            self.antenna1.peak_gain - 2.5 * 1e-3 * self.antenna1.D_lmbda * phi[0] * self.antenna1.D_lmbda * phi[0],
-            self.antenna1.g1,
-            29 - 25 * math.log10(phi[2]),
-            29 - 25 * math.log10(phi[3]),
-            -10,
-            -10,
-        ]
+        expected = [self.antenna1.peak_gain -
+                    2.5 *
+                    1e-3 *
+                    self.antenna1.D_lmbda *
+                    phi[0] *
+                    self.antenna1.D_lmbda *
+                    phi[0], self.antenna1.g1, 29 -
+                    25 *
+                    math.log10(phi[2]), 29 -
+                    25 *
+                    math.log10(phi[3]), -
+                    10, -
+                    10, ]
 
         # Test antenna2
         phi = [
@@ -107,15 +116,19 @@ class AntennaReg_RR_A7_3Test(unittest.TestCase):
             36,
             180,
         ]
-        expected = [
-            self.antenna2.peak_gain - 2.5 * 1e-3 * self.antenna2.D_lmbda * phi[0] * self.antenna2.D_lmbda * phi[0],
-            self.antenna2.g1,
-            self.antenna2.g1,
-            29 - 25 * math.log10(phi[3]),
-            29 - 25 * math.log10(phi[4]),
-            -10,
-            -10,
-        ]
+        expected = [self.antenna2.peak_gain -
+                    2.5 *
+                    1e-3 *
+                    self.antenna2.D_lmbda *
+                    phi[0] *
+                    self.antenna2.D_lmbda *
+                    phi[0], self.antenna2.g1, self.antenna2.g1, 29 -
+                    25 *
+                    math.log10(phi[3]), 29 -
+                    25 *
+                    math.log10(phi[4]), -
+                    10, -
+                    10, ]
 
         # Test antenna1
         gains2 = self.antenna2.calculate_gain(off_axis_angle_vec=phi)

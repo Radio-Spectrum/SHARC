@@ -7,23 +7,28 @@ Created on Mon Aug 21 12:17:34 2017
 
 import unittest
 import numpy as np
-import numpy.testing as npt
 from sharc.propagation.propagation_p619 import PropagationP619
 
 
 class DummyParams():
+    """Dummy parameters for testing PropagationP619."""
+
     def __init__(self):
+        """Initialize dummy parameters for PropagationP619 tests."""
         self.imt_altitude = 0
         self.surf_water_vapour_density = 0
         self.EARTH_RADIUS = 6371000
 
 
 class TestPropagationP619(unittest.TestCase):
+    """Unit tests for the PropagationP619 class."""
 
     def setUp(self):
+        """Set up test fixtures for PropagationP619 tests."""
         self.p619 = PropagationP619(np.random.RandomState())
 
     def test_atmospheric_gasses_loss(self):
+        """Test atmospheric gasses loss against ITU-R P-619 benchmark."""
         # compare with benchmark from ITU-R P-619 Fig. 3
         frequency_MHz = 30000.
         sat_params = DummyParams()
@@ -52,6 +57,7 @@ class TestPropagationP619(unittest.TestCase):
             self.assertGreaterEqual(loss_upper, loss)
 
     def test_beam_spreading_attenuation(self):
+        """Test beam spreading attenuation against ITU-R P-619 benchmark."""
         # compare with benchmark from ITU-R P-619 Fig. 7
 
         altitude_vec = np.array([0, 1, 2, 3, 4, 6]) * 1000

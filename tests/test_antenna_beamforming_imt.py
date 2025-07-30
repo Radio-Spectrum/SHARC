@@ -12,16 +12,16 @@ import numpy.testing as npt
 from sharc.antenna.antenna_beamforming_imt import AntennaBeamformingImt
 from sharc.parameters.imt.parameters_antenna_imt import ParametersAntennaImt
 from sharc.support.named_tuples import AntennaPar
-from sharc.support.enumerations import StationType
 
 
 class AntennaBeamformingImtTest(unittest.TestCase):
+    """Unit tests for the AntennaBeamformingImt class."""
 
     def setUp(self):
+        """Set up test fixtures for AntennaBeamformingImt tests."""
         # Array parameters
         self.bs_param = ParametersAntennaImt()
         self.ue_param = ParametersAntennaImt()
-
         self.bs_param.adjacent_antenna_model = "SINGLE_ELEMENT"
         self.ue_param.adjacent_antenna_model = "SINGLE_ELEMENT"
         self.bs_param.normalization = False
@@ -29,7 +29,6 @@ class AntennaBeamformingImtTest(unittest.TestCase):
         self.bs_param.element_pattern = "M2101"
         self.bs_param.minimum_array_gain = -200
         self.bs_param.downtilt = 0
-
         self.bs_param.element_max_g = 5
         self.bs_param.element_phi_3db = 80
         self.bs_param.element_theta_3db = 60
@@ -40,12 +39,10 @@ class AntennaBeamformingImtTest(unittest.TestCase):
         self.bs_param.element_horiz_spacing = 1
         self.bs_param.element_vert_spacing = 1
         self.bs_param.multiplication_factor = 12
-
         self.ue_param.element_pattern = "M2101"
         self.ue_param.normalization = False
         self.ue_param.normalization_file = None
         self.ue_param.minimum_array_gain = -200
-
         self.ue_param.element_max_g = 10
         self.ue_param.element_phi_3db = 75
         self.ue_param.element_theta_3db = 65
@@ -56,7 +53,6 @@ class AntennaBeamformingImtTest(unittest.TestCase):
         self.ue_param.element_horiz_spacing = 0.5
         self.ue_param.element_vert_spacing = 0.5
         self.ue_param.multiplication_factor = 12
-
         # Create antenna objects
         par = self.bs_param.get_antenna_parameters()
         self.antenna1 = AntennaBeamformingImt(par, 300, -10)
@@ -64,58 +60,72 @@ class AntennaBeamformingImtTest(unittest.TestCase):
         self.antenna2 = AntennaBeamformingImt(par, -33.21, -5.31)
 
     def test_azimuth(self):
+        """Test azimuth property of the antenna."""
         self.assertEqual(self.antenna1.azimuth, 300)
         self.assertEqual(self.antenna2.azimuth, -33.21)
 
     def test_elevation(self):
+        """Test elevation property of the antenna."""
         self.assertEqual(self.antenna1.elevation, -10)
         self.assertEqual(self.antenna2.elevation, -5.31)
 
     def test_g_max(self):
+        """Test maximum element gain property."""
         self.assertEqual(self.antenna1.element.g_max, 5)
         self.assertEqual(self.antenna2.element.g_max, 10)
 
     def test_phi_3db(self):
+        """Test phi_3db property of the antenna element."""
         self.assertEqual(self.antenna1.element.phi_3db, 80)
         self.assertEqual(self.antenna2.element.phi_3db, 75)
 
     def test_theta_3db(self):
+        """Test theta_3db property of the antenna element."""
         self.assertEqual(self.antenna1.element.theta_3db, 60)
         self.assertEqual(self.antenna2.element.theta_3db, 65)
 
     def test_am(self):
+        """Test amplitude (am) property of the antenna element."""
         self.assertEqual(self.antenna1.element.am, 30)
         self.assertEqual(self.antenna2.element.am, 25)
 
     def test_sla_v(self):
+        """Test side lobe attenuation (sla_v) property."""
         self.assertEqual(self.antenna1.element.sla_v, 30)
         self.assertEqual(self.antenna2.element.sla_v, 35)
 
     def test_n_rows(self):
+        """Test number of rows in the antenna array."""
         self.assertEqual(self.antenna1.n_rows, 16)
         self.assertEqual(self.antenna2.n_rows, 2)
 
     def test_n_cols(self):
+        """Test number of columns in the antenna array."""
         self.assertEqual(self.antenna1.n_cols, 16)
         self.assertEqual(self.antenna2.n_cols, 2)
 
     def test_dh(self):
+        """Test horizontal spacing (dh) property."""
         self.assertEqual(self.antenna1.dh, 1)
         self.assertEqual(self.antenna2.dh, 0.5)
 
     def test_dv(self):
+        """Test vertical spacing (dv) property."""
         self.assertEqual(self.antenna1.dv, 1)
         self.assertEqual(self.antenna2.dv, 0.5)
 
     def test_beams_list(self):
+        """Test beams_list property of the antenna."""
         self.assertEqual(len(self.antenna1.beams_list), 0)
         self.assertEqual(len(self.antenna2.beams_list), 0)
 
     def test_w_vec_list(self):
+        """Test w_vec_list property of the antenna."""
         self.assertEqual(len(self.antenna1.w_vec_list), 0)
         self.assertEqual(len(self.antenna2.w_vec_list), 0)
 
     def test_super_position_vector(self):
+        """Test calculation of the superposition vector."""
         # Error margin
         eps = 1e-5
 
@@ -198,6 +208,7 @@ class AntennaBeamformingImtTest(unittest.TestCase):
         )
 
     def test_weight_vector(self):
+        """Test calculation of the weight vector for beamforming."""
         # Error margin
         eps = 1e-5
 
@@ -298,6 +309,7 @@ class AntennaBeamformingImtTest(unittest.TestCase):
         )
 
     def test_add_beam(self):
+        """Test adding a beam to the antenna and updating lists."""
         # Error margin and antenna object
         eps = 1e-5
         par = self.ue_param.get_antenna_parameters()
@@ -367,6 +379,7 @@ class AntennaBeamformingImtTest(unittest.TestCase):
         self.assertEqual(len(self.antenna2.w_vec_list), 0)
 
     def test_beam_gain(self):
+        """Test calculation of beam gain for given angles and beam index."""
         # Error margin and antenna
         eps = 1e-4
         par = self.ue_param.get_antenna_parameters()
@@ -399,6 +412,7 @@ class AntennaBeamformingImtTest(unittest.TestCase):
         self.assertAlmostEqual(beam_g, 11.9636, delta=eps)
 
     def test_calculate_gain(self):
+        """Test calculation of antenna gain for given phi/theta vectors."""
         # Error margin and antenna
         eps = 1e-4
         par = self.bs_param.get_antenna_parameters()
@@ -437,6 +451,7 @@ class AntennaBeamformingImtTest(unittest.TestCase):
         npt.assert_allclose(gains, np.array([1.6667]), atol=eps)
 
     def test_normalization(self):
+        """Test normalization logic for the antenna pattern."""
         # Create dummy normalization data
         adjacent_antenna_model = "SINGLE_ELEMENT"
         normalization = True
@@ -525,6 +540,7 @@ class AntennaBeamformingImtTest(unittest.TestCase):
         npt.assert_equal(gain, gain_ref + 5)
 
     def test_to_local_coord(self):
+        """Test conversion of global to local coordinates for the antenna."""
         # Test 1
         # Create antenna object
         par = self.bs_param.get_antenna_parameters()

@@ -7,10 +7,20 @@ import csv
 
 # Command line argument parser
 parser = argparse.ArgumentParser(description="Generate and plot results.")
-parser.add_argument("--auto_open", action="store_true", default=False, help="Set this flag to open plots in a browser.")
-parser.add_argument("--scenario", type=int, choices=[0, 1], required=True,
-                    help="Scenario parameter: 0 or 1. 0 for MSS-D2D to IMT-UL/DL,"
-                    "1 for MSS-D2D to IMT-UL/DL with varying latitude.")
+parser.add_argument(
+    "--auto_open",
+    action="store_true",
+    default=False,
+    help="Set this flag to open plots in a browser.")
+parser.add_argument(
+    "--scenario",
+    type=int,
+    choices=[
+        0,
+        1],
+    required=True,
+    help="Scenario parameter: 0 or 1. 0 for MSS-D2D to IMT-UL/DL,"
+    "1 for MSS-D2D to IMT-UL/DL with varying latitude.")
 args = parser.parse_args()
 scenario = args.scenario
 auto_open = args.auto_open
@@ -53,15 +63,17 @@ if scenario == 0:
             legend="MSS-D2D to IMT-UL (AAS, K=6)"
         )
 elif scenario == 1:
-    many_results = Results.load_many_from_dir(os.path.join(campaign_base_dir, "output"),
-                                              filter_fn=lambda x: "_lat_" in x,
-                                              only_latest=True)
+    many_results = Results.load_many_from_dir(
+        os.path.join(
+            campaign_base_dir,
+            "output"),
+        filter_fn=lambda x: "_lat_" in x,
+        only_latest=True)
     for link in ["ul", "dl"]:
         for i in range(0, 70, 10):
             post_processor.add_plot_legend_pattern(
                 dir_name_contains="_lat_" + link + "_" + str(i) + "_deg",
-                legend="IMT-Link=" + link.upper() + " latitude=" + str(i) + "deg"
-            )
+                legend="IMT-Link=" + link.upper() + " latitude=" + str(i) + "deg")
 else:
     raise ValueError("Invalid scenario. Choose 0 or 1.")
 
@@ -139,13 +151,27 @@ with open(csv_file, mode="w", newline="") as file:
 file = os.path.join(campaign_base_dir, "output", "imt_dl_ul_inr.html")
 imt_dl_inr.write_html(file=file, include_plotlyjs="cdn", auto_open=auto_open)
 
-file = os.path.join(campaign_base_dir, "output", "imt_system_antenna_gain.html")
-imt_system_antenna_gain = post_processor.get_plot_by_results_attribute_name("imt_system_antenna_gain")
-imt_system_antenna_gain.write_html(file=file, include_plotlyjs="cdn", auto_open=auto_open)
+file = os.path.join(
+    campaign_base_dir,
+    "output",
+    "imt_system_antenna_gain.html")
+imt_system_antenna_gain = post_processor.get_plot_by_results_attribute_name(
+    "imt_system_antenna_gain")
+imt_system_antenna_gain.write_html(
+    file=file,
+    include_plotlyjs="cdn",
+    auto_open=auto_open)
 
-file = os.path.join(campaign_base_dir, "output", "system_imt_antenna_gain.html")
-system_imt_antenna_gain = post_processor.get_plot_by_results_attribute_name("system_imt_antenna_gain")
-system_imt_antenna_gain.write_html(file=file, include_plotlyjs="cdn", auto_open=auto_open)
+file = os.path.join(
+    campaign_base_dir,
+    "output",
+    "system_imt_antenna_gain.html")
+system_imt_antenna_gain = post_processor.get_plot_by_results_attribute_name(
+    "system_imt_antenna_gain")
+system_imt_antenna_gain.write_html(
+    file=file,
+    include_plotlyjs="cdn",
+    auto_open=auto_open)
 
 # Export imt_dl_inr trace to CSV
 csv_file = os.path.join(campaign_base_dir, "output", "system_imt_antenna_gain_trace.csv")

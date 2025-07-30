@@ -3,14 +3,15 @@
 
 import unittest
 import numpy as np
-import numpy.testing as npt
 from sharc.parameters.parameters_p452 import ParametersP452
 from sharc.propagation.propagation_clear_air_452 import PropagationClearAir
 
 
 class PropagationClearAirTest(unittest.TestCase):
+    """Unit tests for the PropagationClearAir class and its loss calculations."""
 
     def setUp(self):
+        """Set up test fixtures for PropagationClearAir tests."""
         param_p452 = ParametersP452()
         # param_p452.atmospheric_pressure = 1013
         # param_p452.air_temperature = 288
@@ -31,7 +32,7 @@ class PropagationClearAirTest(unittest.TestCase):
         )
 
     def test_loss(self):
-
+        """Test the get_loss method for clear air propagation loss calculation."""
         # distance between stations in meters
         distances = np.ones((1, 1), dtype=float) * 1000
         frequencies = np.ones((1, 1), dtype=float) * 27000  # frequency in MHz
@@ -40,8 +41,9 @@ class PropagationClearAirTest(unittest.TestCase):
         elevations = np.zeros((1, 1), dtype=float)
         tx_gain = np.ones((1, 1), dtype=float) * 0
         rx_gain = np.ones((1, 1), dtype=float) * 0
-
-        loss = self.prop_clear_air.get_loss(
+        # The following line is for coverage; no assertion due to lack of
+        # reference value
+        self.prop_clear_air.get_loss(
             distances,
             frequencies,
             indoor_stations,
@@ -53,7 +55,8 @@ class PropagationClearAirTest(unittest.TestCase):
 
     #    Ld50, Ldbeta, Ldb = self.__Diffraction.get_loss(beta = Beta, distance=d, frequency=f, atmospheric_pressure=Ph,
     # air_temperature=T, water_vapour=ro, delta_N=deltaN, Hrs=hrs, Hts=hts, Hte=hte, Hre=hre, Hsr=hsr, Hst=hst, H0=h0,
-    # Hn=hn, dist_di=di, hight_hi=hi, omega=omega, Dlt=dlt ,Dlr=dlr, percentage_p=p)
+    # Hn=hn, dist_di=di, hight_hi=hi, omega=omega, Dlt=dlt ,Dlr=dlr,
+    # percentage_p=p)
 
     #    npt.assert_allclose(158.491,Ldb,atol=1e-3)
 

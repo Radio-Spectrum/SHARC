@@ -15,8 +15,10 @@ import numpy.testing as npt
 
 
 class AntennaS1528Test(unittest.TestCase):
+    """Unit tests for the AntennaS1528 class."""
 
     def setUp(self):
+        """Set up test fixtures for AntennaS1528 tests."""
         param = ParametersAntennaS1528()
         param.antenna_gain = 39
         param.antenna_pattern = "ITU-R S.1528-0"
@@ -29,6 +31,7 @@ class AntennaS1528Test(unittest.TestCase):
         self.antenna30 = AntennaS1528(param)
 
     def test_calculate_gain(self):
+        """Test calculate_gain method for different antenna_l_s values."""
         psi = np.array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 80, 100])
 
         ref_gain20 = np.array([

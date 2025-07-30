@@ -18,9 +18,12 @@ from sharc.support.sharc_geom import GeometryConverter
 
 
 class TopologyFactory(object):
+    """Factory class for creating topology objects based on parameters."""
 
     @staticmethod
-    def createTopology(parameters: Parameters, geometry_converter: GeometryConverter) -> Topology:
+    def createTopology(parameters: Parameters,
+                       geometry_converter: GeometryConverter) -> Topology:
+        """Create and return a topology object based on the provided parameters."""
         if parameters.imt.topology.type == "SINGLE_BS":
             return TopologySingleBaseStation(
                 parameters.imt.topology.single_bs.cell_radius,

@@ -5,10 +5,14 @@ from sharc.support.enumerations import StationType
 
 
 class TestPropagationClutterLoss(unittest.TestCase):
+    """Unit tests for the PropagationClutterLoss class and its loss calculations."""
+
     def setUp(self):
+        """Set up test fixtures for PropagationClutterLoss tests."""
         self.clutter_loss = PropagationClutterLoss(np.random.RandomState(42))
 
     def test_spatial_clutter_loss(self):
+        """Test spatial clutter loss for different elevations and location percentages."""
         frequency = np.array([27000])  # MHz
         elevation = np.array([0, 45, 90])
         loc_percentage = np.array([0.1, 0.5, 0.9])
@@ -29,6 +33,7 @@ class TestPropagationClutterLoss(unittest.TestCase):
         self.assertTrue(loss[0] >= loss[1] >= loss[2])
 
     def test_terrestrial_clutter_loss(self):
+        """Test terrestrial clutter loss for different frequencies and distances."""
         frequency = np.array([2000, 6000])  # MHz
         distance = np.array([500, 2000])  # meters
         # Using a single value for location percentage
@@ -46,6 +51,7 @@ class TestPropagationClutterLoss(unittest.TestCase):
         self.assertTrue(loss[1] >= loss[0])
 
     def test_random_loc_percentage(self):
+        """Test clutter loss calculation with random location percentage."""
         frequency = np.array([4000])  # MHz
         distance = np.array([1000])  # meters
 

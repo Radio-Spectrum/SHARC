@@ -9,6 +9,9 @@ from sharc.support.enumerations import StationType
 
 
 class Station(object):
+    """
+    Represents a communication station with position, antenna, and signal properties.
+    """
 
     def __init__(self):
         self.id = -1

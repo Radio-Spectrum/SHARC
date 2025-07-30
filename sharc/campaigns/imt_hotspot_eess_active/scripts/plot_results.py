@@ -1,3 +1,7 @@
+"""
+Script for post-processing and plotting IMT Hotspot EESS Active simulation results.
+Adds legends to result folders and generates plots using SHARC's PostProcessor.
+"""
 import os
 from pathlib import Path
 from sharc.results import Results
@@ -20,7 +24,11 @@ post_processor\
 
 campaign_base_dir = str((Path(__file__) / ".." / "..").resolve())
 
-many_results = Results.load_many_from_dir(os.path.join(campaign_base_dir, "output"), only_latest=True)
+many_results = Results.load_many_from_dir(
+    os.path.join(
+        campaign_base_dir,
+        "output"),
+    only_latest=True)
 
 post_processor.add_results(many_results)
 
@@ -54,7 +62,12 @@ relevant = post_processor\
 aggr_x, aggr_y = PostProcessor.cdf_from(aggregated_results)
 
 relevant.add_trace(
-    go.Scatter(x=aggr_x, y=aggr_y, mode='lines', name='Aggregate interference',),
+    go.Scatter(
+        x=aggr_x,
+        y=aggr_y,
+        mode='lines',
+        name='Aggregate interference',
+    ),
 )
 
 compare_to = pandas.read_csv(

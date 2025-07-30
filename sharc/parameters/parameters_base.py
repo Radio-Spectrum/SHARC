@@ -10,7 +10,9 @@ def tuple_constructor(loader, node):
     return tuple(values)
 
 
-yaml.SafeLoader.add_constructor('tag:yaml.org,2002:python/tuple', tuple_constructor)
+yaml.SafeLoader.add_constructor(
+    'tag:yaml.org,2002:python/tuple',
+    tuple_constructor)
 
 
 @dataclass
@@ -24,7 +26,8 @@ class ParametersBase:
     # TODO: make every system have this be True and remove this attribute
     nested_parameters_enabled: bool = False
 
-    # TODO: make this be directly called as the default load method, after reading .yml file
+    # TODO: make this be directly called as the default load method, after
+    # reading .yml file
     def load_subparameters(self, ctx: str, params: dict, quiet=True):
         """
             ctx: provides information on what subattribute is being parsed.
@@ -33,17 +36,15 @@ class ParametersBase:
             quiet: if True the parser will not warn about unset paramters
         """
         # Load all the parameters from the configuration file
-        attr_list = [
-            a for a in dir(self) if not a.startswith('_') and not callable(getattr(self, a)) and a not in
-                    ["section_name", "nested_parameters_enabled",]]
+        attr_list = [a for a in dir(self) if not a.startswith('_') and not callable(
+            getattr(self, a)) and a not in ["section_name", "nested_parameters_enabled",]]
 
         params_keys = params.keys()
 
         for k in params_keys:
             if k not in attr_list:
                 raise ValueError(
-                    f"The parameter {ctx}.{k} was passed, but it doesn't exist on parameters definitions!"
-                )
+                    f"The parameter {ctx}.{k} was passed, but it doesn't exist on parameters definitions!")
 
         for attr_name in attr_list:
             default_attr_value = getattr(self, attr_name)
@@ -56,8 +57,8 @@ class ParametersBase:
             elif isinstance(default_attr_value, ParametersBase):
                 if not isinstance(params[attr_name], dict):
                     raise ValueError(
-                        f"ERROR: Cannot parse section {ctx}.{attr_name}, is {params[attr_name]} instead of a dictionary",
-                    )
+                        f"ERROR: Cannot parse section {ctx}.{attr_name}, is {
+                            params[attr_name]} instead of a dictionary", )
 
                 # try to recursively set config
                 # is a bit hacky and limits some stuff, since it doesn't know the context it is in
@@ -103,9 +104,8 @@ class ParametersBase:
             ctx: context string. It should be a string that gives more information about where
                 validation is being called on, so that errors may be better handled/alerted
         """
-        attr_list = [
-            a for a in dir(self) if not a.startswith('_') and isinstance(getattr(self, a), ParametersBase)
-        ]
+        attr_list = [a for a in dir(self) if not a.startswith(
+            '_') and isinstance(getattr(self, a), ParametersBase)]
 
         for attr in attr_list:
             getattr(self, attr).validate(f"{ctx}.{attr}")
@@ -131,7 +131,9 @@ class ParametersBase:
 
         if self.section_name.lower() not in config.keys():
             if not quiet:
-                print(f"ParameterBase: section {self.section_name} not in parameter file.\
+                print(
+                    f"ParameterBase: section {
+                        self.section_name} not in parameter file.\
                     Only default parameters where loaded.")
             return
 
@@ -146,8 +148,8 @@ class ParametersBase:
         for k in params_keys:
             if k not in attr_list:
                 raise ValueError(
-                    f"The parameter {self.section_name}.{k} was passed, but it doesn't exist on parameters definitions!"
-                )
+                    f"The parameter {
+                        self.section_name}.{k} was passed, but it doesn't exist on parameters definitions!")
 
         for attr_name in attr_list:
             try:
@@ -164,8 +166,8 @@ class ParametersBase:
                         # its a regular string. Let the specific class implementation
                         # do the sanity check
                         print(
-                            f"ParametersBase: could not convert string to tuple \"{self.section_name}.{attr_name}\"",
-                        )
+                            f"ParametersBase: could not convert string to tuple \"{
+                                self.section_name}.{attr_name}\"", )
                         exit()
 
                 # TODO: make every parameters use this way of setting its own attributes, and remove
@@ -175,7 +177,8 @@ class ParametersBase:
                     if not self.nested_parameters_enabled:
                         continue
 
-                    if not isinstance(config[self.section_name][attr_name], dict):
+                    if not isinstance(
+                            config[self.section_name][attr_name], dict):
                         raise ValueError(
                             f"ERROR: Cannot parse section {self.section_name}.{attr_name}, is \
                                 {config[self.section_name][attr_name]} instead of a dictionary",
@@ -183,18 +186,19 @@ class ParametersBase:
 
                     # try to recursively set config
                     # is a bit hacky and limits some stuff, since it doesn't know the context it is in
-                    # for example, it cannot get system frequency to set some value
+                    # for example, it cannot get system frequency to set some
+                    # value
                     attr_val.load_subparameters(
                         f"{self.section_name}.{attr_name}", config[self.section_name][attr_name],
                     )
                 elif isinstance(attr_val, list):
                     if not self.nested_parameters_enabled:
                         continue
-                    if not isinstance(config[self.section_name][attr_name], list):
+                    if not isinstance(
+                            config[self.section_name][attr_name], list):
                         raise ValueError(
                             f"ERROR: Cannot parse section {self.section_name}.{attr_name}, is \
-                                {config[self.section_name][attr_name]} instead of a list",
-                        )
+                                {config[self.section_name][attr_name]} instead of a list", )
                     loaded_attr_vals = list()
                     default_item = attr_val[0]
                     for params in config[self.section_name][attr_name]:
@@ -214,6 +218,6 @@ class ParametersBase:
             except KeyError:
                 if not quiet:
                     print(
-                        f"ParametersBase: NOTICE! Configuration parameter \"{self.section_name}.{attr_name}\" \
-                            is not set in configuration file. Using default value {attr_val}",
-                    )
+                        f"ParametersBase: NOTICE! Configuration parameter \"{
+                            self.section_name}.{attr_name}\" \
+                            is not set in configuration file. Using default value {attr_val}", )

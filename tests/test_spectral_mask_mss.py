@@ -13,7 +13,10 @@ from sharc.mask.spectral_mask_mss import SpectralMaskMSS
 
 
 class SpectalMaskMSSTest(unittest.TestCase):
+    """Unit tests for the SpectralMaskMSS class and its power calculation method."""
+
     def test_power_calc(self):
+        """Test power calculation for the MSS spectral mask at a given frequency and bandwidth."""
         # Test 1
         p_tx_density = -30  # dBW / Hz
         freq = 2190
@@ -36,7 +39,7 @@ class SpectalMaskMSSTest(unittest.TestCase):
 
         should_eq = np.zeros(2 * N)
         eq = np.zeros(2 * N)
-        spurious_start = 2 * band
+        # spurious_start = 2 * band  # Unused variable removed
         for i in range(N):
             f_offset = band / 2 + i * 4e-3
 

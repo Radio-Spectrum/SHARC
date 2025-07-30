@@ -10,12 +10,13 @@ import unittest
 
 from sharc.antenna.antenna_element_imt_m2101 import AntennaElementImtM2101
 from sharc.parameters.imt.parameters_antenna_imt import ParametersAntennaImt
-from sharc.support.enumerations import StationType
 
 
 class AntennaImtTest(unittest.TestCase):
+    """Unit tests for the AntennaElementImtM2101 class."""
 
     def setUp(self):
+        """Set up test fixtures for AntennaElementImtM2101 tests."""
         # Element parameters
         self.ue_param = ParametersAntennaImt()
         self.bs_param = ParametersAntennaImt()
@@ -61,26 +62,32 @@ class AntennaImtTest(unittest.TestCase):
         self.antenna2 = AntennaElementImtM2101(par)
 
     def test_g_max(self):
+        """Test maximum element gain property."""
         self.assertEqual(self.antenna1.g_max, 5)
         self.assertEqual(self.antenna2.g_max, 10)
 
     def test_phi_3db(self):
+        """Test phi_3db property of the antenna element."""
         self.assertEqual(self.antenna1.phi_3db, 80)
         self.assertEqual(self.antenna2.phi_3db, 75)
 
     def test_theta_3db(self):
+        """Test theta_3db property of the antenna element."""
         self.assertEqual(self.antenna1.theta_3db, 60)
         self.assertEqual(self.antenna2.theta_3db, 65)
 
     def test_am(self):
+        """Test amplitude (am) property of the antenna element."""
         self.assertEqual(self.antenna1.am, 30)
         self.assertEqual(self.antenna2.am, 25)
 
     def test_sla_v(self):
+        """Test side lobe attenuation (sla_v) property."""
         self.assertEqual(self.antenna1.sla_v, 30)
         self.assertEqual(self.antenna2.sla_v, 35)
 
     def test_horizontal_pattern(self):
+        """Test horizontal pattern calculation for various phi values."""
         # phi = 0 results in zero gain
         phi = 0
         h_att = self.antenna1.horizontal_pattern(phi)
@@ -103,6 +110,7 @@ class AntennaImtTest(unittest.TestCase):
         self.assertTrue(np.all(h_att == np.array([0.0, -27.0, -30.0])))
 
     def test_vertical_pattern(self):
+        """Test vertical pattern calculation for various theta values."""
         # theta = 90 results in zero gain
         theta = 90
         v_att = self.antenna1.vertical_pattern(theta)
@@ -126,6 +134,7 @@ class AntennaImtTest(unittest.TestCase):
         self.assertTrue(np.all(v_att == np.array([0.0, -27.0, -30.0])))
 
     def test_element_pattern(self):
+        """Test element pattern calculation for various phi/theta values."""
         # theta = 0 and phi = 90 result in maximum gain
         phi = 0
         theta = 90

@@ -1,7 +1,7 @@
 general:
     ###########################################################################
     # Number of simulation snapshots
-    num_snapshots: 10000
+    num_snapshots: 1000
     ###########################################################################
     # IMT link that will be simulated (DOWNLINK or UPLINK)
     imt_link: UPLINK
@@ -36,7 +36,7 @@ imt:
     interfered_with: TRUE
     ###########################################################################
     # IMT center frequency [MHz]
-    frequency: 2160.0
+    frequency: 2300.0
     ###########################################################################
     # IMT bandwidth [MHz]
     bandwidth: 20.0
@@ -81,7 +81,7 @@ imt:
             # Inter-site distance or Cell Radius in single Base Station network topology [m]
             # You can either provide 'cell_radius' or 'intersite_distance' for this topology
             # The relationship used is cell_radius = intersite_distance * 2 / 3
-            cell_radius: 250
+            cell_radius: 400
             # intersite_distance: 1
             ###########################################################################
             # Number of clusters in single base station topology
@@ -137,7 +137,7 @@ imt:
                 ###########################################################################
                 # Radiation pattern of each antenna element
                 # Possible values: "M2101", "F1336", "FIXED"
-                element_pattern: M2101
+                element_pattern: F1336
                 ###########################################################################
                 # Minimum array gain for the beamforming antenna [dBi]
                 minimum_array_gain: -200
@@ -160,10 +160,10 @@ imt:
                 element_theta_3db: 0
                 ###########################################################################
                 # BS/UE number of rows in antenna array
-                n_rows: 4
+                n_rows: 1
                 ###########################################################################
                 # BS/UE number of columns in antenna array
-                n_columns: 8
+                n_columns: 1
                 ###########################################################################
                 # BS/UE array horizontal element spacing (d/lambda)
                 element_horiz_spacing: 0.5
@@ -209,12 +209,12 @@ imt:
         #                                   given distributions for angle and
         #                                   distance. In this case, these must be
         #                                   defined later.
-        distribution_type: UNIFORM_IN_CELL
+        distribution_type: ANGLE_AND_DISTANCE
         ###########################################################################
         # Regarding the distribution of active UE's over the cell area, this
         # parameter models the distance between UE's and BS.
         # Possible values: RAYLEIGH, UNIFORM
-        distribution_distance: RAYLEIGH
+        distribution_distance: SQRT(UNIFORM)
         ###########################################################################
         # Regarding the distribution of active UE's over the cell area, this
         # parameter models the azimuth between UE and BS (within ±60° range).
@@ -378,13 +378,13 @@ mss_d2d:
     # chosen spectral Mask
     spectral_mask: 3GPP E-UTRA
     # MSS_D2D system center frequency in MHz
-    frequency: 2160.0
+    frequency: 2300.0
     # MSS_D2d system bandwidth in MHz
     bandwidth: 5.0
     # MSS_D2D cell radius in network topology [m]
     cell_radius: 39475.0
     # Satellite power density in dBW/Hz
-    tx_power_density: -54.2
+    tx_power_density: -52.2
     # Number of sectors
     num_sectors: 1
     # conditional to select active satellites

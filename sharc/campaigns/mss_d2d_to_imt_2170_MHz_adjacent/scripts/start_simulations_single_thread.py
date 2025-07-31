@@ -1,0 +1,16 @@
+
+"""Script to start MSS D2D to IMT cross-border campaign simulations in single-threaded mode."""
+from sharc.run_multiple_campaigns import run_campaign_re
+
+# Set the campaign name
+# The name of the campaign to run. This should match the name of the
+# campaign directory.
+name_campaign = "mss_d2d_to_imt_2170_MHz_adjacent"
+
+# Run the campaign in single-thread mode
+# This function will execute the campaign with the given name in a single-threaded manner.
+# It will look for the campaign directory under the specified name and
+# start the necessary processes.
+run_campaign_re(
+    name_campaign,
+    r'^parameters_mss_d2d_to_imt_2170MHz_adjacent_0km_random_pointing_1beam_dl.yaml')

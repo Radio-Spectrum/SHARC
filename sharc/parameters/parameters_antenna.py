@@ -28,7 +28,8 @@ class ParametersAntenna(ParametersBase):
         "ITU-R-S.1528-Section1.2",
         "ITU-R-S.1528-LEO",
         "MSS Adjacent",
-        "ITU-R S.672"]
+        "ITU-R S.672",
+        "ITU-R F.1245_fs"]
 
     # chosen antenna radiation pattern
     pattern: typing.Literal["OMNI",
@@ -43,7 +44,8 @@ class ParametersAntenna(ParametersBase):
                             "ITU-R-S.1528-Section1.2",
                             "ITU-R-S.1528-LEO",
                             "MSS Adjacent",
-                            "ITU-R S.672"] = None
+                            "ITU-R S.672",
+                            "ITU-R F.1245_fs"] = None
 
     # antenna gain [dBi]
     gain: float = None
@@ -74,6 +76,19 @@ class ParametersAntenna(ParametersBase):
 
     itu_reg_rr_a7_3: ParametersAntennaWithDiameter = field(
         default_factory=ParametersAntennaWithDiameter,
+    )
+
+    @dataclass
+    class ParametersAntennaRF1245(ParametersBase):
+        gain: float = -25
+        diameter: float = None
+
+        def validate(self, ctx):
+            if None in [self.gain, self.diameter]:
+                raise ValueError(f"{ctx}.antenna_3_dB should be set to a number")
+            
+    itu_r_f_1245_fs: ParametersAntennaRF1245 = field(
+        default_factory=ParametersAntennaRF1245,
     )
 
     @dataclass
@@ -198,6 +213,8 @@ class ParametersAntenna(ParametersBase):
                 self.itu_r_s_1528.validate(f"{ctx}.itu_r_s_1528")
             case "ITU-R-S.1528-LEO":
                 self.itu_r_s_1528.validate(f"{ctx}.itu_r_s_1528")
+            case "ITU-R F.1245_fs":
+                self.itu_r_f_1245_fs.validate(f"{ctx}.itu_r_f_1245")
             case "MSS Adjacent":
                 self.mss_adjacent.validate(f"{ctx}.mss_adjacent")
             case _:

@@ -11,6 +11,7 @@ from sharc.antenna.antenna_s580 import AntennaS580
 from sharc.antenna.antenna_s1528 import AntennaS1528
 from sharc.antenna.antenna_s1855 import AntennaS1855
 from sharc.antenna.antenna_s672 import AntennaS672
+from sharc.antenna.antenna_f1245_fs import Atenna_f1245_fs
 from sharc.antenna.antenna_s1528 import AntennaS1528, AntennaS1528Leo, AntennaS1528Taylor
 from sharc.antenna.antenna_beamforming_imt import AntennaBeamformingImt
 
@@ -46,6 +47,8 @@ class AntennaFactory():
                 return AntennaS465(antenna_params.itu_r_s_465_modified)
             case "ITU-R S.1855":
                 return AntennaS1855(antenna_params.itu_r_s_1855)
+            case "ITU-R F.1245_fs":
+                return Atenna_f1245_fs(antenna_params.itu_f_1245_fs)
             case "ITU-R Reg. RR. Appendice 7 Annex 3":
                 return AntennaReg_RR_A7_3(antenna_params.itu_reg_rr_a7_3)
             case "MSS Adjacent":

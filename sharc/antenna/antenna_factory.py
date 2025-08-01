@@ -10,6 +10,7 @@ from sharc.antenna.antenna_rra7_3 import AntennaReg_RR_A7_3
 from sharc.antenna.antenna_s580 import AntennaS580
 from sharc.antenna.antenna_s1528 import AntennaS1528
 from sharc.antenna.antenna_s1855 import AntennaS1855
+from sharc.antenna.antenna_s672 import AntennaS672
 from sharc.antenna.antenna_s1528 import AntennaS1528, AntennaS1528Leo, AntennaS1528Taylor
 from sharc.antenna.antenna_beamforming_imt import AntennaBeamformingImt
 
@@ -35,6 +36,8 @@ class AntennaFactory():
                 return AntennaS1528Leo(antenna_params.itu_r_s_1528)
             case "ITU-R-S.1528-Section1.2":
                 return AntennaS1528(antenna_params.itu_r_s_1528)
+            case "ITU-R S.672":
+                return AntennaS672(antenna_params.itu_r_s_672)
             case "ITU-R S.465":
                 return AntennaS465(antenna_params.itu_r_s_465)
             case "ITU-R S.580":

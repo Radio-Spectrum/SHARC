@@ -477,94 +477,56 @@ imt:
         #   (positive if space-station is to the East of earth-station)
         earth_station_long_diff_deg: 0
 #### System Parameters
-mss_d2d:
-    # MSS_D2D system name
-    name: SystemA
-    # Adjacent channel emissions type
-    # Possible values are "ACLR", "SPECTRAL_MASK" and "OFF"
-    adjacent_ch_emissions: SPECTRAL_MASK
-    # chosen spectral Mask
-    spectral_mask: 3GPP E-UTRA
-    # MSS_D2D system center frequency in MHz
-    frequency: 2172.5
-    # MSS_D2d system bandwidth in MHz
-    bandwidth: 5.0
-    # MSS_D2D cell radius in network topology [m]
-    cell_radius: 39475.0
-    # Satellite power density in dBW/Hz
-    tx_power_density: -54.2
-    # Polarization loss [dB]
-    # P.619 suggests 3dB polarization loss as good constant value for monte carlo
-    polarization_loss: 0
-    # Number of sectors
-    num_sectors: 19
-    # Satellite antenna pattern
-    # Antenna pattern from ITU-R S.1528
-    # Possible values: "ITU-R-S.1528-Section1.2", "ITU-R-S.1528-LEO"
-    antenna_pattern: ITU-R-S.1528-Taylor
-    antenna_s1528:
-        # Maximum Antenna gain in dBi
-        antenna_gain: 10.7
-        ### The following parameters are used for S.1528-Taylor antenna pattern
-        # SLR is the side-lobe ratio of the pattern (dB), the difference in gain between the maximum
-        # gain and the gain at the peak of the first side lobe.
-        slr: 20.0
-        # Number of secondarylobes considered in the diagram (coincide with the roots of the Bessel function)
-        n_side_lobes: 2
-        # Radial (l_r) and transverse (l_t) sizes of the effective radiating area of the satellite transmitt antenna (m)
-        l_r: 1.6
-        l_t: 1.6
-    sat_is_active_if:
-        # for a satellite to be active, it needs to respect ALL conditions
-        conditions:
-            - LAT_LONG_INSIDE_COUNTRY
-            - MINIMUM_ELEVATION_FROM_ES
-        minimum_elevation_from_es: 5
-        lat_long_inside_country:
-            # You may specify another shp file for country borders reference
-            # country_shapes_filename: sharc/topology/countries/ne_110m_admin_0_countries.shp
-            country_names:
-                - Brazil
-                # - Argentina
-            # margin from inside of border [km]
-            # if positive, makes border smaller by x km
-            # if negative, makes border bigger by x km
-            margin_from_border: 0
-            # margin_from_border: 157.9
-            # margin_from_border: 213.4
-            # margin_from_border: 268.9
-            # margin_from_border: 324.4
-    # channel model, possible values are "FSPL" (free-space path loss),
-    #                                    "SatelliteSimple" (FSPL + 4 + clutter loss)
-    #                                    "P619"
-    channel_model: FSPL
-    # param_p619:
-    #     ###########################################################################
-    #     # altitude of ES system [m]
-    #     earth_station_alt_m: 1200
-    #     ###########################################################################
-    #     # latitude of ES system [m]
-    #     earth_station_lat_deg: -15.7801
-    #     ###########################################################################
-    #     # difference between longitudes of IMT-NTN station and FSS-ES system [deg]
-    #     #   (positive if space-station is to the East of earth-station)
-    #     earth_station_long_diff_deg: 0.0
-    #     ###########################################################################
-    #     # year season: SUMMER of WINTER
-    #     season: SUMMER
-    # Orbit parameters
-    orbits:
-        # Number of planes
-      - n_planes: 28
-        # Inclination in degrees
-        inclination_deg: 53.0
-        # Perigee in km
-        perigee_alt_km: 525.0
-        # Apogee in km
-        apogee_alt_km: 525.0
-        # Number of satellites per plane
-        sats_per_plane: 128
-        # Longitude of the first ascending node in degrees
-        long_asc_deg: 0.0
-        # Phasing in degrees
-        phasing_deg: 1.5
+single_earth_station:
+  frequency: 2200  # MHz
+  bandwidth: 4  # MHz
+  # tx power density just so simulator runs
+  tx_power_density: -200
+  # also just so simulator runs
+  noise_temperature: 190
+  # This is based in pratical data found in other documents.
+  # 35-45dBs are generally assumed. We take 35 as a worst case.
+  adjacent_ch_selectivity: 35
+  # Channel model
+#   channel_model: SatelliteSimple
+  channel_model: FSPL
+  param_satellite_simple:
+    # Enable clutter loss
+    enable_clutter_loss: false
+    # Atmospheric loss in dB
+    atmospheric_loss: 0.65
+  # NOTE: when using P.619 it is suggested that polarization loss = 3dB is good
+  polarization_loss: 0
+  # Earth Station parameters
+  geometry:
+    height: 7
+    azimuth:
+      # Type of elevation.
+      type: UNIFORM_DIST
+      uniform_dist:
+        max: 180
+        min: -180
+    # Elevation angle [degrees]
+    elevation:
+      # Type of elevation.
+      type: FIXED
+      fixed: 90
+    # Station 2d location [meters]:
+    location:
+      type: FIXED
+      fixed:
+        x: 0
+        y: 0
+  antenna:
+      ###########################################################################
+      # Choose the antenna pattern. Can be one of:
+      # "OMNI", "ITU-R F.699", "ITU-R S.465", "ITU-R S.580", "MODIFIED ITU-R S.465",
+      # "ITU-R S.1855", "ITU-R S.672"
+      # since 20deg beamwidth would already cover every area
+      pattern: ITU-R S.465
+      ###########################################################################
+      # Station peak receive antenna gain [dBi]
+      gain: 45.8
+      itu_r_s_465:
+        # Diameter [m]
+        diameter: 12  # derived with efficiency 0.

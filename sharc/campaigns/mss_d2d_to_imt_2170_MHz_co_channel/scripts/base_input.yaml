@@ -1,7 +1,7 @@
 general:
     ###########################################################################
     # Number of simulation snapshots
-    num_snapshots: 3000
+    num_snapshots: 5000
     ###########################################################################
     # IMT link that will be simulated (DOWNLINK or UPLINK)
     imt_link: DOWNLINK
@@ -64,119 +64,123 @@ imt:
     topology:
         ###########################################################################
         # The latitude position is is_spherical is set to true
-        central_latitude: -25.5549751
+        central_latitude: -15.793889
         ###########################################################################
         # The longitude position is is_spherical is set to true
-        central_longitude: -54.5746686
+        central_longitude:  -47.882778
         ##########################
-        central_altitude: 200
+        central_altitude: 563
         ###########################################################################
         # Topology Type. Possible values are "MACROCELL", "HOTSPOT", "SINGLE_BS"
         # "INDOOR"
-        type: SINGLE_BS
+        type: MSS_DC
         ###########################################################################
         # Macrocell Topology parameters. Relevant when imt.topology.type == "MACROCELL"
-        macrocell:
+        mss_dc:
+            # MSS_DC cell radius in network topology [m]
+            beam_radius: 39475.0
+            # Number of sectors
+            num_beams: 1
+            beam_positioning:
+                # type may be one of 
+                # "ANGLE_FROM_SUBSATELLITE", "ANGLE_AND_DISTANCE_FROM_SUBSATELLITE",
+                # "SERVICE_GRID"
+                # when "ANGLE_FROM_SUBSATELLITE", both phi and theta must be specified
+                # when "ANGLE_AND_DISTANCE_FROM_SUBSATELLITE", both phi and distance
+                #  must be specified
+                type: ANGLE_FROM_SUBSATELLITE
+                # theta is the off axis angle from satellite nadir
+                angle_from_subsatellite_theta:
+                    # type may be one of
+                    # "FIXED", "~U(MIN,MAX)", "~SQRT(U(0,1))*MAX"
+                    type: FIXED
+                    # used if TYPE == FIXED is specified
+                    fixed: 0
+                    # used if some distribution type is specified
+                    # distribution:
+                    #     min: 0.0
+                    #     max: 66.1
+                # phi completes polar coordinates
+                # equivalent to "azimuth" from subsatellite in earth plane
+                angle_from_subsatellite_phi:
+                    # type may be one of
+                    # "FIXED", "~U(MIN,MAX)", "~SQRT(U(0,1))*MAX"
+                    type: FIXED
+                    # used if TYPE == FIXED is specified
+                    fixed: 0
+                    # used if some distribution type is specified
+                    # distribution:
+                    #     min: 0.0
+                    #     max: 66.1
+                # distance from subsatellite. Substitutes theta
+                # distance_from_subsatellite:
+                #     # type may be one of
+                #     # "FIXED", "~U(MIN,MAX)", "~SQRT(U(0,1))*MAX"
+                #     type: FIXED
+                #     # used if TYPE == FIXED is specified
+                #     fixed: 0
+                #     # used if some distribution type is specified
+                #     distribution:
+                #         min: 0.0
+                #         max: 66.1
+                # service_grid:
+                #     # by default this already gets shapefile from natural earth
+                #     country_shapes_filename: sharc/data/countries/ne_110m_admin_0_countries.shp
+                #     # By default, these are the same as taken from `sat_is_active_if.lat_long_inside_country`
+                #     country_names:
+                #         - Brazil
+                #         - Chile
+
+                    # This margin defines where the grid is constructed
+                    # margin from inside of border [km]
+                    # By default, this is made to be the same as beam_radius
+                    # if positive, makes border smaller by x km
+                    # if negative, makes border bigger by x km
+                    # grid_margin_from_border: 0.11
+
+                    # This margin defines what satellites may serve the grid
+                    # it should normally be a smaller value than the grid from border
+                    # since a satellite not right above the grid may serve some point better
+                    # margin from inside of border [km]
+                    # By default, this is made to be the same as beam_radius
+                    # if positive, makes border smaller by x km
+                    # if negative, makes border bigger by x km
+                    # eligible_sats_margin_from_border: -2.1
+            sat_is_active_if:
+                # for a satellite to be active, it needs to respect ALL conditions
+                conditions:
+                    # - LAT_LONG_INSIDE_COUNTRY
+                    - MINIMUM_ELEVATION_FROM_ES
+                    # - MAXIMUM_ELEVATION_FROM_ES
+                minimum_elevation_from_es: 5.0
+                # maximum_elevation_from_es: 80.0
+                # lat_long_inside_country:
+                #     # You may specify another shp file for country borders reference
+                #     # country_shapes_filename: sharc/topology/countries/ne_110m_admin_0_countries.shp
+                #     country_names:
+                #         - Brazil
+                #         - Ecuador
+                #     # margin from inside of border [km]
+                #     # if positive, makes border smaller by x km
+                #     # if negative, makes border bigger by x km
+                #     margin_from_border: 111.0
             ###########################################################################
-            # Inter-site distance in macrocell network topology [m]
-            intersite_distance: 1500.0
-            ###########################################################################
-            # Enable wrap around.
-            wrap_around: false
-            ###########################################################################
-            # Number of clusters in macro cell topology
-            num_clusters: 1
-        ###########################################################################
-        # Single Base Station Topology parameters. Relevant when imt.topology.type == "SINGLE_BS"
-        single_bs:
-            ###########################################################################
-            # Inter-site distance or Cell Radius in single Base Station network topology [m]
-            # You can either provide 'cell_radius' or 'intersite_distance' for this topology
-            # The relationship used is cell_radius = intersite_distance * 2 / 3
-            cell_radius: 500
-            # intersite_distance: 1
-            ###########################################################################
-            # Number of clusters in single base station topology
-            # You can simulate 1 or 2 BS's with this topology
-            num_clusters: 1
-        ###########################################################################
-        # Hotspot Topology parameters. Relevant when imt.topology.type == "HOTSPOT"
-        hotspot:
-            ###########################################################################
-            # Inter-site distance in hotspot network topology [m]
-            intersite_distance: 321
-            ###########################################################################
-            # Enable wrap around.
-            wrap_around: true
-            ###########################################################################
-            # Number of clusters in macro cell topology
-            num_clusters: 7
-            ###########################################################################
-            # Number of hotspots per macro cell (sector)
-            num_hotspots_per_cell: 1
-            ###########################################################################
-            # Maximum 2D distance between hotspot and UE [m]
-            # This is the hotspot radius
-            max_dist_hotspot_ue: 99.9
-            ###########################################################################
-            # Minimum 2D distance between macro cell base station and hotspot [m]
-            min_dist_bs_hotspot: 1.2
-        ###########################################################################
-        # Indoor Topology parameters. Relevant when imt.topology.type == "INOOR"
-        indoor:
-            ###########################################################################
-            # Basic path loss model for indoor topology. Possible values:
-            #       "FSPL" (free-space path loss),
-            #       "INH_OFFICE" (3GPP Indoor Hotspot - Office)
-            basic_path_loss: FSPL
-            ###########################################################################
-            # Number of rows of buildings in the simulation scenario
-            n_rows: 3
-            ###########################################################################
-            # Number of colums of buildings in the simulation scenario
-            n_colums: 2
-            ###########################################################################
-            # Number of buildings containing IMT stations. Options:
-            # 'ALL': all buildings contain IMT stations.
-            # Number of buildings.
-            num_imt_buildings: 2
-            ###########################################################################
-            # Street width (building separation) [m]
-            street_width: 30.1
-            ###########################################################################
-            # Intersite distance [m]
-            intersite_distance: 40.1
-            ###########################################################################
-            # Number of cells per floor
-            num_cells: 3
-            ###########################################################################
-            # Number of floors per building
-            num_floors: 1
-            ###########################################################################
-            # Percentage of indoor UE's [0, 1]
-            ue_indoor_percent: .95
-            ###########################################################################
-            # Building class: "TRADITIONAL" or "THERMALLY_EFFICIENT"
-            building_class: THERMALLY_EFFICIENT
-        ###########################################################################
-        # NTN Topology Parameters
-        ntn:
-            ###########################################################################
-            # NTN cell radius or intersite distance in network topology [m]
-            # @important: You can set only one of cell_radius or intersite_distance
-            # NTN Intersite Distance (m). Intersite distance = Cell Radius * sqrt(3)
-            # NOTE: note that intersite distance has a different geometric meaning in ntn
-            cell_radius: 123
-            # intersite_distance: 155884
-            ###########################################################################
-            # NTN space station azimuth [degree]
-            bs_azimuth: 45
-            ###########################################################################
-            # NTN space station elevation [degree]
-            bs_elevation: 45
-            ###########################################################################
-            # number of sectors [degree]
-            num_sectors: 19
+            # Parameters for the orbits
+            orbits:  # System 3 parameters
+                # Number of planes
+              - n_planes: 28
+                # Inclination in degrees
+                inclination_deg: 53.0
+                # Perigee in km
+                perigee_alt_km: 525.0
+                # Apogee in km
+                apogee_alt_km: 525.0
+                # Number of satellites per plane
+                sats_per_plane: 120
+                # Longitude of the first ascending node in degrees
+                long_asc_deg: 0.0
+                # Phasing in degrees
+                phasing_deg: 1.5
     ###########################################################################
     # Defines the antenna model to be used in compatibility studies between
     # IMT and other services in adjacent band

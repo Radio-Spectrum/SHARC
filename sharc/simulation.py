@@ -496,7 +496,7 @@ class Simulation(ABC, Observable):
                     # limit beamforming angle
                     bs_beam_phi = np.clip(
                         self.bs_to_ue_phi[bs, ue],
-                        *(self.parameters.imt.bs.antenna.array.horizontal_beamsteering_range + self.bs.azimuth[bs])
+                        *(self.parameters.imt.bs.antenna.array.horizontal_beamsteering_range + self.bs.azimuth[bs] - 180)
                     )
 
                     bs_beam_theta = np.clip(

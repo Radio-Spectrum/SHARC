@@ -207,6 +207,9 @@ class ParametersAntennaImt(ParametersBase):
             )
 
     def get_normalization_data_if_needed(self):
+        """
+        This loads normalization data if normalization should be applied
+        """
         if self.normalization:
             # Load data, save it in dict and close it
             data = load(self.normalization_file)

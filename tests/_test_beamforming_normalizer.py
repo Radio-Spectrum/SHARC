@@ -11,7 +11,7 @@ import numpy.testing as npt
 import os
 
 from sharc.antenna.beamforming_normalization.beamforming_normalizer import BeamformingNormalizer
-from sharc.support.named_tuples import AntennaPar
+from sharc.parameters.imt.parameters_antenna_imt import ParametersAntennaImt
 from sharc.antenna.antenna_beamforming_imt import AntennaBeamformingImt
 
 
@@ -40,23 +40,25 @@ class BeamformingNormalizerTest(unittest.TestCase):
         multiplication_factor = 12
         minimum_array_gain = -200
         downtilt = 0
-        self.par_1 = AntennaPar(
-            adjacent_antenna_model,
-            norm,
-            norm_file,
-            element_pattern,
-            element_max_g,
-            element_phi_3db,
-            element_theta_3db,
-            element_am,
-            element_sla_v,
-            n_rows,
-            n_columns,
-            horiz_spacing,
-            vert_spacing,
-            multiplication_factor,
-            minimum_array_gain,
-            downtilt,
+        self.par_1 = ParametersAntennaImt(
+            horizontal_beamsteering_range=[-180., 180.],
+            vertical_beamsteering_range=[-90., 90.],
+            adjacent_antenna_model=adjacent_antenna_model,
+            normalization=norm,
+            normalization_file=norm_file,
+            element_pattern=element_pattern,
+            element_max_g=element_max_g,
+            element_phi_3db=element_phi_3db,
+            element_theta_3db=element_theta_3db,
+            element_am=element_am,
+            element_sla_v=element_sla_v,
+            n_rows=n_rows,
+            n_columns=n_columns,
+            element_horiz_spacing=horiz_spacing,
+            element_vert_spacing=vert_spacing,
+            multiplication_factor=multiplication_factor,
+            minimum_array_gain=minimum_array_gain,
+            downtilt=downtilt,
         )
 
         # Test 2: UE configuration
@@ -68,8 +70,8 @@ class BeamformingNormalizerTest(unittest.TestCase):
         norm_file = None
         element_pattern = "M2101"
         element_max_g = 5
-        element_phi_deg_3db = 90
-        element_theta_deg_3db = 90
+        element_phi_3_db = 90
+        element_theta_3_db = 90
         element_am = 25
         element_sla_v = 25
         n_rows = 4
@@ -79,23 +81,25 @@ class BeamformingNormalizerTest(unittest.TestCase):
         multiplication_factor = 12
         minimum_array_gain = -200
         downtilt = 0
-        self.par_2 = AntennaPar(
-            adjacent_antenna_model,
-            norm,
-            norm_file,
-            element_pattern,
-            element_max_g,
-            element_phi_deg_3db,
-            element_theta_deg_3db,
-            element_am,
-            element_sla_v,
-            n_rows,
-            n_columns,
-            horiz_spacing,
-            vert_spacing,
-            multiplication_factor,
-            minimum_array_gain,
-            downtilt,
+        self.par_2 = ParametersAntennaImt(
+            horizontal_beamsteering_range=[-180., 180.],
+            vertical_beamsteering_range=[-90., 90.],
+            adjacent_antenna_model=adjacent_antenna_model,
+            normalization=norm,
+            normalization_file=norm_file,
+            element_pattern=element_pattern,
+            element_max_g=element_max_g,
+            element_phi_3db=element_phi_3_db,
+            element_theta_3db=element_theta_3_db,
+            element_am=element_am,
+            element_sla_v=element_sla_v,
+            n_rows=n_rows,
+            n_columns=n_columns,
+            element_horiz_spacing=horiz_spacing,
+            element_vert_spacing=vert_spacing,
+            multiplication_factor=multiplication_factor,
+            minimum_array_gain=minimum_array_gain,
+            downtilt=downtilt,
         )
 
         # Test 3: BS configuration
@@ -107,8 +111,8 @@ class BeamformingNormalizerTest(unittest.TestCase):
         norm_file = None
         element_pattern = "M2101"
         element_max_g = 5
-        element_phi_deg_3db = 65
-        element_theta_deg_3db = 65
+        element_phi_3_db = 65
+        element_theta_3_db = 65
         element_am = 30
         element_sla_v = 30
         n_rows = 8
@@ -118,23 +122,25 @@ class BeamformingNormalizerTest(unittest.TestCase):
         multiplication_factor = 12
         minimum_array_gain = -200
         downtilt = 0
-        self.par_3 = AntennaPar(
-            adjacent_antenna_model,
-            norm,
-            norm_file,
-            element_pattern,
-            element_max_g,
-            element_phi_deg_3db,
-            element_theta_deg_3db,
-            element_am,
-            element_sla_v,
-            n_rows,
-            n_columns,
-            horiz_spacing,
-            vert_spacing,
-            multiplication_factor,
-            minimum_array_gain,
-            downtilt,
+        self.par_3 = ParametersAntennaImt(
+            horizontal_beamsteering_range=[-180., 180.],
+            vertical_beamsteering_range=[-90., 90.],
+            adjacent_antenna_model=adjacent_antenna_model,
+            normalization=norm,
+            normalization_file=norm_file,
+            element_pattern=element_pattern,
+            element_max_g=element_max_g,
+            element_phi_3db=element_phi_3_db,
+            element_theta_3db=element_theta_3_db,
+            element_am=element_am,
+            element_sla_v=element_sla_v,
+            n_rows=n_rows,
+            n_columns=n_columns,
+            element_horiz_spacing=horiz_spacing,
+            element_vert_spacing=vert_spacing,
+            multiplication_factor=multiplication_factor,
+            minimum_array_gain=minimum_array_gain,
+            downtilt=downtilt,
         )
 
     def test_construction(self):

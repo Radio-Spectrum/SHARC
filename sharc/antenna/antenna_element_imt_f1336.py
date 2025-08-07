@@ -8,7 +8,7 @@ Created on Fri Apr 14 14:13:58 2017
 import numpy as np
 import sys
 
-from sharc.support.named_tuples import AntennaPar
+from sharc.parameters.imt.parameters_antenna_imt import ParametersAntennaImt
 
 
 class AntennaElementImtF1336(object):
@@ -23,7 +23,7 @@ class AntennaElementImtF1336(object):
         phi_3db (float): horizontal 3dB beamwidth of single element [degrees]
     """
 
-    def __init__(self, par: AntennaPar):
+    def __init__(self, par: ParametersAntennaImt):
         """
         Constructs an AntennaElementImt object.
 

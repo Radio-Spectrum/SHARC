@@ -5,7 +5,6 @@ Created on Sat Apr 15 16:29:36 2017
 @author: Calil
 """
 
-from sharc.support.named_tuples import AntennaPar
 from numpy import load
 import typing
 
@@ -95,6 +94,9 @@ class ParametersAntennaImt(ParametersBase):
 
     subarray: ParametersAntennaSubarrayImt = field(
         default_factory=ParametersAntennaSubarrayImt)
+
+    def __post_init__(self):
+        self.normalization_data = None
 
     def load_subparameters(self, ctx: str, params: dict, quiet=True):
         """
@@ -204,15 +206,7 @@ class ParametersAntennaImt(ParametersBase):
                 "vertical beamsteering limit angles must be in the range [0, 180]"
             )
 
-    def get_antenna_parameters(self) -> AntennaPar:
-        """
-        Get the antenna parameters as an AntennaPar object.
-
-        Returns
-        -------
-        AntennaPar
-            The antenna parameters object constructed from the current configuration.
-        """
+    def get_normalization_data_if_needed(self):
         if self.normalization:
             # Load data, save it in dict and close it
             data = load(self.normalization_file)
@@ -221,23 +215,16 @@ class ParametersAntennaImt(ParametersBase):
             data.close()
         else:
             self.normalization_data = None
-        tpl = AntennaPar(
-            self.adjacent_antenna_model,
-            self.normalization,
-            self.normalization_data,
-            self.element_pattern,
-            self.element_max_g,
-            self.element_phi_3db,
-            self.element_theta_3db,
-            self.element_am,
-            self.element_sla_v,
-            self.n_rows,
-            self.n_columns,
-            self.element_horiz_spacing,
-            self.element_vert_spacing,
-            self.multiplication_factor,
-            self.minimum_array_gain,
-            self.downtilt,
-        )
 
-        return tpl
+    def get_antenna_parameters(self) -> "ParametersAntennaImt":
+        """
+        Get the antenna parameters loadind normalization values if needed.
+
+        Returns
+        -------
+        ParametersAntennaImt
+            The antenna parameters object constructed from the current configuration.
+        """
+        self.get_normalization_data_if_needed()
+
+        return self

@@ -25,7 +25,7 @@ Variables:
     norm (BeamformingNormalizer): object that calculates the normalization.
     param_list (list): list of antenna parameters to which calculate the
         correction factors. New parameters are added as:
-            AntennaPar(adjacent_antenna_model,
+            ParametersAntennaImt(adjacent_antenna_model,
                        normalization,
                        norm_data,
                        element_pattern,
@@ -43,7 +43,7 @@ Variables:
             normalization parameter must be set to False, otherwise script will
             try to normalize an already normalized antenna.
     file_names (list): list of file names to which save the normalization data.
-        Files are paired with AntennaPar objects in param_list, so that the
+        Files are paired with ParametersAntennaImt objects in param_list, so that the
         normalization data of the first element of param_list is saved in a
         file with the name specified in the first element of file_names and so
         on.
@@ -64,11 +64,11 @@ following keys:
         element
     error_adj_channel (tuple): lower and upper bounds [dB] of single antenna
         element correction factor
-    parameters (AntennaPar): antenna parameters used in the normalization
+    parameters (ParametersAntennaImt): antenna parameters used in the normalization
 """
 
 from sharc.antenna.beamforming_normalization.beamforming_normalizer import BeamformingNormalizer
-from sharc.support.named_tuples import AntennaPar
+from sharc.parameters.imt.parameters_antenna_imt import ParametersAntennaImt
 import sys
 import os
 sys.path.append(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
@@ -78,42 +78,28 @@ if __name__ == "__main__":
 
     ###########################################################################
     # List of antenna parameters to which calculate the normalization factors.
-    adjacent_antenna_model = ""  # not needed here
-    normalization = False       # not needed here
-    normalization_data = None   # not needed here
-    element_pattern = "M2101"
-    element_max_g = 5
-    element_phi_3db = 65
-    element_theta_3db = 65
-    element_am = 30
-    element_sla_v = 30
-    n_rows = 8
-    n_columns = 8
-    element_horiz_spacing = 0.5
-    element_vert_spacing = 0.5
-    multiplication_factor = 12
-    minimum_array_gain = -200
-    downtilt = 0
-
     file_names = ["bs_norm_8x8_050.npz"]
     param_list = [
-        AntennaPar(
-            adjacent_antenna_model,
-            normalization,
-            normalization_data,
-            element_pattern,
-            element_max_g,
-            element_phi_3db,
-            element_theta_3db,
-            element_am,
-            element_sla_v,
-            n_rows,
-            n_columns,
-            element_horiz_spacing,
-            element_vert_spacing,
-            multiplication_factor,
-            minimum_array_gain,
-            downtilt,
+        ParametersAntennaImt(
+            # not needed here
+            adjacent_antenna_model="",
+            # not needed here
+            normalization=False,
+            # not needed here
+            normalization_file=None,
+            element_pattern="M2101",
+            element_max_g=5,
+            element_phi_3db=65,
+            element_theta_3db=65,
+            element_am=30,
+            element_sla_v=30,
+            n_rows=8,
+            n_columns=8,
+            element_horiz_spacing=0.5,
+            element_vert_spacing=0.5,
+            multiplication_factor=12,
+            minimum_array_gain=-200,
+            downtilt=0,
         ),
     ]
     ###########################################################################

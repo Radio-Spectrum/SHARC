@@ -10,7 +10,7 @@ from scipy.integrate import dblquad
 from sys import stdout
 
 from sharc.antenna.antenna_beamforming_imt import AntennaBeamformingImt
-from sharc.support.named_tuples import AntennaPar
+from sharc.parameters.imt.parameters_antenna_imt import ParametersAntennaImt
 
 
 class BeamformingNormalizer(object):
@@ -74,7 +74,7 @@ class BeamformingNormalizer(object):
 
     def generate_correction_matrix(
         self,
-        par: AntennaPar,
+        par: ParametersAntennaImt,
         file_name: str,
         testing=False,
     ):
@@ -82,7 +82,7 @@ class BeamformingNormalizer(object):
         Generates the correction factor matrix and saves it in a file
 
         Parameters:
-            par (AntennaPar): set of antenna parameters to which calculate the
+            par (ParametersAntennaImt): set of antenna parameters to which calculate the
                 correction factor
             file_name (str): name of file to which save the correction matrix
         """
@@ -200,7 +200,7 @@ class BeamformingNormalizer(object):
                 antenna element
             error_adj_channel (tuple): lower and upper bounds [dB] of single
                 antenna element correction factor
-            parameters (AntennaPar): antenna parameters used in the
+            parameters (ParametersAntennaImt): antenna parameters used in the
                 normalization
 
         Parameters:
@@ -239,35 +239,22 @@ if __name__ == '__main__':
     norm = BeamformingNormalizer(resolution, tolerance)
 
     # Antenna parameters
-    adjacent_antenna_model = "SINGLE_ELEMENT"
-    normalization = False
-    norm_file = None
-    element_pattern = "M2101"
-    element_max_g = 5
-    element_phi_deg_3db = 65
-    element_theta_deg_3db = 65
-    element_am = 30
-    element_sla_v = 30
-    n_rows = 8
-    n_columns = 8
-    horiz_spacing = 0.5
-    vert_spacing = 0.5
-    minimum_array_gain = -200
-    down_tilt = 0
-    par = AntennaPar(
-        normalization,
-        norm_file,
-        element_pattern,
-        element_max_g,
-        element_phi_deg_3db,
-        element_theta_deg_3db,
-        element_am,
-        element_sla_v,
-        n_rows,
-        n_columns,
-        horiz_spacing,
-        vert_spacing,
-        down_tilt,
+    par = ParametersAntennaImt(
+        adjacent_antenna_model="SINGLE_ELEMENT",
+        normalization=False,
+        norm_file=None,
+        element_pattern="M2101",
+        element_max_g=5,
+        element_phi_3db=65,
+        element_theta_3db=65,
+        element_am=30,
+        element_sla_v=30,
+        n_rows=8,
+        n_columns=8,
+        element_horiz_spacing=0.5,
+        element_vert_spacing=0.5,
+        minimum_array_gain=-200,
+        downtilt=0,
     )
 
     # Set range of values & calculate correction factor

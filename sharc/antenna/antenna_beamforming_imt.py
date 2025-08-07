@@ -14,8 +14,7 @@ from sharc.antenna.antenna_element_imt_f1336 import AntennaElementImtF1336
 from sharc.antenna.antenna_element_imt_const import AntennaElementImtConst
 from sharc.antenna.antenna_subarray_imt import AntennaSubarrayIMT
 from sharc.antenna.antenna import Antenna
-from sharc.support.named_tuples import AntennaPar
-from sharc.parameters.imt.parameters_antenna_imt import ParametersAntennaImt, ParametersAntennaSubarrayImt
+from sharc.parameters.imt.parameters_antenna_imt import ParametersAntennaImt
 
 
 class AntennaBeamformingImt(Antenna):
@@ -45,11 +44,9 @@ class AntennaBeamformingImt(Antenna):
 
     def __init__(
             self,
-            par: AntennaPar,
+            par: ParametersAntennaImt,
             azimuth: float,
-            elevation: float,
-            subarray: ParametersAntennaSubarrayImt = ParametersAntennaSubarrayImt(
-            is_enabled=False)):
+            elevation: float):
         """
         Constructs an AntennaBeamformingImt object.
         Does not receive angles in local coordinate system.
@@ -57,7 +54,7 @@ class AntennaBeamformingImt(Antenna):
 
         Parameters
         ---------
-            param (AntennaPar): antenna IMT parameters
+            param (ParametersAntennaImt): antenna IMT parameters
             azimuth (float): antenna's physical azimuth inclination
             elevation (float): antenna's physical elevation inclination
                 referenced in the x axis
@@ -78,12 +75,12 @@ class AntennaBeamformingImt(Antenna):
                     par.element_pattern} not supported", )
             sys.exit(1)
 
-        if subarray.is_enabled:
+        if par.subarray.is_enabled:
             self.subarray = AntennaSubarrayIMT(
                 element=self.element,
-                eletrical_downtilt=subarray.eletrical_downtilt,
-                n_rows=subarray.n_rows,
-                element_vert_spacing=subarray.element_vert_spacing
+                eletrical_downtilt=par.subarray.eletrical_downtilt,
+                n_rows=par.subarray.n_rows,
+                element_vert_spacing=par.subarray.element_vert_spacing
             )
 
         self.azimuth = azimuth

@@ -11,7 +11,6 @@ import numpy.testing as npt
 
 from sharc.antenna.antenna_beamforming_imt import AntennaBeamformingImt
 from sharc.parameters.imt.parameters_antenna_imt import ParametersAntennaImt
-from sharc.support.named_tuples import AntennaPar
 
 
 class AntennaBeamformingImtTest(unittest.TestCase):
@@ -479,28 +478,28 @@ class AntennaBeamformingImtTest(unittest.TestCase):
         minimum_array_gain = -200
         multiplication_factor = 12
         downtilt = 0
-        par = AntennaPar(
-            adjacent_antenna_model,
-            normalization,
-            norm_data,
-            element_pattern,
-            element_max_g,
-            element_phi_3db,
-            element_theta_3db,
-            element_am,
-            element_sla_v,
-            n_rows,
-            n_columns,
-            horiz_spacing,
-            vert_spacing,
-            multiplication_factor,
-            minimum_array_gain,
-            downtilt,
+        par = ParametersAntennaImt(
+            adjacent_antenna_model=adjacent_antenna_model,
+            normalization=normalization,
+            element_pattern=element_pattern,
+            element_max_g=element_max_g,
+            element_phi_3db=element_phi_3db,
+            element_theta_3db=element_theta_3db,
+            element_am=element_am,
+            element_sla_v=element_sla_v,
+            n_rows=n_rows,
+            n_columns=n_columns,
+            element_horiz_spacing=horiz_spacing,
+            element_vert_spacing=vert_spacing,
+            multiplication_factor=multiplication_factor,
+            minimum_array_gain=minimum_array_gain,
+            downtilt=downtilt,
         )
+        par.normalization_data = norm_data
 
         # Create antenna objects
         self.antenna3 = AntennaBeamformingImt(par, 0.0, 0.0)  # Normalized
-        par = par._replace(normalization=False)
+        par.normalization = False
         self.antenna4 = AntennaBeamformingImt(par, 0.0, 0.0)  # Unormalized
 
         # Test co-channel gain: no beam

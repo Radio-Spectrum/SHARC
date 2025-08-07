@@ -6,7 +6,7 @@ Created on Fri Apr 14 14:13:58 2017
 """
 
 
-from sharc.support.named_tuples import AntennaPar
+from sharc.parameters.imt.parameters_antenna_imt import ParametersAntennaImt
 import numpy as np
 
 
@@ -20,7 +20,7 @@ class AntennaElementImtConst(object):
 
     """
 
-    def __init__(self, par: AntennaPar):
+    def __init__(self, par: ParametersAntennaImt):
         """
         Constructs an AntennaElementImt object.
 

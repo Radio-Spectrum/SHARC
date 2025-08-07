@@ -639,7 +639,7 @@ class StationFactory(object):
         for i in range(num_ue):
             imt_ue.antenna[i] = AntennaBeamformingImt(
                 par, imt_ue.azimuth[i],
-                imt_ue.elevation[i], ue_param_ant.subarray
+                imt_ue.elevation[i],
             )
 
         # imt_ue.antenna = [AntennaOmni(0) for bs in range(num_ue)]

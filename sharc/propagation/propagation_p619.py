@@ -160,7 +160,7 @@ class PropagationP619(Propagation):
 
         if not surf_water_vapour_density:
             _, _, surf_water_vapour_density = self.atmosphere.get_reference_atmosphere_p835(
-                self.earth_station_lat_deg, 0, season=self.season, )
+                self.earth_station_lat_deg, 0, season=self.season.lower(), )
 
         if len(self.elevation_has_atmospheric_loss):
             elevation_diff = np.abs(

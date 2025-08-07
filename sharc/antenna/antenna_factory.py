@@ -58,7 +58,8 @@ class AntennaFactory():
                 return AntennaBeamformingImt(
                     antenna_params.array.get_antenna_parameters(),
                     azimuth,
-                    elevation
+                    elevation,
+                    antenna_params.array.subarray
                 )
             case _:
                 raise ValueError(

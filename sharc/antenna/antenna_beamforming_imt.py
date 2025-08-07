@@ -551,18 +551,23 @@ if __name__ == '__main__':
     bs_param.minimum_array_gain = -200
     ue_param.minimum_array_gain = -200
 
+
     bs_param.element_pattern = "M2101"
-    bs_param.element_max_g = 6.5
-    bs_param.element_phi_3db = 65
-    bs_param.element_theta_3db = 90
+    bs_param.element_max_g = 6.4
+    bs_param.element_phi_3db = 90
+    bs_param.element_theta_3db = 65
     bs_param.element_am = 30
     bs_param.element_sla_v = 30
     bs_param.n_rows = 8
-    bs_param.n_columns = 8
+    bs_param.n_columns = 16
     bs_param.element_horiz_spacing = 0.5
-    bs_param.element_vert_spacing = 0.5
+    bs_param.element_vert_spacing = 2.1
     bs_param.multiplication_factor = 12
-    bs_param.downtilt = 0
+    bs_param.downtilt = 6
+    #bs_param.subarray.is_enabled = True
+    #bs_param.subarray.n_rows = 3
+    #bs_param.subarray.element_vert_spacing = .7
+    #bs_param.subarray.eletrical_downtilt = 3
 
     # bs_param.element_pattern = "F1336"
     # bs_param.element_max_g = 16

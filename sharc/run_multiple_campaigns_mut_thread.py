@@ -86,7 +86,7 @@ def run_campaign_re(campaign_name, param_name_regex):
     ]
 
     # Number of threads (adjust as needed)
-    num_threads = min(len(parameter_files), os.cpu_count())
+    num_threads = min(len(parameter_files), 4)
 
     # Run the commands in parallel
     with ThreadPoolExecutor(max_workers=num_threads) as executor:

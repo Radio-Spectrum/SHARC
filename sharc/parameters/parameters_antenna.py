@@ -27,7 +27,9 @@ class ParametersAntenna(ParametersBase):
         "ITU-R-S.1528-Taylor",
         "ITU-R-S.1528-Section1.2",
         "ITU-R-S.1528-LEO",
-        "MSS Adjacent"]
+        "MSS Adjacent",
+        "ITU-R S.672",
+        "ITU-R F.1245_fs"]
 
     # chosen antenna radiation pattern
     pattern: typing.Literal["OMNI",
@@ -41,7 +43,9 @@ class ParametersAntenna(ParametersBase):
                             "ITU-R-S.1528-Taylor",
                             "ITU-R-S.1528-Section1.2",
                             "ITU-R-S.1528-LEO",
-                            "MSS Adjacent"] = None
+                            "MSS Adjacent",
+                            "ITU-R S.672",
+                            "ITU-R F.1245_fs"] = None
 
     # antenna gain [dBi]
     gain: float = None
@@ -72,6 +76,33 @@ class ParametersAntenna(ParametersBase):
 
     itu_reg_rr_a7_3: ParametersAntennaWithDiameter = field(
         default_factory=ParametersAntennaWithDiameter,
+    )
+
+    @dataclass
+    class ParametersAntennaRF1245(ParametersBase):
+        gain: float = -25
+        diameter: float = None
+
+        def validate(self, ctx):
+            if None in [self.gain, self.diameter]:
+                raise ValueError(f"{ctx}.antenna_3_dB should be set to a number")
+       
+    itu_r_f_1245_fs: ParametersAntennaRF1245 = field(
+        default_factory=ParametersAntennaRF1245,
+    )
+
+    @dataclass
+    class ParametersAntenna672(ParametersBase):
+        antenna_l_s: float = -25
+        antenna_3_dB: float = None
+        antenna_gain: float = None
+
+        def validate(self, ctx):
+            if None in [self.antenna_gain, self.antenna_3_dB]:
+                raise ValueError(f"{ctx}.antenna_3_dB should be set to a number")
+
+    itu_r_s_672: ParametersAntenna672 = field(
+        default_factory=ParametersAntenna672,
     )
 
     array: ParametersAntennaImt = field(
@@ -157,6 +188,8 @@ class ParametersAntenna(ParametersBase):
                 self.itu_r_s_465.validate(f"{ctx}.itu_r_s_465")
             case "ITU-R S.1855":
                 self.itu_r_s_1855.validate(f"{ctx}.itu_r_s_1855")
+            case "ITU-R S.672":
+                self.itu_r_s_672.validate(f"{ctx}.itu_r_s_672")
             case "MODIFIED ITU-R S.465":
                 self.itu_r_s_465_modified.validate(
                     f"{ctx}.itu_r_s_465_modified",
@@ -180,6 +213,8 @@ class ParametersAntenna(ParametersBase):
                 self.itu_r_s_1528.validate(f"{ctx}.itu_r_s_1528")
             case "ITU-R-S.1528-LEO":
                 self.itu_r_s_1528.validate(f"{ctx}.itu_r_s_1528")
+            case "ITU-R F.1245_fs":
+                self.itu_r_f_1245_fs.validate(f"{ctx}.itu_r_f_1245_fs")
             case "MSS Adjacent":
                 self.mss_adjacent.validate(f"{ctx}.mss_adjacent")
             case _:

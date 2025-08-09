@@ -51,6 +51,7 @@ from sharc.antenna.antenna_s672 import AntennaS672
 from sharc.antenna.antenna_s1528 import AntennaS1528
 from sharc.antenna.antenna_s1855 import AntennaS1855
 from sharc.antenna.antenna_s1528 import AntennaS1528, AntennaS1528Leo, AntennaS1528Taylor
+from sharc.antenna.antenna_f1245_fs import Atenna_f1245_fs
 from sharc.antenna.antenna_beamforming_imt import AntennaBeamformingImt
 from sharc.topology.topology import Topology
 from sharc.topology.topology_ntn import TopologyNTN
@@ -1213,6 +1214,11 @@ class StationFactory(object):
             case "ITU-R S.580":
                 single_earth_station.antenna = np.array(
                     [AntennaS580(param.antenna.itu_r_s_580)],
+                )
+            case "ITU-R F.1245_fs":
+                param.antenna.itu_r_f_1245_fs.frequency = param.frequency
+                single_earth_station.antenna = np.array(
+                    [Atenna_f1245_fs(param.antenna.itu_r_f_1245_fs)],
                 )
             case _:
                 sys.stderr.write(

@@ -10,14 +10,16 @@ import numpy as np
 from sharc.propagation.propagation_p619 import PropagationP619
 
 # Constants
-frequency_MHz = 2680.0
-space_station_alt_m = 35786.0 * 1000  # Geostationary orbit altitude in meters
-earth_station_alt_m = 1000.0
-earth_station_lat_deg = -15.7801
+frequency_MHz = 2155
+space_station_alt_m = 340 * 1000  # Geostationary orbit altitude in meters
+earth_station_alt_m = 200
+earth_station_lat_deg = -25.5549751
 earth_station_long_diff_deg = 0.0  # Not used in the loss calculation
 season = "SUMMER"
 apparent_elevation = np.arange(0, 90)  # Elevation angles from 0 to 90 degrees
-city_name = "BRASILIA"
+city_name = "FOZ"
+mean_clutter_height = 'low'
+below_rooftop = 0
 
 # Initialize the propagation model
 random_number_gen = np.random.RandomState(101)
@@ -28,6 +30,8 @@ propagation = PropagationP619(
     earth_station_lat_deg=earth_station_lat_deg,
     earth_station_long_diff_deg=earth_station_long_diff_deg,
     season=season,
+    mean_clutter_height=mean_clutter_height,
+    below_rooftop=below_rooftop
 )
 
 # Calculate the loss for each elevation angle

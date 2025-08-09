@@ -361,23 +361,23 @@ if __name__ == '__main__':
     plt.grid()
 
     # Section 1.4 (Taylor) - Compare to Fig 6
-    frequency = 12000  # MHz
-    bandwidth = 10  # MHz
+    frequency = 2155  # MHz
+    bandwidth = 5  # MHz
     antenna_gain = 0  # dBi
     slr = 20  # dB
-    n_side_lobes = 4
-    lamb = (SPEED_OF_LIGHT / 1e6) / (frequency - bandwidth / 2)
-    beam_radius = 350  # km
-    sat_altitude = 1446  # km
-    a = np.arctan(beam_radius / (sat_altitude))  # radians
-    l_r = 0.74 * lamb / np.sin(a)
+    n_side_lobes = 2
+    #lamb = (SPEED_OF_LIGHT / 1e6) / (frequency - bandwidth / 2)
+    #beam_radius = 350  # km
+    #sat_altitude = 1446  # km
+    #a = np.arctan(beam_radius / (sat_altitude))  # radians
+    l_r = 1.6
     l_t = l_r
     params_rolloff_7 = ParametersAntennaS1528(
-        antenna_gain=0,
-        frequency=12000,
-        bandwidth=10,
-        slr=20,
-        n_side_lobes=4,
+        antenna_gain=antenna_gain,
+        frequency=frequency,
+        bandwidth=bandwidth,
+        slr=slr,
+        n_side_lobes=n_side_lobes,
         l_r=l_r,
         l_t=l_t,
     )
@@ -386,61 +386,24 @@ if __name__ == '__main__':
     antenna_rolloff_7 = AntennaS1528Taylor(params_rolloff_7)
 
     # Define phi angles from 0 to 60 degrees for plotting
-    theta_angles = np.arange(0, 60.1, 0.1)
+    theta_angles = np.arange(0, 90, 0.02)
 
     # Calculate gains for each phi angle at a fixed theta angle (e.g., theta=0)
     gain_rolloff_7 = antenna_rolloff_7.calculate_gain(
         off_axis_angle_vec=theta_angles,
         theta_vec=np.zeros_like(theta_angles))
 
-    l_r = 0.64 * lamb / np.sin(a)
-    l_t = l_r
-    params_rolloff_5 = ParametersAntennaS1528(
-        antenna_gain=0,
-        frequency=12000,
-        bandwidth=10,
-        slr=20,
-        n_side_lobes=4,
-        l_r=l_r,
-        l_t=l_t,
-    )
-
-    # Create an instance of AntennaS1528Taylor
-    antenna_rolloff_5 = AntennaS1528Taylor(params_rolloff_5)
-
-    gain_rolloff_5 = antenna_rolloff_5.calculate_gain(
-        off_axis_angle_vec=theta_angles,
-        theta_vec=np.zeros_like(theta_angles))
-
-    l_r = 0.51 * lamb / np.sin(a)
-    l_t = l_r
-    params_rolloff_3 = ParametersAntennaS1528(
-        antenna_gain=0,
-        frequency=12000,
-        bandwidth=10,
-        slr=20,
-        n_side_lobes=4,
-        l_r=l_r,
-        l_t=l_t,
-    )
-
-    # Create an instance of AntennaS1528Taylor
-    antenna_rolloff_3 = AntennaS1528Taylor(params_rolloff_3)
-
-    gain_rolloff_3 = antenna_rolloff_3.calculate_gain(
-        off_axis_angle_vec=theta_angles,
-        theta_vec=np.zeros_like(theta_angles))
 
     # Plot the antenna gain as a function of phi angle
     plt.figure(figsize=(10, 6))
-    plt.plot(theta_angles, gain_rolloff_3, label='roll_off=3')
-    plt.plot(theta_angles, gain_rolloff_5, label='roll_off=5')
-    plt.plot(theta_angles, gain_rolloff_7, label='roll_off=7')
+    #plt.plot(theta_angles, gain_rolloff_3, label='roll_off=3')
+    #plt.plot(theta_angles, gain_rolloff_5, label='roll_off=5')
+    plt.plot(theta_angles, gain_rolloff_7)
     plt.xlabel('Theta (degrees)')
     plt.ylabel('Gain (dB)')
     plt.title('Normalized Antenna - Section 1.4')
     plt.legend()
-    plt.xticks(np.arange(0, 60, 10))
+    #plt.xticks(np.arange(0, 60, 10))
     plt.minorticks_on()
     plt.gca().xaxis.set_minor_locator(plt.MultipleLocator(2))
     plt.grid(True, which='both')

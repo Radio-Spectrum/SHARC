@@ -7,7 +7,9 @@ Created on Wed Apr 4 17:08:00 2018
 import matplotlib.pyplot as plt
 from sharc.antenna.antenna import Antenna
 from sharc.parameters.imt.parameters_imt import ParametersImt
+from sharc.parameters.imt.parameters_imt import ParametersImt
 from sharc.parameters.imt.parameters_antenna_imt import ParametersAntennaImt
+from sharc.parameters.parameters_antenna import ParametersAntenna
 import numpy as np
 import math
 
@@ -148,44 +150,42 @@ class Atenna_f1245_fs(Antenna):
 
 
 if __name__ == '__main__':
-    phi = np.linspace(0.1, 180, num=100000)
-    theta = 90 * np.ones_like(phi)
-    beams_idx = np.zeros_like(phi, dtype=int)
+    off_axis_angle_vec = np.linspace(0.1, 180, num=1001)
     # initialize antenna parameters
-    param = ParametersImt()
-    param.frequency = 10700
+    param = ParametersAntenna()
+    param.frequency = 2155
     param_gt = ParametersAntennaImt()
-    param_gt.peak_gain = 49.8
-    param_gt.diameter = 3
-    antenna_gt = AntennaF1245(param, param_gt)
+    param.gain = 33.1
+    param.diameter = 2
+    antenna_gt = Atenna_f1245_fs(param)
     antenna_gt.add_beam(0, 0)
     gain_gt = antenna_gt.calculate_gain(
-        phi_vec=phi,
-        theta_vec=theta,
-        beams_l=beams_idx,
+        off_axis_angle_vec=off_axis_angle_vec,
     )
-    param.frequency = 27500
-    param_lt = ParametersAntennaImt()
-    param_lt.peak_gain = 36.9
-    param_lt.diameter = 0.3
-    antenna_lt = AntennaF1245(param, param_lt)
-    antenna_lt.add_beam(0, 0)
-    gain_lt = antenna_lt.calculate_gain(
-        phi_vec=phi,
-        theta_vec=theta,
-        beams_l=beams_idx,
-    )
+    param.diameter = 3
+    antenna_gt = Atenna_f1245_fs(param)
+    gain_gt_3 = antenna_gt.calculate_gain(
+        off_axis_angle_vec=off_axis_angle_vec,
+    )   
+    param.diameter = 1.8
+    antenna_gt = Atenna_f1245_fs(param)
+    gain_gt_18 = antenna_gt.calculate_gain(
+        off_axis_angle_vec=off_axis_angle_vec,
+    )   
+
     fig = plt.figure(
         figsize=(8, 7), facecolor='w',
         edgecolor='k',
     )  # create a figure object
-    plt.semilogx(phi, gain_gt, "-b", label="$f = 10.7$ $GHz,$ $D = 3$ $m$")
-    plt.semilogx(phi, gain_lt, "-r", label="$f = 27.5$ $GHz,$ $D = 0.3$ $m$")
+    plt.semilogx(off_axis_angle_vec, gain_gt, "-b", label="$f = 10.7$ $GHz,$ $D = 2$ $m$")
+    plt.semilogx(off_axis_angle_vec, gain_gt_3, "-y", label="$f = 10.7$ $GHz,$ $D = 3$ $m$")
+    plt.semilogx(off_axis_angle_vec, gain_gt_18, "-g", label="$f = 10.7$ $GHz,$ $D = 1.8$ $m$")
+
     plt.title("ITU-R F.1245 antenna radiation pattern")
     plt.xlabel(r"Off-axis angle $\phi$ [deg]")
     plt.ylabel("Gain relative to $G_m$ [dB]")
     plt.legend(loc="lower left")
-    plt.xlim((phi[0], phi[-1]))
+    #plt.xlim((phi[0], phi[-1]))
     plt.ylim((-20, 50))
     # ax = plt.gca()
     # ax.set_yticks([-30, -20, -10, 0])

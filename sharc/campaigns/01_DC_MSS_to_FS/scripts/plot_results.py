@@ -38,7 +38,7 @@ many_results = Results.load_many_from_dir(
 
 post_processor.add_results(many_results)
 
-plots = post_processor.generate_cdf_plots_from_results(
+plots = post_processor.generate_ccdf_plots_from_results(
     many_results
 )
 

@@ -14,7 +14,7 @@ post_processor = PostProcessor()
 # This could easily come from a config file
 post_processor\
     .add_plot_legend_pattern(
-        dir_name_contains="_0km",
+        dir_name_contains="_1km",
         legend="0 Km"
     ).add_plot_legend_pattern(
         dir_name_contains="_45km",

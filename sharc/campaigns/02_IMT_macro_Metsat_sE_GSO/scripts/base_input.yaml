@@ -1,0 +1,149 @@
+general:
+  enable_adjacent_channel: false
+  enable_cochannel: true
+  imt_link: DOWNLINK
+  num_snapshots: 10000
+  output_dir: campaigns/02_IMT_macro_Metsat_sE_GSO/output/
+  output_dir_prefix: ES_Macro_1
+  overwrite_output: false
+  seed: 33
+  system: SINGLE_EARTH_STATION
+imt:
+  #adjacent_antenna_model: BEAMFORMING
+  bandwidth: 100
+  bs:
+    antenna:
+      array:
+        vertical_beamsteering_range: !!python/tuple [90., 100.]
+        downtilt: 6
+        element_am: 30
+        element_horiz_spacing: 0.5
+        element_max_g: 6.4
+        element_pattern: M2101
+        element_phi_3db: 90
+        element_sla_v: 30
+        element_theta_3db: 65
+        element_vert_spacing: 2.1
+        minimum_array_gain: -200
+        multiplication_factor: 12
+        n_columns: 16
+        n_rows: 8
+        normalization: false
+        subarray:
+          element_vert_spacing: 0.7
+          eletrical_downtilt: 3.0
+          is_enabled: true
+          n_rows: 3
+    conducted_power: 22 
+    height: 18
+    load_probability: 0.5
+    noise_figure: 6
+    ohmic_loss: 0
+  channel_model: UMa
+  downlink:
+    attenuation_factor: 0.6
+    sinr_max: 30
+    sinr_min: -10
+  frequency: 8400
+  guard_band_ratio: 0.1
+  interfered_with: false
+  minimum_separation_distance_bs_ue: 35
+  rb_bandwidth: 0.18
+  shadowing: true
+  spectral_mask: IMT-2020
+  spurious_emissions: -13
+  topology:
+    macrocell:
+      intersite_distance: 600
+      num_clusters: 1
+      wrap_around: false
+      num_hotspots_per_cell: 0
+      max_dist_hotspot_ue: 0
+      min_dist_bs_hotspot: 0
+    type: MACROCELL
+  ue:
+    alpha: 0.8
+    antenna:
+      array:
+        element_am: 25
+        element_max_g: -4
+        element_pattern: FIXED
+        element_phi_3db: 180
+        element_sla_v: 25
+        element_theta_3db: 360
+        minimum_array_gain: -200
+        multiplication_factor: 12
+        n_columns: 1
+        n_rows: 1
+        normalization: false
+    body_loss: 4
+    distribution_type: UNIFORM_IN_CELL
+    distribution_distance: RAYLEIGH
+    distribution_azimuth: NORMAL
+    height: 1.5
+    indoor_percent: 70
+    k: 3
+    k_m: 1
+    noise_figure: 13
+    ohmic_loss: 0
+    p_cmax: 23
+    p_o_pusch: -92.2
+    power_dynamic_range: 56
+    tx_power_control: true
+  uplink:
+    attenuation_factor: 0.4
+    sinr_max: 22
+    sinr_min: -10
+
+single_earth_station:
+  antenna:
+    gain: 44.9
+    itu_r_s_465:
+      diameter: 3
+    pattern: ITU-R S.465
+  bandwidth: 30
+  channel_model: P452
+  frequency: 8400
+  polarization_loss: 0
+  geometry:
+    azimuth:
+      fixed: 180
+      type: FIXED
+      uniform_dist:
+        max: 180
+        min: -180
+    elevation:
+      fixed: 5
+      type: FIXED
+      uniform_dist:
+        max: 10
+        min: 3
+    height: 7
+    location:
+      fixed:
+        x: 2500.0
+        y: 0
+      network:
+        min_dist_to_bs: 0
+      type: FIXED
+      uniform_dist:
+        max_dist_to_center: 2250
+        min_dist_to_center: 0
+  noise_temperature: 343
+  param_p452:
+    Dcr: 101.0
+    Dct: 100.0
+    Hre: 1
+    Hte: 18
+    N0: 352.58
+    air_temperature: 293.15
+    atmospheric_pressure: 1017
+    clutter_loss: true
+    delta_N: 60
+    percentage_p: 'RANDOM'
+    polarization: horizontal
+    rx_lat: -15.47
+    tx_lat: -15.46
+    clutter_type: "both_ends"      # Can be "both_ends" or "one_end"
+
+  tx_power_density: -200

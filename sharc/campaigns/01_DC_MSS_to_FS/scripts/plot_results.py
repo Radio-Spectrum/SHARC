@@ -5,13 +5,13 @@ Adds legends to result folders and generates plots using SHARC's PostProcessor.
 import os
 from pathlib import Path
 from sharc.results import Results
-# import plotly.graph_objects as go
+import plotly.graph_objects as go
 from sharc.post_processor import PostProcessor
 
 post_processor = PostProcessor()
-heights = [20]  # meters
-azis = [0, 90, 180, 270]  # degrees
-lfs = [0.5]  # fraction (20%, 50%)
+heights = [40]  # meters
+azis = [90, 180]  # degrees
+lfs = [0.2, 0.5]  # fraction (20%, 50%)
 margins = [40, 80, 120]  # km
 
 # Convert to the expected directory name format
@@ -45,8 +45,6 @@ filter_fn = lambda dir_path: (
 )
 campaign_base_dir = str((Path(__file__) / ".." / "..").resolve())
 
-
-
 many_results = Results.load_many_from_dir(
     os.path.join(
         campaign_base_dir,
@@ -57,64 +55,44 @@ many_results = Results.load_many_from_dir(
 # ^: typing.List[Results]
 
 post_processor.add_results(many_results)
-
+cutoff_percentage=0.001
 plots = post_processor.generate_ccdf_plots_from_results(
-    many_results, cutoff_percentage=0.001
+    many_results, cutoff_percentage=cutoff_percentage
 )
-
 post_processor.add_plots(plots)
 
-# # This function aggregates IMT downlink and uplink
-# aggregated_results = PostProcessor.aggregate_results(
-#     downlink_result=post_processor.get_results_by_output_dir("MHz_60deg_dl"),
-#     uplink_result=post_processor.get_results_by_output_dir("MHz_60deg_ul"),
-#     ul_tdd_factor=(3, 4),
-#     n_bs_sim=7 * 19 * 3 * 3,
-#     n_bs_actual=int
-# )
 
-# Add a protection criteria line:
-# protection_criteria = 160
+#### Add protection criteria
 
-# post_processor\
-#     .get_plot_by_results_attribute_name("system_dl_interf_power")\
-#     .add_vline(protection_criteria, line_dash="dash")
+plots_to_add_vline = [
+    "system_inr"
+]
 
-# Show a single plot:
-# post_processor\
-#     .get_plot_by_results_attribute_name("system_dl_interf_power")\
-#     .show()
+for prop_name in plots_to_add_vline:
+    plt = post_processor.get_plot_by_results_attribute_name(prop_name, plot_type='ccdf')
+    if plt:
+        # Add vertical dashed line at x = -6
+        plt.add_trace(
+            go.Scatter(
+                x=[-6, -6],
+                y=[cutoff_percentage, 1],
+                mode="lines",
+                line=dict(dash="dash", color="black"),
+                name=" -6dB [20% of the time]",
+                hoverinfo="skip",    # avoids mouse hover box on the guide line
+                showlegend=True      # make sure it appears in the legend
+            )
+        )
+        # Add horizontal dashed line at y = 0.2
+        plt.add_hline(
+            y=0.2,
+            line_dash="dash",
+            #annotation_text="TEst",
+            #annotation_position="left",
+            line_color="black"
+        )
+
 
 # Plot every plot:
 for plot in plots:
     plot.show()
-
-for result in many_results:
-    # This generates the mean, median, variance, etc
-    stats = PostProcessor.generate_statistics(
-        result=result
-    ).write_to_results_dir()
-    # # do whatever you want here:
-    # if "fspl_45deg" in stats.results_output_dir:
-    #     get some stat and do something
-
-# # example on how to aggregate results and add it to plot:
-# dl_res = post_processor.get_results_by_output_dir("1_cluster")
-# aggregated_results = PostProcessor.aggregate_results(
-#     dl_samples=dl_res.system_dl_interf_power,
-#     ul_samples=ul_res.system_ul_interf_power,
-#     ul_tdd_factor=0.75,
-#     n_bs_sim=1 * 19 * 3 * 3,
-#     n_bs_actual=7 * 19 * 3 * 3
-# )
-
-# relevant = post_processor\
-#     .get_plot_by_results_attribute_name("system_ul_interf_power")
-
-# aggr_x, aggr_y = PostProcessor.cdf_from(aggregated_results)
-
-# relevant.add_trace(
-#     go.Scatter(x=aggr_x, y=aggr_y, mode='lines', name='Aggregate interference',),
-# )
-
-# relevant.show()

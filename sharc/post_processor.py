@@ -1,20 +1,17 @@
 from sharc.results import Results
+from sharc.antenna.antenna import Antenna
 
 from dataclasses import dataclass, field
 import plotly.graph_objects as go
-from plotly.colors import DEFAULT_PLOTLY_COLORS
 import os
+import re
 import numpy as np
 import scipy
 import typing
 import pathlib
-import pathlib
 
 
 class FieldStatistics:
-    """
-    Stores statistical properties of a data field, such as mean, median, and variance.
-    """
     field_name: str
     median: float
     mean: float
@@ -25,9 +22,6 @@ class FieldStatistics:
     def load_from_sample(
         self, field_name: str, sample: list[float], *, confidence=0.95
     ) -> "FieldStatistics":
-        """
-        Compute statistics from a sample and store them in the object.
-        """
         self.field_name = field_name
         self.median = np.median(sample)
         self.mean = np.mean(sample)
@@ -59,13 +53,13 @@ class FieldStatistics:
 
 
 class ResultsStatistics:
-    """Class that stores and computes statistics for results fields."""
-
     fields_statistics: list[FieldStatistics]
     results_output_dir: str = "default_output"
 
     def load_from_results(self, result: Results) -> "ResultsStatistics":
-        """Load all relevant attributes from result and generate their statistics."""
+        """
+        Loads all relevant attributes from result and generates their statistics
+        """
         self.results_output_dir = result.output_directory
         self.fields_statistics = []
         attr_names = result.get_relevant_attributes()
@@ -79,26 +73,30 @@ class ResultsStatistics:
 
         return self
 
-    def write_to_results_dir(
-            self,
-            filename="stats.txt") -> "ResultsStatistics":
-        """Write statistics file to the same directory of the results loaded into this class."""
+    def write_to_results_dir(self, filename="stats.txt") -> "ResultsStatistics":
+        """
+        Writes statistics file to the same directory of the results loaded into this class
+        """
         with open(os.path.join(self.results_output_dir, filename), "w") as f:
             f.write(str(self))
 
         return self
 
-    def get_stat_by_name(
-            self, field_name: str) -> typing.Union[None, FieldStatistics]:
-        """Get a single field's statistics by its name."""
-        stats_found = filter(
-            lambda field_stat: field_stat.field_name == field_name,
-            self.fields_statistics)
+    def get_stat_by_name(self, field_name: str) -> typing.Union[None, FieldStatistics]:
+        """
+        Gets a single field's statistics by its name.
+        E.g.: get_stat_by_name("system_dl_interf_power")
+        Returns
+            None if not found
+            FieldStatistics if found only one match
+        """
+        stats_found = filter(lambda field_stat: field_stat.field_name == field_name, self.fields_statistics)
 
         if len(stats_found) > 1:
             raise Exception(
-                f"ResultsStatistics.get_stat_by_name found more than one statistic by the field name '{field_name}'\n" +
-                "You probably loaded more than one result to the same ResultsStatistics object")
+                f"ResultsStatistics.get_stat_by_name found more than one statistic by the field name '{field_name}'\n"
+                + "You probably loaded more than one result to the same ResultsStatistics object"
+            )
 
         if len(stats_found) == 0:
             return None
@@ -106,16 +104,11 @@ class ResultsStatistics:
         return stats_found[0]
 
     def __str__(self):
-        """Return a string representation of the ResultsStatistics object."""
         return f"[{self.results_output_dir}]\n{'\n'.join(list(map(str, self.fields_statistics)))}"
 
 
 @dataclass
 class PostProcessor:
-    """
-    PostProcessor provides utilities for plotting, aggregating, and analyzing simulation results,
-    including CDF/CCDF plot generation, statistics calculation, and plot saving.
-    """
     IGNORE_FIELD = {
         "title": "ANTES NAO PLOTAVAMOS ISSO, ENTÃO CONTINUA SEM PLOTAR",
         "x_label": "",
@@ -187,12 +180,8 @@ class PostProcessor:
             "x_label": "Path Loss [dB]",
             "title": "[SYS] IMT to system path loss",
         },
-        "sys_to_imt_coupling_loss": {
-            "x_label": "Coupling Loss [dB]",
-            "title": "[SYS] IMT to system coupling loss",
-        },
         "system_dl_interf_power": {
-            "x_label": "Interference Power [dB]",
+            "x_label": "Interference Power [dBm/BMHz]",
             "title": "[SYS] system interference power from IMT DL",
         },
         "imt_system_diffraction_loss": {
@@ -228,16 +217,16 @@ class PostProcessor:
             "x_label": "Interference Power [dBm/BMHz]",
         },
         "system_ul_interf_power_per_mhz": {
-            "title": "[SYS] system interference PSD from IMT UL",
+            "title": "[SYS] system interference power per MHz from IMT UL",
             "x_label": "Interference Power [dBm/MHz]",
         },
         "system_dl_interf_power_per_mhz": {
-            "title": "[SYS] system interference PSD from IMT DL",
-            "x_label": "Interference Power [dB/MHz]",
+            "title": "[SYS] system interference power per MHz from IMT DL",
+            "x_label": "Interference Power [dBm/MHz]",
         },
         "system_inr": {
             "title": "[SYS] system INR",
-            "x_label": "INR [dBm]",
+            "x_label": "INR [dB]",
         },
         "system_pfd": {
             "title": "[SYS] system PFD",
@@ -247,16 +236,7 @@ class PostProcessor:
             "x_label": "Transmit power [dBm]",
             "title": "[IMT] DL transmit power",
         },
-        "imt_dl_pfd_external": {
-            "title": "[IMT] DL external Power Flux Density (PFD) ",
-            "x_label": "PFD [dBW/m²/MHz]",
-        },
-        "imt_dl_pfd_external_aggregated": {
-            "title": "[IMT] Aggregated DL external Power Flux Density (PFD)",
-            "x_label": "PFD [dBW/m²/MHz]",
-        },
-        # these ones were not plotted already, so will continue to not be
-        # plotted:
+        # these ones were not plotted already, so will continue to not be plotted:
         "imt_dl_tx_power_density": IGNORE_FIELD,
         "system_ul_coupling_loss": IGNORE_FIELD,
         "system_dl_coupling_loss": IGNORE_FIELD,
@@ -265,7 +245,6 @@ class PostProcessor:
 
     plot_legend_patterns: list = field(default_factory=list)
     legends_generator = None
-    linestyle_getter = None
 
     plots: list[go.Figure] = field(default_factory=list)
     results: list[Results] = field(default_factory=list)
@@ -273,43 +252,21 @@ class PostProcessor:
     def add_plot_legend_generator(
         self, generator
     ) -> "PostProcessor":
-        """
-        You can either add a plot generator or many plot legend patterns.
-        A generator is much more flexible.
-        """
         if self.legends_generator is not None:
             raise ValueError("Can only have one legends generator at a time")
         self.legends_generator = generator
 
-    def add_results_linestyle_getter(
-        self, getter
-    ) -> None:
-        """
-        When plotting, this function will be called for each result to decide
-        on the linestyle used
-        """
-        if self.linestyle_getter is not None:
-            raise ValueError(
-                "You are trying to set PostProcessor.linestyle_getter twice!")
-        self.linestyle_getter = getter
-
     def add_plot_legend_pattern(
         self, *, dir_name_contains: str, legend: str
     ) -> "PostProcessor":
-        """Add a plot legend pattern for directory name matching and return self."""
         self.plot_legend_patterns.append(
             {"dir_name_contains": dir_name_contains, "legend": legend}
         )
-        self.plot_legend_patterns.sort(
-            key=lambda p: -len(p["dir_name_contains"]))
+        self.plot_legend_patterns.sort(key=lambda p: -len(p["dir_name_contains"]))
 
         return self
 
     def get_results_possible_legends(self, result: Results) -> list[dict]:
-        """
-        You get a list with dicts tha have at least { "legend": str } in them.
-        They may also have { "dir_name_contains": str }
-        """
         possible = list(
             filter(
                 lambda pl: pl["dir_name_contains"]
@@ -319,47 +276,19 @@ class PostProcessor:
         )
 
         if len(possible) == 0 and self.legends_generator is not None:
-            return [{"legend": self.legends_generator(
-                os.path.basename(result.output_directory))}]
+            return [
+                {"legend": self.legends_generator(os.path.basename(result.output_directory))}
+            ]
 
         return possible
-
+        
+    
     def generate_cdf_plots_from_results(
-        self, results: list[Results], *, n_bins=None
+        self, results: list[Results], *, n_bins=200
     ) -> list[go.Figure]:
-        """
-        Generates CDF (Cumulative Distribution Function) plots from a list of Results objects.
-
-        This method processes each Results object, extracts relevant attributes, and generates
-        CDF plots for each attribute using Plotly. Each plot is configured with appropriate
-        titles, axis labels, and legends. The method supports custom line styles and colors
-        for different result sets.
-
-        Args:
-            results (list[Results]): A list of Results objects containing data to plot.
-            n_bins (Optional[int], optional): Number of bins to use for the CDF calculation.
-                If None, a default binning strategy is used.
-
-        Returns:
-            list[go.Figure]: A list of Plotly Figure objects, each representing a CDF plot
-                for a relevant attribute found in the Results objects.
-        """
         figs: dict[str, list[go.Figure]] = {}
-        COLORS = DEFAULT_PLOTLY_COLORS
 
-        linestyle_color = {}
-
-        # Sort based on path name - TODO: sort alphabeticaly by legend
-        results.sort(key=lambda r: r.output_directory)
         for res in results:
-            if self.linestyle_getter is not None:
-                linestyle = self.linestyle_getter(res)
-            else:
-                linestyle = "solid"
-
-            if linestyle not in linestyle_color:
-                linestyle_color[linestyle] = 0
-
             possible_legends_mapping = self.get_results_possible_legends(res)
 
             if len(possible_legends_mapping):
@@ -375,35 +304,25 @@ class PostProcessor:
                     continue
                 if attr_name not in PostProcessor.RESULT_FIELDNAME_TO_PLOT_INFO:
                     print(
-                        f"[WARNING]: {attr_name} is not a plottable field, because it does not have a configuration set on PostProcessor.")
+                        f"[WARNING]: {attr_name} is not a plottable field, because it does not have a configuration set on PostProcessor."
+                    )
                     continue
                 attr_plot_info = PostProcessor.RESULT_FIELDNAME_TO_PLOT_INFO[attr_name]
                 if attr_plot_info == PostProcessor.IGNORE_FIELD:
                     print(
-                        f"[WARNING]: {attr_name} is currently being ignored on plots.")
+                        f"[WARNING]: {attr_name} is currently being ignored on plots."
+                    )
                     continue
                 if attr_name not in figs:
                     figs[attr_name] = go.Figure()
                     figs[attr_name].update_layout(
-                        title=f'CDF Plot for {
-                            attr_plot_info["title"]}',
+                        title=f'CDF Plot for {attr_plot_info["title"]}',
                         xaxis_title=attr_plot_info["x_label"],
-                        yaxis_title="P(X <= x)",
-                        yaxis=dict(
-                            tickmode="array",
-                            tickvals=[
-                                0,
-                                0.25,
-                                0.5,
-                                0.75,
-                                1]),
-                        xaxis=dict(
-                            tickmode="linear",
-                            dtick=5),
+                        yaxis_title="CDF",
+                        yaxis=dict(tickmode="array", tickvals=[0, 0.25, 0.5, 0.75, 1]),
+                        xaxis=dict(tickmode="linear", dtick=5),
                         legend_title="Labels",
-                        meta={
-                            "related_results_attribute": attr_name,
-                            "plot_type": "cdf"},
+                        meta={"related_results_attribute": attr_name, "plot_type": "cdf"},
                     )
 
                 # TODO: take this fn as argument, to plot more than only cdf's
@@ -417,52 +336,21 @@ class PostProcessor:
                         y=y,
                         mode="lines",
                         name=f"{legend}",
-                        line=dict(color=COLORS[linestyle_color[linestyle]], dash=linestyle)
                     ),
                 )
-
-            linestyle_color[linestyle] += 1
-            if linestyle_color[linestyle] >= len(COLORS):
-                linestyle_color[linestyle] = 0
 
         return figs.values()
 
     def generate_ccdf_plots_from_results(
-        self, results: list[Results], *, n_bins=None, cutoff_percentage=0.001, logy=True
+        self, results: list[Results], *, n_bins=200, cutoff_percentage=0.01
     ) -> list[go.Figure]:
         """
-        Generates CCDF (Complementary Cumulative Distribution Function) plots from a list of Results objects.
-
-        This method processes each Results object, extracts relevant attributes, and generates
-        CCDF plots for each attribute using Plotly. Each plot is configured with appropriate
-        titles, axis labels, and legends. The method supports log-scale y-axes and custom cutoff percentages.
-
-        Args:
-            results (list[Results]): A list of Results objects containing data to plot.
-            n_bins (Optional[int], optional): Number of bins to use for the CCDF calculation.
-                If None, a default binning strategy is used.
-            cutoff_percentage (float, optional): The minimum probability to display on the y-axis.
-            logy (bool, optional): Whether to use a logarithmic scale for the y-axis.
-
-        Returns:
-            list[go.Figure]: A list of Plotly Figure objects, each representing a CCDF plot
-                for a relevant attribute found in the Results objects.
+        Generates ccdf plots for results added to instance, in log scale
+        cutoff_percentage: useful for cutting off
         """
         figs: dict[str, list[go.Figure]] = {}
-        COLORS = DEFAULT_PLOTLY_COLORS
 
-        linestyle_color = {}
-
-        results.sort(key=lambda r: r.output_directory)
         for res in results:
-            if self.linestyle_getter is not None:
-                linestyle = self.linestyle_getter(res)
-            else:
-                linestyle = "solid"
-
-            if linestyle not in linestyle_color:
-                linestyle_color[linestyle] = 0
-
             possible_legends_mapping = self.get_results_possible_legends(res)
 
             if len(possible_legends_mapping):
@@ -473,108 +361,158 @@ class PostProcessor:
             attr_names = res.get_relevant_attributes()
 
             next_tick = 1
-            ticks_at = []
-            while next_tick > cutoff_percentage:
-                ticks_at.append(next_tick)
-                next_tick /= 10
-            ticks_at.append(cutoff_percentage)
-            ticks_at.reverse()
 
+            ticks_major = []
+            ticks_minor = []
+
+            current_tick = next_tick
+            while current_tick > cutoff_percentage:
+                ticks_major.append(current_tick)
+                # Generate minor ticks for the current major interval:
+                # They range from 10% to 90% of the current major value (step 10%)
+                minor_ticks_for_interval = [current_tick * i for i in np.arange(1, .1, -0.1)]
+                ticks_minor.extend(minor_ticks_for_interval)
+                
+                # Divide the current major tick by 10 for the next iteration
+                current_tick /= 10  
+
+            ticks_major.append(cutoff_percentage)
+            ticks_major.reverse()
+            ticks_minor.append(cutoff_percentage)
+            ticks_minor.reverse()
+            # Create tick labels so that only major ticks are labeled
+            all_ticks = np.sort(np.unique(np.concatenate((ticks_major, ticks_minor))))
+            ticktext = [str(tick) if tick in ticks_major else "" for tick in all_ticks]
             for attr_name in attr_names:
                 attr_val = getattr(res, attr_name)
                 if not len(attr_val):
                     continue
                 if attr_name not in PostProcessor.RESULT_FIELDNAME_TO_PLOT_INFO:
                     print(
-                        f"[WARNING]: {attr_name} is not a plottable field, because it does not have a configuration set on PostProcessor.")
+                        f"[WARNING]: {attr_name} is not a plottable field, because it does not have a configuration set on PostProcessor."
+                    )
                     continue
                 attr_plot_info = PostProcessor.RESULT_FIELDNAME_TO_PLOT_INFO[attr_name]
                 if attr_plot_info == PostProcessor.IGNORE_FIELD:
                     print(
-                        f"[WARNING]: {attr_name} is currently being ignored on plots.")
+                        f"[WARNING]: {attr_name} is currently being ignored on plots."
+                    )
                     continue
                 if attr_name not in figs:
                     figs[attr_name] = go.Figure()
                     figs[attr_name].update_layout(
-                        title=f'CCDF Plot for {
-                            attr_plot_info["title"]}',
+                        title=f'CCDF Plot for {attr_plot_info["title"]}',
                         xaxis_title=attr_plot_info["x_label"],
-                        yaxis_title="P(X > x)",
-                        yaxis=dict(
-                            tickmode="array",
-                            tickvals=ticks_at,
-                            type="log",
-                            range=[
-                                np.log10(cutoff_percentage),
-                                0]),
-                        xaxis=dict(
-                            tickmode="linear",
-                            dtick=5),
+                        yaxis_title="$\\text{P } I > X$",
+                        yaxis=dict(tickmode="array", tickvals=all_ticks, type="log",
+                                   range=[np.log10(cutoff_percentage), 0],
+                                   ticktext=ticktext,
+                                   gridcolor="lightgray",
+                                   gridwidth=.5,
+                                   griddash="dot"
+                                   ),
+                        xaxis=dict(tickmode="linear",
+                                   dtick=5,
+                                   gridcolor="lightgray",
+                                   gridwidth=.5,
+                                   griddash="dot"
+                                   ),
                         legend_title="Labels",
-                        meta={
-                            "related_results_attribute": attr_name,
-                            "plot_type": "ccdf"},
+                        meta={"related_results_attribute": attr_name, "plot_type": "ccdf"},
+                        plot_bgcolor="white",
+                        paper_bgcolor="white",
+                        font=dict(
+                            family="Arial, sans-serif",
+                            size=16,         # Base font size for all text
+                            color="black"    # Text color
+                        ),
+                        shapes=[
+                            dict(
+                                type="rect",
+                                xref="paper",
+                                yref="paper",
+                                x0=0,
+                                y0=cutoff_percentage,
+                                x1=1,
+                                y1=1,
+                                line=dict(
+                                    color="black",
+                                    width=1
+                                ),
+                                fillcolor="rgba(0,0,0,0)"  # transparent fill
+                            )
+                        ],
+                        legend=dict(
+                            x=0.95,          # x position (95% from the left)
+                            y=0.95,          # y position (95% from the bottom)
+                            xanchor='right', # anchor the legend's right side at x=0.95
+                            yanchor='top',   # anchor the legend's top at y=0.95
+                            bgcolor='rgba(255,255,255,0.5)',  # Optional: semi-transparent white background
+                            bordercolor='black',              # Optional: border color for better separation
+                            borderwidth=1                     # Optional: border width in pixels
+                        )
                     )
 
                 # TODO: take this fn as argument, to plot more than only cdf's
                 x, y = PostProcessor.ccdf_from(attr_val, n_bins=n_bins)
 
                 fig = figs[attr_name]
+                pat = re.compile(
+                    r"h\s*=\s*(\d+)m,azi\s*=\s*(\d+)deg,lf\s*=\s*(\d+)\s*%,M\s*=\s*(\d+)\s*km",
+                    re.I,
+                )
+                m = pat.search(legend)
+                if m:
+                    h, azi, lf, M = map(int, m.groups())
+                    dash_style = "dash" if lf == 20 else "solid"
+                else:
+                    dash_style = "solid"
 
+                fig = figs[attr_name]
                 fig.add_trace(
-                    go.Scatter(
+                        go.Scatter(
                         x=x,
                         y=y,
                         mode="lines",
-                        name=f"{legend}",
-                        line=dict(color=COLORS[linestyle_color[linestyle]], dash=linestyle)
+                        name=legend,
+                        line=dict(dash=dash_style),
                     ),
                 )
-                # A trick to plog semi-logy plots with better scientific aspect.
-                # I should have left it to the user to decide if they want logy or not,
-                # but I think it is better to have it by default.
-                if logy:
-                    fig.update_yaxes(type="log")
-                    yticks = []
-                    n_right_zeros = -int(np.floor(np.log10(cutoff_percentage)))
-                    for i in range(n_right_zeros, 0, -1):
-                        for j in range(1, 10):
-                            yticks.append(j * (10**(-i)))
-                    yticks = yticks + [1.0]
-                    major_yticks = [10**(-i) for i in range(n_right_zeros)]
-                    ytick_text = [
-                        str(v) if v in major_yticks else "" for v in yticks]
-                    fig.update_yaxes(tickvals=yticks, ticktext=ytick_text)
+        pat = re.compile(
+            r"h\s*=\s*(\d+)m,azi\s*=\s*(\d+)deg,lf\s*=\s*(\d+)\s*%,M\s*=\s*(\d+)\s*km",
+            re.I,
+        )
+        for fig in figs.values():
+            traces = list(fig.data)
 
-            linestyle_color[linestyle] += 1
-            if linestyle_color[linestyle] >= len(COLORS):
-                linestyle_color[linestyle] = 0
+            def key_by_params(tr):
+                name = tr.name or ""
+                m = pat.search(name)
+                if m:
+                    h, azi, lf, M = map(int, m.groups())
+                    return (h, azi, lf, M)
+                # fallback: put non-matching names at the end, alpha-sorted
+                return (10**9, 10**9, 10**9, 10**9, name)
+
+            traces_sorted = sorted(traces, key=key_by_params)
+            fig.data = tuple(traces_sorted)
+            fig.update_layout(legend=dict(traceorder="normal"))
 
         return figs.values()
 
     def add_plots(self, plots: list[go.Figure]) -> None:
-        """Add a list of plotly Figure objects to the PostProcessor."""
         self.plots.extend(plots)
 
     def add_results(self, results: list[Results]) -> None:
-        """Add a list of Results objects to the PostProcessor."""
         self.results.extend(results)
 
-    def get_results_by_output_dir(
-            self,
-            dir_name_contains: str,
-            *,
-            single_result=True):
-        """
-        Get results whose output directory contains the given string.
-        If single_result is True, return the first match; otherwise, return all matches.
-        """
+    def get_results_by_output_dir(self, dir_name_contains: str, *, single_result=True):
         filtered_results = list(
             filter(
-                lambda res: dir_name_contains in os.path.basename(
-                    res.output_directory),
+                lambda res: dir_name_contains in os.path.basename(res.output_directory),
                 self.results,
-            ))
+            )
+        )
         if len(filtered_results) == 0:
             raise ValueError(
                 f"Could not find result that contains '{dir_name_contains}'"
@@ -582,12 +520,12 @@ class PostProcessor:
 
         if len(filtered_results) > 1:
             raise ValueError(
-                f"There is more than one possible result with pattern '{dir_name_contains}'")
+                f"There is more than one possible result with pattern '{dir_name_contains}'"
+            )
 
         return filtered_results[0]
 
-    def get_plot_by_results_attribute_name(
-            self, attr_name: str, *, plot_type="cdf") -> go.Figure:
+    def get_plot_by_results_attribute_name(self, attr_name: str, *, plot_type="cdf") -> go.Figure:
         """
         You can get a plot using an attribute name from Results.
         See Results class to check what attributes exist.
@@ -595,9 +533,11 @@ class PostProcessor:
         """
         filtered = list(
             filter(
-                lambda x: x.layout.meta["related_results_attribute"] == attr_name and x.layout.meta["plot_type"] == plot_type,
+                lambda x: x.layout.meta["related_results_attribute"] == attr_name and
+                    x.layout.meta["plot_type"] == plot_type,
                 self.plots,
-            ))
+            )
+        )
 
         if 0 == len(filtered):
             return None
@@ -635,9 +575,13 @@ class PostProcessor:
         """
         if ul_tdd_factor > 1 or ul_tdd_factor < 0:
             raise ValueError(
-                "PostProcessor.aggregate_results() was called with invalid ul_tdd_factor parameter." +
-                f"ul_tdd_factor must be in interval [0, 1], but is {ul_tdd_factor}")
+                "PostProcessor.aggregate_results() was called with invalid ul_tdd_factor parameter."
+                + f"ul_tdd_factor must be in interval [0, 1], but is {ul_tdd_factor}"
+            )
 
+        # % Define os fatores de segmento
+        # SF_LG = round(4*204248/(7*19*3*1));
+        # SF_SM = round(4*105/(7*19*3*1));
         segment_factor = round(n_bs_actual / n_bs_sim)
 
         dl_tdd_factor = 1 - ul_tdd_factor
@@ -653,6 +597,11 @@ class PostProcessor:
 
         for i in range(n_aggregate):
             # choose S random samples
+            # % Define os índices para o Monte Carlo
+            # Ind_DL_LG = round(rand(N,floor(SF_LG))*(N-1))+1;
+            # Ind_UL_LG = round(rand(N,floor(SF_LG))*(N-1))+1;
+            # Ind_DL_SM = round(rand(N,floor(SF_SM))*(N-1))+1;
+            # Ind_UL_SM = round(rand(N,floor(SF_SM))*(N-1))+1; 
             ul_random_indexes = np.floor(
                 random_number_gen.random(size=segment_factor)
                 * len(ul_samples)
@@ -666,12 +615,14 @@ class PostProcessor:
             if ul_tdd_factor:
                 for j in ul_random_indexes:  # random samples
                     aggregate_samples[i] += (
+                        # % Define as variáveis de INR (linear)
                         np.power(10, ul_samples[int(j)] / 10) * ul_tdd_factor
                     )
 
             if dl_tdd_factor:
                 for j in dl_random_indexes:  # random samples
                     aggregate_samples[i] += (
+                        # % Define as variáveis de INR (linear)
                         np.power(10, dl_samples[int(j)] / 10) * dl_tdd_factor
                     )
 
@@ -683,13 +634,13 @@ class PostProcessor:
         return aggregate_samples
 
     @staticmethod
-    def cdf_from(data: list[float], *, n_bins=None) -> (list[float], list[float]):
+    def cdf_from(data: list[float], *, n_bins=200) -> (list[float], list[float]):
         """
         Takes a dataset and returns both axis of a cdf (x, y)
         """
         values, base = np.histogram(
             data,
-            bins=n_bins if n_bins is not None else "auto",
+            bins=n_bins,
         )
         cumulative = np.cumsum(values)
         x = base[:-1]
@@ -698,7 +649,7 @@ class PostProcessor:
         return (x, y)
 
     @staticmethod
-    def ccdf_from(data: list[float], *, n_bins=None) -> (list[float], list[float]):
+    def ccdf_from(data: list[float], *, n_bins=200) -> (list[float], list[float]):
         """
         Takes a dataset and returns both axis of a ccdf (x, y)
         """
@@ -734,10 +685,7 @@ class PostProcessor:
                 height=height
             )
 
-            plot.write_image(
-                os.path.join(
-                    dir, f"{
-                        plot.layout.title.text}.jpg"))
+            plot.write_image(os.path.join(dir, f"{plot.layout.title.text}.jpg"))
 
             plot.update_layout(
                 autosize=prev_autosize,
@@ -747,12 +695,43 @@ class PostProcessor:
 
     @staticmethod
     def generate_statistics(result: Results) -> ResultsStatistics:
-        """Generate statistics for a Results object."""
         return ResultsStatistics().load_from_results(result)
 
     @staticmethod
-    def generate_sample_statistics(
-            fieldname: str,
-            sample: list[float]) -> ResultsStatistics:
-        """Generate statistics for a sample field."""
+    def generate_sample_statistics(fieldname: str, sample: list[float]) -> ResultsStatistics:
         return FieldStatistics().load_from_sample(fieldname, sample)
+
+    @staticmethod
+    def generate_antenna_radiation_pattern_plot(
+        *,
+        antenna: Antenna,
+        legend: str,
+        plot_title: str,
+        plot: typing.Union[go.Figure, typing.Literal[None]] = None
+    ) -> go.Figure:
+        phi = np.linspace(0.1, 100, num=100000)
+        gain = antenna.calculate_gain(off_axis_angle_vec=phi)
+
+        if plot is None:
+            plot = go.Figure()
+            plot.update_layout(
+                title=plot_title,
+                xaxis_title=r"Off-axis angle &#934; [deg]",
+                yaxis_title="Gain [dBi]",
+                yaxis=dict(tickmode="linear", dtick=5),
+                xaxis=dict(type="log"),
+                legend_title="Labels",
+            )
+
+        trace = go.Scatter(
+                x=phi,
+                y=gain,
+                mode="lines",
+                name=legend
+            )
+
+        plot.add_trace(
+            trace,
+        )
+
+        return plot

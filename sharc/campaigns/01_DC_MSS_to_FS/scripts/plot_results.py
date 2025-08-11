@@ -9,37 +9,57 @@ from sharc.results import Results
 from sharc.post_processor import PostProcessor
 
 post_processor = PostProcessor()
+heights = [20]  # meters
+azis = [0, 90, 180, 270]  # degrees
+lfs = [0.5]  # fraction (20%, 50%)
+margins = [40, 80, 120]  # km
 
-# Add a legend to results in folder that match the pattern
-# This could easily come from a config file
-post_processor\
-    .add_plot_legend_pattern(
-        dir_name_contains="_1km",
-        legend="0 Km"
-    ).add_plot_legend_pattern(
-        dir_name_contains="_45km",
-        legend="45 Km"
-    ).add_plot_legend_pattern(
-        dir_name_contains="_90km",
-        legend="90 Km"
-    ).add_plot_legend_pattern(
-        dir_name_contains="_500km",
-        legend="500 Km"
+# Convert to the expected directory name format
+height_strs = [f"{h}m" for h in heights]
+azi_strs = [f"azi_{a}deg" for a in azis]
+lf_strs = [f"lf_{lf}" if lf != 0.2 else "lf_0.2" for lf in lfs]  # match naming convention
+margin_strs = [f"margin_{m}km" for m in margins]
+
+combinations = [
+    (h, azi, lf, margin)
+    for h in sorted(heights)
+    for azi in sorted(azis)
+    for lf in sorted(lfs)
+    for margin in sorted(margins)
+]
+
+# Add them in sorted order
+for h, azi, lf, margin in combinations:
+    post_processor.add_plot_legend_pattern(
+        dir_name_contains=f"{h}m_azi_{azi}deg_lf_{lf}_margin_{margin}km",
+        legend=f"h={h}m,azi={azi}deg,lf={int(lf*100)}%,M={margin}km"
     )
 
+
+# Define filter function
+filter_fn = lambda dir_path: (
+    any(h in os.path.basename(dir_path) for h in height_strs) and
+    any(a in os.path.basename(dir_path) for a in azi_strs) and
+    any(l in os.path.basename(dir_path) for l in lf_strs) and
+    any(m in os.path.basename(dir_path) for m in margin_strs)
+)
 campaign_base_dir = str((Path(__file__) / ".." / "..").resolve())
+
+
 
 many_results = Results.load_many_from_dir(
     os.path.join(
         campaign_base_dir,
         "output"),
-    only_latest=True)
+    only_latest=True,
+    filter_fn=filter_fn
+    )
 # ^: typing.List[Results]
 
 post_processor.add_results(many_results)
 
 plots = post_processor.generate_ccdf_plots_from_results(
-    many_results
+    many_results, cutoff_percentage=0.001
 )
 
 post_processor.add_plots(plots)

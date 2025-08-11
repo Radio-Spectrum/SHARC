@@ -18,17 +18,17 @@ with open(input_file, "r") as f:
 
 modified_text = reference_text[:]
 # Gerar arquivos para cada ângulo de azimute
-for sistema in ["Sat_Q", "Sat_P"]:
+for sistema in ["Sat_E&G", "Sat_C&S"]:
     modified_text[136 - 1] = f"    Hre: {'7' if sistema == "Sat_Q" else '7'}\n"
-    modified_text[100 - 1] = f"    gain: {'50' if sistema == "Sat_Q" else '59'}\n"
-    modified_text[102 - 1] = f"      diameter: {'5' if sistema == "Sat_Q" else '13'}\n"
-    modified_text[104 - 1] = f"  bandwidth: {'73' if sistema == "Sat_Q" else '50'}\n"
-    modified_text[106 - 1] = f"  frequency: {'7475' if sistema == "Sat_Q" else '7500'}\n"
-    modified_text[47 - 1] = f"  frequency: {'7475' if sistema == "Sat_Q" else '7500'}\n"
-    modified_text[116 - 1] = f"      fixed: {'3' if sistema == "Sat_Q" else '3'}\n"
+    modified_text[100 - 1] = f"    gain: {'57.2' if sistema == "Sat_Q" else '44.9'}\n"
+    modified_text[102 - 1] = f"      diameter: {'12' if sistema == "Sat_Q" else '5'}\n"
+    modified_text[104 - 1] = f"  bandwidth: {'60' if sistema == "Sat_Q" else '30'}\n"
+    modified_text[106 - 1] = f"  frequency: {'7780' if sistema == "Sat_Q" else '7812'}\n"
+    modified_text[47 - 1] = f"  frequency: {'7780' if sistema == "Sat_Q" else '7812'}\n"
+    modified_text[116 - 1] = f"      fixed: {'5' if sistema == "Sat_Q" else '5'}\n"
     modified_text[121 - 1] = f"    height: {'7' if sistema == "Sat_Q" else '7'}\n"
-    modified_text[103 - 1] = f"    pattern: {'ITU-R S.465' if sistema == "Sat_Q" else 'ITU-R Reg. RR. Appendice 7 Annex 3'}\n"
-    modified_text[101 - 1] = f"{'    itu_r_s_465:' if sistema == "Sat_Q" else '    itu_reg_rr_a7_3:'}\n"
+    modified_text[103 - 1] = f"    pattern: {'ITU-R S.465' if sistema == "Sat_Q" else 'ITU-R S.465'}\n"
+    modified_text[101 - 1] = f"{'    itu_r_s_465:' if sistema == "Sat_Q" else '    itu_r_s_465:'}\n"
 
     for imt_cell in ["macro","micro"]:
         modified_text[17 - 1] = f"{'        vertical_beamsteering_range: !!python/tuple [90., 100.]' if imt_cell == "macro" else '        vertical_beamsteering_range: !!python/tuple [90., 120.]'}\n"

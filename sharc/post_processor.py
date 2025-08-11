@@ -443,8 +443,8 @@ class PostProcessor:
                             )
                         ],
                         legend=dict(
-                            x=0.95,          # x position (95% from the left)
-                            y=0.95,          # y position (95% from the bottom)
+                            x=0.2,          # x position (95% from the left)
+                            y=0.5,          # y position (95% from the bottom)
                             xanchor='right', # anchor the legend's right side at x=0.95
                             yanchor='top',   # anchor the legend's top at y=0.95
                             bgcolor='rgba(255,255,255,0.5)',  # Optional: semi-transparent white background

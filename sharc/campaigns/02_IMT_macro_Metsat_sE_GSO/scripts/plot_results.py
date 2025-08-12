@@ -9,15 +9,15 @@ import plotly.graph_objects as go
 from sharc.post_processor import PostProcessor
 
 post_processor = PostProcessor()
-cutoff_percentage = .01;
+cutoff_percentage = .001;
 
 
-sistemas      = ["Sat_Q", "Sat_P"] #["Sat_Q", "Sat_P"]
-imt_cell      = ["micro"] #"macro", "micro"]
-p_percentage  = [20, "RANDOM", "RANDOM_CENARIO"] # [20, "RANDOM", "RANDOM_CENARIO"]
-clutter_type  = ["one_end", "both_ends"] # ["one_end", "both_ends"]
-link_type     = ["ul", "dl"] # ["ul", "dl"]
-distances_km  = [5, 10, 50, 100] # [5, 10, 50, 100]
+sistemas      = ["Sat_Q", "Sat_P"]                       #["Sat_Q", "Sat_P"]
+imt_cell      = ["micro"]                                #"macro", "micro"]
+p_percentage  = [20, "RANDOM", "RANDOM_CENARIO"]         # [20, "RANDOM", "RANDOM_CENARIO"]
+clutter_type  = ["both_ends"]                              # ["one_end", "both_ends"]
+link_type     = ["dl"]                                 # ["ul", "dl"]
+distances_km  = [5, 10]                                  # [5, 10, 50, 100]
 
 # Helper: pretty legend text
 def pretty_p(p):
@@ -48,7 +48,7 @@ for s, a, b, c, d, e in combinations:
 
     # Nice legend
     legend = (
-        f"{a}, sys={s}, link={pretty_link(d)}, "
+        f"sys={s}, link={pretty_link(d)}, "
         f"p={pretty_p(b)}, clutter={pretty_clutter(c)}, D={e} km"
     )
     post_processor.add_plot_legend_pattern(
@@ -73,7 +73,7 @@ many_results = Results.load_many_from_dir(
 post_processor.add_results(many_results)
 
 plots = post_processor.generate_ccdf_plots_from_results(
-    many_results, cutoff_percentage=cutoff_percentage
+    many_results, cutoff_percentage=cutoff_percentage, shift_scale=30
 )
 
 post_processor.add_plots(plots)
@@ -81,7 +81,7 @@ post_processor.add_plots(plots)
 #### Add protection criteria
 
 plots_to_add_vline = [
-    "system_inr"
+    "system_dl_interf_power_per_mhz"
 ]
 
 for prop_name in plots_to_add_vline:
@@ -90,18 +90,18 @@ for prop_name in plots_to_add_vline:
         # Add vertical dashed line at x = -6
         plt.add_trace(
             go.Scatter(
-                x=[-6, -6],
+                x=[-154, -154],
                 y=[cutoff_percentage, 1],
                 mode="lines",
                 line=dict(dash="dash", color="black"),
-                name=" -6dB [20% of the time]",
+                name=" -154dB/MHz [1% of the time]",
                 hoverinfo="skip",    # avoids mouse hover box on the guide line
                 showlegend=True      # make sure it appears in the legend
             )
         )
         # Add horizontal dashed line at y = 0.2
         plt.add_hline(
-            y=0.2,
+            y=0.01,
             line_dash="dash",
             #annotation_text="TEst",
             #annotation_position="left",

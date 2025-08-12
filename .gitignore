@@ -76,6 +76,7 @@ target/
 /sharc/.venv/
 .DS_Store
 .venv/
+.venv312/
 venv/
 myenv/pyvenv.cfg
 myenv/Scripts/activate

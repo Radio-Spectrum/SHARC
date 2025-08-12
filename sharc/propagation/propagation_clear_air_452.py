@@ -4,15 +4,15 @@
 import numpy as np
 from multipledispatch import dispatch
 
-from sharc.propagation.propagation import Propagation
-from sharc.station_manager import StationManager
 from sharc.parameters.parameters import Parameters
 from sharc.parameters.parameters_p452 import ParametersP452
-from sharc.propagation.clear_air_452_aux import p676_ga
-from sharc.propagation.clear_air_452_aux import inv_cum_norm
-from sharc.support.enumerations import StationType
+from sharc.propagation.clear_air_452_aux import inv_cum_norm, p676_ga
+from sharc.propagation.propagation import Propagation
+from sharc.propagation.propagation_building_entry_loss import \
+    PropagationBuildingEntryLoss
 from sharc.propagation.propagation_clutter_loss import PropagationClutterLoss
-from sharc.propagation.propagation_building_entry_loss import PropagationBuildingEntryLoss
+from sharc.station_manager import StationManager
+from sharc.support.enumerations import StationType
 
 
 class PropagationClearAir(Propagation):
@@ -1612,10 +1612,25 @@ class PropagationClearAir(Propagation):
         Hre = np.asarray(self.model_params.Hre)
         N0 = np.asarray(self.model_params.N0)
         deltaN = np.asarray(self.model_params.delta_N)
+        
         if self.model_params.percentage_p == 'RANDOM':
-            p = 50 * self.random_number_gen.rand(distance.size)
+        # Random per link within a given range
+            p_min = 0.00001    # 0.001% as a fraction
+            p_max = 0.50       # 50% as a fraction
+            p = (p_min + (p_max - p_min) * self.random_number_gen.rand(distance.size)) * 100
+
+        elif self.model_params.percentage_p == 'RANDOM_GLOBAL':
+            # Single random value for the entire run, within a given range
+            p_min = 0.00001    # 0.001% as a fraction
+            p_max = 0.50       # 50% as a fraction
+            p_val = (p_min + (p_max - p_min) * self.random_number_gen.rand()) * 100
+            p = np.repeat(p_val, distance.size)
+
         else:
+            # Fixed value for all links
             p = float(self.model_params.percentage_p) * np.ones(distance.size)
+
+
 
         tx_lat = self.model_params.tx_lat
         rx_lat = self.model_params.rx_lat

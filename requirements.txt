@@ -37,7 +37,7 @@ jupyter_client==8.6.2
 jupyter_core==5.7.2
 kaleido==0.2.1
 kiwisolver==1.4.5
-logging==0.4.9.6
+#logging==0.4.9.6
 lxml==5.2.1
 matplotlib==3.8.3
 matplotlib-inline==0.1.7
@@ -49,11 +49,11 @@ numpy==1.26.4
 #obspy==1.4.0
 overloading==0.5.0
 packaging==23.2
-pandas==2.3.1
+pandas==2.2.1
 parso==0.8.4
 pep8==1.7.1
 pexpect==4.9.0
-pillow==11.3.0
+pillow==10.2.0
 pip-system-certs==4.0
 platformdirs==4.2.0
 plotly==5.23.0
@@ -80,9 +80,9 @@ PyYAML==6.0.1
 pyzmq==26.0.3
 requests==2.31.0
 ruff==0.6.9
-scipy==1.16.1
+scipy==1.12.0
 setuptools==69.1.1
-shapely==2.1.1
+shapely==2.0.3
 six==1.16.0
 snowballstemmer==2.2.0
 SQLAlchemy==2.0.29

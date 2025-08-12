@@ -1614,6 +1614,8 @@ class PropagationClearAir(Propagation):
         deltaN = np.asarray(self.model_params.delta_N)
         if self.model_params.percentage_p == 'RANDOM':
             p = 50 * self.random_number_gen.rand(distance.size)
+        elif self.model_params.percentage_p == 'RANDOM_CENARIO':
+            p = 50 * self.random_number_gen.rand(1) * np.ones(distance.size)
         else:
             p = float(self.model_params.percentage_p) * np.ones(distance.size)
 

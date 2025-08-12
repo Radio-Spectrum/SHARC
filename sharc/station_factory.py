@@ -59,6 +59,7 @@ from sharc.topology.topology_imt_mss_dc import TopologyImtMssDc
 from sharc.mask.spectral_mask_3gpp import SpectralMask3Gpp
 from sharc.mask.spectral_mask_mss import SpectralMaskMSS
 from sharc.support.sharc_geom import GeometryConverter
+from sharc.support.sharc_utils import wrap2_180
 
 
 class StationFactory(object):
@@ -119,7 +120,7 @@ class StationFactory(object):
             else:
                 imt_base_stations.height = param.bs.height * np.ones(num_bs)
 
-        imt_base_stations.azimuth = topology.azimuth
+        imt_base_stations.azimuth = wrap2_180(topology.azimuth)
         imt_base_stations.active = random_number_gen.rand(
             num_bs,
         ) < param.bs.load_probability

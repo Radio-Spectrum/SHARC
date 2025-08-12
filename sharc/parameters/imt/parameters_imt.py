@@ -110,11 +110,11 @@ class ParametersImt(ParametersBase):
 
         def validate(self, ctx: str):
             """Validate the UE antenna beamsteering range parameters."""
-            if self.antenna.array.horizontal_beamsteering_range != (-180., 180.)\
-                    or self.antenna.array.vertical_beamsteering_range != (0., 180.):
+            if self.antenna.array.horizontal_beamsteering_range != (-180., 179.9999)\
+                    or self.antenna.array.vertical_beamsteering_range != (0., 179.9999):
                 raise NotImplementedError(
                     "UE antenna beamsteering limit has not been implemented. Default values of\n"
-                    "horizontal = (-180., 180.), vertical = (0., 180.) should not be changed")
+                    "horizontal = (-180., 179.9999), vertical = (0., 179.9999) should not be changed")
 
     ue: ParametersUE = field(default_factory=ParametersUE)
 

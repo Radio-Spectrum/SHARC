@@ -63,9 +63,9 @@ class ParametersTest(unittest.TestCase):
         self.assertEqual(
             self.parameters.imt.ue.antenna.array.horizontal_beamsteering_range,
             (-180.,
-             180.))
+                 179.9999))
         self.assertEqual(
-            self.parameters.imt.ue.antenna.array.vertical_beamsteering_range, (0., 180.))
+            self.parameters.imt.ue.antenna.array.vertical_beamsteering_range, (0., 179.9999))
         self.assertEqual(self.parameters.imt.ue.k, 3)
         self.assertEqual(self.parameters.imt.ue.k_m, 1)
         self.assertEqual(self.parameters.imt.ue.indoor_percent, 5.0)

@@ -5,14 +5,15 @@ Created on Fri Apr  7 17:02:35 2017
 @author: edgar
 """
 
-import numpy as np
 import math
 import warnings
 
-from sharc.simulation import Simulation
-from sharc.parameters.parameters import Parameters
-from sharc.station_factory import StationFactory
+import numpy as np
+
 from sharc.parameters.constants import BOLTZMANN_CONSTANT
+from sharc.parameters.parameters import Parameters
+from sharc.simulation import Simulation
+from sharc.station_factory import StationFactory
 
 warn = warnings.warn
 
@@ -552,9 +553,14 @@ class SimulationUplink(Simulation):
                         bs * self.parameters.imt.ue.k, (bs + 1) * self.parameters.imt.ue.k,
                     )
                 ])
-                self.results.system_imt_antenna_gain.extend(
-                    self.system_imt_antenna_gain[np.ix_(sys_active, active_beams)].flatten(),
-                )
+                #self.results.system_imt_antenna_gain.extend(np.atleast_2d(
+                #    self.system_imt_antenna_gain[np.ix_(sys_active, active_beams)].#flatten(),
+                #)
+                
+                self.results.system_imt_antenna_gain.extend(np.atleast_2d(
+                    self.system_imt_antenna_gain[np.ix_(sys_active, active_beams)].flatten()))
+
+                
                 self.results.imt_system_antenna_gain.extend(
                     self.imt_system_antenna_gain[np.ix_(sys_active, active_beams)].flatten(),
                 )

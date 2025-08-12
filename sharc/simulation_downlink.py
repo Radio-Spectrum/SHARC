@@ -5,14 +5,15 @@ Created on Wed Jan 11 19:06:41 2017
 @author: edgar
 """
 
-import numpy as np
 import math
 import warnings
 
-from sharc.simulation import Simulation
-from sharc.parameters.parameters import Parameters
-from sharc.station_factory import StationFactory
+import numpy as np
+
 from sharc.parameters.constants import BOLTZMANN_CONSTANT
+from sharc.parameters.parameters import Parameters
+from sharc.simulation import Simulation
+from sharc.station_factory import StationFactory
 
 warn = warnings.warn
 
@@ -675,8 +676,12 @@ class SimulationDownlink(Simulation):
                     self.results.imt_system_diffraction_loss.extend(
                         self.imt_system_diffraction_loss[sys_active[:, np.newaxis], ue].flatten(),
                     )
+                #self.results.sys_to_imt_coupling_loss.extend(
+                #    self.coupling_loss_imt_system[np.array(ue)[:, np.newaxis], #sys_active].flatten())
+                
                 self.results.sys_to_imt_coupling_loss.extend(
-                    self.coupling_loss_imt_system[np.array(ue)[:, np.newaxis], sys_active].flatten())
+                np.atleast_2d(self.coupling_loss_imt_system)[sys_active, ue].flatten())
+                
             else:  # IMT is the interferer
                 self.results.system_imt_antenna_gain.extend(
                     self.system_imt_antenna_gain[sys_active[:, np.newaxis], ue].flatten(),

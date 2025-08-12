@@ -3,7 +3,7 @@ general:
   enable_cochannel: true
   imt_link: DOWNLINK
   num_snapshots: 200000
-  output_dir: campaigns/02_IMT_macro_Metsat_sE_GSO/output/
+  output_dir: campaigns/02_IMT_Metsat_sE_NGSO/output/
   output_dir_prefix: ES_Macro_1
   overwrite_output: false
   seed: 33

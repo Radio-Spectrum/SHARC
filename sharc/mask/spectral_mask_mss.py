@@ -84,7 +84,7 @@ class SpectralMaskMSS(SpectralMask):
         # dBm/MHz
         # this should work for the document's dBsd definition
         # when we have a uniform PSD in assigned band
-        self.p_tx = p_tx - 10 * np.log10(self.band_mhz) + 30
+        self.p_tx = p_tx - 10 * np.log10(self.band_mhz)
 
         # attenuation mask
         mask_dbsd = 40 * np.log10(
@@ -110,10 +110,10 @@ class SpectralMaskMSS(SpectralMask):
 
 if __name__ == '__main__':
     # Initialize variables
-    p_tx = 34.061799739838875
-    freq = 2100
+    p_tx = 42
+    freq = 2155
     band = 5
-    spurious_emissions_dbm_mhz = -30
+    spurious_emissions_dbm_mhz = -13
 
     # Create mask
     msk = SpectralMaskMSS(freq, band, spurious_emissions_dbm_mhz)
@@ -135,7 +135,7 @@ if __name__ == '__main__':
     plt.plot(freqs, mask_val)
     plt.xlim([freqs[0], freqs[-1]])
     plt.xlabel(r"f [MHz]")
-    plt.ylabel("Spectral Mask [dBm]")
+    plt.ylabel("Spectral Mask [dBm/MHz]")
     plt.grid()
     plt.show()
 

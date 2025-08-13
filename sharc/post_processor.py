@@ -108,7 +108,7 @@ class ResultsStatistics:
 
 
 @dataclass
-class PostProcessor:
+class PostProcessor():
     IGNORE_FIELD = {
         "title": "ANTES NAO PLOTAVAMOS ISSO, ENTÃO CONTINUA SEM PLOTAR",
         "x_label": "",
@@ -342,7 +342,8 @@ class PostProcessor:
         return figs.values()
 
     def generate_ccdf_plots_from_results(
-        self, results: list[Results], *, n_bins=200, cutoff_percentage=0.01
+        self, results: list[Results], *, n_bins=200, cutoff_percentage=0.01, shift_scale=0,
+        legenda_dens_potencia="Interference Power [dBm/MHz]"
     ) -> list[go.Figure]:
         """
         Generates ccdf plots for results added to instance, in log scale
@@ -457,21 +458,20 @@ class PostProcessor:
                 x, y = PostProcessor.ccdf_from(attr_val, n_bins=n_bins)
 
                 fig = figs[attr_name]
-                pat = re.compile(
-                    r"h\s*=\s*(\d+)m,azi\s*=\s*(\d+)deg,lf\s*=\s*(\d+)\s*%,M\s*=\s*(\d+)\s*km",
-                    re.I,
-                )
-                m = pat.search(legend)
-                if m:
-                    h, azi, lf, M = map(int, m.groups())
-                    dash_style = "dash" if lf == 20 else "solid"
-                else:
+                if "20%" in legend:
                     dash_style = "solid"
+                elif "RANDOM_CENARIO" in legend:
+                    dash_style = "dash"
+                else:
+                    dash_style = "dot"
 
-                fig = figs[attr_name]
+                x_aux = x
+                if attr_name == "system_dl_interf_power_per_mhz" or attr_name == "system_ul_interf_power_per_mhz":
+                    x_aux = x_aux - shift_scale  # shift by -30                fig = figs[attr_name]
+
                 fig.add_trace(
                         go.Scatter(
-                        x=x,
+                        x=x_aux,
                         y=y,
                         mode="lines",
                         name=legend,

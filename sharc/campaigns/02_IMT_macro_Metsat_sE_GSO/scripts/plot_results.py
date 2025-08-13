@@ -12,8 +12,8 @@ post_processor = PostProcessor()
 cutoff_percentage = .001;
 
 
-sistemas      = ["Sat_Q", "Sat_P"]                       #["Sat_Q", "Sat_P"]
-imt_cell      = ["micro"]                                #"macro", "micro"]
+sistemas      = ["Sat_C&S"]                       #["Sat_Q", "Sat_P"]
+imt_cell      = ["macro"]                                #"macro", "micro"]
 p_percentage  = [20, "RANDOM", "RANDOM_CENARIO"]         # [20, "RANDOM", "RANDOM_CENARIO"]
 clutter_type  = ["both_ends"]                              # ["one_end", "both_ends"]
 link_type     = ["dl"]                                 # ["ul", "dl"]

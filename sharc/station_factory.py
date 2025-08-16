@@ -60,7 +60,7 @@ from sharc.topology.topology_imt_mss_dc import TopologyImtMssDc
 from sharc.mask.spectral_mask_3gpp import SpectralMask3Gpp
 from sharc.mask.spectral_mask_mss import SpectralMaskMSS
 from sharc.support.sharc_geom import GeometryConverter
-
+from sharc.mask.spectral_mask_imt2030 import SpectralMaskImt2030
 
 class StationFactory(object):
     """
@@ -188,6 +188,15 @@ class StationFactory(object):
                 param.frequency,
                 param.bandwidth,
                 param.spurious_emissions
+            )
+        elif param.spectral_mask == "IMT-2030":
+            imt_base_stations.spectral_mask = SpectralMaskImt2030(
+                StationType.IMT_BS,
+                param.frequency,
+                param.bandwidth,
+                param.spurious_emissions,
+                param.category,
+                scenario=param.topology.type,
             )
         else:
             raise ValueError(
@@ -487,6 +496,15 @@ class StationFactory(object):
                 param.bandwidth,
                 param.spurious_emissions,
             )
+        elif param.spectral_mask == "IMT-2030":
+            imt_ue.spectral_mask = SpectralMaskImt2030(
+                StationType.IMT_BS,
+                param.frequency,
+                param.bandwidth,
+                param.spurious_emissions,
+                param.category,
+                scenario=param.topology.type,
+            )
         else:
             raise ValueError(f"Invalid spectral mask {param.spectral_mask}")
 
@@ -664,7 +682,15 @@ class StationFactory(object):
                 param.bandwidth,
                 param.spurious_emissions,
             )
-
+        elif param.spectral_mask == "IMT-2030":
+            imt_ue.spectral_mask = SpectralMaskImt2030(
+                StationType.IMT_BS,
+                param.frequency,
+                param.bandwidth,
+                param.spurious_emissions,
+                param.category,
+                scenario=param.topology.type,
+            )
         imt_ue.spectral_mask.set_mask()
 
         return imt_ue
@@ -1775,7 +1801,7 @@ class StationFactory(object):
         tuple
             x, y, z, azimuth and elevation angles.
         """
-        hexagon_radius = topology.intersite_distance * 2 / 3
+        hexagon_radius = topology.intersite_distance * 2 / 3 / 2
 
         x = np.array([])
         y = np.array([])

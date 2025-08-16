@@ -128,12 +128,10 @@ class StationManager(object):
         np.array
             2D distance matrix between stations.
         """
-        distance = np.empty([self.num_stations, station.num_stations])
-        for i in range(self.num_stations):
-            distance[i] = np.sqrt(
-                np.power(self.x[i] - station.x, 2) +
-                np.power(self.y[i] - station.y, 2),
-            )
+        distance = np.sqrt(
+            np.power(self.x[:, np.newaxis] - station.x, 2) +
+            np.power(self.y[:, np.newaxis] - station.y, 2)
+        )
         return distance
 
     def get_3d_distance_to(self, station) -> np.array:
@@ -149,13 +147,11 @@ class StationManager(object):
         np.array
             3D distance matrix between stations.
         """
-        distance = np.empty([self.num_stations, station.num_stations])
-        for i in range(self.num_stations):
-            distance[i] = np.sqrt(
-                np.power(self.x[i] - station.x, 2) +
-                np.power(self.y[i] - station.y, 2) +
-                np.power(self.z[i] - station.z, 2)
-            )
+        distance = np.sqrt(
+            np.power(self.x[:, np.newaxis] - station.x, 2) +
+            np.power(self.y[:, np.newaxis] - station.y, 2) +
+            np.power(self.z[:, np.newaxis] - station.z, 2)
+        )
         return distance
 
     def get_dist_angles_wrap_around(self, station) -> np.array:

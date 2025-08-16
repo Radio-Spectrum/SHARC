@@ -594,6 +594,15 @@ class ParametersTest(unittest.TestCase):
             47,
         )
 
+        self.assertEqual(
+            self.parameters.single_earth_station.param_satellite_simple.enable_clutter_loss,
+            True,
+        )
+        self.assertEqual(
+            self.parameters.single_earth_station.param_satellite_simple.atmospheric_loss,
+            0.5,
+        )
+
         self.parameters.single_earth_station.geometry.azimuth.uniform_dist.max = None
         # this should still not throw, since azimuth is using fixed type
         self.parameters.single_earth_station.validate()

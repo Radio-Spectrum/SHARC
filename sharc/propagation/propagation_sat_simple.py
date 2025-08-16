@@ -27,7 +27,8 @@ class PropagationSatSimple(Propagation):
     def __init__(
             self,
             random_number_gen: np.random.RandomState,
-            enable_clutter_loss=True):
+            enable_clutter_loss=True,
+            atmospheric_loss=0.75):
         super().__init__(random_number_gen)
         self.enable_clutter_loss = enable_clutter_loss
         self.clutter = PropagationClutterLoss(random_number_gen)
@@ -35,7 +36,7 @@ class PropagationSatSimple(Propagation):
         self.building_entry = PropagationBuildingEntryLoss(
             self.random_number_gen,
         )
-        self.atmospheric_loss = 0.75
+        self.atmospheric_loss = atmospheric_loss
 
     @dispatch(Parameters, float, StationManager,
               StationManager, np.ndarray, np.ndarray)

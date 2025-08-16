@@ -458,12 +458,17 @@ class PostProcessor():
                 x, y = PostProcessor.ccdf_from(attr_val, n_bins=n_bins)
 
                 fig = figs[attr_name]
-                if "20%" in legend:
+                if "lf=20%" in legend:
+                    dash_style = "dash"
+
+                if "p=20%" in legend:
                     dash_style = "solid"
                 elif "RANDOM_CENARIO" in legend:
                     dash_style = "dash"
                 else:
                     dash_style = "dot"
+
+
 
                 x_aux = x
                 if attr_name == "system_dl_interf_power_per_mhz" or attr_name == "system_ul_interf_power_per_mhz":

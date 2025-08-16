@@ -497,7 +497,7 @@ class SimulationUplink(Simulation):
             snapshot_number (int): The current snapshot number.
         """
         if not self.parameters.imt.interfered_with and np.any(self.bs.active):
-            self.results.system_inr.extend(self.system.inr.tolist())
+            self.results.system_inr.extend(self.system.inr.flatten())
             self.results.system_ul_interf_power.extend(
                 [self.system.rx_interference],
             )

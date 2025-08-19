@@ -13,8 +13,11 @@ from sharc.support.sharc_logger import Logging, SimulationLogger
 from sharc.controller import Controller
 from sharc.gui.view_cli import ViewCli
 from sharc.model import Model
-
-
+import sys
+import getopt
+import os
+import argparse
+import logging
 sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 
 
@@ -34,27 +37,29 @@ def main(argv):
 
     param_file = ""
 
-    try:
-        opts, _ = getopt.getopt(argv, "hp:")
-    except getopt.GetoptError:
-        print("usage: main_cli.py -p <param_file>")
-        sys.exit(2)
+    parser = argparse.ArgumentParser(description="Run the SHARC command-line interface.")
+    parser.add_argument(
+        "-p", "--param_file",
+        type=str,
+        required=True,
+        help="Path to the parameter file (required)"
+    )
+    parser.add_argument(
+        "-l", "--log_level",
+        type=str,
+        choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
+        default="INFO",
+        help="Set the logging level (default: INFO)"
+    )
+    args = parser.parse_args(argv)
+    param_file = os.path.abspath(args.param_file)
 
-    if not opts:
-        param_file = os.path.join(os.getcwd(), "input", "parameters.yaml")
-    else:
-        for opt, arg in opts:
-            if opt == "-h":
-                print("usage: main_cli.py -p <param_file>")
-                sys.exit()
-            elif opt == "-p":
-                param_file = os.path.join(os.getcwd(), arg)
+    log_level = getattr(logging, args.log_level.upper(), logging.INFO)
+    Logging.setup_logging(default_level=log_level)
 
     # Logger setup start
     sim_logger = SimulationLogger(param_file)
     sim_logger.start()
-
-    Logging.setup_logging()
 
     model = Model()
     view_cli = ViewCli()

@@ -5,61 +5,65 @@ Created on Thu Mar 23 16:37:32 2017
 @author: edgar
 """
 
-from warnings import warn
-import numpy as np
-import sys
 import math
+import sys
+from warnings import warn
 
-from sharc.support.enumerations import StationType
-from sharc.parameters.parameters import Parameters
-from sharc.parameters.imt.parameters_imt import ParametersImt
-from sharc.parameters.imt.parameters_antenna_imt import ParametersAntennaImt
-from sharc.parameters.parameters_space_station import ParametersSpaceStation
-from sharc.parameters.parameters_eess_ss import ParametersEessSS
-from sharc.parameters.parameters_metsat_ss import ParametersMetSatSS
-from sharc.parameters.parameters_fs import ParametersFs
-from sharc.parameters.parameters_fss_ss import ParametersFssSs
-from sharc.parameters.parameters_fss_es import ParametersFssEs
-from sharc.parameters.parameters_haps import ParametersHaps
-from sharc.parameters.parameters_rns import ParametersRns
-from sharc.parameters.parameters_ras import ParametersRas
-from sharc.parameters.parameters_single_earth_station import ParametersSingleEarthStation
-from sharc.parameters.parameters_mss_ss import ParametersMssSs
-from sharc.parameters.parameters_mss_d2d import ParametersMssD2d
-from sharc.parameters.parameters_single_space_station import ParametersSingleSpaceStation
-from sharc.parameters.constants import EARTH_RADIUS
-from sharc.station_manager import StationManager
-from sharc.mask.spectral_mask_imt import SpectralMaskImt
+import matplotlib.pyplot as plt
+import numpy as np
+
 from sharc.antenna.antenna import Antenna
-from sharc.antenna.antenna_factory import AntennaFactory
-from sharc.antenna.antenna_fss_ss import AntennaFssSs
-from sharc.antenna.antenna_mss_adjacent import AntennaMSSAdjacent
-from sharc.antenna.antenna_omni import AntennaOmni
+from sharc.antenna.antenna_beamforming_imt import AntennaBeamformingImt
 from sharc.antenna.antenna_f699 import AntennaF699
 from sharc.antenna.antenna_f1891 import AntennaF1891
+from sharc.antenna.antenna_factory import AntennaFactory
+from sharc.antenna.antenna_fss_ss import AntennaFssSs
 from sharc.antenna.antenna_m1466 import AntennaM1466
+from sharc.antenna.antenna_modified_s465 import AntennaModifiedS465
+from sharc.antenna.antenna_mss_adjacent import AntennaMSSAdjacent
+from sharc.antenna.antenna_omni import AntennaOmni
+from sharc.antenna.antenna_rra7_3 import AntennaReg_RR_A7_3
 from sharc.antenna.antenna_rs1813 import AntennaRS1813
 from sharc.antenna.antenna_rs1861_9a import AntennaRS1861_9A
 from sharc.antenna.antenna_rs1861_9b import AntennaRS1861_9B
 from sharc.antenna.antenna_rs1861_9c import AntennaRS1861_9C
 from sharc.antenna.antenna_rs2043 import AntennaRS2043
 from sharc.antenna.antenna_s465 import AntennaS465
-from sharc.antenna.antenna_rra7_3 import AntennaReg_RR_A7_3
-from sharc.antenna.antenna_modified_s465 import AntennaModifiedS465
 from sharc.antenna.antenna_s580 import AntennaS580
 from sharc.antenna.antenna_s672 import AntennaS672
-from sharc.antenna.antenna_s1528 import AntennaS1528
+from sharc.antenna.antenna_s1528 import (AntennaS1528, AntennaS1528Leo,
+                                         AntennaS1528Taylor)
 from sharc.antenna.antenna_s1855 import AntennaS1855
-from sharc.antenna.antenna_s1528 import AntennaS1528, AntennaS1528Leo, AntennaS1528Taylor
-from sharc.antenna.antenna_beamforming_imt import AntennaBeamformingImt
-from sharc.topology.topology import Topology
-from sharc.topology.topology_ntn import TopologyNTN
-from sharc.topology.topology_macrocell import TopologyMacrocell
-from sharc.topology.topology_imt_mss_dc import TopologyImtMssDc
 from sharc.mask.spectral_mask_3gpp import SpectralMask3Gpp
+from sharc.mask.spectral_mask_imt import SpectralMaskImt
 from sharc.mask.spectral_mask_mss import SpectralMaskMSS
+from sharc.parameters.constants import EARTH_RADIUS
+from sharc.parameters.imt.parameters_antenna_imt import ParametersAntennaImt
+from sharc.parameters.imt.parameters_imt import ParametersImt
+from sharc.parameters.parameters import Parameters
+from sharc.parameters.parameters_eess_ss import ParametersEessSS
+from sharc.parameters.parameters_fs import ParametersFs
+from sharc.parameters.parameters_fss_es import ParametersFssEs
+from sharc.parameters.parameters_fss_ss import ParametersFssSs
+from sharc.parameters.parameters_haps import ParametersHaps
+from sharc.parameters.parameters_metsat_ss import ParametersMetSatSS
+from sharc.parameters.parameters_mss_d2d import ParametersMssD2d
+from sharc.parameters.parameters_mss_ss import ParametersMssSs
+from sharc.parameters.parameters_ras import ParametersRas
+from sharc.parameters.parameters_rns import ParametersRns
+from sharc.parameters.parameters_single_earth_station import \
+    ParametersSingleEarthStation
+from sharc.parameters.parameters_single_space_station import \
+    ParametersSingleSpaceStation
+from sharc.parameters.parameters_space_station import ParametersSpaceStation
+from sharc.station_manager import StationManager
+from sharc.support.enumerations import StationType
 from sharc.support.sharc_geom import GeometryConverter
 from sharc.support.sharc_utils import wrap2_180
+from sharc.topology.topology import Topology
+from sharc.topology.topology_imt_mss_dc import TopologyImtMssDc
+from sharc.topology.topology_macrocell import TopologyMacrocell
+from sharc.topology.topology_ntn import TopologyNTN
 
 
 class StationFactory(object):
@@ -335,6 +339,8 @@ class StationFactory(object):
                 central_cell=central_cell,
                 deterministic_cell=deterministic_cell,
             )
+            
+                      
             psi = np.degrees(
                 np.arctan((param.bs.height - param.ue.height) / distance),
             )
@@ -1770,12 +1776,12 @@ class StationFactory(object):
         tuple
             x, y, z, azimuth and elevation angles.
         """
-        hexagon_radius = topology.intersite_distance * 2 / 3
+        hexagon_radius = topology.intersite_distance * 2 / 3 / 2
 
         x = np.array([])
         y = np.array([])
         z = np.array([])
-        bs_x = -hexagon_radius
+        bs_x = -hexagon_radius 
         bs_y = 0
 
         while len(x) < num_stas:
@@ -1806,16 +1812,72 @@ class StationFactory(object):
                 y_temp * np.cos(hextant_angle)
 
             dist = np.sqrt((x_temp - bs_x) ** 2 + (y_temp - bs_y) ** 2)
-            indices = dist > min_dist_to_bs
+            indices = dist > min_dist_to_bs & (dist < hexagon_radius)
+            
 
             x_temp = x_temp[indices]
             y_temp = y_temp[indices]
-
+    
+            
             x = np.append(x, x_temp)
             y = np.append(y, y_temp)
-
+       
         x = x - bs_x
         y = y - bs_y
+        
+        flagplot = False
+        if flagplot :
+                
+            import plotly.graph_objects as go
+
+            # Círculo de raio r
+            def circle_points(r, num_points=200):
+                theta = np.linspace(0, 2*np.pi, num_points)
+                return r * np.cos(theta), r * np.sin(theta)
+
+            # Cria figura
+            fig = go.Figure()
+
+            # Scatter com posições dos UEs
+            fig.add_trace(go.Scatter(
+                x=x, y=y,
+                mode='markers',
+                marker=dict(size=5, opacity=0.6),
+                name='UEs'
+            ))
+
+            # Marca o BS no centro
+            fig.add_trace(go.Scatter(
+                x=[0], y=[0],
+                mode='markers',
+                marker=dict(size=10, color='red', symbol='x'),
+                name='BS'
+            ))
+
+            # Adiciona círculos
+            for r, cor in [(1600, 'red'), (400, 'blue')]:
+                cx, cy = circle_points(r)
+                fig.add_trace(go.Scatter(
+                    x=cx, y=cy,
+                    mode='lines',
+                    line=dict(color=cor, dash='dash'),
+                    name=f'R={r} m'
+                ))
+
+            # Layout
+            fig.update_layout(
+                title='UE positions after recenter',
+                xaxis_title='X position (m)',
+                yaxis_title='Y position (m)',
+                xaxis=dict(scaleanchor='y', scaleratio=1),
+                width=700, height=700,
+                template='plotly_white'
+            )
+
+            fig.show()
+                        
+        
+
 
         # choose cells
         if central_cell:
@@ -1829,14 +1891,20 @@ class StationFactory(object):
 
             cell = central_cell_indices[0][random_number_gen.random_integers(
                 0, len(central_cell_indices[0]) - 1, num_stas)]
+            # print(f"central cell: {cell}")
         elif deterministic_cell:
             num_bs = topology.num_base_stations
             stas_per_cell = num_stas / num_bs
             cell = np.repeat(np.arange(num_bs, dtype=int), stas_per_cell)
+            #print(f"deterministic cells: {cell}")
+            #print(f"stas_per_cell: {stas_per_cell}")
+            #print(f"num_bs: {num_bs}")
+            #print(f"num_stas: {num_stas}")
 
         else:  # random cells
             num_bs = topology.num_base_stations
             cell = random_number_gen.random_integers(0, num_bs - 1, num_stas)
+           # print(f"random cells: {cell}")
 
         cell_x = topology.x[cell]
         cell_y = topology.y[cell]
@@ -1852,6 +1920,50 @@ class StationFactory(object):
         x = x + cell_x
         y = y + cell_y
         z = cell_z
+        
+
+        if flagplot :
+
+            fig = go.Figure()
+
+            # UEs
+            fig.add_trace(go.Scatter(
+                x=x, y=y, mode="markers",
+                marker=dict(size=5, opacity=0.6),
+                name="UEs"
+            ))
+
+            # Centro do cluster (0,0)
+            fig.add_trace(go.Scatter(
+                x=[0], y=[0], mode="markers",
+                marker=dict(size=10, symbol="x", color="red"),
+                name="Cluster center (0,0)"
+            ))
+
+            # Círculos paramétricos
+            bsx, bsy = float(cell_x[0]), float(cell_y[0])
+            theta = np.linspace(0, 2*np.pi, 361)
+
+            for r in [1600, 1700, 1800, 1900, 2000]:
+                xc = bsx + r*np.cos(theta)
+                yc = bsy + r*np.sin(theta)
+                fig.add_trace(go.Scatter(
+                    x=xc, y=yc, mode="lines",
+                    line=dict(width=2, dash="dash"),
+                    name=f"R={r} m"
+                ))
+
+            # eixo com escala igual
+            fig.update_yaxes(scaleanchor="x", scaleratio=1)
+            fig.update_layout(
+                width=650, height=650,
+                title="UE positions after recenter (Plotly)",
+                xaxis_title="X position (m)",
+                yaxis_title="Y position (m)",
+                legend=dict(yanchor="top", y=0.99, xanchor="left", x=0.01),
+            )
+
+            fig.show()
 
         x = list(x)
         y = list(y)
@@ -1872,6 +1984,7 @@ class StationFactory(object):
                                (cell_y - y) ** 2 + (cell_z)**2)
 
         return x, y, z, theta, distance
+
 
 
 if __name__ == '__main__':
@@ -1980,6 +2093,7 @@ if __name__ == '__main__':
     )
 
     from sharc.support.sharc_geom import polar_to_cartesian
+
     # Plot beam boresight vectors
     boresight_length = 100 * 1e3  # Length of the boresight vectors for visualization
     boresight_x, boresight_y, boresight_z = polar_to_cartesian(

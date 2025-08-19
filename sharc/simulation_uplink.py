@@ -332,6 +332,9 @@ class SimulationUplink(Simulation):
             self.bs.inr[bs] = self.bs.ext_interference[bs] - \
                 self.bs.thermal_noise[bs]
 
+            self.bs.inr_noise_plus_intra_intf[bs] = self.bs.ext_interference[bs] - \
+                self.bs.total_interference[bs]
+
     def calculate_external_interference(self):
         """
         Calculates interference that IMT system generates on other system
@@ -546,6 +549,9 @@ class SimulationUplink(Simulation):
                     self.bs.sinr_ext[bs].tolist(),
                 )
                 self.results.imt_ul_inr.extend(self.bs.inr[bs].tolist())
+                self.results.imt_ul_inr_noise_plus_intra_intf.extend(
+                    self.bs.inr_noise_plus_intra_intf[bs].tolist()
+                )
 
                 active_beams = np.array([
                     i for i in range(

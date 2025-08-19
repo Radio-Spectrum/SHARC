@@ -375,6 +375,9 @@ class SimulationDownlink(Simulation):
             self.ue.inr[ue] = self.ue.ext_interference[ue] - \
                 self.ue.thermal_noise[ue]
 
+            self.ue.inr_noise_plus_intra_intf[ue] = self.ue.ext_interference[ue] - \
+                self.ue.total_interference[ue]
+
         # Calculate PFD at the UE
 
         # Distance from each system transmitter to each UE receiver (in meters)
@@ -647,6 +650,9 @@ class SimulationDownlink(Simulation):
                     self.ue.sinr_ext[ue].tolist(),
                 )
                 self.results.imt_dl_inr.extend(self.ue.inr[ue].tolist())
+                self.results.imt_dl_inr_noise_plus_intra_intf.extend(
+                    self.ue.inr_noise_plus_intra_intf[ue].tolist()
+                )
 
                 self.results.imt_dl_pfd_external.extend(
                     self.ue.pfd_external[sys_active[:, np.newaxis], ue].flatten())

@@ -143,6 +143,10 @@ class PostProcessor:
             "title": "[IMT] UL interference-to-noise ratio",
             "x_label": "$I/N$ [dB]",
         },
+        "imt_ul_inr_noise_plus_intra_intf": {
+            "title": "[IMT] UL interference to noise and intra interference ratio",
+            "x_label": "$I_ext/(N + I_intra)$ [dB]",
+        },
         "imt_ul_sinr": {
             "x_label": "SINR [dB]",
             "title": "[IMT] UL SINR",
@@ -214,6 +218,10 @@ class PostProcessor:
         "imt_dl_inr": {
             "title": "[IMT] DL interference-to-noise ratio",
             "x_label": "$I/N$ [dB]",
+        },
+        "imt_dl_inr_noise_plus_intra_intf": {
+            "title": "[IMT] DL interference to noise and intra interference ratio",
+            "x_label": "$I_ext/(N + I_intra)$ [dB]",
         },
         "imt_dl_tput_ext": {
             "title": "[IMT] DL throughput with external interference",

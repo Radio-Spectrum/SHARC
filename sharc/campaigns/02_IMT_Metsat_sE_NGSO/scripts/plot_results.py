@@ -8,20 +8,27 @@ from sharc.results import Results
 import plotly.graph_objects as go
 from sharc.post_processor import PostProcessor
 
+## Definition of plot variable (what to plot)
+sistemas      = ["Sat_E&G", "Sat_C&S"] #["Sat_Q", "Sat_P"]
+imt_cell      = ["macro"] #"macro", "micro"]
+p_percentage  = [0.2, 20, "RANDOM_CENARIO"] # [20, "RANDOM", "RANDOM_CENARIO"]
+clutter_type  = ["one_end"] # ["one_end", "both_ends"]
+link_type     = ["dl"] # ["ul", "dl"]
+distances_km  = [100, 200] # [5, 10, 50, 100]
+
+## Graphics adjustments
+cutoff_percentage = 0.00001;
+shift_scale = 30   # O padrão é dBm/MHz, porém é possível fazer o shift scale e atualizar a legenda
+legenda_dens_potencia = "Interference Power [dBW/MHz]"
+
+# Change default legent to the shifited
 post_processor = PostProcessor()
-cutoff_percentage = .01;
-
-
-sistemas      = ["Sat_Q", "Sat_P"] #["Sat_Q", "Sat_P"]
-imt_cell      = ["micro"] #"macro", "micro"]
-p_percentage  = [20, "RANDOM", "RANDOM_CENARIO"] # [20, "RANDOM", "RANDOM_CENARIO"]
-clutter_type  = ["one_end", "both_ends"] # ["one_end", "both_ends"]
-link_type     = ["ul", "dl"] # ["ul", "dl"]
-distances_km  = [5, 10, 50, 100] # [5, 10, 50, 100]
+post_processor.RESULT_FIELDNAME_TO_PLOT_INFO['system_dl_interf_power_per_mhz']['x_label'] = legenda_dens_potencia
+post_processor.RESULT_FIELDNAME_TO_PLOT_INFO['system_ul_interf_power_per_mhz']['x_label'] = legenda_dens_potencia
 
 # Helper: pretty legend text
 def pretty_p(p):
-    return f"{int(p)}%" if isinstance(p, (int, float)) else str(p)
+    return f"{(p)}%" if isinstance(p, (int, float)) else str(p)
 
 def pretty_link(t):
     return t.upper()  # 'ul' -> 'UL', 'dl' -> 'DL'
@@ -67,13 +74,14 @@ many_results = Results.load_many_from_dir(
         campaign_base_dir,
         "output"),
     only_latest=True,
+    only_samples=["system_dl_interf_power_per_mhz"],
     filter_fn=filter_fn
     )
 
 post_processor.add_results(many_results)
 
 plots = post_processor.generate_ccdf_plots_from_results(
-    many_results, cutoff_percentage=cutoff_percentage
+    many_results, cutoff_percentage=cutoff_percentage, shift_scale=shift_scale, legenda_dens_potencia=legenda_dens_potencia
 )
 
 post_processor.add_plots(plots)
@@ -81,7 +89,7 @@ post_processor.add_plots(plots)
 #### Add protection criteria
 
 plots_to_add_vline = [
-    "system_inr"
+    "system_dl_interf_power_per_mhz"
 ]
 
 for prop_name in plots_to_add_vline:
@@ -90,11 +98,22 @@ for prop_name in plots_to_add_vline:
         # Add vertical dashed line at x = -6
         plt.add_trace(
             go.Scatter(
-                x=[-6, -6],
+                x=[-148, -148],
                 y=[cutoff_percentage, 1],
                 mode="lines",
                 line=dict(dash="dash", color="black"),
-                name=" -6dB [20% of the time]",
+                name=" -148dB/10MHz [20% of the time]",
+                hoverinfo="skip",    # avoids mouse hover box on the guide line
+                showlegend=True      # make sure it appears in the legend
+            )
+        )
+        plt.add_trace(
+            go.Scatter(
+                x=[-127, -127],
+                y=[cutoff_percentage, 1],
+                mode="lines",
+                line=dict(dash="dot", color="black"),
+                name=" -127dB/MHz [0.0016% of the time]",
                 hoverinfo="skip",    # avoids mouse hover box on the guide line
                 showlegend=True      # make sure it appears in the legend
             )
@@ -107,8 +126,13 @@ for prop_name in plots_to_add_vline:
             #annotation_position="left",
             line_color="black"
         )
-
-
+        plt.add_hline(
+            y=0.000016,
+            line_dash="dot",
+            #annotation_text="TEst",
+            #annotation_position="left",
+            line_color="black"
+        )
 # Plot every plot:
 for plot in plots:
     plot.show()

@@ -18,19 +18,19 @@ with open(input_file, "r") as f:
 
 modified_text = reference_text[:]
 # Gerar arquivos para cada ângulo de azimute
-for sistema in ["Sat_E&G", "Sat_C&S"]:
-    modified_text[136 - 1] = f"    Hre: {'7' if sistema == "Sat_Q" else '7'}\n"
-    modified_text[100 - 1] = f"    gain: {'57.2' if sistema == "Sat_Q" else '44.9'}\n"
-    modified_text[102 - 1] = f"      diameter: {'12' if sistema == "Sat_Q" else '5'}\n"
-    modified_text[104 - 1] = f"  bandwidth: {'60' if sistema == "Sat_Q" else '30'}\n"
-    modified_text[106 - 1] = f"  frequency: {'7780' if sistema == "Sat_Q" else '7812'}\n"
-    modified_text[47 - 1] = f"  frequency: {'7780' if sistema == "Sat_Q" else '7812'}\n"
-    modified_text[116 - 1] = f"      fixed: {'5' if sistema == "Sat_Q" else '5'}\n"
-    modified_text[121 - 1] = f"    height: {'7' if sistema == "Sat_Q" else '7'}\n"
-    modified_text[103 - 1] = f"    pattern: {'ITU-R S.465' if sistema == "Sat_Q" else 'ITU-R S.465'}\n"
-    modified_text[101 - 1] = f"{'    itu_r_s_465:' if sistema == "Sat_Q" else '    itu_r_s_465:'}\n"
+for sistema in ["Sat_E&G"]:
+    modified_text[136 - 1] = f"    Hre: {'7' if sistema == "Sat_E&G" else '7'}\n"
+    modified_text[121 - 1] = f"    height: {'7' if sistema == "Sat_E&G" else '7'}\n"
+    modified_text[100 - 1] = f"    gain: {'57.2' if sistema == "Sat_E&G" else '44.9'}\n"
+    modified_text[102 - 1] = f"      diameter: {'12' if sistema == "Sat_E&G" else '5'}\n"
+    modified_text[104 - 1] = f"  bandwidth: {'60' if sistema == "Sat_E&G" else '30'}\n"
+    modified_text[106 - 1] = f"  frequency: {'7780' if sistema == "Sat_E&G" else '7812'}\n"
+    modified_text[47 - 1] = f"  frequency: {'7780' if sistema == "Sat_E&G" else '7812'}\n"
+    modified_text[116 - 1] = f"      fixed: {'5' if sistema == "Sat_E&G" else '5'}\n"
+    modified_text[103 - 1] = f"    pattern: {'ITU-R S.465' if sistema == "Sat_E&G" else 'ITU-R S.465'}\n"
+    modified_text[101 - 1] = f"{'    itu_r_s_465:' if sistema == "Sat_E&G" else '    itu_r_s_465:'}\n"
 
-    for imt_cell in ["macro", "micro"]:
+    for imt_cell in ["macro"]:
         modified_text[17 - 1] = f"{'        vertical_beamsteering_range: !!python/tuple [90., 100.]' if imt_cell == "macro" else '        vertical_beamsteering_range: !!python/tuple [90., 120.]'}\n"
         modified_text[38 - 1] = f"    height: {'18' if imt_cell == "macro" else '6'}\n"
         modified_text[29 - 1] = f"        n_columns: {'16' if imt_cell == "macro" else '8'}\n"
@@ -50,18 +50,17 @@ for sistema in ["Sat_E&G", "Sat_C&S"]:
         modified_text[18 - 1] = f"        downtilt: {'6' if imt_cell == "macro" else '10'}\n"
         modified_text[50 - 1] = f"  minimum_separation_distance_bs_ue: {'35' if imt_cell == "macro" else '5'}\n"
         modified_text[90 - 1] = f"    p_o_pusch: {'-92.2' if imt_cell == "macro" else '-87.2'}\n"
-  
 
-        for p_percentage in [20, 'RANDOM', 'RANDOM_CENARIO']: ##[20, 'RANDOM', 'RANDOM_CENARIO']
+        for p_percentage in [0.2, 20, 'RANDOM_CENARIO']: ##[20, 'RANDOM', 'RANDOM_CENARIO']
             modified_text[143 - 1] = f"    percentage_p: {p_percentage}\n"
 
-            for clutter_type in ['both_ends']: ##['one_end', 'both_ends']
+            for clutter_type in ['one_end']: ##['one_end', 'both_ends']
                 modified_text[147 - 1] = f"    clutter_type: {clutter_type}\n"
 
                 for link_type in ['dl']: ## ['ul', 'dl']
                     modified_text[4 - 1] = f"  imt_link: {'DOWNLINK' if link_type == "dl" else 'UPLINK'}\n"
 
-                    for distance in [5, 10]: # In km
+                    for distance in [100, 200]: # In km
                         modified_text[124 - 1] = f"        x: {int(distance) * 1000 + 1500}\n"
                         # Modify seed
                         num = random.randint(0, 1000)

@@ -9,19 +9,23 @@ import plotly.graph_objects as go
 from sharc.post_processor import PostProcessor
 
 post_processor = PostProcessor()
-cutoff_percentage = .001;
 
-
-sistemas      = ["Sat_C&S"]                       #["Sat_Q", "Sat_P"]
-imt_cell      = ["macro"]                                #"macro", "micro"]
-p_percentage  = [20, "RANDOM", "RANDOM_CENARIO"]         # [20, "RANDOM", "RANDOM_CENARIO"]
+sistemas      = ["Sat_Q", "Sat_P"]                       #["Sat_Q", "Sat_P"]
+imt_cell      = ["micro"]                                #"macro", "micro"]
+p_percentage  = [0.2, 20, "RANDOM_CENARIO"]         # [20, "RANDOM", "RANDOM_CENARIO"]
 clutter_type  = ["both_ends"]                              # ["one_end", "both_ends"]
-link_type     = ["dl"]                                 # ["ul", "dl"]
+link_type     = ["ul"]                                 # ["ul", "dl"]
 distances_km  = [5, 10]                                  # [5, 10, 50, 100]
+
+## Graphics adjustments
+cutoff_percentage = 0.001;
+shift_scale = 30   # O padrão é dBm/MHz, porém é possível fazer o shift scale e atualizar a legenda
+legenda_dens_potencia = "Interference Power [dBW/MHz]"
+
 
 # Helper: pretty legend text
 def pretty_p(p):
-    return f"{int(p)}%" if isinstance(p, (int, float)) else str(p)
+    return f"{(p)}%" if isinstance(p, (int, float)) else str(p)
 
 def pretty_link(t):
     return t.upper()  # 'ul' -> 'UL', 'dl' -> 'DL'
@@ -67,13 +71,14 @@ many_results = Results.load_many_from_dir(
         campaign_base_dir,
         "output"),
     only_latest=True,
+    only_samples=["system_dl_interf_power_per_mhz","system_ul_interf_power_per_mhz"],
     filter_fn=filter_fn
     )
 
 post_processor.add_results(many_results)
 
 plots = post_processor.generate_ccdf_plots_from_results(
-    many_results, cutoff_percentage=cutoff_percentage, shift_scale=30
+    many_results, cutoff_percentage=cutoff_percentage, shift_scale=shift_scale
 )
 
 post_processor.add_plots(plots)
@@ -81,8 +86,7 @@ post_processor.add_plots(plots)
 #### Add protection criteria
 
 plots_to_add_vline = [
-    "system_dl_interf_power_per_mhz"
-]
+    "system_dl_interf_power_per_mhz", "system_ul_interf_power_per_mhz"]
 
 for prop_name in plots_to_add_vline:
     plt = post_processor.get_plot_by_results_attribute_name(prop_name, plot_type='ccdf')

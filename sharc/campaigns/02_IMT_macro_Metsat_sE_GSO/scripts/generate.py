@@ -18,26 +18,26 @@ with open(input_file, "r") as f:
 
 modified_text = reference_text[:]
 # Gerar arquivos para cada ângulo de azimute
-for sistema in ["Sat_Q", "Sat_P"]:
-    modified_text[136 - 1] = f"    Hre: {'7' if sistema == "Sat_Q" else '7'}\n"
-    modified_text[100 - 1] = f"    gain: {'50' if sistema == "Sat_Q" else '59'}\n"
-    modified_text[102 - 1] = f"      diameter: {'5' if sistema == "Sat_Q" else '13'}\n"
-    modified_text[104 - 1] = f"  bandwidth: {'73' if sistema == "Sat_Q" else '50'}\n"
-    modified_text[106 - 1] = f"  frequency: {'7475' if sistema == "Sat_Q" else '7500'}\n"
-    modified_text[47 - 1] = f"  frequency: {'7475' if sistema == "Sat_Q" else '7500'}\n"
-    modified_text[116 - 1] = f"      fixed: {'3' if sistema == "Sat_Q" else '3'}\n"
-    modified_text[121 - 1] = f"    height: {'7' if sistema == "Sat_Q" else '7'}\n"
-    modified_text[103 - 1] = f"    pattern: {'ITU-R S.465' if sistema == "Sat_Q" else 'ITU-R Reg. RR. Appendice 7 Annex 3'}\n"
-    modified_text[101 - 1] = f"{'    itu_r_s_465:' if sistema == "Sat_Q" else '    itu_reg_rr_a7_3:'}\n"
+for sistema in ["Sat_P", "Sat_Q"]:
+    modified_text[136 - 1] = f"    Hre: {'7' if sistema == "Sat_P" else '7'}\n"
+    modified_text[100 - 1] = f"    gain: {'50' if sistema == "Sat_P" else '59'}\n"
+    modified_text[102 - 1] = f"      diameter: {'5' if sistema == "Sat_P" else '13'}\n"
+    modified_text[104 - 1] = f"  bandwidth: {'73' if sistema == "Sat_P" else '50'}\n"
+    modified_text[106 - 1] = f"  frequency: {'7475' if sistema == "Sat_P" else '7500'}\n"
+    modified_text[47 - 1] = f"  frequency: {'7475' if sistema == "Sat_P" else '7500'}\n"
+    modified_text[116 - 1] = f"      fixed: {'3' if sistema == "Sat_P" else '3'}\n"
+    modified_text[121 - 1] = f"    height: {'7' if sistema == "Sat_P" else '7'}\n"
+    modified_text[103 - 1] = f"    pattern: {'ITU-R S.465' if sistema == "Sat_P" else 'ITU-R Reg. RR. Appendice 7 Annex 3'}\n"
+    modified_text[101 - 1] = f"{'    itu_r_s_465:' if sistema == "Sat_P" else '    itu_reg_rr_a7_3:'}\n"
 
-    for imt_cell in ["macro","micro"]:
+    for imt_cell in ["micro"]:
         modified_text[17 - 1] = f"{'        vertical_beamsteering_range: !!python/tuple [90., 100.]' if imt_cell == "macro" else '        vertical_beamsteering_range: !!python/tuple [90., 120.]'}\n"
         modified_text[38 - 1] = f"    height: {'18' if imt_cell == "macro" else '6'}\n"
         modified_text[29 - 1] = f"        n_columns: {'16' if imt_cell == "macro" else '8'}\n"
         modified_text[35 - 1] = f"          is_enabled: {'true' if imt_cell == "macro" else 'false'}\n"
         modified_text[26 - 1] = f"        element_vert_spacing: {'2.1' if imt_cell == "macro" else '0.7'}\n"
         modified_text[37 - 1] = f"    conducted_power: {'22' if imt_cell == "macro" else '16'}\n"
-        modified_text[137 - 1] = f"    Hte: {'16' if imt_cell == "macro" else '8'}\n"
+        modified_text[137 - 1] = f"    Hte: {'18' if imt_cell == "macro" else '6'}\n"
         modified_text[56 - 1] = f"{'    macrocell:' if imt_cell == "macro" else '    hotspot:'}\n"
         modified_text[63 - 1] = f"    type: {'MACROCELL' if imt_cell == "macro" else 'HOTSPOT'}\n"
         modified_text[60 - 1] = f"{' ' if imt_cell == "macro" else '      num_hotspots_per_cell: 3'}\n"
@@ -48,14 +48,16 @@ for sistema in ["Sat_Q", "Sat_P"]:
         modified_text[82 - 1] = f"{' ' if imt_cell == "macro" else '    distribution_azimuth: NORMAL'}\n"
         modified_text[42 - 1] = f"  channel_model: {'UMa' if imt_cell == "macro" else 'UMi'}\n"
         modified_text[18 - 1] = f"        downtilt: {'6' if imt_cell == "macro" else '10'}\n"
+        modified_text[50 - 1] = f"  minimum_separation_distance_bs_ue: {'35' if imt_cell == "macro" else '5'}\n"
+        modified_text[90 - 1] = f"    p_o_pusch: {'-92.2' if imt_cell == "macro" else '-87.2'}\n"
 
-        for p_percentage in [20, 'RANDOM', 'RANDOM_CENARIO']: ##[20, 'RANDOM', 'RANDOM_CENARIO']
+        for p_percentage in ['0.2', '20', 'RANDOM_CENARIO']: ##[20, 'RANDOM', 'RANDOM_CENARIO']
             modified_text[143 - 1] = f"    percentage_p: {p_percentage}\n"
 
             for clutter_type in ['one_end']: ##['one_end', 'both_ends']
                 modified_text[147 - 1] = f"    clutter_type: {clutter_type}\n"
 
-                for link_type in ['ul','dl']: ## ['ul', 'dl']
+                for link_type in ['dl', 'ul']: ## ['ul', 'dl']
                     modified_text[4 - 1] = f"  imt_link: {'DOWNLINK' if link_type == "dl" else 'UPLINK'}\n"
 
                     for distance in [100, 200]: # In km

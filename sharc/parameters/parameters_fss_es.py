@@ -100,17 +100,12 @@ class ParametersFssEs(ParametersBase):
     clutter_type: str = "one-end"
 
     # Parameters for the P.619 propagation model used for sharing studies between IMT-NTN and FSS-ES
-    #    space_station_alt_m - altiteude of the IMT-MSS station
     #    earth_station_alt_m - altitude of FSS-ES system (in meters)
     #    earth_station_lat_deg - latitude of FSS-ES system (in degrees)
-    #    earth_station_long_diff_deg - difference between longitudes of IMT-NTN station and FSS-ES system
-    #      (positive if space-station is to the East of earth-station)
     #    season - season of the year.
     param_p619 = ParametersP619()
-    space_station_alt_m: float = 35780000.0
     earth_station_alt_m: float = 0.0
     earth_station_lat_deg: float = 0.0
-    earth_station_long_diff_deg: float = 0.0
     season: str = "SUMMER"
 
     # HDFSS propagation parameters

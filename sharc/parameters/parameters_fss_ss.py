@@ -29,6 +29,16 @@ class ParametersFssSs(ParametersBase):
     elevation: float = 270.0
     # Azimuth angle [deg]
     azimuth: float = 0.0
+    # Parameters for geometry of the space station
+    # Space station altitude [m]
+    space_station_alt_m: float = 35780000.0
+    # Earth station altitude [m]
+    earth_station_alt_m: float = 0.0
+    # Earth statin latitude [deg]
+    earth_station_lat_deg: float = 0.0
+    # Difference between longituted of the space station and the earth station [deg]
+    # (positive if space-station is to the East of earth-station)
+    earth_station_long_diff_deg: float = 0.0
     # System receive noise temperature [K]
     noise_temperature: float = 950.0
     # Adjacent channel reception type.
@@ -52,16 +62,8 @@ class ParametersFssSs(ParametersBase):
 
     ############################
     # Parameters for the P.619 propagation model
-    #    earth_station_alt_m - altitude of IMT system (in meters)
-    #    earth_station_lat_deg - latitude of IMT system (in degrees)
-    #    earth_station_long_diff_deg - difference between longitudes of IMT and satellite system
-    #      (positive if space-station is to the East of earth-station)
-    #    season - season of the year.
+
     param_p619 = ParametersP619()
-    space_station_alt_m: float = 35780000.0
-    earth_station_alt_m: float = 0.0
-    earth_station_lat_deg: float = 0.0
-    earth_station_long_diff_deg: float = 0.0
     season: str = "SUMMER"
     # Channel parameters
     # channel model, possible values are "FSPL" (free-space path loss),
@@ -104,7 +106,6 @@ class ParametersFssSs(ParametersBase):
             raise ValueError(f"ParametersFssSs: \
                              Invalid value for paramter channel_model = {self.channel_model}. \
                              Possible values are \"FSPL\", \"SatelliteSimple\", \"P619\".")
-        self.param_p619.load_from_paramters(self)
 
         allowed = {"low", "mid", "high"}
         if str(self.param_p619.mean_clutter_height).lower() not in allowed:

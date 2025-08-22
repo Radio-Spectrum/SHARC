@@ -292,6 +292,9 @@ imt:
                 sats_per_plane: 32
                 long_asc_deg: 18.0
                 phasing_deg: 3.9
+                model_time_as_random_variable: False
+                t_min: 0.0
+                t_max: null
               - n_planes: 12
                 inclination_deg: 26.0
                 perigee_alt_km: 580.0
@@ -299,6 +302,9 @@ imt:
                 sats_per_plane: 20
                 long_asc_deg: 30.0
                 phasing_deg: 2.0
+                model_time_as_random_variable: False
+                t_min: 0.0
+                t_max: null
               - n_planes: 26
                 inclination_deg: 97.77
                 perigee_alt_km: 595
@@ -306,6 +312,9 @@ imt:
                 sats_per_plane: 30
                 long_asc_deg: 14.0
                 phasing_deg: 7.8
+                model_time_as_random_variable: False
+                t_min: 0.0
+                t_max: null
     ###########################################################################
     # Defines the antenna model to be used in compatibility studies between
     # IMT and other services in adjacent band

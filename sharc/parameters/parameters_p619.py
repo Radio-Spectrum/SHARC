@@ -22,10 +22,8 @@ class ParametersP619(ParametersBase):
     #    earth_station_long_diff_deg - difference between longitudes of IMT and satellite system
     #      (positive if space-station is to the East of earth-station)
     #    season - season of the year.
-    space_station_alt_m: float = 20000.0
     earth_station_alt_m: float = 0.0
     earth_station_lat_deg: float = 0.0
-    earth_station_long_diff_deg: float = 0.0
     season: str = "SUMMER"
     shadowing: bool = True
     noise_temperature: float = 290.0
@@ -41,10 +39,8 @@ class ParametersP619(ParametersBase):
         param : ParametersBase
             IMT or system parameters
         """
-        self.space_station_alt_m = param.space_station_alt_m
         self.earth_station_alt_m = param.earth_station_alt_m
         self.earth_station_lat_deg = param.earth_station_lat_deg
-        self.earth_station_long_diff_deg = param.earth_station_long_diff_deg
         self.season = param.season
         self.mean_clutter_height = param.param_p619.mean_clutter_height
 
@@ -58,16 +54,12 @@ class ParametersP619(ParametersBase):
             raise ValueError("Invalid type of mean_clutter_height. mean_clutter_height must be 'Low', 'Mid', or 'High'")
 
     def set_external_parameters(self, *,
-                                space_station_alt_m: float,
                                 earth_station_alt_m: float,
                                 earth_station_lat_deg: float,
-                                earth_station_long_diff_deg: float,
                                 season: typing.Literal["SUMMER", "WINTER"]):
         """
         Set external parameters for P619 propagation calculations.
         """
-        self.space_station_alt_m = space_station_alt_m
         self.earth_station_alt_m = earth_station_alt_m
         self.earth_station_lat_deg = earth_station_lat_deg
-        self.earth_station_long_diff_deg = earth_station_long_diff_deg
         self.season = season

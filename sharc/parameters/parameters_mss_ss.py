@@ -81,10 +81,7 @@ class ParametersMssSs(ParametersBase):
 
     # paramters for channel model
     param_p619: ParametersP619 = field(default_factory=ParametersP619)
-    space_station_alt_m: float = 35780000.0
-    earth_station_alt_m: float = 0.0
-    earth_station_lat_deg: float = 0.0
-    earth_station_long_diff_deg: float = 0.0
+
     season: str = "SUMMER"
     # Channel parameters
     # channel model, possible values are "FSPL" (free-space path loss),
@@ -147,12 +144,3 @@ class ParametersMssSs(ParametersBase):
             raise ValueError(
                 f"Invalid channel model name {
                     self.channel_model}")
-
-        if self.channel_model == "P619":
-            self.param_p619.set_external_parameters(
-                space_station_alt_m=self.altitude,
-                earth_station_alt_m=self.earth_station_alt_m,
-                earth_station_lat_deg=self.earth_station_lat_deg,
-                earth_station_long_diff_deg=self.earth_station_long_diff_deg,
-                season=self.season
-            )

@@ -87,11 +87,9 @@ class PropagationFactory(object):
                     ))
             return PropagationP619(
                 random_number_gen=random_number_gen,
-                space_station_alt_m=param_system.param_p619.space_station_alt_m,
                 earth_station_alt_m=param_system.param_p619.earth_station_alt_m,
                 earth_station_lat_deg=param_system.param_p619.earth_station_lat_deg,
-                earth_station_long_diff_deg=param_system.param_p619.earth_station_lat_deg,
-                season=param_system.season,
+                season=param_system.param_p619.season,
                 mean_clutter_height=param_system.param_p619.mean_clutter_height,
                 below_rooftop=param_system.param_p619.below_rooftop
             )

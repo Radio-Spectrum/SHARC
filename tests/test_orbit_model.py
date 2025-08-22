@@ -1,6 +1,7 @@
 import unittest
 import numpy as np
 from sharc.satellite.ngso.orbit_model import OrbitModel
+from sharc.support.sharc_utils import angular_dist
 
 
 class TestOrbitModel(unittest.TestCase):
@@ -18,6 +19,9 @@ class TestOrbitModel(unittest.TestCase):
             hp=1414,
             ha=1414,
             Mo=0,
+            model_time_as_random_variable=False,
+            t_min=0.0,
+            t_max=None
         )
 
     def test_initialization(self):
@@ -41,7 +45,7 @@ class TestOrbitModel(unittest.TestCase):
             6845.3519,
             places=4)
         self.assertAlmostEqual(self.orbit.sat_sep_angle_deg, 60.0)
-        self.assertAlmostEqual(self.orbit.orbital_plane_inclination, 45.0)
+        self.assertAlmostEqual(self.orbit.orbital_plane_spacing, 45.0)
 
     def test_mean_anomalies(self):
         """Test mean anomaly calculations and satellite phasing logic."""
@@ -83,6 +87,58 @@ class TestOrbitModel(unittest.TestCase):
                     ) * self.orbit.sat_sep_angle_deg
         np.testing.assert_array_almost_equal(
             np.diff(ma_deg, axis=1), r, decimal=4)
+
+    def test_limiting_time_range_for_random_drops(self):
+        """
+        Testing if using model_time_as_random_variable
+        and t_min, t_max works correctly
+        """
+        # if we limit time max to period / frac
+        # and considering a circular orbit
+        # then only 2 * pi / frac is traveled at max per each satellit
+        frac = 36
+        self.orbit.t_max = self.orbit.orbital_period_sec / frac
+        max_traveled_angular_dist = 2 * np.pi / frac
+
+        self.orbit.model_time_as_random_variable = True
+        # NOTE: choosing a larger frac lets you choose less samples
+        n_samples = int(2e2)
+        positions = self.orbit.get_orbit_positions_random(
+            rng=np.random.RandomState(123),
+            n_samples=n_samples,
+        )
+        all_lats = positions["lat"]
+        all_lons = positions["lon"]
+        all_alts = positions["alt"]
+        all_xs = positions["sx"]
+        all_ys = positions["sy"]
+        all_zs = positions["sz"]
+
+        self.assertEqual(all_lons.shape, all_lats.shape)
+        self.assertEqual(all_lons.shape, all_xs.shape)
+        self.assertEqual(all_lons.shape, all_ys.shape)
+        self.assertEqual(all_lons.shape, all_zs.shape)
+        self.assertEqual(all_lons.shape, all_alts.shape)
+        self.assertEqual(all_lons.shape, (self.orbit.Np * self.orbit.Nsp, n_samples))
+
+        for sat_lats, sat_lons in zip(all_lats, all_lons):
+            d_lon = np.deg2rad(angular_dist(
+                sat_lons[:, np.newaxis], sat_lons[np.newaxis, :]
+            ))
+
+            # exhaustively get angular distance between all samples
+            a = np.pi / 2 - np.deg2rad(sat_lats[:, np.newaxis])
+            b = np.pi / 2 - np.deg2rad(sat_lats[np.newaxis, :])
+            cos_phi = np.cos(a) * np.cos(b) \
+                + np.sin(a) * np.sin(b) * np.cos(d_lon)
+            phi = np.max(np.arccos(
+                # imprecision may accumulate enough for numbers to be slightly out
+                # of arccos range
+                np.clip(cos_phi, -1., 1.)
+            ))
+
+            self.assertLessEqual(phi, max_traveled_angular_dist)
+            self.assertGreaterEqual(phi, max_traveled_angular_dist * 0.9)
 
 
 if __name__ == '__main__':

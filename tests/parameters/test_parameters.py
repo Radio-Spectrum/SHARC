@@ -63,9 +63,9 @@ class ParametersTest(unittest.TestCase):
         self.assertEqual(
             self.parameters.imt.ue.antenna.array.horizontal_beamsteering_range,
             (-180.,
-             180.))
+                 179.9999))
         self.assertEqual(
-            self.parameters.imt.ue.antenna.array.vertical_beamsteering_range, (0., 180.))
+            self.parameters.imt.ue.antenna.array.vertical_beamsteering_range, (0., 179.9999))
         self.assertEqual(self.parameters.imt.ue.k, 3)
         self.assertEqual(self.parameters.imt.ue.k_m, 1)
         self.assertEqual(self.parameters.imt.ue.indoor_percent, 5.0)
@@ -327,6 +327,7 @@ class ParametersTest(unittest.TestCase):
                 'sats_per_plane': 32,
                 'long_asc_deg': 18.0,
                 'phasing_deg': 3.9,
+                "model_time_as_random_variable": False,
             },
             {
                 'n_planes': 12,
@@ -336,6 +337,10 @@ class ParametersTest(unittest.TestCase):
                 'sats_per_plane': 20,
                 'long_asc_deg': 30.0,
                 'phasing_deg': 2.0,
+                "model_time_as_random_variable": True,
+                # checking defaults
+                "t_min": 0.0,
+                "t_max": None,
             },
             {
                 'n_planes': 26,
@@ -345,31 +350,16 @@ class ParametersTest(unittest.TestCase):
                 'sats_per_plane': 30,
                 'long_asc_deg': 14.0,
                 'phasing_deg': 7.8,
+                "model_time_as_random_variable": True,
+                "t_min": 1.0,
+                "t_max": 100.0,
             },
         ]
-        for i, orbit_params in enumerate(
-                self.parameters.imt.topology.mss_dc.orbits):
-            self.assertEqual(
-                orbit_params.n_planes,
-                expected_orbit_params[i]['n_planes'])
-            self.assertEqual(
-                orbit_params.inclination_deg,
-                expected_orbit_params[i]['inclination_deg'])
-            self.assertEqual(
-                orbit_params.perigee_alt_km,
-                expected_orbit_params[i]['perigee_alt_km'])
-            self.assertEqual(
-                orbit_params.apogee_alt_km,
-                expected_orbit_params[i]['apogee_alt_km'])
-            self.assertEqual(
-                orbit_params.sats_per_plane,
-                expected_orbit_params[i]['sats_per_plane'])
-            self.assertEqual(
-                orbit_params.long_asc_deg,
-                expected_orbit_params[i]['long_asc_deg'])
-            self.assertEqual(
-                orbit_params.phasing_deg,
-                expected_orbit_params[i]['phasing_deg'])
+        for i, orbit_params in enumerate(self.parameters.imt.topology.mss_dc.orbits):
+            for k in expected_orbit_params[i].keys():
+                self.assertEqual(
+                    getattr(orbit_params, k),
+                    expected_orbit_params[i][k])
 
     def test_imt_validation(self):
         """
@@ -513,15 +503,7 @@ class ParametersTest(unittest.TestCase):
             1200,
         )
         self.assertEqual(
-            self.parameters.single_earth_station.param_p619.space_station_alt_m,
-            540000,
-        )
-        self.assertEqual(
             self.parameters.single_earth_station.param_p619.earth_station_lat_deg, 13, )
-        self.assertEqual(
-            self.parameters.single_earth_station.param_p619.earth_station_long_diff_deg,
-            10,
-        )
 
         self.assertEqual(
             self.parameters.single_earth_station.param_p452.atmospheric_pressure, 1, )
@@ -641,8 +623,6 @@ class ParametersTest(unittest.TestCase):
             self.parameters.mss_d2d.param_p619.earth_station_alt_m, 0.0)
         self.assertEqual(
             self.parameters.mss_d2d.param_p619.earth_station_lat_deg, 0.0)
-        self.assertEqual(
-            self.parameters.mss_d2d.param_p619.earth_station_long_diff_deg, 0.0)
 
         self.assertEqual(
             self.parameters.mss_d2d.beam_positioning.service_grid.beam_radius,
@@ -694,6 +674,7 @@ class ParametersTest(unittest.TestCase):
                 'sats_per_plane': 32,
                 'long_asc_deg': 18.0,
                 'phasing_deg': 3.9,
+                "model_time_as_random_variable": False,
             },
             {
                 'n_planes': 12,
@@ -703,6 +684,10 @@ class ParametersTest(unittest.TestCase):
                 'sats_per_plane': 20,
                 'long_asc_deg': 30.0,
                 'phasing_deg': 2.0,
+                "model_time_as_random_variable": True,
+                # check defaults
+                "t_min": 0.0,
+                "t_max": None,
             },
             {
                 'n_planes': 26,
@@ -712,30 +697,16 @@ class ParametersTest(unittest.TestCase):
                 'sats_per_plane': 30,
                 'long_asc_deg': 14.0,
                 'phasing_deg': 7.8,
+                "model_time_as_random_variable": True,
+                "t_min": 1.0,
+                "t_max": 100.0,
             },
         ]
         for i, orbit_params in enumerate(self.parameters.mss_d2d.orbits):
-            self.assertEqual(
-                orbit_params.n_planes,
-                expected_orbit_params[i]['n_planes'])
-            self.assertEqual(
-                orbit_params.inclination_deg,
-                expected_orbit_params[i]['inclination_deg'])
-            self.assertEqual(
-                orbit_params.perigee_alt_km,
-                expected_orbit_params[i]['perigee_alt_km'])
-            self.assertEqual(
-                orbit_params.apogee_alt_km,
-                expected_orbit_params[i]['apogee_alt_km'])
-            self.assertEqual(
-                orbit_params.sats_per_plane,
-                expected_orbit_params[i]['sats_per_plane'])
-            self.assertEqual(
-                orbit_params.long_asc_deg,
-                expected_orbit_params[i]['long_asc_deg'])
-            self.assertEqual(
-                orbit_params.phasing_deg,
-                expected_orbit_params[i]['phasing_deg'])
+            for k in expected_orbit_params[i].keys():
+                self.assertEqual(
+                    getattr(orbit_params, k),
+                    expected_orbit_params[i][k])
 
     def test_parameters_single_space_station(self):
         """Test ParametersSinglespaceStation
@@ -817,10 +788,6 @@ class ParametersTest(unittest.TestCase):
         self.assertEqual(
             self.parameters.single_space_station.param_p619.earth_station_alt_m,
             self.parameters.single_space_station.geometry.es_altitude,
-        )
-        self.assertEqual(
-            self.parameters.single_space_station.param_p619.space_station_alt_m,
-            self.parameters.single_space_station.geometry.altitude,
         )
         self.assertEqual(
             self.parameters.single_space_station.param_p619.earth_station_lat_deg,

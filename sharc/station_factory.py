@@ -61,6 +61,8 @@ from sharc.mask.spectral_mask_3gpp import SpectralMask3Gpp
 from sharc.mask.spectral_mask_mss import SpectralMaskMSS
 from sharc.support.sharc_geom import GeometryConverter
 from sharc.mask.spectral_mask_imt2030 import SpectralMaskImt2030
+from sharc.support.sharc_utils import wrap2_180
+
 
 class StationFactory(object):
     """
@@ -120,7 +122,7 @@ class StationFactory(object):
             else:
                 imt_base_stations.height = param.bs.height * np.ones(num_bs)
 
-        imt_base_stations.azimuth = topology.azimuth
+        imt_base_stations.azimuth = wrap2_180(topology.azimuth)
         imt_base_stations.active = random_number_gen.rand(
             num_bs,
         ) < param.bs.load_probability
@@ -1280,7 +1282,9 @@ class StationFactory(object):
             else:
                 raise ValueError(f"Invalid or not implemented spectral mask - {param.spectral_mask}")
 
-            single_earth_station.spectral_mask.set_mask(param.tx_power_density + 10 * np.log10(param.bandwidth * 1e6))
+            single_earth_station.spectral_mask.set_mask(
+                param.tx_power_density + 10 * np.log10(param.bandwidth * 1e6) + 30
+            )
 
         return single_earth_station
 
@@ -1663,7 +1667,8 @@ class StationFactory(object):
             10 *
             np.log10(
                 param_mss.bandwidth *
-                1e6))
+                1e6) + 30
+        )
 
         return mss_ss
 
@@ -1728,7 +1733,8 @@ class StationFactory(object):
             10 *
             np.log10(
                 params.bandwidth *
-                1e6))
+                1e6) + 30
+        )
 
        # Configure satellite positions in the StationManager
         mss_d2d.x = mss_d2d_values["sat_x"]

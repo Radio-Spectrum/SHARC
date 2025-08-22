@@ -68,7 +68,7 @@ def keplerian2eci(a, e, delta, Omega, omega, nu):
     delta : float
         Orbital inclination in degrees.
     Omega : np.ndarray
-        Right ascension of the ascending node (RAAN) in degrees. Shape = (N,)
+        Right ascension of the ascending node (RAAN) in degrees. Shape = (N, length(t))
     omega : float
         Argument of perigee in degrees.
     nu : np.ndarray
@@ -92,10 +92,8 @@ def keplerian2eci(a, e, delta, Omega, omega, nu):
     # Trigonometric calculations
     cos_gamma = np.cos(gamma)
     sin_gamma = np.sin(gamma)
-    # Shape (N, 1) for broadcasting
-    cos_raan = np.cos(-Omega_rad)[:, np.newaxis]
-    # Shape (N, 1) for broadcasting
-    sin_raan = np.sin(-Omega_rad)[:, np.newaxis]
+    cos_raan = np.cos(-Omega_rad)
+    sin_raan = np.sin(-Omega_rad)
     cos_incl = np.cos(delta_rad)
     sin_incl = np.sin(delta_rad)
 

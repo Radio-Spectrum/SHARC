@@ -79,7 +79,7 @@ class SpectralMaskMSS(SpectralMask):
         Set the spectral mask (mask_dbm attribute) based on station type, operating frequency and transmit power.
 
         Parameters:
-            p_tx (float): station transmit power.
+            p_tx (float): station transmit power in dBm
         """
         # dBm/MHz
         # this should work for the document's dBsd definition

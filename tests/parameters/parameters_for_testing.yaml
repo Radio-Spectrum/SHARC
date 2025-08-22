@@ -279,6 +279,7 @@ imt:
                 sats_per_plane: 20
                 long_asc_deg: 30.0
                 phasing_deg: 2.0
+                model_time_as_random_variable: true
               - n_planes: 26
                 inclination_deg: 97.77
                 perigee_alt_km: 595
@@ -286,6 +287,9 @@ imt:
                 sats_per_plane: 30
                 long_asc_deg: 14.0
                 phasing_deg: 7.8
+                model_time_as_random_variable: true
+                t_min: 1.0
+                t_max: 100.0
     ###########################################################################
     # Defines the antenna model to be used in compatibility studies between
     # IMT and other services in adjacent band
@@ -567,19 +571,14 @@ imt:
     noise_temperature  : 290
     param_p619:
         ###########################################################################
-        # altitude of the space station [m]
-        space_station_alt_m: 540000
-        ###########################################################################
         # altitude of ES system [m]
         earth_station_alt_m: 1200
         ###########################################################################
         # latitude of ES system [m]
         earth_station_lat_deg: 13
         ###########################################################################
-        # difference between longitudes of IMT-NTN station and FSS-ES system [deg]
-        #   (positive if space-station is to the East of earth-station)
-        earth_station_long_diff_deg: 10
         mean_clutter_height: 'low'
+        ###########################################################################
         below_rooftop: 50
 haps:
     ###########################################################################
@@ -755,19 +754,14 @@ single_earth_station:
     # Parameters for P619 channel model
     param_p619:
         ###########################################################################
-        # altitude of the space station [m]
-        space_station_alt_m: 540000
-        ###########################################################################
         # altitude of ES system [m]
         earth_station_alt_m: 1200
         ###########################################################################
         # latitude of ES system [m]
         earth_station_lat_deg: 13
         ###########################################################################
-        # difference between longitudes of IMT-NTN station and FSS-ES system [deg]
-        #   (positive if space-station is to the East of earth-station)
-        earth_station_long_diff_deg: 10
         mean_clutter_height: 'low'
+        ###########################################################################
         below_rooftop: 50
     ###########################################################################
     # season - season of the year.
@@ -1075,10 +1069,6 @@ mss_d2d:
         # latitude of ES system [m]
         earth_station_lat_deg: 0
         ###########################################################################
-        # difference between longitudes of IMT-NTN station and FSS-ES system [deg]
-        #   (positive if space-station is to the East of earth-station)
-        earth_station_long_diff_deg: 0.75
-        ###########################################################################
         # year season: SUMMER of WINTER
         season: SUMMER
         mean_clutter_height: 'low'
@@ -1099,6 +1089,7 @@ mss_d2d:
         sats_per_plane: 20
         long_asc_deg: 30.0
         phasing_deg: 2.0
+        model_time_as_random_variable: true
       - n_planes: 26
         inclination_deg: 97.77
         perigee_alt_km: 595
@@ -1106,3 +1097,6 @@ mss_d2d:
         sats_per_plane: 30
         long_asc_deg: 14.0
         phasing_deg: 7.8
+        model_time_as_random_variable: true
+        t_min: 1.0
+        t_max: 100.0

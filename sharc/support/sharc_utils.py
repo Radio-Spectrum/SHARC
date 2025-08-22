@@ -26,6 +26,49 @@ def is_float(s: str) -> bool:
         return False
 
 
+def wrap2_180(a):
+    """
+    Wraps angles to the [-180, 180) range
+    """
+    return (a + 180) % 360 - 180
+
+
+def angular_dist(a1, a2):
+    """
+    Returns smallest angular distance between 2 angles
+    in the [0, 180] range
+    """
+    return np.abs(wrap2_180(a1 - a2))
+
+
+def clip_angle(a, a_min, a_max):
+    """
+    Returns `a` if it is inside the angle range defined by [`a_min`, `a_max`]
+        otherwise returns the closest bound, be it `a_min` or `a_max`
+    It is assumed all angles passes are already in [-180, 180] range
+    """
+    outside_rng = False
+    # NOTE: angle limits such as -180 + [-60, 60]
+    # should be passed as wrapped around [120, -120]
+    # So it is important to check for this case
+    if a_min > a_max:
+        if a > a_max and a < a_min:
+            outside_rng = True
+    else:
+        # Normal interval
+        if a < a_min or a > a_max:
+            outside_rng = True
+
+    # always clip to the closest bound
+    if outside_rng:
+        if angular_dist(a, a_min) < angular_dist(a, a_max):
+            return a_min
+        else:
+            return a_max
+
+    return a
+
+
 def to_scalar(x):
     """Convert a numpy scalar or array to a Python scalar if possible."""
     if isinstance(x, np.ndarray):

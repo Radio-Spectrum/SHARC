@@ -55,14 +55,6 @@ class ParametersSpaceStation(ParametersBase):
     #      (positive if space-station is to the East of earth-station)
     #    season - season of the year.
     param_p619 = ParametersP619()
-    earth_station_alt_m: float = 0.0
-    earth_station_lat_deg: float = 0.0
-    earth_station_long_diff_deg: float = 0.0
-    season: str = "SUMMER"
-
-    # This parameter is also used by P619, but should not be set manually.
-    # this should always == params.altitude
-    space_station_alt_m: float = None
 
     def load_parameters_from_file(self, config_file: str):
         """
@@ -79,11 +71,6 @@ class ParametersSpaceStation(ParametersBase):
             If a parameter is not valid.
         """
         super().load_parameters_from_file(config_file)
-
-        if self.space_station_alt_m is not None:
-            raise ValueError(
-                "'space_station_alt_m' should not be set manually. It is always equal to 'altitude'",
-            )
 
         if self.nadir_angle != 0 and self.elevation != 0:
             raise ValueError(
@@ -123,7 +110,6 @@ class ParametersSpaceStation(ParametersBase):
         This method sets the derived parameters such as space station altitude and nadir angle
         based on the current configuration. It also updates the P619 parameters if applicable.
         """
-        self.space_station_alt_m = self.altitude
 
         if self.param_p619:
             self.param_p619.load_from_paramters(self)

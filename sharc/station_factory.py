@@ -1711,6 +1711,7 @@ class StationFactory(object):
         mss_d2d.is_space_station = True  # Indicate that the station is in space
         mss_d2d.bandwidth = params.bandwidth * np.ones(total_satellites)
         mss_d2d.center_freq = params.frequency * np.ones(total_satellites)
+        mss_d2d.noise_temperature = params.noise_temperature * np.ones(total_satellites)
 
         if params.spectral_mask == "IMT-2020":
             mss_d2d.spectral_mask = SpectralMaskImt(StationType.IMT_BS,

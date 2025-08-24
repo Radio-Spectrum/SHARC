@@ -96,6 +96,8 @@ class ParametersMssD2d(ParametersBase):
     # Polarization loss
     polarization_loss: float | None = None
 
+    noise_temperature: float | None = None
+
     def load_parameters_from_file(self, config_file: str):
         """
         Load the parameters from a file and run a sanity check.

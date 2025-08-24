@@ -1621,6 +1621,7 @@ class StationFactory(object):
         mss_ss.y = ntn_topology.space_station_y * np.ones(num_bs) + param_mss.y
         mss_ss.z = ntn_topology.space_station_z * np.ones(num_bs)
         mss_ss.height = ntn_topology.space_station_z * np.ones(num_bs)
+        mss_ss.bandwidth = param_mss.bandwidth * np.ones(num_bs)
         mss_ss.elevation = ntn_topology.elevation
         mss_ss.is_space_station = True
         mss_ss.azimuth = ntn_topology.azimuth
@@ -1708,6 +1709,8 @@ class StationFactory(object):
         mss_d2d = StationManager(n=total_satellites)
         mss_d2d.station_type = StationType.MSS_D2D  # Set the station type to MSS D2D
         mss_d2d.is_space_station = True  # Indicate that the station is in space
+        mss_d2d.bandwidth = params.bandwidth * np.ones(total_satellites)
+        mss_d2d.center_freq = params.frequency * np.ones(total_satellites)
 
         if params.spectral_mask == "IMT-2020":
             mss_d2d.spectral_mask = SpectralMaskImt(StationType.IMT_BS,

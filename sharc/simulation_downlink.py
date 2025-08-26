@@ -374,6 +374,8 @@ class SimulationDownlink(Simulation):
 
             self.ue.inr_ext[ue] = self.ue.ext_interference[ue] - \
                 self.ue.thermal_noise[ue]
+            self.ue.inr_intra[ue] = self.ue.rx_interference[ue] - \
+                self.ue.thermal_noise[ue]
             self.ue.inr_total[ue] = (
                 10 * np.log10(
                     np.power(10, 0.1 * self.ue.rx_interference[ue]) +
@@ -657,6 +659,8 @@ class SimulationDownlink(Simulation):
                 )
                 self.results.imt_dl_inr_ext.extend(self.ue.inr_ext[ue].tolist())
                 self.results.imt_dl_inr_total.extend(self.ue.inr_total[ue].tolist())
+                self.results.imt_dl_inr_intra.extend(self.ue.inr_intra[ue].tolist())
+
                 self.results.imt_dl_inr_noise_plus_intra_intf.extend(
                     self.ue.inr_noise_plus_intra_intf[ue].tolist()
                 )

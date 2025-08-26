@@ -559,6 +559,8 @@ class SimulationUplink(Simulation):
                 )
                 self.results.imt_ul_inr_ext.extend(self.bs.inr_ext[bs].tolist())
                 self.results.imt_ul_inr_total.extend(self.bs.inr_total[bs].tolist())
+                self.results.imt_ul_inr_intra.extend(self.bs.inr_intra[bs].tolist())
+
                 self.results.imt_ul_inr_noise_plus_intra_intf.extend(
                     self.bs.inr_noise_plus_intra_intf[bs].tolist()
                 )

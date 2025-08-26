@@ -150,6 +150,15 @@ class StationFactory(object):
         imt_base_stations.inr = dict(
             [(bs, -500 * np.ones(param.ue.k)) for bs in range(num_bs)],
         )
+        imt_base_stations.inr_ext = dict(
+            [(bs, -500 * np.ones(param.ue.k)) for bs in range(num_bs)],
+        )
+        imt_base_stations.inr_intra = dict(
+            [(bs, -500 * np.ones(param.ue.k)) for bs in range(num_bs)],
+        )
+        imt_base_stations.inr_total = dict(
+            [(bs, -500 * np.ones(param.ue.k)) for bs in range(num_bs)],
+        )
         imt_base_stations.inr_noise_plus_intra_intf = dict(
             [(bs, -500 * np.ones(param.ue.k)) for bs in range(num_bs)],
         )

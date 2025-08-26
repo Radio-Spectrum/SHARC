@@ -372,8 +372,14 @@ class SimulationDownlink(Simulation):
                 10 * np.log10(BOLTZMANN_CONSTANT * self.parameters.imt.noise_temperature * 1e3) + \
                 10 * np.log10(self.ue.bandwidth[ue] * 1e6) + self.parameters.imt.ue.noise_figure
 
-            self.ue.inr[ue] = self.ue.ext_interference[ue] - \
+            self.ue.inr_ext[ue] = self.ue.ext_interference[ue] - \
                 self.ue.thermal_noise[ue]
+            self.ue.inr_total[ue] = (
+                10 * np.log10(
+                    np.power(10, 0.1 * self.ue.rx_interference[ue]) +
+                    np.power(10, 0.1 * self.ue.ext_interference[ue])
+                )
+            ) - self.ue.thermal_noise[ue]
 
             self.ue.inr_noise_plus_intra_intf[ue] = self.ue.ext_interference[ue] - \
                 self.ue.total_interference[ue]
@@ -649,7 +655,8 @@ class SimulationDownlink(Simulation):
                 self.results.imt_dl_sinr_ext.extend(
                     self.ue.sinr_ext[ue].tolist(),
                 )
-                self.results.imt_dl_inr.extend(self.ue.inr[ue].tolist())
+                self.results.imt_dl_inr_ext.extend(self.ue.inr_ext[ue].tolist())
+                self.results.imt_dl_inr_total.extend(self.ue.inr_total[ue].tolist())
                 self.results.imt_dl_inr_noise_plus_intra_intf.extend(
                     self.ue.inr_noise_plus_intra_intf[ue].tolist()
                 )

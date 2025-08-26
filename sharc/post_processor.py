@@ -139,12 +139,24 @@ class PostProcessor:
             "title": "[IMT] UL SNR",
             "x_label": "SNR [dB]",
         },
+        "imt_ul_inr_ext": {
+            "title": "[IMT] UL external-interference-to-noise ratio",
+            "x_label": r"$I_\text{ext}/N$ [dB]",
+        },
+        "imt_ul_inr_intra": {
+            "title": "[IMT] UL intra-interference-to-noise ratio",
+            "x_label": r"$I_\text{intra}/N$ [dB]",
+        },
+        "imt_ul_inr_total": {
+            "title": "[IMT] UL total-interference-to-noise ratio",
+            "x_label": "$I/N$ [dB]",
+        },
         "imt_ul_inr": {
-            "title": "[IMT] UL interference-to-noise ratio",
+            "title": "[IMT] UL external-interference-to-noise ratio",
             "x_label": "$I/N$ [dB]",
         },
         "imt_ul_inr_noise_plus_intra_intf": {
-            "title": "[IMT] UL interference to noise and intra interference ratio",
+            "title": "[IMT] UL external interference to noise and intra interference ratio",
             "x_label": "$I_ext/(N + I_intra)$ [dB]",
         },
         "imt_ul_sinr": {
@@ -215,12 +227,24 @@ class PostProcessor:
             "title": "[IMT] DL SNR",
             "x_label": "SNR [dB]",
         },
+        "imt_dl_inr_ext": {
+            "title": "[IMT] DL external-interference-to-noise ratio",
+            "x_label": r"$I_\text{ext}/N$ [dB]",
+        },
+        "imt_dl_inr_intra": {
+            "title": "[IMT] DL intra-interference-to-noise ratio",
+            "x_label": r"$I_\text{intra}/N$ [dB]",
+        },
+        "imt_dl_inr_total": {
+            "title": "[IMT] DL total-interference-to-noise ratio",
+            "x_label": "$I/N$ [dB]",
+        },
         "imt_dl_inr": {
-            "title": "[IMT] DL interference-to-noise ratio",
+            "title": "[IMT] DL total-interference-to-noise ratio",
             "x_label": "$I/N$ [dB]",
         },
         "imt_dl_inr_noise_plus_intra_intf": {
-            "title": "[IMT] DL interference to noise and intra interference ratio",
+            "title": "[IMT] DL external interference to noise and intra interference ratio",
             "x_label": "$I_ext/(N + I_intra)$ [dB]",
         },
         "imt_dl_tput_ext": {

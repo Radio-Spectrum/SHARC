@@ -37,7 +37,9 @@ class Results(object):
         self.imt_ul_sinr = SampleList()
         # SNR [dB]
         self.imt_ul_snr = SampleList()
-        self.imt_ul_inr = SampleList()
+        # self.imt_ul_inr = SampleList()
+        self.imt_ul_inr_ext = SampleList()
+        self.imt_ul_inr_total = SampleList()
         # I/(N + I_intra) [dB]
         self.imt_ul_inr_noise_plus_intra_intf = SampleList()
         # Throughput [bits/s/Hz]
@@ -78,7 +80,9 @@ class Results(object):
         # SNR [dB]
         self.imt_dl_snr = SampleList()
         # I/N [dB]
-        self.imt_dl_inr = SampleList()
+        # self.imt_dl_inr = SampleList()
+        self.imt_dl_inr_ext = SampleList()
+        self.imt_dl_inr_total = SampleList()
         # I/(N + I_intra) [dB]
         self.imt_dl_inr_noise_plus_intra_intf = SampleList()
         # Throughput [bits/s/Hz]

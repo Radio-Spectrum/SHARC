@@ -329,8 +329,17 @@ class SimulationUplink(Simulation):
                 - (10 * np.log10(np.power(10, 0.1 * self.bs.total_interference[bs]) +
                                  np.power(10, 0.1 * self.bs.ext_interference[bs],),))
 
-            self.bs.inr[bs] = self.bs.ext_interference[bs] - \
+            self.bs.inr_ext[bs] = self.bs.ext_interference[bs] - \
                 self.bs.thermal_noise[bs]
+
+            self.bs.inr_intra[bs] = self.bs.rx_interference[bs] - \
+                self.bs.thermal_noise[bs]
+
+            self.bs.inr_total[bs] = (
+                10 * np.log10(
+                    np.power(10, 0.1 * self.bs.rx_interference[bs]) +
+                    np.power(10, 0.1 * self.bs.ext_interference[bs])
+            )) - self.bs.thermal_noise[bs]
 
             self.bs.inr_noise_plus_intra_intf[bs] = self.bs.ext_interference[bs] - \
                 self.bs.total_interference[bs]
@@ -548,7 +557,8 @@ class SimulationUplink(Simulation):
                 self.results.imt_ul_sinr_ext.extend(
                     self.bs.sinr_ext[bs].tolist(),
                 )
-                self.results.imt_ul_inr.extend(self.bs.inr[bs].tolist())
+                self.results.imt_ul_inr_ext.extend(self.bs.inr_ext[bs].tolist())
+                self.results.imt_ul_inr_total.extend(self.bs.inr_total[bs].tolist())
                 self.results.imt_ul_inr_noise_plus_intra_intf.extend(
                     self.bs.inr_noise_plus_intra_intf[bs].tolist()
                 )

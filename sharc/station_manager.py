@@ -48,6 +48,9 @@ class StationManager(object):
         self.sinr = np.empty(n)
         self.sinr_ext = np.empty(n)
         self.inr = np.empty(n)  # INR in dBm/MHz
+        self.inr_ext = np.empty(n)
+        self.inr_intra = np.empty(n)
+        self.inr_total = np.empty(n)
         self.inr_noise_plus_intra_intf = np.empty(n)
         self.pfd = np.empty(n)  # Powerflux density in dBm/m^2
         self.spectral_mask = np.empty(n, dtype=SpectralMask)

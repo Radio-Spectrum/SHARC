@@ -76,28 +76,17 @@ class ParametersMssD2d(ParametersBase):
     # Possible values: "ITU-R-S.1528-Taylor", "ITU-R-S.1528-LEO"
     antenna_pattern: str = "ITU-R-S.1528-Taylor"
 
-    # Radius of the antenna's circular aperture in meters
-    antenna_diamter: float = 1.0
-
-    # The required near-in-side-lobe level (dB) relative to peak gain
-    antenna_l_s: float = -6.75
-
-    # 3 dB beamwidth angle (3 dB below maximum gain) [degrees]
-    antenna_3_dB_bw: float = 4.4127
-
     # Paramters for the ITU-R-S.1528 antenna patterns
     antenna_s1528: ParametersAntennaS1528 = field(
-        default_factory=ParametersAntennaS1528)
+        default_factory=lambda: ParametersAntennaS1528(
+            antenna_l_s=-6.75, antenna_3_dB_bw=4.4127
+        ))
 
     sat_is_active_if: ParametersSelectActiveSatellite = field(
         default_factory=ParametersSelectActiveSatellite)
 
     # paramters for channel model
     param_p619: ParametersP619 = field(default_factory=ParametersP619)
-    earth_station_alt_m: float = 0.0
-    earth_station_lat_deg: float = 0.0
-    earth_station_long_diff_deg: float = 0.0
-    season: str = "SUMMER"
     # Channel parameters
     # channel model, possible values are "FSPL" (free-space path loss),
     #                                    "SatelliteSimple" (FSPL + 4 + clutter loss)
@@ -106,6 +95,8 @@ class ParametersMssD2d(ParametersBase):
 
     # Polarization loss
     polarization_loss: float | None = None
+
+    noise_temperature: float | None = None
 
     def load_parameters_from_file(self, config_file: str):
         """
@@ -190,8 +181,6 @@ class ParametersMssD2d(ParametersBase):
             antenna_pattern=self.antenna_pattern,
             frequency=self.frequency,
             bandwidth=self.bandwidth,
-            antenna_l_s=self.antenna_l_s,
-            antenna_3_dB_bw=self.antenna_3_dB_bw,
         )
         if self.beam_positioning.service_grid.beam_radius is None:
             self.beam_positioning.service_grid.beam_radius = self.cell_radius
@@ -199,21 +188,6 @@ class ParametersMssD2d(ParametersBase):
         self.beam_positioning.service_grid.load_from_active_sat_conditions(
             self.sat_is_active_if,
         )
-
-        if self.channel_model == "P619":
-            # mean station altitude in meters
-            m_alt = 0
-            for orbit in self.orbits:
-                m_alt += orbit.perigee_alt_km * 1e3
-            m_alt /= len(self.orbits)
-
-            self.param_p619.set_external_parameters(
-                space_station_alt_m=m_alt,
-                earth_station_alt_m=self.earth_station_alt_m,
-                earth_station_lat_deg=self.earth_station_lat_deg,
-                earth_station_long_diff_deg=self.earth_station_long_diff_deg,
-                season=self.season
-            )
 
 
 if __name__ == "__main__":

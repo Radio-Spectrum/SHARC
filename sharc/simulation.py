@@ -20,6 +20,7 @@ from sharc.parameters.parameters import Parameters
 from sharc.station_manager import StationManager
 from sharc.results import Results
 from sharc.propagation.propagation_factory import PropagationFactory
+from sharc.support.sharc_utils import wrap2_180, clip_angle
 
 
 class Simulation(ABC, Observable):
@@ -482,6 +483,8 @@ class Simulation(ABC, Observable):
                 self.ue, )
 
         bs_active = np.where(self.bs.active)[0]
+
+        assert np.all((-180 <= self.bs.azimuth) & (self.bs.azimuth <= 180)), "BS azimuth angles should be in [-180, 180] range"
         for bs in bs_active:
             # select K UE's among the ones that are connected to BS
             random_number_gen.shuffle(self.link[bs])
@@ -494,9 +497,14 @@ class Simulation(ABC, Observable):
                     # add beam to BS antennas
 
                     # limit beamforming angle
-                    bs_beam_phi = np.clip(
+                    beam_h_min, beam_h_max = wrap2_180(
+                        self.parameters.imt.bs.antenna.array.horizontal_beamsteering_range + self.bs.azimuth[bs]
+                    )
+
+                    bs_beam_phi = clip_angle(
                         self.bs_to_ue_phi[bs, ue],
-                        *(self.parameters.imt.bs.antenna.array.horizontal_beamsteering_range + self.bs.azimuth[bs])
+                        beam_h_min,
+                        beam_h_max,
                     )
 
                     bs_beam_theta = np.clip(

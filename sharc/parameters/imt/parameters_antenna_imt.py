@@ -57,8 +57,8 @@ class ParametersAntennaImt(ParametersBase):
     # PS: it isn't implemented for UEs
     # and current implementation doesn't make sense for UEs
     horizontal_beamsteering_range: tuple[float |
-                                         int, float | int] = (-180., 180.)
-    vertical_beamsteering_range: tuple[float | int, float | int] = (0., 180.)
+                                         int, float | int] = (-180., 179.9999)
+    vertical_beamsteering_range: tuple[float | int, float | int] = (0., 179.9999)
 
     # Mechanical downtilt [degrees].
     # PS: downtilt doesn't make sense on UE's
@@ -174,11 +174,11 @@ class ParametersAntennaImt(ParametersBase):
                 f"Invalid {ctx}.horizontal_beamsteering_range={self.horizontal_beamsteering_range}\n"
                 "The second value must be bigger than the first"
             )
-        if not all(map(lambda x: x >= -180. and x <= 180.,
+        if not all(map(lambda x: x >= -180. and x < 180.,
                    self.horizontal_beamsteering_range)):
             raise ValueError(
                 f"Invalid {ctx}.horizontal_beamsteering_range={self.horizontal_beamsteering_range}\n"
-                "Horizontal beamsteering limit angles must be in the range [-180, 180]"
+                "Horizontal beamsteering limit angles must be in the range [-180, 180)"
             )
 
         if isinstance(self.vertical_beamsteering_range, list):
@@ -199,11 +199,11 @@ class ParametersAntennaImt(ParametersBase):
                 f"Invalid {ctx}.vertical_beamsteering_range={self.vertical_beamsteering_range}\n"
                 "The second value must be bigger than the first"
             )
-        if not all(map(lambda x: x >= 0. and x <= 180.,
+        if not all(map(lambda x: x >= 0. and x < 180.,
                    self.vertical_beamsteering_range)):
             raise ValueError(
                 f"Invalid {ctx}.vertical_beamsteering_range={self.vertical_beamsteering_range}\n"
-                "vertical beamsteering limit angles must be in the range [0, 180]"
+                "vertical beamsteering limit angles must be in the range [0, 180)"
             )
 
     def get_normalization_data_if_needed(self):

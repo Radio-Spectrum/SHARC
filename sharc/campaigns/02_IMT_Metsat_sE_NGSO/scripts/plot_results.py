@@ -13,7 +13,7 @@ sistemas      = ["Sat_E&G", "Sat_C&S"] #["Sat_Q", "Sat_P"]
 imt_cell      = ["micro"] #"macro", "micro"]
 p_percentage  = [0.2, 20, "RANDOM_CENARIO"] # [20, "RANDOM", "RANDOM_CENARIO"]
 clutter_type  = ["one_end"] # ["one_end", "both_ends"]
-link_type     = ["dl"] # ["ul", "dl"]
+link_type     = ["ul"] # ["ul", "dl"]
 distances_km  = [100, 200] # [5, 10, 50, 100]
 
 ## Graphics adjustments
@@ -76,7 +76,7 @@ many_results = Results.load_many_from_dir(
         campaign_base_dir,
         "output"),
     only_latest=True,
-    only_samples=["system_dl_interf_power_per_mhz"],
+    only_samples=["system_dl_interf_power_per_mhz","system_ul_interf_power_per_mhz"],
     filter_fn=filter_fn
     )
 
@@ -91,7 +91,8 @@ post_processor.add_plots(plots)
 #### Add protection criteria
 
 plots_to_add_vline = [
-    "system_dl_interf_power_per_mhz"
+    "system_dl_interf_power_per_mhz",
+    "system_ul_interf_power_per_mhz"
 ]
 
 for prop_name in plots_to_add_vline:

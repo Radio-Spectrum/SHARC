@@ -18,7 +18,7 @@ with open(input_file, "r") as f:
 
 modified_text = reference_text[:]
 # Gerar arquivos para cada ângulo de azimute
-for sistema in ["Sat_E&G"]:
+for sistema in ["Sat_E&G", "Sat_C&S"]:
     modified_text[136 - 1] = f"    Hre: {'7' if sistema == "Sat_E&G" else '7'}\n"
     modified_text[121 - 1] = f"    height: {'7' if sistema == "Sat_E&G" else '7'}\n"
     modified_text[100 - 1] = f"    gain: {'57.2' if sistema == "Sat_E&G" else '44.9'}\n"
@@ -30,7 +30,7 @@ for sistema in ["Sat_E&G"]:
     modified_text[103 - 1] = f"    pattern: {'ITU-R S.465' if sistema == "Sat_E&G" else 'ITU-R S.465'}\n"
     modified_text[101 - 1] = f"{'    itu_r_s_465:' if sistema == "Sat_E&G" else '    itu_r_s_465:'}\n"
 
-    for imt_cell in ["macro"]:
+    for imt_cell in ["micro"]:
         modified_text[17 - 1] = f"{'        vertical_beamsteering_range: !!python/tuple [90., 100.]' if imt_cell == "macro" else '        vertical_beamsteering_range: !!python/tuple [90., 120.]'}\n"
         modified_text[38 - 1] = f"    height: {'18' if imt_cell == "macro" else '6'}\n"
         modified_text[29 - 1] = f"        n_columns: {'16' if imt_cell == "macro" else '8'}\n"

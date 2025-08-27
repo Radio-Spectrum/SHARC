@@ -56,13 +56,6 @@ class ParametersNgsoConstellation(ParametersBase):
     # Channel model configuration
     # Parameters for the P.619 channel model
     param_p619: ParametersP619 = field(default_factory=ParametersP619)
-    # Altitude of the space station in meters
-    space_station_alt_m: float = 35780000.0
-    earth_station_alt_m: float = 0.0  # Altitude of the earth station in meters
-    earth_station_lat_deg: float = 0.0  # Latitude of the earth station in degrees
-    # Longitude difference for the earth station in degrees
-    earth_station_long_diff_deg: float = 0.0
-    season: str = "SUMMER"  # Season for atmospheric conditions
     # Channel model type (e.g., FSPL, SatelliteSimple, P619)
     channel_model: str = "P619"
 
@@ -130,15 +123,6 @@ class ParametersNgsoConstellation(ParametersBase):
             raise ValueError(
                 f"ParametersNgsoMss: Invalid channel model name {
                     self.channel_model}")
-
-        if self.channel_model == "P619":
-            self.param_p619.set_external_parameters(
-                space_station_alt_m=self.altitude,
-                earth_station_alt_m=self.earth_station_alt_m,
-                earth_station_lat_deg=self.earth_station_lat_deg,
-                earth_station_long_diff_deg=self.earth_station_long_diff_deg,
-                season=self.season
-            )
 
 
 if __name__ == "__main__":

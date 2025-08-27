@@ -49,9 +49,6 @@ class ParametersMssSs(ParametersBase):
     # Satellite tx power density in dBW/MHz
     tx_power_density: float = 40.0
 
-    # Satellite Tx max Gain in dBi
-    antenna_gain: float = 30.0
-
     # Satellite azimuth w.r.t. simulation x-axis
     azimuth: float = 45.0
 
@@ -66,25 +63,13 @@ class ParametersMssSs(ParametersBase):
     # Possible values: "ITU-R-S.1528-Section1.2", "ITU-R-S.1528-LEO"
     antenna_pattern: str = "ITU-R-S.1528-LEO"
 
-    # Radius of the antenna's circular aperture in meters
-    antenna_diamter: float = 1.0
-
-    # The required near-in-side-lobe level (dB) relative to peak gain
-    antenna_l_s: float = -6.75
-
-    # 3 dB beamwidth angle (3 dB below maximum gain) [degrees]
-    antenna_3_dB_bw: float = 4.4127
-
     # Paramters for the ITU-R-S.1528 antenna patterns
     antenna_s1528: ParametersAntennaS1528 = field(
         default_factory=ParametersAntennaS1528)
 
     # paramters for channel model
     param_p619: ParametersP619 = field(default_factory=ParametersP619)
-    space_station_alt_m: float = 35780000.0
-    earth_station_alt_m: float = 0.0
-    earth_station_lat_deg: float = 0.0
-    earth_station_long_diff_deg: float = 0.0
+
     season: str = "SUMMER"
     # Channel parameters
     # channel model, possible values are "FSPL" (free-space path loss),
@@ -137,9 +122,6 @@ class ParametersMssSs(ParametersBase):
         self.antenna_s1528.set_external_parameters(
             frequency=self.frequency,
             bandwidth=self.bandwidth,
-            antenna_gain=self.antenna_gain,
-            antenna_l_s=self.antenna_l_s,
-            antenna_3_dB_bw=self.antenna_3_dB_bw,
         )
 
         if self.channel_model.upper() not in [
@@ -147,12 +129,3 @@ class ParametersMssSs(ParametersBase):
             raise ValueError(
                 f"Invalid channel model name {
                     self.channel_model}")
-
-        if self.channel_model == "P619":
-            self.param_p619.set_external_parameters(
-                space_station_alt_m=self.altitude,
-                earth_station_alt_m=self.earth_station_alt_m,
-                earth_station_lat_deg=self.earth_station_lat_deg,
-                earth_station_long_diff_deg=self.earth_station_long_diff_deg,
-                season=self.season
-            )

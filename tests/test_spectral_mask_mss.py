@@ -21,10 +21,10 @@ class SpectalMaskMSSTest(unittest.TestCase):
         p_tx_density = -30  # dBW / Hz
         freq = 2190
         band = 1
-        p_tx = p_tx_density + 10 * np.log10(band * 1e6)
+        p_tx = p_tx_density + 10 * np.log10(band * 1e6) + 30
 
         # reference bw is 4khz below 15GHz center freq
-        p_tx_over_4khz = p_tx_density + 10 * np.log10(4e3)
+        p_tx_over_4khz = p_tx_density + 10 * np.log10(4e3) + 30
 
         # dBm/MHz
         spurious_emissions = -30
@@ -45,7 +45,7 @@ class SpectalMaskMSSTest(unittest.TestCase):
 
             F = (f_offset - band / 2) / band * 100
 
-            should_eq[2 * i] = p_tx_over_4khz - 40 * np.log10(F / 50 + 1) + 30
+            should_eq[2 * i] = p_tx_over_4khz - 40 * np.log10(F / 50 + 1)
             eq[2 * i] = mask.power_calc(freq + f_offset + 0.5 * 4e-3, 4e-3)
 
             should_eq[2 * i + 1] = should_eq[2 * i]

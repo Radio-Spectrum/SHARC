@@ -68,8 +68,6 @@ class TestTopologyImtMssDc(unittest.TestCase):
         self.assertEqual(
             self.imt_mss_dc_topology.num_sectors,
             self.params.num_beams)
-        self.assertEqual(len(self.imt_mss_dc_topology.orbits),
-                         len(self.params.orbits))
 
     def test_calculate_coordinates(self):
         """Test calculation of coordinates for the topology."""

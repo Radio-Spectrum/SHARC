@@ -868,7 +868,7 @@ class SimulationUplinkTest(unittest.TestCase):
         # Physical pointing angles
         self.assertEqual(self.simulation.bs.antenna[0].azimuth, 0)
         self.assertEqual(self.simulation.bs.antenna[0].elevation, -10)
-        self.assertEqual(self.simulation.bs.antenna[1].azimuth, 180)
+        self.assertEqual(self.simulation.bs.antenna[1].azimuth, -180)
         self.assertEqual(self.simulation.bs.antenna[0].elevation, -10)
 
         # Change UE pointing

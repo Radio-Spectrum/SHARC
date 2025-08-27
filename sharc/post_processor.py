@@ -350,7 +350,8 @@ class PostProcessor():
         cutoff_percentage: useful for cutting off
         """
         figs: dict[str, list[go.Figure]] = {}
-
+        n_font = 20
+        n_font_legend = 15
         for res in results:
             possible_legends_mapping = self.get_results_possible_legends(res)
 
@@ -402,6 +403,8 @@ class PostProcessor():
                 if attr_name not in figs:
                     figs[attr_name] = go.Figure()
                     figs[attr_name].update_layout(
+                        width=1200,   # pixels
+                        height=800,
                         title=f'CCDF Plot for {attr_plot_info["title"]}',
                         xaxis_title=attr_plot_info["x_label"],
                         yaxis_title="$\\text{P } I > X$",
@@ -410,13 +413,17 @@ class PostProcessor():
                                    ticktext=ticktext,
                                    gridcolor="lightgray",
                                    gridwidth=.5,
-                                   griddash="dot"
+                                   griddash="dot",
+                                   titlefont=dict(size=n_font),
+                                   tickfont=dict(size=n_font),
                                    ),
                         xaxis=dict(tickmode="linear",
                                    dtick=5,
                                    gridcolor="lightgray",
                                    gridwidth=.5,
-                                   griddash="dot"
+                                   griddash="dot", 
+                                   titlefont=dict(size=n_font),
+                                   tickfont=dict(size=n_font),
                                    ),
                         legend_title="Labels",
                         meta={"related_results_attribute": attr_name, "plot_type": "ccdf"},
@@ -424,9 +431,10 @@ class PostProcessor():
                         paper_bgcolor="white",
                         font=dict(
                             family="Arial, sans-serif",
-                            size=16,         # Base font size for all text
+                            size=n_font_legend,         # Base font size for all text
                             color="black"    # Text color
                         ),
+
                         shapes=[
                             dict(
                                 type="rect",
@@ -444,8 +452,8 @@ class PostProcessor():
                             )
                         ],
                         legend=dict(
-                            x=0.7,          # x position (20% from the left)
-                            y=0.5,          # y position (50% from the bottom)
+                            x=0.55,          # x position (20% from the left)
+                            y=0.6,          # y position (50% from the bottom)
                             xanchor='right', # anchor the legend's right side at x=0.95
                             yanchor='top',   # anchor the legend's top at y=0.95
                             bgcolor='rgba(255,255,255,0.5)',  # Optional: semi-transparent white background
@@ -463,7 +471,7 @@ class PostProcessor():
 
                 if "p=20%" in legend:
                     dash_style = "solid"
-                elif "RANDOM_CENARIO" in legend:
+                elif "RANDOM" in legend:
                     dash_style = "dash"
                 else:
                     dash_style = "dot"
@@ -480,7 +488,8 @@ class PostProcessor():
                         y=y,
                         mode="lines",
                         name=legend,
-                        line=dict(dash=dash_style),
+                        line=dict(dash=dash_style,
+                                   width=3),
                     ),
                 )
         pat = re.compile(

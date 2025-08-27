@@ -10,7 +10,7 @@ from sharc.post_processor import PostProcessor
 
 ## Definition of plot variable (what to plot)
 sistemas      = ["Sat_E&G", "Sat_C&S"] #["Sat_Q", "Sat_P"]
-imt_cell      = ["macro"] #"macro", "micro"]
+imt_cell      = ["micro"] #"macro", "micro"]
 p_percentage  = [0.2, 20, "RANDOM_CENARIO"] # [20, "RANDOM", "RANDOM_CENARIO"]
 clutter_type  = ["one_end"] # ["one_end", "both_ends"]
 link_type     = ["dl"] # ["ul", "dl"]
@@ -18,8 +18,8 @@ distances_km  = [100, 200] # [5, 10, 50, 100]
 
 ## Graphics adjustments
 cutoff_percentage = 0.00001;
-shift_scale = 30   # O padrão é dBm/MHz, porém é possível fazer o shift scale e atualizar a legenda
-legenda_dens_potencia = "Interference Power [dBW/MHz]"
+shift_scale = 20   # O padrão é dBm/MHz, porém é possível fazer o shift scale e atualizar a legenda
+legenda_dens_potencia = "Interference Power [dBW/10MHz]"
 
 # Change default legent to the shifited
 post_processor = PostProcessor()
@@ -28,6 +28,8 @@ post_processor.RESULT_FIELDNAME_TO_PLOT_INFO['system_ul_interf_power_per_mhz']['
 
 # Helper: pretty legend text
 def pretty_p(p):
+    if p=="RANDOM_CENARIO": 
+        p = "RANDOM"
     return f"{(p)}%" if isinstance(p, (int, float)) else str(p)
 
 def pretty_link(t):

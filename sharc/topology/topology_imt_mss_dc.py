@@ -65,23 +65,6 @@ class TopologyImtMssDc(Topology):
 
         self.lat = None
         self.lon = None
-        self.orbits = []
-
-        # Iterate through each orbit defined in the parameters
-        for param in self.orbit_params.orbits:
-            # Instantiate an OrbitModel for the current orbit
-            orbit = OrbitModel(
-                Nsp=param.sats_per_plane,  # Satellites per plane
-                Np=param.n_planes,  # Number of orbital planes
-                phasing=param.phasing_deg,  # Phasing angle in degrees
-                long_asc=param.long_asc_deg,  # Longitude of ascending node in degrees
-                omega=param.omega_deg,  # Argument of perigee in degrees
-                delta=param.inclination_deg,  # Orbital inclination in degrees
-                hp=param.perigee_alt_km,  # Perigee altitude in kilometers
-                ha=param.apogee_alt_km,  # Apogee altitude in kilometers
-                Mo=param.initial_mean_anomaly  # Initial mean anomaly in degrees
-            )
-            self.orbits.append(orbit)
 
     @staticmethod
     def get_coordinates(
@@ -139,7 +122,11 @@ class TopologyImtMssDc(Topology):
                     delta=param.inclination_deg,  # Orbital inclination in degrees
                     hp=param.perigee_alt_km,  # Perigee altitude in kilometers
                     ha=param.apogee_alt_km,  # Apogee altitude in kilometers
-                    Mo=param.initial_mean_anomaly  # Initial mean anomaly in degrees
+                    Mo=param.initial_mean_anomaly,  # Initial mean anomaly in degrees
+                    # whether to use only time as random variable
+                    model_time_as_random_variable=param.model_time_as_random_variable,
+                    t_min=param.t_min,
+                    t_max=param.t_max,
                 )
                 # Generate random positions for satellites in this orbit
                 pos_vec = orbit.get_orbit_positions_random(

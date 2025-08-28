@@ -48,7 +48,10 @@ if __name__ == "__main__":
         delta=orbit_params.inclination_deg,
         hp=orbit_params.perigee_alt_km,
         ha=orbit_params.apogee_alt_km,
-        Mo=orbit_params.initial_mean_anomaly
+        Mo=orbit_params.initial_mean_anomaly,
+        model_time_as_random_variable=False,
+        t_min=0.0,
+        t_max=None
     )
 
     # Show visible satellites from ground-station

@@ -20,7 +20,10 @@ if __name__ == "__main__":
         delta=52,  # inclination in degrees
         hp=1414,  # perigee altitude in km
         ha=1414,  # apogee altitude in km
-        Mo=0  # mean anomaly in degrees
+        Mo=0,  # mean anomaly in degrees
+        model_time_as_random_variable=False,
+        t_min=0.0,
+        t_max=None
     )
 
     # Set parameters for ground station

@@ -22,6 +22,8 @@ x, y
 90, -3.679459224299312
 """
 
+HALF_BEAM_WIDTH_DEG = 64.0
+
 
 class AntennaMssHibleoXUe(Antenna):
     """
@@ -48,7 +50,7 @@ class AntennaMssHibleoXUe(Antenna):
         # Parse the data string to extract x and y values
         lines = data_str.strip().split('\n')[1:]
         self.pattern_theta_deg = np.array([float(line.split(',')[0]) for line in lines])
-        self.patten_gain_deg = np.array([float(line.split(',')[1]) for line in lines])
+        self.patten_gain_dbi = np.array([float(line.split(',')[1]) for line in lines])
 
     def calculate_gain(self, *args, **kwargs) -> np.array:
         """
@@ -67,17 +69,46 @@ class AntennaMssHibleoXUe(Antenna):
             Calculated antenna gain values.
         """
         theta_deg = kwargs["off_axis_angle_vec"]
-        return np.interp(np.abs(theta_deg), self.pattern_theta_deg, self.patten_gain_deg)
+        return -2.5226404 * (np.deg2rad(theta_deg) ** 2) + 2.7
 
 
 if __name__ == '__main__':
     import plotly.graph_objects as go
+    from scipy.optimize import curve_fit
+
+    # Compare the fitted parabolic function to the provided points
+
     mss_ue_antenna = AntennaMssHibleoXUe(2483)
+
+    # Define the custom parabolic function without the linear term
+    def poly_no_linear(x, a):
+        """
+        Polynomial function of the form ax^2 + c (no linear term).
+        """
+        return a * x**2 + np.max(mss_ue_antenna.patten_gain_dbi)
+
+    # Fit the data using curve_fit
+    # initial_guess = [1, 1] # Optional: provide an initial guess for the parameters
+    params, covariance = curve_fit(
+        poly_no_linear,
+        np.deg2rad(mss_ue_antenna.pattern_theta_deg),
+        mss_ue_antenna.patten_gain_dbi
+    )
+
+    print("Fitting parabolic function (no linear term) to the provided points:")
+    print(f"Fitted parameters:\na={params}")
+    print(f"Covariance matrix:\n{covariance}")
 
     off_axis_vec_deg = np.linspace(-90, 90, 100)
     gains = mss_ue_antenna.calculate_gain(off_axis_angle_vec=off_axis_vec_deg)
 
-    fig = go.Figure(data=go.Scatter(x=off_axis_vec_deg, y=gains, mode='markers+lines'))
+    gains_interp = np.interp(
+        np.abs(off_axis_vec_deg),
+        mss_ue_antenna.pattern_theta_deg,
+        mss_ue_antenna.patten_gain_dbi
+    )
+
+    fig = go.Figure(data=go.Scatter(x=off_axis_vec_deg, y=gains, mode='markers+lines', name='Parabolic Fit pattern'))
     fig.update_layout(
         title='Hibleo-X UE pattern from filing',
         xaxis_title='off-axis angle (degrees)',
@@ -93,4 +124,5 @@ if __name__ == '__main__':
         gridcolor="#DCDCDC",
         gridwidth=1.5,
     )
+    fig.add_trace(go.Scatter(x=off_axis_vec_deg, y=gains_interp, mode='markers', name='Interpolated'))
     fig.show()

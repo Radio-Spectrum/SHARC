@@ -4,6 +4,7 @@ from sharc.parameters.parameters_antenna import ParametersAntenna
 
 from sharc.antenna.antenna_mss_adjacent import AntennaMSSAdjacent
 from sharc.antenna.antenna_omni import AntennaOmni
+from sharc.antenna.antenna_mss_hibleo_x_ue import AntennaMssHibleoXUe
 from sharc.antenna.antenna_f699 import AntennaF699
 from sharc.antenna.antenna_s465 import AntennaS465
 from sharc.antenna.antenna_rra7_3 import AntennaReg_RR_A7_3
@@ -27,6 +28,8 @@ class AntennaFactory():
         match antenna_params.pattern:
             case "OMNI":
                 return AntennaOmni(antenna_params.gain)
+            case "HibleoX":
+                return AntennaMssHibleoXUe(antenna_params.hibleo_x.frequency)
             case "ITU-R F.699":
                 return AntennaF699(antenna_params.itu_r_f_699)
             case "ITU-R-S.1528-Taylor":

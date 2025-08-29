@@ -1190,37 +1190,11 @@ class StationFactory(object):
                 [param.geometry.elevation.fixed],
             )
 
-        match param.antenna.pattern:
-            case "OMNI":
-                single_earth_station.antenna = np.array(
-                    [AntennaOmni(param.antenna.gain)],
-                )
-            case "ITU-R S.465":
-                single_earth_station.antenna = np.array(
-                    [AntennaS465(param.antenna.itu_r_s_465)],
-                )
-            case "ITU-R Reg. RR. Appendice 7 Annex 3":
-                single_earth_station.antenna = np.array(
-                    [AntennaReg_RR_A7_3(param.antenna.itu_reg_rr_a7_3)],
-                )
-            case "ITU-R S.1855":
-                single_earth_station.antenna = np.array(
-                    [AntennaS1855(param.antenna.itu_r_s_1855)],
-                )
-            case "MODIFIED ITU-R S.465":
-                single_earth_station.antenna = np.array(
-                    [AntennaModifiedS465(param.antenna.itu_r_s_465_modified)],
-                )
-            case "ITU-R S.580":
-                single_earth_station.antenna = np.array(
-                    [AntennaS580(param.antenna.itu_r_s_580)],
-                )
-            case _:
-                sys.stderr.write(
-                    "ERROR\nInvalid FSS ES antenna pattern: " +
-                    param.antenna_pattern,
-                )
-                sys.exit(1)
+        single_earth_station.antenna = np.array([
+            AntennaFactory.create_antenna(
+                param.antenna, single_earth_station.azimuth, single_earth_station.elevation
+            )
+        ])
 
         single_earth_station.active = np.array([True])
         single_earth_station.bandwidth = np.array([param.bandwidth])

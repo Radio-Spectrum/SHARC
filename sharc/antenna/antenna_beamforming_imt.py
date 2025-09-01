@@ -60,6 +60,7 @@ class AntennaBeamformingImt(Antenna):
                 referenced in the x axis
         """
         super().__init__()
+        self.uses_beamforming = True
         self.param = par
         self.subarray = None
 

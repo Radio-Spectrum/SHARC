@@ -21,6 +21,7 @@ class Antenna(ABC):
     def __init__(self):
         self.beams_list = []
         self.w_vec_list = []
+        self.uses_beamforming = False
 
     @abstractmethod
     def calculate_gain(self, *args, **kwargs) -> np.array:

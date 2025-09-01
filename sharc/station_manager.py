@@ -149,9 +149,9 @@ class StationManager(object):
         np.array
             3D distance matrix between stations.
         """
-        dx = np.subtract.outer(self.x, station.x)
-        dy = np.subtract.outer(self.y, station.y)
-        dz = np.subtract.outer(self.z, station.z)
+        dx = np.subtract.outer(self.x, station.x).astype(np.float64)
+        dy = np.subtract.outer(self.y, station.y).astype(np.float64)
+        dz = np.subtract.outer(self.z, station.z).astype(np.float64)
         np.square(dx, out=dx)
         np.square(dy, out=dy)
         np.square(dz, out=dz)
@@ -290,9 +290,9 @@ class StationManager(object):
         """
 
         # malloc
-        dx = np.subtract.outer(self.x, station.x)
-        dy = np.subtract.outer(self.y, station.y)
-        dz = np.subtract.outer(self.z, station.z)
+        dx = (station.x - self.x[:, np.newaxis]).astype(np.float64)
+        dy = (station.y - self.y[:, np.newaxis]).astype(np.float64)
+        dz = (station.z - self.z[:, np.newaxis]).astype(np.float64)
 
         dist = self.get_3d_distance_to(station)
 

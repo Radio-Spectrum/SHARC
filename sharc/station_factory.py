@@ -155,11 +155,18 @@ class StationFactory(object):
             num_bs, dtype=Antenna,
         )
 
-        for i in range(num_bs):
-            imt_base_stations.antenna[i] = \
-                AntennaFactory.create_antenna(
-                    param.bs.antenna, imt_base_stations.azimuth[i],
-                    imt_base_stations.elevation[i],)
+        # for i in range(num_bs):
+        #     imt_base_stations.antenna[i] = \
+        #         AntennaFactory.create_antenna(
+        #             param.bs.antenna, imt_base_stations.azimuth[i],
+        #             imt_base_stations.elevation[i],)
+
+        imt_base_stations.antenna = AntennaFactory.create_n_antennas(
+            param.bs.antenna,
+            imt_base_stations.azimuth,
+            imt_base_stations.elevation,
+            num_bs
+        )
 
         # imt_base_stations.antenna = [AntennaOmni(0) for bs in range(num_bs)]
         imt_base_stations.bandwidth = param.bandwidth * np.ones(num_bs)
@@ -458,11 +465,12 @@ class StationFactory(object):
 
         # TODO: this piece of code works only for uplink
         ue_param_ant.get_antenna_parameters()
-        for i in range(num_ue):
-            imt_ue.antenna[i] = AntennaFactory.create_antenna(
-                param.ue.antenna, imt_ue.azimuth[i],
-                imt_ue.elevation[i],
-            )
+        imt_ue.antenna = AntennaFactory.create_n_antennas(
+            param.ue.antenna,
+            imt_ue.azimuth,
+            imt_ue.elevation,
+            num_ue,
+        )
 
         # imt_ue.antenna = [AntennaOmni(0) for bs in range(num_ue)]
         imt_ue.bandwidth = param.bandwidth * np.ones(num_ue)

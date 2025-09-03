@@ -223,6 +223,7 @@ imt:
                         min: 0.0
                         max: 66.1
                 service_grid:
+                    transform_grid_randomly: true # add per drop rand rotation + transl. to grid
                     # by default this already gets shapefile from natural earth
                     country_shapes_filename: sharc/data/countries/ne_110m_admin_0_countries.shp
                     # By default, these are the same as taken from `sat_is_active_if.lat_long_inside_country`
@@ -999,6 +1000,7 @@ mss_d2d:
                 min: 0.0
                 max: 66.1
         service_grid:
+            transform_grid_randomly: true # add per drop rand rotation + transl. to grid
             # by default this already gets shapefile from natural earth
             country_shapes_filename: sharc/data/countries/ne_110m_admin_0_countries.shp
             # By default, these are the same as taken from `sat_is_active_if.lat_long_inside_country`

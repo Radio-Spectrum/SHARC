@@ -136,6 +136,8 @@ class ParametersSectorPositioning(ParametersBase):
 
         country_names: list[str] = field(default_factory=lambda: list([""]))
 
+        transform_grid_randomly: bool = False
+
         # margin from inside of border [km]
         # if positive, makes border smaller by x km
         # if negative, makes border bigger by x km
@@ -197,7 +199,7 @@ class ParametersSectorPositioning(ParametersBase):
                 raise ValueError(
                     f"{ctx}.eligible_sats_margin_from_border needs to be a number")
 
-            self.reset_grid(ctx)
+            self._load_geom_from_file_if_needed(ctx)
 
             super().validate(ctx)
 
@@ -218,13 +220,30 @@ class ParametersSectorPositioning(ParametersBase):
             if self.eligible_sats_margin_from_border is None:
                 self.eligible_sats_margin_from_border = sat_is_active_if.lat_long_inside_country.margin_from_border
 
-        def reset_grid(self, ctx: str, force_update=False):
+        def reset_grid(
+            self,
+            ctx: str,
+            rng: np.random.RandomState,
+            force_update=False,
+        ):
             """
             After creating grid, there are some features that can only be implemented
-            with knowledge of other parts of the simulator. This method's purpose is
-            to run only once at the start of the simulation
+            with knowledge of other parts of the simulator.
             """
-            if self.lon_lat_grid is not None and not force_update:
+            self._load_geom_from_file_if_needed(ctx, force_update)
+
+            self.lon_lat_grid = generate_grid_in_multipolygon(
+                self.grid_borders_polygon,
+                self.beam_radius,
+                self.transform_grid_randomly,
+                rng
+            )
+
+            self.ecef_grid = lla2ecef(
+                self.lon_lat_grid[1], self.lon_lat_grid[0], 0)
+
+        def _load_geom_from_file_if_needed(self, ctx: str, force_update=False):
+            if self.eligibility_polygon is not None and not force_update:
                 return
             filtered_gdf = load_gdf(
                 self.country_shapes_filename,
@@ -239,17 +258,13 @@ class ParametersSectorPositioning(ParametersBase):
             shrinked = shrink_countries_by_km(
                 filtered_gdf.geometry.values, self.grid_margin_from_border
             )
-            polygon = shp.ops.unary_union(shrinked)
-            assert polygon.is_valid, shp.validation.explain_validity(polygon)
-            assert not polygon.is_empty, "Can't have a empty polygon as filter"
+            self.grid_borders_polygon = shp.ops.unary_union(shrinked)
 
-            self.lon_lat_grid = generate_grid_in_multipolygon(
-                polygon,
-                self.beam_radius
-            )
+            assert self.grid_borders_polygon.is_valid, \
+                shp.validation.explain_validity(self.grid_borders_polygon)
 
-            self.ecef_grid = lla2ecef(
-                self.lon_lat_grid[1], self.lon_lat_grid[0], 0)
+            assert not self.grid_borders_polygon.is_empty, \
+                "Can't have a empty grid_borders_polygon as filter"
 
             self.eligibility_polygon = shp.ops.unary_union(shrink_countries_by_km(
                 filtered_gdf.geometry.values, self.eligible_sats_margin_from_border

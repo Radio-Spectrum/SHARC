@@ -131,6 +131,10 @@ class ParametersSectorPositioning(ParametersBase):
 
     @dataclass
     class ParametersServiceGrid(ParametersBase):
+        enable_fixed_lat_lons_for_grid: bool = False
+        fixed_lats: list = field(default_factory=lambda: [500.])
+        fixed_lons: list = field(default_factory=lambda: [500.])
+
         country_shapes_filename: Path = SHARC_ROOT_DIR / "sharc" / \
             "data" / "countries" / "ne_110m_admin_0_countries.shp"
 
@@ -164,6 +168,19 @@ class ParametersSectorPositioning(ParametersBase):
             ctx : str
                 Context string for error messages.
             """
+            if self.enable_fixed_lat_lons_for_grid:
+                if len(self.fixed_lats) != len(self.fixed_lons):
+                    raise ValueError(
+                        f"{ctx}.fixed_lats must have the same number of elements as {ctx}.fixed_lons"
+                    )
+                if not all([-90. <= lat <= 90 for lat in self.fixed_lats]):
+                    raise ValueError(
+                        f"{ctx}.fixed_lats must have all values in [-90, 90] degrees"
+                    )
+                if not all([-180. <= lon <= 180 for lon in self.fixed_lons]):
+                    raise ValueError(
+                        f"{ctx}.fixed_lons must have all values in [-180, 180] degrees"
+                    )
             # conditional is weird due to suboptimal way of working with nested
             # array parameters
             if len(self.country_names) == 0 or (
@@ -234,19 +251,22 @@ class ParametersSectorPositioning(ParametersBase):
                 ctx,
             )
 
-            # shrink countries and unite
-            # them into a single MultiPolygon
-            shrinked = shrink_countries_by_km(
-                filtered_gdf.geometry.values, self.grid_margin_from_border
-            )
-            polygon = shp.ops.unary_union(shrinked)
-            assert polygon.is_valid, shp.validation.explain_validity(polygon)
-            assert not polygon.is_empty, "Can't have a empty polygon as filter"
+            if not self.enable_fixed_lat_lons_for_grid:
+                # shrink countries and unite
+                # them into a single MultiPolygon
+                shrinked = shrink_countries_by_km(
+                    filtered_gdf.geometry.values, self.grid_margin_from_border
+                )
+                polygon = shp.ops.unary_union(shrinked)
+                assert polygon.is_valid, shp.validation.explain_validity(polygon)
+                assert not polygon.is_empty, "Can't have a empty polygon as filter"
 
-            self.lon_lat_grid = generate_grid_in_multipolygon(
-                polygon,
-                self.beam_radius
-            )
+                self.lon_lat_grid = generate_grid_in_multipolygon(
+                    polygon,
+                    self.beam_radius
+                )
+            else:
+                self.lon_lat_grid = np.stack((self.fixed_lons, self.fixed_lats))
 
             self.ecef_grid = lla2ecef(
                 self.lon_lat_grid[1], self.lon_lat_grid[0], 0)

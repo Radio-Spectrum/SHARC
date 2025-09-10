@@ -1,0 +1,153 @@
+general:
+  seed: 157 # Alterar no gerador
+  num_snapshots: 10000
+  overwrite_output: false
+  output_dir: campaigns/08 _DC_MSS_to_EESS/output/
+  output_dir_prefix: output_mss_d2d_to_fs_h_az_mo_lf #Alterar no gerador
+  system: SINGLE_EARTH_STATION
+  imt_link: DOWNLINK
+  enable_adjacent_channel: false
+  enable_cochannel: true
+imt:
+  minimum_separation_distance_bs_ue: 0
+  interfered_with: false
+  frequency: 2197.5
+  bandwidth: 5
+  rb_bandwidth: 0.1
+  adjacent_ch_reception: 'OFF'
+  adjacent_ch_emissions: SPECTRAL_MASK
+  spectral_mask: MSS
+  spurious_emissions: -13
+  guard_band_ratio: 0
+  topology:
+    central_latitude: -15.33
+    central_longitude: -56.04
+    central_altitude: 165
+    type: MSS_DC
+    mss_dc:
+      orbits:
+      - n_planes: 48 #Alterar no gerador (48 e 28)
+        inclination_deg: 53.0 
+        perigee_alt_km: 340.0 #Alterar no gerador (340 e 525)
+        apogee_alt_km: 340.0 #Alterar no gerador (340 e 525)
+        sats_per_plane: 110 #Alterar no gerador (110 e 120)
+        long_asc_deg: 0.0
+        phasing_deg: 1.636 
+      sat_is_active_if:
+        conditions:
+        - LAT_LONG_INSIDE_COUNTRY
+        - MINIMUM_ELEVATION_FROM_ES
+        minimum_elevation_from_es: 5
+        lat_long_inside_country:
+          country_names: [
+                "Brazil", "Argentina", "Bolivia", "Chile", "Peru", "Paraguay", "Uruguay"
+            ]
+          margin_from_border: -417 #Alterar no gerador (Variar R, 2*R, 4*R, 5*R)
+      beam_positioning:
+        type: SERVICE_GRID
+        service_grid:
+          country_names: [
+                "Brazil", "Argentina", "Bolivia", "Chile", "Peru", "Paraguay", "Uruguay"
+            ]
+          eligible_sats_margin_from_border: -417
+      beam_radius: 23376 #Alterar no gerador (Calcular)
+  adjacent_antenna_model: SINGLE_ELEMENT
+  bs:
+    load_probability: 0.2 #Alterar no gerador (.2 e .5)
+    conducted_power: 42.8 # -20.1 (dBW/Hz) + 30 (dbW->dbm) + 10*log10(5e6) (Banda) - 34.1 (Ganho da antena) para chegar em dBm
+    height: 340000 #Alterar no gerador  (340000 e 525000)
+    noise_figure: 5.0
+    ohmic_loss: 0.0
+    antenna:
+      pattern: ITU-R-S.1528-Taylor
+      gain: 34.1
+      itu_r_s_1528:
+        slr: 20.0
+        n_side_lobes: 2
+        l_r: 1.6
+        l_t: 1.6
+        frequency: 2000
+      array:
+        normalization: false
+        element_pattern: M2101
+        element_max_g: 6.4
+        element_phi_3db: 90
+        element_theta_3db: 65
+        n_rows: 1
+        n_columns: 1
+        element_am: 30
+        element_sla_v: 30
+        multiplication_factor: 12
+  ue:
+    k: 1
+    k_m: 1
+    indoor_percent: 0.0
+    distribution_type: UNIFORM_IN_CELL
+    distribution_distance: RAYLEIGH
+    distribution_azimuth: UNIFORM
+    tx_power_control: false
+    p_o_pusch: -92.2
+    alpha: 0.8
+    p_cmax: 23
+    power_dynamic_range: 63
+    height: 1.5
+    noise_figure: 9
+    ohmic_loss: 0
+    body_loss: 4
+    antenna:
+      array:
+        element_pattern: FIXED
+        element_max_g: -3
+        n_rows: 1
+        n_columns: 1
+  uplink:
+    attenuation_factor: 0.4
+    sinr_min: -10
+    sinr_max: 22
+  downlink:
+    attenuation_factor: 0.8
+    sinr_min: -10
+    sinr_max: 30
+  channel_model: FSPL
+  noise_temperature: 290
+  imt_dl_intra_sinr_calculation_disabled: true
+
+single_earth_station:
+  frequency: 2202
+  bandwidth: 4
+  tx_power_density: -200
+  noise_temperature: 728.4471 # NF = 4 dB (ITU-R  F.758-8) => T = T0*10^(NF/10) -> T0=290K (de acordo ITU-R  F.758-8)
+  adjacent_ch_selectivity: 35
+  channel_model: P619
+  polarization_loss: 3
+  geometry:
+    height: 15 # Alterar no gerador (20m e 40m)
+    azimuth:
+      type: UNIFORM_DIST
+      uniform_dist:
+        min: -180 # Alterar no gerador (0, 90, 180, 270)
+        max: 180
+    elevation:
+      type: UNIFORM_DIST
+      uniform_dist:
+        min: 5 # Alterar no gerador (0, 90, 180, 270)
+        max: 90
+    location:
+      type: FIXED
+      fixed:
+        x: 0
+        y: 0
+  antenna:
+    pattern: ITU-R S.465
+    gain: 45.8
+    itu_r_s_465:
+      gain: 45.8
+      diameter: 2 # Diameter calculated using using the gain relatio=> D = (lam/pi)*sqrt(G)
+  adjacent_ch_reception: ACS
+  season: SUMMER
+  param_p619:
+    earth_station_lat_deg: -15.33
+    earth_station_alt_m: 200
+    mean_clutter_height: low  # Alterar no gerador 
+    below_rooftop: 0 # Alterar no gerador
+

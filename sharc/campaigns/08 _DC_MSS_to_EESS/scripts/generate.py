@@ -41,6 +41,7 @@ for sistema in ["System_340km", "System_525km"]:
         lam = 2.998e8 / (f * 1e6)
         n = .9
         diam = float(np.round(lam * np.sqrt(G / n) / np.pi, decimals=2))
+        modified_text[145 - 1] = f"      diameter: {diam}\n"
 
         for type_adj in ["spurious", "adjacent"]:
             modified_text[14 - 1] = f"  frequency: {'2187.5' if type_adj == "spurious" else '2197.5'}\n"

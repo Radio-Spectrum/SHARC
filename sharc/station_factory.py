@@ -772,15 +772,13 @@ class StationFactory(object):
     @staticmethod
     def generate_single_space_station(
             param: ParametersSingleSpaceStation,
-            simplify_dist_to_y=True):
+        ):
         """Create a single space station (satellite) based on the provided parameters.
 
         Parameters
         ----------
         param : ParametersSingleSpaceStation
             Parameters for the single space station.
-        simplify_dist_to_y : bool, optional
-            If True (default), places the satellite only on the y axis.
 
         Returns
         -------
@@ -791,52 +789,36 @@ class StationFactory(object):
         space_station.station_type = StationType.SINGLE_SPACE_STATION
         space_station.is_space_station = True
 
-        # now we set the coordinates according to
-        # ITU-R P619-1, Attachment A
+        geoconv = GeometryConverter()
+        geoconv.set_reference(
+            param.geometry.es_lat_deg,
+            param.geometry.es_long_deg,
+            param.geometry.es_altitude,
+        )
+        x, y, z = geoconv.convert_lla_to_transformed_cartesian(
+            param.geometry.location.fixed.lat_deg,
+            param.geometry.location.fixed.long_deg,
+            param.geometry.altitude,
+        )
 
-        # calculate distances to the centre of the Earth
-        dist_sat_centre_earth_km = (
-            EARTH_RADIUS + param.geometry.altitude) / 1000
-        dist_imt_centre_earth_km = (
-            EARTH_RADIUS + param.geometry.es_altitude
-        ) / 1000
-
-        # calculate Cartesian coordinates of satellite, with origin at centre
-        # of the Earth
-        sat_lat_rad = param.geometry.location.fixed.lat_deg * np.pi / 180.
-        imt_long_diff_rad = (param.geometry.location.fixed.long_deg -
-                             param.geometry.es_long_deg) * np.pi / 180.
-        x1 = dist_sat_centre_earth_km * \
-            np.cos(sat_lat_rad) * np.cos(imt_long_diff_rad)
-        y1 = dist_sat_centre_earth_km * \
-            np.cos(sat_lat_rad) * np.sin(imt_long_diff_rad)
-        z1 = dist_sat_centre_earth_km * np.sin(sat_lat_rad)
-
-        # rotate axis and calculate coordinates with origin at IMT system
-        imt_lat_rad = param.geometry.es_lat_deg * np.pi / 180.
-        space_station.x = np.array(
-            [x1 * np.sin(imt_lat_rad) - z1 * np.cos(imt_lat_rad)],
-        ) * 1000
-        space_station.y = np.array([y1]) * 1000
-        space_station.height = np.array([
-            (
-                z1 * np.sin(imt_lat_rad) + x1 * np.cos(imt_lat_rad) -
-                dist_imt_centre_earth_km
-            ) * 1000,
-        ])
-
-        # putting on y axis
-        if simplify_dist_to_y:
-            space_station.y = np.sqrt(
-                space_station.x *
-                space_station.x +
-                space_station.y *
-                space_station.y)
-            space_station.x = np.zeros_like(space_station.x)
+        space_station.x = x
+        space_station.y = y
+        space_station.z = z
+        # TODO: put actual altitude instead of z on station.height
+        space_station.height = z
 
         if param.geometry.azimuth.type == "POINTING_AT_IMT":
             space_station.azimuth = np.rad2deg(
                 np.arctan2(-space_station.y, -space_station.x))
+        elif param.geometry.azimuth.type == "POINTING_AT_LAT_LONG_ALT":
+            px, py, pz = geoconv.convert_lla_to_transformed_cartesian(
+                param.geometry.pointing_at_lat,
+                param.geometry.pointing_at_long,
+                param.geometry.pointing_at_alt,
+            )
+
+            space_station.azimuth = np.rad2deg(
+                np.arctan2(py - space_station.y, px - space_station.x))
         elif param.geometry.azimuth.type == "FIXED":
             space_station.azimuth = param.geometry.azimuth.fixed
         else:
@@ -844,17 +826,32 @@ class StationFactory(object):
                 f"Did not recognize azimuth type of {
                     param.geometry.azimuth.type}")
 
-        if param.geometry.azimuth.type == "POINTING_AT_IMT":
+        if param.geometry.elevation.type == "POINTING_AT_IMT":
             gnd_elev = np.rad2deg(
                 np.arctan2(
-                    space_station.height,
+                    space_station.z,
                     np.sqrt(
                         space_station.y *
                         space_station.y +
                         space_station.x *
                         space_station.x)))
             space_station.elevation = -gnd_elev
-        elif param.geometry.azimuth.type == "FIXED":
+        elif param.geometry.elevation.type == "POINTING_AT_LAT_LONG_ALT":
+            px, py, pz = geoconv.convert_lla_to_transformed_cartesian(
+                param.geometry.pointing_at_lat,
+                param.geometry.pointing_at_long,
+                param.geometry.pointing_at_alt,
+            )
+            dy = py - space_station.y
+            dx = px - space_station.x
+            dz = pz - space_station.z
+
+            gnd_elev = np.rad2deg(
+                np.arctan2(
+                    dz,
+                    np.sqrt(dy * dy + dx * dx)))
+            space_station.elevation = gnd_elev
+        elif param.geometry.elevation.type == "FIXED":
             space_station.elevation = param.geometry.elevation.fixed
         else:
             raise ValueError(

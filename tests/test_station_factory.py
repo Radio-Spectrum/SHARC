@@ -13,6 +13,8 @@ from sharc.parameters.imt.parameters_imt import ParametersImt
 from sharc.station_factory import StationFactory
 from sharc.topology.topology_ntn import TopologyNTN
 from sharc.parameters.parameters_single_space_station import ParametersSingleSpaceStation
+from sharc.station_manager import StationManager
+from sharc.satellite.ngso.constants import EARTH_RADIUS_M
 
 
 class StationFactoryTest(unittest.TestCase):
@@ -131,7 +133,7 @@ class StationFactoryTest(unittest.TestCase):
         param.validate()
 
         # experimental from simulator
-        max_gso_fov = 81.30784
+        max_gso_fov = 81.299501
 
         def get_ground_elevation(ss):
             return np.rad2deg(
@@ -177,6 +179,76 @@ class StationFactoryTest(unittest.TestCase):
         space_station = StationFactory.generate_single_space_station(param)
         npt.assert_almost_equal(get_ground_elevation(space_station), 0, 5)
         npt.assert_almost_equal(space_station.height, 0, 0)
+
+    def test_single_space_station_pointing(self):
+        """Basic test for space station generation."""
+
+        param = ParametersSingleSpaceStation()
+        # just passing required parameters:
+        param.frequency = 8000
+        param.bandwidth = 100
+        param.channel_model = "P619"
+        param.tx_power_density = -200
+        param.geometry.es_altitude = 0
+        param.geometry.azimuth.fixed = 0
+        param.antenna.pattern = "OMNI"
+        param.antenna.gain = 10
+
+        param.geometry.location.type = "FIXED"
+        param.geometry.altitude = 35786000.0
+        param.geometry.es_lat_deg = 0
+        param.geometry.es_long_deg = 0
+        param.geometry.es_altitude = 1200
+        param.geometry.location.fixed.lat_deg = -5
+        param.geometry.location.fixed.long_deg = 5
+
+        param.propagate_parameters()
+        # This should not error on this test:
+        param.validate()
+
+        imt_center = StationManager(1)
+        imt_center.x = np.array([0.])
+        imt_center.y = np.array([0.])
+        imt_center.z = np.array([0.])
+
+        # Test point it toward IMT center (0, 0, 0)
+        param.geometry.azimuth.type = "POINTING_AT_IMT"
+        param.geometry.elevation.type = "POINTING_AT_IMT"
+
+        space_station = StationFactory.generate_single_space_station(param)
+
+        npt.assert_almost_equal(space_station.get_off_axis_angle(imt_center), 0, 5)
+
+        # Test pointing it toward IMT center (0, 0, 0)
+        # but in another way
+        param.geometry.azimuth.type = "POINTING_AT_LAT_LONG_ALT"
+        param.geometry.elevation.type = "POINTING_AT_LAT_LONG_ALT"
+        param.geometry.pointing_at_lat = 0
+        param.geometry.pointing_at_long = 0
+        param.geometry.pointing_at_alt = 1200
+
+        space_station = StationFactory.generate_single_space_station(param)
+
+        npt.assert_almost_equal(space_station.get_off_axis_angle(imt_center), 0, 5)
+
+        # Test pointing it toward subsatellite.
+        # In spherical earth model,
+        # same as pointing toward center of earth
+        center_of_earth = StationManager(1)
+
+        center_of_earth.x = np.array([0.])
+        center_of_earth.y = np.array([0.])
+        center_of_earth.z = -np.array([EARTH_RADIUS_M + 1200])
+
+        param.geometry.azimuth.type = "POINTING_AT_LAT_LONG_ALT"
+        param.geometry.elevation.type = "POINTING_AT_LAT_LONG_ALT"
+        param.geometry.pointing_at_lat = -5
+        param.geometry.pointing_at_long = 5
+        param.geometry.pointing_at_alt = 1200
+
+        space_station = StationFactory.generate_single_space_station(param)
+
+        npt.assert_almost_equal(space_station.get_off_axis_angle(center_of_earth), 0, 5)
 
 
 if __name__ == '__main__':

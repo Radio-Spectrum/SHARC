@@ -746,6 +746,15 @@ class ParametersTest(unittest.TestCase):
             self.parameters.single_space_station.geometry.es_long_deg, 3.9,
         )
         self.assertEqual(
+            self.parameters.single_space_station.geometry.pointing_at_alt, 123,
+        )
+        self.assertEqual(
+            self.parameters.single_space_station.geometry.pointing_at_lat, 12,
+        )
+        self.assertEqual(
+            self.parameters.single_space_station.geometry.pointing_at_long, -1,
+        )
+        self.assertEqual(
             self.parameters.single_space_station.geometry.azimuth.type,
             "FIXED",
         )

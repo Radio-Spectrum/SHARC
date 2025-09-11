@@ -874,6 +874,13 @@ single_space_station:
         ###########################################################################
         # earth station lat long [deg]
         es_long_deg: 3.9
+        # Where to point antenna if azimuth|elevation use "POINTING_AT_LAT_LONG_ALT"
+        # latitude [deg]
+        pointing_at_lat: 12.
+        # longitude [deg]
+        pointing_at_long: -1.
+        # altitude [m]
+        pointing_at_alt: 123.
         ###########################################################################
         # Azimuth angle [degrees]
         azimuth:

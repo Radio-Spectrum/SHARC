@@ -93,6 +93,8 @@ class ParametersSingleSpaceStation(ParametersBase):
                             raise ValueError(f"{ctx}.fixed should be a number")
                     case "POINTING_AT_IMT":
                         pass
+                    case "POINTING_AT_LAT_LONG_ALT":
+                        pass
                     case _:
                         raise NotImplementedError(
                             f"Validation for {ctx}.type = {

@@ -6,8 +6,8 @@ general:
   output_dir_prefix: output_mss_d2d_to_fs_h_az_mo_lf #Alterar no gerador
   system: SINGLE_EARTH_STATION
   imt_link: DOWNLINK
-  enable_adjacent_channel: false
-  enable_cochannel: true
+  enable_adjacent_channel: true
+  enable_cochannel: false
 imt:
   minimum_separation_distance_bs_ue: 0
   interfered_with: false
@@ -20,9 +20,9 @@ imt:
   spurious_emissions: -13
   guard_band_ratio: 0
   topology:
-    central_latitude: -15.33
-    central_longitude: -56.04
-    central_altitude: 165
+    central_latitude: -25.5549751
+    central_longitude: -54.5746686
+    central_altitude: 200
     type: MSS_DC
     mss_dc:
       orbits:
@@ -40,14 +40,14 @@ imt:
         minimum_elevation_from_es: 5
         lat_long_inside_country:
           country_names: [
-                "Brazil", "Argentina", "Bolivia", "Chile", "Peru", "Paraguay", "Uruguay"
+                "Brazil", "Argentina"
             ]
           margin_from_border: -417 #Alterar no gerador (Variar R, 2*R, 4*R, 5*R)
       beam_positioning:
         type: SERVICE_GRID
         service_grid:
           country_names: [
-                "Brazil", "Argentina", "Bolivia", "Chile", "Peru", "Paraguay", "Uruguay"
+                "Brazil", "Argentina"
             ]
           eligible_sats_margin_from_border: -417
       beam_radius: 23376 #Alterar no gerador (Calcular)
@@ -141,12 +141,12 @@ single_earth_station:
     pattern: ITU-R S.465
     gain: 45.8
     itu_r_s_465:
-      gain: 45.8
+      antenna_gain: 45.8
       diameter: 2 # Diameter calculated using using the gain relatio=> D = (lam/pi)*sqrt(G)
   adjacent_ch_reception: ACS
   season: SUMMER
   param_p619:
-    earth_station_lat_deg: -15.33
+    earth_station_lat_deg: -25.5549751
     earth_station_alt_m: 200
     mean_clutter_height: low  # Alterar no gerador 
     below_rooftop: 0 # Alterar no gerador

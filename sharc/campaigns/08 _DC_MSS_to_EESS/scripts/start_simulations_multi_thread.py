@@ -4,7 +4,7 @@ from sharc.run_multiple_campaigns_mut_thread import run_campaign
 # Set the campaign name
 # The name of the campaign to run. This should match the name of the
 # campaign directory.
-name_campaign = "01_DC_MSS_to_FS"
+name_campaign = "08 _DC_MSS_to_EESS"
 
 # Run the campaigns
 # This function will execute the campaign with the given name.

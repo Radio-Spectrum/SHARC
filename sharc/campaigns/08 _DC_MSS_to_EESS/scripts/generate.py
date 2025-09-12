@@ -20,7 +20,7 @@ with open(input_file, "r") as f:
 modified_text = reference_text[:]
 # Gerar arquivos para cada ângulo de azimute
 for sistema in ["System_340km", "System_525km"]:
-    R = "25803" if sistema == "System 340km" else "39844"
+    R = "25803" if sistema == "System_340km" else "39844"
     margin_base = 25 if sistema == "System_340km" else 40
     modified_text[29 - 1] = f"      - n_planes: {'48' if sistema == "System_340km" else '28'}\n"
     modified_text[31 - 1] = f"        perigee_alt_km: {'340' if sistema == "System_340km" else '525'}\n"
@@ -34,7 +34,7 @@ for sistema in ["System_340km", "System_525km"]:
         modified_text[117 - 1] = f"  bandwidth: {'4' if system_EESS == "System_B" else '6'}\n"
         modified_text[119 - 1] = f"  noise_temperature: {'190' if system_EESS == "System_B" else '120'}\n"
         modified_text[142 - 1] = f"    gain: {'45.8' if system_EESS == "System_B" else '39'}\n"
-        modified_text[144 - 1] = f"      gain: {'45.8' if system_EESS == "System_B" else '39'}\n"
+        modified_text[144 - 1] = f"      antenna_gain: {'45.8' if system_EESS == "System_B" else '39'}\n"
         f = 2202 if system_EESS == "System_B" else 2203
         G = 45.8 if system_EESS == "System_B" else 39
         G = 10**(G / 10)
@@ -48,20 +48,22 @@ for sistema in ["System_340km", "System_525km"]:
 
             for load_factor in [.2, .5]:
                 modified_text[56 - 1] = f"    load_probability: {load_factor}\n"
+                
+                for margin in [margin_base, 2 * margin_base, 3 * margin_base]:
+                    num = random.randint(0, 1000)
+                    modified_text[2 - 1] = f"  seed: {num}\n"
+                    modified_text[45 - 1] = f"          margin_from_border: {margin}\n"
+                    
+                    # Alterar linha 7 e 8 sufixo do nome do arquivo
+                    name_file = f"output_dc_mss_to_eess_{sistema}_altant_{system_EESS}m_azi_{type_adj}deg_lf_{load_factor}"
+                    modified_text[6 - 1] = f"  output_dir_prefix: {name_file}\n"
 
-                num = random.randint(0, 1000)
-                modified_text[2 - 1] = f"  seed: {num}\n"
 
-                # Alterar linha 7 e 8 sufixo do nome do arquivo
-                name_file = f"output_dc_mss_to_eess_{sistema}_altant_{system_EESS}m_azi_{type_adj}deg_lf_{load_factor}"
-                modified_text[6 - 1] = f"  output_dir_prefix: {name_file}\n"
+                    output_filename = f"{name_file}.yaml"
+                    output_path = output_dir / output_filename
 
-
-                output_filename = f"{name_file}.yaml"
-                output_path = output_dir / output_filename
-
-                # Escrever o novo arquivo mantendo a estrutura original
-                with open(output_path, "w") as out_file:
-                    out_file.writelines(modified_text)
+                    # Escrever o novo arquivo mantendo a estrutura original
+                    with open(output_path, "w") as out_file:
+                        out_file.writelines(modified_text)
 
 print("Arquivos YAML gerados com sucesso!")

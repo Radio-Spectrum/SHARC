@@ -1700,17 +1700,17 @@ class StationFactory(object):
         # repeated state (elevation and azimuth) inside multiple transceiver
         # implementation
         mss_d2d.antenna = np.empty(total_satellites, dtype=AntennaS1528Leo)
-        if params.antenna_pattern == "ITU-R-S.1528-LEO":
-            antenna_pattern = AntennaS1528Leo(params.antenna_s1528)
-        elif params.antenna_pattern == "ITU-R-S.1528-Section1.2":
-            antenna_pattern = AntennaS1528(params.antenna_s1528)
-        elif params.antenna_pattern == "ITU-R-S.1528-Taylor":
-            antenna_pattern = AntennaS1528Taylor(params.antenna_s1528)
-        elif params.antenna_pattern == "MSS Adjacent":
+        if params.antenna.pattern == "ITU-R-S.1528-LEO":
+            antenna_pattern = AntennaS1528Leo(params.antenna.itu_r_s_1528)
+        elif params.antenna.pattern == "ITU-R-S.1528-Section1.2":
+            antenna_pattern = AntennaS1528(params.antenna.itu_r_s_1528)
+        elif params.antenna.pattern == "ITU-R-S.1528-Taylor":
+            antenna_pattern = AntennaS1528Taylor(params.antenna.itu_r_s_1528)
+        elif params.antenna.pattern == "MSS Adjacent":
             antenna_pattern = AntennaMSSAdjacent(params.frequency)
         else:
             raise ValueError(
-                "generate_mss_ss: Invalid antenna type: {param_mss.antenna_pattern}")
+                f"generate_mss_ss: Invalid antenna type: {params.antenna.pattern}")
 
         for i in range(mss_d2d.num_stations):
             mss_d2d.antenna[i] = antenna_pattern

@@ -171,6 +171,18 @@ class ParametersTest(unittest.TestCase):
         self.assertEqual(
             self.parameters.imt.topology.central_longitude, -12.134)
 
+        # Now check S.1528 antenna parameters when used in DC-MSS-IMT
+        self.parameters.imt.bs.antenna.pattern = "ITU-R-S.1528-Taylor"
+        self.parameters.imt.bs.antenna.validate("test_imt_parameters")
+        self.assertEqual(self.parameters.imt.bs.antenna.pattern, "ITU-R-S.1528-Taylor")
+        self.assertEqual(self.parameters.imt.bs.antenna.gain, 34.1)
+        self.assertEqual(self.parameters.imt.bs.antenna.itu_r_s_1528.frequency, 2177.0)
+        self.assertEqual(self.parameters.imt.bs.antenna.itu_r_s_1528.bandwidth, 6.0)
+        self.assertEqual(self.parameters.imt.bs.antenna.itu_r_s_1528.slr, 20)
+        self.assertEqual(self.parameters.imt.bs.antenna.itu_r_s_1528.n_side_lobes, 2)
+        self.assertEqual(self.parameters.imt.bs.antenna.itu_r_s_1528.l_r, 1.6)
+        self.assertEqual(self.parameters.imt.bs.antenna.itu_r_s_1528.l_t, 1.6)
+
         """Test ParametersSubarrayImt
         """
         # testing default value not enabled
@@ -609,21 +621,17 @@ class ParametersTest(unittest.TestCase):
         self.assertEqual(self.parameters.mss_d2d.beam_radius, 19001)
         self.assertEqual(self.parameters.mss_d2d.tx_power_density, -30)
         self.assertEqual(self.parameters.mss_d2d.num_sectors, 19)
-        self.assertEqual(self.parameters.mss_d2d.antenna_diamter, 1.0)
-        self.assertEqual(self.parameters.mss_d2d.antenna_l_s, -6.75)
-        self.assertEqual(self.parameters.mss_d2d.antenna_3_dB_bw, 4.4127)
         self.assertEqual(
-            self.parameters.mss_d2d.antenna_pattern,
+            self.parameters.mss_d2d.antenna.pattern,
             'ITU-R-S.1528-Taylor')
         self.assertEqual(
-            self.parameters.mss_d2d.antenna_s1528.antenna_pattern,
-            'ITU-R-S.1528-Taylor')
-        self.assertEqual(
-            self.parameters.mss_d2d.antenna_s1528.antenna_gain, 34.1)
-        self.assertEqual(self.parameters.mss_d2d.antenna_s1528.slr, 20)
-        self.assertEqual(self.parameters.mss_d2d.antenna_s1528.n_side_lobes, 2)
-        self.assertEqual(self.parameters.mss_d2d.antenna_s1528.l_r, 1.6)
-        self.assertEqual(self.parameters.mss_d2d.antenna_s1528.l_t, 1.6)
+            self.parameters.mss_d2d.antenna.gain, 34.1)
+        self.assertEqual(self.parameters.mss_d2d.antenna.itu_r_s_1528.frequency, 2177.0)
+        self.assertEqual(self.parameters.mss_d2d.antenna.itu_r_s_1528.bandwidth, 6.0)
+        self.assertEqual(self.parameters.mss_d2d.antenna.itu_r_s_1528.slr, 20)
+        self.assertEqual(self.parameters.mss_d2d.antenna.itu_r_s_1528.n_side_lobes, 2)
+        self.assertEqual(self.parameters.mss_d2d.antenna.itu_r_s_1528.l_r, 1.6)
+        self.assertEqual(self.parameters.mss_d2d.antenna.itu_r_s_1528.l_t, 1.6)
         self.assertEqual(self.parameters.mss_d2d.channel_model, 'P619')
         self.assertEqual(
             self.parameters.mss_d2d.param_p619.earth_station_alt_m, 0.0)

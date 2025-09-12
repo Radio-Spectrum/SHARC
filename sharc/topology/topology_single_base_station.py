@@ -5,6 +5,7 @@ Created on Mon Mar 13 15:37:01 2017
 @author: edgar
 """
 import numpy as np
+from typing import List
 import matplotlib.pyplot as plt
 import matplotlib.axes
 import matplotlib.patches as patches
@@ -22,13 +23,18 @@ class TopologySingleBaseStation(Topology):
     AZIMUTH = [0, 180]
     ALLOWED_NUM_CLUSTERS = [1, 2]
 
-    def __init__(self, cell_radius: float, num_clusters: int):
+    def __init__(self, cell_radius: float, num_clusters: int, azimuth: List[float] | str | None = None):
         """
         Constructor method that sets the object attributes
 
         Parameters
         ----------
             cell_radius : radius of the cell
+            num_clusters : number of clusters (1 or 2)
+            azimuth : List of azimuths for each cluster in degrees or "random" for random azimuths
+        Raises
+        ------
+            ValueError : if num_clusters is not 1 or 2
         """
         if num_clusters not in TopologySingleBaseStation.ALLOWED_NUM_CLUSTERS:
             error_message = "invalid number of clusters ({})".format(
@@ -36,6 +42,10 @@ class TopologySingleBaseStation(Topology):
             )
             raise ValueError(error_message)
 
+        if isinstance(azimuth, str):
+            if azimuth.lower() != "random":
+                raise ValueError("azimuth must be a list of floats or 'random'")
+        self.azimuth_param = azimuth
         intersite_distance = 2 * cell_radius
         super().__init__(intersite_distance, cell_radius)
         self.num_clusters = num_clusters
@@ -49,16 +59,23 @@ class TopologySingleBaseStation(Topology):
             if self.num_clusters == 1:
                 self.x = np.array([0])
                 self.y = np.array([0])
-                self.azimuth = TopologySingleBaseStation.AZIMUTH[0] * np.ones(
-                    1,
-                )
                 self.num_base_stations = 1
             elif self.num_clusters == 2:
                 self.x = np.array([0, self.intersite_distance])
                 self.y = np.array([0, 0])
-                self.azimuth = np.array(TopologySingleBaseStation.AZIMUTH)
                 self.num_base_stations = 2
             self.indoor = np.zeros(self.num_base_stations, dtype=bool)
+            # Set the azimuth accordingly
+            if self.azimuth_param is None:
+                self.azimuth = np.array(self.AZIMUTH[:self.num_clusters]).astype(float)
+            elif isinstance(self.azimuth_param, list):
+                if len(self.azimuth_param) != self.num_clusters:
+                    raise ValueError(
+                        "Length of azimuth list must be equal to num_clusters")
+                self.azimuth = np.array(self.azimuth_param).astype(float)
+            elif self.azimuth_param.lower() == "random":
+                self.azimuth = random_number_gen.randint(0, 360, self.num_clusters).astype(float)
+
         self.z = np.zeros_like(self.x)
 
     def plot(self, ax: matplotlib.axes.Axes):
@@ -87,7 +104,7 @@ class TopologySingleBaseStation(Topology):
 
 if __name__ == '__main__':
     cell_radius = 100
-    num_clusters = 2
+    num_clusters = 1
     topology = TopologySingleBaseStation(cell_radius, num_clusters)
     topology.calculate_coordinates()
 

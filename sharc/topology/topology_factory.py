@@ -27,7 +27,8 @@ class TopologyFactory(object):
         if parameters.imt.topology.type == "SINGLE_BS":
             return TopologySingleBaseStation(
                 parameters.imt.topology.single_bs.cell_radius,
-                parameters.imt.topology.single_bs.num_clusters
+                parameters.imt.topology.single_bs.num_clusters,
+                parameters.imt.topology.single_bs.azimuth
             )
         elif parameters.imt.topology.type == "MACROCELL":
             return TopologyMacrocell(

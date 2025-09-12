@@ -97,6 +97,15 @@ imt:
             # Number of clusters in single base station topology
             # You can simulate 1 or 2 BS's with this topology
             num_clusters: 2
+            ###########################################################################
+            # Azimuth of each cluster in single base station topology [deg]
+            # You can provide a list of azimuths with length equal to num_clusters
+            # or use "random" to have them randomly generated
+            azimuth:
+                - 60.0
+                - 240.0
+            # azimuth: !!python/tuple [0.0, 180.0]
+            # azimuth: random
         ###########################################################################
         # Hotspot Topology parameters. Relevant when imt.topology.type == "HOTSPOT"
         hotspot:
@@ -223,6 +232,7 @@ imt:
                         min: 0.0
                         max: 66.1
                 service_grid:
+                    transform_grid_randomly: true # add per drop rand rotation + transl. to grid
                     # by default this already gets shapefile from natural earth
                     country_shapes_filename: sharc/data/countries/ne_110m_admin_0_countries.shp
                     # By default, these are the same as taken from `sat_is_active_if.lat_long_inside_country`
@@ -1006,6 +1016,7 @@ mss_d2d:
                 min: 0.0
                 max: 66.1
         service_grid:
+            transform_grid_randomly: true # add per drop rand rotation + transl. to grid
             # by default this already gets shapefile from natural earth
             country_shapes_filename: sharc/data/countries/ne_110m_admin_0_countries.shp
             # By default, these are the same as taken from `sat_is_active_if.lat_long_inside_country`

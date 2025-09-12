@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from typing import List
 
 from sharc.parameters.parameters_base import ParametersBase
 
@@ -11,6 +12,7 @@ class ParametersSingleBS(ParametersBase):
     intersite_distance: int = None
     cell_radius: int = None
     num_clusters: int = 1
+    azimuth: List[float] | str | None = None
 
     def load_subparameters(self, ctx: str, params: dict, quiet=True):
         """
@@ -60,6 +62,19 @@ class ParametersSingleBS(ParametersBase):
 
         if self.num_clusters not in [1, 2]:
             raise ValueError(f"{ctx}.num_clusters should either be 1 or 2")
+
+        if self.azimuth is None:
+            self.azimuth = [0.0, 180.0][:self.num_clusters]
+        elif isinstance(self.azimuth, list):
+            if len(self.azimuth) != self.num_clusters:
+                raise ValueError(f"{ctx}.azimuth length must be equal to num_clusters")
+            if not all(isinstance(a, float) for a in self.azimuth):
+                raise TypeError(f"{ctx}.azimuth must be a list of floats or a \"random\"")
+        elif isinstance(self.azimuth, str):
+            if self.azimuth.lower() != "random":
+                raise ValueError(f"{ctx}.azimuth must be a list of floats or a \"random\"")
+        else:
+            raise TypeError(f"{ctx}.azimuth must be a list of floats or a \"random\"")
 
 
 if __name__ == "__main__":

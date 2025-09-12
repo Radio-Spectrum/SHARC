@@ -85,7 +85,7 @@ class TopologySingleBaseStationTest(unittest.TestCase):
         """Test calculation of azimuth for the topology."""
         cell_radius = 1500
         num_clusters = 1
-        topology = TopologySingleBaseStation(cell_radius, num_clusters)
+        topology = TopologySingleBaseStation(cell_radius, num_clusters, [0.0])
         topology.calculate_coordinates()
         self.assertEqual(topology.azimuth, 0)
 
@@ -94,6 +94,47 @@ class TopologySingleBaseStationTest(unittest.TestCase):
         topology = TopologySingleBaseStation(cell_radius, num_clusters)
         topology.calculate_coordinates()
         npt.assert_equal(topology.azimuth, np.array([0, 180]))
+
+        cell_radius = 1000
+        num_clusters = 1
+        topology = TopologySingleBaseStation(cell_radius, num_clusters, "random")
+        topology.calculate_coordinates()
+        self.assertEqual(len(topology.azimuth), num_clusters)
+        self.assertTrue(np.all((topology.azimuth >= 0) & (topology.azimuth < 360)))
+
+        # Test that azimuth values are within the valid range [0, 360)
+        cell_radius = 1000
+        num_clusters = 2
+        topology = TopologySingleBaseStation(cell_radius, num_clusters, "random")
+        topology.calculate_coordinates()
+        self.assertEqual(len(topology.azimuth), num_clusters)
+        self.assertTrue(np.all((topology.azimuth >= 0) & (topology.azimuth < 360)))
+
+        # Test that providing an azimuth list of incorrect length raises ValueError.
+        cell_radius = 1000
+        num_clusters = 2
+        topology = TopologySingleBaseStation(cell_radius, num_clusters, [0.0])
+        with self.assertRaises(ValueError):
+            topology.calculate_coordinates()
+
+        # Test that providing an invalid azimuth type raises ValueError
+        with self.assertRaises(ValueError):
+            TopologySingleBaseStation(cell_radius, num_clusters, "what?")
+
+        # Test azimuth type and values for different cluster configurations.
+        cell_radius = 1000
+        num_clusters = 1
+        topology = TopologySingleBaseStation(cell_radius, num_clusters, [45.0])
+        topology.calculate_coordinates()
+        self.assertTrue(isinstance(topology.azimuth, np.ndarray))
+        self.assertEqual(topology.azimuth[0], 45.0)
+
+        cell_radius = 1000
+        num_clusters = 2
+        azimuths = [30.0, 150.0]
+        topology = TopologySingleBaseStation(cell_radius, num_clusters, azimuths)
+        topology.calculate_coordinates()
+        npt.assert_equal(topology.azimuth, np.array(azimuths))
 
 
 if __name__ == '__main__':

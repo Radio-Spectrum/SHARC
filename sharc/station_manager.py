@@ -149,14 +149,17 @@ class StationManager(object):
         np.array
             3D distance matrix between stations.
         """
-        distance = np.empty([self.num_stations, station.num_stations])
-        for i in range(self.num_stations):
-            distance[i] = np.sqrt(
-                np.power(self.x[i] - station.x, 2) +
-                np.power(self.y[i] - station.y, 2) +
-                np.power(self.z[i] - station.z, 2)
-            )
-        return distance
+        dx = np.subtract.outer(self.x, station.x).astype(np.float64)
+        dy = np.subtract.outer(self.y, station.y).astype(np.float64)
+        dz = np.subtract.outer(self.z, station.z).astype(np.float64)
+        np.square(dx, out=dx)
+        np.square(dy, out=dy)
+        np.square(dz, out=dz)
+        np.sqrt(
+            dx + dy + dz,
+            out=dx
+        )
+        return dx
 
     def get_dist_angles_wrap_around(self, station) -> np.array:
         """Calculate distances and angles using the wrap-around technique.
@@ -286,20 +289,22 @@ class StationManager(object):
             theta is calculated with respect to z counter-clockwise).
         """
 
-        point_vec_x = station.x - self.x[:, np.newaxis]
-        point_vec_y = station.y - self.y[:, np.newaxis]
-        point_vec_z = station.z - self.z[:, np.newaxis]
+        # malloc
+        dx = (station.x - self.x[:, np.newaxis]).astype(np.float64)
+        dy = (station.y - self.y[:, np.newaxis]).astype(np.float64)
+        dz = (station.z - self.z[:, np.newaxis]).astype(np.float64)
 
         dist = self.get_3d_distance_to(station)
 
-        phi = np.array(
-            np.rad2deg(
-                np.arctan2(
-                    point_vec_y, point_vec_x,
-                ),
-            ), ndmin=2,
-        )
-        theta = np.rad2deg(np.arccos(point_vec_z / dist))
+        # NOTE: doing in place calculations
+        phi = np.rad2deg(np.arctan2(dy, dx, out=dx), out=dx)
+        # delete reference dx
+        del dx
+
+        # in place calculations
+        theta = np.rad2deg(np.arccos(np.clip(dz / dist, -1.0, 1.0, out=dz), out=dz), out=dz)
+        # delete reference dz
+        del dz
 
         return phi, theta
 

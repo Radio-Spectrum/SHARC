@@ -17,6 +17,7 @@ class ParametersAntenna(ParametersBase):
     # available antenna radiation patterns
     __SUPPORTED_ANTENNA_PATTERNS = [
         "OMNI",
+        "HibleoX",
         "ITU-R F.699",
         "ITU-R S.465",
         "ITU-R S.580",
@@ -33,6 +34,7 @@ class ParametersAntenna(ParametersBase):
 
     # chosen antenna radiation pattern
     pattern: typing.Literal["OMNI",
+                            "HibleoX",
                             "ITU-R F.699",
                             "ITU-R S.465",
                             "ITU-R S.580",
@@ -51,6 +53,10 @@ class ParametersAntenna(ParametersBase):
     gain: float = None
 
     mss_adjacent: ParametersAntennaWithFreq = field(
+        default_factory=ParametersAntennaWithFreq,
+    )
+
+    hibleo_x: ParametersAntennaWithFreq = field(
         default_factory=ParametersAntennaWithFreq,
     )
 
@@ -82,9 +88,10 @@ class ParametersAntenna(ParametersBase):
     class ParametersAntennaRF1245(ParametersBase):
         gain: float = -25
         diameter: float = None
+        frequency: float = None
 
         def validate(self, ctx):
-            if None in [self.gain, self.diameter]:
+            if None in [self.gain, self.diameter, self.frequency]:
                 raise ValueError(f"{ctx}.antenna_3_dB should be set to a number")
        
     itu_r_f_1245_fs: ParametersAntennaRF1245 = field(
@@ -182,6 +189,8 @@ class ParametersAntenna(ParametersBase):
         match self.pattern:
             case "OMNI":
                 pass
+            case "HibleoX":
+                self.hibleo_x.validate(f"{ctx}.hibleo_x")
             case "ITU-R F.699":
                 self.itu_r_f_699.validate(f"{ctx}.itu_r_f_699")
             case "ITU-R S.465":

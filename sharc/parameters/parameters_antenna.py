@@ -2,6 +2,7 @@ from sharc.parameters.parameters_base import ParametersBase
 from sharc.parameters.parameters_antenna_with_diameter import ParametersAntennaWithDiameter
 from sharc.parameters.parameters_antenna_with_envelope_gain import ParametersAntennaWithEnvelopeGain
 from sharc.parameters.antenna.parameters_antenna_s1528 import ParametersAntennaS1528
+from sharc.parameters.antenna.parameters_antenna_s672 import ParametersAntennaS672
 from sharc.parameters.antenna.parameters_antenna_with_freq import ParametersAntennaWithFreq
 from sharc.parameters.imt.parameters_antenna_imt import ParametersAntennaImt
 
@@ -89,6 +90,10 @@ class ParametersAntenna(ParametersBase):
         default_factory=ParametersAntennaS1528,
     )
 
+    itu_r_s_672: ParametersAntennaS672 = field(
+        default_factory=ParametersAntennaS672,
+    )
+
     def set_external_parameters(self, **kwargs):
         """
         Set external parameters for all sub-parameters of the antenna.
@@ -105,7 +110,8 @@ class ParametersAntenna(ParametersBase):
             param = getattr(self, attr_name)
 
             for k, v in kwargs.items():
-                if k in dir(param):
+                # we only set if not already set
+                if k in dir(param) and getattr(param, k, None) is None:
                     setattr(param, k, v)
 
             if "antenna_gain" in dir(param):
@@ -188,6 +194,8 @@ class ParametersAntenna(ParametersBase):
                 self.itu_r_s_1528.validate(f"{ctx}.itu_r_s_1528")
             case "ITU-R-S.1528-LEO":
                 self.itu_r_s_1528.validate(f"{ctx}.itu_r_s_1528")
+            case "ITU-R-S.672":
+                self.itu_r_s_672.validate(f"{ctx}.itu_r_s_672")
             case "MSS Adjacent":
                 self.mss_adjacent.validate(f"{ctx}.mss_adjacent")
             case _:

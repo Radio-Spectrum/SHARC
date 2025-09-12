@@ -326,6 +326,8 @@ imt:
         ohmic_loss  : 3.1
         # Base Station Antenna parameters:
         antenna:
+            pattern: "ARRAY"
+            # pattern: ITU-R-S.1528-Taylor
             array:
                 ###########################################################################
                 # If normalization of M2101 should be applied for BS
@@ -408,7 +410,19 @@ imt:
                     element_vert_spacing: 0.05
                     # Sub array eletrical downtilt [deg]
                     eletrical_downtilt: 9.0
-
+            gain: 34.1
+            itu_r_s_1528:
+                ### The following parameters are used for S.1528-Taylor antenna pattern
+                # SLR is the side-lobe ratio of the pattern (dB), the difference in gain between the maximum
+                # gain and the gain at the peak of the first side lobe.
+                slr: 20.0
+                # Number of secondary lobes considered in the diagram (coincide with the roots of the Bessel function)
+                n_side_lobes: 2
+                # Radial (l_r) and transverse (l_t) sizes of the effective radiating area of the satellite transmitt antenna (m)
+                l_r: 1.6
+                l_t: 1.6
+                frequency: 2177.0
+                bandwidth: 6.0
     ###########################################################################
     # User Equipment parameters:
     ue:
@@ -1060,19 +1074,21 @@ mss_d2d:
     # Satellite antenna pattern
     # Antenna pattern from ITU-R S.1528
     # Possible values: "ITU-R-S.1528-Section1.2", "ITU-R-S.1528-LEO"
-    antenna_pattern: ITU-R-S.1528-Taylor
-    antenna_s1528:
-        # Satellite antenna gain dBi
-        antenna_gain: 34.1
-        ### The following parameters are used for S.1528-Taylor antenna pattern
-        # SLR is the side-lobe ratio of the pattern (dB), the difference in gain between the maximum
-        # gain and the gain at the peak of the first side lobe.
-        slr: 20.0
-        # Number of secondary lobes considered in the diagram (coincide with the roots of the Bessel function)
-        n_side_lobes: 2
-        # Radial (l_r) and transverse (l_t) sizes of the effective radiating area of the satellite transmitt antenna (m)
-        l_r: 1.6
-        l_t: 1.6
+    antenna:
+        pattern: ITU-R-S.1528-Taylor
+        gain: 34.1
+        itu_r_s_1528:
+            ### The following parameters are used for S.1528-Taylor antenna pattern
+            # SLR is the side-lobe ratio of the pattern (dB), the difference in gain between the maximum
+            # gain and the gain at the peak of the first side lobe.
+            slr: 20.0
+            # Number of secondary lobes considered in the diagram (coincide with the roots of the Bessel function)
+            n_side_lobes: 2
+            # Radial (l_r) and transverse (l_t) sizes of the effective radiating area of the satellite transmitt antenna (m)
+            l_r: 1.6
+            l_t: 1.6
+            frequency: 2177.0
+            bandwidth: 6.0
     # channel model, possible values are "FSPL" (free-space path loss),
     #                                    "SatelliteSimple" (FSPL + 4 + clutter loss)
     #                                    "P619"

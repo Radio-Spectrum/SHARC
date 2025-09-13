@@ -15,31 +15,27 @@ class ParametersAntennaS1528(ParametersBase):
     bandwidth: float = None
     # Peak antenna gain [dBi]
     antenna_gain: float = None
-    # Antenna pattern from ITU-R S.1528
-    # Possible values: "ITU-R-S.1528-Section1.2", "ITU-R-S.1528-LEO",
-    # "ITU-R-S.1528-Taylor"
-    antenna_pattern: str = "ITU-R-S.1528-LEO"
     # The required near-in-side-lobe level (dB) relative to peak gain
     # according to ITU-R S.672-4
-    antenna_l_s: float = -20.0
+    antenna_l_s: float = None
     # 3 dB beamwidth angle (3 dB below maximum gain) [degrees]
-    antenna_3_dB_bw: float = 0.65
+    antenna_3_dB_bw: float = None
 
     #####################################################################
     # The following parameters are used for S.1528-Taylor antenna pattern
 
     # SLR is the side-lobe ratio of the pattern (dB), the difference in gain between the maximum
     # gain and the gain at the peak of the first side lobe.
-    slr: float = 20.0
+    slr: float = None
 
     # Number of secondary lobes considered in the diagram (coincide with the
     # roots of the Bessel function)
-    n_side_lobes: int = 2
+    n_side_lobes: int = None
 
     # Radial (l_r) and transverse (l_t) sizes of the effective radiating area
     # of the satellite transmitt antenna (m)
-    l_r: float = 1.6
-    l_t: float = 1.6
+    l_r: float = None
+    l_t: float = None
 
     def load_parameters_from_file(self, config_file: str):
         """Load the parameters from file an run a sanity check.
@@ -92,12 +88,3 @@ class ParametersAntennaS1528(ParametersBase):
             raise ValueError(
                 f"{ctx}.[frequency, bandwidth, antenna_gain] = {[self.frequency, self.bandwidth]}.\
                 They need to all be set!")
-
-        if self.antenna_pattern not in [
-            "ITU-R-S.1528-Section1.2",
-            "ITU-R-S.1528-LEO",
-                "ITU-R-S.1528-Taylor"]:
-            raise ValueError(f"{ctx}: \
-                             invalid value for parameter antenna_pattern - {self.antenna_pattern}. \
-                             Possible values \
-                             are \"ITU-R-S.1528-Section1.2\", \"ITU-R-S.1528-LEO\", \"ITU-R-S.1528-Taylor\"")

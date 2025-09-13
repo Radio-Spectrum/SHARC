@@ -59,6 +59,10 @@ class StationFactoryNgsoTest(unittest.TestCase):
         self.param.antenna.itu_r_s_1528.frequency = 43000.0
         self.param.antenna.itu_r_s_1528.bandwidth = 500.0
         self.param.antenna.itu_r_s_1528.antenna_gain = 46.6
+        self.param.antenna.itu_r_s_1528.slr = 20.0
+        self.param.antenna.itu_r_s_1528.n_side_lobes = 2
+        self.param.antenna.itu_r_s_1528.l_r = 1.6
+        self.param.antenna.itu_r_s_1528.l_t = 1.6
 
         # Creating an IMT topology
         # imt_topology = TopologySingleBaseStation(

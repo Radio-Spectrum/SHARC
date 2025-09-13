@@ -174,7 +174,6 @@ class ParametersTest(unittest.TestCase):
         # Now check S.1528 antenna parameters when used in DC-MSS-IMT
         self.parameters.imt.bs.antenna.pattern = "ITU-R-S.1528-Taylor"
         self.parameters.imt.bs.antenna.validate("test_imt_parameters")
-        self.assertEqual(self.parameters.imt.bs.antenna.pattern, "ITU-R-S.1528-Taylor")
         self.assertEqual(self.parameters.imt.bs.antenna.gain, 34.1)
         self.assertEqual(self.parameters.imt.bs.antenna.itu_r_s_1528.frequency, 2177.0)
         self.assertEqual(self.parameters.imt.bs.antenna.itu_r_s_1528.bandwidth, 6.0)

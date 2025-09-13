@@ -76,23 +76,6 @@ class ParametersAntennaS1528(ParametersBase):
         self.n_side_lobes = param.n_side_lobes
         return self
 
-    def set_external_parameters(self, **kwargs):
-        """
-        This method is used to "propagate" parameters from external context
-        to the values required by antenna S1528.
-        """
-        attr_list = [a for a in dir(self) if not a.startswith('__')]
-
-        for k, v in kwargs.items():
-            if k in attr_list:
-                setattr(self, k, v)
-            else:
-                raise ValueError(
-                    f"Parameter {k} is not a valid attribute of {
-                        self.__class__.__name__}")
-
-        self.validate("S.1528")
-
     def validate(self, ctx: str):
         """
         Validate the parameters for the S.1528 antenna configuration.

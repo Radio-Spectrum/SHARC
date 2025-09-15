@@ -517,7 +517,7 @@ def get_lambert_equal_area_crs(polygon: shp.geometry.Polygon):
     )
 
 
-def shrink_country_polygon_by_km(
+def shrink_lonlat_polygon_by_km(
     polygon: shp.geometry.Polygon, km: float
 ) -> shp.geometry.Polygon:
     """Project a Polygon to Lambert Azimuthal Equal Area, shrink by km, and reproject back.
@@ -540,8 +540,11 @@ def shrink_country_polygon_by_km(
     Notes
     -----
     Check for polygon validity after transformation:
-        if poly.is_valid: raise Exception("bad polygon")
-        if not poly.is_empty and poly.area > 0: continue # ignore
+        if (not self._polygon.is_valid
+            or self._polygon.is_empty
+            or self._polygon.area <= 0
+        ):
+            raise Exception("bad polygon")
     """
     # Lambert is more precise, but could prob. get UTM projection
     # Didn't see any practical difference for current use cases
@@ -586,10 +589,10 @@ def shrink_countries_by_km(
 
     for ext_poly in countries:
         if ext_poly.geom_type == 'Polygon':
-            polys.append(shrink_country_polygon_by_km(ext_poly, km))
+            polys.append(shrink_lonlat_polygon_by_km(ext_poly, km))
         elif ext_poly.geom_type == 'MultiPolygon':
             polys.append(shp.ops.unary_union([
-                shrink_country_polygon_by_km(poly, km) for poly in ext_poly.geoms
+                shrink_lonlat_polygon_by_km(poly, km) for poly in ext_poly.geoms
             ]))
 
     for poly in polys:

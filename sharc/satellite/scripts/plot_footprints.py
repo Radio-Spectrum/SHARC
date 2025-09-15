@@ -6,6 +6,7 @@ This module uses plotly to visualize satellite footprints and related data for S
 import numpy as np
 import plotly.graph_objects as go
 from dataclasses import dataclass, field
+from functools import reduce
 
 from sharc.station_factory import StationFactory
 from sharc.parameters.parameters_mss_d2d import ParametersOrbit, ParametersMssD2d
@@ -311,6 +312,29 @@ def plot_fp(
             marker=dict(size=1, color='blue', opacity=1.0),
             name="Service Point"
         ))
+
+        if params.beam_positioning.service_grid.grid_exclusion_zone._polygon is not None:
+            polygons_lim = plot_mult_polygon(
+                params.beam_positioning.service_grid.grid_exclusion_zone._polygon,
+                geoconv,
+                True,
+                2
+            )
+
+            lim_x, lim_y, lim_z = reduce(
+                lambda acc, it: (list(it[0]) + [None] + acc[0], list(it[1]) + [None] + acc[1], list(it[2]) + [None] + acc[2]),
+                polygons_lim,
+                ([], [], [])
+            )
+
+            fig.add_trace(go.Scatter3d(
+                x=lim_x,
+                y=lim_y,
+                z=lim_z,
+                mode='lines',
+                line=dict(color='rgb(255, 0, 0)'),
+                name="Exclusion Zone"
+            ))
     # fig.add_trace(go.Scatter3d(
     #     x=center_of_earth.x / 1e3,
     #     y=center_of_earth.y / 1e3,
@@ -354,19 +378,29 @@ if __name__ == "__main__":
         name="Example-MSS-D2D",
         antenna_pattern="ITU-R-S.1528-Taylor",
         num_sectors=19,
-        antenna_s1528=antenna_params,
         intersite_distance=np.sqrt(3) * spotbeam_radius,
         cell_radius=spotbeam_radius,
         orbits=[orbit_1]
     )
+    params.antenna.itu_r_s_1528 = antenna_params
     params.sat_is_active_if.conditions = [
         # "MINIMUM_ELEVATION_FROM_ES",
         "LAT_LONG_INSIDE_COUNTRY",
     ]
     params.sat_is_active_if.minimum_elevation_from_es = 5.0
-    params.sat_is_active_if.lat_long_inside_country.country_names = ["Brazil"]
+    params.sat_is_active_if.lat_long_inside_country.country_names = ["Brazil", "Paraguay"]
     # params.beams_load_factor = 0.1
     params.beam_positioning.type = "SERVICE_GRID"
+
+    grid_exclusion_zone = params.beam_positioning.service_grid.grid_exclusion_zone
+
+    # grid_exclusion_zone.type = "CIRCLE"
+    # # at frienship bridge, so should affect more than 1 grid
+    # grid_exclusion_zone.circle.center_lat = -25.5094741
+    # grid_exclusion_zone.circle.center_lon = -54.6007197
+    # grid_exclusion_zone.circle.radius_km = 0.00001
+    # grid_exclusion_zone.circle.radius_km = 2 * spotbeam_radius / 1e3
+
     # params.beam_positioning.type = "ANGLE_AND_DISTANCE_FROM_SUBSATELLITE"
     # params.beam_positioning.angle_from_subsatellite_phi.type = "~U(MIN,MAX)"
     # params.beam_positioning.angle_from_subsatellite_phi.distribution.min = -60.0

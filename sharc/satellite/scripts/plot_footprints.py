@@ -378,11 +378,11 @@ if __name__ == "__main__":
         name="Example-MSS-D2D",
         antenna_pattern="ITU-R-S.1528-Taylor",
         num_sectors=19,
-        antenna_s1528=antenna_params,
         intersite_distance=np.sqrt(3) * spotbeam_radius,
         cell_radius=spotbeam_radius,
         orbits=[orbit_1]
     )
+    params.antenna.itu_r_s_1528 = antenna_params
     params.sat_is_active_if.conditions = [
         # "MINIMUM_ELEVATION_FROM_ES",
         "LAT_LONG_INSIDE_COUNTRY",

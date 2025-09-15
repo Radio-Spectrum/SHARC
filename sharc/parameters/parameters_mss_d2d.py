@@ -4,6 +4,7 @@ from sharc.parameters.parameters_base import ParametersBase
 from sharc.parameters.parameters_orbit import ParametersOrbit
 from sharc.parameters.imt.parameters_imt_mss_dc import ParametersSelectActiveSatellite, ParametersSectorPositioning
 from sharc.parameters.parameters_p619 import ParametersP619
+from sharc.parameters.parameters_antenna import ParametersAntenna
 from sharc.parameters.antenna.parameters_antenna_s1528 import ParametersAntennaS1528
 
 
@@ -76,18 +77,12 @@ class ParametersMssD2d(ParametersBase):
     # Possible values: "ITU-R-S.1528-Taylor", "ITU-R-S.1528-LEO"
     antenna_pattern: str = "ITU-R-S.1528-Taylor"
 
-    # Radius of the antenna's circular aperture in meters
-    antenna_diamter: float = 1.0
-
-    # The required near-in-side-lobe level (dB) relative to peak gain
-    antenna_l_s: float = -6.75
-
-    # 3 dB beamwidth angle (3 dB below maximum gain) [degrees]
-    antenna_3_dB_bw: float = 4.4127
-
-    # Paramters for the ITU-R-S.1528 antenna patterns
-    antenna_s1528: ParametersAntennaS1528 = field(
-        default_factory=ParametersAntennaS1528)
+    # Parameters for the antenna patterns
+    antenna: ParametersAntenna = field(
+        default_factory=lambda: ParametersAntenna(
+            pattern="ITU-R-S.1528-Taylor",
+            gain=30.0,
+            itu_r_s_1528=ParametersAntennaS1528()))
 
     sat_is_active_if: ParametersSelectActiveSatellite = field(
         default_factory=ParametersSelectActiveSatellite)
@@ -182,12 +177,9 @@ class ParametersMssD2d(ParametersBase):
         """
         Propagate relevant parameters to nested antenna and beam positioning objects.
         """
-        self.antenna_s1528.set_external_parameters(
-            antenna_pattern=self.antenna_pattern,
+        self.antenna.set_external_parameters(
             frequency=self.frequency,
             bandwidth=self.bandwidth,
-            antenna_l_s=self.antenna_l_s,
-            antenna_3_dB_bw=self.antenna_3_dB_bw,
         )
         if self.beam_positioning.service_grid.beam_radius is None:
             self.beam_positioning.service_grid.beam_radius = self.cell_radius

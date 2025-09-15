@@ -115,6 +115,25 @@ def calc_elevation(Le: np.ndarray,
     return np.degrees(elev_angle)
 
 
+def haversine(
+    lon1: np.ndarray,
+    lat1: np.ndarray,
+    lon2: np.ndarray,
+    lat2: np.ndarray,
+    R=EARTH_RADIUS_M
+):
+    """Calculates great-circle distance between 2 points on the surface of Earth.
+    Considers spherical earth.
+
+    Returns np.ndarray with N distances in meters
+    """
+    lon1, lat1, lon2, lat2 = map(np.radians, [lon1, lat1, lon2, lat2])
+    dlon = lon2 - lon1
+    dlat = lat2 - lat1
+    a = np.sin(dlat / 2)**2 + np.cos(lat1) * np.cos(lat2) * np.sin(dlon / 2)**2
+    return 2 * R * np.arcsin(np.sqrt(a))
+
+
 if __name__ == "__main__":
     r1 = ecef2lla(7792.1450, 0, 0)
     print(r1)

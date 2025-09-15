@@ -373,7 +373,10 @@ class TopologyImtMssDc(Topology):
                 (before sharc's coordinate transformation, with distances in km)
         """
         if orbit_params.beam_positioning.type == "SERVICE_GRID":
-            orbit_params.beam_positioning.service_grid.validate("service_grid")
+            # TODO: remove this reset_grid call from here.
+            # Since it should be called once per drop, it shouldn't
+            # be this deep in the program
+            orbit_params.beam_positioning.service_grid.reset_grid("service_grid", random_number_gen)
 
             # 2xN, (lon, lat)
             grid = orbit_params.beam_positioning.service_grid.lon_lat_grid

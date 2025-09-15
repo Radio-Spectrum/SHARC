@@ -102,7 +102,7 @@ class PropagationClutterLoss(Propagation):
             loss = self.get_spacial_clutter_loss(f, theta, p1, earth_station_height, mean_clutter_height)
             mult_1 = np.zeros(d.shape)
             num_ones = int(np.round(mult_1.size * below_rooftop / 100))
-            indices = np.random.choice(mult_1.size, size=num_ones, replace=False)
+            indices = self.random_number_gen.choice(mult_1.size, size=num_ones, replace=False)
             mult_1.flat[indices] = 1
             loss *= mult_1
         return loss
@@ -336,7 +336,7 @@ if __name__ == '__main__':
     ax = fig.gca()
 
     for j in range(len(elevation_angle)):
-        ax.plot(clutter_loss[j, :], loc_percentage,
+        ax.plot(clutter_loss[j, :], loc_percentage * 100,
                 label="%i deg" % elevation_angle[j], linewidth=1)
 
     plt.title("Cumulative distribution of clutter loss not exceeded for 30 GHz")

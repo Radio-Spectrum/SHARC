@@ -224,6 +224,9 @@ class ParametersTest(unittest.TestCase):
         self.assertEqual(
             self.parameters.imt.topology.single_bs.num_clusters, 2)
 
+        self.assertEqual(
+            self.parameters.imt.topology.single_bs.azimuth, [60.0, 240.0])
+
         """Test ParametersIndoor
         """
         self.assertEqual(
@@ -277,6 +280,9 @@ class ParametersTest(unittest.TestCase):
         self.assertEqual(
             self.parameters.imt.topology.mss_dc.beam_positioning.service_grid.beam_radius,
             19000)
+        self.assertEqual(
+            self.parameters.imt.topology.mss_dc.beam_positioning.service_grid.transform_grid_randomly,
+            True)
         self.assertEqual(
             self.parameters.imt.topology.mss_dc.beam_positioning.service_grid.grid_margin_from_border,
             0.11)
@@ -627,6 +633,9 @@ class ParametersTest(unittest.TestCase):
             self.parameters.mss_d2d.beam_positioning.service_grid.beam_radius,
             19001)
         self.assertEqual(
+            self.parameters.mss_d2d.beam_positioning.service_grid.transform_grid_randomly,
+            True)
+        self.assertEqual(
             self.parameters.mss_d2d.beam_positioning.service_grid.grid_margin_from_border,
             0.11)
         self.assertEqual(
@@ -734,6 +743,15 @@ class ParametersTest(unittest.TestCase):
         )
         self.assertEqual(
             self.parameters.single_space_station.geometry.es_long_deg, 3.9,
+        )
+        self.assertEqual(
+            self.parameters.single_space_station.geometry.pointing_at_alt, 123,
+        )
+        self.assertEqual(
+            self.parameters.single_space_station.geometry.pointing_at_lat, 12,
+        )
+        self.assertEqual(
+            self.parameters.single_space_station.geometry.pointing_at_long, -1,
         )
         self.assertEqual(
             self.parameters.single_space_station.geometry.azimuth.type,

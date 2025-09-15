@@ -54,6 +54,7 @@ class StationFactoryNgsoTest(unittest.TestCase):
             # List of orbital parameters
             orbits=[orbit_1, orbit_2],
             num_sectors=1,
+            noise_temperature=-500.,
         )
         self.param.antenna_s1528.frequency = 43000.0
         self.param.antenna_s1528.bandwidth = 500.0

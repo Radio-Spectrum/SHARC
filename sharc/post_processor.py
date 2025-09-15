@@ -221,7 +221,7 @@ class PostProcessor():
             "x_label": "Interference Power [dBm/MHz]",
         },
         "system_dl_interf_power_per_mhz": {
-            "title": "[SYS] system interference power per MHz from IMT DL",
+            "title": "[SYS] system interference PSD from IMT DL",
             "x_label": "Interference Power [dBm/MHz]",
         },
         "system_inr": {

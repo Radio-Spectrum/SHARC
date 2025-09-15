@@ -251,6 +251,9 @@ class ParametersSectorPositioning(ParametersBase):
                     )
 
             def apply_exclusion_zone(self, lon, lat):
+                """
+                Returns coordinates that are not contained in polygon
+                """
                 if self.type is None:
                     return np.stack((lon, lat))
 

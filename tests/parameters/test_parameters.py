@@ -291,6 +291,20 @@ class ParametersTest(unittest.TestCase):
         self.assertEqual(
             self.parameters.imt.topology.mss_dc.beam_positioning.service_grid.beam_radius,
             19000)
+
+        self.assertEqual(
+            self.parameters.imt.topology.mss_dc.beam_positioning.service_grid.grid_exclusion_zone.type,
+            "CIRCLE")
+        self.assertEqual(
+            self.parameters.imt.topology.mss_dc.beam_positioning.service_grid.grid_exclusion_zone.circle.center_lat,
+            -14.123)
+        self.assertEqual(
+            self.parameters.imt.topology.mss_dc.beam_positioning.service_grid.grid_exclusion_zone.circle.center_lon,
+            -47.1)
+        self.assertEqual(
+            self.parameters.imt.topology.mss_dc.beam_positioning.service_grid.grid_exclusion_zone.circle.radius_km,
+            123)
+
         self.assertEqual(
             self.parameters.imt.topology.mss_dc.beam_positioning.service_grid.transform_grid_randomly,
             True)
@@ -640,6 +654,20 @@ class ParametersTest(unittest.TestCase):
         self.assertEqual(
             self.parameters.mss_d2d.beam_positioning.service_grid.beam_radius,
             19001)
+
+        self.assertEqual(
+            self.parameters.mss_d2d.beam_positioning.service_grid.grid_exclusion_zone.type,
+            "CIRCLE")
+        self.assertEqual(
+            self.parameters.mss_d2d.beam_positioning.service_grid.grid_exclusion_zone.circle.center_lat,
+            -14.123)
+        self.assertEqual(
+            self.parameters.mss_d2d.beam_positioning.service_grid.grid_exclusion_zone.circle.center_lon,
+            120)
+        self.assertEqual(
+            self.parameters.mss_d2d.beam_positioning.service_grid.grid_exclusion_zone.circle.radius_km,
+            321)
+
         self.assertEqual(
             self.parameters.mss_d2d.beam_positioning.service_grid.transform_grid_randomly,
             True)
@@ -867,6 +895,94 @@ class ParametersTest(unittest.TestCase):
             geod_area / 1e6,
             (CL_AREA + BR_AREA) / 1e6,
             delta=53e3)
+
+    def test_mss_d2d_loaded_exclusion_zone(self):
+        """Test loading and geometry checks for MSS D2D exclusion zone parameters."""
+        exclusion_zone = self.parameters.mss_d2d.beam_positioning.service_grid.grid_exclusion_zone
+        exclusion_zone.type = "CIRCLE"
+        exclusion_zone.circle.center_lat = 0.0
+        exclusion_zone.circle.center_lon = 0.0
+        exclusion_zone.circle.radius_km = 1.0
+
+        # test exclusion zone circle area
+        exclusion_zone._calculate_polygon()
+        pol = exclusion_zone._polygon
+
+        geod = Geod(a=EARTH_RADIUS_M, b=EARTH_RADIUS_M)
+
+        # geod area should be similar to a circle area for small area
+        CIRCLE_AREA = np.pi * 1e6
+        CIRCLE_PERIMETER = 2 * np.pi * 1e3
+        area, perimeter = geod.geometry_area_perimeter(pol)
+        area = abs(area)
+
+        self.assertAlmostEqual(perimeter, CIRCLE_PERIMETER, delta=3)
+        # 0.2 % error:
+        rel_delta = 0.2 / 100
+        self.assertAlmostEqual(area, CIRCLE_AREA, delta=rel_delta * CIRCLE_AREA)
+
+    def test_mss_d2d_loaded_service_grid(self):
+        """
+        Testing if service grid is created according to exclusion zone specification
+        """
+        # test service grid on 2 countries
+        beam_radius_m = 40e3
+        seed = 2
+        self.parameters.mss_d2d.beam_positioning.service_grid.beam_radius = beam_radius_m
+        self.parameters.mss_d2d.beam_positioning.service_grid.grid_margin_from_border = beam_radius_m / 1e3
+        rng = np.random.RandomState(seed)
+
+        self.parameters.mss_d2d.beam_positioning.service_grid.country_names = [
+            "Paraguay", "Brazil"]
+
+        self.parameters.mss_d2d.beam_positioning.service_grid.grid_exclusion_zone.type = None
+        self.parameters.mss_d2d.beam_positioning.service_grid.grid_exclusion_zone._calculate_polygon()
+        self.parameters.mss_d2d.beam_positioning.service_grid.reset_grid(
+            "test", rng, True)
+
+        """Test circle with same radius as margin"""
+        original_grid = self.parameters.mss_d2d.beam_positioning.service_grid.lon_lat_grid
+
+        grid_exclusion_zone = self.parameters.mss_d2d.beam_positioning.service_grid.grid_exclusion_zone
+        grid_exclusion_zone.type = "CIRCLE"
+        # at frienship bridge, so should affect more than 1 grid
+        grid_exclusion_zone.circle.center_lat = -25.5094741
+        grid_exclusion_zone.circle.center_lon = -54.6007197
+        grid_exclusion_zone.circle.radius_km = beam_radius_m / 1e3
+
+        rng = np.random.RandomState(seed)
+        grid_exclusion_zone._calculate_polygon()
+
+        self.parameters.mss_d2d.beam_positioning.service_grid.reset_grid(
+            "test", rng, True)
+        grid_w_exclusion = self.parameters.mss_d2d.beam_positioning.service_grid.lon_lat_grid
+
+        self.assertEqual(original_grid.shape, grid_w_exclusion.shape)
+
+        """Test circle with radius bigger than margin"""
+        original_grid = self.parameters.mss_d2d.beam_positioning.service_grid.lon_lat_grid
+
+        grid_exclusion_zone = self.parameters.mss_d2d.beam_positioning.service_grid.grid_exclusion_zone
+        grid_exclusion_zone.type = "CIRCLE"
+        # at frienship bridge, so should affect more than 1 grid
+        grid_exclusion_zone.circle.center_lat = -25.5094741
+        grid_exclusion_zone.circle.center_lon = -54.6007197
+        grid_exclusion_zone.circle.radius_km = 2 * beam_radius_m / 1e3
+
+        rng = np.random.RandomState(seed)
+        grid_exclusion_zone._calculate_polygon()
+
+        self.parameters.mss_d2d.beam_positioning.service_grid.reset_grid(
+            "test", rng, True)
+        grid_w_exclusion = self.parameters.mss_d2d.beam_positioning.service_grid.lon_lat_grid
+
+        n_original = original_grid.shape[1]
+        n_after = grid_w_exclusion.shape[1]
+
+        # aft >= orig - 6
+        self.assertLessEqual(n_original - 6, n_after)
+        # aft < orig
+        self.assertLess(n_after, n_original)
 
 
 if __name__ == '__main__':

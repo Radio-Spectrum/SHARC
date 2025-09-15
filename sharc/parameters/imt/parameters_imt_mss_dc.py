@@ -189,12 +189,6 @@ class ParametersSectorPositioning(ParametersBase):
                 def _calculate_polygon(self):
                     """
                     Calculates circle lon,lat polygon according to its attributes
-
-                    Raises
-                    ------
-                    TODO:
-                    ValueError
-                        If resulting polygon is invalid.
                     """
                     self._polygon = shrink_lonlat_polygon_by_km(
                         shp.geometry.Point(self.center_lon, self.center_lat),
@@ -224,10 +218,11 @@ class ParametersSectorPositioning(ParametersBase):
                 ValueError
                     If a parameter is not valid.
                 """
-                if self.type is None:
-                    return
                 if self.type not in self.__ALLOWED_TYPES:
                     raise ValueError(f"{ctx}.type should be in {self.__ALLOWED_TYPES}")
+
+                if self.type is None:
+                    return
 
                 if self.type == "CIRCLE":
                     self.circle.validate(f"{ctx}.circle")

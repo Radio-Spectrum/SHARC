@@ -612,7 +612,7 @@ class PostProcessor:
         ul_tdd_factor: float,
         n_bs_sim: int,
         n_bs_actual: int,
-        n_drops: int,
+        n_aggregate: int | None = None,
         random_number_gen=np.random.RandomState(31),
     ):
         """
@@ -630,8 +630,9 @@ class PostProcessor:
                 Should probably be 7 * 19 * 3 * 3 or 1 * 19 * 3 * 3
             n_bs_actual: int
                 The number of base stations the study wants to have conclusions for.
-            n_drops: int
-                The number of random samples to choose. 
+            n_aggregate: int | None
+                The number of random samples to choose.
+                If None (default), it will be calculated automatically based on input sample sizes. 
             random_number_gen: np.random.RandomState
                 Since this methods uses another montecarlo to aggregate results,
                 it needs a random number generator
@@ -645,13 +646,20 @@ class PostProcessor:
 
         dl_tdd_factor = 1 - ul_tdd_factor
 
-        if ul_tdd_factor == 0:
-            n_aggregate = len(dl_samples)
-        elif dl_tdd_factor == 0:
-            n_aggregate = len(ul_samples)
-        else:
-            # n_aggregate = min(len(ul_samples), len(dl_samples))
-            n_aggregate = n_drops
+        # Set the final n_aggregate value: use the user-provided value if valid, otherwise calculate a default.
+        if n_aggregate is None:
+            # If no value was provided, calculate a default based on the input sample sizes.
+            dl_tdd_factor = 1 - ul_tdd_factor
+            if ul_tdd_factor == 0:
+                n_aggregate = len(dl_samples)
+            elif dl_tdd_factor == 0:
+                n_aggregate = len(ul_samples)
+            else:
+                n_aggregate = min(len(ul_samples), len(dl_samples))
+
+        elif n_aggregate <= 0:
+            # Validate that the user-provided value is a positive integer.
+            raise ValueError(f"n_aggregate must be a positive integer, but got {n_aggregate}.")
 
         aggregate_samples = np.empty(n_aggregate)
 

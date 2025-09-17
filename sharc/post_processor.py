@@ -612,7 +612,7 @@ class PostProcessor:
         ul_tdd_factor: float,
         n_bs_sim: int,
         n_bs_actual: int,
-        n_samples: int,
+        n_drops: int,
         random_number_gen=np.random.RandomState(31),
     ):
         """

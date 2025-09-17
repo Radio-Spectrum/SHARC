@@ -612,6 +612,7 @@ class PostProcessor:
         ul_tdd_factor: float,
         n_bs_sim: int,
         n_bs_actual: int,
+        n_samples: int,
         random_number_gen=np.random.RandomState(31),
     ):
         """
@@ -629,6 +630,8 @@ class PostProcessor:
                 Should probably be 7 * 19 * 3 * 3 or 1 * 19 * 3 * 3
             n_bs_actual: int
                 The number of base stations the study wants to have conclusions for.
+            n_drops: int
+                The number of random samples to choose. 
             random_number_gen: np.random.RandomState
                 Since this methods uses another montecarlo to aggregate results,
                 it needs a random number generator
@@ -647,7 +650,8 @@ class PostProcessor:
         elif dl_tdd_factor == 0:
             n_aggregate = len(ul_samples)
         else:
-            n_aggregate = min(len(ul_samples), len(dl_samples))
+            # n_aggregate = min(len(ul_samples), len(dl_samples))
+            n_aggregate = n_drops
 
         aggregate_samples = np.empty(n_aggregate)
 

@@ -473,12 +473,13 @@ class Simulation(ABC, Observable):
         Select K UEs randomly from all the UEs linked to one BS as “chosen”
         UEs. These K “chosen” UEs will be scheduled during this snapshot.
         """
+        if not self.bs.antenna[0].uses_beamforming:
+            return
+
         if self.wrap_around_enabled:
             self.bs_to_ue_d_2D, self.bs_to_ue_d_3D, self.bs_to_ue_phi, self.bs_to_ue_theta = \
                 self.bs.get_dist_angles_wrap_around(self.ue)
         else:
-            self.bs_to_ue_d_2D = self.bs.get_distance_to(self.ue)
-            self.bs_to_ue_d_3D = self.bs.get_3d_distance_to(self.ue)
             self.bs_to_ue_phi, self.bs_to_ue_theta = self.bs.get_pointing_vector_to(
                 self.ue, )
 

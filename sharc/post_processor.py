@@ -632,11 +632,12 @@ class PostProcessor:
                 The number of base stations the study wants to have conclusions for.
             n_aggregate: int | None
                 The number of random samples to choose.
-                If None (default), it will be calculated automatically based on input sample sizes. 
+                If None (default), it will be calculated automatically based on input sample sizes.
             random_number_gen: np.random.RandomState
                 Since this methods uses another montecarlo to aggregate results,
                 it needs a random number generator
         """
+
         if ul_tdd_factor > 1 or ul_tdd_factor < 0:
             raise ValueError(
                 "PostProcessor.aggregate_results() was called with invalid ul_tdd_factor parameter." +
@@ -649,7 +650,6 @@ class PostProcessor:
         # Set the final n_aggregate value: use the user-provided value if valid, otherwise calculate a default.
         if n_aggregate is None:
             # If no value was provided, calculate a default based on the input sample sizes.
-            dl_tdd_factor = 1 - ul_tdd_factor
             if ul_tdd_factor == 0:
                 n_aggregate = len(dl_samples)
             elif dl_tdd_factor == 0:

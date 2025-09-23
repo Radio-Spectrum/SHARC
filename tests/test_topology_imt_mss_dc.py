@@ -5,7 +5,7 @@ from sharc.topology.topology_imt_mss_dc import TopologyImtMssDc
 from sharc.parameters.imt.parameters_imt_mss_dc import ParametersImtMssDc
 from sharc.station_manager import StationManager
 from sharc.parameters.parameters_orbit import ParametersOrbit
-from sharc.support.sharc_geom import GeometryConverter, lla2ecef
+from sharc.support.sharc_geom import CoordinateSystem, lla2ecef
 
 
 class TestTopologyImtMssDc(unittest.TestCase):
@@ -45,22 +45,22 @@ class TestTopologyImtMssDc(unittest.TestCase):
         self.params.sat_is_active_if.minimum_elevation_from_es = 5.0
 
         # Define the geometry converter
-        self.geometry_converter = GeometryConverter()
-        self.geometry_converter.set_reference(-15.0, -42.0, 1200)
+        self.coordinate_system = CoordinateSystem()
+        self.coordinate_system.set_reference(-15.0, -42.0, 1200)
 
         # Define the Earth center coordinates
         self.earth_center_x = np.array([0.])
         self.earth_center_y = np.array([0.])
         x, y, z = lla2ecef(
-            self.geometry_converter.ref_lat,
-            self.geometry_converter.ref_long,
-            self.geometry_converter.ref_alt,
+            self.coordinate_system.ref_lat,
+            self.coordinate_system.ref_long,
+            self.coordinate_system.ref_alt,
         )
         self.earth_center_z = np.array([-np.sqrt(x * x + y * y + z * z)])
 
         # Instantiate the IMT MSS-DC topology
         self.imt_mss_dc_topology = TopologyImtMssDc(
-            self.params, self.geometry_converter)
+            self.params, self.coordinate_system)
 
     def test_initialization(self):
         """Test initialization of the IMT MSS-DC topology."""

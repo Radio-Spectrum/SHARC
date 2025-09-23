@@ -7,7 +7,7 @@ import numpy as np
 import plotly.graph_objects as go
 from pathlib import Path
 
-from sharc.support.sharc_geom import GeometryConverter
+from sharc.support.sharc_geom import CoordinateSystem
 from sharc.parameters.parameters import Parameters
 from sharc.topology.topology_factory import TopologyFactory
 from sharc.station_factory import StationFactory
@@ -15,7 +15,7 @@ from sharc.satellite.scripts.plot_globe import plot_globe_with_borders, plot_mul
 
 
 if __name__ == "__main__":
-    geoconv = GeometryConverter()
+    coord_sys = CoordinateSystem()
     SELECTED_SNAPSHOT_NUMBER = 0
     OPAQUE_GLOBE = True
     print(f"Plotting drop {SELECTED_SNAPSHOT_NUMBER}")
@@ -38,14 +38,14 @@ if __name__ == "__main__":
     parameters.set_file_name(param_file)
     parameters.read_params()
 
-    geoconv.set_reference(
+    coord_sys.set_reference(
         parameters.imt.topology.central_latitude,
         parameters.imt.topology.central_longitude,
         parameters.imt.topology.central_altitude,
     )
     print(
         "imt at (lat, lon, alt) = ",
-        (geoconv.ref_lat, geoconv.ref_long, geoconv.ref_alt),
+        (coord_sys.ref_lat, coord_sys.ref_long, coord_sys.ref_alt),
     )
 
     import random
@@ -60,7 +60,7 @@ if __name__ == "__main__":
 
     seed = secondary_seeds[SELECTED_SNAPSHOT_NUMBER]
 
-    topology = TopologyFactory.createTopology(parameters, geoconv)
+    topology = TopologyFactory.createTopology(parameters, coord_sys)
 
     random_number_gen = np.random.RandomState(seed)
 
@@ -80,7 +80,7 @@ if __name__ == "__main__":
     # Create the other system (FSS, HAPS, etc...)
     system = StationFactory.generate_system(
         parameters, topology, random_number_gen,
-        geoconv
+        coord_sys
     )
 
     # Create IMT user equipments
@@ -91,11 +91,11 @@ if __name__ == "__main__":
     )
 
     # Plot the globe with satellite positions
-    fig = plot_globe_with_borders(OPAQUE_GLOBE, geoconv, False)
+    fig = plot_globe_with_borders(OPAQUE_GLOBE, coord_sys, False)
 
     polygons_lim = plot_mult_polygon(
         parameters.mss_d2d.sat_is_active_if.lat_long_inside_country.filter_polygon,
-        geoconv,
+        coord_sys,
         False)
     from functools import reduce
 
@@ -165,7 +165,7 @@ if __name__ == "__main__":
                 range=(-range, range)
             ),
             camera=dict(
-                center=dict(x=0, y=0, z=-geoconv.get_translation() /
+                center=dict(x=0, y=0, z=-coord_sys.get_translation() /
                             (2 * range)),  # Look at Earth's center
                 # eye=eye,   # Camera position
                 # center=dict(x=0, y=0, z=0),  # Look at Earth's center

@@ -58,7 +58,7 @@ from sharc.topology.topology_macrocell import TopologyMacrocell
 from sharc.topology.topology_imt_mss_dc import TopologyImtMssDc
 from sharc.mask.spectral_mask_3gpp import SpectralMask3Gpp
 from sharc.mask.spectral_mask_mss import SpectralMaskMSS
-from sharc.support.sharc_geom import GeometryConverter
+from sharc.support.sharc_geom import CoordinateSystem
 from sharc.support.sharc_utils import wrap2_180
 
 
@@ -676,7 +676,7 @@ class StationFactory(object):
         parameters: Parameters,
         topology: Topology,
         random_number_gen: np.random.RandomState,
-        geometry_converter=GeometryConverter()
+        coordinate_system=CoordinateSystem()
     ):
         """Generate the system based on the provided parameters and topology.
 
@@ -688,8 +688,8 @@ class StationFactory(object):
             Topology object containing station positions.
         random_number_gen : np.random.RandomState
             Random number generator instance.
-        geometry_converter : GeometryConverter, optional
-            Converter for coordinate transformations (default is GeometryConverter()).
+        coordinate_system : CoordinateSystem, optional
+            Converter for coordinate transformations (default is CoordinateSystem()).
 
         Returns
         -------
@@ -735,7 +735,7 @@ class StationFactory(object):
             return StationFactory.generate_mss_ss(parameters.mss_ss)
         elif parameters.general.system == "MSS_D2D":
             return StationFactory.generate_mss_d2d(
-                parameters.mss_d2d, random_number_gen, geometry_converter)
+                parameters.mss_d2d, random_number_gen, coordinate_system)
         else:
             sys.stderr.write(
                 "ERROR\nInvalid system: " +
@@ -763,13 +763,13 @@ class StationFactory(object):
         space_station.station_type = StationType.SINGLE_SPACE_STATION
         space_station.is_space_station = True
 
-        geoconv = GeometryConverter()
-        geoconv.set_reference(
+        coord_sys = CoordinateSystem()
+        coord_sys.set_reference(
             param.geometry.es_lat_deg,
             param.geometry.es_long_deg,
             param.geometry.es_altitude,
         )
-        x, y, z = geoconv.convert_lla_to_transformed_cartesian(
+        x, y, z = coord_sys.lla2enu(
             param.geometry.location.fixed.lat_deg,
             param.geometry.location.fixed.long_deg,
             param.geometry.altitude,
@@ -785,7 +785,7 @@ class StationFactory(object):
             space_station.azimuth = np.rad2deg(
                 np.arctan2(-space_station.y, -space_station.x))
         elif param.geometry.azimuth.type == "POINTING_AT_LAT_LONG_ALT":
-            px, py, pz = geoconv.convert_lla_to_transformed_cartesian(
+            px, py, pz = coord_sys.lla2enu(
                 param.geometry.pointing_at_lat,
                 param.geometry.pointing_at_long,
                 param.geometry.pointing_at_alt,
@@ -811,7 +811,7 @@ class StationFactory(object):
                         space_station.x)))
             space_station.elevation = -gnd_elev
         elif param.geometry.elevation.type == "POINTING_AT_LAT_LONG_ALT":
-            px, py, pz = geoconv.convert_lla_to_transformed_cartesian(
+            px, py, pz = coord_sys.lla2enu(
                 param.geometry.pointing_at_lat,
                 param.geometry.pointing_at_long,
                 param.geometry.pointing_at_alt,
@@ -1615,7 +1615,7 @@ class StationFactory(object):
     def generate_mss_d2d(
         params: ParametersMssD2d,
         random_number_gen: np.random.RandomState,
-        geometry_converter: GeometryConverter,
+        coordinate_system: CoordinateSystem,
     ):
         """
         Generate the MSS D2D constellation with support for multiple orbits and base station visibility.
@@ -1626,7 +1626,7 @@ class StationFactory(object):
             Parameters for the MSS D2D system, including orbits and antenna configuration.
         random_number_gen : np.random.RandomState
             Random number generator for generating satellite positions.
-        geometry_converter : GeometryConverter
+        coordinate_system : CoordinateSystem
             A converter that has already set a reference for coordinates transformation
 
         Returns
@@ -1634,11 +1634,11 @@ class StationFactory(object):
         StationManager
             A StationManager object containing satellite configurations and positions.
         """
-        geometry_converter.validate()
+        coordinate_system.validate()
 
         # Initialize the StationManager for the MSS D2D system
         mss_d2d_values = TopologyImtMssDc.get_coordinates(
-            geometry_converter,
+            coordinate_system,
             params,
             random_number_gen,
         )
@@ -1853,13 +1853,13 @@ class StationFactory(object):
 
 if __name__ == '__main__':
     rand_gen = np.random.RandomState(101)
-    geometry_converter = GeometryConverter()
+    coordinate_system = CoordinateSystem()
 
     # somente vou utilizar a translação que o satélite teoricamente sofreu:
     ref_lat = -14.1
     ref_long = -45.1
     ref_alt = 1200
-    geometry_converter.set_reference(ref_lat, ref_long, ref_alt)
+    coordinate_system.set_reference(ref_lat, ref_long, ref_alt)
     from sharc.parameters.parameters_orbit import ParametersOrbit
 
     orbit = ParametersOrbit(
@@ -1880,7 +1880,7 @@ if __name__ == '__main__':
     params.sat_is_active_if.conditions = ["MINIMUM_ELEVATION_FROM_ES"]
     params.sat_is_active_if.minimum_elevation_from_es = 5.0
 
-    topology = TopologyImtMssDc(params, geometry_converter)
+    topology = TopologyImtMssDc(params, coordinate_system)
 
     topology.calculate_coordinates(rand_gen)
 
@@ -1907,7 +1907,7 @@ if __name__ == '__main__':
     )
 
     from sharc.satellite.scripts.plot_globe import plot_globe_with_borders
-    fig = plot_globe_with_borders(True, geometry_converter, False)
+    fig = plot_globe_with_borders(True, coordinate_system, False)
 
     import plotly.graph_objects as go
 

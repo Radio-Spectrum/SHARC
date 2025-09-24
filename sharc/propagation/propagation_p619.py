@@ -356,7 +356,7 @@ class PropagationP619(Propagation):
             #     raise ValueError(f"Invalid shape for station_b_gains = {station_b_gains.shape}")
             elevation_angles["apparent"] = self.apparent_elevation_angle(
                 elevation_angles["free_space"],
-                earth_station_height,
+                self.earth_station_alt_m,
             )
             # Transpose it to fit the expected path loss shape
             elevation_angles["free_space"] = np.transpose(
@@ -369,7 +369,7 @@ class PropagationP619(Propagation):
             earth_station_antenna_gain = station_a_gains
             elevation_angles["apparent"] = self.apparent_elevation_angle(
                 elevation_angles["free_space"],
-                earth_station_height,
+                self.earth_station_alt_m,
             )
         else:
             raise ValueError(

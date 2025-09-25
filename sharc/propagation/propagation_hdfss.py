@@ -74,7 +74,13 @@ class PropagationHDFSS(Propagation):
         distance = station_a.get_3d_distance_to(station_b)  # P.452 expects Kms
         frequency_array = frequency * \
             np.ones(distance.shape)  # P.452 expects GHz
-        elevation = station_b.get_elevation(station_a)
+        elevation = station_b.get_local_elevation(station_a)
+
+        if station_a.uses_local_coords or station_b.uses_local_coords:
+            raise NotImplementedError(
+                "HDFSS currently assumes stations z == height. "
+                "If stations has local coords != global coords, this probably isn't true"
+            )
 
         return self.propagation.get_loss(
             distance_3D=distance,
@@ -83,8 +89,8 @@ class PropagationHDFSS(Propagation):
             frequency=frequency_array,
             imt_x=station_b.x,
             imt_y=station_b.y,
-            imt_z=station_b.height,
+            imt_z=station_b.z,
             es_x=station_a.x,
             es_y=station_a.y,
-            es_z=station_a.height,
+            es_z=station_a.z,
         )

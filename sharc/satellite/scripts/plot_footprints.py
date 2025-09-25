@@ -162,7 +162,6 @@ def plot_fp(
     surf_manager.x = x_flat
     surf_manager.y = y_flat
     surf_manager.z = z_flat
-    surf_manager.height = z_flat
 
     station_1 = mss_d2d_manager
     mss_active = np.where(station_1.active)[0]
@@ -173,7 +172,7 @@ def plot_fp(
     # Calculate vector and apointment off_axis
     gains = np.zeros((len(mss_active), len(station_2_active)))
     off_axis_angle = station_1.get_off_axis_angle(station_2)
-    phi, theta = station_1.get_pointing_vector_to(station_2)
+    phi, theta = station_1.get_global_pointing_vector_to(station_2)
     for k in range(len(mss_active)):
         gains[k, :] = \
             station_1.antenna[k].calculate_gain(

@@ -81,9 +81,9 @@ class PropagationTvro(Propagation):
         if wrap_around_enabled and (
                 station_a.is_imt_station() and station_b.is_imt_station()):
             distances_2d, distances_3d, _, _ = \
-                station_a.get_dist_angles_wrap_around(station_b)
+                station_a.get_global_dist_angles_wrap_around(station_b)
         else:
-            distances_2d = station_a.get_distance_to(station_b)
+            distances_2d = station_a.get_local_distance_to(station_b)
             distances_3d = station_a.get_3d_distance_to(station_b)
 
         indoor_stations = np.tile(
@@ -92,29 +92,35 @@ class PropagationTvro(Propagation):
         # Use the right interface whether the link is IMT-IMT or IMT-System
         # TODO: Refactor __get_loss and get rid of that if-else.
         if station_a.is_imt_station() and station_b.is_imt_station():
+            if station_a.uses_local_coords:
+                raise NotImplementedError(
+                    "TVRO currently assumes UE z == height. "
+                    "If UE has local coords != global coords, this probably isn't true"
+                )
+
             loss = self._get_loss(
                 distance_3D=distances_3d,
                 distance_2D=distances_2d,
                 frequency=frequency * np.ones(distances_2d.shape),
-                bs_height=station_b.height,
-                ue_height=station_a.height,
+                ue_height=station_a.z,
                 indoor_stations=indoor_stations
             )
         else:
             imt_station, sys_station = (station_a, station_b) \
                 if station_a.is_imt_station() else (station_b, station_a)
+
+            if sys_station.uses_local_coords:
+                raise NotImplementedError(
+                    "TVRO currently assumes System z == height. "
+                    "If System has local coords != global coords, this probably isn't true"
+                )
+
             loss = self._get_loss(
                 distance_3D=distances_3d,
                 distance_2D=distances_2d,
                 frequency=frequency * np.ones(distances_2d.shape),
-                bs_height=station_b.height,
                 imt_sta_type=imt_station.station_type,
-                imt_x=imt_station.x,
-                imt_y=imt_station.y,
-                imt_z=imt_station.height,
-                es_x=sys_station.x,
-                es_y=sys_station.y,
-                es_z=sys_station.height,
+                es_z=sys_station.z,
                 indoor_stations=indoor_stations
             )
 
@@ -129,7 +135,6 @@ class PropagationTvro(Propagation):
             distance_3D (np.array) : 3D distances between stations
             distance_2D (np.array) : 2D distances between stations
             frequency (np.array) : center frequencie [MHz]
-            bs_height (np.array) : base station antenna heights
         Returns
         -------
             array with path loss values with dimensions of distance_2D
@@ -310,7 +315,7 @@ if __name__ == '__main__':
     frequency = 3600 * np.ones(distance_2D.shape)
     h_bs = 25 * np.ones(len(distance_2D[:, 0]))
     h_ue = 1.5 * np.ones(len(distance_2D[0, :]))
-    h_tvro = 6
+    h_tvro = 6 * np.ones(len(distance_2D[0, :]))
     distance_3D = np.sqrt(distance_2D**2 + (h_bs[:, np.newaxis] - h_ue)**2)
     indoor_stations = np.zeros(distance_3D.shape, dtype=bool)
     shadowing = False

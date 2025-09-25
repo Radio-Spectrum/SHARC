@@ -239,7 +239,7 @@ class SimulationIndoorTest(unittest.TestCase):
             )
 
         # Test angle to ES in the IMT coord system
-        phi_es, theta_es = self.simulation.bs.get_pointing_vector_to(
+        phi_es, theta_es = self.simulation.bs.get_global_pointing_vector_to(
             self.simulation.system,
         )
         expected_phi_es = np.array([[18.44], [23.96], [33.69], [53.13]])

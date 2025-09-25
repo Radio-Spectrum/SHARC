@@ -22,12 +22,12 @@ class StationManager(object):
 
     def __init__(self, n):
         self.num_stations = n
-        self.x = np.empty(n)  # x coordinate
-        self.y = np.empty(n)  # y coordinate
-        self.z = np.empty(n)  # z coordinate (includes height above ground)
+        self.x = np.empty(n)  # x in global coordinates
+        self.y = np.empty(n)  # y in global coordinates
+        self.z = np.empty(n)  # z in global coordinates
+        # antenna azim and elev angles in global coordinates
         self.azimuth = np.empty(n)
         self.elevation = np.empty(n)
-        self.height = np.empty(n)  # station height above ground
         self.idx_orbit = np.empty(n)
         self.indoor = np.zeros(n, dtype=bool)
         self.active = np.ones(n, dtype=bool)
@@ -54,6 +54,7 @@ class StationManager(object):
         self.station_type = StationType.NONE
         self.is_space_station = False
         self.intersite_dist = 0.0
+        self.uses_local_coords = False
 
     def get_station_list(self, id=None) -> list:
         """Return a list of Station objects for the given indices.
@@ -95,7 +96,6 @@ class StationManager(object):
         station.z = self.z[id]
         station.azimuth = self.azimuth[id]
         station.elevation = self.elevation[id]
-        station.height = self.height[id]
         station.indoor = self.indoor[id]
         station.active = self.active[id]
         station.tx_power = self.tx_power[id]
@@ -115,8 +115,28 @@ class StationManager(object):
         station.station_type = self.station_type
         return station
 
-    def get_distance_to(self, station) -> np.array:
-        """Calculate the 2D distance between this manager's stations and another's.
+    def get_local_distance_to(self, station) -> np.array:
+        """Calculate the 2D distance between this manager's stations and another's
+        considering this ones coordinate system
+
+        Parameters
+        ----------
+        station : StationManager
+            StationManager to which the distance is calculated.
+
+        Returns
+        -------
+        np.array
+            2D distance matrix between stations.
+        """
+        if not self.uses_local_coords:
+            return self.get_global_distance_to(station)
+        # TODO: 2d distance calculation
+        raise NotImplementedError()
+
+    def get_global_distance_to(self, station) -> np.array:
+        """Calculate the 2D distance between this manager's stations and another's
+        considering their global (x,y)
 
         Parameters
         ----------
@@ -161,7 +181,7 @@ class StationManager(object):
         )
         return dx
 
-    def get_dist_angles_wrap_around(self, station) -> np.array:
+    def get_global_dist_angles_wrap_around(self, station) -> np.array:
         """Calculate distances and angles using the wrap-around technique.
 
         Parameters
@@ -222,7 +242,7 @@ class StationManager(object):
         # Calculate 3D distance
         distance_3D = np.sqrt(
             np.power(distance_2D, 2) +
-            np.power(station.height - self.height[:, np.newaxis], 2),
+            np.power(station.z - self.z[:, np.newaxis], 2),
         )
 
         # Calcualte pointing vector
@@ -230,7 +250,7 @@ class StationManager(object):
             - self.x[:, np.newaxis]
         point_vec_y = cluster_y[cluster_num, np.arange(station.num_stations)] \
             - self.y[:, np.newaxis]
-        point_vec_z = station.height - self.height[:, np.newaxis]
+        point_vec_z = station.z - self.z[:, np.newaxis]
 
         phi = np.array(
             np.rad2deg(
@@ -243,7 +263,7 @@ class StationManager(object):
 
         return distance_2D, distance_3D, phi, theta
 
-    def get_elevation(self, station) -> np.array:
+    def get_global_elevation(self, station) -> np.array:
         """Calculate the elevation angle between this manager's stations and another's.
 
         Parameters
@@ -255,13 +275,7 @@ class StationManager(object):
         -------
         np.array
             Elevation angle matrix (degrees).
-
-        Notes
-        -----
-        This implementation is essentially the same as get_elevation_angle (free-space elevation angle),
-        despite the different matrix dimensions. The methods should be merged to reuse code.
         """
-
         elevation = np.empty([self.num_stations, station.num_stations])
 
         for i in range(self.num_stations):
@@ -274,7 +288,26 @@ class StationManager(object):
 
         return elevation
 
-    def get_pointing_vector_to(self, station) -> tuple:
+    def get_local_elevation(self, station) -> np.array:
+        """Calculate the elevation angle between this manager's stations and another's
+        considering this one's loca coordinate system
+
+        Parameters
+        ----------
+        station : StationManager
+            StationManager to which the elevation angle is calculated.
+
+        Returns
+        -------
+        np.array
+            Elevation angle matrix (degrees).
+        """
+        if not self.uses_local_coords:
+            return self.get_global_elevation(station)
+
+        raise NotImplementedError()
+
+    def get_global_pointing_vector_to(self, station) -> tuple:
         """Calculate the pointing vector (angles) with respect to another station.
 
         Parameters
@@ -321,7 +354,7 @@ class StationManager(object):
         np.array
             Off-axis angle matrix (degrees).
         """
-        Az, b = self.get_pointing_vector_to(station)
+        Az, b = self.get_global_pointing_vector_to(station)
         Az0 = self.azimuth
 
         a = 90 - self.elevation[:, np.newaxis]
@@ -372,7 +405,6 @@ def copy_active_stations(stations: StationManager) -> StationManager:
         act_sta.z[idx] = stations.z[active_idx]
         act_sta.azimuth[idx] = stations.azimuth[active_idx]
         act_sta.elevation[idx] = stations.elevation[active_idx]
-        act_sta.height[idx] = stations.height[active_idx]
         act_sta.indoor[idx] = stations.indoor[active_idx]
         act_sta.active[idx] = stations.active[active_idx]
         act_sta.tx_power[idx] = stations.tx_power[active_idx]

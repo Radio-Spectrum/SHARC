@@ -100,16 +100,16 @@ class PropagationIndoor(Propagation):
 
         if wrap_around_enabled:
             bs_to_ue_dist_2d, bs_to_ue_dist_3d, _, _ = \
-                station_b.get_dist_angles_wrap_around(station_a)
+                station_b.get_global_dist_angles_wrap_around(station_a)
         else:
-            bs_to_ue_dist_2d = station_b.get_distance_to(station_a)
+            bs_to_ue_dist_2d = station_b.get_local_distance_to(station_a)
             bs_to_ue_dist_3d = station_b.get_3d_distance_to(station_a)
 
         frequency_array = frequency * np.ones(bs_to_ue_dist_2d.shape)
         indoor_stations = np.tile(
             station_a.indoor, (station_b.num_stations, 1),
         )
-        elevation = np.transpose(station_a.get_elevation(station_b))
+        elevation = np.transpose(station_a.get_local_elevation(station_b))
 
         return self.get_loss(
             bs_to_ue_dist_3d,

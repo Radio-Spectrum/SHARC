@@ -54,7 +54,7 @@ class StationFactoryTest(unittest.TestCase):
         ntn_topology.calculate_coordinates()
         ntn_bs = StationFactory.generate_imt_base_stations(
             param_imt, param_imt.bs.antenna.array, ntn_topology, rng)
-        npt.assert_equal(ntn_bs.height, param_imt.topology.ntn.bs_height)
+        npt.assert_equal(ntn_bs.z, param_imt.topology.ntn.bs_height)
         # the azimuth seen from BS antenna
         npt.assert_almost_equal(
             ntn_bs.azimuth[0],
@@ -138,7 +138,7 @@ class StationFactoryTest(unittest.TestCase):
         def get_ground_elevation(ss):
             return np.rad2deg(
                 np.arctan2(
-                    ss.height,
+                    ss.z,
                     np.sqrt(
                         ss.x**2 +
                         ss.y**2)))
@@ -147,7 +147,7 @@ class StationFactoryTest(unittest.TestCase):
 
         # test if the maximum distance is close to the cell radius within a
         # 100km range
-        npt.assert_almost_equal(space_station.height, param.geometry.altitude)
+        npt.assert_almost_equal(space_station.z, param.geometry.altitude)
         npt.assert_almost_equal(get_ground_elevation(space_station), 90)
 
         param.geometry.es_lat_deg = max_gso_fov
@@ -155,7 +155,7 @@ class StationFactoryTest(unittest.TestCase):
         space_station = StationFactory.generate_single_space_station(param)
 
         npt.assert_almost_equal(get_ground_elevation(space_station), 0, 5)
-        npt.assert_almost_equal(space_station.height, 0, 0)
+        npt.assert_almost_equal(space_station.z, 0, 0)
 
         param.geometry.es_lat_deg = 0
         param.geometry.es_long_deg = max_gso_fov
@@ -163,7 +163,7 @@ class StationFactoryTest(unittest.TestCase):
         space_station = StationFactory.generate_single_space_station(param)
 
         npt.assert_almost_equal(get_ground_elevation(space_station), 0, 5)
-        npt.assert_almost_equal(space_station.height, 0, 0)
+        npt.assert_almost_equal(space_station.z, 0, 0)
 
         param.geometry.es_long_deg = 0
         param.geometry.location.fixed.lat_deg = max_gso_fov
@@ -171,14 +171,14 @@ class StationFactoryTest(unittest.TestCase):
         space_station = StationFactory.generate_single_space_station(param)
 
         npt.assert_almost_equal(get_ground_elevation(space_station), 0, 5)
-        npt.assert_almost_equal(space_station.height, 0, 0)
+        npt.assert_almost_equal(space_station.z, 0, 0)
 
         param.geometry.location.fixed.lat_deg = 0
         param.geometry.location.fixed.long_deg = max_gso_fov
 
         space_station = StationFactory.generate_single_space_station(param)
         npt.assert_almost_equal(get_ground_elevation(space_station), 0, 5)
-        npt.assert_almost_equal(space_station.height, 0, 0)
+        npt.assert_almost_equal(space_station.z, 0, 0)
 
     def test_single_space_station_pointing(self):
         """Basic test for space station generation."""

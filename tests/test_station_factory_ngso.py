@@ -83,7 +83,7 @@ class StationFactoryNgsoTest(unittest.TestCase):
         self.assertEqual(self.ngso_manager.num_stations, 20 * 32 + 12 * 20)
         self.assertEqual(self.ngso_manager.x.shape, (20 * 32 + 12 * 20,))
         self.assertEqual(self.ngso_manager.y.shape, (20 * 32 + 12 * 20,))
-        self.assertEqual(self.ngso_manager.height.shape, (20 * 32 + 12 * 20,))
+        self.assertEqual(self.ngso_manager.z.shape, (20 * 32 + 12 * 20,))
 
     def test_satellite_antenna_pointing(self):
         """Test that satellite antennas point to nadir and off-axis angles are correct."""
@@ -161,10 +161,6 @@ class StationFactoryNgsoTest(unittest.TestCase):
         npt.assert_allclose(
             self.ngso_manager.z,
             ngso_original_coord.z,
-            atol=1e-500)
-        npt.assert_allclose(
-            self.ngso_manager.height,
-            ngso_original_coord.height,
             atol=1e-500)
         npt.assert_allclose(
             self.ngso_manager.azimuth,

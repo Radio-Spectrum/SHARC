@@ -1551,7 +1551,7 @@ class PropagationClearAir(Propagation):
         indoor_stations = np.tile(
             station_b.indoor, (station_a.num_stations, 1),
         )
-        elevation = station_b.get_elevation(station_a)
+        elevation = station_b.get_local_elevation(station_a)
         if params.imt.interfered_with:
             tx_gain = station_a_gains
             rx_gain = station_b_gains

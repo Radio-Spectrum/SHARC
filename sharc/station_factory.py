@@ -100,25 +100,22 @@ class StationFactory(object):
             imt_base_stations.x = topology.space_station_x * np.ones(num_bs)
             imt_base_stations.y = topology.space_station_y * np.ones(num_bs)
             imt_base_stations.z = topology.space_station_z * np.ones(num_bs)
-            imt_base_stations.height = imt_base_stations.z
             imt_base_stations.elevation = topology.elevation
             imt_base_stations.is_space_station = True
         elif param.topology.type == "MSS_DC":
             imt_base_stations.x = topology.space_station_x * np.ones(num_bs)
             imt_base_stations.y = topology.space_station_y * np.ones(num_bs)
             imt_base_stations.z = topology.space_station_z * np.ones(num_bs)
-            imt_base_stations.height = topology.height
             imt_base_stations.elevation = topology.elevation
             imt_base_stations.is_space_station = True
         else:
             imt_base_stations.x = topology.x
             imt_base_stations.y = topology.y
-            imt_base_stations.z = topology.z + param.bs.height
             imt_base_stations.elevation = -param_ant.downtilt * np.ones(num_bs)
             if param.topology.type == 'INDOOR':
-                imt_base_stations.height = topology.height
+                imt_base_stations.z = topology.height
             else:
-                imt_base_stations.height = param.bs.height * np.ones(num_bs)
+                imt_base_stations.z = param.bs.height * np.ones(num_bs)
 
         imt_base_stations.azimuth = wrap2_180(topology.azimuth)
         imt_base_stations.active = random_number_gen.rand(
@@ -154,6 +151,8 @@ class StationFactory(object):
         imt_base_stations.antenna = np.empty(
             num_bs, dtype=Antenna,
         )
+
+        # TODO: transform BS to local coord system before creating antenna
 
         imt_base_stations.antenna = AntennaFactory.create_n_antennas(
             param.bs.antenna,
@@ -297,7 +296,7 @@ class StationFactory(object):
         ue_y = list()
         ue_z = list()
 
-        imt_ue.height = param.ue.height * np.ones(num_ue)
+        imt_ue.z = param.ue.height * np.ones(num_ue)
 
         # TODO: Sanitaze the azimuth_range parameter
         azimuth_range = param.ue.azimuth_range
@@ -340,6 +339,7 @@ class StationFactory(object):
                 np.arctan((param.bs.height - param.ue.height) / distance),
             )
 
+            # FIXME: adapt this to also work with local coords (and space stations)
             imt_ue.azimuth = (azimuth + theta + np.pi / 2)
             imt_ue.elevation = elevation + psi
 
@@ -419,6 +419,7 @@ class StationFactory(object):
                 x = radius[idx] * np.cos(np.radians(theta))
                 y = radius[idx] * np.sin(np.radians(theta))
                 z = np.zeros_like(x)
+                # TODO: move this to local coordinate system calc
                 x, y, z = topology.transform_ue_xyz(
                     bs, x, y, z
                 )
@@ -427,6 +428,7 @@ class StationFactory(object):
                 ue_z.extend(z)
 
                 # calculate UE azimuth wrt serving BS
+                # FIXME: adapt this to also work with local coords (and space stations)
                 imt_ue.azimuth[idx] = (azimuth[idx] + theta + 180) % 360
 
                 # calculate elevation angle
@@ -437,6 +439,7 @@ class StationFactory(object):
                 psi = np.degrees(
                     np.arctan((param.bs.height - param.ue.height) / distance),
                 )
+                # FIXME: adapt this to also work with space stations
                 imt_ue.elevation[idx] = elevation[idx] + psi
 
         else:
@@ -631,7 +634,7 @@ class StationFactory(object):
 
         imt_ue.x = np.array(ue_x)
         imt_ue.y = np.array(ue_y)
-        imt_ue.height = np.array(ue_z)
+        imt_ue.z = np.array(ue_z)
 
         imt_ue.active = np.zeros(num_ue, dtype=bool)
         imt_ue.rx_interference = -500 * np.ones(num_ue)
@@ -778,8 +781,6 @@ class StationFactory(object):
         space_station.x = x
         space_station.y = y
         space_station.z = z
-        # TODO: put actual altitude instead of z on station.height
-        space_station.height = z
 
         if param.geometry.azimuth.type == "POINTING_AT_IMT":
             space_station.azimuth = np.rad2deg(
@@ -844,7 +845,6 @@ class StationFactory(object):
                                           space_station.elevation[0])
         ])
 
-        space_station.z = space_station.height
         space_station.bandwidth = param.bandwidth
         space_station.noise_temperature = param.noise_temperature
         space_station.thermal_noise = -500
@@ -895,13 +895,12 @@ class StationFactory(object):
             [x1 * np.sin(imt_lat_rad) - z1 * np.cos(imt_lat_rad)],
         ) * 1000
         fss_space_station.y = np.array([y1]) * 1000
-        fss_space_station.height = np.array([
+        fss_space_station.z = np.array([
             (
                 z1 * np.sin(imt_lat_rad) + x1 * np.cos(imt_lat_rad) -
                 dist_imt_centre_earth_km
             ) * 1000,
         ])
-        fss_space_station.z = fss_space_station.height
 
         fss_space_station.azimuth = np.array([param.azimuth])
         fss_space_station.elevation = np.array([param.elevation])
@@ -1020,7 +1019,6 @@ class StationFactory(object):
             sys.exit(1)
 
         fss_earth_station.z = np.array([param.height])
-        fss_earth_station.height = np.array([param.height])
 
         if param.azimuth.upper() == "RANDOM":
             fss_earth_station.azimuth = np.array(
@@ -1152,7 +1150,6 @@ class StationFactory(object):
                 sys.exit(1)
 
         single_earth_station.z = np.array([param.geometry.height])
-        single_earth_station.height = np.array([param.geometry.height])
 
         if param.geometry.azimuth.type == "UNIFORM_DIST":
             if param.geometry.azimuth.uniform_dist.min < -180:
@@ -1256,7 +1253,6 @@ class StationFactory(object):
         fs_station.x = np.array([param.x])
         fs_station.y = np.array([param.y])
         fs_station.z = np.array([param.height])
-        fs_station.height = np.array([param.height])
 
         fs_station.azimuth = np.array([param.azimuth])
         fs_station.elevation = np.array([param.elevation])
@@ -1317,8 +1313,6 @@ class StationFactory(object):
         haps.y = np.array([0])
         haps.z = param.altitude * np.ones(num_haps)
 
-        haps.height = haps.z
-
         elev_max = 68.19  # corresponds to 50 km radius and 20 km altitude
         haps.azimuth = 360 * random_number_gen.random_sample(num_haps)
         haps.elevation = ((270 + elev_max) - (270 - elev_max)) * \
@@ -1371,7 +1365,6 @@ class StationFactory(object):
         rns.x = np.array([param.x])
         rns.y = np.array([param.y])
         rns.z = np.array([param.altitude])
-        rns.height = np.array([param.altitude])
 
         # minimum and maximum values for azimuth and elevation
         azimuth = np.array([-30, 30])
@@ -1490,10 +1483,9 @@ class StationFactory(object):
         space_station.y = np.array(
             [distance * math.cos(math.radians(theta_grd_elev))],
         )
-        space_station.height = np.array(
+        space_station.z = np.array(
             [distance * math.sin(math.radians(theta_grd_elev))],
         )
-        space_station.z = space_station.height
 
         # Elevation and azimuth at sensor wrt centre of the footprint
         # It is assumed the sensor is at y-axis, hence azimuth is 270 deg
@@ -1560,7 +1552,6 @@ class StationFactory(object):
         mss_ss.x = ntn_topology.space_station_x * np.ones(num_bs) + param_mss.x
         mss_ss.y = ntn_topology.space_station_y * np.ones(num_bs) + param_mss.y
         mss_ss.z = ntn_topology.space_station_z * np.ones(num_bs)
-        mss_ss.height = ntn_topology.space_station_z * np.ones(num_bs)
         mss_ss.elevation = ntn_topology.elevation
         mss_ss.is_space_station = True
         mss_ss.azimuth = ntn_topology.azimuth
@@ -1682,7 +1673,6 @@ class StationFactory(object):
         mss_d2d.z = mss_d2d_values["sat_z"]
         mss_d2d.elevation = mss_d2d_values["sat_antenna_elev"]
         mss_d2d.azimuth = mss_d2d_values["sat_antenna_azim"]
-        mss_d2d.height = mss_d2d_values["sat_alt"]
 
         mss_d2d.active = np.zeros(total_satellites, dtype=bool)
 

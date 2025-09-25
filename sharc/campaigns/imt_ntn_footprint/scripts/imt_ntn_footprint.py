@@ -68,7 +68,7 @@ if __name__ == "__main__":
 
     ntn_ue.active = np.ones(ntn_ue.num_stations, dtype=bool)
     ntn_bs = StationFactory.generate_mss_ss(param_mss)
-    phi, theta = ntn_bs.get_pointing_vector_to(ntn_ue)
+    phi, theta = ntn_bs.get_global_pointing_vector_to(ntn_ue)
     station_1_active = np.where(ntn_bs.active)[0]
     station_2_active = np.where(ntn_ue.active)[0]
     beams_idx = np.zeros(len(station_2_active), dtype=int)

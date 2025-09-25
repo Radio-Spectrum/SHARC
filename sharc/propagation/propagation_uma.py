@@ -61,17 +61,23 @@ class PropagationUMa(Propagation):
         if wrap_around_enabled and (
                 station_a.is_imt_station() and station_b.is_imt_station()):
             distances_2d, distances_3d, _, _ = \
-                station_a.get_dist_angles_wrap_around(station_b)
+                station_a.get_global_dist_angles_wrap_around(station_b)
         else:
-            distances_2d = station_a.get_distance_to(station_b)
+            distances_2d = station_a.get_local_distance_to(station_b)
             distances_3d = station_a.get_3d_distance_to(station_b)
+
+        if station_a.uses_local_coords or station_b.uses_local_coords:
+            raise NotImplementedError(
+                "UMa currently assumes stations z == height. "
+                "If stations has local coords != global coords, this probably isn't true"
+            )
 
         loss = self.get_loss(
             distances_3d,
             distances_2d,
             frequency * np.ones(distances_2d.shape),
-            station_b.height,
-            station_a.height,
+            station_b.z,
+            station_a.z,
             params.imt.shadowing,
         )
 

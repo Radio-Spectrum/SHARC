@@ -475,11 +475,11 @@ class Simulation(ABC, Observable):
         """
         if self.wrap_around_enabled:
             self.bs_to_ue_d_2D, self.bs_to_ue_d_3D, self.bs_to_ue_phi, self.bs_to_ue_theta = \
-                self.bs.get_dist_angles_wrap_around(self.ue)
+                self.bs.get_global_dist_angles_wrap_around(self.ue)
         else:
-            self.bs_to_ue_d_2D = self.bs.get_distance_to(self.ue)
+            self.bs_to_ue_d_2D = self.bs.get_local_distance_to(self.ue)
             self.bs_to_ue_d_3D = self.bs.get_3d_distance_to(self.ue)
-            self.bs_to_ue_phi, self.bs_to_ue_theta = self.bs.get_pointing_vector_to(
+            self.bs_to_ue_phi, self.bs_to_ue_theta = self.bs.get_global_pointing_vector_to(
                 self.ue, )
 
         bs_active = np.where(self.bs.active)[0]
@@ -576,7 +576,7 @@ class Simulation(ABC, Observable):
                 theta = self.bs_to_ue_theta
                 beams_idx = self.bs_to_ue_beam_rbs[station_2_active]
             elif not station_2.is_imt_station():
-                phi, theta = station_1.get_pointing_vector_to(station_2)
+                phi, theta = station_1.get_global_pointing_vector_to(station_2)
                 phi = np.repeat(phi, self.parameters.imt.ue.k, 0)
                 theta = np.repeat(theta, self.parameters.imt.ue.k, 0)
                 beams_idx = np.tile(
@@ -584,11 +584,11 @@ class Simulation(ABC, Observable):
                 )
 
         elif (station_1.station_type is StationType.IMT_UE):
-            phi, theta = station_1.get_pointing_vector_to(station_2)
+            phi, theta = station_1.get_global_pointing_vector_to(station_2)
             beams_idx = np.zeros(len(station_2_active), dtype=int)
 
         elif not station_1.is_imt_station():
-            phi, theta = station_1.get_pointing_vector_to(station_2)
+            phi, theta = station_1.get_global_pointing_vector_to(station_2)
             beams_idx = np.zeros(len(station_2_active), dtype=int)
 
         # Calculate gains
@@ -634,7 +634,7 @@ class Simulation(ABC, Observable):
         elif not station_1.is_imt_station():
 
             off_axis_angle = station_1.get_off_axis_angle(station_2)
-            phi, theta = station_1.get_pointing_vector_to(station_2)
+            phi, theta = station_1.get_global_pointing_vector_to(station_2)
             for k in station_1_active:
                 gains[k, station_2_active] = \
                     station_1.antenna[k].calculate_gain(
@@ -776,7 +776,7 @@ class Simulation(ABC, Observable):
 
             # Plot user equipments
             ax.scatter(
-                self.ue.x, self.ue.height, color='r',
+                self.ue.x, self.ue.z, color='r',
                 edgecolor="w", linewidth=0.5, label="UE",
             )
 

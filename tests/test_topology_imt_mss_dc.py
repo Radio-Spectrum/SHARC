@@ -117,7 +117,7 @@ class TestTopologyImtMssDc(unittest.TestCase):
         ref_space_stations.y = self.imt_mss_dc_topology.space_station_y
         ref_space_stations.z = self.imt_mss_dc_topology.space_station_z
 
-        phi, theta = ref_space_stations.get_pointing_vector_to(
+        phi, theta = ref_space_stations.get_global_pointing_vector_to(
             ref_earth_center)
         npt.assert_array_almost_equal(
             np.squeeze(

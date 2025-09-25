@@ -366,7 +366,6 @@ class SimulationUplinkTest(unittest.TestCase):
         self.simulation.system.x = np.array([0])
         self.simulation.system.y = np.array([0])
         self.simulation.system.z = np.array([self.param.fss_ss.altitude])
-        self.simulation.system.height = np.array([self.param.fss_ss.altitude])
 
         # test the method that calculates interference from IMT UE to FSS space
         # station
@@ -781,7 +780,7 @@ class SimulationUplinkTest(unittest.TestCase):
         )
         self.simulation.system.x = np.array([-2000])
         self.simulation.system.y = np.array([0])
-        self.simulation.system.height = np.array(
+        self.simulation.system.z = np.array(
             [self.param.ras.geometry.height])
         self.simulation.system.antenna[0].effective_area = 54.9779
 
@@ -895,7 +894,7 @@ class SimulationUplinkTest(unittest.TestCase):
 
         # Test BS gains
         # Test pointing vector
-        phi, theta = self.simulation.bs.get_pointing_vector_to(
+        phi, theta = self.simulation.bs.get_global_pointing_vector_to(
             self.simulation.ue,
         )
         npt.assert_allclose(

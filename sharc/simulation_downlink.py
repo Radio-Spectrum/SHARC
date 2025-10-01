@@ -248,8 +248,7 @@ class SimulationDownlink(Simulation):
                     is_co_channel=True,
                 )
             if self.adjacent_channel:
-                self.coupling_loss_imt_system_adjacent = \
-                    self.calculate_coupling_loss_system_imt(
+                self.coupling_loss_imt_system_adjacent = self.calculate_coupling_loss_system_imt(
                         self.system,
                         self.bs,
                         is_co_channel=False,
@@ -308,17 +307,13 @@ class SimulationDownlink(Simulation):
                         (self.param_system.bandwidth - self.overlapping_bandwidth) /
                         self.param_system.bandwidth
                     )
-                
-                    for beam in active_beams:
 
-                        if beam < self.coupling_loss_imt_wifi_ap_adjacent.shape[1]:
-                            oob_interference_ap = oob_power - self.coupling_loss_imt_wifi_ap_adjacent[:, beam] + bw_factor
-                            rx_interference += np.sum(np.power(10, 0.1 * oob_interference_ap))
+                    oob_interference_ap = oob_power - self.coupling_loss_imt_wifi_ap_adjacent[active_beams[0]] + bw_factor
+                    rx_interference += np.sum(np.power(10, 0.1 * oob_interference_ap))
 
 
-                        if beam < self.coupling_loss_imt_wifi_sta_adjacent.shape[1]:
-                            oob_interference_sta = oob_power - self.coupling_loss_imt_wifi_sta_adjacent[:, beam] + bw_factor
-                            rx_interference += np.sum(np.power(10, 0.1 * oob_interference_sta))
+                    oob_interference_sta = oob_power - self.coupling_loss_imt_wifi_sta_adjacent[active_beams[0]] + bw_factor
+                    rx_interference += np.sum(np.power(10, 0.1 * oob_interference_sta))
 
                 else:
                     oob_interference = oob_power \

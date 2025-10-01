@@ -344,11 +344,12 @@ class Simulation(ABC, Observable):
             # repeat for each BS beam
            
             if self.parameters.general.system == "WIFI":
-                gain_sys_to_imt = self.calculate_gains(system_station, imt_station)
-                gain_imt_to_sys = np.transpose(
+                gain_sys_to_imt = np.repeat(self.calculate_gains(system_station, imt_station),
+                                            self.parameters.imt.ue.k, 1)
+                gain_imt_to_sys = np.repeat(np.transpose(
                     self.calculate_gains(
                         imt_station, system_station, is_co_channel,
-                    ),
+                    )), self.parameters.wifi.sta.k, 1
                 )
 
             else:
@@ -385,7 +386,7 @@ class Simulation(ABC, Observable):
             self.imt_system_diffraction_loss = path_loss[2]
             path_loss = path_loss[0]
 
-        if imt_station.station_type is StationType.IMT_UE or (self.parameters.general.system == "WIFI"):
+        if imt_station.station_type is StationType.IMT_UE:
             self.imt_system_path_loss = path_loss
         else:
             # Repeat for each BS beam

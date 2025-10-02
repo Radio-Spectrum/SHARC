@@ -209,8 +209,8 @@ class SimulationDownlinkTest(unittest.TestCase):
             self.simulation.topology,
             random_number_gen,
         )
-        self.simulation.ue.x = np.array([20, 70, 110, 170])
-        self.simulation.ue.y = np.array([0, 0, 0, 0])
+        self.simulation.ue.geom.x_global = np.array([20, 70, 110, 170])
+        self.simulation.ue.geom.y_global = np.array([0, 0, 0, 0])
         self.simulation.ue.antenna = np.array(
             [AntennaOmni(10), AntennaOmni(11), AntennaOmni(22), AntennaOmni(23)],
         )
@@ -337,9 +337,9 @@ class SimulationDownlinkTest(unittest.TestCase):
         self.simulation.system = StationFactory.generate_fss_space_station(
             self.param.fss_ss,
         )
-        self.simulation.system.x = np.array([0.01])  # avoids zero-division
-        self.simulation.system.y = np.array([0])
-        self.simulation.system.z = np.array([self.param.fss_ss.altitude])
+        self.simulation.system.geom.x_global = np.array([0.01])  # avoids zero-division
+        self.simulation.system.geom.y_global = np.array([0])
+        self.simulation.system.geom.z_global = np.array([self.param.fss_ss.altitude])
 
         # test the method that calculates interference from IMT UE to FSS space
         # station
@@ -419,8 +419,8 @@ class SimulationDownlinkTest(unittest.TestCase):
             self.simulation.topology,
             random_number_gen,
         )
-        self.simulation.ue.x = np.array([20, 70, 110, 170])
-        self.simulation.ue.y = np.array([0, 0, 0, 0])
+        self.simulation.ue.geom.x_global = np.array([20, 70, 110, 170])
+        self.simulation.ue.geom.y_global = np.array([0, 0, 0, 0])
         self.simulation.ue.antenna = np.array(
             [AntennaOmni(10), AntennaOmni(11), AntennaOmni(22), AntennaOmni(23)],
         )
@@ -518,9 +518,9 @@ class SimulationDownlinkTest(unittest.TestCase):
         self.simulation.system = StationFactory.generate_fss_earth_station(
             self.param.fss_es, random_number_gen,
         )
-        self.simulation.system.x = np.array([-2000])
-        self.simulation.system.y = np.array([0])
-        self.simulation.system.z = np.array([self.param.fss_es.height])
+        self.simulation.system.geom.x_global = np.array([-2000])
+        self.simulation.system.geom.y_global = np.array([0])
+        self.simulation.system.geom.z_global = np.array([self.param.fss_es.height])
 
         self.simulation.propagation_imt = PropagationFactory.create_propagation(
             self.param.imt.channel_model,
@@ -640,8 +640,8 @@ class SimulationDownlinkTest(unittest.TestCase):
             self.simulation.topology,
             random_number_gen,
         )
-        self.simulation.ue.x = np.array([20, 70, 110, 170])
-        self.simulation.ue.y = np.array([0, 0, 0, 0])
+        self.simulation.ue.geom.x_global = np.array([20, 70, 110, 170])
+        self.simulation.ue.geom.y_global = np.array([0, 0, 0, 0])
         self.simulation.ue.antenna = np.array(
             [AntennaOmni(10), AntennaOmni(11), AntennaOmni(22), AntennaOmni(23)],
         )
@@ -693,9 +693,9 @@ class SimulationDownlinkTest(unittest.TestCase):
         self.simulation.system = StationFactory.generate_ras_station(
             self.param.ras, random_number_gen, topology=None,
         )
-        self.simulation.system.x = np.array([-2000])
-        self.simulation.system.y = np.array([0])
-        self.simulation.system.z = np.array(
+        self.simulation.system.geom.x_global = np.array([-2000])
+        self.simulation.system.geom.y_global = np.array([0])
+        self.simulation.system.geom.z_global = np.array(
             [self.param.ras.geometry.height])
         self.simulation.system.antenna[0].effective_area = 54.9779
 

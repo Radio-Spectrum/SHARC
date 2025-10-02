@@ -47,7 +47,7 @@ class PropagationFreeSpace(Propagation):
             Return an array station_a.num_stations x station_b.num_stations with the path loss
             between each station
         """
-        distance_3d = station_a.get_3d_distance_to(station_b)
+        distance_3d = station_a.geom.get_3d_distance_to(station_b.geom)
         loss = self.get_free_space_loss(
             frequency=frequency, distance=distance_3d)
 

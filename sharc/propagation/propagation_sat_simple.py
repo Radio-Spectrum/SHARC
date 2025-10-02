@@ -66,7 +66,7 @@ class PropagationSatSimple(Propagation):
             Return an array station_a.num_stations x station_b.num_stations with the path loss
             between each station
         """
-        distance_3d = station_a.get_3d_distance_to(station_b)
+        distance_3d = station_a.geom.get_3d_distance_to(station_b.geom)
         frequency = frequency * np.ones(distance_3d.shape)
         indoor_stations = np.tile(
             station_b.indoor, (station_a.num_stations, 1),
@@ -78,7 +78,7 @@ class PropagationSatSimple(Propagation):
             "FIXME: apparent_elevation_angle should receive earth station altitude..."
         )
         if station_a.is_space_station:
-            elevation_angles["free_space"] = station_b.get_local_elevation(station_a)
+            elevation_angles["free_space"] = station_b.geom.get_local_elevation(station_a.geom)
             # if (station_b_gains.shape != distance.shape):
             #     raise ValueError(f"Invalid shape for station_b_gains = {station_b_gains.shape}")
             elevation_angles["apparent"] = PropagationP619.apparent_elevation_angle(
@@ -89,7 +89,7 @@ class PropagationSatSimple(Propagation):
             elevation_angles["apparent"] = np.transpose(
                 elevation_angles["apparent"])
         elif station_b.is_space_station:
-            elevation_angles["free_space"] = station_a.get_local_elevation(station_b)
+            elevation_angles["free_space"] = station_a.geom.get_local_elevation(station_b.geom)
             elevation_angles["apparent"] = PropagationP619.apparent_elevation_angle(
                 elevation_angles["free_space"], station_b.height, )
         else:

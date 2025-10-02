@@ -68,11 +68,11 @@ if __name__ == "__main__":
 
     ntn_ue.active = np.ones(ntn_ue.num_stations, dtype=bool)
     ntn_bs = StationFactory.generate_mss_ss(param_mss)
-    phi, theta = ntn_bs.get_global_pointing_vector_to(ntn_ue)
+    phi, theta = ntn_bs.geom.get_global_pointing_vector_to(ntn_ue)
     station_1_active = np.where(ntn_bs.active)[0]
     station_2_active = np.where(ntn_ue.active)[0]
     beams_idx = np.zeros(len(station_2_active), dtype=int)
-    off_axis_angle = ntn_bs.get_off_axis_angle(ntn_ue)
+    off_axis_angle = ntn_bs.geom.get_off_axis_angle(ntn_ue.geom)
     gains = np.zeros(phi.shape)
     for k in station_1_active:
         gains[k, station_2_active] = ntn_bs.antenna[k].calculate_gain(
@@ -86,9 +86,9 @@ if __name__ == "__main__":
     # ax.set_ylim([-200, 200])
     ntn_topology.plot_3d(ax, False)  # Plot the 3D topology
     im = ax.scatter(
-        xs=ntn_ue.x /
+        xs=ntn_ue.geom.x_global /
         1000,
-        ys=ntn_ue.y /
+        ys=ntn_ue.geom.y_global /
         1000,
         c=gains[beam_idx] -
         np.max(

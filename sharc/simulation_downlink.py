@@ -378,8 +378,8 @@ class SimulationDownlink(Simulation):
         # Calculate PFD at the UE
 
         # Distance from each system transmitter to each UE receiver (in meters)
-        dist_sys_to_imt = self.system.get_3d_distance_to(
-            self.ue)  # shape: [n_tx, n_ue]
+        dist_sys_to_imt = self.system.geom.get_3d_distance_to(
+            self.ue.geom)  # shape: [n_tx, n_ue]
 
         # EIRP in dBW/MHz per transmitter
         eirp_dBW_MHz = self.param_system.tx_power_density + \

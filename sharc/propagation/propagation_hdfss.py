@@ -71,10 +71,10 @@ class PropagationHDFSS(Propagation):
             Return an array station_a.num_stations x station_b.num_stations with the path loss
             between each station
         """
-        distance = station_a.get_3d_distance_to(station_b)  # P.452 expects Kms
+        distance = station_a.geom.get_3d_distance_to(station_b.geom)  # P.452 expects Kms
         frequency_array = frequency * \
             np.ones(distance.shape)  # P.452 expects GHz
-        elevation = station_b.get_local_elevation(station_a)
+        elevation = station_b.geom.get_local_elevation(station_a.geom)
 
         if station_a.uses_local_coords or station_b.uses_local_coords:
             raise NotImplementedError(
@@ -87,10 +87,10 @@ class PropagationHDFSS(Propagation):
             elevation=elevation,
             imt_sta_type=station_b.station_type,
             frequency=frequency_array,
-            imt_x=station_b.x,
-            imt_y=station_b.y,
-            imt_z=station_b.z,
-            es_x=station_a.x,
-            es_y=station_a.y,
-            es_z=station_a.z,
+            imt_x=station_b.geom.x_global,
+            imt_y=station_b.geom.y_global,
+            imt_z=station_b.geom.z_global,
+            es_x=station_a.geom.x_global,
+            es_y=station_a.geom.y_global,
+            es_z=station_a.geom.z_global,
         )

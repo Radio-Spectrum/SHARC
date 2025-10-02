@@ -69,7 +69,6 @@ class TestGeometryConverter(unittest.TestCase):
         for coord_sys in self.all_converters:
             lat, lon, alt = ecef2lla(coord_sys.ref_x, coord_sys.ref_y, coord_sys.ref_z)
             # ecef2lla approximation requires "almost equal" directive
-            print("coord_sys.ref_lat", coord_sys.ref_lat)
             self.assertAlmostEqual(lat[0], coord_sys.ref_lat, places=8)
             self.assertAlmostEqual(lon[0], coord_sys.ref_long, places=8)
             self.assertAlmostEqual(alt[0], coord_sys.ref_alt, places=8)
@@ -126,25 +125,35 @@ class TestGeometryConverter(unittest.TestCase):
             azim_bef = rng.uniform(-180, 180, n_samples)
             elev_bef = rng.uniform(-90, 90, n_samples)
 
-            stations.x, stations.y, stations.z = xyz_bef
-            stations.azimuth = azim_bef
-            stations.elevation = elev_bef
+            stations.geom.x_global, stations.geom.y_global, stations.geom.z_global = xyz_bef
+            stations.geom.pointn_azim_global = azim_bef
+            stations.geom.pointn_elev_global = elev_bef
 
             # get relative distances and off axis while in ecef
-            dists_bef = stations.get_3d_distance_to(stations)
-            off_axis_bef = stations.get_off_axis_angle(stations)
+            dists_bef = stations.geom.get_3d_distance_to(stations.geom)
+            off_axis_bef = stations.geom.get_off_axis_angle(stations.geom)
 
             # convert stations to enu
-            coord_sys.station_ecef2enu(stations)
-
+            nx, ny, nz = coord_sys.ecef2enu(
+                stations.geom.x_global,
+                stations.geom.y_global,
+                stations.geom.z_global,
+            )
+            nazim, nelev = coord_sys.angle_ecef2enu(
+                stations.geom.pointn_azim_global,
+                stations.geom.pointn_elev_global,
+            )
+            stations.geom.set_global_coords(
+                nx, ny, nz, nazim, nelev
+            )
             # check if reference origin
-            self.assertEqual(stations.x[0], 0)
-            self.assertEqual(stations.y[0], 0)
-            self.assertEqual(stations.z[0], 0)
+            self.assertEqual(stations.geom.x_global[0], 0)
+            self.assertEqual(stations.geom.y_global[0], 0)
+            self.assertEqual(stations.geom.z_global[0], 0)
 
             # get relative distances and off axis while in enu
-            dists_aft = stations.get_3d_distance_to(stations)
-            off_axis_aft = stations.get_off_axis_angle(stations)
+            dists_aft = stations.geom.get_3d_distance_to(stations.geom)
+            off_axis_aft = stations.geom.get_off_axis_angle(stations.geom)
 
             # all stations should maintain same relative distances and off axis
             # since their relative positioning and pointing should eq in ECEF
@@ -167,39 +176,49 @@ class TestGeometryConverter(unittest.TestCase):
             # so we ignore the first station (used as reference) on these
             # checks
             npt.assert_equal(
-                np.abs(stations.x[1:] - xyz_bef[0][1:]) > 1e3,
+                np.abs(stations.geom.x_global[1:] - xyz_bef[0][1:]) > 1e3,
                 True
             )
             npt.assert_equal(
-                np.abs(stations.y[1:] - xyz_bef[1][1:]) > 1e3,
+                np.abs(stations.geom.y_global[1:] - xyz_bef[1][1:]) > 1e3,
                 True
             )
             npt.assert_equal(
-                np.abs(stations.z[1:] - xyz_bef[2][1:]) > 1e3,
+                np.abs(stations.geom.z_global[1:] - xyz_bef[2][1:]) > 1e3,
                 True
             )
             # and the elevation angle may not change much if pointing vector is to the east/west
             # since the pointing vector is aligned with the x axis, the rotation along it
             # won't change the value much
             npt.assert_equal(
-                np.abs(stations.azimuth - azim_bef) > 0.4,
+                np.abs(stations.geom.pointn_azim_global - azim_bef) > 0.4,
                 True
             )
             npt.assert_equal(
-                np.abs(stations.elevation - elev_bef) > 0.4,
+                np.abs(stations.geom.pointn_elev_global - elev_bef) > 0.4,
                 True
             )
 
             # return stations to starting case:
-            coord_sys.station_enu2ecef(stations)
-
+            nx, ny, nz = coord_sys.enu2ecef(
+                stations.geom.x_global,
+                stations.geom.y_global,
+                stations.geom.z_global,
+            )
+            nazim, nelev = coord_sys.angle_enu2ecef(
+                stations.geom.pointn_azim_global,
+                stations.geom.pointn_elev_global,
+            )
+            stations.geom.set_global_coords(
+                nx, ny, nz, nazim, nelev
+            )
             # check if their position is the same as at the start
             # some precision error occurs, so "almost equal" is needed
-            npt.assert_almost_equal(stations.x, xyz_bef[0])
-            npt.assert_almost_equal(stations.y, xyz_bef[1])
-            npt.assert_almost_equal(stations.z, xyz_bef[2])
-            npt.assert_almost_equal(stations.azimuth, azim_bef)
-            npt.assert_almost_equal(stations.elevation, elev_bef)
+            npt.assert_almost_equal(stations.geom.x_global, xyz_bef[0])
+            npt.assert_almost_equal(stations.geom.y_global, xyz_bef[1])
+            npt.assert_almost_equal(stations.geom.z_global, xyz_bef[2])
+            npt.assert_almost_equal(stations.geom.pointn_azim_global, azim_bef)
+            npt.assert_almost_equal(stations.geom.pointn_elev_global, elev_bef)
 
 
 if __name__ == '__main__':

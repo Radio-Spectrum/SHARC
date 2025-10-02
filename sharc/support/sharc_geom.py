@@ -6,7 +6,6 @@ import scipy.spatial.transform
 import typing
 
 from sharc.satellite.utils.sat_utils import lla2ecef
-from sharc.station_manager import StationManager
 from sharc.support.sharc_utils import to_scalar
 from sharc.satellite.ngso.constants import EARTH_RADIUS_M, EARTH_DEFAULT_CRS, EARTH_SPHERICAL_CRS
 
@@ -279,6 +278,10 @@ class CoordinateSystem():
         # can also be confirmed comparing to here:
         # https://gssc.esa.int/navipedia/index.php/Transformations_between_ECEF_and_ENU_coordinates
 
+        # # pre calculating rotation matrices
+        # self.rotation_mtx = self.rotation.as_matrix()
+        # self.inv_rotation_mtx = self.rotation.inv().as_matrix()
+
     def ecef2enu(
         self, x, y, z, *, translate=None
     ):
@@ -376,36 +379,12 @@ class CoordinateSystem():
 
         return self.ecef2enu(x, y, z)
 
-    def station_ecef2enu(
-        self, station: StationManager, idx=None
-    ) -> None:
-        """In-place rotate and translate all coordinates so that reference parameters end up in (0,0,0).
-
-        Stations end up in the same relative position according to each other, adapting their angles to the rotation.
-        If idx is specified, only stations[idx] will be converted.
-
-        Parameters
-        ----------
-        station : StationManager
-            The station manager whose stations will be transformed.
-        idx : array-like or None, optional
-            Indices of stations to convert (default: all).
+    def angle_ecef2enu(
+        self, azim: np.ndarray, elev: np.ndarray
+    ) -> tuple[np.ndarray, np.ndarray]:
         """
-        # transform positions
-        if idx is None:
-            nx, ny, nz = self.ecef2enu(
-                station.x, station.y, station.z)
-        else:
-            nx, ny, nz = self.ecef2enu(
-                station.x[idx], station.y[idx], station.z[idx])
-
-        if idx is None:
-            azim = station.azimuth
-            elev = station.elevation
-        else:
-            azim = station.azimuth[idx]
-            elev = station.elevation[idx]
-
+        Receives pointing angles in ecef coordinates and transforms to ENU
+        """
         r = 1
         # then get pointing vec
         pointing_vec_x, pointing_vec_y, pointing_vec_z = polar_to_cartesian(
@@ -416,54 +395,17 @@ class CoordinateSystem():
         pointing_vec_x, pointing_vec_y, pointing_vec_z = self.ecef2enu(
             pointing_vec_x, pointing_vec_y, pointing_vec_z, translate=0)
 
-        if idx is None:
-            station.x = nx
-            station.y = ny
-            station.z = nz
+        _, azimuth, elevation = cartesian_to_polar(
+            pointing_vec_x, pointing_vec_y, pointing_vec_z)
 
-            _, station.azimuth, station.elevation = cartesian_to_polar(
-                pointing_vec_x, pointing_vec_y, pointing_vec_z)
-        else:
-            station.x[idx] = nx
-            station.y[idx] = ny
-            station.z[idx] = nz
+        return azimuth, elevation
 
-            _, azimuth, elevation = cartesian_to_polar(
-                pointing_vec_x, pointing_vec_y, pointing_vec_z)
-
-            station.azimuth[idx] = azimuth
-            station.elevation[idx] = elevation
-
-    def station_enu2ecef(
-        self, station: StationManager, idx=None
-    ) -> None:
-        """In-place rotate and translate all coordinates so that reference parameters end up in (0,0,0).
-
-        Stations end up in the same relative position according to each other, adapting their angles to the rotation.
-        If idx is specified, only stations[idx] will be converted.
-
-        Parameters
-        ----------
-        station : StationManager
-            The station manager whose stations will be transformed.
-        idx : array-like or None, optional
-            Indices of stations to convert (default: all).
+    def angle_enu2ecef(
+        self, azim: np.ndarray, elev: np.ndarray
+    ) -> tuple[np.ndarray, np.ndarray]:
         """
-        # transform positions
-        if idx is None:
-            nx, ny, nz = self.enu2ecef(
-                station.x, station.y, station.z)
-        else:
-            nx, ny, nz = self.enu2ecef(
-                station.x[idx], station.y[idx], station.z[idx])
-
-        if idx is None:
-            azim = station.azimuth
-            elev = station.elevation
-        else:
-            azim = station.azimuth[idx]
-            elev = station.elevation[idx]
-
+        Receives pointing angles in ENU coordinates and transforms to ECEF
+        """
         r = 1
         # then get pointing vec
         pointing_vec_x, pointing_vec_y, pointing_vec_z = polar_to_cartesian(
@@ -474,23 +416,10 @@ class CoordinateSystem():
         pointing_vec_x, pointing_vec_y, pointing_vec_z = self.enu2ecef(
             pointing_vec_x, pointing_vec_y, pointing_vec_z, translate=0)
 
-        if idx is None:
-            station.x = nx
-            station.y = ny
-            station.z = nz
+        _, azimuth, elevation = cartesian_to_polar(
+            pointing_vec_x, pointing_vec_y, pointing_vec_z)
 
-            _, station.azimuth, station.elevation = cartesian_to_polar(
-                pointing_vec_x, pointing_vec_y, pointing_vec_z)
-        else:
-            station.x[idx] = nx
-            station.y[idx] = ny
-            station.z[idx] = nz
-
-            _, azimuth, elevation = cartesian_to_polar(
-                pointing_vec_x, pointing_vec_y, pointing_vec_z)
-
-            station.azimuth[idx] = azimuth
-            station.elevation[idx] = elevation
+        return azimuth, elevation
 
 
 def get_lambert_equal_area_crs(polygon: shp.geometry.Polygon):

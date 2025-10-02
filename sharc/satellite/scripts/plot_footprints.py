@@ -82,9 +82,9 @@ def plot_fp(
 
     center_of_earth = StationManager(1)
     # rotated and then translated center of earth
-    center_of_earth.x = np.array([0.0])
-    center_of_earth.y = np.array([0.0])
-    center_of_earth.z = np.array([-coord_sys.get_translation()])
+    center_of_earth.geom.x_global = np.array([0.0])
+    center_of_earth.geom.y_global = np.array([0.0])
+    center_of_earth.geom.z_global = np.array([-coord_sys.get_translation()])
 
     mss_d2d_manager = StationFactory.generate_mss_d2d(params, rng, coord_sys)
 
@@ -108,7 +108,7 @@ def plot_fp(
                 range=(-show_range / 2, show_range / 2)
             ),
             camera=dict(
-                center=dict(x=0, y=0, z=center_of_earth.z[0] / show_range / 1e3),
+                center=dict(x=0, y=0, z=center_of_earth.geom.z_global[0] / show_range / 1e3),
                 eye=dict(x=0, y=0, z=0.7),  # Eye position (above the center)
                 up=dict(x=0, y=1, z=0)      # "Up" is along +y (default is usually +z)
             )
@@ -129,9 +129,9 @@ def plot_fp(
     center_fp_at_sat = 0
     # get original sat xyz
     orx, ory, orz = coord_sys.enu2ecef(
-        station_1.x[center_fp_at_sat],
-        station_1.y[center_fp_at_sat],
-        station_1.z[center_fp_at_sat],
+        station_1.geom.x_global[center_fp_at_sat],
+        station_1.geom.y_global[center_fp_at_sat],
+        station_1.geom.z_global[center_fp_at_sat],
     )
     sat_lat, sat_long, sat_alt = ecef2lla(orx, ory, orz)
 
@@ -159,9 +159,9 @@ def plot_fp(
 
     # creates a StationManager to calculate the gains on
     surf_manager = StationManager(len(x_flat))
-    surf_manager.x = x_flat
-    surf_manager.y = y_flat
-    surf_manager.z = z_flat
+    surf_manager.geom.x_global = x_flat
+    surf_manager.geom.y_global = y_flat
+    surf_manager.geom.z_global = z_flat
 
     station_1 = mss_d2d_manager
     mss_active = np.where(station_1.active)[0]
@@ -171,8 +171,8 @@ def plot_fp(
     print("Calculating gains (memory intensive)")
     # Calculate vector and apointment off_axis
     gains = np.zeros((len(mss_active), len(station_2_active)))
-    off_axis_angle = station_1.get_off_axis_angle(station_2)
-    phi, theta = station_1.get_global_pointing_vector_to(station_2)
+    off_axis_angle = station_1.geom.get_off_axis_angle(station_2.geom)
+    phi, theta = station_1.geom.get_global_pointing_vector_to(station_2.geom)
     for k in range(len(mss_active)):
         gains[k, :] = \
             station_1.antenna[k].calculate_gain(
@@ -243,9 +243,9 @@ def plot_fp(
     # Plot all satellites (red markers)
     print("adding sats")
     fig.add_trace(go.Scatter3d(
-        x=mss_d2d_manager.x / 1e3,
-        y=mss_d2d_manager.y / 1e3,
-        z=mss_d2d_manager.z / 1e3,
+        x=mss_d2d_manager.geom.x_global / 1e3,
+        y=mss_d2d_manager.geom.y_global / 1e3,
+        z=mss_d2d_manager.geom.z_global / 1e3,
         mode='markers',
         marker=dict(size=2, color='red', opacity=0.5),
         showlegend=False
@@ -254,9 +254,9 @@ def plot_fp(
     # Plot visible satellites (green markers)
     # print(visible_positions['x'][visible_positions['x'] > 0])
     fig.add_trace(go.Scatter3d(
-        x=mss_d2d_manager.x[mss_d2d_manager.active] / 1e3,
-        y=mss_d2d_manager.y[mss_d2d_manager.active] / 1e3,
-        z=mss_d2d_manager.z[mss_d2d_manager.active] / 1e3,
+        x=mss_d2d_manager.geom.x_global[mss_d2d_manager.active] / 1e3,
+        y=mss_d2d_manager.geom.y_global[mss_d2d_manager.active] / 1e3,
+        z=mss_d2d_manager.geom.z_global[mss_d2d_manager.active] / 1e3,
         mode='markers',
         marker=dict(size=3, color='green', opacity=0.8),
         name="MSS D2D sat",
@@ -335,9 +335,9 @@ def plot_fp(
                 name="Exclusion Zone"
             ))
     # fig.add_trace(go.Scatter3d(
-    #     x=center_of_earth.x / 1e3,
-    #     y=center_of_earth.y / 1e3,
-    #     z=center_of_earth.z / 1e3,
+    #     x=center_of_earth.geom.x_global / 1e3,
+    #     y=center_of_earth.geom.y_global / 1e3,
+    #     z=center_of_earth.geom.z_global / 1e3,
     #     mode='markers',
     #     marker=dict(size=5, color='black', opacity=1.0),
     #     showlegend=False

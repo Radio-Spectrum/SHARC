@@ -153,10 +153,10 @@ class SimulationDownlinkTvroTest(unittest.TestCase):
             self.simulation.topology,
             random_number_gen,
         )
-        self.simulation.bs.x = np.array([0, -200])
-        self.simulation.bs.y = np.array([0, 0])
-        self.simulation.bs.azimuth = np.array([0, 180])
-        self.simulation.bs.elevation = np.array([-10, -10])
+        self.simulation.bs.geom.x_global = np.array([0, -200])
+        self.simulation.bs.geom.y_global = np.array([0, 0])
+        self.simulation.bs.geom.pointn_azim_global = np.array([0, 180])
+        self.simulation.bs.geom.pointn_elev_global = np.array([-10, -10])
 
         self.simulation.ue = StationFactory.generate_imt_ue(
             self.param.imt,
@@ -164,8 +164,8 @@ class SimulationDownlinkTvroTest(unittest.TestCase):
             self.simulation.topology,
             random_number_gen,
         )
-        self.simulation.ue.x = np.array([30, 60, -220, -300])
-        self.simulation.ue.y = np.array([0, 0, 0, 0])
+        self.simulation.ue.geom.x_global = np.array([30, 60, -220, -300])
+        self.simulation.ue.geom.y_global = np.array([0, 0, 0, 0])
 
         # test connection method
         self.simulation.connect_ue_to_bs()
@@ -285,8 +285,8 @@ class SimulationDownlinkTvroTest(unittest.TestCase):
         self.simulation.system = StationFactory.generate_fss_earth_station(
             self.param.fss_es, random_number_gen,
         )
-        self.simulation.system.x = np.array([600])
-        self.simulation.system.y = np.array([0])
+        self.simulation.system.geom.x_global = np.array([600])
+        self.simulation.system.geom.y_global = np.array([0])
 
         # test the method that calculates interference from IMT UE to FSS space
         # station

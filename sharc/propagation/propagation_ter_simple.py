@@ -64,7 +64,7 @@ class PropagationTerSimple(Propagation):
             Return an array station_a.num_stations x station_b.num_stations with the path loss
             between each station
         """
-        distance = station_a.get_3d_distance_to(station_b)
+        distance = station_a.geom.get_3d_distance_to(station_b.geom)
         frequency_array = frequency * np.ones(distance.shape)
         indoor_stations = np.tile(
             station_b.indoor, (station_a.num_stations, 1),

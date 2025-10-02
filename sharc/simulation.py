@@ -475,16 +475,16 @@ class Simulation(ABC, Observable):
         """
         if self.wrap_around_enabled:
             self.bs_to_ue_d_2D, self.bs_to_ue_d_3D, self.bs_to_ue_phi, self.bs_to_ue_theta = \
-                self.bs.get_global_dist_angles_wrap_around(self.ue)
+                self.bs.geom.get_global_dist_angles_wrap_around(self.ue.geom)
         else:
-            self.bs_to_ue_d_2D = self.bs.get_local_distance_to(self.ue)
-            self.bs_to_ue_d_3D = self.bs.get_3d_distance_to(self.ue)
-            self.bs_to_ue_phi, self.bs_to_ue_theta = self.bs.get_global_pointing_vector_to(
-                self.ue, )
+            self.bs_to_ue_d_2D = self.bs.geom.get_local_distance_to(self.ue.geom)
+            self.bs_to_ue_d_3D = self.bs.geom.get_3d_distance_to(self.ue.geom)
+            self.bs_to_ue_phi, self.bs_to_ue_theta = self.bs.geom.get_global_pointing_vector_to(
+                self.ue.geom, )
 
         bs_active = np.where(self.bs.active)[0]
 
-        assert np.all((-180 <= self.bs.azimuth) & (self.bs.azimuth <= 180)), "BS azimuth angles should be in [-180, 180] range"
+        assert np.all((-180 <= self.bs.geom.pointn_azim_global) & (self.bs.geom.pointn_azim_global <= 180)), "BS azimuth angles should be in [-180, 180] range"
         for bs in bs_active:
             # select K UE's among the ones that are connected to BS
             random_number_gen.shuffle(self.link[bs])
@@ -498,7 +498,7 @@ class Simulation(ABC, Observable):
 
                     # limit beamforming angle
                     beam_h_min, beam_h_max = wrap2_180(
-                        self.parameters.imt.bs.antenna.array.horizontal_beamsteering_range + self.bs.azimuth[bs]
+                        self.parameters.imt.bs.antenna.array.horizontal_beamsteering_range + self.bs.geom.pointn_azim_global[bs]
                     )
 
                     bs_beam_phi = clip_angle(
@@ -576,7 +576,7 @@ class Simulation(ABC, Observable):
                 theta = self.bs_to_ue_theta
                 beams_idx = self.bs_to_ue_beam_rbs[station_2_active]
             elif not station_2.is_imt_station():
-                phi, theta = station_1.get_global_pointing_vector_to(station_2)
+                phi, theta = station_1.geom.get_global_pointing_vector_to(station_2.geom)
                 phi = np.repeat(phi, self.parameters.imt.ue.k, 0)
                 theta = np.repeat(theta, self.parameters.imt.ue.k, 0)
                 beams_idx = np.tile(
@@ -584,17 +584,17 @@ class Simulation(ABC, Observable):
                 )
 
         elif (station_1.station_type is StationType.IMT_UE):
-            phi, theta = station_1.get_global_pointing_vector_to(station_2)
+            phi, theta = station_1.geom.get_global_pointing_vector_to(station_2.geom)
             beams_idx = np.zeros(len(station_2_active), dtype=int)
 
         elif not station_1.is_imt_station():
-            phi, theta = station_1.get_global_pointing_vector_to(station_2)
+            phi, theta = station_1.geom.get_global_pointing_vector_to(station_2.geom)
             beams_idx = np.zeros(len(station_2_active), dtype=int)
 
         # Calculate gains
         gains = np.zeros(phi.shape)
         if station_1.station_type is StationType.IMT_BS and not station_2.is_imt_station():
-            off_axis_angle = station_1.get_off_axis_angle(station_2)
+            off_axis_angle = station_1.geom.get_off_axis_angle(station_2.geom)
             for k in station_1_active:
                 for b in range(
                     k * self.parameters.imt.ue.k,
@@ -612,7 +612,7 @@ class Simulation(ABC, Observable):
                                                                                                                     station_2_active])
 
         elif station_1.station_type is StationType.IMT_UE and not station_2.is_imt_station():
-            off_axis_angle = station_1.get_off_axis_angle(station_2)
+            off_axis_angle = station_1.geom.get_off_axis_angle(station_2.geom)
             for k in station_1_active:
                 gains[k, station_2_active] = station_1.antenna[k].calculate_gain(
                     off_axis_angle_vec=off_axis_angle[k, station_2_active],
@@ -633,8 +633,8 @@ class Simulation(ABC, Observable):
 
         elif not station_1.is_imt_station():
 
-            off_axis_angle = station_1.get_off_axis_angle(station_2)
-            phi, theta = station_1.get_global_pointing_vector_to(station_2)
+            off_axis_angle = station_1.geom.get_off_axis_angle(station_2.geom)
+            phi, theta = station_1.geom.get_global_pointing_vector_to(station_2.geom)
             for k in station_1_active:
                 gains[k, station_2_active] = \
                     station_1.antenna[k].calculate_gain(
@@ -643,7 +643,7 @@ class Simulation(ABC, Observable):
                         phi_vec=phi[k, station_2_active],
                 )
         else:  # for IMT <-> IMT
-            off_axis_angle = station_1.get_off_axis_angle(station_2)
+            off_axis_angle = station_1.geom.get_off_axis_angle(station_2.geom)
             for k in station_1_active:
                 gains[k, station_2_active] = station_1.antenna[k].calculate_gain(
                     off_axis_angle_vec=off_axis_angle[k, station_2_active],
@@ -739,7 +739,7 @@ class Simulation(ABC, Observable):
 
         # Plot user equipments
         ax.scatter(
-            self.ue.x, self.ue.y, color='r',
+            self.ue.geom.x_global, self.ue.geom.y_global, color='r',
             edgecolor="w", linewidth=0.5, label="UE",
         )
 
@@ -748,13 +748,13 @@ class Simulation(ABC, Observable):
 
         # Plot UE's azimuth
         d = 0.1 * self.topology.cell_radius
-        for i in range(len(self.ue.x)):
+        for i in range(len(self.ue.geom.x_global)):
             plt.plot(
-                [self.ue.x[i], self.ue.x[i] + d *
-                    math.cos(math.radians(self.ue.azimuth[i]))],
+                [self.ue.geom.x_global[i], self.ue.geom.x_global[i] + d *
+                    math.cos(math.radians(self.ue.geom.pointn_azim_global[i]))],
                 [
-                    self.ue.y[i], self.ue.y[i] + d *
-                    math.sin(math.radians(self.ue.azimuth[i])),
+                    self.ue.geom.y_global[i], self.ue.geom.y_global[i] + d *
+                    math.sin(math.radians(self.ue.geom.pointn_azim_global[i])),
                 ],
                 'r-',
             )
@@ -776,7 +776,7 @@ class Simulation(ABC, Observable):
 
             # Plot user equipments
             ax.scatter(
-                self.ue.x, self.ue.z, color='r',
+                self.ue.geom.x_global, self.ue.geom.z_global, color='r',
                 edgecolor="w", linewidth=0.5, label="UE",
             )
 

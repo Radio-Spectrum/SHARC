@@ -340,7 +340,7 @@ class PropagationP619(Propagation):
             Return an array station_a.num_stations x station_b.num_stations with the path loss
             between each station
         """
-        distance = station_a.get_3d_distance_to(station_b)
+        distance = station_a.geom.get_3d_distance_to(station_b.geom)
         frequency = frequency * np.ones(distance.shape)
         indoor_stations = np.tile(
             station_b.indoor, (station_a.num_stations, 1),
@@ -354,8 +354,8 @@ class PropagationP619(Propagation):
                     "P619 currently assumes earth station z == height. "
                     "If ES has local coords != global coords, this probably isn't true"
                 )
-            earth_station_height = station_b.z
-            elevation_angles["free_space"] = station_b.get_local_elevation(station_a)
+            earth_station_height = station_b.geom.z_global
+            elevation_angles["free_space"] = station_b.geom.get_local_elevation(station_a.geom)
             earth_station_antenna_gain = station_b_gains
             # if (station_b_gains.shape != distance.shape):
             #     raise ValueError(f"Invalid shape for station_b_gains = {station_b_gains.shape}")
@@ -374,8 +374,8 @@ class PropagationP619(Propagation):
                     "P619 currently assumes earth station z == height. "
                     "If ES has local coords != global coords, this probably isn't true"
                 )
-            earth_station_height = station_a.z
-            elevation_angles["free_space"] = station_a.get_local_elevation(station_b)
+            earth_station_height = station_a.geom.z_global
+            elevation_angles["free_space"] = station_a.geom.get_local_elevation(station_b.geom)
             earth_station_antenna_gain = station_a_gains
             elevation_angles["apparent"] = self.apparent_elevation_angle(
                 elevation_angles["free_space"],

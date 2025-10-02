@@ -74,9 +74,9 @@ class PropagationABG(Propagation):
 
         if wrap_around_enabled:
             _, distances_3d, _, _ = \
-                station_a.get_global_dist_angles_wrap_around(station_b)
+                station_a.geom.get_global_dist_angles_wrap_around(station_b.geom)
         else:
-            distances_3d = station_a.get_3d_distance_to(station_b)
+            distances_3d = station_a.geom.get_3d_distance_to(station_b.geom)
 
         indoor_stations = station_a.indoor
 

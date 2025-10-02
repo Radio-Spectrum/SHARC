@@ -61,10 +61,10 @@ class StationManagerTest(unittest.TestCase):
         self.ue_param.multiplication_factor = 12
 
         self.station_manager = StationManager(3)
-        self.station_manager.x = np.array([10, 20, 30])
-        self.station_manager.y = np.array([15, 25, 35])
-        self.station_manager.z = np.array([1, 2, 3])
-        self.station_manager.intersite_dist = 100.0
+        self.station_manager.geom.x_global = np.array([10, 20, 30])
+        self.station_manager.geom.y_global = np.array([15, 25, 35])
+        self.station_manager.geom.z_global = np.array([1, 2, 3])
+        self.station_manager.geom.intersite_dist = 100.0
         # this is for downlink
         self.station_manager.tx_power = dict({0: [27, 30], 1: [35], 2: [40]})
         self.station_manager.rx_power = np.array([-50, -35, -10])
@@ -77,10 +77,10 @@ class StationManagerTest(unittest.TestCase):
         self.station_manager.station_type = StationType.IMT_BS
 
         self.station_manager2 = StationManager(2)
-        self.station_manager2.x = np.array([100, 200])
-        self.station_manager2.y = np.array([105, 250])
-        self.station_manager2.z = np.array([4, 5])
-        self.station_manager2.intersite_dist = 100.0
+        self.station_manager2.geom.x_global = np.array([100, 200])
+        self.station_manager2.geom.y_global = np.array([105, 250])
+        self.station_manager2.geom.z_global = np.array([4, 5])
+        self.station_manager2.geom.intersite_dist = 100.0
         # this is for downlink
         self.station_manager2.tx_power = dict({0: [25], 1: [28, 35]})
         self.station_manager2.rx_power = np.array([-50, -35])
@@ -91,10 +91,10 @@ class StationManagerTest(unittest.TestCase):
         self.station_manager2.station_type = StationType.IMT_BS
 
         self.station_manager3 = StationManager(1)
-        self.station_manager3.x = np.array([300])
-        self.station_manager3.y = np.array([400])
-        self.station_manager3.z = np.array([2])
-        self.station_manager3.intersite_dist = 100.0
+        self.station_manager3.geom.x_global = np.array([300])
+        self.station_manager3.geom.y_global = np.array([400])
+        self.station_manager3.geom.z_global = np.array([2])
+        self.station_manager3.geom.intersite_dist = 100.0
         # this is for uplink
         self.station_manager3.tx_power = 22
         self.station_manager3.rx_power = np.array([-50, -35])
@@ -147,55 +147,55 @@ class StationManagerTest(unittest.TestCase):
     def test_x(self):
         """Test getting and setting x-coordinates for stations."""
         # get a single value from the original array
-        self.assertEqual(self.station_manager.x[0], 10)
+        self.assertEqual(self.station_manager.geom.x_global[0], 10)
         # get two specific values
-        npt.assert_array_equal(self.station_manager.x[[1, 2]], [20, 30])
+        npt.assert_array_equal(self.station_manager.geom.x_global[[1, 2]], [20, 30])
         # get values in reverse order
-        npt.assert_array_equal(self.station_manager.x[[2, 1, 0]], [30, 20, 10])
+        npt.assert_array_equal(self.station_manager.geom.x_global[[2, 1, 0]], [30, 20, 10])
         # get all values (no need to specify the id's)
-        npt.assert_array_equal(self.station_manager.x, [10, 20, 30])
+        npt.assert_array_equal(self.station_manager.geom.x_global, [10, 20, 30])
         # set a single value and get it
-        self.station_manager.x[0] = 8
-        npt.assert_array_equal(self.station_manager.x[[0, 1]], [8, 20])
+        self.station_manager.geom.x_global[0] = 8
+        npt.assert_array_equal(self.station_manager.geom.x_global[[0, 1]], [8, 20])
         # set two values and then get all values
-        self.station_manager.x[[1, 2]] = [16, 32]
-        npt.assert_array_equal(self.station_manager.x, [8, 16, 32])
+        self.station_manager.geom.x_global[[1, 2]] = [16, 32]
+        npt.assert_array_equal(self.station_manager.geom.x_global, [8, 16, 32])
 
     def test_y(self):
         """Test getting and setting y-coordinates for stations."""
         # get a single value from the original array
-        self.assertEqual(self.station_manager.y[0], 15)
+        self.assertEqual(self.station_manager.geom.y_global[0], 15)
         # get two specific values
-        npt.assert_array_equal(self.station_manager.y[[1, 2]], [25, 35])
+        npt.assert_array_equal(self.station_manager.geom.y_global[[1, 2]], [25, 35])
         # get values in reverse order
-        npt.assert_array_equal(self.station_manager.y[[2, 1, 0]], [35, 25, 15])
+        npt.assert_array_equal(self.station_manager.geom.y_global[[2, 1, 0]], [35, 25, 15])
         # get all values (no need to specify the id's)
-        npt.assert_array_equal(self.station_manager.y, [15, 25, 35])
+        npt.assert_array_equal(self.station_manager.geom.y_global, [15, 25, 35])
         # set a single value and get it
-        self.station_manager.y[1] = 9
-        npt.assert_array_equal(self.station_manager.y[[0, 1]], [15, 9])
+        self.station_manager.geom.y_global[1] = 9
+        npt.assert_array_equal(self.station_manager.geom.y_global[[0, 1]], [15, 9])
         # set two values and then get all values
-        self.station_manager.y[[0, 2]] = [7, 21]
-        npt.assert_array_equal(self.station_manager.y, [7, 9, 21])
+        self.station_manager.geom.y_global[[0, 2]] = [7, 21]
+        npt.assert_array_equal(self.station_manager.geom.y_global, [7, 9, 21])
 
     def test_height(self):
         """Test getting and setting station heights."""
         # get a single value from the original array
-        self.assertEqual(self.station_manager.z[0], 1)
+        self.assertEqual(self.station_manager.geom.z_global[0], 1)
         # get two specific values
-        npt.assert_array_equal(self.station_manager.z[[0, 2]], [1, 3])
+        npt.assert_array_equal(self.station_manager.geom.z_global[[0, 2]], [1, 3])
         # get values in reverse order
         npt.assert_array_equal(
-            self.station_manager.z[[2, 1, 0]], [3, 2, 1],
+            self.station_manager.geom.z_global[[2, 1, 0]], [3, 2, 1],
         )
         # get all values (no need to specify the id's)
-        npt.assert_array_equal(self.station_manager.z, [1, 2, 3])
+        npt.assert_array_equal(self.station_manager.geom.z_global, [1, 2, 3])
         # set a single value and get it
-        self.station_manager.z[1] = 7
-        npt.assert_array_equal(self.station_manager.z[[1, 2]], [7, 3])
+        self.station_manager.geom.z_global[1] = 7
+        npt.assert_array_equal(self.station_manager.geom.z_global[[1, 2]], [7, 3])
         # set two values and then get all values
-        self.station_manager.z[[0, 2]] = [5, 4]
-        npt.assert_array_equal(self.station_manager.z, [5, 7, 4])
+        self.station_manager.geom.z_global[[0, 2]] = [5, 4]
+        npt.assert_array_equal(self.station_manager.geom.z_global, [5, 7, 4])
 
     def test_tx_power(self):
         """Test getting and setting transmit power for stations."""
@@ -312,7 +312,7 @@ class StationManagerTest(unittest.TestCase):
     def test_distance_to(self):
         """Test 2D distance calculation between station managers."""
         ref_distance = np.array([[356.405, 180.277]])
-        distance = self.station_manager3.get_local_distance_to(self.station_manager2)
+        distance = self.station_manager3.geom.get_local_distance_to(self.station_manager2.geom)
         npt.assert_allclose(distance, ref_distance, atol=1e-2)
 
         ref_distance = np.asarray([
@@ -320,14 +320,14 @@ class StationManagerTest(unittest.TestCase):
             [113.137, 288.140],
             [98.994, 274.089],
         ])
-        distance = self.station_manager.get_local_distance_to(self.station_manager2)
+        distance = self.station_manager.geom.get_local_distance_to(self.station_manager2.geom)
         npt.assert_allclose(distance, ref_distance, atol=1e-2)
 
     def test_3d_distance_to(self):
         """Test 3D distance calculation between station managers."""
         ref_distance = np.asarray([[356.411, 180.302]])
-        distance = self.station_manager3.get_3d_distance_to(
-            self.station_manager2,
+        distance = self.station_manager3.geom.get_3d_distance_to(
+            self.station_manager2.geom,
         )
         npt.assert_allclose(distance, ref_distance, atol=1e-2)
 
@@ -336,29 +336,29 @@ class StationManagerTest(unittest.TestCase):
             [113.154, 288.156],
             [99, 274.096],
         ])
-        distance = self.station_manager.get_3d_distance_to(
-            self.station_manager2,
+        distance = self.station_manager.geom.get_3d_distance_to(
+            self.station_manager2.geom,
         )
         npt.assert_allclose(distance, ref_distance, atol=1e-2)
 
     def test_wrap_around(self):
         """Test wrap-around distance and angle calculations between managers."""
         self.station_manager = StationManager(2)
-        self.station_manager.x = np.array([0, 150])
-        self.station_manager.y = np.array([0, -32])
-        self.station_manager.z = np.array([4, 5])
-        self.station_manager.z = np.array([4, 5])
-        self.station_manager.intersite_dist = 100.0
+        self.station_manager.geom.x_global = np.array([0, 150])
+        self.station_manager.geom.y_global = np.array([0, -32])
+        self.station_manager.geom.z_global = np.array([4, 5])
+        self.station_manager.geom.z_global = np.array([4, 5])
+        self.station_manager.geom.intersite_dist = 100.0
 
         self.station_manager2 = StationManager(3)
-        self.station_manager2.x = np.array([10, 200, 30])
-        self.station_manager2.y = np.array([15, 250, -350])
-        self.station_manager2.z = np.array([1, 2, 3])
-        self.station_manager2.z = np.array([1, 2, 3])
+        self.station_manager2.geom.x_global = np.array([10, 200, 30])
+        self.station_manager2.geom.y_global = np.array([15, 250, -350])
+        self.station_manager2.geom.z_global = np.array([1, 2, 3])
+        self.station_manager2.geom.z_global = np.array([1, 2, 3])
 
         # 2D Distance
-        d_2D, d_3D, phi, theta = self.station_manager.get_global_dist_angles_wrap_around(
-            self.station_manager2, )
+        d_2D, d_3D, phi, theta = self.station_manager.geom.get_global_dist_angles_wrap_around(
+            self.station_manager2.geom, )
         ref_d_2D = np.asarray([
             [18.03, 150.32, 85.39],
             [147.68, 181.12, 205.25],
@@ -389,8 +389,8 @@ class StationManagerTest(unittest.TestCase):
         """Test calculation of pointing vectors between station managers."""
         eps = 1e-1
         # Test 1
-        phi, theta = self.station_manager.get_global_pointing_vector_to(
-            self.station_manager2,
+        phi, theta = self.station_manager.geom.get_global_pointing_vector_to(
+            self.station_manager2.geom,
         )
         npt.assert_allclose(
             phi, np.array([
@@ -408,8 +408,8 @@ class StationManagerTest(unittest.TestCase):
         )
 
         # Test 2
-        phi, theta = self.station_manager2.get_global_pointing_vector_to(
-            self.station_manager,
+        phi, theta = self.station_manager2.geom.get_global_pointing_vector_to(
+            self.station_manager.geom,
         )
         npt.assert_allclose(
             phi, np.array([
@@ -425,15 +425,15 @@ class StationManagerTest(unittest.TestCase):
         )
 
         # Test 3
-        phi, theta = self.station_manager3.get_global_pointing_vector_to(
-            self.station_manager2,
+        phi, theta = self.station_manager3.geom.get_global_pointing_vector_to(
+            self.station_manager2.geom,
         )
         npt.assert_allclose(phi, np.array([[-124.13, -123.69]]), atol=eps)
         npt.assert_allclose(theta, np.array([[89.73, 89.05]]), atol=eps)
 
         # Test 4
-        phi, theta = self.station_manager2.get_global_pointing_vector_to(
-            self.station_manager3,
+        phi, theta = self.station_manager2.geom.get_global_pointing_vector_to(
+            self.station_manager3.geom,
         )
         npt.assert_allclose(phi, np.array([[55.86], [56.31]]), atol=eps)
         npt.assert_allclose(theta, np.array([[90.32], [90.95]]), atol=eps)
@@ -441,116 +441,104 @@ class StationManagerTest(unittest.TestCase):
     def test_off_axis_angle(self):
         """Test calculation of off-axis angles between station managers."""
         sm1 = StationManager(1)
-        sm1.x = np.array([0])
-        sm1.y = np.array([0])
-        sm1.z = np.array([0])
-        sm1.z = np.array([0])
-        sm1.azimuth = np.array([0])
-        sm1.elevation = np.array([0])
+        sm1.geom.x_global = np.array([0])
+        sm1.geom.y_global = np.array([0])
+        sm1.geom.z_global = np.array([0])
+        sm1.geom.pointn_azim_global = np.array([0])
+        sm1.geom.pointn_elev_global = np.array([0])
 
         sm2 = StationManager(6)
-        sm2.x = np.array([100, 100, 0, 100, 100, 100])
-        sm2.y = np.array([0, 0, 100, 100, 100, 100])
-        sm2.z = np.array([0, 100, 0, 0, 100, 100])
-        sm2.z = np.array([0, 100, 0, 0, 100, 100])
-        sm2.azimuth = np.array([180, 180, 180, 180, 180, 225])
-        sm2.elevation = np.array([0, 0, 0, 0, 0, 0])
+        sm2.geom.x_global = np.array([100, 100, 0, 100, 100, 100])
+        sm2.geom.y_global = np.array([0, 0, 100, 100, 100, 100])
+        sm2.geom.z_global = np.array([0, 100, 0, 0, 100, 100])
+        sm2.geom.pointn_azim_global = np.array([180, 180, 180, 180, 180, 225])
+        sm2.geom.pointn_elev_global = np.array([0, 0, 0, 0, 0, 0])
 
         phi_ref = np.array([[0, 45, 90, 45, 54.73, 54.73]])
-        npt.assert_allclose(phi_ref, sm1.get_off_axis_angle(sm2), atol=1e-2)
+        npt.assert_allclose(phi_ref, sm1.geom.get_off_axis_angle(sm2.geom), atol=1e-2)
 
         #######################################################################
         sm3 = StationManager(1)
-        sm3.x = np.array([0])
-        sm3.y = np.array([0])
-        sm3.z = np.array([0])
-        sm3.z = np.array([0])
-        sm3.azimuth = np.array([45])
-        sm3.elevation = np.array([0])
+        sm3.geom.x_global = np.array([0])
+        sm3.geom.y_global = np.array([0])
+        sm3.geom.z_global = np.array([0])
+        sm3.geom.pointn_azim_global = np.array([45])
+        sm3.geom.pointn_elev_global = np.array([0])
 
         sm4 = StationManager(2)
-        sm4.x = np.array([100, 60])
-        sm4.y = np.array([100, 80])
-        sm4.z = np.array([100, 100])
-        sm4.z = np.array([100, 100])
-        sm4.azimuth = np.array([180, 180])
-        sm4.elevation = np.array([0, 0])
+        sm4.geom.x_global = np.array([100, 60])
+        sm4.geom.y_global = np.array([100, 80])
+        sm4.geom.z_global = np.array([100, 100])
+        sm4.geom.pointn_azim_global = np.array([180, 180])
+        sm4.geom.pointn_elev_global = np.array([0, 0])
 
         phi_ref = np.array([[35.26, 45.57]])
-        npt.assert_allclose(phi_ref, sm3.get_off_axis_angle(sm4), atol=1e-2)
+        npt.assert_allclose(phi_ref, sm3.geom.get_off_axis_angle(sm4.geom), atol=1e-2)
 
         #######################################################################
         sm5 = StationManager(1)
-        sm5.x = np.array([0])
-        sm5.y = np.array([0])
-        sm5.z = np.array([0])
-        sm5.z = np.array([0])
-        sm5.azimuth = np.array([0])
-        sm5.elevation = np.array([45])
+        sm5.geom.x_global = np.array([0])
+        sm5.geom.y_global = np.array([0])
+        sm5.geom.z_global = np.array([0])
+        sm5.geom.pointn_azim_global = np.array([0])
+        sm5.geom.pointn_elev_global = np.array([45])
 
         sm6 = StationManager(2)
-        sm6.x = np.array([100, 100])
-        sm6.y = np.array([0, 0])
-        sm6.z = np.array([100, 100])
-        sm6.z = np.array([100, 100])
-        sm6.azimuth = np.array([180, 180])
-        sm6.elevation = np.array([0, 0])
+        sm6.geom.x_global = np.array([100, 100])
+        sm6.geom.y_global = np.array([0, 0])
+        sm6.geom.z_global = np.array([100, 100])
+        sm6.geom.pointn_azim_global = np.array([180, 180])
+        sm6.geom.pointn_elev_global = np.array([0, 0])
 
         phi_ref = np.array([[0, 0]])
-        npt.assert_allclose(phi_ref, sm5.get_off_axis_angle(sm6), atol=1e-2)
+        npt.assert_allclose(phi_ref, sm5.geom.get_off_axis_angle(sm6.geom), atol=1e-2)
 
         #######################################################################
         sm6 = StationManager(1)
-        sm6.x = np.array([0])
-        sm6.y = np.array([0])
-        sm6.z = np.array([100])
-        sm6.z = np.array([100])
-        sm6.azimuth = np.array([0])
-        sm6.elevation = np.array([270])
+        sm6.geom.x_global = np.array([0])
+        sm6.geom.y_global = np.array([0])
+        sm6.geom.z_global = np.array([100])
+        sm6.geom.pointn_azim_global = np.array([0])
+        sm6.geom.pointn_elev_global = np.array([270])
 
         sm7 = StationManager(2)
-        sm7.x = np.array([0, 100])
-        sm7.y = np.array([0, 0])
-        sm7.z = np.array([0, 0])
-        sm7.z = np.array([0, 0])
-        sm7.azimuth = np.array([180, 180])
-        sm7.elevation = np.array([0, 0])
+        sm7.geom.x_global = np.array([0, 100])
+        sm7.geom.y_global = np.array([0, 0])
+        sm7.geom.z_global = np.array([0, 0])
+        sm7.geom.pointn_azim_global = np.array([180, 180])
+        sm7.geom.pointn_elev_global = np.array([0, 0])
 
         phi_ref = np.array([[0, 45]])
-        npt.assert_allclose(phi_ref, sm6.get_off_axis_angle(sm7), atol=1e-2)
+        npt.assert_allclose(phi_ref, sm6.geom.get_off_axis_angle(sm7.geom), atol=1e-2)
 
     def test_elevation(self):
         """Test calculation of elevation angles between station managers."""
         sm1 = StationManager(1)
-        sm1.x = np.array([0])
-        sm1.y = np.array([0])
-        sm1.z = np.array([10])
-        sm1.z = np.array([10])
+        sm1.geom.x_global = np.array([0])
+        sm1.geom.y_global = np.array([0])
+        sm1.geom.z_global = np.array([10])
 
         sm2 = StationManager(6)
-        sm2.x = np.array([10, 10, 0, 0, 30, 20])
-        sm2.y = np.array([0, 0, 5, 10, 30, 20])
-        sm2.z = np.array([10, 20, 5, 0, 20, 20])
-        sm2.z = np.array([10, 20, 5, 0, 20, 20])
+        sm2.geom.x_global = np.array([10, 10, 0, 0, 30, 20])
+        sm2.geom.y_global = np.array([0, 0, 5, 10, 30, 20])
+        sm2.geom.z_global = np.array([10, 20, 5, 0, 20, 20])
 
         elevation_ref = np.array([[0, 45, -45, -45, 13.26, 19.47]])
-        npt.assert_allclose(elevation_ref, sm1.get_local_elevation(sm2), atol=1e-2)
+        npt.assert_allclose(elevation_ref, sm1.geom.get_local_elevation(sm2.geom), atol=1e-2)
 
         #######################################################################
         sm3 = StationManager(2)
-        sm3.x = np.array([0, 30])
-        sm3.y = np.array([0, 0])
-        sm3.z = np.array([10, 10])
-        sm3.z = np.array([10, 10])
+        sm3.geom.x_global = np.array([0, 30])
+        sm3.geom.y_global = np.array([0, 0])
+        sm3.geom.z_global = np.array([10, 10])
 
         sm4 = StationManager(2)
-        sm4.x = np.array([10, 10])
-        sm4.y = np.array([0, 0])
-        sm4.z = np.array([10, 20])
-        sm4.z = np.array([10, 20])
+        sm4.geom.x_global = np.array([10, 10])
+        sm4.geom.y_global = np.array([0, 0])
+        sm4.geom.z_global = np.array([10, 20])
 
         elevation_ref = np.array([[0, 45], [0, 26.56]])
-        npt.assert_allclose(elevation_ref, sm3.get_local_elevation(sm4), atol=1e-2)
+        npt.assert_allclose(elevation_ref, sm3.geom.get_local_elevation(sm4.geom), atol=1e-2)
 
 
 if __name__ == '__main__':

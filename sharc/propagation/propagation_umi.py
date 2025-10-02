@@ -67,10 +67,10 @@ class PropagationUMi(Propagation):
         if wrap_around_enabled and (
                 station_a.is_imt_station() and station_b.is_imt_station()):
             distance_2d, distance_3d, _, _ = \
-                station_a.get_global_dist_angles_wrap_around(station_b)
+                station_a.geom.get_global_dist_angles_wrap_around(station_b.geom)
         else:
-            distance_2d = station_a.get_local_distance_to(station_b)
-            distance_3d = station_a.get_3d_distance_to(station_b)
+            distance_2d = station_a.geom.get_local_distance_to(station_b.geom)
+            distance_3d = station_a.geom.get_3d_distance_to(station_b.geom)
 
         if station_a.uses_local_coords or station_b.uses_local_coords:
             raise NotImplementedError(
@@ -82,8 +82,8 @@ class PropagationUMi(Propagation):
             distance_3d,
             distance_2d,
             frequency * np.ones(distance_2d.shape),
-            station_b.z,
-            station_a.z,
+            station_b.geom.z_global,
+            station_a.geom.z_global,
             params.imt.shadowing,
         )
 

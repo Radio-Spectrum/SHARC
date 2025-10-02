@@ -1543,15 +1543,15 @@ class PropagationClearAir(Propagation):
             Return an array station_a.num_stations x station_b.num_stations with the path loss
             between each station
         """
-        distance = station_a.get_3d_distance_to(
-            station_b,
+        distance = station_a.geom.get_3d_distance_to(
+            station_b.geom,
         ) * (1e-3)  # P.452 expects Kms
         frequency_array = frequency * \
             np.ones(distance.shape) * (1e-3)  # P.452 expects GHz
         indoor_stations = np.tile(
             station_b.indoor, (station_a.num_stations, 1),
         )
-        elevation = station_b.get_local_elevation(station_a)
+        elevation = station_b.geom.get_local_elevation(station_a.geom)
         if params.imt.interfered_with:
             tx_gain = station_a_gains
             rx_gain = station_b_gains

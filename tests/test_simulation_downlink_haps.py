@@ -169,8 +169,10 @@ class SimulationDownlinkHapsTest(unittest.TestCase):
             self.simulation.topology,
             random_number_gen,
         )
-        self.simulation.ue.geom.x_global = np.array([20, 70, 110, 170])
-        self.simulation.ue.geom.y_global = np.array([0, 0, 0, 0])
+        self.simulation.ue.geom.set_global_coords(
+            np.array([20, 70, 110, 170]),
+            np.array([0, 0, 0, 0]),
+        )
         self.simulation.ue.antenna = np.array(
             [AntennaOmni(10), AntennaOmni(11), AntennaOmni(22), AntennaOmni(23)],
         )

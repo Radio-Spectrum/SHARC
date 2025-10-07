@@ -207,9 +207,11 @@ class StationFactoryTest(unittest.TestCase):
         param.validate()
 
         imt_center = StationManager(1)
-        imt_center.geom.x_global = np.array([0.])
-        imt_center.geom.y_global = np.array([0.])
-        imt_center.geom.z_global = np.array([0.])
+        imt_center.geom.set_global_coords(
+            np.array([0.]),
+            np.array([0.]),
+            np.array([0.]),
+        )
 
         # Test point it toward IMT center (0, 0, 0)
         param.geometry.azimuth.type = "POINTING_AT_IMT"
@@ -236,9 +238,11 @@ class StationFactoryTest(unittest.TestCase):
         # same as pointing toward center of earth
         center_of_earth = StationManager(1)
 
-        center_of_earth.geom.x_global = np.array([0.])
-        center_of_earth.geom.y_global = np.array([0.])
-        center_of_earth.geom.z_global = -np.array([EARTH_RADIUS_M + 1200])
+        center_of_earth.geom.set_global_coords(
+            np.array([0.]),
+            np.array([0.]),
+            -np.array([EARTH_RADIUS_M + 1200]),
+        )
 
         param.geometry.azimuth.type = "POINTING_AT_LAT_LONG_ALT"
         param.geometry.elevation.type = "POINTING_AT_LAT_LONG_ALT"

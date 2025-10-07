@@ -175,8 +175,10 @@ class SimulationAdjacentTest(unittest.TestCase):
             self.simulation.topology,
             random_number_gen,
         )
-        self.simulation.ue.geom.x_global = np.array([20, 70, 110, 170])
-        self.simulation.ue.geom.y_global = np.array([0, 0, 0, 0])
+        self.simulation.ue.geom.set_global_coords(
+            np.array([20, 70, 110, 170]),
+            np.array([0, 0, 0, 0]),
+        )
         self.simulation.ue.antenna = np.array(
             [AntennaOmni(10), AntennaOmni(11), AntennaOmni(22), AntennaOmni(23)],
         )
@@ -243,9 +245,11 @@ class SimulationAdjacentTest(unittest.TestCase):
         self.simulation.system = StationFactory.generate_fss_space_station(
             self.param.fss_ss,
         )
-        self.simulation.system.geom.x_global = np.array([0.01])  # avoids zero-division
-        self.simulation.system.geom.y_global = np.array([0])
-        self.simulation.system.geom.z_global = np.array([self.param.fss_ss.altitude])
+        self.simulation.system.geom.set_global_coords(
+            np.array([0.01]),  # avoids zero-division
+            np.array([0]),
+            np.array([self.param.fss_ss.altitude]),
+        )
 
         # test the method that calculates interference from IMT UE to FSS space
         # station
@@ -312,8 +316,10 @@ class SimulationAdjacentTest(unittest.TestCase):
             self.simulation.topology,
             random_number_gen,
         )
-        self.simulation.ue.geom.x_global = np.array([20, 70, 110, 170])
-        self.simulation.ue.geom.y_global = np.array([0, 0, 0, 0])
+        self.simulation.ue.geom.set_global_coords(
+            np.array([20, 70, 110, 170]),
+            np.array([0, 0, 0, 0]),
+        )
         self.simulation.ue.antenna = np.array(
             [AntennaOmni(10), AntennaOmni(11), AntennaOmni(22), AntennaOmni(23)],
         )
@@ -377,9 +383,11 @@ class SimulationAdjacentTest(unittest.TestCase):
         self.simulation.system = StationFactory.generate_fss_space_station(
             self.param.fss_ss,
         )
-        self.simulation.system.geom.x_global = np.array([0])
-        self.simulation.system.geom.y_global = np.array([0])
-        self.simulation.system.geom.z_global = np.array([self.param.fss_ss.altitude])
+        self.simulation.system.geom.set_global_coords(
+            np.array([0.01]),  # avoids zero-division
+            np.array([0]),
+            np.array([self.param.fss_ss.altitude]),
+        )
 
         # test the method that calculates interference from IMT UE to FSS space
         # station

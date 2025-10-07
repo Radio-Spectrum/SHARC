@@ -167,10 +167,11 @@ class SimulationIndoorTest(unittest.TestCase):
 
 #        print("Random position:")
 #        self.simulation.plot_scenario()
-        self.simulation.ue.geom.x_global = np.array([0.0, 45.0, 75.0, 120.0])
-        self.simulation.ue.geom.y_global = np.array([0.0, 50.0, 0.0, 50.0])
-        self.simulation.ue.geom.z_global = np.ones_like(
-            self.simulation.ue.geom.x_global) * self.param.imt.ue.height
+        self.simulation.ue.geom.set_global_coords(
+            np.array([0.0, 45.0, 75.0, 120.0]),
+            np.array([0.0, 50.0, 0.0, 50.0]),
+            np.ones_like(self.simulation.ue.geom.x_global) * self.param.imt.ue.height,
+        )
 #        print("Forced position:")
 #        self.simulation.plot_scenario()
 

@@ -125,9 +125,10 @@ class TestGeometryConverter(unittest.TestCase):
             azim_bef = rng.uniform(-180, 180, n_samples)
             elev_bef = rng.uniform(-90, 90, n_samples)
 
-            stations.geom.x_global, stations.geom.y_global, stations.geom.z_global = xyz_bef
-            stations.geom.pointn_azim_global = azim_bef
-            stations.geom.pointn_elev_global = elev_bef
+            stations.geom.set_global_coords(
+                xyz_bef[0], xyz_bef[1], xyz_bef[2],
+                azim_bef, elev_bef
+            )
 
             # get relative distances and off axis while in ecef
             dists_bef = stations.geom.get_3d_distance_to(stations.geom)

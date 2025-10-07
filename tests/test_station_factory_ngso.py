@@ -98,11 +98,13 @@ class StationFactoryNgsoTest(unittest.TestCase):
         # Test: check if center of earth is 0deg off axis, and that its
         # distance to satellite is correct
         earth_center = StationManager(1)
-        earth_center.geom.x_global = np.array([0.])
-        earth_center.geom.y_global = np.array([0.])
         x, y, z = lla2ecef(self.lat, self.long, self.alt)
-        earth_center.geom.z_global = -np.sqrt(
-            x * x + y * y + z * z,
+        earth_center.geom.set_global_coords(
+            np.array([0.]),
+            np.array([0.]),
+            -np.sqrt(
+                x * x + y * y + z * z,
+            )
         )
 
         self.assertNotAlmostEqual(earth_center.geom.z_global[0], 0.)
@@ -151,9 +153,11 @@ class StationFactoryNgsoTest(unittest.TestCase):
 
         # Test: check if center of earth is 0deg off axis
         earth_center = StationManager(1)
-        earth_center.geom.x_global = np.array([0.])
-        earth_center.geom.y_global = np.array([0.])
-        earth_center.geom.z_global = np.array([0.])
+        earth_center.geom.set_global_coords(
+            np.array([0.]),
+            np.array([0.]),
+            np.array([0.]),
+        )
 
         off_axis_angle = ngso_original_coord.geom.get_off_axis_angle(earth_center.geom)
 

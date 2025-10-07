@@ -201,8 +201,10 @@ class SimulationUplinkTest(unittest.TestCase):
             self.simulation.topology,
             random_number_gen,
         )
-        self.simulation.ue.geom.x_global = np.array([20, 70, 110, 170])
-        self.simulation.ue.geom.y_global = np.array([0, 0, 0, 0])
+        self.simulation.ue.geom.set_global_coords(
+            np.array([20, 70, 110, 170]),
+            np.array([0, 0, 0, 0]),
+        )
         self.simulation.ue.antenna = np.array(
             [AntennaOmni(10), AntennaOmni(11), AntennaOmni(22), AntennaOmni(23)],
         )
@@ -363,9 +365,11 @@ class SimulationUplinkTest(unittest.TestCase):
         self.simulation.system = StationFactory.generate_fss_space_station(
             self.param.fss_ss,
         )
-        self.simulation.system.geom.x_global = np.array([0])
-        self.simulation.system.geom.y_global = np.array([0])
-        self.simulation.system.geom.z_global = np.array([self.param.fss_ss.altitude])
+        self.simulation.system.geom.set_global_coords(
+            np.array([0]),
+            np.array([0]),
+            np.array([self.param.fss_ss.altitude]),
+        )
 
         # test the method that calculates interference from IMT UE to FSS space
         # station
@@ -432,8 +436,10 @@ class SimulationUplinkTest(unittest.TestCase):
             self.simulation.topology,
             random_number_gen,
         )
-        self.simulation.ue.geom.x_global = np.array([20, 70, 110, 170])
-        self.simulation.ue.geom.y_global = np.array([0, 0, 0, 0])
+        self.simulation.ue.geom.set_global_coords(
+            np.array([20, 70, 110, 170]),
+            np.array([0, 0, 0, 0]),
+        )
         self.simulation.ue.antenna = np.array(
             [AntennaOmni(10), AntennaOmni(11), AntennaOmni(22), AntennaOmni(23)],
         )
@@ -719,8 +725,10 @@ class SimulationUplinkTest(unittest.TestCase):
             self.simulation.topology,
             random_number_gen,
         )
-        self.simulation.ue.geom.x_global = np.array([20, 70, 110, 170])
-        self.simulation.ue.geom.y_global = np.array([0, 0, 0, 0])
+        self.simulation.ue.geom.set_global_coords(
+            np.array([20, 70, 110, 170]),
+            np.array([0, 0, 0, 0]),
+        )
         self.simulation.ue.antenna = np.array(
             [AntennaOmni(10), AntennaOmni(11), AntennaOmni(22), AntennaOmni(23)],
         )
@@ -778,10 +786,11 @@ class SimulationUplinkTest(unittest.TestCase):
         self.simulation.system = StationFactory.generate_ras_station(
             self.param.ras, random_number_gen, None,
         )
-        self.simulation.system.geom.x_global = np.array([-2000])
-        self.simulation.system.geom.y_global = np.array([0])
-        self.simulation.system.geom.z_global = np.array(
-            [self.param.ras.geometry.height])
+        self.simulation.system.geom.set_global_coords(
+            np.array([-2000]),
+            np.array([0]),
+            np.array([self.param.ras.geometry.height]),
+        )
         self.simulation.system.antenna[0].effective_area = 54.9779
 
         # Test gain calculation
@@ -861,8 +870,10 @@ class SimulationUplinkTest(unittest.TestCase):
             self.simulation.topology,
             random_number_gen,
         )
-        self.simulation.ue.geom.x_global = np.array([50.000, 43.301, 150.000, 175.000])
-        self.simulation.ue.geom.y_global = np.array([0.000, 25.000, 0.000, 43.301])
+        self.simulation.ue.geom.set_global_coords(
+            np.array([50.000, 43.301, 150.000, 175.000]),
+            np.array([0.000, 25.000, 0.000, 43.301]),
+        )
 
         # Physical pointing angles
         self.assertEqual(self.simulation.bs.antenna[0].azimuth, 0)
@@ -871,8 +882,11 @@ class SimulationUplinkTest(unittest.TestCase):
         self.assertEqual(self.simulation.bs.antenna[0].elevation, -10)
 
         # Change UE pointing
-        self.simulation.ue.geom.pointn_azim_global = np.array([180, -90, 90, -90])
-        self.simulation.ue.geom.pointn_elev_global = np.array([-30, -15, 15, 30])
+        self.simulation.ue.geom.set_global_coords(
+            azim=np.array([180, -90, 90, -90]),
+            elev=np.array([-30, -15, 15, 30]),
+        )
+
         par = self.param.imt.ue.antenna.array.get_antenna_parameters()
         for i in range(self.simulation.ue.num_stations):
             self.simulation.ue.antenna[i] = AntennaBeamformingImt(

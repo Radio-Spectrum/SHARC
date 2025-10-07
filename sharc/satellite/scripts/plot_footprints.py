@@ -82,9 +82,11 @@ def plot_fp(
 
     center_of_earth = StationManager(1)
     # rotated and then translated center of earth
-    center_of_earth.geom.x_global = np.array([0.0])
-    center_of_earth.geom.y_global = np.array([0.0])
-    center_of_earth.geom.z_global = np.array([-coord_sys.get_translation()])
+    center_of_earth.geom.set_global_coords(
+        np.array([0.0]),
+        np.array([0.0]),
+        np.array([-coord_sys.get_translation()]),
+    )
 
     mss_d2d_manager = StationFactory.generate_mss_d2d(params, rng, coord_sys)
 
@@ -159,9 +161,11 @@ def plot_fp(
 
     # creates a StationManager to calculate the gains on
     surf_manager = StationManager(len(x_flat))
-    surf_manager.geom.x_global = x_flat
-    surf_manager.geom.y_global = y_flat
-    surf_manager.geom.z_global = z_flat
+    surf_manager.geom.set_global_coords(
+        x_flat,
+        y_flat,
+        z_flat,
+    )
 
     station_1 = mss_d2d_manager
     mss_active = np.where(station_1.active)[0]

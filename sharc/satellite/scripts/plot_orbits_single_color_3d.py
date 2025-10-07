@@ -77,9 +77,11 @@ if __name__ == "__main__":
 
     center_of_earth = StationManager(1)
     # rotated and then translated center of earth
-    center_of_earth.geom.x_global = np.array([0.0])
-    center_of_earth.geom.y_global = np.array([0.0])
-    center_of_earth.geom.z_global = np.array([-coord_sys.get_translation()])
+    center_of_earth.geom.set_global_coords(
+        np.array([0.0]),
+        np.array([0.0]),
+        np.array([-coord_sys.get_translation()]),
+    )
 
     vis_elevation = []
     for _ in range(NUM_DROPS):

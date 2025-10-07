@@ -1,6 +1,8 @@
 # from sharc.support.sharc_geom import CoordinateSystem
 # from sharc.satellite.utils.sat_utils import lla2ecef
 
+from sharc.satellite.ngso.constants import EARTH_RADIUS_M
+import scipy
 import numpy as np
 from abc import ABC
 
@@ -22,11 +24,11 @@ def readonly_properties(*fields):
 
 
 # TODO: make these properties readonly
-# @readonly_properties(
-#     "x_global", "y_global", "z_global",
-#     "pointn_azim_global", "pointn_elev_global",
-#     "num_geometries"
-# )
+@readonly_properties(
+    "x_global", "y_global", "z_global",
+    "pointn_azim_global", "pointn_elev_global",
+    "num_geometries"
+)
 class GlobalGeometry(ABC):
     """
     Abstract class defining global simulator geometry implementation.
@@ -50,13 +52,13 @@ class GlobalGeometry(ABC):
         """
         Initializes variables based on number of geometries
         """
-        self.x_global = np.empty(num_geometries)
-        self.y_global = np.empty(num_geometries)
-        self.z_global = np.empty(num_geometries)
-        self.pointn_azim_global = np.empty(num_geometries)
-        self.pointn_elev_global = np.empty(num_geometries)
+        self._x_global = np.empty(num_geometries)
+        self._y_global = np.empty(num_geometries)
+        self._z_global = np.empty(num_geometries)
+        self._pointn_azim_global = np.empty(num_geometries)
+        self._pointn_elev_global = np.empty(num_geometries)
 
-        self.num_geometries = num_geometries
+        self._num_geometries = num_geometries
 
     def set_global_coords(
         self,
@@ -70,15 +72,15 @@ class GlobalGeometry(ABC):
         If None is passed, attribute will not be changed.
         """
         if x is not None:
-            self.x_global = x
+            self._x_global = x
         if y is not None:
-            self.y_global = y
+            self._y_global = y
         if z is not None:
-            self.z_global = z
+            self._z_global = z
         if elev is not None:
-            self.pointn_elev_global = elev
+            self._pointn_elev_global = elev
         if azim is not None:
-            self.pointn_azim_global = azim
+            self._pointn_azim_global = azim
 
     def get_global_distance_to(self, other: "GlobalGeometry") -> np.array:
         """Calculate the 2D distance between this geometry and another
@@ -336,7 +338,6 @@ class SimulatorGeometry(GlobalGeometry):
         Initialize a geometry object with a global coordinate system
         and defining how many local coordinate systems should exist
         """
-        # super().__init__(num_geometries)
         self.setup(
             num_geometries,
             num_of_local_refs,
@@ -359,11 +360,11 @@ class SimulatorGeometry(GlobalGeometry):
 
         if num_of_local_refs == 0:
             self.uses_local_coords = False
-            self._x_local = None
-            self._y_local = None
-            self._z_local = None
-            self._pointn_azim_local = None
-            self._pointn_elev_local = None
+            self._x_local = self._x_global
+            self._y_local = self._y_global
+            self._z_local = self._z_global
+            self._pointn_azim_local = self._pointn_azim_global
+            self._pointn_elev_local = self._pointn_elev_global
             return
         elif global_cs is None:
             raise ValueError(
@@ -383,7 +384,8 @@ class SimulatorGeometry(GlobalGeometry):
         ref_alts,
     ):
         """
-
+        Sets local coord system references and prepares
+        global<->local coordinate transformation
         """
         for r in [ref_lats, ref_lons, ref_alts]:
             if len(r) != self._num_of_local_refs:
@@ -393,6 +395,30 @@ class SimulatorGeometry(GlobalGeometry):
                 )
         self.__local_lla_references = np.stack((ref_lats, ref_lons, ref_alts))
 
+        self._compute_global_local_transform()
+
+    def set_global_coords(
+        self,
+        x=None,
+        y=None,
+        z=None,
+        azim=None,
+        elev=None,
+    ):
+        """Set passed values to objects global coordinates. If geometry does not have local reference
+        it will be assumed to be the same as global reference, with local == global
+        If None is passed, attribute will not be changed.
+        """
+        super().set_global_coords(
+            x=x,
+            y=y,
+            z=z,
+            azim=azim,
+            elev=elev,
+        )
+
+        self._compute_local_from_global()
+
     def set_local_coords(
         self,
         x=None,
@@ -401,45 +427,118 @@ class SimulatorGeometry(GlobalGeometry):
         azim=None,
         elev=None,
     ):
-        """Set values to local coordinate values.
+        """Set values to local coordinate values. If geometry does not have local reference
+        it will be assumed to be the same as global reference, with local == global
         If None is passed, attribute will not be updated.
         """
         if x is not None:
-            self.x_local = x
+            self._x_local = x
         if y is not None:
-            self.y_local = y
+            self._y_local = y
         if z is not None:
-            self.z_local = z
+            self._z_local = z
         if elev is not None:
-            self.pointn_elev_local = elev
+            self._pointn_elev_local = elev
         if azim is not None:
-            self.pointn_azim_local = azim
+            self._pointn_azim_local = azim
 
-    # def _compute_local_to_global_transf(self):
-    #     return
-        # local_lat, local_lon, local_alt = self.__local_lla_references
-        # rotation_around_z = -local_lon - 90
-        # rotation_around_x = local_lat - 90
+        self._compute_global_from_local()
 
-        # self.rotation = scipy.spatial.transform.Rotation.from_euler(
-        #     'zx',
-        #     np.stack([rotation_around_z, rotation_around_x], axis=-1),
-        #     degrees=True
-        # )
-        # # (M,3,3) or (3,3)
-        # rot_mtx = self.rotation.as_matrix()
-        # if rot_mtx.ndim == 2:
-        #     # guarantee (M, 3, 3)
-        #     rot_mtx = rot_mtx[None, ...]
-        # # broadcastable (M, 1, 3, 3)
-        # self.rotation_mtx = rot_mtx[:, None, :, :]
+    def _compute_global_from_local(self):
+        if not self.uses_local_coords:
+            self._x_global = self._x_local
+            self._y_global = self._y_local
+            self._z_global = self._z_local
+            self._pointn_elev_global = self._pointn_elev_local
+            self._pointn_azim_global = self._pointn_azim_local
+            return
 
-        # inv_rot_mtx = self.rotation.inv().as_matrix()
-        # if inv_rot_mtx.ndim == 2:
-        #     # guarantee (M, 3, 3)
-        #     inv_rot_mtx = inv_rot_mtx[None, ...]
-        # # broadcastable (M, 1, 3, 3)
-        # self.inv_rotation_mtx = inv_rot_mtx[:, None, :, :]
+        p_local = np.stack([self.x_local, self.y_local, self.z_local], axis=-1)
+
+        # Translation happens first (before rotation)
+        p_local = p_local + self.local2ecef_transl_mtx  # (N,3)
+
+        p_global = (self.local2global_rot_mtx @ p_local[..., None]).squeeze(-1)  # (N,3)
+
+        # translation happens after rotation
+        p_global = p_global + self.ecef2global_transl_mtx  # (N,3)
+
+        # Store results
+        self._x_global = p_global[:, 0]
+        self._y_global = p_global[:, 1]
+        self._z_global = p_global[:, 2]
+
+    def _compute_local_from_global(self):
+        if not self.uses_local_coords:
+            self._x_local = self._x_global
+            self._y_local = self._y_global
+            self._z_local = self._z_global
+            self._pointn_elev_local = self._pointn_elev_global
+            self._pointn_azim_local = self._pointn_azim_global
+            return
+
+        p_global = np.stack([self.x_global, self.y_global, self.z_global], axis=-1)
+
+        # Translation happens first (before rotation)
+        p_global = p_global + self.global2ecef_transl_mtx  # (N,3)
+
+        p_local = (self.global2local_rot_mtx @ p_global[..., None]).squeeze(-1)  # (N,3)
+
+        # translation happens after rotation
+        p_local = p_local + self.ecef2local_transl_mtx  # (N,3)
+
+        # Store results
+        self._x_local = p_local[:, 0]
+        self._y_local = p_local[:, 1]
+        self._z_local = p_local[:, 2]
+
+    def _compute_global_local_transform(self):
+        # get ecef to local
+        local_lat, local_lon, local_alt = self.__local_lla_references
+        rotation_around_z = -local_lon - 90
+        rotation_around_x = local_lat - 90
+
+        ecef2local_rot = scipy.spatial.transform.Rotation.from_euler(
+            'zx',
+            np.stack([rotation_around_z, rotation_around_x], axis=-1),
+            degrees=True
+        )
+
+        # first translation, after rotation
+        self.local2ecef_transl_mtx = np.zeros((self._num_of_local_refs, 3))
+        # NOTE: works because of spherical Earth
+        self.local2ecef_transl_mtx[:, 2] = local_alt + EARTH_RADIUS_M
+        local2ecef_rot_mtx = ecef2local_rot.inv().as_matrix()
+
+        # first rotation, after translation
+        ecef2local_rot_mtx = ecef2local_rot.as_matrix()
+        self.ecef2local_transl_mtx = -self.local2ecef_transl_mtx
+
+        # global transforms
+        global_lat, global_lon, global_alt = self.__global_coord_sys
+        rotation_around_z = -global_lon - 90
+        rotation_around_x = global_lat - 90
+
+        ecef2global_rot = scipy.spatial.transform.Rotation.from_euler(
+            'zx',
+            np.stack([rotation_around_z, rotation_around_x], axis=-1),
+            degrees=True
+        )
+
+        # first translation, after rotation
+        self.global2ecef_transl_mtx = np.zeros((1, 3))
+        # NOTE: works because of spherical Earth
+        self.global2ecef_transl_mtx[:, 2] = global_alt + EARTH_RADIUS_M
+        global2ecef_rot_mtx = ecef2global_rot.inv().as_matrix()
+
+        # first rotation, after translation
+        ecef2global_rot_mtx = ecef2global_rot.as_matrix()
+        self.ecef2global_transl_mtx = -self.global2ecef_transl_mtx
+
+        self.local2global_rot_mtx = ecef2global_rot_mtx @ local2ecef_rot_mtx
+
+        self.global2local_rot_mtx = ecef2local_rot_mtx @ global2ecef_rot_mtx
+
 
     def get_local_distance_to(self, other: "SimulatorGeometry") -> np.array:
         """Calculate the 2D distance between this manager's stations and another's
@@ -480,4 +579,3 @@ class SimulatorGeometry(GlobalGeometry):
         raise NotImplementedError()
 
 
-# \.(get_global_distance_to|get_3d_distance_to|get_global_dist_angles_wrap_around|get_global_elevation|get_global_pointing_vector_to|get_off_axis_angle)

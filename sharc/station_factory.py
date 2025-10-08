@@ -113,6 +113,9 @@ class StationFactory(object):
             )
             imt_base_stations.is_space_station = True
         else:
+            if topology.determines_local_geometry:
+                imt_base_stations.geom = topology.get_bs_geometry()
+
             imt_base_stations.geom.set_local_coords(
                 topology.x * np.ones(num_bs),
                 topology.y * np.ones(num_bs),
@@ -298,6 +301,8 @@ class StationFactory(object):
         num_ue = num_bs * num_ue_per_bs
 
         imt_ue = StationManager(num_ue)
+        if topology.determines_local_geometry:
+            imt_ue.geom = topology.get_ue_geometry(param.ue.k)
         imt_ue.station_type = StationType.IMT_UE
 
         ue_x = list()
@@ -1940,143 +1945,105 @@ if __name__ == '__main__':
         apogee_alt_km=525
     )
     from sharc.parameters.imt.parameters_imt_mss_dc import ParametersImtMssDc
-    params = ParametersImtMssDc(
+    params_mss_dc = ParametersImtMssDc(
         beam_radius=36516.0,
         num_beams=7,
         orbits=[orbit]
     )
-    params.sat_is_active_if.conditions = ["MINIMUM_ELEVATION_FROM_ES"]
-    params.sat_is_active_if.minimum_elevation_from_es = 5.0
+    params_mss_dc.sat_is_active_if.conditions = ["MINIMUM_ELEVATION_FROM_ES"]
+    params_mss_dc.sat_is_active_if.minimum_elevation_from_es = 5.0
 
-    topology = TopologyImtMssDc(params, coordinate_system)
+    parameters = Parameters()
+    parameters.imt.topology.mss_dc = params_mss_dc
+
+    parameters.imt.ue.k = 1
+    parameters.imt.ue.k_m = 1
+    parameters.imt.ue.azimuth_range = (-180, 180)
+    parameters.imt.ue.distribution_distance = "UNIFORM"
+    parameters.imt.ue.distribution_type = "ANGLE_AND_DISTANCE"
+    parameters.imt.ue.distribution_azimuth = "NORMAL"
+    parameters.imt.ue.height = 1.5
+    parameters.imt.ue.indoor_percent = 0
+    parameters.imt.bandwidth = 10
+    parameters.imt.frequency = 10
+    parameters.imt.ue.noise_figure = 0
+
+    parameters.imt.bs.antenna.array.downtilt = 0
+
+    parameters.imt.topology.sampling_from_spherical_grid.num_bs = 3 * 3 * 19
+    # parameters.imt.topology.sampling_from_spherical_grid.num_bs = 3 * 3 * 19 * 7
+    parameters.imt.topology.sampling_from_spherical_grid.max_ue_distance = 800
+    parameters.imt.topology.sampling_from_spherical_grid.grid.transform_grid_randomly = True
+    parameters.imt.topology.sampling_from_spherical_grid.grid.cell_radius = 10e3
+    parameters.imt.topology.sampling_from_spherical_grid.grid.grid_in_zone.type = "CIRCLE"
+    parameters.imt.topology.sampling_from_spherical_grid.grid.grid_in_zone.circle.center_lat = ref_lat
+    parameters.imt.topology.sampling_from_spherical_grid.grid.grid_in_zone.circle.center_lon = ref_long
+    parameters.imt.topology.sampling_from_spherical_grid.grid.grid_in_zone.circle.radius_km = 30 * 111
+
+    parameters.imt.topology.type = "SAMPLING_FROM_SPHERICAL_GRID"
+    # parameters.imt.topology.type = "MSS_DC"
+    parameters.imt.validate("station_factory_imt")
+    # print(
+    #     "parameters.imt.topology.sampling_from_spherical_grid.grid.lon_lat_grid.shape",
+    #     parameters.imt.topology.sampling_from_spherical_grid.grid.lon_lat_grid.shape
+    # )
+
+    from sharc.topology.topology_factory import TopologyFactory
+    topology = TopologyFactory.createTopology(
+        parameters,
+        coordinate_system
+    )
 
     topology.calculate_coordinates(rand_gen)
-
     topology.calculate_coordinates(rand_gen)
-
-    parameters = ParametersImt()
-    parameters.ue.k = 1
-    parameters.ue.k_m = 1
-    parameters.ue.azimuth_range = (-180, 180)
-    parameters.ue.distribution_distance = "UNIFORM"
-    parameters.ue.distribution_type = "ANGLE_AND_DISTANCE"
-    parameters.ue.distribution_azimuth = "NORMAL"
-    parameters.ue.height = 1.5
-    parameters.ue.indoor_percent = 0
-    parameters.bandwidth = 10
-    parameters.frequency = 10
-    parameters.ue.noise_figure = 0
 
     imt_ue = StationFactory.generate_imt_ue_outdoor(
-        parameters,
-        parameters.ue.antenna.array,
+        parameters.imt,
+        parameters.imt.ue.antenna.array,
         rand_gen,
         topology
     )
+    imt_bs = StationFactory.generate_imt_base_stations(
+        parameters.imt,
+        parameters.imt.bs.antenna.array,
+        topology,
+        rand_gen,
+    )
+    # imt_bs.geom.set_local_coords(
+    #     azim=np.zeros_like(imt_bs.geom.pointn_azim_local)
+    # )
+    # imt_bs.geom.set_global_coords(
+    #     elev=np.zeros_like(imt_bs.geom.pointn_azim_local) + 90.,
+    #     z=np.zeros_like(imt_bs.geom.pointn_azim_local)
+    # )
 
     from sharc.satellite.scripts.plot_globe import plot_globe_with_borders
     fig = plot_globe_with_borders(True, coordinate_system, False)
 
     import plotly.graph_objects as go
 
-    # fig.add_trace(go.Scatter3d(
-    #     x=topology.x,
-    #     y=topology.y,
-    #     z=topology.z,
-    #     mode='markers',
-    #     marker=dict(size=3, color='green', opacity=0.8),
-    #     showlegend=False
-    # ))
-    fig.add_trace(go.Scatter3d(
-        x=topology.space_station_x,
-        y=topology.space_station_y,
-        z=topology.space_station_z,
-        mode='markers',
-        marker=dict(size=3, color='green', opacity=0.8),
-        showlegend=False
-    ))
+    # fig.add_trace(
+    #     go.Scatter3d(
+    #         x=[0],
+    #         y=[0],
+    #         z=[0],
+    #         mode='markers',
+    #         marker=dict(size=3, color='black', opacity=1),
+    #         showlegend=False
+    #     )
+    # )
 
-    fig.add_trace(
-        go.Scatter3d(
-            x=imt_ue.geom.x_global,
-            y=imt_ue.geom.y_global,
-            z=imt_ue.geom.z_global,
-            mode='markers',
-            marker=dict(size=1, color='red', opacity=1),
-            showlegend=False
-        )
-    )
-
-    # TODO: replace this with generate imt mss dc station
-    st = StationManager(topology.num_base_stations)
-    st.geom.set_global_coords(
-        topology.space_station_x,
-        topology.space_station_y,
-        topology.space_station_z,
-    )
-
-    fig.add_trace(
-        go.Scatter3d(
-            x=[0],
-            y=[0],
-            z=[0],
-            mode='markers',
-            marker=dict(size=3, color='black', opacity=1),
-            showlegend=False
-        )
-    )
-
-    from sharc.support.sharc__globalm import polar_to_cartesian
-    # Plot beam boresight vectors
-    boresight_length = 100 * 1e3  # Length of the boresight vectors for visualization
-    boresight_x, boresight_y, boresight_z = polar_to_cartesian(
-        boresight_length,
-        imt_ue.geom.pointn_azim_global,
-        imt_ue.geom.pointn_elev_global
-    )
-    # Add arrow heads to the end of the boresight vectors
-    for x, y, z, bx, by, bz in zip(imt_ue.geom.x_global,
-                                   imt_ue.geom.y_global,
-                                   imt_ue.geom.z_global,
-                                   boresight_x,
-                                   boresight_y,
-                                   boresight_z):
-        fig.add_trace(go.Cone(
-            x=[x + bx],
-            y=[y + by],
-            z=[z + bz],
-            u=[bx],
-            v=[by],
-            w=[bz],
-            colorscale=[[0, 'orange'], [1, 'orange']],
-            sizemode='absolute',
-            sizeref=2 * boresight_length / 5,
-            showscale=False
-        ))
-    for x, y, z, bx, by, bz in zip(imt_ue.geom.x_global,
-                                   imt_ue.geom.y_global,
-                                   imt_ue.geom.z_global,
-                                   boresight_x,
-                                   boresight_y,
-                                   boresight_z):
-        fig.add_trace(go.Scatter3d(
-            x=[x, x + bx],
-            y=[y, y + by],
-            z=[z, z + bz],
-            mode='lines',
-            line=dict(color='orange', width=2),
-            name='Boresight'
-        ))
-    # Suppress the legend for the boresight plot
-    fig.update_traces(showlegend=False, selector=dict(name='Boresight'))
+    from sharc.support.geometry import plot_geom
+    plot_geom(fig, imt_ue.geom)
+    plot_geom(fig, imt_bs.geom, {"marker": dict(size=2, color='blue', opacity=1)}, True)
 
     # Maintain axis proportions
     fig.update_layout(scene_aspectmode='data')
 
-    ref_x = imt_ue.geom.x_global[11]
-    ref_y = imt_ue.geom.y_global[11]
-    ref_z = imt_ue.geom.z_global[11]
-    range_scale = 1000
+    # ref_x = imt_ue.geom.x_global[11]
+    # ref_y = imt_ue.geom.y_global[11]
+    # ref_z = imt_ue.geom.z_global[11]
+    # range_scale = 1000
 
     range_scale = 5000
     ref_x = 0

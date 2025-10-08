@@ -2,6 +2,7 @@
 # from sharc.satellite.utils.sat_utils import lla2ecef
 
 from sharc.satellite.ngso.constants import EARTH_RADIUS_M
+from sharc.support.sharc_geom import cartesian_to_polar, polar_to_cartesian
 import scipy
 import numpy as np
 from abc import ABC
@@ -306,7 +307,7 @@ class GlobalGeometry(ABC):
 @readonly_properties(
     "x_local", "y_local", "z_local",
     "pointn_azim_local", "pointn_elev_local",
-    "global_lla_reference"
+    "global_lla_reference", "local_lla_references"
 )
 class SimulatorGeometry(GlobalGeometry):
     """
@@ -322,7 +323,7 @@ class SimulatorGeometry(GlobalGeometry):
     pointn_azim_local: np.ndarray  # (M,)
     pointn_elev_local: np.ndarray  # (M,)
 
-    __local_lla_references: np.ndarray[np.ndarray[float]]  # (3, M)
+    local_lla_references: np.ndarray[np.ndarray[float]]  # (3, M)
     global_lla_reference: tuple[float, float, float]
 
     _num_of_local_refs: int  # M
@@ -355,7 +356,7 @@ class SimulatorGeometry(GlobalGeometry):
         """
         super().setup(num_geometries)
 
-        self.__global_coord_sys = global_cs
+        self._global_lla_reference = global_cs
         self._num_of_local_refs = num_of_local_refs
 
         if num_of_local_refs == 0:
@@ -365,6 +366,7 @@ class SimulatorGeometry(GlobalGeometry):
             self._z_local = self._z_global
             self._pointn_azim_local = self._pointn_azim_global
             self._pointn_elev_local = self._pointn_elev_global
+            self._local_lla_references = None
             return
         elif global_cs is None:
             raise ValueError(
@@ -377,6 +379,7 @@ class SimulatorGeometry(GlobalGeometry):
         self._z_local = np.empty(num_geometries)
         self._pointn_azim_local = np.empty(num_geometries)
         self._pointn_elev_local = np.empty(num_geometries)
+        self._local_lla_references = np.empty((3, num_of_local_refs))
 
     def set_local_coord_sys(
         self,
@@ -394,7 +397,7 @@ class SimulatorGeometry(GlobalGeometry):
                     "Incongruent number of coordinate systems. "
                     f"Passed {len(r)} but should have passed {len(self._num_of_local_refs)}"
                 )
-        self.__local_lla_references = np.stack((ref_lats, ref_lons, ref_alts))
+        self._local_lla_references = np.stack((ref_lats, ref_lons, ref_alts))
 
         self._compute_global_local_transform()
 
@@ -456,18 +459,42 @@ class SimulatorGeometry(GlobalGeometry):
 
         p_local = np.stack([self.x_local, self.y_local, self.z_local], axis=-1)
 
-        # Translation happens first (before rotation)
-        p_local = p_local + self.local2ecef_transl_mtx  # (N,3)
-
-        p_global = (self.local2global_rot_mtx @ p_local[..., None]).squeeze(-1)  # (N,3)
-
-        # translation happens after rotation
-        p_global = p_global + self.ecef2global_transl_mtx  # (N,3)
+        p_global = self._vec_local2global(p_local)
 
         # Store results
         self._x_global = p_global[:, 0]
         self._y_global = p_global[:, 1]
         self._z_global = p_global[:, 2]
+
+        r = 1
+        # then get pointing vec
+        point_local = np.stack(polar_to_cartesian(
+            r, self.pointn_azim_local, self.pointn_elev_local), axis=-1)
+
+        point_global_x, point_global_y, point_global_z = self._vec_local2global(
+            point_local, False
+        ).T
+
+        _, global_azimuth, global_elevation = cartesian_to_polar(
+            point_global_x, point_global_y, point_global_z)
+
+        self._pointn_elev_global = global_elevation
+        self._pointn_azim_global = global_azimuth
+
+    def _vec_local2global(self, p_local, translate=True):
+        """Receives a vector shaped as (N, 3) and applies local2global transform
+        """
+        if translate:
+            # Translation happens first (before rotation)
+            p_local = p_local + self.local2ecef_transl_mtx  # (N,3)
+
+        p_global = (self.local2global_rot_mtx @ p_local[..., None]).squeeze(-1)  # (N,3)
+
+        if translate:
+            # translation happens after rotation
+            p_global = p_global + self.ecef2global_transl_mtx  # (N,3)
+
+        return p_global
 
     def _compute_local_from_global(self):
         if not self.uses_local_coords:
@@ -480,22 +507,46 @@ class SimulatorGeometry(GlobalGeometry):
 
         p_global = np.stack([self.x_global, self.y_global, self.z_global], axis=-1)
 
-        # Translation happens first (before rotation)
-        p_global = p_global + self.global2ecef_transl_mtx  # (N,3)
-
-        p_local = (self.global2local_rot_mtx @ p_global[..., None]).squeeze(-1)  # (N,3)
-
-        # translation happens after rotation
-        p_local = p_local + self.ecef2local_transl_mtx  # (N,3)
+        p_local = self._vec_global2local(p_global)
 
         # Store results
         self._x_local = p_local[:, 0]
         self._y_local = p_local[:, 1]
         self._z_local = p_local[:, 2]
 
+        r = 1
+        # then get pointing vec
+        point_global = np.stack(polar_to_cartesian(
+            r, self.pointn_azim_global, self.pointn_elev_global), axis=-1)
+
+        point_local_x, point_local_y, point_local_z = self._vec_global2local(
+            point_global, False
+        ).T
+
+        _, local_azimuth, local_elevation = cartesian_to_polar(
+            point_local_x, point_local_y, point_local_z)
+
+        self._pointn_elev_local = local_elevation
+        self._pointn_azim_local = local_azimuth
+
+    def _vec_global2local(self, p_global, translate=True):
+        """Receives a vector shaped as (N, 3) and applies global2local transform
+        """
+        if translate:
+            # Translation happens first (before rotation)
+            p_global = p_global + self.global2ecef_transl_mtx  # (N,3)
+
+        p_local = (self.global2local_rot_mtx @ p_global[..., None]).squeeze(-1)  # (N,3)
+
+        if translate:
+            # translation happens after rotation
+            p_local = p_local + self.ecef2local_transl_mtx  # (N,3)
+
+        return p_local
+
     def _compute_global_local_transform(self):
         # get ecef to local
-        local_lat, local_lon, local_alt = self.__local_lla_references
+        local_lat, local_lon, local_alt = self.local_lla_references
         rotation_around_z = -local_lon - 90
         rotation_around_x = local_lat - 90
 
@@ -516,7 +567,7 @@ class SimulatorGeometry(GlobalGeometry):
         self.ecef2local_transl_mtx = -self.local2ecef_transl_mtx
 
         # global transforms
-        global_lat, global_lon, global_alt = self.__global_coord_sys
+        global_lat, global_lon, global_alt = self._global_lla_reference
         rotation_around_z = -global_lon - 90
         rotation_around_x = global_lat - 90
 
@@ -539,7 +590,6 @@ class SimulatorGeometry(GlobalGeometry):
         self.local2global_rot_mtx = ecef2global_rot_mtx @ local2ecef_rot_mtx
 
         self.global2local_rot_mtx = ecef2local_rot_mtx @ global2ecef_rot_mtx
-
 
     def get_local_distance_to(self, other: "SimulatorGeometry") -> np.array:
         """Calculate the 2D distance between this manager's stations and another's
@@ -579,7 +629,90 @@ class SimulatorGeometry(GlobalGeometry):
 
         raise NotImplementedError()
 
+
+def plot_geom(
+    fig: "go.Figure",
+    geom: SimulatorGeometry,
+    scatter_params: dict = {},
+    plot_pointing=False,
+):
+    """Adds a given SimulatorGeometry to a plotly figure
+    considering global coordinates
+    """
+    import plotly.graph_objects as go
+    scatter_params = {
+        "mode": 'markers',
+        "marker": dict(size=1, color='red', opacity=1),
+        "showlegend": False,
+        **scatter_params
+    }
+    fig.add_trace(
+        go.Scatter3d(
+            x=geom.x_global,
+            y=geom.y_global,
+            z=geom.z_global,
+            **scatter_params
+        )
+    )
+
+    if plot_pointing:
+        from sharc.support.sharc_geom import polar_to_cartesian
+        # Plot beam boresight vectors
+        boresight_length = 100 * 1e3  # Length of the boresight vectors for visualization
+        boresight_x, boresight_y, boresight_z = polar_to_cartesian(
+            boresight_length,
+            geom.pointn_azim_global,
+            geom.pointn_elev_global
+        )
+        # Add arrow heads to the end of the boresight vectors
+        for x, y, z, bx, by, bz in zip(geom.x_global,
+                                       geom.y_global,
+                                       geom.z_global,
+                                       boresight_x,
+                                       boresight_y,
+                                       boresight_z):
+            fig.add_trace(go.Cone(
+                x=[x + bx],
+                y=[y + by],
+                z=[z + bz],
+                u=[bx],
+                v=[by],
+                w=[bz],
+                colorscale=[[0, 'orange'], [1, 'orange']],
+                sizemode='absolute',
+                sizeref=2 * boresight_length / 5,
+                showscale=False,
+                showlegend=False,
+            ))
+        for x, y, z, bx, by, bz in zip(geom.x_global,
+                                       geom.y_global,
+                                       geom.z_global,
+                                       boresight_x,
+                                       boresight_y,
+                                       boresight_z):
+            fig.add_trace(go.Scatter3d(
+                x=[x, x + bx],
+                y=[y, y + by],
+                z=[z, z + bz],
+                mode='lines',
+                line=dict(color='orange', width=2),
+                showlegend=False,
+            ))
+
 if __name__ == "__main__":
+    global_lla = (-14, -45, 1200)
+    # tg = SimulatorGeometry(
+    #     1,
+    #     1,
+    #     global_lla
+    # )
+    # tg.set_local_coord_sys(
+    #     np.array([-14]),
+    #     np.array([-45]),
+    #     np.array([1200]),
+    # )
+    # print(tg.local_lla_references)
+
     from sharc.topology.topology_macrocell import TopologyMacrocell
     rng = np.random.RandomState(seed=0xcaffe)
     topology = TopologyMacrocell(
@@ -587,8 +720,6 @@ if __name__ == "__main__":
     )
 
     topology.calculate_coordinates(rng)
-
-    global_lla = (-14, -45, 1200)
 
     num_ue = 3
 
@@ -647,30 +778,29 @@ if __name__ == "__main__":
 
     import plotly.graph_objects as go
 
-    fig.add_trace(go.Scatter3d(
-        x=bs_geom.x_global,
-        y=bs_geom.y_global,
-        z=bs_geom.z_global,
-        mode='markers',
-        marker=dict(
-            size=3,
-            color='blue',
-            opacity=1.0
-        ),
-        name='BS'
-    ))
-    fig.add_trace(go.Scatter3d(
-        x=ue_geom.x_global,
-        y=ue_geom.y_global,
-        z=ue_geom.z_global,
-        mode='markers',
-        marker=dict(
-            size=1,
-            color='red',
-            opacity=1.0
-        ),
-        name='UE'
-    ))
+    plot_geom(
+        fig,
+        bs_geom,
+        dict(
+            marker=dict(
+                size=2,
+                color='blue',
+                opacity=1.0
+            ),
+            name='BS'
+        )
+    )
+    plot_geom(
+        fig,
+        ue_geom,
+        dict(
+            marker=dict(
+                size=1,
+                color='red',
+                opacity=1.0
+            ),
+            name='UE'
+        )
+    )
 
     fig.show()
-

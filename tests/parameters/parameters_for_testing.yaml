@@ -313,6 +313,30 @@ imt:
     # Defines the antenna model to be used in compatibility studies between
     # IMT and other services in adjacent band
     # Possible values: SINGLE_ELEMENT, BEAMFORMING
+        sampling_from_spherical_grid:
+            num_bs: 324
+            max_ue_distance: 132
+            grid:
+                cell_radius: 111
+                grid_in_zone:
+                    type: CIRCLE     # may be "CIRCLE" or "FROM_COUNTRIES"
+                    circle:
+                        center_lat: 1
+                        center_lon: 2
+                        radius_km: 3
+                    from_countries:
+                        country_shapes_filename: sharc/data/countries/ne_110m_admin_0_countries.shp
+                        # By default, these are the same as taken from `sat_is_active_if.lat_long_inside_country`
+                        country_names:
+                            - Brazil
+                            - Chile
+
+                        # This margin defines where the grid is constructed
+                        # margin from inside of border [km]
+                        # By default, this is made to be the same as beam_radius
+                        # if positive, makes border smaller by x km
+                        # if negative, makes border bigger by x km
+                        margin_from_border: 0.11
     adjacent_antenna_model  : BEAMFORMING
     # Base station parameters
     bs:

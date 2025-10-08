@@ -19,6 +19,8 @@ SHARC_ROOT_DIR = (Path(__file__) / ".." / ".." / ".." / "..").resolve()
 
 @dataclass
 class ParametersZone(ParametersBase):
+    """Defines parameters for the creation of a 'zone' polygon.
+    """
     @dataclass
     class ParametersCircle(ParametersBase):
         center_lat: typing.Optional[float] = None
@@ -73,6 +75,7 @@ class ParametersZone(ParametersBase):
                 shp.geometry.Point(self.center_lon, self.center_lat),
                 -self.radius_km
             )
+
     @dataclass
     class ParametersFromCountries(ParametersBase):
         country_shapes_filename: Path = SHARC_ROOT_DIR / "sharc" / \
@@ -146,7 +149,7 @@ class ParametersZone(ParametersBase):
     _polygon: shp.geometry.Polygon = None
     _unprocessed_polygon: shp.geometry.Polygon = None
 
-    def set_chosen_pol(self):
+    def _set_chosen_pol(self):
         self.chosen_pol = None
         if self.type is None:
             return
@@ -198,7 +201,7 @@ class ParametersZone(ParametersBase):
                 f"\t{ctx}.type == {self.type}"
             )
 
-        self.set_chosen_pol()
+        self._set_chosen_pol()
         self._calculate_polygon()
 
         if (not self._polygon.is_valid
@@ -208,7 +211,7 @@ class ParametersZone(ParametersBase):
             raise Exception(f"Bad {ctx}._polygon was generated")
 
     def _calculate_polygon(self):
-        self.set_chosen_pol()
+        self._set_chosen_pol()
 
         if self.chosen_pol is None:
             if self._ACCEPT_NONE_TYPE:
@@ -240,6 +243,9 @@ class ParametersZone(ParametersBase):
 
 @dataclass
 class ParametersTerrestrialGrid(ParametersBase):
+    """Defines parameters for the creation of a (lon, lat) grid considering
+    spherical Earth.
+    """
     cell_radius: float = None
 
     transform_grid_randomly: bool = False
@@ -293,27 +299,29 @@ class ParametersTerrestrialGrid(ParametersBase):
         After creating grid, there are some features that can only be implemented
         with knowledge of other parts of the simulator.
         """
-        self._recalculate_grid_polygon_if_needed(ctx, force_update)
+        needed = self._recalculate_grid_polygon_if_needed(ctx, force_update)
 
-        lon, lat = generate_grid_in_multipolygon(
-            self.grid_in_zone._polygon,
-            self.cell_radius,
-            self.transform_grid_randomly,
-            rng
-        )
+        if needed or force_update:
+            lon, lat = generate_grid_in_multipolygon(
+                self.grid_in_zone._polygon,
+                self.cell_radius,
+                self.transform_grid_randomly,
+                rng
+            )
 
-        self.lon_lat_grid = self.grid_exclusion_zone.apply_exclusion_zone(
-            lon, lat
-        )
+            self.lon_lat_grid = self.grid_exclusion_zone.apply_exclusion_zone(
+                lon, lat
+            )
 
-        self.ecef_grid = lla2ecef(
-            self.lon_lat_grid[1], self.lon_lat_grid[0], 0)
+            self.ecef_grid = lla2ecef(
+                self.lon_lat_grid[1], self.lon_lat_grid[0], 0)
 
-    def _recalculate_grid_polygon_if_needed(self, ctx: str, force_update=False):
+    def _recalculate_grid_polygon_if_needed(self, ctx: str, force_update=False) -> bool:
         if self.grid_in_zone._polygon is not None and not force_update:
-            return
+            return False
         self.grid_in_zone._calculate_polygon()
         self.grid_exclusion_zone._calculate_polygon()
+        return True
 
 
 @dataclass
@@ -331,6 +339,13 @@ class ParametersSatelliteWithServiceGrid(ParametersTerrestrialGrid):
     beam_radius: float = None
 
     def validate(self, ctx):
+        """Validates instance parameters.
+        Parameters
+            ctx : str
+                Context string for error messages.
+        Raises ValueError
+            If a parameter is not valid.
+        """
         if self.cell_radius is not None:
             warn(
                 f"{ctx}.cell_radius should be set through beam_radius parameter"
@@ -536,4 +551,3 @@ class ParametersSelectActiveSatellite(ParametersBase):
                 f"{ctx}.conditions = {self.conditions}\n"
                 "And it contains duplicate values!"
             )
-

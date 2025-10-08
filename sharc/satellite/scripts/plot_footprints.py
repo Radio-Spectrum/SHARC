@@ -276,6 +276,7 @@ def plot_fp(
     ))
 
     polygons_lim = plot_mult_polygon(
+        # params.beam_positioning.service_grid.eligibility_polygon,
         params.sat_is_active_if.lat_long_inside_country.filter_polygon,
         coord_sys,
         True,
@@ -392,10 +393,16 @@ if __name__ == "__main__":
     ]
     params.sat_is_active_if.minimum_elevation_from_es = 5.0
     params.sat_is_active_if.lat_long_inside_country.country_names = ["Brazil", "Paraguay"]
+    params.sat_is_active_if.lat_long_inside_country.margin_from_border = 111
     # params.beams_load_factor = 0.1
     params.beam_positioning.type = "SERVICE_GRID"
 
     grid_exclusion_zone = params.beam_positioning.service_grid.grid_exclusion_zone
+    grid_exclusion_zone.type = "CIRCLE"
+    # at frienship bridge, so should affect more than 1 grid
+    grid_exclusion_zone.circle.center_lat = -25.5094741
+    grid_exclusion_zone.circle.center_lon = -54.6007197
+    grid_exclusion_zone.circle.radius_km = 5 * spotbeam_radius / 1e3
 
     # grid_exclusion_zone.type = "CIRCLE"
     # # at frienship bridge, so should affect more than 1 grid

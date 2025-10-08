@@ -391,6 +391,39 @@ class ParametersTest(unittest.TestCase):
                 self.assertEqual(
                     getattr(orbit_params, k),
                     expected_orbit_params[i][k])
+        """
+        Test parameters spherical topology
+        """
+        sampling_from_spherical_grid = self.parameters.imt.topology.sampling_from_spherical_grid
+        self.assertEqual(
+            sampling_from_spherical_grid.num_bs,
+            324,
+        )
+        self.assertEqual(
+            sampling_from_spherical_grid.grid.cell_radius,
+            111,
+        )
+        self.assertEqual(
+            sampling_from_spherical_grid.grid.grid_in_zone.type,
+            "CIRCLE",
+        )
+        self.assertEqual(
+            sampling_from_spherical_grid.grid.grid_in_zone.circle.center_lat,
+            1,
+        )
+        self.assertEqual(
+            sampling_from_spherical_grid.grid.grid_in_zone.circle.center_lon,
+            2,
+        )
+        self.assertEqual(
+            sampling_from_spherical_grid.grid.grid_in_zone.circle.radius_km,
+            3,
+        )
+
+        self.assertEqual(
+            sampling_from_spherical_grid.max_ue_distance,
+            132,
+        )
 
     def test_imt_validation(self):
         """

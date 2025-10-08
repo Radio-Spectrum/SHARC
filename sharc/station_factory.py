@@ -1660,10 +1660,10 @@ class StationFactory(object):
                 param_mss.bandwidth,
                 param_mss.spurious_emissions,
                 scenario="OUTDOOR")
-        elif params.spectral_mask == "MSS":
-            mss_ss.spectral_mask = SpectralMaskMSS(params.frequency,
-                                                   params.bandwidth,
-                                                   params.spurious_emissions)
+        elif param_mss.spectral_mask == "MSS":
+            mss_ss.spectral_mask = SpectralMaskMSS(param_mss.frequency,
+                                                   param_mss.bandwidth,
+                                                   param_mss.spurious_emissions)
         else:
             raise ValueError(
                 f"Invalid or not implemented spectral mask - {param_mss.spectral_mask}")

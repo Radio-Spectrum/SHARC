@@ -24,7 +24,6 @@ def readonly_properties(*fields):
     return decorator
 
 
-# TODO: make these properties readonly
 @readonly_properties(
     "x_global", "y_global", "z_global",
     "pointn_azim_global", "pointn_elev_global",
@@ -146,8 +145,10 @@ class GlobalGeometry(ABC):
             phi (np.array): azimuth of pointing vector to other stations
             theta (np.array): elevation of pointing vector to other stations
         """
-        if self._num_of_local_refs != 0 or other._num_of_local_refs != 0:
-            raise ValueError("Wrap around was not implemented for local coord sys")
+        if self.uses_local_coords or other.uses_local_coords:
+            raise ValueError(
+                "Wrap around was not implemented for local coord sys"
+            )
         # Initialize variables
         distance_3D = np.empty([self.num_geometries, other.num_geometries])
         distance_2D = np.inf * np.ones_like(distance_3D)
@@ -315,24 +316,21 @@ class SimulatorGeometry(GlobalGeometry):
     Just global and local conversion.
     """
     # N = num of geometries
-    # M = num of local references
-    # M < N
-    x_local: np.ndarray            # (M,)
-    y_local: np.ndarray            # (M,)
-    z_local: np.ndarray            # (M,)
-    pointn_azim_local: np.ndarray  # (M,)
-    pointn_elev_local: np.ndarray  # (M,)
+    x_local: np.ndarray            # (N,)
+    y_local: np.ndarray            # (N,)
+    z_local: np.ndarray            # (N,)
+    pointn_azim_local: np.ndarray  # (N,)
+    pointn_elev_local: np.ndarray  # (N,)
 
-    local_lla_references: np.ndarray[np.ndarray[float]]  # (3, M)
+    local_lla_references: np.ndarray[np.ndarray[float]]  # (3, N)
     global_lla_reference: tuple[float, float, float]
 
-    _num_of_local_refs: int  # M
-    _geometry_reference_i: np.ndarray[int]  # (N,)
+    uses_local_coords: bool
 
     def __init__(
         self,
         num_geometries,
-        num_of_local_refs=0,
+        uses_local_coords=False,
         global_cs: tuple[float, float, float] = None,
     ):
         """
@@ -341,14 +339,14 @@ class SimulatorGeometry(GlobalGeometry):
         """
         self.setup(
             num_geometries,
-            num_of_local_refs,
+            uses_local_coords,
             global_cs,
         )
 
     def setup(
         self,
         num_geometries,
-        num_of_local_refs=0,
+        uses_local_coords=False,
         global_cs: tuple[float, float, float] = None,
     ):
         """
@@ -357,29 +355,27 @@ class SimulatorGeometry(GlobalGeometry):
         super().setup(num_geometries)
 
         self._global_lla_reference = global_cs
-        self._num_of_local_refs = num_of_local_refs
+        self.uses_local_coords = True
 
-        if num_of_local_refs == 0:
+        if not uses_local_coords:
             self.uses_local_coords = False
             self._x_local = self._x_global
             self._y_local = self._y_global
             self._z_local = self._z_global
             self._pointn_azim_local = self._pointn_azim_global
             self._pointn_elev_local = self._pointn_elev_global
-            self._local_lla_references = None
             return
         elif global_cs is None:
             raise ValueError(
                 "If there will be a local ref, global coord sys must be passed"
             )
-        self.uses_local_coords = True
 
         self._x_local = np.empty(num_geometries)
         self._y_local = np.empty(num_geometries)
         self._z_local = np.empty(num_geometries)
         self._pointn_azim_local = np.empty(num_geometries)
         self._pointn_elev_local = np.empty(num_geometries)
-        self._local_lla_references = np.empty((3, num_of_local_refs))
+        self._local_lla_references = np.empty((3, num_geometries))
 
     def set_local_coord_sys(
         self,
@@ -392,10 +388,10 @@ class SimulatorGeometry(GlobalGeometry):
         global<->local coordinate transformation
         """
         for r in [ref_lats, ref_lons, ref_alts]:
-            if len(r) != self._num_of_local_refs:
+            if len(r) != self.num_geometries:
                 raise ValueError(
                     "Incongruent number of coordinate systems. "
-                    f"Passed {len(r)} but should have passed {len(self._num_of_local_refs)}"
+                    f"Passed {len(r)} but should have passed {len(self.num_geometries)}"
                 )
         self._local_lla_references = np.stack((ref_lats, ref_lons, ref_alts))
 
@@ -485,13 +481,14 @@ class SimulatorGeometry(GlobalGeometry):
         """Receives a vector shaped as (N, 3) and applies local2global transform
         """
         if translate:
-            # Translation happens first (before rotation)
+            # remove ecef2local translation
             p_local = p_local + self.local2ecef_transl_mtx  # (N,3)
 
+        # rotate local2ecef2global
         p_global = (self.local2global_rot_mtx @ p_local[..., None]).squeeze(-1)  # (N,3)
 
         if translate:
-            # translation happens after rotation
+            # add ecef2global translation
             p_global = p_global + self.ecef2global_transl_mtx  # (N,3)
 
         return p_global
@@ -533,13 +530,14 @@ class SimulatorGeometry(GlobalGeometry):
         """Receives a vector shaped as (N, 3) and applies global2local transform
         """
         if translate:
-            # Translation happens first (before rotation)
+            # remove ecef2global translation
             p_global = p_global + self.global2ecef_transl_mtx  # (N,3)
 
+        # rotate global2ecef2local
         p_local = (self.global2local_rot_mtx @ p_global[..., None]).squeeze(-1)  # (N,3)
 
         if translate:
-            # translation happens after rotation
+            # add ecef2local translation
             p_local = p_local + self.ecef2local_transl_mtx  # (N,3)
 
         return p_local
@@ -557,7 +555,7 @@ class SimulatorGeometry(GlobalGeometry):
         )
 
         # first translation, after rotation
-        self.local2ecef_transl_mtx = np.zeros((self._num_of_local_refs, 3))
+        self.local2ecef_transl_mtx = np.zeros((self.num_geometries, 3))
         # NOTE: works because of spherical Earth
         self.local2ecef_transl_mtx[:, 2] = local_alt + EARTH_RADIUS_M
         local2ecef_rot_mtx = ecef2local_rot.inv().as_matrix()
@@ -699,6 +697,7 @@ def plot_geom(
                 showlegend=False,
             ))
 
+
 if __name__ == "__main__":
     global_lla = (-14, -45, 1200)
     # tg = SimulatorGeometry(
@@ -756,7 +755,7 @@ if __name__ == "__main__":
         num_ue * topology.num_base_stations,
         topology,
         rng,
-        min_dist_to_bs=35., deterministic_cell=True
+        deterministic_cell=True
     )
     ue_geom.set_local_coords(
         np.array(ue_x),

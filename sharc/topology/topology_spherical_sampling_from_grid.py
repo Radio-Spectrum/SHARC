@@ -116,9 +116,13 @@ class TopologySamplingFromSphericalGrid(Topology):
         self.bs_geometry = geom
 
     def get_bs_geometry(self) -> SimulatorGeometry:
+        """Returns BS pre-built SimulatorGeometry if implemented
+        """
         return self.bs_geometry
 
     def get_ue_geometry(self, ue_k: int) -> SimulatorGeometry:
+        """Returns UE pre-built SimulatorGeometry if implemented
+        """
         ue_geom = SimulatorGeometry(
             self.num_base_stations * ue_k,
             self.num_base_stations * ue_k,
@@ -132,6 +136,7 @@ class TopologySamplingFromSphericalGrid(Topology):
         return ue_geom
 
     def transform_ue_xyz(self, bs, x, y, z):
+        """Do not make any changes to ue position, let SimulatorGeometry take care of it"""
         return x, y, z
 
 

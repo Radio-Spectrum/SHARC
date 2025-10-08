@@ -42,10 +42,14 @@ class Topology(object):
         """Calculate the coordinates of the stations according to class attributes."""
 
     def get_ue_geometry(self, ue_k: int) -> SimulatorGeometry:
+        """Returns UE pre-built SimulatorGeometry if implemented
+        """
         if not self.determines_local_geometry:
             raise ValueError("cannot get local UE geom if topology doesn't determines_local_geometry")
 
     def get_bs_geometry(self) -> SimulatorGeometry:
+        """Returns BS pre-built SimulatorGeometry if implemented
+        """
         if not self.determines_local_geometry:
             raise ValueError("cannot get local BS geom if topology doesn't determines_local_geometry")
 

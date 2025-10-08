@@ -370,6 +370,7 @@ class SimulatorGeometry(GlobalGeometry):
             raise ValueError(
                 "If there will be a local ref, global coord sys must be passed"
             )
+        self.uses_local_coords = True
 
         self._x_local = np.empty(num_geometries)
         self._y_local = np.empty(num_geometries)
@@ -578,4 +579,98 @@ class SimulatorGeometry(GlobalGeometry):
 
         raise NotImplementedError()
 
+if __name__ == "__main__":
+    from sharc.topology.topology_macrocell import TopologyMacrocell
+    rng = np.random.RandomState(seed=0xcaffe)
+    topology = TopologyMacrocell(
+        3 * 111e3, 1
+    )
+
+    topology.calculate_coordinates(rng)
+
+    global_lla = (-14, -45, 1200)
+
+    num_ue = 3
+
+    bs_geom = SimulatorGeometry(
+        topology.num_base_stations,
+        topology.num_base_stations,
+        global_lla
+    )
+    ue_geom = SimulatorGeometry(
+        num_ue * topology.num_base_stations,
+        num_ue * topology.num_base_stations,
+        global_lla
+    )
+
+    bs_geom.set_local_coord_sys(
+        np.repeat(11, topology.num_base_stations),
+        np.repeat(-47, topology.num_base_stations),
+        np.repeat(1200, topology.num_base_stations),
+    )
+    ue_geom.set_local_coord_sys(
+        np.repeat(11, num_ue * topology.num_base_stations),
+        np.repeat(-47, num_ue * topology.num_base_stations),
+        np.repeat(1200, num_ue * topology.num_base_stations),
+    )
+
+    bs_geom.set_local_coords(
+        topology.x,
+        topology.y,
+        topology.z,
+    )
+
+    from sharc.station_factory import StationFactory
+    ue_x, ue_y, ue_z, _, _ = StationFactory.get_random_position(
+        num_ue * topology.num_base_stations,
+        topology,
+        rng,
+        min_dist_to_bs=35., deterministic_cell=True
+    )
+    ue_geom.set_local_coords(
+        np.array(ue_x),
+        np.array(ue_y),
+        np.array(ue_z),
+    )
+
+    from sharc.satellite.scripts.plot_globe import plot_globe_with_borders
+    from sharc.support.sharc_geom import CoordinateSystem
+
+    # for plotting
+    global_cs = CoordinateSystem()
+    global_cs.set_reference(
+        *global_lla
+    )
+    fig = plot_globe_with_borders(
+        False, global_cs, False
+    )
+
+    import plotly.graph_objects as go
+
+    fig.add_trace(go.Scatter3d(
+        x=bs_geom.x_global,
+        y=bs_geom.y_global,
+        z=bs_geom.z_global,
+        mode='markers',
+        marker=dict(
+            size=3,
+            color='blue',
+            opacity=1.0
+        ),
+        name='BS'
+    ))
+    fig.add_trace(go.Scatter3d(
+        x=ue_geom.x_global,
+        y=ue_geom.y_global,
+        z=ue_geom.z_global,
+        mode='markers',
+        marker=dict(
+            size=1,
+            color='red',
+            opacity=1.0
+        ),
+        name='UE'
+    ))
+
+    fig.show()
 

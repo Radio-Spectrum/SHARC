@@ -233,7 +233,7 @@ imt:
                         max: 66.1
                 service_grid:
                     grid_exclusion_zone:
-                        type: CIRCLE
+                        type: CIRCLE     # may be "CIRCLE" or "FROM_COUNTRIES"
                         circle:
                             center_lat: -14.123
                             center_lon: -47.1
@@ -241,19 +241,21 @@ imt:
 
                     transform_grid_randomly: true # add per drop rand rotation + transl. to grid
                     # by default this already gets shapefile from natural earth
-                    country_shapes_filename: sharc/data/countries/ne_110m_admin_0_countries.shp
-                    # By default, these are the same as taken from `sat_is_active_if.lat_long_inside_country`
-                    country_names:
-                        - Brazil
-                        - Chile
+                    grid_in_zone:
+                        type: FROM_COUNTRIES     # may be "CIRCLE" or "FROM_COUNTRIES"
+                        from_countries:
+                            country_shapes_filename: sharc/data/countries/ne_110m_admin_0_countries.shp
+                            # By default, these are the same as taken from `sat_is_active_if.lat_long_inside_country`
+                            country_names:
+                                - Brazil
+                                - Chile
 
-                    # This margin defines where the grid is constructed
-                    # margin from inside of border [km]
-                    # By default, this is made to be the same as beam_radius
-                    # if positive, makes border smaller by x km
-                    # if negative, makes border bigger by x km
-                    grid_margin_from_border: 0.11
-
+                            # This margin defines where the grid is constructed
+                            # margin from inside of border [km]
+                            # By default, this is made to be the same as beam_radius
+                            # if positive, makes border smaller by x km
+                            # if negative, makes border bigger by x km
+                            margin_from_border: 0.11
                     # This margin defines what satellites may serve the grid
                     # it should normally be a smaller value than the grid from border
                     # since a satellite not right above the grid may serve some point better
@@ -995,7 +997,7 @@ mss_d2d:
     # Number of sectors
     num_sectors: 19
     beam_positioning:
-        # type may be one of 
+        # type may be one of
         # "ANGLE_FROM_SUBSATELLITE", "ANGLE_AND_DISTANCE_FROM_SUBSATELLITE",
         # "SERVICE_GRID"
         # when "ANGLE_FROM_SUBSATELLITE", both phi and theta must be specified
@@ -1038,26 +1040,29 @@ mss_d2d:
                 max: 66.1
         service_grid:
             grid_exclusion_zone:
-                type: CIRCLE
+                type: CIRCLE     # may be "CIRCLE" or "FROM_COUNTRIES"
                 circle:
                     center_lat: -14.123
                     center_lon: 120
                     radius_km: 321
 
             transform_grid_randomly: true # add per drop rand rotation + transl. to grid
-            # by default this already gets shapefile from natural earth
-            country_shapes_filename: sharc/data/countries/ne_110m_admin_0_countries.shp
-            # By default, these are the same as taken from `sat_is_active_if.lat_long_inside_country`
-            country_names:
-                - Brazil
-                - Chile
 
-            # This margin defines where the grid is constructed
-            # margin from inside of border [km]
-            # By default, this is made to be the same as beam_radius
-            # if positive, makes border smaller by x km
-            # if negative, makes border bigger by x km
-            grid_margin_from_border: 0.11
+            grid_in_zone:
+                type: FROM_COUNTRIES     # may be "CIRCLE" or "FROM_COUNTRIES"
+                from_countries:
+                    country_shapes_filename: sharc/data/countries/ne_110m_admin_0_countries.shp
+                    # By default, these are the same as taken from `sat_is_active_if.lat_long_inside_country`
+                    country_names:
+                        - Brazil
+                        - Chile
+
+                    # This margin defines where the grid is constructed
+                    # margin from inside of border [km]
+                    # By default, this is made to be the same as beam_radius
+                    # if positive, makes border smaller by x km
+                    # if negative, makes border bigger by x km
+                    margin_from_border: 0.11
 
             # This margin defines what satellites may serve the grid
             # it should normally be a smaller value than the grid from border

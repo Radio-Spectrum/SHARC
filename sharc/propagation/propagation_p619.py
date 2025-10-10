@@ -486,7 +486,7 @@ class PropagationP619(Propagation):
                     frequency=frequency,
                     distance=distance,
                     elevation=elevation["free_space"],
-                    station_type=StationType.FSS_SS,
+                    clutter_scenario="spatial",
                     earth_station_height=earth_station_height,
                     mean_clutter_height=self.mean_clutter_height,
                     below_rooftop=self.below_rooftop,

@@ -25,7 +25,7 @@ class TestPropagationClutterLoss(unittest.TestCase):
             frequency=frequency,
             elevation=elevation,
             loc_percentage=loc_percentage,
-            clutter_scenario="spacial",
+            clutter_scenario="spatial",
             earth_station_height=earth_station_height,
             mean_clutter_height=mean_clutter_height,
             below_rooftop=below_rooftop,

@@ -1151,25 +1151,20 @@ class StationFactory(object):
                 single_earth_station.y = np.array(y)
             case "UNIFORM_DIST":
                 # ES is randomly (uniform) created inside a circle of radius
-                # equal to param.max_dist_to_bs
-                if param.geometry.location.uniform_dist.min_dist_to_bs < 0:
+                # equal to param.max_dist_to_center
+                r_min = param.geometry.location.uniform_dist.min_dist_to_center
+                r_max = param.geometry.location.uniform_dist.max_dist_to_center
+                if r_min < 0 or r_min > r_max:
                     sys.stderr.write(
-                        "ERROR\nInvalid minimum distance from Single ES to BS: {}".format(
-                            param.geometry.location.uniform_dist.min_dist_to_bs, ), )
+                        "ERROR\nInvalid minimum distance from Single ES imt center: {}".format(
+                            r_min, ), )
                     sys.exit(1)
-                while (True):
-                    dist_x = random_number_gen.uniform(
-                        -param.geometry.location.uniform_dist.max_dist_to_bs,
-                        param.geometry.location.uniform_dist.max_dist_to_bs,
-                    )
-                    dist_y = random_number_gen.uniform(
-                        -param.geometry.location.uniform_dist.max_dist_to_bs,
-                        param.geometry.location.uniform_dist.max_dist_to_bs,
-                    )
-                    radius = np.sqrt(dist_x**2 + dist_y**2)
-                    if (radius > param.geometry.location.uniform_dist.min_dist_to_bs) & (
-                            radius < param.geometry.location.uniform_dist.max_dist_to_bs):
-                        break
+                radius = np.sqrt(
+                    random_number_gen.uniform() * (r_max**2 - r_min**2) + r_min**2
+                )
+                theta = random_number_gen.uniform(0, 2 * np.pi)
+                dist_x = radius * np.cos(theta)
+                dist_y = radius * np.sin(theta)
                 single_earth_station.x[0] = dist_x
                 single_earth_station.y[0] = dist_y
             case _:
@@ -1201,6 +1196,11 @@ class StationFactory(object):
                     param.geometry.azimuth.uniform_dist.min, param.geometry.azimuth.uniform_dist.max,
                 ),
             ])
+        elif param.geometry.azimuth.type == "POINTING_AT_IMT_CENTER":
+            single_earth_station.azimuth = np.rad2deg(np.arctan2(
+                -single_earth_station.y,
+                -single_earth_station.x
+            ))
         else:
             single_earth_station.azimuth = np.array(
                 [param.geometry.azimuth.fixed],

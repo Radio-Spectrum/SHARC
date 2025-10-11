@@ -94,8 +94,8 @@ class ParametersSingleEarthStation(ParametersBase):
         class FixedOrUniformDist(ParametersBase):
             """Represents a value that can be fixed or uniformly distributed."""
 
-            __EXISTING_TYPES = ["UNIFORM_DIST", "FIXED"]
-            type: typing.Literal["UNIFORM_DIST", "FIXED"] = None
+            __EXISTING_TYPES = ["UNIFORM_DIST", "FIXED", "POINTING_AT_IMT_CENTER"]
+            type: typing.Literal["UNIFORM_DIST", "FIXED", "POINTING_AT_IMT_CENTER"] = None
             fixed: float = None
 
             @dataclass
@@ -147,6 +147,8 @@ class ParametersSingleEarthStation(ParametersBase):
                                 self.fixed,
                                 float):
                             raise ValueError(f"{ctx}.fixed should be a number")
+                    case "POINTING_AT_IMT_CENTER":
+                        pass
                     case _:
                         raise NotImplementedError(
                             f"Validation for {ctx}.type = {

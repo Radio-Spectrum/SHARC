@@ -469,7 +469,7 @@ class PostProcessor():
                 if "lf=20%" in legend:
                     dash_style = "dash"
 
-                if "p=20%" in legend:
+                if "N=4" in legend:
                     dash_style = "solid"
                 elif "RANDOM" in legend:
                     dash_style = "dash"
@@ -479,7 +479,7 @@ class PostProcessor():
 
 
                 x_aux = x
-                if attr_name == "system_dl_interf_power_per_mhz" or attr_name == "system_ul_interf_power_per_mhz":
+                if attr_name == "system_dl_interf_power_per_mhz" or attr_name == "system_ul_interf_power_per_mhz" or attr_name == "system_inr":
                     x_aux = x_aux - shift_scale  # shift by -30                fig = figs[attr_name]
 
                 fig.add_trace(

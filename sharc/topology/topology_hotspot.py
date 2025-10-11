@@ -139,9 +139,12 @@ class TopologyHotspot(Topology):
                             )
                             sys.exit(1)
                 # if num_attempts > 1: print("number of attempts: {}".format(num_attempts))
-            x = np.concatenate([x, hotspot_x])
-            y = np.concatenate([y, hotspot_y])
-            azimuth = np.concatenate([azimuth, hotspot_azimuth])
+            x0, y0 = 0.0, 10000.0
+            a, b = 4100.0, 450.0  # semi-comprimentos (m)
+            inside_airport = (np.abs(x0 - hotspot_x) <= a) & (np.abs(y0 - hotspot_y) <= b)      
+            x = np.concatenate([x, hotspot_x[~inside_airport]])
+            y = np.concatenate([y, hotspot_y[~inside_airport]])
+            azimuth = np.concatenate([azimuth, hotspot_azimuth[~inside_airport]])
 
         self.x = x
         self.y = y
@@ -291,14 +294,14 @@ class TopologyHotspot(Topology):
 
 if __name__ == '__main__':
     param = ParametersHotspot()
-    param.num_hotspots_per_cell = 1
+    param.num_hotspots_per_cell = 5
 
     param.max_dist_hotspot_ue = 400
     param.min_dist_bs_hotspot = 0
 
-    intersite_distance = 1019
+    intersite_distance = 8750
 
-    num_clusters = 7
+    num_clusters = 1
     topology = TopologyHotspot(param, intersite_distance, num_clusters)
     topology.calculate_coordinates()
 
@@ -318,6 +321,6 @@ if __name__ == '__main__':
     plt.tight_layout()
 
     axes = plt.gca()
-    axes.set_xlim([-6000, 6000])
+    #axes.set_xlim([-6000, 6000])
 
     plt.show()

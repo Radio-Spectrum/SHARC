@@ -4,6 +4,7 @@ from sharc.parameters.parameters_antenna_with_envelope_gain import ParametersAnt
 from sharc.parameters.antenna.parameters_antenna_s1528 import ParametersAntennaS1528
 from sharc.parameters.antenna.parameters_antenna_with_freq import ParametersAntennaWithFreq
 from sharc.parameters.imt.parameters_antenna_imt import ParametersAntennaImt
+from sharc.antenna.antenna_ra_m2319 import ParametersRA
 
 from dataclasses import dataclass, field
 import typing
@@ -30,7 +31,8 @@ class ParametersAntenna(ParametersBase):
         "ITU-R-S.1528-LEO",
         "MSS Adjacent",
         "ITU-R S.672",
-        "ITU-R F.1245_fs"]
+        "ITU-R F.1245_fs",
+        "RA_M2319"]
 
     # chosen antenna radiation pattern
     pattern: typing.Literal["OMNI",
@@ -47,7 +49,8 @@ class ParametersAntenna(ParametersBase):
                             "ITU-R-S.1528-LEO",
                             "MSS Adjacent",
                             "ITU-R S.672",
-                            "ITU-R F.1245_fs"] = None
+                            "ITU-R F.1245_fs",
+                            "RA_M2319"] = None
 
     # antenna gain [dBi]
     gain: float = None
@@ -82,6 +85,9 @@ class ParametersAntenna(ParametersBase):
 
     itu_reg_rr_a7_3: ParametersAntennaWithDiameter = field(
         default_factory=ParametersAntennaWithDiameter,
+    )
+    itu_ra_m2319: ParametersRA = field(
+        default_factory=ParametersRA,
     )
 
     @dataclass
@@ -226,6 +232,8 @@ class ParametersAntenna(ParametersBase):
                 self.itu_r_f_1245_fs.validate(f"{ctx}.itu_r_f_1245_fs")
             case "MSS Adjacent":
                 self.mss_adjacent.validate(f"{ctx}.mss_adjacent")
+            case "RA_M2319":
+                pass
             case _:
                 raise NotImplementedError(
                     "ParametersAntenna.validate does not implement this antenna validation!", )

@@ -822,7 +822,7 @@ class StationFactory(object):
             space_station.azimuth = np.rad2deg(
                 np.arctan2(py - space_station.y, px - space_station.x))
         elif param.geometry.azimuth.type == "FIXED":
-            space_station.azimuth = param.geometry.azimuth.fixed
+            space_station.azimuth = np.atleast_1d(param.geometry.azimuth.fixed)
         else:
             raise ValueError(
                 f"Did not recognize azimuth type of {
@@ -854,7 +854,7 @@ class StationFactory(object):
                     np.sqrt(dy * dy + dx * dx)))
             space_station.elevation = gnd_elev
         elif param.geometry.elevation.type == "FIXED":
-            space_station.elevation = param.geometry.elevation.fixed
+            space_station.elevation = np.atleast_1d(param.geometry.elevation.fixed)
         else:
             raise ValueError(
                 f"Did not recognize elevation type of {

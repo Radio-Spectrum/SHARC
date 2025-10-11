@@ -24,7 +24,14 @@ class ParametersSingleSpaceStation(ParametersBase):
     # System receive noise temperature [K]
     noise_temperature: float = None
 
+    # Adjacent channel emission type [dB]
+    # Adjacent Interference filter reception used when this system
+    # is victim. Possible values is ACS and OFF
+    adjacent_ch_reception: typing.Literal[
+        "ACS", "OFF"
+    ] = "OFF"
     # Adjacent channel selectivity [dB]
+    
     adjacent_ch_selectivity: float = None
 
     # Peak transmit power spectral density (clear sky) [dBW/Hz]

@@ -6,7 +6,7 @@ from sharc.satellite.utils.sat_utils import ecef2lla, lla2ecef
 from sharc.station_manager import StationManager
 
 
-class TestGeometryConverter(unittest.TestCase):
+class TestCoordinateSystem(unittest.TestCase):
     """Unit tests for the CoordinateSystem class and related coordinate transformations."""
 
     def setUp(self):

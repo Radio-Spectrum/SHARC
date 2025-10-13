@@ -146,7 +146,7 @@ class GlobalGeometry(ABC):
             theta (np.array): elevation of pointing vector to other stations
         """
         if self.uses_local_coords or other.uses_local_coords:
-            raise ValueError(
+            raise NotImplementedError(
                 "Wrap around was not implemented for local coord sys"
             )
         # Initialize variables
@@ -391,7 +391,7 @@ class SimulatorGeometry(GlobalGeometry):
             if len(r) != self.num_geometries:
                 raise ValueError(
                     "Incongruent number of coordinate systems. "
-                    f"Passed {len(r)} but should have passed {len(self.num_geometries)}"
+                    f"Passed {len(r)} but should have passed {self.num_geometries}"
                 )
         self._local_lla_references = np.stack((ref_lats, ref_lons, ref_alts))
 
@@ -468,7 +468,7 @@ class SimulatorGeometry(GlobalGeometry):
             r, self.pointn_azim_local, self.pointn_elev_local), axis=-1)
 
         point_global_x, point_global_y, point_global_z = self._vec_local2global(
-            point_local, False
+            point_local, translate=False
         ).T
 
         _, global_azimuth, global_elevation = cartesian_to_polar(
@@ -477,19 +477,40 @@ class SimulatorGeometry(GlobalGeometry):
         self._pointn_elev_global = global_elevation
         self._pointn_azim_global = global_azimuth
 
-    def _vec_local2global(self, p_local, translate=True):
-        """Receives a vector shaped as (N, 3) and applies local2global transform
+    def _vec_local2global(
+        self,
+        p_local,
+        *,
+        translate=True,
+        permutate=False,
+    ):
+        """Receives a vector shaped as (N, 3) and applies local2global transform,
+            returning (N, 3).
+        If permutate == True, then may receive a vector (M, 3),
+            returning (N, M, 3)
         """
-        if translate:
+        N = self.num_geometries
+
+        local2ecef_t = self._local2ecef_transl_mtx if translate else 0
+        ecef2global_t = self._ecef2global_transl_mtx if translate else 0
+
+        if not permutate:
+            assert p_local.shape == (N, 3)
             # remove ecef2local translation
-            p_local = p_local + self.local2ecef_transl_mtx  # (N,3)
-
-        # rotate local2ecef2global
-        p_global = (self.local2global_rot_mtx @ p_local[..., None]).squeeze(-1)  # (N,3)
-
-        if translate:
+            p_local = p_local + local2ecef_t  # (N,3)
+            # rotate local2ecef2global
+            p_global = (self._local2global_rot_mtx @ p_local[..., None]).squeeze(-1)  # (N,3)
             # add ecef2global translation
-            p_global = p_global + self.ecef2global_transl_mtx  # (N,3)
+            p_global = p_global + ecef2global_t  # (N,3)
+        else:
+            local2ecef_t_cast = local2ecef_t
+            ecef2global_t_cast = ecef2global_t
+            if translate:
+                local2ecef_t_cast = local2ecef_t[:, None, :]
+                ecef2global_t_cast = ecef2global_t[:, None, :]
+            p_local_exp = p_local[None, :, :] + local2ecef_t_cast  # (N,M,3)
+            p_global = (self._global2local_rot_mtx[:, None, :, :] @ p_local_exp[..., None]).squeeze(-1)
+            p_global += ecef2global_t_cast
 
         return p_global
 
@@ -517,7 +538,7 @@ class SimulatorGeometry(GlobalGeometry):
             r, self.pointn_azim_global, self.pointn_elev_global), axis=-1)
 
         point_local_x, point_local_y, point_local_z = self._vec_global2local(
-            point_global, False
+            point_global, translate=False
         ).T
 
         _, local_azimuth, local_elevation = cartesian_to_polar(
@@ -526,19 +547,43 @@ class SimulatorGeometry(GlobalGeometry):
         self._pointn_elev_local = local_elevation
         self._pointn_azim_local = local_azimuth
 
-    def _vec_global2local(self, p_global, translate=True):
-        """Receives a vector shaped as (N, 3) and applies global2local transform
+    def _vec_global2local(
+        self,
+        p_global,
+        *,
+        translate=True,
+        permutate=False
+    ):
+        """Receives a vector shaped as (N, 3) and applies global2local transform,
+            returning (N, 3).
+        If permutate == True, then may receive a vector (M, 3),
+            returning (N, M, 3)
         """
-        if translate:
+        N = self.num_geometries
+
+        global2ecef_t = self._global2ecef_transl_mtx if translate else 0
+        ecef2local_t = self._ecef2local_transl_mtx if translate else 0
+
+        if not permutate:
+            assert p_global.shape == (N, 3)
+
             # remove ecef2global translation
-            p_global = p_global + self.global2ecef_transl_mtx  # (N,3)
+            p_global = p_global + global2ecef_t  # (N,3)
 
-        # rotate global2ecef2local
-        p_local = (self.global2local_rot_mtx @ p_global[..., None]).squeeze(-1)  # (N,3)
+            # rotate global2ecef2local
+            p_local = (self._global2local_rot_mtx @ p_global[..., None]).squeeze(-1)  # (N,3)
 
-        if translate:
             # add ecef2local translation
-            p_local = p_local + self.ecef2local_transl_mtx  # (N,3)
+            p_local += ecef2local_t  # (N,3)
+        else:
+            global2ecef_t_cast = global2ecef_t
+            ecef2local_t_cast = ecef2local_t
+            if translate:
+                global2ecef_t_cast = global2ecef_t[:, None, :]
+                ecef2local_t_cast = ecef2local_t[:, None, :]
+            p_global_exp = p_global[None, :, :] + global2ecef_t_cast  # (N,M,3)
+            p_local = (self._global2local_rot_mtx[:, None, :, :] @ p_global_exp[..., None]).squeeze(-1)
+            p_local += ecef2local_t_cast
 
         return p_local
 
@@ -555,14 +600,14 @@ class SimulatorGeometry(GlobalGeometry):
         )
 
         # first translation, after rotation
-        self.local2ecef_transl_mtx = np.zeros((self.num_geometries, 3))
+        self._local2ecef_transl_mtx = np.zeros((self.num_geometries, 3))
         # NOTE: works because of spherical Earth
-        self.local2ecef_transl_mtx[:, 2] = local_alt + EARTH_RADIUS_M
+        self._local2ecef_transl_mtx[:, 2] = local_alt + EARTH_RADIUS_M
         local2ecef_rot_mtx = ecef2local_rot.inv().as_matrix()
 
         # first rotation, after translation
         ecef2local_rot_mtx = ecef2local_rot.as_matrix()
-        self.ecef2local_transl_mtx = -self.local2ecef_transl_mtx
+        self._ecef2local_transl_mtx = -self._local2ecef_transl_mtx
 
         # global transforms
         global_lat, global_lon, global_alt = self._global_lla_reference
@@ -576,20 +621,25 @@ class SimulatorGeometry(GlobalGeometry):
         )
 
         # first translation, after rotation
-        self.global2ecef_transl_mtx = np.zeros((1, 3))
+        self._global2ecef_transl_mtx = np.zeros((1, 3))
         # NOTE: works because of spherical Earth
-        self.global2ecef_transl_mtx[:, 2] = global_alt + EARTH_RADIUS_M
+        self._global2ecef_transl_mtx[:, 2] = global_alt + EARTH_RADIUS_M
         global2ecef_rot_mtx = ecef2global_rot.inv().as_matrix()
 
         # first rotation, after translation
         ecef2global_rot_mtx = ecef2global_rot.as_matrix()
-        self.ecef2global_transl_mtx = -self.global2ecef_transl_mtx
+        self._ecef2global_transl_mtx = -self._global2ecef_transl_mtx
 
-        self.local2global_rot_mtx = ecef2global_rot_mtx @ local2ecef_rot_mtx
+        self._local2global_rot_mtx = ecef2global_rot_mtx @ local2ecef_rot_mtx
 
-        self.global2local_rot_mtx = ecef2local_rot_mtx @ global2ecef_rot_mtx
+        self._global2local_rot_mtx = ecef2local_rot_mtx @ global2ecef_rot_mtx
 
-    def get_local_distance_to(self, other: "SimulatorGeometry") -> np.array:
+    def get_local_distance_to(
+        self,
+        other: "SimulatorGeometry",
+        *,
+        return_z_dist=False
+    ) -> np.array:
         """Calculate the 2D distance between this manager's stations and another's
         considering this ones coordinate system
 
@@ -605,8 +655,23 @@ class SimulatorGeometry(GlobalGeometry):
         """
         if not self.uses_local_coords:
             return self.get_global_distance_to(other)
-        # TODO: 2d distance calculation
-        raise NotImplementedError()
+
+        p_global = np.stack([other.x_global, other.y_global, other.z_global], axis=-1)
+        other_local = self._vec_global2local(
+            p_global,
+            permutate=True
+        )
+        own_local = np.stack([self.x_local, self.y_local, np.zeros_like(self.z_local)], axis=-1)
+
+        if return_z_dist:
+            z_dist = other_local[..., 2] - self.z_local[:, None]
+        other_local[..., 2] = 0.
+
+        dist2d = np.sqrt(np.sum(np.power(other_local - own_local[:, None, :], 2), axis=-1))
+
+        if return_z_dist:
+            return dist2d, z_dist
+        return dist2d
 
     def get_local_elevation(self, other: "SimulatorGeometry") -> np.array:
         """Calculate the elevation angle between this manager's stations and another's
@@ -625,7 +690,10 @@ class SimulatorGeometry(GlobalGeometry):
         if not self.uses_local_coords:
             return self.get_global_elevation(other)
 
-        raise NotImplementedError()
+        lat, lon, alt = self.local_lla_references
+        dist2d, z_dist = self.get_local_distance_to(other, return_z_dist=True)
+
+        return np.degrees(np.arctan2(z_dist, dist2d))
 
 
 def plot_geom(

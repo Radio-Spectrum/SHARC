@@ -105,6 +105,7 @@ class TestGeometry(unittest.TestCase):
         ref = (-45.0, 90, 30.)
 
         alt_vals = np.array([500., 800., 1200., 1800.])
+
         def init_diff_alt():
             geom = SimulatorGeometry(4, True, ref)
             geom.set_local_coord_sys(
@@ -154,6 +155,7 @@ class TestGeometry(unittest.TestCase):
             [0., 90., 0.],
             [0., -90., 0.],
         ]).T
+
         def init_diff_llas():
             geom = SimulatorGeometry(4, True, ref)
             geom.set_local_coord_sys(
@@ -209,6 +211,7 @@ class TestGeometry(unittest.TestCase):
             [1., 0., 0.],
             [-1., 0., 0.],
         ]).T
+
         def init_geom():
             geom = SimulatorGeometry(5, True, ref)
             geom.set_local_coord_sys(
@@ -237,28 +240,28 @@ class TestGeometry(unittest.TestCase):
         # assuming 1deg difference should be ~ 111km at lat,lon = (0, 0)
         npt.assert_allclose(
             dists2d[0], np.array([0., 111e3, 111e3, 111e3, 111e3]),
-            atol=1e-8, # tolerance for == 0.
-            rtol=0.3/100, # tolerance for all others
+            atol=1e-8,  # tolerance for == 0.
+            rtol=0.3 / 100,  # tolerance for all others
         )
         npt.assert_allclose(
             dists2d[1], np.array([111e3, 0., 2 * 111e3, np.sqrt(2) * 111e3, np.sqrt(2) * 111e3]),
-            atol=1e-8, # tolerance for == 0.
-            rtol=0.3/100, # tolerance for all others
+            atol=1e-8,  # tolerance for == 0.
+            rtol=0.3 / 100,  # tolerance for all others
         )
         npt.assert_allclose(
-            dists2d[2], np.array([111e3, 2 * 111e3, 0.,  np.sqrt(2) * 111e3, np.sqrt(2) * 111e3]),
-            atol=1e-8, # tolerance for == 0.
-            rtol=0.3/100, # tolerance for all others
+            dists2d[2], np.array([111e3, 2 * 111e3, 0., np.sqrt(2) * 111e3, np.sqrt(2) * 111e3]),
+            atol=1e-8,  # tolerance for == 0.
+            rtol=0.3 / 100,  # tolerance for all others
         )
         npt.assert_allclose(
-            dists2d[3], np.array([111e3, np.sqrt(2) * 111e3, np.sqrt(2) * 111e3,  0., 2 * 111e3]),
-            atol=1e-8, # tolerance for == 0.
-            rtol=0.3/100, # tolerance for all others
+            dists2d[3], np.array([111e3, np.sqrt(2) * 111e3, np.sqrt(2) * 111e3, 0., 2 * 111e3]),
+            atol=1e-8,  # tolerance for == 0.
+            rtol=0.3 / 100,  # tolerance for all others
         )
         npt.assert_allclose(
-            dists2d[4], np.array([111e3, np.sqrt(2) * 111e3, np.sqrt(2) * 111e3,  2 * 111e3, 0.]),
-            atol=1e-8, # tolerance for == 0.
-            rtol=0.3/100, # tolerance for all others
+            dists2d[4], np.array([111e3, np.sqrt(2) * 111e3, np.sqrt(2) * 111e3, 2 * 111e3, 0.]),
+            atol=1e-8,  # tolerance for == 0.
+            rtol=0.3 / 100,  # tolerance for all others
         )
 
     def test_get_local_distance_to_same_ref(self):
@@ -340,11 +343,11 @@ class TestGeometry(unittest.TestCase):
         # assuming 1deg difference should be ~ 111km at lat,lon = (0, 0)
         npt.assert_allclose(
             dists2d[:2, 2:], 111e3,
-            rtol=0.4/100, # tolerance for all others
+            rtol=0.4 / 100,  # tolerance for all others
         )
         npt.assert_allclose(
             dists2d[2:, :2], 111e3,
-            rtol=0.4/100, # tolerance for all others
+            rtol=0.4 / 100,  # tolerance for all others
         )
 
     def test_get_local_elevation(self):

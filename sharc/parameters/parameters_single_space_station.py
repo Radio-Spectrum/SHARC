@@ -4,6 +4,7 @@ import typing
 from sharc.parameters.parameters_base import ParametersBase
 from sharc.parameters.parameters_antenna import ParametersAntenna
 from sharc.parameters.parameters_p619 import ParametersP619
+from sharc.parameters.parameter_p528 import ParametersP528
 
 
 @dataclass
@@ -54,6 +55,7 @@ class ParametersSingleSpaceStation(ParametersBase):
     param_p619: ParametersP619 = field(default_factory=ParametersP619)
     # TODO: remove season from system parameter and put it as p619 parameter
     season: typing.Literal["WINTER", "SUMMER"] = "SUMMER"
+    param_p528: ParametersP528 = field(default_factory=ParametersP528)
 
     @dataclass
     class SpaceStationGeometry(ParametersBase):
@@ -223,7 +225,7 @@ class ParametersSingleSpaceStation(ParametersBase):
                 f"{ctx}.season needs to be either 'WINTER' or 'SUMMER'",
             )
 
-        if self.channel_model not in ["FSPL", "P619"]:
+        if self.channel_model not in ["FSPL", "P619", "P528"]:
             raise ValueError(
                 f"{ctx}.channel_model" +
                 "needs to be in ['FSPL', 'P619']",

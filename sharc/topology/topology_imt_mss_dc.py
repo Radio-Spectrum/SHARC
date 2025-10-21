@@ -377,7 +377,7 @@ class TopologyImtMssDc(Topology):
             # TODO: remove this reset_grid call from here.
             # Since it should be called once per drop, it shouldn't
             # be this deep in the program
-            orbit_params.beam_positioning.service_grid.reset_grid("service_grid", random_number_gen)
+            orbit_params.beam_positioning.service_grid.reset_grid("service_grid", random_number_gen, True)
 
             # 2xN, (lon, lat)
             grid = orbit_params.beam_positioning.service_grid.lon_lat_grid

@@ -384,13 +384,17 @@ class ParametersSatelliteWithServiceGrid(ParametersTerrestrialGrid):
 
     def _recalculate_grid_polygon_if_needed(self, ctx: str, force_update=False):
         if self.eligibility_polygon is not None and not force_update:
-            return
+            return False
         self.grid_in_zone._calculate_polygon()
         self.grid_exclusion_zone._calculate_polygon()
 
         # TODO: plot this to verify
+        pols = self.grid_in_zone._unprocessed_polygon
+        if not isinstance(pols, list):
+            pols = [pols]
+
         self.eligibility_polygon = shp.ops.unary_union(shrink_countries_by_km(
-            self.grid_in_zone._unprocessed_polygon,
+            pols,
             self.eligible_sats_margin_from_border,
         ))
 
@@ -399,6 +403,8 @@ class ParametersSatelliteWithServiceGrid(ParametersTerrestrialGrid):
 
         assert not self.eligibility_polygon.is_empty, \
             "Can't have a empty eligibility_polygon as filter"
+
+        return True
 
 
 @dataclass

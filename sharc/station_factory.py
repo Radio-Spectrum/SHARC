@@ -1760,13 +1760,15 @@ class StationFactory(object):
         mss_d2d.active = np.zeros(total_satellites, dtype=bool)
 
         if mss_d2d_values["num_active_satellites"] != mss_d2d_values["num_satellites"]:
-            mss_d2d.active[mss_d2d_values["active_satellites_idxs"]] = random_number_gen.uniform(
-                size=len(mss_d2d_values["active_satellites_idxs"])) < params.beams_load_factor
+            while np.sum(mss_d2d.active) == 0:
+                mss_d2d.active[mss_d2d_values["active_satellites_idxs"]] = random_number_gen.uniform(
+                    size=len(mss_d2d_values["active_satellites_idxs"])) < params.beams_load_factor
         else:
-            # Set active satellite flags
-            mss_d2d.active = random_number_gen.uniform(
-                size=total_satellites
-            ) < params.beams_load_factor
+            while np.sum(mss_d2d.active) == 0:
+                # Set active satellite flags
+                mss_d2d.active = random_number_gen.uniform(
+                    size=total_satellites
+                ) < params.beams_load_factor
 
         # Initialize satellites antennas
         # we need to initialize them after coordinates transformation because of

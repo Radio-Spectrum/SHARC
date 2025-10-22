@@ -133,9 +133,115 @@ def haversine(
     a = np.sin(dlat / 2)**2 + np.cos(lat1) * np.cos(lat2) * np.sin(dlon / 2)**2
     return 2 * R * np.arcsin(np.sqrt(a))
 
+def sat_elevation_to_offaxis(elevation_angle_deg: float | np.ndarray, sat_altitude_m: float | np.ndarray) -> float:
+    """
+    Convert satellite elevation angle to off-axis angle (angle from nadir).
+
+    Parameters
+    ----------
+    elevation_angle_deg : float
+        Elevation angle in degrees.
+    sat_altitude_m : float
+        Satellite altitude above Earth's surface in meters.
+
+    Returns
+    -------
+    float
+        Off-axis angle in degrees.
+    """
+    if np.isscalar(elevation_angle_deg):
+        if elevation_angle_deg < 0 or elevation_angle_deg > 90:
+            raise ValueError("Elevation angle must be between 0 and 90 degrees.")
+    else:
+        if (elevation_angle_deg < 0).any() or (elevation_angle_deg > 90).any():
+            raise ValueError("Elevation angle must be between 0 and 90 degrees.")
+
+    # Convert elevation angle to radians
+    elevation_angle_rad = np.deg2rad(elevation_angle_deg)
+
+    # Calculate the distance from the Earth's center to the satellite
+    r_sat = EARTH_RADIUS_M + sat_altitude_m
+
+    # Calculate the off-axis angle using the spherical triangle relationship
+    offaxis_angle_rad = np.arcsin(
+        (EARTH_RADIUS_M / r_sat) * np.sin(elevation_angle_rad + np.pi / 2)
+    )
+
+    # Convert off-axis angle back to degrees
+    offaxis_angle_deg = np.rad2deg(offaxis_angle_rad)
+
+    return offaxis_angle_deg
+
+def offaxis_to_sat_elevation(offaxis_angle_deg: float | np.ndarray, sat_altitude_m: float | np.ndarray) -> float:
+    """
+    Convert off-axis angle (angle from nadir) to satellite elevation angle.
+
+    Parameters
+    ----------
+    offaxis_angle_deg : float
+        Off-axis angle in degrees.
+    sat_altitude_km : float
+        Satellite altitude above Earth's surface in meters.
+
+    Returns
+    -------
+    float
+        Elevation angle in degrees.
+    """
+    # We know that 90 deg offaxis is physically impossible, so raise ValueError
+    if np.isscalar(offaxis_angle_deg):
+        if offaxis_angle_deg < 0 or offaxis_angle_deg >= 90:
+            raise ValueError("Elevation angle must be between 0 and 90 degrees.")
+    else:
+        if (offaxis_angle_deg < 0).any() or (offaxis_angle_deg >= 90).any():
+            raise ValueError("Elevation angle must be between 0 and 90 degrees.")
+    # Convert off-axis angle to radians
+    offaxis_angle_rad = np.deg2rad(offaxis_angle_deg)
+
+    # Calculate the distance from the Earth's center to the satellite
+    r_sat = EARTH_RADIUS_M + sat_altitude_m
+
+    # Calculate the elevation angle using the sine law.
+    elevation_angle_rad = np.pi / 2 - np.arcsin((r_sat) / EARTH_RADIUS_M * np.sin(offaxis_angle_rad))
+
+    # Convert elevation angle back to degrees
+    elevation_angle_deg = np.rad2deg(elevation_angle_rad)
+
+    return elevation_angle_deg
+
+def earth_arc_length_from_nadir(offaxis_angle_deg: float | np.ndarray, sat_altitude_m: float | np.ndarray) -> float:
+    """
+    Calculate the Earth's surface arc length from nadir to the point
+    corresponding to the given off-axis angle.
+
+    Parameters
+    ----------
+    offaxis_angle_deg : float
+        Off-axis angle in degrees.
+    sat_altitude_km : float
+        Satellite altitude above Earth's surface in meters.
+
+    Returns
+    -------
+    float
+        Arc length on Earth's surface in meters.
+    """
+    # Convert off-axis angle to radians
+    offaxis_angle_rad = np.deg2rad(offaxis_angle_deg)
+
+    phi_rad = np.deg2rad(offaxis_to_sat_elevation(offaxis_angle_deg, sat_altitude_m) + 90.0)
+
+    central_angle_rad = np.pi - phi_rad - offaxis_angle_rad
+
+    # Calculate the arc length on Earth's surface
+    arc_length_m = EARTH_RADIUS_M * central_angle_rad
+
+    return arc_length_m
 
 if __name__ == "__main__":
     r1 = ecef2lla(7792.1450, 0, 0)
     print(r1)
     r2 = lla2ecef(r1[0], r1[1], r1[2])
     print(r2)
+
+    print(earth_arc_length_from_nadir(np.array([0, 10, 30, 45, 60]), 520.0))

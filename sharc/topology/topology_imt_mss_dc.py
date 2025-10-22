@@ -23,7 +23,7 @@ from sharc.parameters.parameters_orbit import ParametersOrbit
 from sharc.satellite.ngso.orbit_model import OrbitModel
 from sharc.support.sharc_geom import CoordinateSystem, rotate_angles_based_on_new_nadir
 from sharc.topology.topology_ntn import TopologyNTN
-from sharc.satellite.utils.sat_utils import calc_elevation
+from sharc.satellite.utils.sat_utils import calc_elevation, earth_arc_length_from_nadir
 from sharc.support.sharc_geom import lla2ecef, cartesian_to_polar, polar_to_cartesian
 from sharc.satellite.ngso.constants import EARTH_DEFAULT_CRS
 
@@ -529,7 +529,11 @@ class TopologyImtMssDc(Topology):
                 raise ValueError(
                     f"mss_d2d_params.beam_positioning.angle_from_subsatellite_theta.type = \n" f"'{
                         orbit_params.beam_positioning.angle_from_subsatellite_theta.type}' is not recognized!")
-            subsatellite_distance_add = sat_altitude * np.tan(off_nadir_add)
+            # subsatellite_distance_add = sat_altitude * np.tan(np.deg2rad(off_nadir_add))
+            subsatellite_distance_add = earth_arc_length_from_nadir(
+                off_nadir_add,
+                sat_altitude
+            )
 
             azim_add = TopologyImtMssDc.get_distr(
                 random_number_gen,

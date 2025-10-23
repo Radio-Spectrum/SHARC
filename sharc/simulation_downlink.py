@@ -563,17 +563,18 @@ class SimulationDownlink(Simulation):
                     f"No implementation for self.param_system.adjacent_ch_reception == {
                         self.param_system.adjacent_ch_reception}")
         
-        ap_active = np.where(self.system.ap.active)[0]
+        ap_active = np.where(self.system.ap.active)[0]  # assuming all APs have same parameters
         sta_active = np.where(self.system.sta.active)[0]
-        n_system_station = self.system.ap.num_stations + self.system.sta.num_stations
-        rx_interference_linear = np.zeros(n_system_station)
-        rx_interference = 0
+        rx_interference_linear_ap = np.zeros(self.system.ap.num_stations)
+        rx_interference_linear_sta = np.zeros(self.system.sta.num_stations)
+
         for bs in bs_active:
             # Potência de TX por feixe do BS atual (Array, shape [K] onde K=self.parameters.imt.ue.k)
             tx_power_db = self.bs.tx_power[bs]
             K = len(tx_power_db)
             tx_oob = np.full(K, tx_oob)
             rx_oob = np.full(K, rx_oob)
+
             active_beams = [
                 i for i in range(
                     bs *
@@ -583,8 +584,12 @@ class SimulationDownlink(Simulation):
             ]
 
             if self.co_channel:
-                rx_interference += np.sum(
-                    10 ** (0.1 * (pow_coch - self.coupling_loss_imt_system[active_beams, sys])),
+                rx_interference_linear_ap[ap_active] += np.sum(
+                    10 ** (0.1 * (pow_coch - self.coupling_loss_imt_wifi_ap[active_beams][:, ap_active])),
+                    axis=0
+                )
+                rx_interference_linear_sta[ap_active] += np.sum(
+                    10 ** (0.1 * (pow_coch - self.coupling_loss_imt_wifi_ap[active_beams][:, sta_active])),
                     axis=0
                 )
 
@@ -609,7 +614,7 @@ class SimulationDownlink(Simulation):
                 )
 
                 # Acumulação Linear para APs (indexa a parte do vetor total rx_interference_linear que corresponde aos APs)
-                rx_interference_linear[ap_active] += np.sum(
+                rx_interference_linear_ap[ap_active] += np.sum(
                     np.power(10, 0.1 * oob_power),
                     axis=0
                 )
@@ -632,13 +637,14 @@ class SimulationDownlink(Simulation):
                 )
 
                 # Acumulação Linear para STAs (indexa a parte do vetor total rx_interference_linear que corresponde às STAs)
-                rx_interference_linear[sta_active] += np.sum(
+                rx_interference_linear_sta[sta_active] += np.sum(
                     np.power(10, 0.1 * oob_power_sta),
                     axis=0
                 )
 
         # Total received interference - dBW
-        self.system.rx_interference = 10 * np.log10(rx_interference_linear)
+        self.system.rx_interference = 10 * np.log10(rx_interference_linear_ap)
+        #self.system_sta.rx_interference = 10 * np.log10(rx_interference_linear_sta)
 
         # calculate N
         self.system.thermal_noise = \

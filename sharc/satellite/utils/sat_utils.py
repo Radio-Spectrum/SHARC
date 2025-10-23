@@ -133,6 +133,7 @@ def haversine(
     a = np.sin(dlat / 2)**2 + np.cos(lat1) * np.cos(lat2) * np.sin(dlon / 2)**2
     return 2 * R * np.arcsin(np.sqrt(a))
 
+
 def sat_elevation_to_offaxis(elevation_angle_deg: float | np.ndarray, sat_altitude_m: float | np.ndarray) -> float:
     """
     Convert satellite elevation angle to off-axis angle (angle from nadir).
@@ -172,6 +173,7 @@ def sat_elevation_to_offaxis(elevation_angle_deg: float | np.ndarray, sat_altitu
 
     return offaxis_angle_deg
 
+
 def offaxis_to_sat_elevation(offaxis_angle_deg: float | np.ndarray, sat_altitude_m: float | np.ndarray) -> float:
     """
     Convert off-axis angle (angle from nadir) to satellite elevation angle.
@@ -209,6 +211,7 @@ def offaxis_to_sat_elevation(offaxis_angle_deg: float | np.ndarray, sat_altitude
 
     return elevation_angle_deg
 
+
 def earth_arc_length_from_nadir(offaxis_angle_deg: float | np.ndarray, sat_altitude_m: float | np.ndarray) -> float:
     """
     Calculate the Earth's surface arc length from nadir to the point
@@ -238,10 +241,13 @@ def earth_arc_length_from_nadir(offaxis_angle_deg: float | np.ndarray, sat_altit
 
     return arc_length_m
 
+
 if __name__ == "__main__":
     r1 = ecef2lla(7792.1450, 0, 0)
     print(r1)
     r2 = lla2ecef(r1[0], r1[1], r1[2])
     print(r2)
 
-    print(earth_arc_length_from_nadir(np.array([0, 10, 30, 45, 60]), 520.0))
+    print(earth_arc_length_from_nadir(2.19, 520.0 * 1e3))
+
+    print(sat_elevation_to_offaxis(50.0, 520e3))

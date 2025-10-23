@@ -614,12 +614,13 @@ class SimulationDownlink(Simulation):
                 )
 
                 # Acumulação Linear para APs (indexa a parte do vetor total rx_interference_linear que corresponde aos APs)
+
                 rx_interference_linear_ap[ap_active] += np.sum(
                     np.power(10, 0.1 * oob_power),
                     axis=0
                 )
 
-                adj_loss_sta = self.coupling_loss_imt_wifi_sta_adjacent[np.ix_(active_beams, sta_active)]
+                '''adj_loss_sta = self.coupling_loss_imt_wifi_sta_adjacent[np.ix_(active_beams, sta_active)]
 
                 # TX OOB Recebida (Matriz K x N_sta) - tx_oob é o mesmo (depende do BS IMT)
                 tx_oob_s_sta = tx_oob[:, np.newaxis] - adj_loss_sta
@@ -640,7 +641,7 @@ class SimulationDownlink(Simulation):
                 rx_interference_linear_sta[sta_active] += np.sum(
                     np.power(10, 0.1 * oob_power_sta),
                     axis=0
-                )
+                )'''
 
         # Total received interference - dBW
         self.system.rx_interference = 10 * np.log10(rx_interference_linear_ap)
@@ -1020,8 +1021,10 @@ class SimulationDownlink(Simulation):
             write_to_file (bool): Whether to write results to file.
             snapshot_number (int): The current snapshot number.
         """
+        ap_active = np.where(self.system.ap.active)[0]
         if not self.parameters.imt.interfered_with and np.any(self.bs.active):
-            self.results.system_inr.extend(self.system.inr.flatten())
+            x = self.system.inr[:, ap_active]
+            self.results.wifi_ap_inr.extend(self.system.inr[:, ap_active])
             self.results.system_dl_interf_power.extend(
                 self.system.rx_interference.flatten(),
             )

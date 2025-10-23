@@ -60,11 +60,11 @@ if __name__ == "__main__":
 
     # Example parameters: 3 dB beamwidth = 20 deg, isotropic offset = 5 dBi
     p = ParametersRA
-    p.gain_isotropic_dbi=12.0
-    p.phi_3db_deg=180.0
+    p.gain_isotropic_dbi=0.0
+    p.phi_3db_deg=500.0
     ant = AntennaRA_M2319(p)
 
-    phi = np.linspace(0, 90, 1001)
+    phi = np.linspace(0, 180, 1001)
     g = ant.calculate_gain(off_axis_angle_vec=phi)
 
     plt.plot(phi, g, label="M.2319 A-3.6 (φ3dB=20°, Giso=5 dBi)")

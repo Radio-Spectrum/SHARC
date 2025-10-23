@@ -113,7 +113,7 @@ class ParametersSpaceStation(ParametersBase):
 
         if self.param_p619:
             self.param_p619.load_from_paramters(self)
-
+        
         if self.elevation != 0.0:
             # this relationship comes directly from law of sines
             self.nadir_angle = math.degrees(

@@ -1,17 +1,20 @@
 # -*- coding: utf-8 -*-
 """
-Distribute base stations across countries using uniform or population-weighted placement.
+Distribute base stations across countries using uniform or population-weighted placement,
+with optional filtering by population-density bands (Urban/Suburban/Rural or explicit).
 
 Population-weighted mode:
   - Supports three raster encodings:
       * "density" : values are people/km²
       * "count"   : values are people per pixel
       * "indexed" : 0..255 palette indices (e.g., SEDAC/NEO browse layers)
-  - For "indexed", we convert index->density using SEDAC-style legend mapping
-    (log or linear) via 256 bin midpoints, and keep specific palette indices
+  - For "indexed", converts index->density using SEDAC-style legend mapping
+    (log or linear) via 256 bin midpoints; keeps specific palette indices
     (e.g., 0, 255) as exact zeros (water/NoData).
   - Country totals use density*pixel_area (or count), with pixel-area correction.
   - Within-country sampling uses the same weights so distribution matches totals.
+  - Optional density-band filtering: only pixels with densities in a requested band
+    (Urban/Suburban/Rural or explicit [min,max]) count for totals and sampling.
 
 Requires: numpy, geopandas, shapely, rasterio (only if using population_raster).
 """
@@ -57,6 +60,7 @@ class ParametersCountries:
     sedac_min: float = 1.0               # ppl/km² (legend min)
     sedac_max: float = 1e4               # ppl/km² (legend max)
     index_nodata: Tuple[int, ...] = (0, 255)  # palette indices treated as NoData/water
+    act_colormap_path: Optional[str] = None   # optional ACT to extend "white-ish" as NoData
 
     # Pixel-area correction method
     pixel_area_method: str = "spherical"  # "spherical" | "coslat" | "none"
@@ -64,6 +68,14 @@ class ParametersCountries:
     # Sampling controls (applied in sampling ONLY; not used in country totals)
     min_density_threshold: float = 0.0    # ppl/km² threshold (after mapping)
     density_exponent: float = 1.0         # >1 boosts dense areas in sampling
+
+    # Geometry cleanup
+    mask_inland_water: bool = True        # subtract Natural Earth lakes from polygons
+
+    # NEW: density-band placement
+    dist_type: Optional[str] = None               # "Urban" | "Suburban" | "Rural" (case-insensitive)
+    dist_density_min: Optional[float] = None      # ppl/km² (explicit band; overrides dist_type if set)
+    dist_density_max: Optional[float] = None      # ppl/km² (explicit band; overrides dist_type if set)
 
 
 # ----------------------- Topology -----------------------
@@ -112,8 +124,21 @@ class TopologyCountries(Topology):
                 raise ValueError(f"Country '{name}' not found in dataset.")
 
             geom = unary_union(row.geometry.values)
+
+            # Subtract lakes (geometry-level mask) to avoid inland water
+            if self.params.mask_inland_water:
+                geom = self._subtract_lakes(geom)
+
             polys_by_country[name] = geom
             areas[name] = float(geom.area)
+
+        # Optional: extend index_nodata with "white-ish" bins from ACT
+        effective_index_nodata = self._extend_index_nodata_with_white(
+            self.params.index_nodata, self.params.act_colormap_path, tol=3
+        )
+
+        # NEW: resolve density band once
+        density_range = self._get_density_range()
 
         # -------- Decide how many BS per country --------
         if params.bs_per_country:
@@ -124,19 +149,19 @@ class TopologyCountries(Topology):
                 raise ValueError("Provide either 'bs_per_country' or 'num_bs_total'.")
 
             if params.population_raster:
-                # Population-based allocation (physical totals; no gamma applied here)
+                # Population-based allocation (physical totals; no gamma here)
                 pop_sums = self._country_population_sums(
                     {n: polys_by_country[n] for n in params.country_names},
                     params.population_raster,
                     params.raster_encoding,
                     params.pixel_area_method,
-                    # thr and gamma are NOT applied in totals; pass zeros
-                    thr=0.0,
+                    thr=0.0,                 # keep totals physical
                     gamma=1.0,
                     sedac_mode=params.sedac_palette_mode,
                     sedac_min=params.sedac_min,
                     sedac_max=params.sedac_max,
-                    index_nodata=params.index_nodata,
+                    index_nodata=effective_index_nodata,
+                    density_range=density_range,  # NEW
                 )
                 total_pop = sum(pop_sums.values())
                 if total_pop > 0:
@@ -189,7 +214,8 @@ class TopologyCountries(Topology):
                     params.sedac_palette_mode,
                     params.sedac_min,
                     params.sedac_max,
-                    params.index_nodata,
+                    effective_index_nodata,
+                    density_range=density_range,  # NEW
                 )
             else:
                 pts_lon, pts_lat = self._random_points_in_polygon(polys_by_country[name], n)
@@ -253,6 +279,80 @@ class TopologyCountries(Topology):
         raise RuntimeError(
             "Could not load country polygons. Provide 'countries_shapefile', or install cartopy/geodatasets."
         )
+
+    def _subtract_lakes(self, poly: Polygon | MultiPolygon) -> Polygon | MultiPolygon:
+        """
+        Subtract Natural Earth 'lakes' (110m physical) from the given polygon.
+        """
+        try:
+            from cartopy.io import shapereader as shpreader
+            lakes_path = shpreader.natural_earth("110m", "physical", "lakes")
+            lakes = gpd.read_file(lakes_path).to_crs(EARTH_DEFAULT_CRS)
+        except Exception:
+            # If lakes layer can't be loaded, just return the original polygon
+            return poly
+
+        # bbox filter (speed)
+        minx, miny, maxx, maxy = poly.bounds
+        lakes_sub = lakes.cx[minx:maxx, miny:maxy]
+        if lakes_sub.empty:
+            return poly
+
+        lakes_union = unary_union(lakes_sub.geometry)
+        try:
+            diff = poly.difference(lakes_union)
+            return diff if not diff.is_empty else poly
+        except Exception:
+            return poly
+
+    def _extend_index_nodata_with_white(self,
+                                        index_nodata: Tuple[int, ...],
+                                        act_path: Optional[str],
+                                        tol: int = 3) -> Tuple[int, ...]:
+        """
+        If an ACT palette is provided, add all nearly-white bins (>=255-tol) to index_nodata.
+        'tol=3' means [252..255] in each channel are considered white.
+        """
+        if not act_path:
+            return index_nodata
+        try:
+            with open(act_path, "rb") as f:
+                buf = f.read()
+            pal = np.frombuffer(buf[:256*3], dtype=np.uint8).reshape(256, 3)
+            whiteish = np.where((pal >= (255 - tol)).all(axis=1))[0]
+            nd = set(index_nodata)
+            nd.update(int(i) for i in whiteish.tolist())
+            return tuple(sorted(nd))
+        except Exception:
+            return index_nodata
+
+    def _get_density_range(self) -> Optional[Tuple[float, float]]:
+        """
+        Return (dmin, dmax) in ppl/km² to keep during allocation & sampling,
+        based on params.dist_type or explicit dist_density_min/max.
+        Returns None if no filtering is requested.
+        """
+        p = self.params
+        # explicit beats dist_type
+        if (p.dist_density_min is not None) or (p.dist_density_max is not None):
+            dmin = float(p.dist_density_min) if p.dist_density_min is not None else 0.0
+            dmax = float(p.dist_density_max) if p.dist_density_max is not None else float("inf")
+            if dmax <= dmin:
+                raise ValueError("dist_density_max must be > dist_density_min")
+            return (dmin, dmax)
+
+        if not p.dist_type:
+            return None
+
+        key = str(p.dist_type).strip().lower()
+        if key == "urban":
+            return (1500.0, 10000.0)
+        elif key == "suburban":
+            return (300.0, 1500.0)
+        elif key == "rural":
+            return (10.0, 300.0)
+        else:
+            raise ValueError(f"Unknown dist_type '{p.dist_type}'. Use 'Urban', 'Suburban', or 'Rural'.")
 
     def _random_points_in_polygon(self, poly: Polygon | MultiPolygon, n: int) -> Tuple[np.ndarray, np.ndarray]:
         """Uniform rejection sampling inside (multi)polygon (lon/lat degrees)."""
@@ -338,7 +438,9 @@ class TopologyCountries(Topology):
                                  sedac_mode: str,
                                  sedac_min: float,
                                  sedac_max: float,
-                                 index_nodata: Tuple[int, ...]) -> Dict[str, float]:
+                                 index_nodata: Tuple[int, ...],
+                                 density_range: Optional[Tuple[float, float]] = None
+                                 ) -> Dict[str, float]:
         """
         Sum 'effective people' per country:
           - encoding == "density": sum( density * pixel_area_km2 )
@@ -346,7 +448,8 @@ class TopologyCountries(Topology):
           - encoding == "indexed": map index->density using sedac_mode/min/max, then sum( density*area )
         Notes:
           * We ignore 'gamma' here to keep totals physical.
-          * We ignore 'thr' by default; pass a small value if you must filter speckle.
+          * Prefer thr=0 for totals; use small value only to kill speckle if needed.
+          * If density_range is provided, only pixels with dens in [dmin, dmax) contribute.
         """
         try:
             import rasterio
@@ -387,7 +490,7 @@ class TopologyCountries(Topology):
                     if np.any(valid_idx):
                         mapped = self._index_to_density(vals[valid_idx], sedac_mode, sedac_min, sedac_max)
                         data[valid_idx] = mapped
-                    # all others remain 0
+                    # others remain 0
 
                 else:
                     raise ValueError(f"Unknown raster encoding '{encoding}'.")
@@ -404,7 +507,20 @@ class TopologyCountries(Topology):
                 rows = np.arange(data.shape[0], dtype=float)
                 lat_centers = f + (rows + 0.5) * e
                 row_areas = self._row_areas_km2(lat_centers, px_w, px_h, method=area_method)
-                area_grid = np.broadcast_to(row_areas[:, None], data.shape)
+                area_grid = np.broadcast_to(row_areas[:, None], data.shape)  # km²
+
+                # Build density grid (ppl/km²) for band filtering
+                if encoding == "count":
+                    with np.errstate(divide="ignore", invalid="ignore"):
+                        dens = np.where(area_grid > 0, data / area_grid, 0.0)
+                else:
+                    dens = data
+
+                # Keep only pixels in the requested density band
+                if density_range is not None:
+                    dmin, dmax = density_range
+                    keep = (dens >= dmin) & (dens < dmax)
+                    data = np.where(keep, data, 0.0)
 
                 if encoding in ("density", "indexed"):
                     eff = data * area_grid  # ppl/km² * km² -> people
@@ -429,13 +545,16 @@ class TopologyCountries(Topology):
                                        sedac_mode: str,
                                        sedac_min: float,
                                        sedac_max: float,
-                                       index_nodata: Tuple[int, ...]) -> Tuple[np.ndarray, np.ndarray]:
+                                       index_nodata: Tuple[int, ...],
+                                       density_range: Optional[Tuple[float, float]] = None
+                                       ) -> Tuple[np.ndarray, np.ndarray]:
         """
         Draw n points inside 'poly' according to weights consistent with totals:
           - "density": weight = density * pixel_area
           - "count"  : weight = count
           - "indexed": weight = (index->density) * pixel_area
         Then apply (optional) threshold/exponent for **sampling only**.
+        If density_range is provided, only pixels with dens in [dmin, dmax) are used.
         """
         try:
             import rasterio
@@ -446,7 +565,7 @@ class TopologyCountries(Topology):
             ) from e
 
         with rasterio.open(raster_path) as src:
-            # Keep outside polygon masked; prevents ocean leakage
+            # Keep outside polygon masked; prevents ocean/lake leakage
             out_image, out_transform = mask(src, [poly], crop=True, filled=False)
             band = out_image[0]                   # masked array
             vals = band.data.astype(np.float32)
@@ -481,15 +600,32 @@ class TopologyCountries(Topology):
             row_areas = self._row_areas_km2(lat_centers, px_w, px_h, method=area_method)
             area_grid = np.broadcast_to(row_areas[:, None], data.shape)
 
+            # Build density grid (ppl/km²) for band filtering
+            if encoding == "count":
+                with np.errstate(divide="ignore", invalid="ignore"):
+                    dens = np.where(area_grid > 0, data / area_grid, 0.0)
+            else:
+                dens = data
+
             # Base weights (match totals)
             if encoding in ("density", "indexed"):
                 weights = data * area_grid
             else:  # "count"
                 weights = data
 
+            # Keep only pixels within the requested density band
+            if density_range is not None:
+                dmin, dmax = density_range
+                keep = (dens >= dmin) & (dens < dmax)
+                weights = np.where(keep, weights, 0.0)
+
             # Apply sampling-only knobs (after building physical weights)
             if thr > 0.0:
-                weights[weights < thr * area_grid] = 0.0  # convert density-threshold to people threshold
+                # Convert density threshold to people threshold if needed
+                if encoding in ("density", "indexed"):
+                    weights[weights < thr * area_grid] = 0.0
+                else:
+                    weights[weights < thr * area_grid] = 0.0
 
             if gamma != 1.0:
                 pos = weights > 0
@@ -507,7 +643,7 @@ class TopologyCountries(Topology):
             r = rr[idx]; c = cc[idx]
 
             # Pixel centers to lon/lat
-            import rasterio  # safe; used above
+            import rasterio  # safe
             lons, lats = rasterio.transform.xy(out_transform, r, c)
 
             # Jitter within pixel footprint (degrees)
@@ -528,16 +664,15 @@ class TopologyCountries(Topology):
 TopologyCountry = TopologyCountries
 
 
-# ----------------------- MAIN DEMO (optional) -----------------------
 # ----------------------- MAIN -----------------------
 if __name__ == "__main__":
     import numpy as np
     import matplotlib.pyplot as plt
     from matplotlib.patches import Wedge
     from collections import Counter
-
+    from pathlib import Path
     # ============ User-defined inputs ============
-    num_bs = 50000
+    num_bs = 5000
     rng_seed = 42
     cell_radius_m = 400.0  # 10 km
 
@@ -545,25 +680,25 @@ if __name__ == "__main__":
     shapefile_path = r"C:\Achiles\SHARC\sharc\topology\map\ne_110m_admin_0_countries.shp"
 
     # Population raster (set to None to sample uniformly by area)
-    population_raster_path = r"C:\Achiles\SHARC\sharc\topology\map\SEDAC_map2.tiff"
+    population_raster_path = Path.cwd() / "sharc" / "topology" / "map" / "SEDAC_map2.tiff"
 
-    # What kind of raster are you giving?
+    # Raster type:
     #   "density" = people per km² (e.g., GPWv4 density GeoTIFF)
     #   "count"   = people per pixel
-    #   "indexed" = 0..255 palette indices (e.g., NEO browse-like layers) -> will be mapped via log/linear bins
-    raster_encoding = "indexed"  # <-- change to "density" if your GeoTIFF is real ppl/km²
+    #   "indexed" = 0..255 palette indices (NEO-like) -> mapped via log/linear bins
+    raster_encoding = "indexed"  # change to "density" if your GeoTIFF is ppl/km²
 
-    # For "indexed" rasters only (ignored otherwise)
+    # For "indexed" rasters only
     sedac_palette_mode = "log"   # "log" or "linear"
-    sedac_min = 1.0              # legend min ppl/km²
-    sedac_max = 1e4              # legend max ppl/km²
-    index_nodata = (0, 255)      # palette indices to treat as water/NoData
+    sedac_min = 1.0
+    sedac_max = 1e4
+    index_nodata = (0, 255)
 
-    # Sampling-only knobs (do NOT affect country totals)
+    # Sampling-only knobs
     min_density_threshold = 0.0  # ppl/km² cutoff in sampling
-    density_exponent = 1.0       # >1 biases sampling toward dense areas
+    density_exponent = 1.0       # >1 bias toward dense areas
 
-    # Pick your countries (Americas example)
+    # Countries (Americas example)
     countries_americas = [
         # South America
         "Brazil", "Argentina", "Uruguay", "Paraguay", "Chile",
@@ -574,25 +709,21 @@ if __name__ == "__main__":
         "Nicaragua", "Costa Rica", "Panama",
         # North America
         "Mexico", "United States of America", "Canada",
-        # Some Caribbean
+        # Caribbean (sample)
         "Cuba", "Haiti", "Dominican Republic", "Jamaica",
         "Trinidad and Tobago"
     ]
-    #countries_americas = [
-    #"Albania", "Armenia", "Austria", "Azerbaijan",
-    #"Belarus", "Belgium", "Bosnia and Herzegovina", "Bulgaria", "Croatia",
-    #"Cyprus", "Czechia", "Denmark", "Estonia", "Finland",
-    #"France", "Georgia", "Germany", "Greece", "Hungary",
-    #"Iceland", "Ireland", "Italy", "Kosovo", "Latvia",
-    #"Lithuania", "Luxembourg", "Moldova",
-    #"Montenegro", "Netherlands", "North Macedonia", "Norway",
-    #"Poland", "Portugal", "Romania", "Russia",
-    #"Slovakia", "Slovenia", "Spain", "Sweden",
-    #"Switzerland", "Turkey", "Ukraine", "United Kingdom"
-    #]
+
+    # NEW: pick a distribution band (choose ONE of the two options below)
+    # Option A: use named band
+    dist_type = "Urban"         # "Urban" | "Suburban" | "Rural" | None
+    # Option B: explicit band (overrides dist_type if uncommented)
+    # dist_density_min = 800.0
+    # dist_density_max = 6000.0
+
     # ============ Build topology ============
     geoconv = GeometryConverter()
-    geoconv.set_reference(-15.793889, -47.882778, 0.0)  # Brasília as origin
+    geoconv.set_reference(-15.793889, -47.882778, 0.0)  # Brasília
 
     params = ParametersCountries(
         country_names=countries_americas,
@@ -601,14 +732,23 @@ if __name__ == "__main__":
         cell_radius=cell_radius_m,
         countries_shapefile=shapefile_path,
         population_raster=population_raster_path,
+
         raster_encoding=raster_encoding,
         sedac_palette_mode=sedac_palette_mode,
         sedac_min=sedac_min,
         sedac_max=sedac_max,
         index_nodata=index_nodata,
+
         pixel_area_method="spherical",
         min_density_threshold=min_density_threshold,
         density_exponent=density_exponent,
+
+        mask_inland_water=True,
+
+        # NEW: band settings
+        dist_type=dist_type,
+        # dist_density_min=dist_density_min,
+        # dist_density_max=dist_density_max,
     )
 
     topo = TopologyCountries(params, geoconv)
@@ -651,7 +791,7 @@ if __name__ == "__main__":
         km_per_deg_lat = 111.32
         km_per_deg_lon = 111.32 * np.cos(np.radians(lat))
         avg_km_per_deg = (km_per_deg_lat + km_per_deg_lon) / 2.0
-        radius_deg = (topo.cell_radius / 1000.0) / avg_km_per_deg
+        radius_deg = (topo.cell_radius / 1000.0) / max(avg_km_per_deg, 1e-9)
 
         wedge = Wedge((lon, lat), radius_deg, az - half_bw_deg, az + half_bw_deg,
                       facecolor="blue", alpha=0.18, edgecolor="blue", linewidth=0.4)
@@ -659,11 +799,14 @@ if __name__ == "__main__":
 
     ax_map.set_xlabel("Longitude [°]")
     ax_map.set_ylabel("Latitude [°]")
+    band_txt = f"band={params.dist_type}" if params.dist_type else "no band"
     ax_map.set_title(f"{num_bs} BS across the Americas "
-                     f"({'pop-weighted' if population_raster_path else 'uniform'}; encoding={raster_encoding})")
+                     f"({'pop-weighted' if population_raster_path else 'uniform'}; "
+                     f"encoding={raster_encoding}; {band_txt})")
     ax_map.legend(loc="upper right", frameon=True)
 
     # Histogram / bar chart: number of BS per country
+    from collections import Counter
     counts = Counter(topo.country_index.tolist())
     countries_sorted = sorted(counts.keys(), key=lambda k: counts[k], reverse=True)
     values_sorted = [counts[c] for c in countries_sorted]

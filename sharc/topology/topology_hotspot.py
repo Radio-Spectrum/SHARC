@@ -299,7 +299,7 @@ if __name__ == '__main__':
     param.max_dist_hotspot_ue = 400
     param.min_dist_bs_hotspot = 0
 
-    intersite_distance = 8750
+    intersite_distance = 13380
 
     num_clusters = 1
     topology = TopologyHotspot(param, intersite_distance, num_clusters)

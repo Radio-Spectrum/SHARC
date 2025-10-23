@@ -823,6 +823,10 @@ class StationFactory(object):
                 np.arctan2(py - space_station.y, px - space_station.x))
         elif param.geometry.azimuth.type == "FIXED":
             space_station.azimuth = np.atleast_1d(param.geometry.azimuth.fixed)
+        elif param.geometry.azimuth.type in ("RANDOM_RANGE"):
+            lo = getattr(param.geometry.azimuth, "min")
+            hi = getattr(param.geometry.azimuth, "max")
+            space_station.azimuth  = np.atleast_1d(lo + (hi - lo) * np.random.rand(1))
         else:
             raise ValueError(
                 f"Did not recognize azimuth type of {
@@ -855,6 +859,10 @@ class StationFactory(object):
             space_station.elevation = gnd_elev
         elif param.geometry.elevation.type == "FIXED":
             space_station.elevation = np.atleast_1d(param.geometry.elevation.fixed)
+        elif param.geometry.elevation.type in ("RANDOM_RANGE"):
+            lo = getattr(param.geometry.elevation, "min")
+            hi = getattr(param.geometry.elevation, "max")
+            space_station.elevation  = np.atleast_1d(lo + (hi - lo) * np.random.rand(1))
         else:
             raise ValueError(
                 f"Did not recognize elevation type of {

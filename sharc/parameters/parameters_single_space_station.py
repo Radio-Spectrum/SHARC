@@ -79,10 +79,12 @@ class ParametersSingleSpaceStation(ParametersBase):
             """
             Defines pointing parameters for the space station geometry.
             """
-            __EXISTING_TYPES = ["FIXED", "POINTING_AT_IMT", "POINTING_AT_LAT_LONG_ALT"]
-            type: typing.Literal["FIXED", "POINTING_AT_IMT", "POINTING_AT_LAT_LONG_ALT"] = None
+            __EXISTING_TYPES = ["FIXED", "POINTING_AT_IMT", "POINTING_AT_LAT_LONG_ALT", "RANDOM_RANGE"]
+            type: typing.Literal["FIXED", "POINTING_AT_IMT", "POINTING_AT_LAT_LONG_ALT", "RANDOM_RANGE"] = None
             fixed: float = None
-
+            min: float = None
+            max: float = None
+            
             def validate(self, ctx):
                 """
                 Validate the PointingParam parameters for correctness.
@@ -98,6 +100,13 @@ class ParametersSingleSpaceStation(ParametersBase):
                                 self.fixed,
                                 int) and not isinstance(
                                 self.fixed,
+                                float):
+                            raise ValueError(f"{ctx}.fixed should be a number")
+                    case "RANDOM_RANGE":
+                        if not isinstance(
+                                self.min,
+                                int) and not isinstance(
+                                self.min,
                                 float):
                             raise ValueError(f"{ctx}.fixed should be a number")
                     case "POINTING_AT_IMT":
@@ -177,7 +186,8 @@ class ParametersSingleSpaceStation(ParametersBase):
         super().load_parameters_from_file(config_file)
 
         self.propagate_parameters()
-
+        if self.param_p528:
+            self.param_p528.load_from_parameters(self)
         # this should be done by validating this parameters only if it is the selected system on the general section
         # TODO: make this better by changing the Parameters class itself
         should_validate = any(

@@ -91,17 +91,23 @@ class PropagationP528(Propagation):
 
         # Polarização e tempo (se vierem de ParametersP528)
         Tpol = params.single_space_station.param_p528.Tpol
-        p_time = params.single_space_station.param_p528.p_time
+        p_time = params.single_space_station.param_p528.time_percentage
+        if params.single_space_station.param_p528.time_percentage == 'RANDOM':
+            p_time = 1 + 98 * self.random_number_gen.rand(distance.shape[1])   # (170,)
+            p_time = p_time[None, :]  
+        else:
+            p_time = float(params.single_space_station.param_p528.time_percentage) * np.ones(distance.size)
+
 
         return self.get_loss(
             distance, f_arr, hA_km, hB_km, indoor,
-            int(Tpol), float(p_time)
+            int(Tpol), (p_time)
         )
 
     # ------------------------------------------------------------------
     # Core vectorized kernel (Annex 2, with explicit step markers 3-1..3-12)
     # ------------------------------------------------------------------
-    @dispatch(np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, int, float)
+    @dispatch(np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, int, np.ndarray)
     def get_loss(self,
             distance: np.ndarray,
             frequency: np.ndarray,
@@ -109,7 +115,7 @@ class PropagationP528(Propagation):
             h2_km: np.ndarray,
             indoor_stations: np.ndarray,
             Tpol: int,
-            p_time: float
+            p_time: np.ndarray
         ) -> np.ndarray:
         """
         Fully vectorized Annex 2 flow (no explicit Python loops), with step markers 3-1..3-12.
@@ -121,8 +127,8 @@ class PropagationP528(Propagation):
         # --- (Pre) Step 2: Input, defaults, validation ----------------------------------
         if Tpol not in (1, 0):
             raise ValueError("polarization must be 0 (H) or 1 (V)")
-        if not (1.0 <= p_time <= 99.0):
-            raise ValueError("time_percentage must be in [1, 99]")
+        #if not (1.0 <= p_time <= 99.0):
+        #    raise ValueError("time_percentage must be in [1, 99]")
 
         d_km  = np.maximum(distance.astype(float) / 1e3, 1e-6)
         f_MHz = np.maximum(frequency.astype(float), 1e-6)
@@ -163,7 +169,7 @@ class PropagationP528(Propagation):
                 hr1[los_mask], hr2[los_mask], dH1[los_mask], dH2[los_mask],
                 dr1[los_mask], dr2[los_mask], dML[los_mask], dd0[los_mask], AdML[los_mask],
                 Md[los_mask], Ad0[los_mask], Tpol,
-                p_time
+                p_time[los_mask]
             )
             # Steps 3-6..3-9 handled inside _los_region_loss in this starter
             Lb[los_mask] = A_los_total
@@ -186,7 +192,7 @@ class PropagationP528(Propagation):
             Ad = Md_m * dk + Ad0m
 
             # --- Step 3-11: Troposcatter loss (basic placeholder) -----------------------
-            As, hv, theta_s = self._troposcatter_section11(dk, dr1m, dr2m, he1m, he2m, fm, Ns=kwargs.get('Ns', getattr(self, 'Ns_default', 301.0)))
+            As, hv, theta_s = self._troposcatter_section11(dk, dr1m, dr2m, he1m, he2m, fm, Ns=301)
 
             # Select the smaller mechanism
             AT = np.minimum(Ad, As)
@@ -545,7 +551,7 @@ class PropagationP528(Propagation):
         d, f = np.broadcast_arrays(d, f)
 
         # Clamp p and compute signed z-score (p<50 -> negative; p>50 -> positive)
-        p = float(np.clip(p_time, 1.0, 99.0)) / 100.0
+        p = (np.clip(p_time, 1.0, 99.0)) / 100.0
         z = self._inv_norm_cdf(p)  # ~N(0,1)
 
         # Simple frequency scalings (mild): more variability at higher f for scintillation;
@@ -561,40 +567,61 @@ class PropagationP528(Propagation):
         return Yp
 
     # Inverse normal CDF (Acklam's approximation) for 0<p<1
-    def _inv_norm_cdf(self, p: float) -> float:
-        # Coefficients for Acklam's approximation
-        a = [-3.969683028665376e+01,  2.209460984245205e+02,
-             -2.759285104469687e+02,  1.383577518672690e+02,
-             -3.066479806614716e+01,  2.506628277459239e+00]
-        b = [-5.447609879822406e+01,  1.615858368580409e+02,
-             -1.556989798598866e+02,  6.680131188771972e+01,
-             -1.328068155288572e+01]
-        c = [-7.784894002430293e-03, -3.223964580411365e-01,
-             -2.400758277161838e+00, -2.549732539343734e+00,
-              4.374664141464968e+00,  2.938163982698783e+00]
-        d = [ 7.784695709041462e-03,  3.224671290700398e-01,
-              2.445134137142996e+00,  3.754408661907416e+00]
+    def _inv_norm_cdf(self, p):
+        p = np.asarray(p, dtype=float)
+        # Coefficients (Acklam)
+        a0,a1,a2,a3,a4,a5 = (-3.969683028665376e+01,  2.209460984245205e+02,
+                            -2.759285104469687e+02,  1.383577518672690e+02,
+                            -3.066479806614716e+01,  2.506628277459239e+00)
+        b0,b1,b2,b3,b4     = (-5.447609879822406e+01,  1.615858368580409e+02,
+                            -1.556989798598866e+02,  6.680131188771972e+01,
+                            -1.328068155288572e+01)
+        c0,c1,c2,c3,c4,c5 = (-7.784894002430293e-03, -3.223964580411365e-01,
+                            -2.400758277161838e+00, -2.549732539343734e+00,
+                            4.374664141464968e+00,  2.938163982698783e+00)
+        d0,d1,d2,d3       = ( 7.784695709041462e-03,  3.224671290700398e-01,
+                            2.445134137142996e+00,  3.754408661907416e+00)
+
         plow  = 0.02425
-        phigh = 1 - plow
-        if p <= 0.0:
-            return -np.inf
-        if p >= 1.0:
-            return np.inf
-        if p < plow:
-            q = np.sqrt(-2*np.log(p))
-            num = (((((c[0]*q + c[1])*q + c[2])*q + c[3])*q + c[4])*q + c[5])
-            den = ((((d[0]*q + d[1])*q + d[2])*q + d[3])*q + 1)
-            return num/den
-        if p > phigh:
-            q = np.sqrt(-2*np.log(1-p))
-            num = -(((((c[0]*q + c[1])*q + c[2])*q + c[3])*q + c[4])*q + c[5])
-            den = ((((d[0]*q + d[1])*q + d[2])*q + d[3])*q + 1)
-            return num/den
-        q = p - 0.5
-        r = q*q
-        num = (((((a[0]*r + a[1])*r + a[2])*r + a[3])*r + a[4])*r + a[5]) * q
-        den = (((((b[0]*r + b[1])*r + b[2])*r + b[3])*r + b[4])*r + 1)
-        return num/den
+        phigh = 1.0 - plow
+
+        out = np.empty_like(p)
+
+        # Regions
+        m_neg  = p <= 0.0
+        m_one  = p >= 1.0
+        m_low  = (p > 0.0) & (p < plow)
+        m_high = (p < 1.0) & (p > phigh)
+        m_mid  = ~(m_neg | m_one | m_low | m_high)
+
+        # <=0 and >=1 map to +/-inf
+        out[m_neg] = -np.inf
+        out[m_one] =  np.inf
+
+        # Lower tail
+        if np.any(m_low):
+            q = np.sqrt(-2.0 * np.log(p[m_low]))
+            num = (((((c0*q + c1)*q + c2)*q + c3)*q + c4)*q + c5)
+            den = ((((d0*q + d1)*q + d2)*q + d3)*q + 1.0)
+            out[m_low] = num / den
+
+        # Upper tail
+        if np.any(m_high):
+            q = np.sqrt(-2.0 * np.log(1.0 - p[m_high]))
+            num = -(((((c0*q + c1)*q + c2)*q + c3)*q + c4)*q + c5)
+            den = ((((d0*q + d1)*q + d2)*q + d3)*q + 1.0)
+            out[m_high] = num / den
+
+        # Central region
+        if np.any(m_mid):
+            q = p[m_mid] - 0.5
+            r = q * q
+            num = (((((a0*r + a1)*r + a2)*r + a3)*r + a4)*r + a5) * q
+            den = (((((b0*r + b1)*r + b2)*r + b3)*r + b4)*r + 1.0)
+            out[m_mid] = num / den
+
+        # Preserve scalar behavior
+        return out
 
 # --------------------------------------------------------------------------------------
 # Optional quick test
@@ -603,7 +630,7 @@ if __name__ == "__main__":
     f_MHz     = 3500.0
     h1_km     = 0.050   # 50 m
     h2_km     = 1.0    # 10 km aircraft
-    d_km      = np.linspace(1.0, 100.0, 800)
+    d_km      = np.linspace(1.0, 500.0, 800)
     d_m       = np.sqrt(1**2 + d_km**2) * 1000.0
     f_vec     = np.full_like(d_m, f_MHz, dtype=float)
     h1_v      = np.full_like(d_km, h1_km, dtype=float)
@@ -614,7 +641,7 @@ if __name__ == "__main__":
     model = PropagationP528(rng)
 
     Lb = model.get_loss(d_m, f_vec, h1_v, h2_v, indoor,
-                        polarization=POL_V, time_percentage=10.0)
+                        1, 10.0)
 
     print(f"\nP.528 test: f={f_MHz:.0f} MHz, h1={h1_km*1000:.0f} m, h2={h2_km:.1f} km, pol=V, p=10%")
     for km in [1, 7.13, 13.27, 25.53, 37.80, 50.0]:

@@ -452,7 +452,7 @@ class PostProcessor():
                             )
                         ],
                         legend=dict(
-                            x=0.55,          # x position (20% from the left)
+                            x=0.8,          # x position (20% from the left)
                             y=0.6,          # y position (50% from the bottom)
                             xanchor='right', # anchor the legend's right side at x=0.95
                             yanchor='top',   # anchor the legend's top at y=0.95

@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import os
 from sharc.post_processor import PostProcessor
 # Caminho do arquivo CSV
-path = os.path.join(os.path.dirname((os.path.dirname(__file__))), 'output', 'system_inr.csv')
+path = os.path.join(os.path.dirname((os.path.dirname(__file__))), 'output', 'wifi_ap_inr.csv')
 
 # Ler o CSV
 df = pd.read_csv(path)

@@ -466,7 +466,7 @@ class SimulationDownlink(Simulation):
                     is_co_channel=False,
                 )
         
-         # applying a bandwidth scaling factor since UE transmits on a portion
+        # applying a bandwidth scaling factor since UE transmits on a portion
         # of the interfered systems bandwidth
         # calculate interference only from active UE's
         pow_coch = -np.inf
@@ -588,10 +588,10 @@ class SimulationDownlink(Simulation):
                     10 ** (0.1 * (pow_coch - self.coupling_loss_imt_wifi_ap[active_beams][:, ap_active])),
                     axis=0
                 )
-                rx_interference_linear_sta[ap_active] += np.sum(
-                    10 ** (0.1 * (pow_coch - self.coupling_loss_imt_wifi_ap[active_beams][:, sta_active])),
+                '''rx_interference_linear_sta[sta_active] += np.sum(
+                    10 ** (0.1 * (pow_coch - self.coupling_loss_imt_wifi_sta[active_beams][:, sta_active])),
                     axis=0
-                )
+                )'''
 
             if self.adjacent_channel:
 
@@ -1023,8 +1023,7 @@ class SimulationDownlink(Simulation):
         """
         ap_active = np.where(self.system.ap.active)[0]
         if not self.parameters.imt.interfered_with and np.any(self.bs.active):
-            x = self.system.inr[:, ap_active]
-            self.results.wifi_ap_inr.extend(self.system.inr[:, ap_active])
+            self.results.wifi_ap_inr.extend(self.system.inr[:, ap_active].flatten())
             self.results.system_dl_interf_power.extend(
                 self.system.rx_interference.flatten(),
             )
@@ -1094,14 +1093,6 @@ class SimulationDownlink(Simulation):
             if len(self.imt_sta_antenna_gain):
                 self.results.imt_sta_antenna_gain.extend(
                     self.imt_sta_antenna_gain[sta_active[:, np.newaxis], ue].flatten(),
-                )
-            if len(self.imt_ap_antenna_gain_adjacent):
-                self.results.imt_ap_antenna_gain_adjacent.extend(
-                    self.imt_ap_antenna_gain_adjacent[ap_active[:, np.newaxis], ue].flatten(),
-                )
-            if len(self.imt_sta_antenna_gain_adjacent):
-                self.results.imt_sta_antenna_gain_adjacent.extend(
-                    self.imt_sta_antenna_gain_adjacent[sta_active[:, np.newaxis], ue].flatten(),
                 )
 
             self.results.imt_ap_path_loss.extend(

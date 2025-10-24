@@ -4,6 +4,7 @@ import numpy as np
 import typing
 from pathlib import Path
 import shapely as shp
+from collections.abc import Iterable
 
 from sharc.support.sharc_utils import load_gdf
 from sharc.support.sharc_geom import (
@@ -388,9 +389,12 @@ class ParametersSatelliteWithServiceGrid(ParametersTerrestrialGrid):
         self.grid_in_zone._calculate_polygon()
         self.grid_exclusion_zone._calculate_polygon()
 
-        # TODO: plot this to verify
+        # For creating selectable satellite zone
+        # we consider polygon before shrinking country borders or other
+        # geometry processing
         pols = self.grid_in_zone._unprocessed_polygon
-        if not isinstance(pols, list):
+
+        if not isinstance(pols, Iterable):
             pols = [pols]
 
         self.eligibility_polygon = shp.ops.unary_union(shrink_countries_by_km(

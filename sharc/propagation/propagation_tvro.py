@@ -92,7 +92,7 @@ class PropagationTvro(Propagation):
         # Use the right interface whether the link is IMT-IMT or IMT-System
         # TODO: Refactor __get_loss and get rid of that if-else.
         if station_a.is_imt_station() and station_b.is_imt_station():
-            if station_a.uses_local_coords:
+            if station_a.geom.uses_local_coords:
                 raise NotImplementedError(
                     "TVRO currently assumes UE z == height. "
                     "If UE has local coords != global coords, this probably isn't true"
@@ -109,7 +109,7 @@ class PropagationTvro(Propagation):
             imt_station, sys_station = (station_a, station_b) \
                 if station_a.is_imt_station() else (station_b, station_a)
 
-            if sys_station.uses_local_coords:
+            if sys_station.geom.uses_local_coords:
                 raise NotImplementedError(
                     "TVRO currently assumes System z == height. "
                     "If System has local coords != global coords, this probably isn't true"

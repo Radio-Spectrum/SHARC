@@ -72,7 +72,7 @@ class PropagationUMi(Propagation):
             distance_2d = station_a.geom.get_local_distance_to(station_b.geom)
             distance_3d = station_a.geom.get_3d_distance_to(station_b.geom)
 
-        if station_a.uses_local_coords or station_b.uses_local_coords:
+        if station_a.geom.uses_local_coords or station_b.geom.uses_local_coords:
             raise NotImplementedError(
                 "UMi currently assumes stations z == height. "
                 "If stations has local coords != global coords, this probably isn't true"

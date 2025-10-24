@@ -349,7 +349,7 @@ class PropagationP619(Propagation):
         # Elevation angles seen from the station on Earth.
         elevation_angles = {}
         if station_a.is_space_station:
-            if station_b.uses_local_coords:
+            if station_b.geom.uses_local_coords:
                 raise NotImplementedError(
                     "P619 currently assumes earth station z == height. "
                     "If ES has local coords != global coords, this probably isn't true"
@@ -369,7 +369,7 @@ class PropagationP619(Propagation):
             elevation_angles["apparent"] = np.transpose(
                 elevation_angles["apparent"])
         elif station_b.is_space_station:
-            if station_a.uses_local_coords:
+            if station_a.geom.uses_local_coords:
                 raise NotImplementedError(
                     "P619 currently assumes earth station z == height. "
                     "If ES has local coords != global coords, this probably isn't true"

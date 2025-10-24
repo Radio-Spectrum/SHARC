@@ -76,7 +76,7 @@ class PropagationHDFSS(Propagation):
             np.ones(distance.shape)  # P.452 expects GHz
         elevation = station_b.geom.get_local_elevation(station_a.geom)
 
-        if station_a.uses_local_coords or station_b.uses_local_coords:
+        if station_a.geom.uses_local_coords or station_b.geom.uses_local_coords:
             raise NotImplementedError(
                 "HDFSS currently assumes stations z == height. "
                 "If stations has local coords != global coords, this probably isn't true"

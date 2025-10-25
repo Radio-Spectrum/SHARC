@@ -12,21 +12,22 @@ import numpy as np  # <- garantir esse import no topo
 
 ## Definition of plot variable (what to plot)
 n_array = [4, 8]
-N = 15                 # número de pontos/distâncias
+N = 31                 # número de pontos/distâncias
 max_dist_km = 30000    # distância máxima ao centro da pista (km)
 aux = (np.linspace(0, max_dist_km, N))
 distances_km = [int(val) for val in aux]
-#distances_km = [4285, 10714, 23571]
+#distances_km = [10000]
 
 ## Graphics adjustments
 cutoff_percentage = 0.001;
-shift_scale = -10*np.log10(70) + 24   # Segment Factor + Filtro
-legenda_dens_potencia = "INR [dB]"
+shift_scale = -10 * np.log10(6000 / (3 * 57)) - 20   # Segment Factor + Filtro
+legenda_INR_potencia = "INR [dB]"
+legenda_dens_potencia = "dBm/100MHz [dB]"
 
 # Change default legent to the shifited
 post_processor = PostProcessor()
 post_processor.RESULT_FIELDNAME_TO_PLOT_INFO['system_inr']['x_label'] = legenda_dens_potencia
-post_processor.RESULT_FIELDNAME_TO_PLOT_INFO['system_ul_interf_power_per_mhz']['x_label'] = legenda_dens_potencia
+post_processor.RESULT_FIELDNAME_TO_PLOT_INFO['system_dl_interf_power_per_mhz']['x_label'] = legenda_dens_potencia
 
 # Build sorted combinations
 combinations = [
@@ -55,7 +56,7 @@ many_results = Results.load_many_from_dir(
         campaign_base_dir,
         "output_dl"),
     only_latest=True,
-    only_samples=["system_inr", "imt_system_antenna_gain", "imt_bs_antenna_gain", "system_imt_antenna_gain", "imt_system_path_loss"],
+    only_samples=["imt_system_antenna_gain", "imt_bs_antenna_gain", "system_imt_antenna_gain", "imt_system_path_loss","system_dl_interf_power_per_mhz"],
     filter_fn=filter_fn
     )
 
@@ -70,7 +71,7 @@ post_processor.add_plots(plots)
 #### Add protection criteria
 
 plots_to_add_vline = [
-    "system_inr",
+    "system_dl_interf_power_per_mhz",
 ]
 
 for prop_name in plots_to_add_vline:
@@ -79,16 +80,27 @@ for prop_name in plots_to_add_vline:
         # Add vertical dashed line at x = -6
         plt.add_trace(
             go.Scatter(
-                x=[-6, -6],
-                y=[.2, 1],
+                x=[-36, -36],
+                y=[cutoff_percentage, 1],
                 mode="lines",
                 line=dict(dash="dash", color="black"),
-                name=" -6dB [20% of the time]",
+                name=" -36 dB/100MHz [Cat 1]",
                 hoverinfo="skip",    # avoids mouse hover box on the guide line
                 showlegend=True      # make sure it appears in the legend
             )
         )
-
+        # Add vertical dashed line at x = -6
+        plt.add_trace(
+            go.Scatter(
+                x=[-74, -74],
+                y=[cutoff_percentage, 1],
+                mode="lines",
+                line=dict(dash="dash", color="black"),
+                name=" -74dB/100MHz [Cat 2&3]",
+                hoverinfo="skip",    # avoids mouse hover box on the guide line
+                showlegend=True      # make sure it appears in the legend
+            )
+        )
 # Plot every plot:
 for plot in plots:
     plot.show()

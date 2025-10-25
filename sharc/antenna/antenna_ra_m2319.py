@@ -13,6 +13,7 @@ class ParametersRA(ParametersBase):
     """
     gain_isotropic_dbi: float = 5
     phi_3db_deg: float = 20
+    inband: bool = True
 
 class AntennaRA_M2319(Antenna):
     """
@@ -36,6 +37,7 @@ class AntennaRA_M2319(Antenna):
         self.phi_3db_deg = param.phi_3db_deg            # φ_3dB (deg)
         # Precompute constant factor: -12 / φ_3dB^2
         self._k = -12.0 / (self.phi_3db_deg ** 2)
+        self.inband = param.inband
 
     def calculate_gain(self, *args, **kwargs) -> np.ndarray:
         """
@@ -50,21 +52,28 @@ class AntennaRA_M2319(Antenna):
             Gain in dBi for each φ.
         """
         phi = np.abs(np.asarray(kwargs["off_axis_angle_vec"], dtype=float))
-        # Eq. (A-3.6)
-        gain_dbi = self._k * (phi ** 2) + self.gain_iso_dbi
+        if self.inband:
+            # Eq. (A-3.6)
+            gain_dbi = self._k * (phi ** 2) + self.gain_iso_dbi
+        else:
+            gain_dbi = np.zeros(phi.shape)
+            mask_phi = (phi < 90)
+            gain_dbi[~mask_phi] = -200
         return gain_dbi
 
 # ---- Example (optional, for quick check) ----
+
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
 
     # Example parameters: 3 dB beamwidth = 20 deg, isotropic offset = 5 dBi
     p = ParametersRA
-    p.gain_isotropic_dbi=0.0
-    p.phi_3db_deg=500.0
+    p.gain_isotropic_dbi=13.0
+    p.phi_3db_deg=45.0
+    p.inband = True
     ant = AntennaRA_M2319(p)
+    phi = np.linspace(0, 180, 181)
 
-    phi = np.linspace(0, 180, 1001)
     g = ant.calculate_gain(off_axis_angle_vec=phi)
 
     plt.plot(phi, g, label="M.2319 A-3.6 (φ3dB=20°, Giso=5 dBi)")

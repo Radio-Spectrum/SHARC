@@ -2,13 +2,15 @@ from pathlib import Path
 from ruamel.yaml import YAML
 from copy import deepcopy
 import math
+import random
+
 
 # ===== Caminhos =====
 BASE_YAML = Path(r"C:\Achiles\SHARC\sharc\campaigns\09_Guarulhos\Script\Base.yaml")
 OUT_DIR   = Path(r"C:\Achiles\SHARC\sharc\campaigns\09_Guarulhos\input")
 
 # ===== Parâmetros =====
-N               = 15          # número de simulações
+N               = 31          # número de simulações
 GLIDESLOPE_DEG  = 3.0         # rampa (graus)
 START_DIST_M    = 30_000      # distância inicial até o CENTRO da pista (m)
 APPROACH_SIGN   = -1          # +1 vindo do Leste; -1 do Oeste
@@ -67,6 +69,8 @@ for n_array in [4,8]:
         g["altitude"]   = float(f"{h_m:.2f}")
         fx["lat_deg"]   = float(f"{lat_i:.6f}")
         fx["long_deg"]  = float(f"{lon_i:.6f}")
+        num = random.randint(0, 1000)
+        doc["general"]["seed"] = num
 
         # muda também o prefixo
         if "general" in doc and isinstance(doc["general"], dict):

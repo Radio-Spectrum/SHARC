@@ -22,7 +22,7 @@ imt:
   topology:
     type: HOTSPOT
     hotspot:
-      intersite_distance: 8739
+      intersite_distance: 13380
       wrap_around: false
       num_clusters: 1
       num_hotspots_per_cell: 3
@@ -99,22 +99,23 @@ single_space_station:
   tx_power_density: -200
   polarization_loss: 0
   noise_temperature: 2900
-  channel_model: P619
-  season: SUMMER
-  param_p619:
-    mean_clutter_height: Mid
-    below_rooftop: 65
+  channel_model: P528
+  param_p528:
+    time_percentage: RANDOM
+    polarization: 1
   geometry:
     altitude: 10
     es_altitude: 0
     es_lat_deg: -60
     es_long_deg: -15
     azimuth:
-      type: FIXED
-      fixed: 0
+      type: RANDOM_RANGE
+      min: 0
+      max: 360
     elevation:
-      type: FIXED
-      fixed: -90
+      type: RANDOM_RANGE
+      min: -90
+      max: -80
     location:
       type: FIXED
       fixed:

@@ -529,7 +529,7 @@ class TopologyImtMssDc(Topology):
                 raise ValueError(
                     f"mss_d2d_params.beam_positioning.angle_from_subsatellite_theta.type = \n" f"'{
                         orbit_params.beam_positioning.angle_from_subsatellite_theta.type}' is not recognized!")
-            subsatellite_distance_add = sat_altitude * np.tan(off_nadir_add)
+            subsatellite_distance_add = sat_altitude * np.tan(np.deg2rad(off_nadir_add))
 
             azim_add = TopologyImtMssDc.get_distr(
                 random_number_gen,

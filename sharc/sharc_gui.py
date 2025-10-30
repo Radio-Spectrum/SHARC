@@ -129,7 +129,7 @@ class App(tk.Tk):
         self.var_overwrite = tk.BooleanVar(value=False)
         self.var_outdir = tk.StringVar(value=str(Path.cwd() / "sharc/campaigns"))
         self.var_yaml_dir = tk.StringVar(value=str(Path.cwd() / "sharc/campaigns"))
-        self.var_prefix = tk.StringVar(value="output_mss_{power}_bw{bw}")
+        self.var_prefix = tk.StringVar(value="output_mss_{long}")
         self.var_system = tk.StringVar(value="SINGLE_SPACE_STATION")
         self.var_imt_link = tk.StringVar(value="DOWNLINK")
         self.var_adj = tk.BooleanVar(value=False)
@@ -223,7 +223,7 @@ class App(tk.Tk):
         self.bs_sub_e_downtilt = tk.StringVar(value="3")
 
         # ------ UE ------
-        self.ue_k = tk.StringVar(value="1")
+        self.ue_k = tk.StringVar(value="3")
         self.ue_km = tk.StringVar(value="1")
         self.ue_indoor = tk.StringVar(value="70")
         # --- UE: distribuição ---
@@ -450,7 +450,7 @@ class App(tk.Tk):
         self.var_table.pack(fill="both", expand=True, pady=(6,6))
 
         if not self.var_table.get_children():
-            self.var_table.insert("", "end", values=("power", "[18, 22, 26]"))
+            self.var_table.insert("", "end", values=("long", "[-10, -20, -30, -40, -50]"))
 
         row_gen = ttk.Frame(root)
         row_gen.pack(fill="x", pady=(8,0))

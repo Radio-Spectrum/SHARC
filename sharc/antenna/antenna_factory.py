@@ -12,8 +12,11 @@ from sharc.antenna.antenna_rra7_3 import AntennaReg_RR_A7_3
 from sharc.antenna.antenna_s580 import AntennaS580
 from sharc.antenna.antenna_s1528 import AntennaS1528
 from sharc.antenna.antenna_s1855 import AntennaS1855
+from sharc.antenna.antenna_s672 import AntennaS672
+from sharc.antenna.antenna_f1245_fs import Atenna_f1245_fs
 from sharc.antenna.antenna_s1528 import AntennaS1528, AntennaS1528Leo, AntennaS1528Taylor
 from sharc.antenna.antenna_beamforming_imt import AntennaBeamformingImt
+from sharc.antenna.antenna_ra_m2319 import AntennaRA_M2319
 
 import numpy as np
 
@@ -41,6 +44,8 @@ class AntennaFactory():
                 return AntennaS1528Leo(antenna_params.itu_r_s_1528)
             case "ITU-R-S.1528-Section1.2":
                 return AntennaS1528(antenna_params.itu_r_s_1528)
+            case "ITU-R S.672":
+                return AntennaS672(antenna_params.itu_r_s_672)
             case "ITU-R S.465":
                 return AntennaS465(antenna_params.itu_r_s_465)
             case "ITU-R S.580":
@@ -49,6 +54,8 @@ class AntennaFactory():
                 return AntennaS465(antenna_params.itu_r_s_465_modified)
             case "ITU-R S.1855":
                 return AntennaS1855(antenna_params.itu_r_s_1855)
+            case "ITU-R F.1245_fs":
+                return Atenna_f1245_fs(antenna_params.itu_r_f_1245_fs)
             case "ITU-R Reg. RR. Appendice 7 Annex 3":
                 return AntennaReg_RR_A7_3(antenna_params.itu_reg_rr_a7_3)
             case "MSS Adjacent":
@@ -58,8 +65,10 @@ class AntennaFactory():
                 return AntennaBeamformingImt(
                     antenna_params.array.get_antenna_parameters(),
                     azimuth,
-                    elevation
+                    elevation,
                 )
+            case "RA_M2319":
+                return AntennaRA_M2319(antenna_params.itu_ra_m2319)
             case _:
                 raise ValueError(
                     f"Antenna factory does not support pattern {

@@ -1,0 +1,159 @@
+general:
+  seed: 157
+  num_snapshots: 10000
+  overwrite_output: false
+  output_dir: campaigns/01_DC_MSS_to_FS/output/
+  output_dir_prefix: output_mss_{power}_bw{bw}
+  system: SINGLE_EARTH_STATION
+  imt_link: DOWNLINK
+  enable_adjacent_channel: false
+  enable_cochannel: true
+imt:
+  minimum_separation_distance_bs_ue: 35.0
+  interfered_with: false
+  frequency: 8150.0
+  bandwidth: 100.0
+  rb_bandwidth: 0.18
+  spectral_mask: IMT-2020
+  spurious_emissions: -13.0
+  adjacent_antenna_model: SINGLE_ELEMENT
+  guard_band_ratio: 0.1
+  topology:
+    central_latitude: -15.793889
+    central_longitude: -47.882778
+    central_altitude: 0.0
+    macrocell_countries:
+      country_names:
+      - Brazil
+      - Argentina
+      - Uruguay
+      - Paraguay
+      - Chile
+      - Bolivia
+      - Peru
+      - Ecuador
+      - Colombia
+      - Venezuela
+      - Guyana
+      - Suriname
+      - Belize
+      - Guatemala
+      - El Salvador
+      - Honduras
+      - Nicaragua
+      - Costa Rica
+      - Panama
+      - Mexico
+      - United States of America
+      - Canada
+      - Cuba
+      - Haiti
+      - Dominican Republic
+      - Jamaica
+      - Trinidad and Tobago
+      num_bs_total: 100
+      cell_radius: 400.0
+      rng_seed: 10
+      dist_type: Urban
+    type: Macro_countries
+  bs:
+    load_probability: 0.2
+    conducted_power: 22.0
+    height: 18.0
+    noise_figure: 6.0
+    ohmic_loss: 0.0
+    antenna:
+      array:
+        normalization: false
+        element_pattern: M2101
+        minimum_array_gain: -200.0
+        horizontal_beamsteering_range:
+        - -60.0
+        - 60.0
+        vertical_beamsteering_range:
+        - 90.0
+        - 100.0
+        downtilt: 6.0
+        element_max_g: 6.4
+        element_phi_3db: 90.0
+        element_theta_3db: 65.0
+        n_rows: 8
+        n_columns: 16
+        element_horiz_spacing: 0.5
+        element_vert_spacing: 2.1
+        element_am: 30.0
+        element_sla_v: 30.0
+        multiplication_factor: 12
+        subarray:
+          is_enabled: true
+          n_rows: 3
+          element_vert_spacing: 0.7
+          eletrical_downtilt: 3.0
+  ue:
+    k: 1
+    k_m: 1
+    indoor_percent: 70.0
+    distribution_type: MACRO_COUNTRIES
+    tx_power_control: true
+    p_o_pusch: -92.2
+    alpha: 0.8
+    p_cmax: 23.0
+    power_dynamic_range: 56.0
+    height: 1.5
+    noise_figure: 13.0
+    ohmic_loss: 0.0
+    body_loss: 4.0
+    antenna:
+      array:
+        normalization: false
+        element_pattern: FIXED
+        minimum_array_gain: -200.0
+        element_max_g: -4.0
+        element_phi_3db: 180.0
+        element_theta_3db: 360.0
+        n_rows: 1
+        n_columns: 1
+        element_am: 25.0
+        element_sla_v: 25.0
+        multiplication_factor: 12
+  uplink:
+    attenuation_factor: 0.4
+    sinr_min: -10.0
+    sinr_max: 22.0
+  downlink:
+    attenuation_factor: 0.6
+    sinr_min: -10.0
+    sinr_max: 30.0
+  channel_model: UMa
+  shadowing: true
+single_space_station:
+  frequency: 8150.0
+  bandwidth: 40.0
+  tx_power_density: -200.0
+  polarization_loss: 0.0
+  noise_temperature: 500.0
+  channel_model: P619
+  season: SUMMER
+  param_p619:
+    mean_clutter_height: Mid
+    below_rooftop: 65.0
+  geometry:
+    altitude: 35786000.0
+    location:
+      type: FIXED
+      fixed:
+        lat_deg: 0.0
+        long_deg: -110.0
+    es_altitude: 200.0
+    es_lat_deg: -10.871349
+    es_long_deg: -51.6424333
+    azimuth:
+      type: POINTING_AT_IMT
+    elevation:
+      type: POINTING_AT_IMT
+  antenna:
+    pattern: ITU-R S.672
+    gain: 30.0
+    itu_r_s_672:
+      antenna_3_dB: 5.0
+      antenna_l_s: -20.0

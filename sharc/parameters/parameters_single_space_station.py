@@ -14,6 +14,7 @@ class ParametersSingleSpaceStation(ParametersBase):
     section_name: str = "single_space_station"
     nested_parameters_enabled: bool = True
     is_space_to_earth: bool = True
+    is_global_coordinate_system: bool = False
 
     # Sensor center frequency [MHz]
     frequency: float = None  # Center frequency of the sensor in MHz

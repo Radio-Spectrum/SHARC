@@ -13,8 +13,11 @@ from sharc.topology.topology_hotspot import TopologyHotspot
 from sharc.topology.topology_indoor import TopologyIndoor
 from sharc.topology.topology_ntn import TopologyNTN
 from sharc.topology.topology_single_base_station import TopologySingleBaseStation
+from sharc.topology.topology_countries import TopologyCountries
 from sharc.parameters.parameters import Parameters
 from sharc.support.sharc_geom import CoordinateSystem
+from sharc.support.sharc_geom_countries import GeometryConverter
+
 
 
 class TopologyFactory(object):
@@ -56,6 +59,13 @@ class TopologyFactory(object):
             return TopologyImtMssDc(
                 parameters.imt.topology.mss_dc,
                 coordinate_system
+            )
+        elif parameters.imt.topology.type == "Macro_countries":
+            geoconv = GeometryConverter()
+            geoconv.set_reference(coordinate_system.ref_lat, coordinate_system.ref_long, coordinate_system.ref_alt)
+            return TopologyCountries(
+                parameters.imt.topology.macrocell_countries,
+                geometry_converter=geoconv
             )
         else:
             sys.stderr.write(

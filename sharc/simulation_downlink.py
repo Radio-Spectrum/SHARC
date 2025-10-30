@@ -331,7 +331,7 @@ class SimulationDownlink(Simulation):
 
                     # tx_oob_in_measurement = (tx_pow_lin / aclr)
                     # => approx. PSD = (tx_pow_lin / aclr) / measurement_bw
-                    # approximated received tx_oob = PSD * non_overlap_imt_bw
+                    # approximated received tx_oob  = PSD * non_overlap_imt_bw
                     tx_oob[::] = self.param_system.tx_power_density + \
                         10 * np.log10(1e6) -  \
                         aclr_dB + 10 * np.log10(

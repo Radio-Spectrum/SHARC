@@ -137,7 +137,7 @@ class TopologyHotspot(Topology):
                                 "ERROR\nInfinite loop while creating hotspots.\n \
                                 Try less hotspots per cell or greater macro cell intersite distance.\n",
                             )
-                            sys.exit(1)
+                            return
                 # if num_attempts > 1: print("number of attempts: {}".format(num_attempts))
             x = np.concatenate([x, hotspot_x])
             y = np.concatenate([y, hotspot_y])

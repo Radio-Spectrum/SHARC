@@ -16,13 +16,13 @@ N = 31                 # número de pontos/distâncias
 max_dist_km = 30000    # distância máxima ao centro da pista (km)
 aux = (np.linspace(0, max_dist_km, N))
 distances_km = [int(val) for val in aux]
-#distances_km = [10000]
+#distances_km = [10714]
 
 ## Graphics adjustments
 cutoff_percentage = 0.001;
-shift_scale = -10 * np.log10(6000 / (3 * 57)) - 20   # Segment Factor + Filtro
+shift_scale = -10 * np.log10(6000 / (3 * 57)) - 6   # Segment Factor + Filtro
 legenda_INR_potencia = "INR [dB]"
-legenda_dens_potencia = "dBm/100MHz [dB]"
+legenda_dens_potencia = "dBm"
 
 # Change default legent to the shifited
 post_processor = PostProcessor()

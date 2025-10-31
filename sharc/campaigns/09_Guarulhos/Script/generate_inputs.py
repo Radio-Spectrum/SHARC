@@ -10,7 +10,7 @@ BASE_YAML = Path(r"C:\Achiles\SHARC\sharc\campaigns\09_Guarulhos\Script\Base.yam
 OUT_DIR   = Path(r"C:\Achiles\SHARC\sharc\campaigns\09_Guarulhos\input")
 
 # ===== Parâmetros =====
-N               = 31          # número de simulações
+N               = 15          # número de simulações
 GLIDESLOPE_DEG  = 3.0         # rampa (graus)
 START_DIST_M    = 30_000      # distância inicial até o CENTRO da pista (m)
 APPROACH_SIGN   = -1          # +1 vindo do Leste; -1 do Oeste
@@ -74,7 +74,7 @@ for n_array in [4,8]:
 
         # muda também o prefixo
         if "general" in doc and isinstance(doc["general"], dict):
-            doc["general"]["output_dir_prefix"] = f"array_{n_array}_approach_{int(s_m)}m"
+            doc["general"]["output_dir_prefix"] = f"FS_array_{n_array}_approach_{int(s_m)}m"
 
         # salva com nome pela distância
         out = OUT_DIR / f"input_air_approach_array_{n_array}_{int(s_m)}m.yaml"

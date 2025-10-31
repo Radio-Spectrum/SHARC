@@ -4,10 +4,10 @@ general:
   system: SINGLE_SPACE_STATION
   enable_cochannel: true
   enable_adjacent_channel: true
-  seed: 93
+  seed: 44
   overwrite_output: false
   output_dir: campaigns/09_Guarulhos/output_dl/
-  output_dir_prefix: out_put
+  output_dir_prefix: FS_array_8_approach_12857m
 imt:
   minimum_separation_distance_bs_ue: 35
   interfered_with: false
@@ -40,16 +40,16 @@ imt:
         element_pattern: M2101
         minimum_array_gain: -200
         horizontal_beamsteering_range: !!python/tuple
-        - -60.0
-        - 60.0
+          - -60.0
+          - 60.0
         vertical_beamsteering_range: !!python/tuple
-        - 90.0
-        - 100.0
+          - 90.0
+          - 100.0
         downtilt: 6
         element_max_g: 6.4
         element_phi_3db: 90
         element_theta_3db: 65
-        n_rows: 4  ## Alterar para 8
+        n_rows: 8  ## Alterar para 8
         n_columns: 8
         element_horiz_spacing: 0.5
         element_vert_spacing: 2.1
@@ -104,7 +104,7 @@ single_space_station:
     time_percentage: RANDOM
     polarization: 1
   geometry:
-    altitude: 10
+    altitude: 673.81
     es_altitude: 0
     es_lat_deg: -60
     es_long_deg: -15
@@ -119,8 +119,8 @@ single_space_station:
     location:
       type: FIXED
       fixed:
-        lat_deg: 0
-        long_deg: -103.3
+        lat_deg: -59.910017
+        long_deg: -15.266927
   antenna:
     pattern: RA_M2319
     gain: 0

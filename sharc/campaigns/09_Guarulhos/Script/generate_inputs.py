@@ -77,7 +77,7 @@ for n_array in [4,8]:
             doc["general"]["output_dir_prefix"] = f"FS_array_{n_array}_approach_{int(s_m)}m"
 
         # salva com nome pela distância
-        out = OUT_DIR / f"input_air_approach_array_{n_array}_{int(s_m)}m.yaml"
+        out = OUT_DIR / f"input_FS_air_approach_array_{n_array}_{int(s_m)}m.yaml"
         with out.open("w", encoding="utf-8") as f:
             yaml.dump(doc, f)
 

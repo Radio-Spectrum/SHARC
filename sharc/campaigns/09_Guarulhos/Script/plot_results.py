@@ -12,7 +12,8 @@ import numpy as np  # <- garantir esse import no topo
 
 ## Definition of plot variable (what to plot)
 n_array = [4, 8]
-N = 31                 # número de pontos/distâncias
+propag = ['', 'FS_']
+N = 15                 # número de pontos/distâncias
 max_dist_km = 30000    # distância máxima ao centro da pista (km)
 aux = (np.linspace(0, max_dist_km, N))
 distances_km = [int(val) for val in aux]
@@ -20,7 +21,7 @@ distances_km = [int(val) for val in aux]
 
 ## Graphics adjustments
 cutoff_percentage = 0.001;
-shift_scale = -10 * np.log10(6000 / (3 * 57)) - 6   # Segment Factor + Filtro
+shift_scale = -10 * np.log10(6000 / (3 * 57)) + 6   # Segment Factor + Filtro
 legenda_INR_potencia = "INR [dB]"
 legenda_dens_potencia = "dBm"
 
@@ -31,18 +32,20 @@ post_processor.RESULT_FIELDNAME_TO_PLOT_INFO['system_dl_interf_power_per_mhz']['
 
 # Build sorted combinations
 combinations = [
-    (a,s)
-    for s in sorted(distances_km)
+    (b, a, s)
+    for b in sorted(propag)
     for a in sorted(n_array)
+    for s in sorted(distances_km)
 ]
+
 valid_patterns = []
 # Add them in sorted order
-for a, s in (combinations):
+for b, a, s in (combinations):
     post_processor.add_plot_legend_pattern(
-        dir_name_contains=f"{a}_approach_{s}m",
-        legend=f"N={a} d ={s}m"
+        dir_name_contains=f"{b}array_{a}_approach_{s}m",
+        legend=f"{b} - N={a} d ={s}m"
     )
-    valid_patterns.append(f"{a}_approach_{s}m")
+    valid_patterns.append(f"{b}array_{a}_approach_{s}m")
 
 
 # Define filter function
@@ -56,7 +59,7 @@ many_results = Results.load_many_from_dir(
         campaign_base_dir,
         "output_dl"),
     only_latest=True,
-    only_samples=["imt_system_antenna_gain", "imt_bs_antenna_gain", "system_imt_antenna_gain", "imt_system_path_loss","system_dl_interf_power_per_mhz"],
+    only_samples=["imt_system_antenna_gain", "imt_bs_antenna_gain", "system_imt_antenna_gain", "imt_system_path_loss", "system_dl_interf_power_per_mhz"],
     filter_fn=filter_fn
     )
 

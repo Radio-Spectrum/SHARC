@@ -23,7 +23,6 @@ from sharc.propagation.propagation import Propagation
 from sharc.propagation.propagation_free_space import PropagationFreeSpace
 from sharc.parameters.parameters import Parameters
 from sharc.station_manager import StationManager
-#from sharc.parameters.parameters_p528 import ParametersP528
 
 # ------------------------------------------------------------
 # Constants / Quick-start approximations
@@ -630,28 +629,34 @@ if __name__ == "__main__":
     f_MHz     = 3500.0
     h1_km     = 0.050   # 50 m
     h2_km     = 1.0    # 10 km aircraft
-    d_km      = np.linspace(1.0, 500.0, 800)
+    d_km      = np.linspace(1.0, 50.0, 800)
     d_m       = np.sqrt(1**2 + d_km**2) * 1000.0
     f_vec     = np.full_like(d_m, f_MHz, dtype=float)
     h1_v      = np.full_like(d_km, h1_km, dtype=float)
     h2_v      = np.full_like(d_km, h2_km, dtype=float)
     indoor    = np.zeros_like(d_km, dtype=bool)
+    p_time = np.full(f_vec.size , 10.0)
 
     rng = np.random.RandomState(42)
     model = PropagationP528(rng)
 
     Lb = model.get_loss(d_m, f_vec, h1_v, h2_v, indoor,
-                        1, 10.0)
+                        0, p_time)
+## Free Space
+    d_3d_km = d_m / 1000.0
+    FSPL = 32.44 + 20.0*np.log10(d_3d_km) + 20.0*np.log10(f_MHz)
 
-    print(f"\nP.528 test: f={f_MHz:.0f} MHz, h1={h1_km*1000:.0f} m, h2={h2_km:.1f} km, pol=V, p=10%")
+    # Print a few sample points alongside P.528
+    print("\nFree-space (FSPL) comparison:")
     for km in [1, 7.13, 13.27, 25.53, 37.80, 50.0]:
         i = np.argmin(np.abs(d_km - km))
-        print(f"d = {d_km[i]:8.2f} km  ->  Lb = {Lb[i]:.2f} dB")
+        print(f"d = {d_km[i]:8.2f} km  ->  FSPL = {FSPL[i]:.2f} dB -> P528 = {Lb[i]:.2f} dB")
 
     try:
         import matplotlib.pyplot as plt
         plt.figure(figsize=(8,5))
-        plt.plot(d_km, Lb, label="P.528 (pol=V, p=10%)")
+        plt.plot(d_km, Lb,   label="P.528 (pol=V, p=10%)")
+        plt.plot(d_km, FSPL, label="Free-space loss (FSPL)")
         plt.xlabel("Distance (km)")
         plt.ylabel("Basic transmission loss Lb (dB)")
         plt.title(f"ITU-R P.528 – Lb vs Distance | f={f_MHz:.0f} MHz")

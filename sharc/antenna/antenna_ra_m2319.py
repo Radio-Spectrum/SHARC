@@ -58,7 +58,7 @@ class AntennaRA_M2319(Antenna):
         else:
             gain_dbi = np.zeros(phi.shape)
             mask_phi = (phi < 90)
-            gain_dbi[~mask_phi] = -200
+            gain_dbi[~mask_phi] = -np.abs(phi[~mask_phi] - 90)
         return gain_dbi
 
 # ---- Example (optional, for quick check) ----
@@ -70,7 +70,7 @@ if __name__ == "__main__":
     p = ParametersRA
     p.gain_isotropic_dbi=13.0
     p.phi_3db_deg=45.0
-    p.inband = True
+    p.inband = False
     ant = AntennaRA_M2319(p)
     phi = np.linspace(0, 180, 181)
 

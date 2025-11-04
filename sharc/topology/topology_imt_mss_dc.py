@@ -408,7 +408,7 @@ class TopologyImtMssDc(Topology):
             eligible_sats_msk &= polygon_mask
             eligible_sats_idx = np.where(eligible_sats_msk)[0]
 
-            elev = calc_elevation(
+            all_elevations = calc_elevation(
                 grid_lat[:, np.newaxis],
                 all_sat_lat[eligible_sats_msk][np.newaxis, :],
                 grid_lon[:, np.newaxis],
@@ -417,7 +417,7 @@ class TopologyImtMssDc(Topology):
                 es_height=0,
             )
 
-            best_sats = elev.argmax(axis=-1)
+            best_sats = all_elevations.argmax(axis=-1)
 
             best_sats_true = eligible_sats_idx[best_sats]
 
@@ -450,8 +450,12 @@ class TopologyImtMssDc(Topology):
 
             sat_points_towards = defaultdict(list)
 
-            for i, sat in enumerate(best_sats_true):
-                sat_points_towards[sat].append(i)
+            min_service_angle = orbit_params.beam_positioning.service_grid.minimum_service_angle
+            for i, sat in enumerate(best_sats):
+                if all_elevations[i][sat] < min_service_angle:
+                    continue
+                actual_best_sat_idx = eligible_sats_idx[sat]
+                sat_points_towards[actual_best_sat_idx].append(i)
 
             # now only return the angles that
             # the caller asked with the active_sat_idxs parameter

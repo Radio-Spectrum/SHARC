@@ -339,6 +339,9 @@ class ParametersSatelliteWithServiceGrid(ParametersTerrestrialGrid):
 
     beam_radius: float = None
 
+    # [deg]
+    minimum_service_angle: float = 5.0
+
     def validate(self, ctx):
         """Validates instance parameters.
         Parameters
@@ -352,6 +355,9 @@ class ParametersSatelliteWithServiceGrid(ParametersTerrestrialGrid):
                 f"{ctx}.cell_radius should be set through beam_radius parameter"
             )
         self.cell_radius = self.beam_radius
+
+        if self.minimum_service_angle < 0. or self.minimum_service_angle > 90:
+            raise ValueError(f"{ctx}.minimum_service_angle should be in [0, 90]")
 
         if not isinstance(
                 self.eligible_sats_margin_from_border,

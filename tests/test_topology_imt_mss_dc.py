@@ -6,6 +6,7 @@ from sharc.parameters.imt.parameters_imt_mss_dc import ParametersImtMssDc
 from sharc.station_manager import StationManager
 from sharc.parameters.parameters_orbit import ParametersOrbit
 from sharc.support.sharc_geom import CoordinateSystem, lla2ecef
+from sharc.satellite.utils.sat_utils import calc_elevation
 
 
 class TestTopologyImtMssDc(unittest.TestCase):
@@ -155,6 +156,51 @@ class TestTopologyImtMssDc(unittest.TestCase):
         # Add a tolerance to the elevation angle because of the Earth
         # oblateness
         npt.assert_array_less(min_elevation_angle, xy_plane_elevations)
+
+    def test_minimum_service_angle(self):
+        """Test minimum visilibity angle for service grid service."""
+        orbit = ParametersOrbit(
+            n_planes=1,
+            sats_per_plane=1,
+            phasing_deg=3.9,
+            long_asc_deg=18.0,
+            inclination_deg=54.5,
+            perigee_alt_km=525,
+            apogee_alt_km=525,
+        )
+        self.coordinate_system.set_reference(0.0, 0.0, 0)
+
+        self.params.orbits = [orbit]
+        self.params.beam_positioning.type = "SERVICE_GRID"
+        self.params.beam_positioning.service_grid.grid_in_zone.type = "CIRCLE"
+        self.params.beam_positioning.service_grid.grid_in_zone.circle.center_lat = 0.0
+        self.params.beam_positioning.service_grid.grid_in_zone.circle.center_lon = 0.0
+        self.params.beam_positioning.service_grid.grid_in_zone.circle.radius_km = 10 * 111.0
+        self.params.validate("")
+
+        self.imt_mss_dc_topology = TopologyImtMssDc(
+            self.params, self.coordinate_system)
+
+        n_previous_selected = np.inf
+        for a in [5, 50, 80]:
+            self.imt_mss_dc_topology.orbit_params.beam_positioning.service_grid.minimum_service_angle = a
+            self.imt_mss_dc_topology.calculate_coordinates(
+                random_number_gen=np.random.RandomState(8))
+
+            lon_lat_grid = self.params.beam_positioning.service_grid.lon_lat_grid
+            elev_from_bs = calc_elevation(
+                lon_lat_grid[1],
+                self.imt_mss_dc_topology.lat[0],
+                lon_lat_grid[0],
+                self.imt_mss_dc_topology.lon[0],
+                sat_height=self.imt_mss_dc_topology.height[0],
+                es_height=0.0,
+            )
+            n_selected = np.sum(elev_from_bs >= a)
+            self.assertLess(n_selected, n_previous_selected)
+            self.assertLess(n_selected, len(elev_from_bs))
+            self.assertEqual(n_selected, self.imt_mss_dc_topology.num_base_stations)
+            n_previous_selected = n_selected
 
 
 if __name__ == '__main__':

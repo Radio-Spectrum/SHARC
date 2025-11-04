@@ -264,6 +264,7 @@ imt:
                     # if positive, makes border smaller by x km
                     # if negative, makes border bigger by x km
                     eligible_sats_margin_from_border: -2.1
+                    minimum_service_angle: 10.1
             sat_is_active_if:
                 # for a satellite to be active, it needs to respect ALL conditions
                 conditions:
@@ -1096,6 +1097,7 @@ mss_d2d:
             # if positive, makes border smaller by x km
             # if negative, makes border bigger by x km
             eligible_sats_margin_from_border: -2.1
+            minimum_service_angle: 12.1
     sat_is_active_if:
         # for a satellite to be active, it needs to respect ALL conditions
         conditions:

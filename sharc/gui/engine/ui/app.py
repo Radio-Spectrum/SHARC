@@ -7,6 +7,9 @@ from tkinter import ttk
 from pathlib import Path
 import queue
 
+# Tab builder imports (modules from utils)
+from core.utils import _report_callback_exception
+
 # Tab builder imports (each module exposes build_<tab>_tab(app, frame))
 from ui.tab_general import build_general_tab
 from ui.tab_imt import build_imt_tab
@@ -21,7 +24,7 @@ from ui.tab_results import build_results_tab
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.report_callback_exception = self._report_callback_exception
+        self.report_callback_exception = _report_callback_exception
         self.title("SHARC – YAML GUI (IMT + Single Space Station)")
         self.geometry("1260x900")
         self.minsize(1100, 800)
@@ -268,9 +271,9 @@ class App(tk.Tk):
         nb.add(tab_runner, text="Runner")
         nb.add(tab_results, text="Results")
 
-        self.build_general_tab(tab_general)
-        self.build_imt_tab(tab_imt)
-        self.build_victim_tab(tab_victim)
-        self.build_preview_tab(tab_preview)
-        self.build_runner_tab(tab_runner)
-        self.build_results_tab(tab_results)
+        build_general_tab(tab_general)
+        build_imt_tab(tab_imt)
+        build_victim_tab(tab_victim)
+        build_preview_tab(tab_preview)
+        build_runner_tab(tab_runner)
+        build_results_tab(tab_results)

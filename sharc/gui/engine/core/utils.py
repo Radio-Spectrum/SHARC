@@ -3,10 +3,19 @@ Small UI helpers and lightweight widget builders.
 These are convenience functions to keep tab modules concise.
 """
 
-from tkinter import ttk
+from tkinter import ttk, messagebox
 import tkinter as tk
+import traceback
 from typing import Iterable, Tuple
 
+def _report_callback_exception(self, exc, val, tb):
+        # Mostra um diálogo e NÃO fecha o programa
+    msg = ''.join(traceback.format_exception(exc, val, tb))
+    messagebox.showerror(
+        "Erro inesperado",
+        "Ocorreu um erro, mas o programa continuará aberto.\n\n"
+        f"{val}\n\nDetalhes:\n{msg[:4000]}"  # evita caixa gigante
+    )
 
 def add_row_three(parent: tk.Widget, row: int, items: Iterable[Tuple[str, tk.Widget]]) -> None:
     """

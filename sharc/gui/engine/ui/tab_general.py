@@ -1,7 +1,7 @@
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
-from core.utils import add_row_three
-from core.files_control import _pick_outdir, _pick_yamldir
+from core.utils import add_row_three, _var_add, _var_remove
+from core.files_control import _pick_outdir, _pick_yamldir, _save_yaml_to_yamldir
 
 # Note: The helper function add_row_three was not provided,
 # but the main function logic is translated below.
@@ -56,7 +56,7 @@ def build_general_tab(self, root):
     toolbar = ttk.Frame(box)
     toolbar.pack(fill="x")
     ttk.Button(toolbar, text="Add Variable", command=_var_add).pack(side="left") 
-    ttk.Button(toolbar, text="Remove Selected", command=root._var_remove).pack(side="left", padx=(6, 0)) 
+    ttk.Button(toolbar, text="Remove Selected", command=_var_remove).pack(side="left", padx=(6, 0)) 
 
     root.var_table = ttk.Treeview(box, columns=("name", "values"), show="headings", height=5) 
     root.var_table.heading("name", text="Name") 
@@ -72,4 +72,4 @@ def build_general_tab(self, root):
     row_gen = ttk.Frame(root)
     row_gen.pack(fill="x", pady=(8, 0))
     ttk.Button(row_gen, text="Generate YAML(s) in yaml_dir (all combinations)",
-               command=root._save_yaml_to_yamldir).pack(side="left") 
+               command=_save_yaml_to_yamldir).pack(side="left") 

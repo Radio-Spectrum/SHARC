@@ -5,11 +5,13 @@ These are convenience functions to keep tab modules concise.
 
 import os
 import sys
+import ast
 from tkinter import ttk, messagebox
 import tkinter as tk
 import traceback
 from typing import Iterable, Tuple
 import yaml
+
 
 def _report_callback_exception(self, exc, val, tb):
         # Mostra um diálogo e NÃO fecha o programa
@@ -19,6 +21,7 @@ def _report_callback_exception(self, exc, val, tb):
         "Ocorreu um erro, mas o programa continuará aberto.\n\n"
         f"{val}\n\nDetalhes:\n{msg[:4000]}"  # evita caixa gigante
     )
+
 
 def add_row_three(parent: tk.Widget, row: int, items: Iterable[Tuple[str, tk.Widget]]) -> None:
     """
@@ -83,3 +86,40 @@ def _load_plot_info():
     except Exception as e:
         print(f"An unexpected error occurred: {e}", file=sys.stderr)
         return None
+
+
+def _var_add(self):
+    def _ok():
+        name = e_name.get().strip()
+        vals = e_vals.get().strip()
+        if not name: 
+            messagebox.showwarning("Variáveis", "Informe um nome.")
+            return
+        if not vals:
+            messagebox.showwarning("Variáveis", "Informe valores em lista, ex: [1,2] ou [\"LOW\",\"HIGH\"].")
+            return
+        try:
+            lst = ast.literal_eval(vals)
+            if not isinstance(lst, (list, tuple)):
+                raise ValueError()
+        except Exception:
+            messagebox.showwarning("Variáveis", "Valores devem ser uma lista Python válida.")
+            return
+        self.var_table.insert("", "end", values=(name, vals))
+        dlg.destroy()
+
+    dlg = tk.Toplevel(self); dlg.title("Adicionar variável")
+    ttk.Label(dlg, text="Nome da variável (use {nome} no prefix/YAML):").pack(anchor="w", padx=10, pady=(10,2))
+    e_name = ttk.Entry(dlg); e_name.pack(fill="x", padx=10)
+    ttk.Label(dlg, text="Valores (lista):").pack(anchor="w", padx=10, pady=(10,2))
+    e_vals = ttk.Entry(dlg); e_vals.pack(fill="x", padx=10)
+    btns = ttk.Frame(dlg); btns.pack(fill="x", pady=10)
+    ttk.Button(btns, text="OK", command=_ok).pack(side="left", padx=(10,4))
+    ttk.Button(btns, text="Cancelar", command=dlg.destroy).pack(side="left")
+    e_name.focus_set()
+
+
+def _var_remove(self):
+    sel = self.var_table.selection()
+    for iid in sel:
+        self.var_table.delete(iid)

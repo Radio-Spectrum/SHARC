@@ -68,8 +68,10 @@ valid_patterns = []
 for b, a, s in combinations:
     alt = np.round(s * np.tan(np.deg2rad(3)))
     pattern = f"{b}array_{a}_approach_{s}m"
-    legend  = f"{b} - N={a} d ={s}m - alt = {alt}"
-
+    if b == 'FS_':
+        legend = f"FS - N={a} d ={format(int(s), '05d')}m - alt = {alt}"
+    else:
+        legend = f"P528 - N={a} d ={format(int(s), '05d')}m - alt = {alt}"
     post_processor.add_plot_legend_pattern(
         dir_name_contains=pattern,
         legend=legend
@@ -77,12 +79,33 @@ for b, a, s in combinations:
     valid_patterns.append(pattern)
     PATTERN_TO_LEGEND[pattern] = legend
 
+import os, re
+
+_pat = re.compile(r'(FS_)?array_(\d+)_approach_(\d+)m')
+
+def _sort_key(res):
+    # use output_directory/dir_path to extract (propag, N, distance)
+    base = os.path.basename(getattr(res, "output_directory", "") or
+                            getattr(res, "dir_path", ""))
+    m = _pat.search(base)
+    if not m:
+        return (99, 99, 10**12)           # push unknowns to the end
+    propag = m.group(1) or ""             # '' or 'FS_'
+    N      = int(m.group(2))
+    dist   = int(m.group(3))
+    propag_rank = {"": 0, "FS_": 1}.get(propag, 9)
+    return (propag_rank, N, dist)         # sort by propag, then N, then distance
+
 # Define filter function (mantido)
 filter_fn = lambda dir_path: any(
     pattern in os.path.basename(dir_path) for pattern in valid_patterns
 )
 
 campaign_base_dir = str((Path(__file__) / ".." / "..").resolve())
+
+
+
+
 
 # === (MANTIDO) Carrega TODOS os resultados dos diretórios filtrados ===
 many_results = Results.load_many_from_dir(
@@ -97,6 +120,7 @@ many_results = Results.load_many_from_dir(
     ],
     filter_fn=filter_fn,
 )
+many_results.sort(key=_sort_key)
 
 post_processor.add_results(many_results)
 

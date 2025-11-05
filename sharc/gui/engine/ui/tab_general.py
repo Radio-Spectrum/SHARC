@@ -6,9 +6,25 @@ from core.files_control import _pick_outdir, _pick_yamldir, _save_yaml_to_yamldi
 # Note: The helper function add_row_three was not provided,
 # but the main function logic is translated below.
 
+
 def build_general_tab(self, root):
     """Builds the 'General' tab UI elements."""
+
+    def set_out_dir():
+        return _pick_outdir(root)
     
+    def var_remove():
+        return _var_remove(root)
+    
+    def var_add():
+        return _var_add(root)
+    
+    def pick_yamldir():
+        return _pick_yamldir(root)
+
+    def save_yaml_to_yamldir():
+        return _save_yaml_to_yamldir(root)
+
     frm = ttk.LabelFrame(root, text="General Parameters")
     frm.pack(fill="x")
 
@@ -27,14 +43,14 @@ def build_general_tab(self, root):
     ttk.Label(row2, text="output_dir (goes inside YAML)").pack(side="left")
     e_outdir = ttk.Entry(row2, textvariable=root.var_outdir)
     e_outdir.pack(side="left", fill="x", expand=True, padx=(6, 6))
-    ttk.Button(row2, text="Browse...", command=_pick_outdir).pack(side="left")
+    ttk.Button(row2, text="Browse...", command=set_out_dir).pack(side="left")
 
     row2b = ttk.Frame(frm)
     row2b.grid(row=2, column=0, columnspan=6, sticky="we", pady=2)
     ttk.Label(row2b, text="yaml_dir (where to save .yaml files)").pack(side="left")
     e_yamldir = ttk.Entry(row2b, textvariable=root.var_yaml_dir) 
     e_yamldir.pack(side="left", fill="x", expand=True, padx=(6, 6))
-    ttk.Button(row2b, text="Browse...", command=_pick_yamldir).pack(side="left")
+    ttk.Button(row2b, text="Browse...", command=pick_yamldir).pack(side="left")
 
     e_prefix = ttk.Entry(frm, textvariable=root.var_prefix)
     cb_link = ttk.Combobox(frm, textvariable=root.var_imt_link,
@@ -55,8 +71,8 @@ def build_general_tab(self, root):
 
     toolbar = ttk.Frame(box)
     toolbar.pack(fill="x")
-    ttk.Button(toolbar, text="Add Variable", command=_var_add).pack(side="left") 
-    ttk.Button(toolbar, text="Remove Selected", command=_var_remove).pack(side="left", padx=(6, 0)) 
+    ttk.Button(toolbar, text="Add Variable", command=var_add).pack(side="left") 
+    ttk.Button(toolbar, text="Remove Selected", command=var_remove).pack(side="left", padx=(6, 0)) 
 
     root.var_table = ttk.Treeview(box, columns=("name", "values"), show="headings", height=5) 
     root.var_table.heading("name", text="Name") 
@@ -72,4 +88,4 @@ def build_general_tab(self, root):
     row_gen = ttk.Frame(root)
     row_gen.pack(fill="x", pady=(8, 0))
     ttk.Button(row_gen, text="Generate YAML(s) in yaml_dir (all combinations)",
-               command=_save_yaml_to_yamldir).pack(side="left") 
+               command=save_yaml_to_yamldir).pack(side="left") 

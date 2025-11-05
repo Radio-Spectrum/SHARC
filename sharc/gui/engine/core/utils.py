@@ -13,9 +13,9 @@ from typing import Iterable, Tuple
 import yaml
 
 
-def _report_callback_exception(self, exc, val, tb):
+def _report_callback_exception(self, exc, val):
         # Mostra um diálogo e NÃO fecha o programa
-    msg = ''.join(traceback.format_exception(exc, val, tb))
+    msg = ''.join(traceback.format_exception(exc, val))
     messagebox.showerror(
         "Erro inesperado",
         "Ocorreu um erro, mas o programa continuará aberto.\n\n"

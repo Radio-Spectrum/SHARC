@@ -8,7 +8,7 @@ from pathlib import Path
 import queue
 
 # Tab builder imports (modules from utils)
-from core.utils import _report_callback_exception
+from core.utils import _report_callback_exception, _load_plot_info
 
 # Tab builder imports (each module exposes build_<tab>_tab(app, frame))
 from ui.tab_general import build_general_tab
@@ -238,6 +238,7 @@ class App(tk.Tk):
         # Global reference lines (list of dicts: {"x": float, "label": str})
         self.ref_lines = []
         # configuration for each subplot: list of dicts {"field": str, "mode": "CDF"/"CCDF"}
+        RESULT_FIELDNAME_TO_PLOT_INFO = _load_plot_info()
         self.result_fields = sorted(list(RESULT_FIELDNAME_TO_PLOT_INFO.keys()))
         # max subplot capacity (e.g., 9 panels)
         self._max_axes = 9

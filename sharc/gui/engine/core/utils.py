@@ -3,10 +3,13 @@ Small UI helpers and lightweight widget builders.
 These are convenience functions to keep tab modules concise.
 """
 
+import os
+import sys
 from tkinter import ttk, messagebox
 import tkinter as tk
 import traceback
 from typing import Iterable, Tuple
+import yaml
 
 def _report_callback_exception(self, exc, val, tb):
         # Mostra um diálogo e NÃO fecha o programa
@@ -50,3 +53,33 @@ def paired_entry(parent: tk.Widget, var_left: tk.StringVar, var_right: tk.String
     sep.pack(side="left", padx=2)
     right.pack(side="left")
     return frm
+
+# Get the absolute path to the directory containing this file (utils.py)
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+
+# Join this directory path with the YAML filename
+# (Update 'plot_info.yaml' if your file is named 'plot_config.yaml')
+YAML_PATH = os.path.join(SCRIPT_DIR, 'plot_info.yaml') 
+
+
+def _load_plot_info():
+    """
+    Loads plot information from the YAML file in the same directory.
+    """
+    try:
+        # Use the new, robust YAML_PATH
+        with open(YAML_PATH, 'r') as file:
+            data = yaml.safe_load(file)
+            if data is None:
+                return {} 
+            return data
+    except FileNotFoundError:
+        # This error message will now show the full, correct path
+        print(f"Error: The file '{YAML_PATH}' was not found.", file=sys.stderr)
+        return None
+    except yaml.YAMLError as e:
+        print(f"Error parsing YAML file '{YAML_PATH}': {e}", file=sys.stderr)
+        return None
+    except Exception as e:
+        print(f"An unexpected error occurred: {e}", file=sys.stderr)
+        return None

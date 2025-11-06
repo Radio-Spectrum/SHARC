@@ -4,7 +4,7 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
-from utils.results_plot import _draw_results_plots
+from utils.results_plot import _draw_results_plots, _export_results_fig, _ref_add, _ref_remove
 from utils.res_schedule import _schedule_auto_update
 
 # Note: The original code assumes 'plt', 'FigureCanvasTkAgg', 
@@ -18,6 +18,15 @@ def build_results_tab(self, root):
     
     def schedule_auto_update():
         return _schedule_auto_update(root)
+    
+    def export_results_fig():
+        return _export_results_fig(root)
+    
+    def ref_add():
+        return _ref_add(root)
+    
+    def ref_remove():
+        return _ref_remove(root)
 
     # Left side: controls / Right side: figure
     left = ttk.Frame(root)
@@ -136,7 +145,7 @@ def build_results_tab(self, root):
     ttk.Label(frm_export, text="DPI:").pack(side="left", padx=(6, 4))
     root.var_export_dpi = tk.IntVar(value=200)
     ttk.Spinbox(frm_export, from_=100, to=600, increment=50, textvariable=root.var_export_dpi, width=6).pack(side="left", padx=(0, 8))
-    ttk.Button(frm_export, text="Export figure…", command=root._export_results_fig).pack(side="left")
+    ttk.Button(frm_export, text="Export figure…", command=export_results_fig).pack(side="left")
     
     # ---- Scale / Export ----
     frm_extras = ttk.LabelFrame(left, text="Scale and Export")
@@ -176,7 +185,7 @@ def build_results_tab(self, root):
     ttk.Label(ref_row, text="label:").pack(side="left")
     root._ref_label_entry = ttk.Entry(ref_row, width=18)
     root._ref_label_entry.pack(side="left", padx=(4, 8))
-    ttk.Button(ref_row, text="Add", command=root._ref_add).pack(side="left")
+    ttk.Button(ref_row, text="Add", command=ref_add).pack(side="left")
 
     # list of lines
     list_frame = ttk.Frame(frm_refs)
@@ -189,7 +198,7 @@ def build_results_tab(self, root):
 
     btns = ttk.Frame(frm_refs)
     btns.pack(fill="x")
-    ttk.Button(btns, text="Remove selected", command=root._ref_remove).pack(side="left")
+    ttk.Button(btns, text="Remove selected", command=ref_remove).pack(side="left")
     ttk.Button(btns, text="Apply (redraw)", command=draw_results_plots).pack(side="left", padx=(6, 0))
 
     # ---- Results figure (matplotlib)

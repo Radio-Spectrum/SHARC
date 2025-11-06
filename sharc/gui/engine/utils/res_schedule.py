@@ -1,5 +1,10 @@
+from utils.results_plot import _draw_results_plots
+
 def _schedule_auto_update(root):
-    # cancela anterior
+    
+    def draw_results_plots():
+        return _draw_results_plots(root)
+
     if root._plot_auto_job is not None:
         try:
             root.after_cancel(root._plot_auto_job)
@@ -13,6 +18,6 @@ def _schedule_auto_update(root):
     period = max(200, int(root.var_update_period_ms.get()))
 
     def _tick():
-        root._draw_results_plots()
+        draw_results_plots()
         root._plot_auto_job = root.after(period, _tick)
     root._plot_auto_job = root.after(period, _tick)

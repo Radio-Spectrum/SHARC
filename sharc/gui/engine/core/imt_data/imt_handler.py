@@ -109,6 +109,15 @@ def _save_imt_config(self):
     messagebox.showinfo("IMT", f"Configuration saved successfully:\n{path}")
 
 
+def _toggle_ue_distribution(self):
+    is_ang_dist = (self.ue_dist_type.get().upper() == "ANGLE_AND_DISTANCE")
+    if hasattr(self, "_ue_col_dist_frame"):
+        if is_ang_dist:
+            self._ue_col_dist_frame.grid()      # mostra
+        else:
+            self._ue_col_dist_frame.grid_remove()  # esconde
+
+
 def _load_imt_config(self):
     """Load IMT configuration from a YAML file."""
     path = filedialog.askopenfilename(

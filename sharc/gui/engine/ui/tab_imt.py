@@ -1,7 +1,7 @@
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
-from core.utils import add_row_three, _add_field, _add_range
-from core.imt_data.imt_handler import _save_imt_config, _load_imt_config
+from core.utils import add_row_three, _add_field, _add_range, _pair_entries
+from core.imt_data.imt_handler import _save_imt_config, _load_imt_config, _toggle_ue_distribution
 from core.shp_control import _browse_raster, _browse_shapefile, _toggle_raster_by_encoding
 
 # Note: The helper functions add_row_three, self._add_field, 
@@ -81,10 +81,51 @@ def build_imt_tab(self, root):
     bs_sub_rows = root.bs_sub_rows
     bs_sub_evspace = root.bs_sub_evspace 
     bs_sub_e_downtilt = root.bs_sub_e_downtilt
+
     ue_k = root.ue_k
     ue_km = root.ue_km
     ue_indoor = root.ue_indoor
+    ue_dist_type = root.ue_dist_type
+    ue_p_o_pusch = root.ue_p_o_pusch
+    ue_alpha = root.ue_alpha
+    ue_p_cmax = root.ue_p_cmax
+    ue_p_dyn = root.ue_p_dyn
+    ue_height = root.ue_height
+    ue_nf = root.ue_nf
+    ue_ohmic = root.ue_ohmic
+    ue_body_loss = root.ue_body_loss
+    ue_tx_power_ctrl = root.ue_tx_power_ctrl
+    ue_norm = root.ue_norm
+    ue_elem_pat = root.ue_elem_pat
+    ue_min_arr_gain = root.ue_min_arr_gain
+    ue_elem_max_g = root.ue_elem_max_g
+    ue_phi3 = root.ue_phi3
+    ue_theta3 = root.ue_theta3
+    ue_rows = root.ue_rows
+    ue_cols = root.ue_cols
+    ue_elem_am = root.ue_elem_am
+    ue_elem_sla_v = root.ue_elem_sla_v
+    ue_mult = root.ue_mult
+    ue_sub_enabled = root.ue_sub_enabled
+    ue_sub_rows = root.ue_sub_rows
+    ue_sub_evspace = root.ue_sub_evspace
+    ue_sub_e_downtilt = root.ue_sub_e_downtilt
+    ue_dist_distance = root.ue_dist_distance
+    ue_dist_azimuth = root.ue_dist_azimuth
 
+    ue_az_min = root.ue_az_min
+    ue_az_max = root.ue_az_max
+
+    ul_att = root.ul_att
+    ul_sinr_min = root.ul_sinr_min
+    ul_sinr_max = root.ul_sinr_max
+
+    dl_att = root.dl_att
+    dl_sinr_min = root.dl_sinr_min
+    dl_sinr_max = root.dl_sinr_max
+
+    ch_model = root.ch_model
+    shadowing = root.shadowing
 
 
     # ===== Scrollable container for the IMT tab =====
@@ -400,25 +441,25 @@ def build_imt_tab(self, root):
     _add_field(col_basic_ue, 2, "indoor_percent [%]", ttk.Entry(col_basic_ue, textvariable=ue_indoor, width=8))
 
     # distribution_type (Combobox)
-    cb_ue_dist = ttk.Combobox(col_basic_ue, textvariable=self.ue_dist_type,
+    cb_ue_dist = ttk.Combobox(col_basic_ue, textvariable=ue_dist_type,
                               values=["Macro_countries", "UNIFORM", "CELL", "UNIFORM_IN_CELL", "ANGLE_AND_DISTANCE"],
                               state="readonly", width=18)
-    self._add_field(col_basic_ue, 3, "distribution_type", cb_ue_dist)
-    cb_ue_dist.bind("<<ComboboxSelected>>", lambda e: self._toggle_ue_distribution())
-    self._add_field(col_basic_ue, 3, "distribution_type", cb_ue_dist)
+    _add_field(col_basic_ue, 3, "distribution_type", cb_ue_dist)
+    cb_ue_dist.bind("<<ComboboxSelected>>", lambda e: _toggle_ue_distribution())
+    _add_field(col_basic_ue, 3, "distribution_type", cb_ue_dist)
 
     # tx_power_control (Checkbutton)
-    chk_tx = ttk.Checkbutton(col_basic_ue, variable=self.ue_tx_power_ctrl, text="")
-    self._add_field(col_basic_ue, 4, "tx_power_control", chk_tx)
+    chk_tx = ttk.Checkbutton(col_basic_ue, variable=ue_tx_power_ctrl, text="")
+    _add_field(col_basic_ue, 4, "tx_power_control", chk_tx)
 
-    self._add_field(col_basic_ue, 5, "p_o_pusch [dBm]", ttk.Entry(col_basic_ue, textvariable=self.ue_p_o_pusch, width=10))
-    self._add_field(col_basic_ue, 6, "alpha", ttk.Entry(col_basic_ue, textvariable=self.ue_alpha, width=10))
-    self._add_field(col_basic_ue, 7, "p_cmax [dBm]", ttk.Entry(col_basic_ue, textvariable=self.ue_p_cmax, width=10))
-    self._add_field(col_basic_ue, 8, "power_dynamic_range [dB]", ttk.Entry(col_basic_ue, textvariable=self.ue_p_dyn, width=10))
-    self._add_field(col_basic_ue, 9, "height [m]", ttk.Entry(col_basic_ue, textvariable=self.ue_height, width=10))
-    self._add_field(col_basic_ue, 10, "noise_figure [dB]", ttk.Entry(col_basic_ue, textvariable=self.ue_nf, width=10))
-    self._add_field(col_basic_ue, 11, "ohmic_loss [dB]", ttk.Entry(col_basic_ue, textvariable=self.ue_ohmic, width=10))
-    self._add_field(col_basic_ue, 12, "body_loss [dB]", ttk.Entry(col_basic_ue, textvariable=self.ue_body_loss, width=10))
+    _add_field(col_basic_ue, 5, "p_o_pusch [dBm]", ttk.Entry(col_basic_ue, textvariable=ue_p_o_pusch, width=10))
+    _add_field(col_basic_ue, 6, "alpha", ttk.Entry(col_basic_ue, textvariable=ue_alpha, width=10))
+    _add_field(col_basic_ue, 7, "p_cmax [dBm]", ttk.Entry(col_basic_ue, textvariable=ue_p_cmax, width=10))
+    _add_field(col_basic_ue, 8, "power_dynamic_range [dB]", ttk.Entry(col_basic_ue, textvariable=ue_p_dyn, width=10))
+    _add_field(col_basic_ue, 9, "height [m]", ttk.Entry(col_basic_ue, textvariable=ue_height, width=10))
+    _add_field(col_basic_ue, 10, "noise_figure [dB]", ttk.Entry(col_basic_ue, textvariable=ue_nf, width=10))
+    _add_field(col_basic_ue, 11, "ohmic_loss [dB]", ttk.Entry(col_basic_ue, textvariable=ue_ohmic, width=10))
+    _add_field(col_basic_ue, 12, "body_loss [dB]", ttk.Entry(col_basic_ue, textvariable=ue_body_loss, width=10))
 
     # ----- Column 2: UE – Antenna Array -----
     col_array_ue = ttk.LabelFrame(frm_ue, text="UE – Antenna Array")
@@ -426,22 +467,23 @@ def build_imt_tab(self, root):
     for c in range(4):
         col_array_ue.columnconfigure(c, weight=(1 if c in (1, 3) else 0))
 
-    chk_norm_ue = ttk.Checkbutton(col_array_ue, variable=self.ue_norm, text="")
-    self._add_field(col_array_ue, 0, "normalization", chk_norm_ue)
 
-    cb_pat_ue = ttk.Combobox(col_array_ue, textvariable=self.ue_elem_pat,
+    chk_norm_ue = ttk.Checkbutton(col_array_ue, variable=ue_norm, text="")
+    _add_field(col_array_ue, 0, "normalization", chk_norm_ue)
+
+    cb_pat_ue = ttk.Combobox(col_array_ue, textvariable=ue_elem_pat,
                              values=["FIXED", "M2101", "Custom"], state="readonly", width=14)
-    self._add_field(col_array_ue, 1, "element_pattern", cb_pat_ue)
+    _add_field(col_array_ue, 1, "element_pattern", cb_pat_ue)
 
-    self._add_field(col_array_ue, 2, "minimum_array_gain [dB]", ttk.Entry(col_array_ue, textvariable=self.ue_min_arr_gain, width=10))
-    self._add_field(col_array_ue, 3, "element_max_g [dBi]", ttk.Entry(col_array_ue, textvariable=self.ue_elem_max_g, width=10))
-    self._add_field(col_array_ue, 4, "element_phi_3db [deg]", ttk.Entry(col_array_ue, textvariable=self.ue_phi3, width=10))
-    self._add_field(col_array_ue, 5, "element_theta_3db [deg]", ttk.Entry(col_array_ue, textvariable=self.ue_theta3, width=10))
-    self._add_field(col_array_ue, 6, "n_rows", ttk.Entry(col_array_ue, textvariable=self.ue_rows, width=10))
-    self._add_field(col_array_ue, 7, "n_columns", ttk.Entry(col_array_ue, textvariable=self.ue_cols, width=10))
-    self._add_field(col_array_ue, 8, "element_am [dB]", ttk.Entry(col_array_ue, textvariable=self.ue_elem_am, width=10))
-    self._add_field(col_array_ue, 9, "element_sla_v [dB]", ttk.Entry(col_array_ue, textvariable=self.ue_elem_sla_v, width=10))
-    self._add_field(col_array_ue, 10, "multiplication_factor", ttk.Entry(col_array_ue, textvariable=self.ue_mult, width=10))
+    _add_field(col_array_ue, 2, "minimum_array_gain [dB]", ttk.Entry(col_array_ue, textvariable=ue_min_arr_gain, width=10))
+    _add_field(col_array_ue, 3, "element_max_g [dBi]", ttk.Entry(col_array_ue, textvariable=ue_elem_max_g, width=10))
+    _add_field(col_array_ue, 4, "element_phi_3db [deg]", ttk.Entry(col_array_ue, textvariable=ue_phi3, width=10))
+    _add_field(col_array_ue, 5, "element_theta_3db [deg]", ttk.Entry(col_array_ue, textvariable=ue_theta3, width=10))
+    _add_field(col_array_ue, 6, "n_rows", ttk.Entry(col_array_ue, textvariable=ue_rows, width=10))
+    _add_field(col_array_ue, 7, "n_columns", ttk.Entry(col_array_ue, textvariable=ue_cols, width=10))
+    _add_field(col_array_ue, 8, "element_am [dB]", ttk.Entry(col_array_ue, textvariable=ue_elem_am, width=10))
+    _add_field(col_array_ue, 9, "element_sla_v [dB]", ttk.Entry(col_array_ue, textvariable=ue_elem_sla_v, width=10))
+    _add_field(col_array_ue, 10, "multiplication_factor", ttk.Entry(col_array_ue, textvariable=ue_mult, width=10))
 
     # ----- Column 3: UE – Sub-array -----
     col_sub_ue = ttk.LabelFrame(frm_ue, text="UE – Sub-array")
@@ -449,11 +491,11 @@ def build_imt_tab(self, root):
     col_sub_ue.columnconfigure(0, weight=0)
     col_sub_ue.columnconfigure(1, weight=1)
 
-    chk_sub_en_ue = ttk.Checkbutton(col_sub_ue, variable=self.ue_sub_enabled, text="")
-    self._add_field(col_sub_ue, 0, "is_enabled", chk_sub_en_ue)
-    self._add_field(col_sub_ue, 1, "n_rows", ttk.Entry(col_sub_ue, textvariable=self.ue_sub_rows, width=10))
-    self._add_field(col_sub_ue, 2, "element_vert_spacing [λ]", ttk.Entry(col_sub_ue, textvariable=self.ue_sub_evspace, width=10))
-    self._add_field(col_sub_ue, 3, "eletrical_downtilt [deg]", ttk.Entry(col_sub_ue, textvariable=self.ue_sub_e_downtilt, width=10))
+    chk_sub_en_ue = ttk.Checkbutton(col_sub_ue, variable=ue_sub_enabled, text="")
+    _add_field(col_sub_ue, 0, "is_enabled", chk_sub_en_ue)
+    _add_field(col_sub_ue, 1, "n_rows", ttk.Entry(col_sub_ue, textvariable=ue_sub_rows, width=10))
+    _add_field(col_sub_ue, 2, "element_vert_spacing [λ]", ttk.Entry(col_sub_ue, textvariable=ue_sub_evspace, width=10))
+    _add_field(col_sub_ue, 3, "eletrical_downtilt [deg]", ttk.Entry(col_sub_ue, textvariable=ue_sub_e_downtilt, width=10))
 
     col_dist_ue = ttk.LabelFrame(frm_ue, text="UE – Distribution (Angle&Distance)")
     col_dist_ue.grid(row=1, column=0, sticky="nsew", padx=(3, 6), pady=(0, 6))  # same column, row below
@@ -461,19 +503,19 @@ def build_imt_tab(self, root):
         col_dist_ue.columnconfigure(c, weight=(1 if c in (1, 3) else 0))
 
     # distribution_distance
-    cb_dist_d = ttk.Combobox(col_dist_ue, textvariable=self.ue_dist_distance,
+    cb_dist_d = ttk.Combobox(col_dist_ue, textvariable=ue_dist_distance,
                              values=["RAYLEIGH", "UNIFORM", "SQRT(UNIFORM)"],
                              state="readonly", width=16)
-    self._add_field(col_dist_ue, 0, "distribution_distance", cb_dist_d)
+    _add_field(col_dist_ue, 0, "distribution_distance", cb_dist_d)
 
     # distribution_azimuth
-    cb_dist_a = ttk.Combobox(col_dist_ue, textvariable=self.ue_dist_azimuth,
+    cb_dist_a = ttk.Combobox(col_dist_ue, textvariable=ue_dist_azimuth,
                              values=["NORMAL", "UNIFORM"], state="readonly", width=16)
-    self._add_field(col_dist_ue, 1, "distribution_azimuth", cb_dist_a)
+    _add_field(col_dist_ue, 1, "distribution_azimuth", cb_dist_a)
 
     # azimuth_range (min to max)
-    w_azmin = ttk.Entry(col_dist_ue, textvariable=self.ue_az_min, width=8)
-    w_azmax = ttk.Entry(col_dist_ue, textvariable=self.ue_az_max, width=8)
+    w_azmin = ttk.Entry(col_dist_ue, textvariable=ue_az_min, width=8)
+    w_azmax = ttk.Entry(col_dist_ue, textvariable=ue_az_max, width=8)
     _add_range(col_dist_ue, 2, "azimuth_range [deg]", w_azmin=0, w_azmax=0)
 
     # save the reference for the toggle
@@ -482,15 +524,15 @@ def build_imt_tab(self, root):
     frm_l = ttk.LabelFrame(root, text="UL / DL / Channel / Shadowing")
     frm_l.pack(fill="x", pady=(2, 8))
     add_row_three(frm_l, 0, [
-        ("uplink.attenuation_factor", ttk.Entry(frm_l, textvariable=self.ul_att, width=8)),
-        ("uplink.sinr_min / sinr_max [dB]", self._pair_entries(frm_l, self.ul_sinr_min, self.ul_sinr_max, w=8)),
-        ("downlink.attenuation_factor", ttk.Entry(frm_l, textvariable=self.dl_att, width=8)),
+        ("uplink.attenuation_factor", ttk.Entry(frm_l, textvariable=ul_att, width=8)),
+        ("uplink.sinr_min / sinr_max [dB]", _pair_entries(frm_l, ul_sinr_min, ul_sinr_max, w=8)),
+        ("downlink.attenuation_factor", ttk.Entry(frm_l, textvariable=dl_att, width=8)),
     ])
     add_row_three(frm_l, 1, [
-        ("downlink.sinr_min / sinr_max [dB]", self._pair_entries(frm_l, self.dl_sinr_min, self.dl_sinr_max, w=8)),
-        ("channel_model", ttk.Entry(frm_l, textvariable=self.ch_model, width=12)),
-        ("shadowing", ttk.Combobox(frm_l, textvariable=self.shadowing, values=[True, False], state="readonly", width=8)),
+        ("downlink.sinr_min / sinr_max [dB]", _pair_entries(frm_l, dl_sinr_min, dl_sinr_max, w=8)),
+        ("channel_model", ttk.Entry(frm_l, textvariable=ch_model, width=12)),
+        ("shadowing", ttk.Combobox(frm_l, textvariable=shadowing, values=[True, False], state="readonly", width=8)),
     ])
     
     # Initialize the UI state
-    self._toggle_ue_distribution()
+    #_toggle_ue_distribution()

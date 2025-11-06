@@ -118,6 +118,21 @@ def _var_add(self):
     ttk.Button(btns, text="Cancelar", command=dlg.destroy).pack(side="left")
     e_name.focus_set()
 
+def _pair_entries(parent, var1, var2, w=6):
+    try:
+        f = ttk.Frame(parent)
+        e1 = ttk.Entry(f, textvariable=var1, width=w)
+        e1.pack(side="left")
+        ttk.Label(f, text=" / ").pack(side="left")
+        e2 = ttk.Entry(f, textvariable=var2, width=w)
+        e2.pack(side="left")
+        return f
+    except Exception as e:
+        print(f"[WARN] _pair_entries falhou ({e})")
+        tmp = ttk.Frame(parent)
+        ttk.Label(tmp, text="Erro em entradas").pack()
+        return tmp
+
 
 def _var_remove(self):
     sel = self.var_table.selection()

@@ -242,4 +242,4 @@ def _ref_remove(root):
     for idx in sel:
         root.lb_refs.delete(idx)
         del root.ref_lines[idx]
-    root._draw_results_plots()
+    _draw_results_plots(root)

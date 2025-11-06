@@ -67,3 +67,17 @@ def _save_yaml_dialog_multicombos(self):
     self._write_yaml_combos(root, outdir, combos)
     self.var_yaml_dir.set(outdir)
     messagebox.showinfo("OK", f"YAML(s) salvo(s) em:\n{outdir}")
+
+def _scan_yaml_files(self):
+    if not hasattr(self, "tree"):
+        return
+    self.tree.delete(*self.tree.get_children())
+    folder = getattr(self, "run_folder", tk.StringVar(value=os.getcwd())).get()
+    if not os.path.isdir(folder):
+        return
+    files = [f for f in os.listdir(folder) if f.lower().endswith((".yaml",".yml"))]
+    files.sort()
+    for f in files:
+        path = os.path.join(folder, f)
+        total = self._yaml_num_snapshots(path) or int(self.var_snaps.get())
+        self.tree.insert("", "end", iid=path, values=(os.path.basename(path), "Pronto", f"0/{total}", "0", "--"))

@@ -2,6 +2,7 @@ import tkinter as tk
 from tkinter import ttk
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+from core.yaml_tools import _update_yaml_preview, _save_yaml_dialog_multicombos
 from utils.preview_3d import _draw_preview_3d
 from sharc.gui.engine.utils.preview_control import _on_scroll_3d, _save_image_3d, _zoom_preview_3d
 
@@ -22,6 +23,12 @@ def build_preview_tab(self, root):
     
     def zoom_preview_3d(factor):
         _zoom_preview_3d(root, factor)
+
+    def update_yaml_preview():
+        _update_yaml_preview(root)
+
+    def save_yaml_dialog_multicombos():
+        _save_yaml_dialog_multicombos(root)
     
     left = ttk.Frame(root)
     right = ttk.Frame(root)
@@ -69,8 +76,8 @@ def build_preview_tab(self, root):
     ttk.Button(right, text="Zoom -", command=lambda: zoom_preview_3d(1.15)).pack(fill="x", pady=(0, 8))
     ttk.Button(right, text="Save image...", command=save_image_3d).pack(fill="x", pady=(4, 4))
     ttk.Separator(right, orient="horizontal").pack(fill="x", pady=8)
-    #ttk.Button(right, text="Update YAML (preview)", command=root._update_yaml_preview).pack(fill="x", pady=(4, 4))
-    #ttk.Button(right, text="Save YAML(s)...", command=root._save_yaml_dialog_multicombos).pack(fill="x", pady=(4, 4))
+    ttk.Button(right, text="Update YAML (preview)", command=update_yaml_preview).pack(fill="x", pady=(4, 4))
+    ttk.Button(right, text="Save YAML(s)...", command=save_yaml_dialog_multicombos).pack(fill="x", pady=(4, 4))
     ttk.Label(right, text="YAML Preview (combinations not expanded):").pack(anchor="w", pady=(10, 2))
     root.txt_yaml = tk.Text(right, width=44, height=28, wrap="none")
     root.txt_yaml.pack(fill="both", expand=True)

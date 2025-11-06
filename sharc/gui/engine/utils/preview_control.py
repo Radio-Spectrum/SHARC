@@ -5,7 +5,23 @@ import time
 Controls scroll in 3d preview
 """
 
+
+def _zoom_preview_3d(root, factor):
+        """Zoom no 3D: factor>1 dá zoom out; <1 dá zoom in."""
+        try:
+            # Preferível quando disponível (Matplotlib 3D antigo)
+            if hasattr(root.ax3d, "dist"):
+                root.ax3d.dist = max(1, float(root.ax3d.dist) * float(factor))
+                root.canvas3d.draw_idle()
+                return
+        except Exception:
+            pass
+
+
 def _on_scroll_3d(root, event):
+        def zoom_preview_3d(factor):
+             _zoom_preview_3d(root, factor)
+
         """
         Zoom pelo scroll do mouse.
         - Windows/macOS: event.delta > 0 (zoom in), < 0 (zoom out)
@@ -25,7 +41,8 @@ def _on_scroll_3d(root, event):
             direction = 1
 
         factor = (1.0 / base) if direction < 0 else base
-        root._zoom_preview_3d(factor)
+        _zoom_preview_3d(factor)
+
 
 
 def _save_image_3d(root):

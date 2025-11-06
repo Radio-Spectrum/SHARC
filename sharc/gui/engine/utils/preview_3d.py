@@ -13,7 +13,7 @@ import matplotlib.pyplot as plt
 from matplotlib import cm, colors
 from core.geodesy import lla_to_ecef, WGS84_A, WGS84_F
 from core._tools_ import _num_or_str
-from utils.drawer_tool import _draw_country_borders
+from utils.drawer_tool import _draw_country_borders, _make_s672_antenna
 
 from sharc.topology.topology_countries import TopologyCountries, ParametersCountries
 from sharc.support.sharc_geom_countries import GeometryConverter
@@ -23,7 +23,10 @@ from sharc.support.sharc_geom_countries import GeometryConverter
 def _draw_preview_3d(root):
 
     def draw_country_borders():
-        _draw_country_borders(root)
+        return _draw_country_borders(root)
+
+    def make_s672_antenna():
+        return _make_s672_antenna(root)
 
     topo_type = (root.topo_type.get() or "").strip()
     root.ax3d.cla()
@@ -74,7 +77,7 @@ def _draw_preview_3d(root):
             psi_deg = np.degrees(np.arccos(cospsi))  # (nu x nv)
 
             # ---------- Ganho S.672 ----------
-            ant = root._make_s672_antenna()
+            ant = make_s672_antenna()
             gain = ant.calculate_gain(off_axis_angle_vec=psi_deg.ravel()).reshape(psi_deg.shape)
 
             # Onde NÃO há LoS, ganho = -inf (como você pediu)

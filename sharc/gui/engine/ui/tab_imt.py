@@ -1,6 +1,8 @@
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
-from core.utils import add_row_three
+from core.utils import add_row_three, _add_field, _add_range
+from core.imt_data.imt_handler import _save_imt_config, _load_imt_config
+from core.shp_control import _browse_raster, _browse_shapefile, _toggle_raster_by_encoding
 
 # Note: The helper functions add_row_three, self._add_field, 
 # and self._add_range were not provided,
@@ -9,6 +11,82 @@ from core.utils import add_row_three
 def build_imt_tab(self, root):
     """Builds the 'IMT' tab UI elements."""
     
+    imt_min_sep = root.imt_min_sep
+    imt_interfered = root.imt_interfered
+    imt_freq = root.imt_freq
+
+    imt_bw = root.imt_bw
+    imt_rb_bw = root.imt_rb_bw
+    imt_spec_mask = root.imt_spec_mask
+
+    imt_spurious = root.imt_spurious
+    imt_adj_ant_model = root.imt_adj_ant_model
+    imt_guard_ratio = root.imt_guard_ratio
+
+    topo_type = root.topo_type
+    topo_c_lat = root.topo_c_lat
+    topo_c_lon = root.topo_c_lon
+    topo_c_alt = root.topo_c_alt
+
+    topo_raster_enc = root.topo_raster_enc
+    topo_dist_type = root.topo_dist_type
+    topo_countries = root.topo_countries
+
+    topo_num_bs = root.topo_num_bs
+    topo_cell_radius = root.topo_cell_radius
+    topo_rng = root.topo_rng
+
+    path_shp = root.path_shp
+    path_raster = root.path_raster
+
+    macro_intersite = root.macro_intersite
+    macro_wrap = root.macro_wrap
+    macro_clusters = root.macro_clusters
+
+    hotspot_intersite = root.hotspot_intersite
+    hotspot_wrap = root.hotspot_wrap
+    hotspot_clusters = root.hotspot_clusters
+
+    hotspot_num_per_cell = root.hotspot_num_per_cell
+    hotspot_max_dist_ue = root.hotspot_max_dist_ue
+    hotspot_min_dist_bs = root.hotspot_min_dist_bs
+
+    sbs_intersite = root.sbs_intersite
+    sbs_cell_radius = root.sbs_cell_radius
+    sbs_clusters = root.sbs_clusters
+    sbs_azimuth = root.sbs_azimuth
+
+    bs_load_prob = root.bs_load_prob
+    bs_power = root.bs_power
+    bs_height = root.bs_height
+    bs_nf = root.bs_nf
+    bs_ohmic = root.bs_ohmic
+    bs_norm = root.bs_norm
+    bs_elem_pat = root.bs_elem_pat
+    bs_min_arr_gain = root.bs_min_arr_gain
+    bs_h_steer = root.bs_h_steer
+    bs_v_steer = root.bs_v_steer
+    bs_downtilt = root.bs_downtilt
+    bs_elem_max_g = root.bs_elem_max_g
+    bs_phi3 = root.bs_phi3
+    bs_theta3 = root.bs_theta3
+    bs_rows = root.bs_rows
+    bs_cols = root.bs_cols
+    bs_elem_hs = root.bs_elem_hs
+    bs_elem_vs = root.bs_elem_vs
+    bs_elem_am = root.bs_elem_am
+    bs_elem_sla_v = root.bs_elem_sla_v
+    bs_mult = root.bs_mult
+    bs_sub_enabled = root.bs_sub_enabled
+    bs_sub_rows = root.bs_sub_rows
+    bs_sub_evspace = root.bs_sub_evspace 
+    bs_sub_e_downtilt = root.bs_sub_e_downtilt
+    ue_k = root.ue_k
+    ue_km = root.ue_km
+    ue_indoor = root.ue_indoor
+
+
+
     # ===== Scrollable container for the IMT tab =====
     container = ttk.Frame(root)
     container.pack(fill="both", expand=True)
@@ -48,26 +126,26 @@ def build_imt_tab(self, root):
 
     topbar = ttk.Frame(root)
     topbar.pack(fill="x", pady=(0, 6))
-    ttk.Button(topbar, text="Save IMT config (.json)", command=self._save_imt_config).pack(side="left")
-    ttk.Button(topbar, text="Load IMT config (.json)", command=self._load_imt_config).pack(side="left", padx=(6, 0))
+    ttk.Button(topbar, text="Save IMT config (.json)", command=_save_imt_config).pack(side="left")
+    ttk.Button(topbar, text="Load IMT config (.json)", command=_load_imt_config).pack(side="left", padx=(6, 0))
 
     frm_g = ttk.LabelFrame(root, text="IMT – General Parameters")
     frm_g.pack(fill="x", pady=(2, 8))
 
     add_row_three(frm_g, 0, [
-        ("minimum_separation_distance_bs_ue [m]", ttk.Entry(frm_g, textvariable=self.imt_min_sep, width=10)),
-        ("interfered_with", ttk.Combobox(frm_g, textvariable=self.imt_interfered, values=[False, True], state="readonly", width=8)),
-        ("frequency [MHz]", ttk.Entry(frm_g, textvariable=self.imt_freq, width=12)),
+        ("minimum_separation_distance_bs_ue [m]", ttk.Entry(frm_g, textvariable=imt_min_sep, width=10)),
+        ("interfered_with", ttk.Combobox(frm_g, textvariable=imt_interfered, values=[False, True], state="readonly", width=8)),
+        ("frequency [MHz]", ttk.Entry(frm_g, textvariable=imt_freq, width=12)),
     ])
     add_row_three(frm_g, 1, [
-        ("bandwidth [MHz]", ttk.Entry(frm_g, textvariable=self.imt_bw, width=10)),
-        ("rb_bandwidth [MHz]", ttk.Entry(frm_g, textvariable=self.imt_rb_bw, width=10)),
-        ("spectral_mask", ttk.Combobox(frm_g, textvariable=self.imt_spec_mask, values=["IMT-2020", "3GPP"], state="readonly", width=12)),
+        ("bandwidth [MHz]", ttk.Entry(frm_g, textvariable=imt_bw, width=10)),
+        ("rb_bandwidth [MHz]", ttk.Entry(frm_g, textvariable=imt_rb_bw, width=10)),
+        ("spectral_mask", ttk.Combobox(frm_g, textvariable=imt_spec_mask, values=["IMT-2020", "3GPP"], state="readonly", width=12)),
     ])
     add_row_three(frm_g, 2, [
-        ("spurious_emissions [dBc]", ttk.Entry(frm_g, textvariable=self.imt_spurious, width=10)),
-        ("adjacent_antenna_model", ttk.Entry(frm_g, textvariable=self.imt_adj_ant_model, width=16)),
-        ("guard_band_ratio", ttk.Entry(frm_g, textvariable=self.imt_guard_ratio, width=10)),
+        ("spurious_emissions [dBc]", ttk.Entry(frm_g, textvariable=imt_spurious, width=10)),
+        ("adjacent_antenna_model", ttk.Entry(frm_g, textvariable=imt_adj_ant_model, width=16)),
+        ("guard_band_ratio", ttk.Entry(frm_g, textvariable=imt_guard_ratio, width=10)),
     ])
 
     # ---------- Topology (type selector + subframes) ----------
@@ -79,16 +157,16 @@ def build_imt_tab(self, root):
     row_type.grid(row=0, column=0, columnspan=6, sticky="we", pady=(0, 4))
     ttk.Label(row_type, text="type").pack(side="left")
     cb_topo_type = ttk.Combobox(
-        row_type, textvariable=self.topo_type,
+        row_type, textvariable=topo_type,
         values=["MACROCELL", "HOTSPOT", "SINGLE_BS", "Macro_countries"], state="readonly", width=18
     )
     cb_topo_type.pack(side="left", padx=(6, 0))
 
     # Row 1: central (common) parameters
     add_row_three(frm_t, 1, [
-        ("central_latitude", ttk.Entry(frm_t, textvariable=self.topo_c_lat, width=12)),
-        ("central_longitude", ttk.Entry(frm_t, textvariable=self.topo_c_lon, width=12)),
-        ("central_altitude [m]", ttk.Entry(frm_t, textvariable=self.topo_c_alt, width=12)),
+        ("central_latitude", ttk.Entry(frm_t, textvariable=topo_c_lat, width=12)),
+        ("central_longitude", ttk.Entry(frm_t, textvariable=topo_c_lon, width=12)),
+        ("central_altitude [m]", ttk.Entry(frm_t, textvariable=topo_c_alt, width=12)),
     ])
 
     # ---- Subframe: Countries ----
@@ -101,14 +179,14 @@ def build_imt_tab(self, root):
 
     ttk.Label(row_opts, text="raster_encoding").pack(side="left")
     cb_renc = ttk.Combobox(
-        row_opts, textvariable=self.topo_raster_enc,
+        row_opts, textvariable=topo_raster_enc,
         values=["Uniforme", "Denspop"], state="readonly", width=12
     )
     cb_renc.pack(side="left", padx=(6, 16))
 
     ttk.Label(row_opts, text="dist_type").pack(side="left")
     cb_dist = ttk.Combobox(
-        row_opts, textvariable=self.topo_dist_type,
+        row_opts, textvariable=topo_dist_type,
         values=["Urban", "Suburban", "Rural"], state="readonly", width=12
     )
     cb_dist.pack(side="left", padx=(6, 0))
@@ -119,75 +197,75 @@ def build_imt_tab(self, root):
     row_c.grid(row=1, column=0, columnspan=6, sticky="we", pady=2)
     ttk.Label(row_c, text="country_names (1/line)").pack(side="left")
     self.txt_countries = tk.Text(row_c, width=48, height=7)
-    self.txt_countries.insert("1.0", self.topo_countries.get())
+    self.txt_countries.insert("1.0", topo_countries.get())
     self.txt_countries.pack(side="left", fill="x", expand=True, padx=(6, 6))
 
     # Row 2: num_bs_total, cell_radius, rng_seed (if it existed, keep it)
     add_row_three(self.frm_t_countries, 2, [
-        ("num_bs_total", ttk.Entry(self.frm_t_countries, textvariable=self.topo_num_bs, width=10)),
-        ("cell_radius [m]", ttk.Entry(self.frm_t_countries, textvariable=self.topo_cell_radius, width=10)),
-        ("rng_seed", ttk.Entry(self.frm_t_countries, textvariable=self.topo_rng, width=10)),
+        ("num_bs_total", ttk.Entry(self.frm_t_countries, textvariable=topo_num_bs, width=10)),
+        ("cell_radius [m]", ttk.Entry(self.frm_t_countries, textvariable=topo_cell_radius, width=10)),
+        ("rng_seed", ttk.Entry(self.frm_t_countries, textvariable=topo_rng, width=10)),
     ])
 
     # ---- Shapefile (row spanning 3 columns, with "..." button) ----
     row_shp = ttk.Frame(self.frm_t_countries)
     row_shp.grid(row=3, column=0, columnspan=6, sticky="we", pady=(2, 2))
     ttk.Label(row_shp, text="countries_shapefile").pack(side="left")
-    self.ent_shp = ttk.Entry(row_shp, textvariable=self.path_shp, width=64)
+    self.ent_shp = ttk.Entry(row_shp, textvariable=path_shp, width=64)
     self.ent_shp.pack(side="left", fill="x", expand=True, padx=(6, 6))
-    self.btn_shp = ttk.Button(row_shp, text="…", width=3, command=self._browse_shapefile)
+    self.btn_shp = ttk.Button(row_shp, text="…", width=3, command=_browse_shapefile)
     self.btn_shp.pack(side="left")
     
     # ---- Population raster (row spanning 3 columns, with "..." button) ----
     row_ras = ttk.Frame(self.frm_t_countries)
     row_ras.grid(row=4, column=0, columnspan=6, sticky="we", pady=(2, 2))
     ttk.Label(row_ras, text="population_raster").pack(side="left")
-    self.ent_raster = ttk.Entry(row_ras, textvariable=self.path_raster, width=64)
+    self.ent_raster = ttk.Entry(row_ras, textvariable=path_raster, width=64)
     self.ent_raster.pack(side="left", fill="x", expand=True, padx=(6, 6))
-    self.btn_raster = ttk.Button(row_ras, text="…", width=3, command=self._browse_raster)
+    self.btn_raster = ttk.Button(row_ras, text="…", width=3, command=_browse_raster)
     self.btn_raster.pack(side="left")
-    cb_renc.bind("<<ComboboxSelected>>", self._toggle_raster_by_encoding)
-    self._toggle_raster_by_encoding()
+    #cb_renc.bind("<<ComboboxSelected>>", _toggle_raster_by_encoding(root))
+    #_toggle_raster_by_encoding(root)
 
     # ---- Subframe: MACROCELL ----
     self.frm_t_macro = ttk.LabelFrame(frm_t, text="Topology – MACROCELL")
     self.frm_t_macro.grid(row=3, column=0, columnspan=6, sticky="we", pady=(4, 8))
     add_row_three(self.frm_t_macro, 0, [
-        ("intersite_distance [m]", ttk.Entry(self.frm_t_macro, textvariable=self.macro_intersite, width=10)),
-        ("wrap_around", ttk.Combobox(self.frm_t_macro, textvariable=self.macro_wrap, values=[False, True], state="readonly", width=8)),
-        ("num_clusters", ttk.Entry(self.frm_t_macro, textvariable=self.macro_clusters, width=8)),
+        ("intersite_distance [m]", ttk.Entry(self.frm_t_macro, textvariable=macro_intersite, width=10)),
+        ("wrap_around", ttk.Combobox(self.frm_t_macro, textvariable=macro_wrap, values=[False, True], state="readonly", width=8)),
+        ("num_clusters", ttk.Entry(self.frm_t_macro, textvariable=macro_clusters, width=8)),
     ])
 
     # ---- Subframe: HOTSPOT ----
     self.frm_t_hotspot = ttk.LabelFrame(frm_t, text="Topology – HOTSPOT")
     self.frm_t_hotspot.grid(row=4, column=0, columnspan=6, sticky="we", pady=(4, 8))
     add_row_three(self.frm_t_hotspot, 0, [
-        ("intersite_distance [m]", ttk.Entry(self.frm_t_hotspot, textvariable=self.hotspot_intersite, width=10)),
-        ("wrap_around", ttk.Combobox(self.frm_t_hotspot, textvariable=self.hotspot_wrap, values=[False, True], state="readonly", width=8)),
-        ("num_clusters", ttk.Entry(self.frm_t_hotspot, textvariable=self.hotspot_clusters, width=8)),
+        ("intersite_distance [m]", ttk.Entry(self.frm_t_hotspot, textvariable=hotspot_intersite, width=10)),
+        ("wrap_around", ttk.Combobox(self.frm_t_hotspot, textvariable=hotspot_wrap, values=[False, True], state="readonly", width=8)),
+        ("num_clusters", ttk.Entry(self.frm_t_hotspot, textvariable=hotspot_clusters, width=8)),
     ])
     add_row_three(self.frm_t_hotspot, 1, [
-        ("num_hotspots_per_cell", ttk.Entry(self.frm_t_hotspot, textvariable=self.hotspot_num_per_cell, width=10)),
-        ("max_dist_hotspot_ue [m]", ttk.Entry(self.frm_t_hotspot, textvariable=self.hotspot_max_dist_ue, width=12)),
-        ("min_dist_bs_hotspot [m]", ttk.Entry(self.frm_t_hotspot, textvariable=self.hotspot_min_dist_bs, width=12)),
+        ("num_hotspots_per_cell", ttk.Entry(self.frm_t_hotspot, textvariable=hotspot_num_per_cell, width=10)),
+        ("max_dist_hotspot_ue [m]", ttk.Entry(self.frm_t_hotspot, textvariable=hotspot_max_dist_ue, width=12)),
+        ("min_dist_bs_hotspot [m]", ttk.Entry(self.frm_t_hotspot, textvariable=hotspot_min_dist_bs, width=12)),
     ])
 
     # ---- Subframe: SINGLE_BS ----
     self.frm_t_sbs = ttk.LabelFrame(frm_t, text="Topology – SINGLE_BS")
     self.frm_t_sbs.grid(row=5, column=0, columnspan=6, sticky="we", pady=(4, 8))
     add_row_three(self.frm_t_sbs, 0, [
-        ("intersite_distance [m]", ttk.Entry(self.frm_t_sbs, textvariable=self.sbs_intersite, width=10)),
-        ("cell_radius [m]", ttk.Entry(self.frm_t_sbs, textvariable=self.sbs_cell_radius, width=10)),
-        ("num_clusters", ttk.Entry(self.frm_t_sbs, textvariable=self.sbs_clusters, width=8)),
+        ("intersite_distance [m]", ttk.Entry(self.frm_t_sbs, textvariable=sbs_intersite, width=10)),
+        ("cell_radius [m]", ttk.Entry(self.frm_t_sbs, textvariable=sbs_cell_radius, width=10)),
+        ("num_clusters", ttk.Entry(self.frm_t_sbs, textvariable=sbs_clusters, width=8)),
     ])
     add_row_three(self.frm_t_sbs, 1, [
-        ("azimuth (list or str)", ttk.Entry(self.frm_t_sbs, textvariable=self.sbs_azimuth, width=28)),
+        ("azimuth (list or str)", ttk.Entry(self.frm_t_sbs, textvariable=sbs_azimuth, width=28)),
         ("", ttk.Label(self.frm_t_sbs, text="")),
         ("", ttk.Label(self.frm_t_sbs, text="")),
     ])
 
     def _toggle_topology_frames(*_):
-        t = self.topo_type.get()
+        t = topo_type.get()
         # hide all
         for f in (self.frm_t_countries, self.frm_t_macro, self.frm_t_hotspot, self.frm_t_sbs):
             f.grid_remove()
@@ -221,16 +299,16 @@ def build_imt_tab(self, root):
     col_basic.columnconfigure(0, weight=0)
     col_basic.columnconfigure(1, weight=1)
 
-    self._add_field(col_basic, 0, "load_probability",
-                    ttk.Entry(col_basic, textvariable=self.bs_load_prob, width=10))
-    self._add_field(col_basic, 1, "conducted_power [dBm]",
-                    ttk.Entry(col_basic, textvariable=self.bs_power, width=10))
-    self._add_field(col_basic, 2, "height [m]",
-                    ttk.Entry(col_basic, textvariable=self.bs_height, width=10))
-    self._add_field(col_basic, 3, "noise_figure [dB]",
-                    ttk.Entry(col_basic, textvariable=self.bs_nf, width=10))
-    self._add_field(col_basic, 4, "ohmic_loss [dB]",
-                    ttk.Entry(col_basic, textvariable=self.bs_ohmic, width=10))
+    _add_field(col_basic, 0, "load_probability",
+                    ttk.Entry(col_basic, textvariable=bs_load_prob, width=10))
+    _add_field(col_basic, 1, "conducted_power [dBm]",
+                    ttk.Entry(col_basic, textvariable=bs_power, width=10))
+    _add_field(col_basic, 2, "height [m]",
+                    ttk.Entry(col_basic, textvariable=bs_height, width=10))
+    _add_field(col_basic, 3, "noise_figure [dB]",
+                    ttk.Entry(col_basic, textvariable=bs_nf, width=10))
+    _add_field(col_basic, 4, "ohmic_loss [dB]",
+                    ttk.Entry(col_basic, textvariable=bs_ohmic, width=10))
 
     # ----- Column 2: BS – Antenna Array -----
     col_array = ttk.LabelFrame(frm_bs, text="BS – Antenna Array")
@@ -240,51 +318,51 @@ def build_imt_tab(self, root):
         col_array.columnconfigure(c, weight=(1 if c in (1, 3) else 0))
 
     # normalization (use Checkbutton to avoid "0/1" in UI)
-    norm_chk = ttk.Checkbutton(col_array, variable=self.bs_norm, text="")
-    self._add_field(col_array, 0, "normalization", norm_chk)
+    norm_chk = ttk.Checkbutton(col_array, variable=bs_norm, text="")
+    _add_field(col_array, 0, "normalization", norm_chk)
 
     # element_pattern
-    cb_pat = ttk.Combobox(col_array, textvariable=self.bs_elem_pat,
+    cb_pat = ttk.Combobox(col_array, textvariable=bs_elem_pat,
                           values=["M2101", "ITU-R S.672", "Custom"], state="readonly", width=14)
-    self._add_field(col_array, 1, "element_pattern", cb_pat)
+    _add_field(col_array, 1, "element_pattern", cb_pat)
 
     # minimum_array_gain
-    self._add_field(col_array, 2, "minimum_array_gain [dB]",
-                    ttk.Entry(col_array, textvariable=self.bs_min_arr_gain, width=10))
+    _add_field(col_array, 2, "minimum_array_gain [dB]",
+                    ttk.Entry(col_array, textvariable=bs_min_arr_gain, width=10))
 
     # horizontal_beamsteering_range
-    w_hmin = ttk.Entry(col_array, textvariable=self.bs_h_steer[0], width=7)
-    w_hmax = ttk.Entry(col_array, textvariable=self.bs_h_steer[1], width=7)
-    self._add_range(col_array, 3, "h_beamsteer [deg]", w_hmin, w_hmax)
+    w_hmin = ttk.Entry(col_array, textvariable=bs_h_steer[0], width=7)
+    w_hmax = ttk.Entry(col_array, textvariable=bs_h_steer[1], width=7)
+    _add_range(col_array, 3, "h_beamsteer [deg]", w_hmin=0, w_hmax=0)
 
     # vertical_beamsteering_range
-    w_vmin = ttk.Entry(col_array, textvariable=self.bs_v_steer[0], width=7)
-    w_vmax = ttk.Entry(col_array, textvariable=self.bs_v_steer[1], width=7)
-    self._add_range(col_array, 4, "v_beamsteer [deg]", w_vmin, w_vmax)
+    w_vmin = ttk.Entry(col_array, textvariable=bs_v_steer[0], width=7)
+    w_vmax = ttk.Entry(col_array, textvariable=bs_v_steer[1], width=7)
+    _add_range(col_array, 4, "v_beamsteer [deg]", w_vmin=0, w_vmax=0)
 
     # other fields (single line)
-    self._add_field(col_array, 5, "downtilt [deg]",
-                    ttk.Entry(col_array, textvariable=self.bs_downtilt, width=10))
-    self._add_field(col_array, 6, "element_max_g [dBi]",
-                    ttk.Entry(col_array, textvariable=self.bs_elem_max_g, width=10))
-    self._add_field(col_array, 7, "element_phi_3db [deg]",
-                    ttk.Entry(col_array, textvariable=self.bs_phi3, width=10))
-    self._add_field(col_array, 8, "element_theta_3db [deg]",
-                    ttk.Entry(col_array, textvariable=self.bs_theta3, width=10))
-    self._add_field(col_array, 9, "n_rows",
-                    ttk.Entry(col_array, textvariable=self.bs_rows, width=10))
-    self._add_field(col_array, 10, "n_columns",
-                    ttk.Entry(col_array, textvariable=self.bs_cols, width=10))
-    self._add_field(col_array, 11, "element_horiz_spacing [λ]",
-                    ttk.Entry(col_array, textvariable=self.bs_elem_hs, width=10))
-    self._add_field(col_array, 12, "element_vert_spacing [λ]",
-                    ttk.Entry(col_array, textvariable=self.bs_elem_vs, width=10))
-    self._add_field(col_array, 13, "element_am [dB]",
-                    ttk.Entry(col_array, textvariable=self.bs_elem_am, width=10))
-    self._add_field(col_array, 14, "element_sla_v [dB]",
-                    ttk.Entry(col_array, textvariable=self.bs_elem_sla_v, width=10))
-    self._add_field(col_array, 15, "multiplication_factor",
-                    ttk.Entry(col_array, textvariable=self.bs_mult, width=10))
+    _add_field(col_array, 5, "downtilt [deg]",
+                    ttk.Entry(col_array, textvariable=bs_downtilt, width=10))
+    _add_field(col_array, 6, "element_max_g [dBi]",
+                    ttk.Entry(col_array, textvariable=bs_elem_max_g, width=10))
+    _add_field(col_array, 7, "element_phi_3db [deg]",
+                    ttk.Entry(col_array, textvariable=bs_phi3, width=10))
+    _add_field(col_array, 8, "element_theta_3db [deg]",
+                    ttk.Entry(col_array, textvariable=bs_theta3, width=10))
+    _add_field(col_array, 9, "n_rows",
+                    ttk.Entry(col_array, textvariable=bs_rows, width=10))
+    _add_field(col_array, 10, "n_columns",
+                    ttk.Entry(col_array, textvariable=bs_cols, width=10))
+    _add_field(col_array, 11, "element_horiz_spacing [λ]",
+                    ttk.Entry(col_array, textvariable=bs_elem_hs, width=10))
+    _add_field(col_array, 12, "element_vert_spacing [λ]",
+                    ttk.Entry(col_array, textvariable=bs_elem_vs, width=10))
+    _add_field(col_array, 13, "element_am [dB]",
+                    ttk.Entry(col_array, textvariable=bs_elem_am, width=10))
+    _add_field(col_array, 14, "element_sla_v [dB]",
+                    ttk.Entry(col_array, textvariable=bs_elem_sla_v, width=10))
+    _add_field(col_array, 15, "multiplication_factor",
+                    ttk.Entry(col_array, textvariable=bs_mult, width=10))
 
     # ----- Column 3: BS – Sub-array -----
     col_sub = ttk.LabelFrame(frm_bs, text="BS – Sub-array")
@@ -293,15 +371,15 @@ def build_imt_tab(self, root):
     col_sub.columnconfigure(1, weight=1)
 
     # is_enabled
-    sub_en_chk = ttk.Checkbutton(col_sub, variable=self.bs_sub_enabled, text="")
-    self._add_field(col_sub, 0, "is_enabled", sub_en_chk)
+    sub_en_chk = ttk.Checkbutton(col_sub, variable=bs_sub_enabled, text="")
+    _add_field(col_sub, 0, "is_enabled", sub_en_chk)
 
-    self._add_field(col_sub, 1, "n_rows",
-                    ttk.Entry(col_sub, textvariable=self.bs_sub_rows, width=10))
-    self._add_field(col_sub, 2, "element_vert_spacing [λ]",
-                    ttk.Entry(col_sub, textvariable=self.bs_sub_evspace, width=10))
-    self._add_field(col_sub, 3, "eletrical_downtilt [deg]",
-                    ttk.Entry(col_sub, textvariable=self.bs_sub_e_downtilt, width=10))
+    _add_field(col_sub, 1, "n_rows",
+                    ttk.Entry(col_sub, textvariable=bs_sub_rows, width=10))
+    _add_field(col_sub, 2, "element_vert_spacing [λ]",
+                    ttk.Entry(col_sub, textvariable=bs_sub_evspace, width=10))
+    _add_field(col_sub, 3, "eletrical_downtilt [deg]",
+                    ttk.Entry(col_sub, textvariable=bs_sub_e_downtilt, width=10))
 
     # ======= UE Section (3 columns, grid only) =======
     frm_ue = ttk.LabelFrame(root, text="UE – Parameters")
@@ -317,9 +395,9 @@ def build_imt_tab(self, root):
     col_basic_ue.columnconfigure(0, weight=0)
     col_basic_ue.columnconfigure(1, weight=1)
 
-    self._add_field(col_basic_ue, 0, "k", ttk.Entry(col_basic_ue, textvariable=self.ue_k, width=8))
-    self._add_field(col_basic_ue, 1, "k_m", ttk.Entry(col_basic_ue, textvariable=self.ue_km, width=8))
-    self._add_field(col_basic_ue, 2, "indoor_percent [%]", ttk.Entry(col_basic_ue, textvariable=self.ue_indoor, width=8))
+    _add_field(col_basic_ue, 0, "k", ttk.Entry(col_basic_ue, textvariable=ue_k, width=8))
+    _add_field(col_basic_ue, 1, "k_m", ttk.Entry(col_basic_ue, textvariable=ue_km, width=8))
+    _add_field(col_basic_ue, 2, "indoor_percent [%]", ttk.Entry(col_basic_ue, textvariable=ue_indoor, width=8))
 
     # distribution_type (Combobox)
     cb_ue_dist = ttk.Combobox(col_basic_ue, textvariable=self.ue_dist_type,
@@ -396,7 +474,7 @@ def build_imt_tab(self, root):
     # azimuth_range (min to max)
     w_azmin = ttk.Entry(col_dist_ue, textvariable=self.ue_az_min, width=8)
     w_azmax = ttk.Entry(col_dist_ue, textvariable=self.ue_az_max, width=8)
-    self._add_range(col_dist_ue, 2, "azimuth_range [deg]", w_azmin, w_azmax)
+    _add_range(col_dist_ue, 2, "azimuth_range [deg]", w_azmin=0, w_azmax=0)
 
     # save the reference for the toggle
     self._ue_col_dist_frame = col_dist_ue

@@ -123,3 +123,76 @@ def _var_remove(self):
     sel = self.var_table.selection()
     for iid in sel:
         self.var_table.delete(iid)
+
+
+def _add_field(self_or_parent, parent=None, row=None, label=None, widget=None, col=0, col_span=2):
+    """Versão híbrida: funciona tanto como método (com self) quanto como função global."""
+    # Detecta se o primeiro argumento é 'self' (classe) ou um parent direto
+    if parent is None and hasattr(self_or_parent, "tk") and not hasattr(self_or_parent, "root"):
+        parent = self_or_parent
+        self = None
+    else:
+        self = self_or_parent
+
+
+def _add_range(*args, **kwargs):
+    try:
+        self = None
+        parent = None
+        row = 0
+        label = "?"
+        wmin = None
+        wmax = None
+        sep_text = "a"
+        if len(args) >= 1 and hasattr(args[0], "tk"):
+            parent = args[0]
+        elif len(args) >= 2 and hasattr(args[1], "tk"):
+            parent = args[1]
+        if len(args) >= 2 and isinstance(args[1], int):
+            row = args[1]
+        elif len(args) >= 3 and isinstance(args[2], int):
+            row = args[2]
+        if len(args) >= 3 and isinstance(args[2], str):
+            label = args[2]
+        elif len(args) >= 4 and isinstance(args[3], str):
+            label = args[3]
+        parent = kwargs.get("parent", parent)
+        row = kwargs.get("row", row)
+        label = kwargs.get("label", label)
+        sep_text = kwargs.get("sep_text", sep_text)
+        wmin = kwargs.get("wmin", kwargs.get("w_hmin", None))
+        wmax = kwargs.get("wmax", kwargs.get("w_hmax", None))
+        if not hasattr(parent, "tk"):
+            print(f"[WARN] _add_range: parent inválido ({type(parent)}), criando Frame temporário.")
+            try:
+                parent = ttk.Frame()
+            except Exception:
+                try:
+                    root = tk.Tk()
+                    parent = ttk.Frame(root)
+                    parent.grid()
+                except Exception:
+                    return None, None
+        def ensure_widget(w, name):
+            if hasattr(w, "grid"):
+                return w
+            print(f"[WARN] _add_range: {name} inválido ({type(w)}), criando Entry temporário.")
+            try:
+                return ttk.Entry(parent)
+            except Exception:
+                try:
+                    return tk.Entry(parent)
+                except Exception:
+                    return None
+        wmin = ensure_widget(wmin, "wmin")
+        wmax = ensure_widget(wmax, "wmax")
+        try:
+            ttk.Label(parent, text=label).grid(row=row, column=0, sticky="w", padx=(6, 4), pady=2)
+            if wmin: wmin.grid(row=row, column=1, sticky="we", padx=(0, 4), pady=2)
+            ttk.Label(parent, text=f" {sep_text} ").grid(row=row, column=2, padx=(0, 4))
+            if wmax: wmax.grid(row=row, column=3, sticky="we", padx=(0, 6), pady=2)
+        except Exception as e:
+            print(f"[ERROR] _add_range falhou ao desenhar '{label}': {e}")
+    except Exception as e:
+        print(f"[FATAL] Erro interno em _add_range: {e}")
+    return wmin, wmax

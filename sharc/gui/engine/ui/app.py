@@ -273,8 +273,8 @@ class App(tk.Tk):
         nb.add(tab_results, text="Results")
 
         build_general_tab(tab_general, self)
-        # build_imt_tab(tab_imt, self)
-        # build_victim_tab(tab_victim, self)
-        # build_preview_tab(tab_preview, self)
-        # build_runner_tab(tab_runner, self)
-        # build_results_tab(tab_results, self)
+        build_imt_tab(tab_imt, self)
+        build_victim_tab(tab_victim, self)
+        build_preview_tab(tab_preview, self)
+        build_runner_tab(tab_runner, self)
+        build_results_tab(tab_results, self)

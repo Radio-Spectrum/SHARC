@@ -58,11 +58,14 @@ class SimulationUplink(Simulation):
             self.topology, random_number_gen,
         )
 
-        # Create the other system (FSS, HAPS, etc...)
-        self.system = StationFactory.generate_system(
-            self.parameters, self.topology, random_number_gen,
-            geometry_converter=self.geometry_converter
-        )
+        if self.parameters.general.system == "WIFI":
+            self.system.connect_wifi_sta_to_ap(self.parameters.wifi)
+            self.system.select_sta(random_number_gen, self.parameters.wifi)
+            #Calculate intra wifi coupling loss 
+            self.coupling_loss_wifi = self.calculate_intra_wifi_coupling_loss(
+                self.system.sta, self.system.ap)
+            self.calculate_sinr_wifi()
+            self.power_control_wifi()
 
         # Create IMT user equipments
         self.ue = StationFactory.generate_imt_ue(

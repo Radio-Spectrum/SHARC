@@ -588,10 +588,10 @@ class SimulationDownlink(Simulation):
                     10 ** (0.1 * (pow_coch - self.coupling_loss_imt_wifi_ap[active_beams][:, ap_active])),
                     axis=0
                 )
-                '''rx_interference_linear_sta[sta_active] += np.sum(
+                rx_interference_linear_sta[sta_active] += np.sum(
                     10 ** (0.1 * (pow_coch - self.coupling_loss_imt_wifi_sta[active_beams][:, sta_active])),
                     axis=0
-                )'''
+                )
 
             if self.adjacent_channel:
 
@@ -620,7 +620,7 @@ class SimulationDownlink(Simulation):
                     axis=0
                 )
 
-                '''adj_loss_sta = self.coupling_loss_imt_wifi_sta_adjacent[np.ix_(active_beams, sta_active)]
+                adj_loss_sta = self.coupling_loss_imt_wifi_sta_adjacent[np.ix_(active_beams, sta_active)]
 
                 # TX OOB Recebida (Matriz K x N_sta) - tx_oob é o mesmo (depende do BS IMT)
                 tx_oob_s_sta = tx_oob[:, np.newaxis] - adj_loss_sta
@@ -641,11 +641,14 @@ class SimulationDownlink(Simulation):
                 rx_interference_linear_sta[sta_active] += np.sum(
                     np.power(10, 0.1 * oob_power_sta),
                     axis=0
-                )'''
+                )
 
+        rx_interference_linear_total = np.concatenate(
+            (rx_interference_linear_ap, rx_interference_linear_sta)
+        )
+        rx_interference_filtered = rx_interference_linear_total[rx_interference_linear_total > 0.0]   
         # Total received interference - dBW
-        self.system.rx_interference = 10 * np.log10(rx_interference_linear_ap)
-        #self.system_sta.rx_interference = 10 * np.log10(rx_interference_linear_sta)
+        self.system.rx_interference = 10 * np.log10(rx_interference_filtered)
 
         # calculate N
         self.system.thermal_noise = \
@@ -1021,9 +1024,8 @@ class SimulationDownlink(Simulation):
             write_to_file (bool): Whether to write results to file.
             snapshot_number (int): The current snapshot number.
         """
-        ap_active = np.where(self.system.ap.active)[0]
         if not self.parameters.imt.interfered_with and np.any(self.bs.active):
-            self.results.wifi_ap_inr.extend(self.system.inr[:, ap_active].flatten())
+            self.results.wifi_inr.extend(self.system.inr.flatten())
             self.results.system_dl_interf_power.extend(
                 self.system.rx_interference.flatten(),
             )

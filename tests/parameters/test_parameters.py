@@ -876,6 +876,25 @@ class ParametersTest(unittest.TestCase):
         )
 
         self.assertEqual(
+            self.parameters.single_space_station.antenna.itu_r_s_1528.antenna_gain,
+            self.parameters.single_space_station.antenna.gain,
+        )
+        self.assertEqual(
+            self.parameters.single_space_station.antenna.itu_r_s_1528.major_minor_axis_ratio,
+            1.0
+        )
+
+        self.assertEqual(
+            self.parameters.single_space_station.antenna.itu_r_s_1528.major_minor_axis_ratio,
+            1.0
+        )
+
+        self.assertEqual(
+            self.parameters.single_space_station.antenna.itu_r_s_1528.far_out_side_lobe,
+            -25
+        )
+
+        self.assertEqual(
             self.parameters.single_space_station.param_p619.earth_station_alt_m,
             self.parameters.single_space_station.geometry.es_altitude,
         )

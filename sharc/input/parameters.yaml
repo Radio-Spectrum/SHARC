@@ -21,7 +21,7 @@ general:
     overwrite_output: TRUE
 imt:
     minimum_separation_distance_bs_ue: 5              # Minimum 2D distance between BS and UE [m]
-    interfered_with: FALSE                            # TRUE = IMT is victim; FALSE = IMT is interferer
+    interfered_with: TRUE                           # TRUE = IMT is victim; FALSE = IMT is interferer
     frequency: 7000                              # IMT center frequency [MHz]
     bandwidth: 80                                    # Total IMT bandwidth [MHz]
     rb_bandwidth: 0.180                               # Resource Block bandwidth [MHz]

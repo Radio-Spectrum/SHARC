@@ -9,7 +9,7 @@ from sharc.parameters.wifi.parameters_indoor import ParametersIndoor
 @dataclass
 class ParametersWifiTopology(ParametersBase):
     type: typing.Literal["HOTSPOT", "INDOOR"
-    ] = "INDOOR"
+    ] = "HOTSPOT"
 
     #macrocell: ParametersMacrocell = field(default_factory=ParametersMacrocell)
     hotspot: ParametersHotspot = field(default_factory=ParametersHotspot)

@@ -33,6 +33,7 @@ class ParametersWifiSystem(ParametersBase):
     adjacent_ch_reception: str = "ACS"
     polarization_loss: float = 0.0
     adjacent_ch_selectivity: float = 20.0
+    tx_power_density: float = -65
 
     # Adjacent channel emissions type
     # Possible values are "ACLR", "SPECTRAL_MASK" and "OFF"

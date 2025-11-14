@@ -116,6 +116,7 @@ class Model(Observable):
             + "{:s}:\n".format(self.parameters.general.system) \
             + "\tfrequency: {:.3f} GHz\n".format(param_system.frequency * 1e-3) \
             + "\tbandwidth: {:.0f} MHz\n".format(param_system.bandwidth) \
+            + "\ttopology: {:s}\n".format(self.parameters.wifi.topology.type) \
             + "\tpath loss model: {:s}\n".format(param_system.channel_model) \
             + "\tantenna pattern: {:s}\n".format(param_system.antenna_pattern)
                 

@@ -241,6 +241,10 @@ class Simulation(ABC, Observable):
         self.bs_to_sta_theta = np.empty([num_bs, num_sta])
         self.bs_to_sta_beam_rbs = -1.0 * np.ones(num_sta, dtype=int)
 
+        self.ap_to_ue_phi = np.empty([num_ap, num_ue])
+        self.ap_to_ue_theta = np.empty([num_ap, num_ue])
+        self.ap_to_ue_beam_rbs = -1.0 * np.ones(num_ue, dtype=int)
+
         self.ap = np.empty(num_ap)
         self.sta = np.empty(num_sta)
 
@@ -771,6 +775,15 @@ class Simulation(ABC, Observable):
                 beams_idx = np.tile(
                     np.arange(self.parameters.imt.ue.k), self.bs.num_stations,
                 )
+
+        elif np.isin(station_1.station_type, [StationType.IMT_UE, StationType.WIFI_STA]).any():
+            phi, theta = station_1.get_pointing_vector_to(station_2)
+            beams_idx = np.zeros(len(station_2_active), dtype=int)
+
+        elif not station_1.is_imt_station and not station_1.is_wifi_station():
+            phi, theta = station_1.get_pointing_vector_to(station_2)
+            beams_idx = np.zeros(len(station_2_active), dtype=int)    
+
         elif station_1.station_type is StationType.WIFI_APS:
             if station_2.station_type is StationType.WIFI_STA:
                 phi = self.ap_to_sta_phi
@@ -781,14 +794,19 @@ class Simulation(ABC, Observable):
                 phi = self.ap_to_bs_phi
                 theta = self.ap_to_bs_theta
                 beams_idx = self.ap_to_bs_beam_rbs[station_2_active]
+            
+            elif station_2.station_type is StationType.IMT_UE:
+                phi = self.ap_to_ue_phi
+                theta = self.ap_to_ue_theta
+                beams_idx = self.ap_to_ue_beam_rbs[station_2_active]
 
-        elif np.isin(station_1.station_type, [StationType.IMT_UE, StationType.WIFI_STA]).any():
+        '''elif np.isin(station_1.station_type, [StationType.IMT_UE, StationType.WIFI_STA]).any():
             phi, theta = station_1.get_pointing_vector_to(station_2)
             beams_idx = np.zeros(len(station_2_active), dtype=int)
 
         elif not station_1.is_imt_station():
             phi, theta = station_1.get_pointing_vector_to(station_2)
-            beams_idx = np.zeros(len(station_2_active), dtype=int)
+            beams_idx = np.zeros(len(station_2_active), dtype=int)'''
                 
         
 

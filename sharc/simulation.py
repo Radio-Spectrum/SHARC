@@ -12,6 +12,7 @@ import numpy as np
 import math
 import sys
 import matplotlib.pyplot as plt
+from logging import getLogger
 
 from sharc.support.enumerations import StationType
 from sharc.topology.topology_factory import TopologyFactory
@@ -21,6 +22,8 @@ from sharc.station_manager import StationManager
 from sharc.results import Results
 from sharc.propagation.propagation_factory import PropagationFactory
 from sharc.support.sharc_utils import wrap2_180, clip_angle
+
+logger = getLogger(__name__)
 
 
 class Simulation(ABC, Observable):
@@ -222,6 +225,8 @@ class Simulation(ABC, Observable):
         This method is executed only once to initialize the simulation variables.
         """
 
+        logger.debug("Initializing the simulation")
+
         self.topology.calculate_coordinates()
 
         self.initialize_topology_dependant_variables()
@@ -266,6 +271,8 @@ class Simulation(ABC, Observable):
         """
         snapshot_number = kwargs["snapshot_number"]
         self.results.write_files(snapshot_number)
+
+        logger.debug("Finalizing the simulation")
 
     def calculate_coupling_loss_system_imt(
         self,

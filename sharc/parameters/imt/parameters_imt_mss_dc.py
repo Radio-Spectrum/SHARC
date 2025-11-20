@@ -6,7 +6,11 @@ from pathlib import Path
 import shapely as shp
 
 from sharc.support.sharc_utils import load_gdf
-from sharc.support.sharc_geom import shrink_countries_by_km, generate_grid_in_multipolygon
+from sharc.support.sharc_geom import (
+    shrink_countries_by_km,
+    generate_grid_in_multipolygon,
+    shrink_lonlat_polygon_by_km,
+)
 from sharc.satellite.utils.sat_utils import lla2ecef
 from sharc.parameters.parameters_base import ParametersBase
 from sharc.parameters.parameters_orbit import ParametersOrbit
@@ -138,9 +142,138 @@ class ParametersSectorPositioning(ParametersBase):
         country_shapes_filename: Path = SHARC_ROOT_DIR / "sharc" / \
             "data" / "countries" / "ne_110m_admin_0_countries.shp"
 
+        @dataclass
+        class ParametersExclusionZone(ParametersBase):
+            @dataclass
+            class ParametersCircle(ParametersBase):
+                center_lat: typing.Optional[float] = None
+                center_lon: typing.Optional[float] = None
+                radius_km: typing.Optional[float] = None
+
+                _polygon: shp.Polygon = None
+
+                def validate(self, ctx):
+                    """
+                    Validates instance parameters.
+
+                    Ensures attributes make sense
+
+                    Parameters
+                    ----------
+                    ctx : str
+                        Context string for error messages.
+
+                    Raises
+                    ------
+                    ValueError
+                        If a parameter is not valid.
+                    """
+                    if None in [
+                        self.center_lat,
+                        self.center_lon,
+                        self.radius_km,
+                    ]:
+                        raise ValueError(
+                            f"{ctx}.(center_lat|center_lon|radius_km) need to be set"
+                        )
+
+                    if self.radius_km <= 0:
+                        raise ValueError(f"{ctx}.radius_km needs to be positive")
+
+                    if not (-180. <= self.center_lon <= 180.):
+                        raise ValueError(f"{ctx}.center_lon needs to be in [-180, 180]")
+
+                    if not (-90. <= self.center_lat <= 90.):
+                        raise ValueError(f"{ctx}.center_lat needs to be in [-90, 90]")
+
+                    super().validate(ctx)
+
+                    self._calculate_polygon()
+
+                def _calculate_polygon(self):
+                    """
+                    Calculates circle lon,lat polygon according to its attributes
+                    """
+                    self._polygon = shrink_lonlat_polygon_by_km(
+                        shp.geometry.Point(self.center_lon, self.center_lat),
+                        -self.radius_km
+                    )
+
+            __ALLOWED_TYPES = [None, "CIRCLE"]
+            type: typing.Literal[None, "CIRCLE"] = None
+
+            circle: ParametersCircle = field(default_factory=ParametersCircle)
+
+            _polygon: shp.geometry.Polygon = None
+
+            def validate(self, ctx):
+                """
+                Validates instance parameters.
+
+                Ensures attributes make sense
+
+                Parameters
+                ----------
+                ctx : str
+                    Context string for error messages.
+
+                Raises
+                ------
+                ValueError
+                    If a parameter is not valid.
+                """
+                if self.type not in self.__ALLOWED_TYPES:
+                    raise ValueError(f"{ctx}.type should be in {self.__ALLOWED_TYPES}")
+
+                if self.type is None:
+                    return
+
+                if self.type == "CIRCLE":
+                    self.circle.validate(f"{ctx}.circle")
+                    self._polygon = self.circle._polygon
+                else:
+                    raise NotImplementedError(
+                        "No validation implemented for\n"
+                        f"\t{ctx}.type == {self.type}"
+                    )
+
+                if (not self._polygon.is_valid
+                    or self._polygon.is_empty
+                    or self._polygon.area <= 0
+                ):
+                    raise Exception(f"Bad {ctx}._polygon was generated")
+
+            def _calculate_polygon(self):
+                if self.type == "CIRCLE":
+                    self.circle._calculate_polygon()
+                    self._polygon = self.circle._polygon
+                elif self.type is None:
+                    self._polygon = None
+                else:
+                    raise NotImplementedError(
+                        f"Polygon calculation for type = {self.type}"
+                    )
+
+            def apply_exclusion_zone(self, lon, lat):
+                """
+                Returns coordinates that are not contained in polygon
+                """
+                if self.type is None:
+                    return np.stack((lon, lat))
+
+                msk = ~shp.vectorized.contains(
+                    self._polygon,
+                    lon,
+                    lat,
+                )
+
+                return np.stack((lon[msk], lat[msk]))
+
         country_names: list[str] = field(default_factory=lambda: list([""]))
 
         transform_grid_randomly: bool = False
+
+        grid_exclusion_zone: ParametersExclusionZone = field(default_factory=ParametersExclusionZone)
 
         # margin from inside of border [km]
         # if positive, makes border smaller by x km
@@ -216,9 +349,9 @@ class ParametersSectorPositioning(ParametersBase):
                 raise ValueError(
                     f"{ctx}.eligible_sats_margin_from_border needs to be a number")
 
-            self._load_geom_from_file_if_needed(ctx)
-
             super().validate(ctx)
+
+            self._load_geom_from_file_if_needed(ctx)
 
         def load_from_active_sat_conditions(
             self,
@@ -258,6 +391,10 @@ class ParametersSectorPositioning(ParametersBase):
                 )
             else:
                 self.lon_lat_grid = np.stack((self.fixed_lons, self.fixed_lats))
+
+            self.lon_lat_grid = self.grid_exclusion_zone.apply_exclusion_zone(
+                lon, lat
+            )
 
             self.ecef_grid = lla2ecef(
                 self.lon_lat_grid[1], self.lon_lat_grid[0], 0)

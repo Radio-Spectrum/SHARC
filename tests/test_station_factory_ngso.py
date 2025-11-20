@@ -3,7 +3,7 @@ from sharc.parameters.parameters_mss_d2d import ParametersOrbit, ParametersMssD2
 from sharc.support.enumerations import StationType
 from sharc.station_factory import StationFactory
 from sharc.station_manager import StationManager
-from sharc.support.sharc_geom import GeometryConverter, lla2ecef
+from sharc.support.sharc_geom import CoordinateSystem, lla2ecef
 
 import numpy as np
 import numpy.testing as npt
@@ -42,8 +42,8 @@ class StationFactoryNgsoTest(unittest.TestCase):
         self.long = -47.9292
         self.alt = 1200
 
-        self.geoconvert = GeometryConverter()
-        self.geoconvert.set_reference(
+        self.coord_sys = CoordinateSystem()
+        self.coord_sys.set_reference(
             -15.7801,
             -47.9292,
             1200,
@@ -56,9 +56,14 @@ class StationFactoryNgsoTest(unittest.TestCase):
             num_sectors=1,
             noise_temperature=-500.,
         )
-        self.param.antenna_s1528.frequency = 43000.0
-        self.param.antenna_s1528.bandwidth = 500.0
-        self.param.antenna_s1528.antenna_gain = 46.6
+        self.param.antenna.pattern = "ITU-R-S.1528-Taylor"
+        self.param.antenna.itu_r_s_1528.frequency = 43000.0
+        self.param.antenna.itu_r_s_1528.bandwidth = 500.0
+        self.param.antenna.itu_r_s_1528.antenna_gain = 46.6
+        self.param.antenna.itu_r_s_1528.slr = 20.0
+        self.param.antenna.itu_r_s_1528.n_side_lobes = 2
+        self.param.antenna.itu_r_s_1528.l_r = 1.6
+        self.param.antenna.itu_r_s_1528.l_t = 1.6
 
         # Creating an IMT topology
         # imt_topology = TopologySingleBaseStation(
@@ -71,7 +76,7 @@ class StationFactoryNgsoTest(unittest.TestCase):
         rng = np.random.RandomState(seed=self.seed)
 
         self.ngso_manager = StationFactory.generate_mss_d2d(
-            self.param, rng, self.geoconvert)
+            self.param, rng, self.coord_sys)
 
     def test_ngso_manager(self):
         """Test that the NGSO manager creates the correct number and type of stations."""
@@ -126,8 +131,8 @@ class StationFactoryNgsoTest(unittest.TestCase):
         rng = np.random.RandomState(seed=self.seed)
 
         ngso_original_coord = StationFactory.generate_mss_d2d(
-            self.param, rng, self.geoconvert)
-        self.geoconvert.revert_station_2d_to_3d(ngso_original_coord)
+            self.param, rng, self.coord_sys)
+        self.coord_sys.station_enu2ecef(ngso_original_coord)
         # Test: check if azimuth is pointing towards correct direction
         # y > 0 <=> azimuth < 0
         # y < 0 <=> azimuth > 0
@@ -144,7 +149,7 @@ class StationFactoryNgsoTest(unittest.TestCase):
 
         npt.assert_allclose(off_axis_angle, 0.0, atol=1e-05)
 
-        self.geoconvert.convert_station_3d_to_2d(ngso_original_coord)
+        self.coord_sys.station_ecef2enu(ngso_original_coord)
 
         npt.assert_allclose(
             self.ngso_manager.x,

@@ -73,7 +73,7 @@ class ParametersBase:
                             {params[attr_name]} instead of a list",
                     )
                 loaded_attr_vals = list()
-                default_item = default_attr_value[0]
+                default_item = (default_attr_value or [None])[0]
 
                 if isinstance(default_item, ParametersBase):
                     for prm in params[attr_name]:

@@ -1,13 +1,13 @@
 general:
-  num_snapshots: 5000
+  num_snapshots: 30000
   imt_link: DOWNLINK
   system: SINGLE_SPACE_STATION
   enable_cochannel: true
-  enable_adjacent_channel: true
-  seed: 220
+  enable_adjacent_channel: false
+  seed: 784
   overwrite_output: false
   output_dir: campaigns/09_Guarulhos/output_dl/
-  output_dir_prefix: FS_array_4_approach_30000m
+  output_dir_prefix: array_4_approach_30000m
 imt:
   minimum_separation_distance_bs_ue: 35
   interfered_with: false
@@ -97,9 +97,9 @@ single_space_station:
   frequency: 3650
   bandwidth: 300
   tx_power_density: -200
-  polarization_loss: 0
+  polarization_loss: 3
   noise_temperature: 2900
-  channel_model: FSPL
+  channel_model: P528
   param_p528:
     time_percentage: RANDOM
     polarization: 1
@@ -115,7 +115,7 @@ single_space_station:
     elevation:
       type: RANDOM_RANGE
       min: -90
-      max: -80
+      max: -70
     location:
       type: FIXED
       fixed:

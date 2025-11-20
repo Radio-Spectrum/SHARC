@@ -4,17 +4,26 @@ from copy import deepcopy
 import math
 import random
 
-
 # ===== Caminhos =====
 BASE_YAML = Path(r"C:\Achiles\SHARC\sharc\campaigns\09_Guarulhos\Script\Base.yaml")
 OUT_DIR   = Path(r"C:\Achiles\SHARC\sharc\campaigns\09_Guarulhos\input")
 
 # ===== Parâmetros =====
-N               = 15          # número de simulações
 GLIDESLOPE_DEG  = 3.0         # rampa (graus)
-START_DIST_M    = 30_000      # distância inicial até o CENTRO da pista (m)
 APPROACH_SIGN   = -1          # +1 vindo do Leste; -1 do Oeste
 x0, y0          = -2000.0, 10000.0    # offsets locais em metros
+
+# >>> AQUI: vetor de distâncias até o CENTRO da pista (m)
+DISTANCES_M = [
+    1000,
+    2000,
+    6000,
+    10000,
+    15000,
+    20000,
+    25000,
+    30000,
+]
 
 yaml = YAML(typ="rt")
 yaml.preserve_quotes = True
@@ -40,13 +49,15 @@ if meters_per_deg_lon <= 0:
     meters_per_deg_lon = 1.0
 
 OUT_DIR.mkdir(parents=True, exist_ok=True)
-for n_array in [4,8]:
-    data["imt"]["bs"]["antenna"]["array"]["n_rows"] = n_array
-    for i in range(N):
-        frac = i / (N - 1) if N > 1 else 0.0
 
-        # Distância ao centro (m)
-        s_m  = (1.0 - frac) * START_DIST_M
+total_files = 0
+
+for n_array in [4, 8]:
+    data["imt"]["bs"]["antenna"]["array"]["n_rows"] = n_array
+
+    # loop direto nas distâncias
+    for s_m in DISTANCES_M:
+        # altura na rampa
         h_m  = math.tan(math.radians(GLIDESLOPE_DEG)) * s_m
 
         # posição local em metros
@@ -74,11 +85,13 @@ for n_array in [4,8]:
 
         # muda também o prefixo
         if "general" in doc and isinstance(doc["general"], dict):
-            doc["general"]["output_dir_prefix"] = f"FS_array_{n_array}_approach_{int(s_m)}m"
+            doc["general"]["output_dir_prefix"] = f"array_{n_array}_approach_{int(s_m)}m"
 
         # salva com nome pela distância
-        out = OUT_DIR / f"input_FS_air_approach_array_{n_array}_{int(s_m)}m.yaml"
+        out = OUT_DIR / f"input_air_approach_array_{n_array}_{int(s_m)}m.yaml"
         with out.open("w", encoding="utf-8") as f:
             yaml.dump(doc, f)
 
-print(f"OK! Gerados {N} arquivos em {OUT_DIR}")
+        total_files += 1
+
+print(f"OK! Gerados {total_files} arquivos em {OUT_DIR}")

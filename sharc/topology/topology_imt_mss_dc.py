@@ -6,7 +6,7 @@ It consists of a group of NGSO satellites that provide direct connectivity to us
 The Space Stations positions are generated from the Keplerian elements of the orbits in the OrbitModel class.
 Only a subset of Space Stations are used, which are the ones that are visible to the UE.
 After satellite visibility is calculated, the ECEF coordinates are transformed to a new cartesian coordinate system
-centered at the reference point defined in the GeometryConverter object.
+centered at the reference point defined in the CoordinateSystem object.
 The azimuth and elevation angles are also rotated to the new coordinate system.
 The visible Space Stations are then used to generate the IMT Base Stations.
 """
@@ -21,7 +21,7 @@ from sharc.topology.topology import Topology
 from sharc.parameters.imt.parameters_imt_mss_dc import ParametersImtMssDc
 from sharc.parameters.parameters_orbit import ParametersOrbit
 from sharc.satellite.ngso.orbit_model import OrbitModel
-from sharc.support.sharc_geom import GeometryConverter, rotate_angles_based_on_new_nadir
+from sharc.support.sharc_geom import CoordinateSystem, rotate_angles_based_on_new_nadir
 from sharc.topology.topology_ntn import TopologyNTN
 from sharc.satellite.utils.sat_utils import calc_elevation
 from sharc.support.sharc_geom import lla2ecef, cartesian_to_polar, polar_to_cartesian
@@ -36,16 +36,16 @@ class TopologyImtMssDc(Topology):
     """
 
     def __init__(self, params: ParametersImtMssDc,
-                 geometry_converter: GeometryConverter):
+                 coordinate_system: CoordinateSystem):
         """Initialize the IMT MSS-DC topology with parameters and geometry converter.
 
         Parameters
         ----------
         params : ParametersImtMssDc
             Input parameters for the IMT MSS-DC topology.
-        geometry_converter : GeometryConverter
-            GeometryConverter object that converts the ECEF coordinate system to one
-            centered at GeometryConverter.reference.
+        coordinate_system : CoordinateSystem
+            CoordinateSystem object that converts the ECEF coordinate system to one
+            centered at CoordinateSystem.reference.
         """
         # That means the we need to pass the groud reference points to the base
         # stations generator
@@ -53,7 +53,7 @@ class TopologyImtMssDc(Topology):
         self.num_sectors = params.num_beams
 
         # Specific attributes
-        self.geometry_converter = geometry_converter
+        self.coordinate_system = coordinate_system
         self.orbit_params = params
         self.space_station_x = None
         self.space_station_y = None
@@ -68,7 +68,7 @@ class TopologyImtMssDc(Topology):
 
     @staticmethod
     def get_coordinates(
-        geometry_converter: GeometryConverter,
+        coordinate_system: CoordinateSystem,
         orbit_params: ParametersImtMssDc,
         random_number_gen=np.random.RandomState(),
     ):
@@ -168,13 +168,13 @@ class TopologyImtMssDc(Topology):
                 if "MINIMUM_ELEVATION_FROM_ES" in orbit_params.sat_is_active_if.conditions:
                     # Calculate satellite visibility from base stations
                     elev_from_bs = calc_elevation(
-                        geometry_converter.ref_lat,  # Latitude of base station
+                        coordinate_system.ref_lat,  # Latitude of base station
                         pos_vec['lat'],  # Latitude of satellites
-                        geometry_converter.ref_long,  # Longitude of base station
+                        coordinate_system.ref_long,  # Longitude of base station
                         pos_vec['lon'],  # Longitude of satellites
                         # Perigee altitude in kilometers
                         sat_height=pos_vec['alt'] * 1e3,
-                        es_height=geometry_converter.ref_alt,
+                        es_height=coordinate_system.ref_alt,
                     )
 
                     # Determine visible satellites based on minimum elevation
@@ -187,13 +187,13 @@ class TopologyImtMssDc(Topology):
                     if "MINIMUM_ELEVATION_FROM_ES" not in orbit_params.sat_is_active_if.conditions:
                         # Calculate satellite visibility from base stations
                         elev_from_bs = calc_elevation(
-                            geometry_converter.ref_lat,  # Latitude of base station
+                            coordinate_system.ref_lat,  # Latitude of base station
                             pos_vec['lat'],  # Latitude of satellites
-                            geometry_converter.ref_long,  # Longitude of base station
+                            coordinate_system.ref_long,  # Longitude of base station
                             pos_vec['lon'],  # Longitude of satellites
                             # Perigee altitude in kilometers
                             sat_height=pos_vec['alt'] * 1e3,
-                            es_height=geometry_converter.ref_alt,
+                            es_height=coordinate_system.ref_alt,
                         )
 
                     # Determine visible satellites based on minimum elevation
@@ -259,7 +259,7 @@ class TopologyImtMssDc(Topology):
         # Convert the ECEF coordinates to the transformed cartesian coordinates and set the Space Station positions
         # used to generetate the IMT Base Stations
         space_station_x, space_station_y, space_station_z = \
-            geometry_converter.convert_cartesian_to_transformed_cartesian(space_station_x, space_station_y, space_station_z)
+            coordinate_system.ecef2enu(space_station_x, space_station_y, space_station_z)
 
         # Rotate the azimuth and elevation angles off the center beam the new
         # transformed cartesian coordinates
@@ -269,14 +269,14 @@ class TopologyImtMssDc(Topology):
         pointing_vec_x, pointing_vec_y, pointing_vec_z = polar_to_cartesian(
             r, all_azimuth, all_elevation)
         pointing_vec_x, pointing_vec_y, pointing_vec_z = \
-            geometry_converter.convert_cartesian_to_transformed_cartesian(
+            coordinate_system.ecef2enu(
                 pointing_vec_x, pointing_vec_y, pointing_vec_z, translate=0)
         _, all_azimuth, all_elevation = cartesian_to_polar(
             pointing_vec_x, pointing_vec_y, pointing_vec_z)
 
         beams_elev, beams_azim, sx, sy = TopologyImtMssDc.get_satellite_pointing(
             random_number_gen,
-            geometry_converter,
+            coordinate_system,
             orbit_params,
             total_active_satellites,
             all_space_station_x, all_space_station_y, all_space_station_z,
@@ -353,7 +353,7 @@ class TopologyImtMssDc(Topology):
     @staticmethod
     def get_satellite_pointing(
             random_number_gen: np.random.RandomState,
-            geometry_converter: GeometryConverter,
+            coordinate_system: CoordinateSystem,
             orbit_params: ParametersImtMssDc,
             total_active_satellites: int,
             all_sat_x: np.ndarray,
@@ -442,7 +442,7 @@ class TopologyImtMssDc(Topology):
             pointing_vec_x, pointing_vec_y, pointing_vec_z = polar_to_cartesian(
                 r, azim, elev)
             pointing_vec_x, pointing_vec_y, pointing_vec_z = \
-                geometry_converter.convert_cartesian_to_transformed_cartesian(
+                coordinate_system.ecef2enu(
                     pointing_vec_x, pointing_vec_y, pointing_vec_z, translate=0)
             _, azim, elev = cartesian_to_polar(
                 pointing_vec_x, pointing_vec_y, pointing_vec_z)
@@ -632,10 +632,10 @@ class TopologyImtMssDc(Topology):
 
     def calculate_coordinates(self, random_number_gen=np.random.RandomState()):
         """Compute the coordinates of the visible space stations."""
-        self.geometry_converter.validate()
+        self.coordinate_system.validate()
 
         sat_values = self.get_coordinates(
-            self.geometry_converter,
+            self.coordinate_system,
             self.orbit_params,
             random_number_gen)
 
@@ -685,7 +685,7 @@ class TopologyImtMssDc(Topology):
                 self.space_station_x[bs_i] ** 2 +
                 self.space_station_y[bs_i] ** 2),
             self.space_station_z[bs_i] +
-            self.geometry_converter.get_translation())
+            self.coordinate_system.get_translation())
 
         # get around z axis
         around_z = np.arctan2(
@@ -706,7 +706,7 @@ class TopologyImtMssDc(Topology):
         y = ny
 
         # translate ue back so other system is in (0,0,0)
-        z -= self.geometry_converter.get_translation()
+        z -= self.coordinate_system.get_translation()
 
         if convert_to_scalar:
             return (to_scalar(x), to_scalar(y), to_scalar(z))
@@ -716,7 +716,7 @@ class TopologyImtMssDc(Topology):
 # Example usage
 if __name__ == '__main__':
     from sharc.parameters.imt.parameters_imt_mss_dc import ParametersImtMssDc
-    from sharc.support.sharc_geom import GeometryConverter
+    from sharc.support.sharc_geom import CoordinateSystem
 
     # Define the parameters for the IMT MSS-DC topology
     # SystemA Orbit parameters
@@ -752,11 +752,11 @@ if __name__ == '__main__':
     params.validate("validation_at_main")
 
     # Define the geometry converter
-    geometry_converter = GeometryConverter()
-    geometry_converter.set_reference(-15.0, -42.0, 1200)
+    coordinate_system = CoordinateSystem()
+    coordinate_system.set_reference(-15.0, -42.0, 1200)
 
     # Instantiate the IMT MSS-DC topology
-    imt_mss_dc_topology = TopologyImtMssDc(params, geometry_converter)
+    imt_mss_dc_topology = TopologyImtMssDc(params, coordinate_system)
 
     # Calculate the coordinates of the space stations
     rng = np.random.RandomState(101)

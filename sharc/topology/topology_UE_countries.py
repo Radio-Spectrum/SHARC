@@ -9,14 +9,17 @@ from sharc.topology.topology import Topology
 # NOTE: we import the BS topology class you already built
 from sharc.topology.topology_countries import TopologyCountries
 
+WGS84_A = 6378137.0
+WGS84_F = 1.0 / 298.257223563
 
 @dataclass
 class ParametersUECountries:
     """UE placement parameters (per BS)."""
-    num_ue_per_bs: int = 10
+    num_ue_per_bs: int = 3
     sector_half_bw_deg: float = 60.0   # half beamwidth for UE sector (e.g., 30 => 60° total)
     min_dist_from_bs: float = 0.0      # optional guard radius near BS (meters)
     rng_seed: Optional[int] = None
+    ue_height_m: float = 1.5
 
 
 class TopologyUECountries(Topology):
@@ -31,7 +34,7 @@ class TopologyUECountries(Topology):
                  params: ParametersUECountries,
                  random_number_gen: Optional[np.random.RandomState] = None):
         # Inherit the cell radius & intersite distance directly from the BS topology
-        super().__init__(bs_topology.intersite_distance, bs_topology.cell_radius)
+        #super().__init__(bs_topology.intersite_distance, bs_topology.cell_radius)
         self.bs_topology = bs_topology
         self.params = params
         self.rng = random_number_gen if random_number_gen is not None \
@@ -42,67 +45,92 @@ class TopologyUECountries(Topology):
         self.y = None
         self.z = None
         self.num_base_stations = 0  # here: number of UEs
-        self.azimuth = None         # UE azimuths (optional; not used by all sims)
+        self.azimuth = None         # UE azimuths
         self.indoor = None          # flag placeholder
+        self.elevation = None          # flag placeholder
+        self.latitude = None          # flag placeholder
+        self.longitude = None          # flag placeholder
 
     def calculate_coordinates(self):
-        """
-        For each BS in bs_topology, generate num_ue_per_bs UEs inside a sector wedge.
-        - Radius: uniform in area (r = R * sqrt(u)), between min_dist_from_bs and cell_radius
-        - Angle: centered on the BS azimuth, +/- sector_half_bw_deg
-        - Convert local ENU offsets to global transformed coords via transform_ue_xyz()
-        """
+        # Ensure BS topology exists
+        if getattr(self.bs_topology, "num_base_stations", 0) <= 0 or \
+           getattr(self.bs_topology, "x", None) is None:
+            self.bs_topology.calculate_coordinates()
+
         nb = self.bs_topology.num_base_stations
         if nb <= 0:
-            raise RuntimeError("TopologyUECountries: the BS topology has zero sites.")
+            raise RuntimeError("TopologyUECountries: BS topology has zero sites.")
 
         R = float(self.bs_topology.cell_radius)
         R_guard = float(max(0.0, self.params.min_dist_from_bs))
         if R_guard >= R:
             raise ValueError("min_dist_from_bs must be smaller than cell_radius.")
 
-        # prepare arrays
         ue_per_bs = int(self.params.num_ue_per_bs)
         total_ue = nb * ue_per_bs
 
         xs = np.empty(total_ue, dtype=float)
         ys = np.empty(total_ue, dtype=float)
-        zs = np.zeros(total_ue, dtype=float)  # keep UEs at ground plane in transformed frame
-        az = np.empty(total_ue, dtype=float)  # store the sector angle used for each UE (optional)
+        zs = np.empty(total_ue, dtype=float)
+        az = np.empty(total_ue, dtype=float)
+        latitude = np.empty(total_ue, dtype=float)
+        longitude = np.empty(total_ue, dtype=float)
+        height = np.empty(total_ue, dtype=float)
+        elev = np.empty(total_ue, dtype=float)
 
-        # vectorized per-BS loop (outer) + per-UE loop (inner)
-        idx = 0
         half_bw = float(self.params.sector_half_bw_deg)
-
+        h_mu = float(self.params.ue_height_m)
+        idx = 0;
         for i in range(nb):
-            # draw radii with uniform area density in [R_guard, R]
+            # Radius ~ uniform in area within [R_guard, R]
             u = self.rng.rand(ue_per_bs)
             r = np.sqrt((R**2 - R_guard**2) * u + R_guard**2)
 
-            # draw angles around BS azimuth
-            center = float(self.bs_topology.azimuth[i])  # degrees
-            theta = np.deg2rad(center + self.rng.uniform(-half_bw, +half_bw, size=ue_per_bs))
+            # Angle around BS azimuth
+            center = float(self.bs_topology.azimuth[i])
+            theta = np.deg2rad(center + self.rng.uniform(half_bw, -half_bw, size=ue_per_bs))
+            
+            lat = np.radians(self.bs_topology.lats[i])
+            lon = np.radians(self.bs_topology.lons[i])
 
-            # local offsets in transformed plane (meters)
+            R_ecef_to_enu = np.array([
+                [-np.sin(lon), np.cos(lon), 0.0],
+                [-np.sin(lat) * np.cos(lon), -np.sin(lat) * np.sin(lon), np.cos(lat)],
+                [ np.cos(lat) * np.cos(lon), np.cos(lat) * np.sin(lon), np.sin(lat)]
+            ], dtype=float)
+            R_enu_to_ecef = np.linalg.inv(R_ecef_to_enu)
+
+            # ECEF vector (position or offset)
+            v_ecef = np.array([self.bs_topology.x[i], self.bs_topology.y[i], self.bs_topology.z[i]], dtype=float)
+
+            # Convert to ENU
+            v_enu = R_ecef_to_enu @ v_ecef       # shape (3,)
+            
+            # Local offsets (meters)
             x_local = r * np.cos(theta)
             y_local = r * np.sin(theta)
+            z_local = np.full(ue_per_bs, h_mu, dtype=float) - self.bs_topology.height[0]
 
-            # convert to global transformed coordinates
             for k in range(ue_per_bs):
-                xg, yg, zg = self.bs_topology.transform_ue_xyz(i, x_local[k], y_local[k], 0.0)
-                xs[idx] = xg
-                ys[idx] = yg
-                zs[idx] = zg
-                az[idx] = np.rad2deg(theta[k])  # optional: store UE's local pointing angle
-                idx += 1
+                    xg, yg, zg = v_enu[0] + x_local[k], v_enu[1] + y_local[k], v_enu[2] + z_local[k]
+                    v_eu_new = np.array([xg, yg, zg], dtype=float)
+                    v_ecef = R_enu_to_ecef @ v_eu_new
+                    xs[idx] = v_ecef[0]
+                    ys[idx] = v_ecef[1]
+                    zs[idx] = v_ecef[2]
+                    az[idx] = np.rad2deg(theta[k])
+                    latitude[idx], longitude[idx], height[idx] = self.ecef_to_lla(np.asarray(xs[idx], float), np.asarray(ys[idx], float), np.asarray(zs[idx], float))
+                    idx = idx + 1
 
-        # finalize
-        self.x = xs
-        self.y = ys
-        self.z = zs
+        self.x, self.y, self.z = xs, ys, zs
         self.azimuth = az
+        self.ue_elevation_deg = 0
         self.num_base_stations = total_ue
         self.indoor = np.zeros(total_ue, dtype=bool)
+        self.latitude = latitude
+        self.longitude = longitude
+
+        return self
 
     # Optional: quick plot helper (2D)
     def plot(self, ax=None, max_wedges: int = 1200):
@@ -138,6 +166,45 @@ class TopologyUECountries(Topology):
             plt.tight_layout()
             plt.show()
 
+    @staticmethod
+    def ecef_to_lla(X, Y, Z, a=WGS84_A, f=WGS84_F):
+        import numpy as _np
+        e2  = f * (2.0 - f)
+        b   = a * (1.0 - f)
+        ep2 = (a*a - b*b) / (b*b)
+
+        X = _np.asarray(X, dtype=float)
+        Y = _np.asarray(Y, dtype=float)
+        Z = _np.asarray(Z, dtype=float)
+
+        lon = _np.arctan2(Y, X)
+        p   = _np.hypot(X, Y)
+        lat = _np.zeros_like(Z)
+        h   = _np.zeros_like(Z)
+
+        mask = (p > 0)
+        if _np.any(mask):
+            Xg, Yg, Zg = X[mask], Y[mask], Z[mask]
+            pg = p[mask]
+            theta = _np.arctan2(a * Zg, b * pg)
+            st, ct = _np.sin(theta), _np.cos(theta)
+            lat_g = _np.arctan2(Zg + ep2 * b * st**3, pg - e2 * a * ct**3)
+            sl = _np.sin(lat_g)
+            N  = a / _np.sqrt(1.0 - e2 * sl * sl)
+            h_g = pg / _np.cos(lat_g) - N
+            lat[mask] = lat_g
+            h[mask]   = h_g
+
+        pole = ~mask
+        if _np.any(pole):
+            Zp = Z[pole]
+            lat[pole] = _np.sign(Zp) * (_np.pi / 2.0)
+            h[pole]   = _np.abs(Zp) - b
+
+        lat_deg = _np.degrees(lat)
+        lon_deg = _np.degrees(lon)
+        lon_deg = (lon_deg + 180.0) % 360.0 - 180.0
+        return lat_deg, lon_deg, h
 
 # ----------------------- Example usage -----------------------
 # ----------------------- MAIN -----------------------
@@ -149,8 +216,9 @@ if __name__ == "__main__":
     import geopandas as gpd
     from pathlib import Path
     import os
-    from sharc.topology.topology_countries import ParametersCountries, TopologyCountries
-    from sharc.support.sharc_geom import GeometryConverter
+    from sharc.topology.topology_countries import TopologyCountries
+    from sharc.parameters.imt.parameters_Countries_imt import ParametersCountries
+    from sharc.support.sharc_geom_countries import GeometryConverter
 
     # --------- User inputs ----------
       # ============ User-defined inputs ============
@@ -223,10 +291,10 @@ if __name__ == "__main__":
         density_exponent=density_exponent,
 
         mask_inland_water=True,
-        dist_type = dist_type
+        dist_type=dist_type
     )
 
-    bs_topo = TopologyCountries(params, geoconv)
+    bs_topo = TopologyCountries(params, geoconv).calculate_coordinates()
 
     # --------- Build UE topology (Cartesian) ----------
     # UE params

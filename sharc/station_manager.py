@@ -12,6 +12,9 @@ from sharc.station import Station
 from sharc.antenna.antenna import Antenna
 from sharc.mask.spectral_mask import SpectralMask
 
+_WGS84_A  = 6378137.0                 # semi-major axis [m]
+_WGS84_F  = 1.0 / 298.257223563
+_WGS84_E2 = _WGS84_F * (2.0 - _WGS84_F)
 
 class StationManager(object):
     """
@@ -25,6 +28,8 @@ class StationManager(object):
         self.x = np.empty(n)  # x coordinate
         self.y = np.empty(n)  # y coordinate
         self.z = np.empty(n)  # z coordinate (includes height above ground)
+        self.latitude = np.zeros(n, dtype=float)  # Latitude of station
+        self.longitude = np.zeros(n, dtype=float)  # Longitude of Base Station
         self.azimuth = np.empty(n)
         self.elevation = np.empty(n)
         self.height = np.empty(n)  # station height above ground
@@ -288,23 +293,48 @@ class StationManager(object):
             phi, theta (phi is calculated with respect to x counter-clockwise and
             theta is calculated with respect to z counter-clockwise).
         """
+        if (self.latitude[0] != 0):
+            # 3) LOS in ECEF, broadcast to (N,M,3)
+            dx = -(self.x[None, :] - station.x[:, None])
+            dy = -(self.y[None, :] - station.y[:, None])
+            dz = -(self.z[None, :] - station.z[:, None])
+            v_ecef = np.stack([dx, dy, dz], axis=-1)             # (N,M,3)
+            dist   = np.linalg.norm(v_ecef, axis=-1)
+            dist_safe = np.where(dist == 0.0, 1.0, dist)
 
-        # malloc
-        dx = (station.x - self.x[:, np.newaxis]).astype(np.float64)
-        dy = (station.y - self.y[:, np.newaxis]).astype(np.float64)
-        dz = (station.z - self.z[:, np.newaxis]).astype(np.float64)
+            # 4) Rotation ECEF->ENU at each BS
+            R = _rot_ecef_to_enu(self.latitude, self.longitude)               # (N,3,3)
 
-        dist = self.get_3d_distance_to(station)
+            # 5) Rotate LOS into ENU of each BS
+            v_ecef = np.swapaxes(v_ecef, 0, 1)
+            dist_safe = np.swapaxes(dist_safe, 0, 1)
+            v_enu = np.einsum('nij,nmj->nmi', R, v_ecef)         # (N,M,3) comp = [E,N,U]
+            E = v_enu[..., 0]
+            N = v_enu[..., 1]
+            U = v_enu[..., 2]
 
-        # NOTE: doing in place calculations
-        phi = np.rad2deg(np.arctan2(dy, dx, out=dx), out=dx)
-        # delete reference dx
-        del dx
+            # 6) Angles
+            phi = np.degrees(np.arctan2(N, E))                   # [-180,180]
+            cos_th = np.clip(U / dist_safe, -1.0, 1.0)
+            theta  = np.degrees(np.arccos(cos_th))               # [0,180], 0=along Up
+        else:
+            # malloc
+            dx = (station.x - self.x[:, np.newaxis]).astype(np.float64)
+            dy = (station.y - self.y[:, np.newaxis]).astype(np.float64)
+            dz = (station.z - self.z[:, np.newaxis]).astype(np.float64)
 
-        # in place calculations
-        theta = np.rad2deg(np.arccos(np.clip(dz / dist, -1.0, 1.0, out=dz), out=dz), out=dz)
-        # delete reference dz
-        del dz
+            dist = self.get_3d_distance_to(station)
+
+            # NOTE: doing in place calculations
+            phi = np.rad2deg(np.arctan2(dy, dx, out=dx), out=dx)
+            
+            # delete reference dx
+            del dx
+
+            # in place calculations
+            theta = np.rad2deg(np.arccos(np.clip(dz / dist, -1.0, 1.0, out=dz), out=dz), out=dz)
+            # delete reference dz
+            del dz
 
         return phi, theta
 
@@ -351,6 +381,49 @@ class StationManager(object):
         else:
             return False
 
+def _lla_to_ecef(lat_deg, lon_deg, h_m):
+    """Vectorized geodetic (deg,deg,m) -> ECEF XYZ (m) on WGS-84."""
+    lat = np.radians(np.asarray(lat_deg, dtype=float))
+    lon = np.radians(np.asarray(lon_deg, dtype=float))
+    h   = np.asarray(h_m, dtype=float)
+
+    sl, cl = np.sin(lat), np.cos(lat)
+    sb, cb = np.sin(lon), np.cos(lon)
+
+    N = _WGS84_A / np.sqrt(1.0 - _WGS84_E2 * sl * sl)
+    X = (N + h) * cl * cb
+    Y = (N + h) * cl * sb
+    Z = (N * (1.0 - _WGS84_E2) + h) * sl
+    return X, Y, Z
+
+
+def _rot_ecef_to_enu(lat_deg, lon_deg):
+    """
+    Vectorized rotation matrices R (N,3,3) that map v_ecef -> [E,N,U] at each (lat,lon).
+    Rows are the ENU basis vectors.
+    """
+    lat = np.radians(np.asarray(lat_deg, dtype=float))
+    lon = np.radians(np.asarray(lon_deg, dtype=float))
+    sl, cl = np.sin(lat), np.cos(lat)
+    sb, cb = np.sin(lon), np.cos(lon)
+
+    # Each R has rows [east; north; up]
+    # east  = [-sin(lon),  cos(lon), 0]
+    # north = [-sin(lat)cos(lon), -sin(lat)sin(lon), cos(lat)]
+    # up    = [ cos(lat)cos(lon),  cos(lat)sin(lon), sin(lat)]
+    R = np.empty((lat.shape[0], 3, 3), dtype=float)
+    R[:, 0, 0] = -sb
+    R[:, 0, 1] =  cb
+    R[:, 0, 2] =  0.0
+
+    R[:, 1, 0] = -sl * cb
+    R[:, 1, 1] = -sl * sb
+    R[:, 1, 2] =  cl
+
+    R[:, 2, 0] =  cl * cb
+    R[:, 2, 1] =  cl * sb
+    R[:, 2, 2] =  sl
+    return R
 
 def copy_active_stations(stations: StationManager) -> StationManager:
     """Return a new StationManager object containing only the active stations.

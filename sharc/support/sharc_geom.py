@@ -175,15 +175,14 @@ def rotate_angles_based_on_new_nadir(elev, azim, nadir_elev, nadir_azim):
 
 # NOTE: this works for both spherical an ellipsoidal Earth,
 # just need to change ecef2lla and lla2ecef implementations
-# TODO: refactor class and method names
-class GeometryConverter():
+class CoordinateSystem():
     """Class for transforming coordinates to local ENU using a reference lat, lon, alt.
 
     This class receives a reference lat, lon, alt and may transform other coordinate types to local ENU.
     """
 
     def __init__(self):
-        """Initialize GeometryConverter with unset reference coordinates."""
+        """Initialize CoordinateSystem with unset reference coordinates."""
         # geodesical
         self.ref_lat = None
         self.ref_long = None
@@ -280,7 +279,7 @@ class GeometryConverter():
         # can also be confirmed comparing to here:
         # https://gssc.esa.int/navipedia/index.php/Transformations_between_ECEF_and_ENU_coordinates
 
-    def convert_cartesian_to_transformed_cartesian(
+    def ecef2enu(
         self, x, y, z, *, translate=None
     ):
         """Transform points by the same transformation required to bring reference to (0,0,0).
@@ -314,7 +313,7 @@ class GeometryConverter():
         # rotate so axis are same as ENU
         return self.rotation.apply(xyz).T
 
-    def revert_transformed_cartesian_to_cartesian(
+    def enu2ecef(
         self, x2, y2, z2, *, translate=None
     ):
         """Reverse transformed points by the same transformation required to bring reference to (0,0,0).
@@ -350,7 +349,7 @@ class GeometryConverter():
         # translate earth reference back to its original ecef coord
         return (xyz + translate_val[np.newaxis, :]).T
 
-    def convert_lla_to_transformed_cartesian(
+    def lla2enu(
         self, lat: np.array, long: np.array, alt: np.array
     ):
         """Convert latitude, longitude, altitude to transformed cartesian coordinates.
@@ -375,9 +374,9 @@ class GeometryConverter():
         # get cartesian position by geodesical
         x, y, z = lla2ecef(lat, long, alt)
 
-        return self.convert_cartesian_to_transformed_cartesian(x, y, z)
+        return self.ecef2enu(x, y, z)
 
-    def convert_station_3d_to_2d(
+    def station_ecef2enu(
         self, station: StationManager, idx=None
     ) -> None:
         """In-place rotate and translate all coordinates so that reference parameters end up in (0,0,0).
@@ -394,10 +393,10 @@ class GeometryConverter():
         """
         # transform positions
         if idx is None:
-            nx, ny, nz = self.convert_cartesian_to_transformed_cartesian(
+            nx, ny, nz = self.ecef2enu(
                 station.x, station.y, station.z)
         else:
-            nx, ny, nz = self.convert_cartesian_to_transformed_cartesian(
+            nx, ny, nz = self.ecef2enu(
                 station.x[idx], station.y[idx], station.z[idx])
 
         if idx is None:
@@ -414,7 +413,7 @@ class GeometryConverter():
 
         # transform pointing vectors, without considering geodesical earth
         # coord system
-        pointing_vec_x, pointing_vec_y, pointing_vec_z = self.convert_cartesian_to_transformed_cartesian(
+        pointing_vec_x, pointing_vec_y, pointing_vec_z = self.ecef2enu(
             pointing_vec_x, pointing_vec_y, pointing_vec_z, translate=0)
 
         if idx is None:
@@ -435,7 +434,7 @@ class GeometryConverter():
             station.azimuth[idx] = azimuth
             station.elevation[idx] = elevation
 
-    def revert_station_2d_to_3d(
+    def station_enu2ecef(
         self, station: StationManager, idx=None
     ) -> None:
         """In-place rotate and translate all coordinates so that reference parameters end up in (0,0,0).
@@ -452,10 +451,10 @@ class GeometryConverter():
         """
         # transform positions
         if idx is None:
-            nx, ny, nz = self.revert_transformed_cartesian_to_cartesian(
+            nx, ny, nz = self.enu2ecef(
                 station.x, station.y, station.z)
         else:
-            nx, ny, nz = self.revert_transformed_cartesian_to_cartesian(
+            nx, ny, nz = self.enu2ecef(
                 station.x[idx], station.y[idx], station.z[idx])
 
         if idx is None:
@@ -472,7 +471,7 @@ class GeometryConverter():
 
         # transform pointing vectors, without considering geodesical earth
         # coord system
-        pointing_vec_x, pointing_vec_y, pointing_vec_z = self.revert_transformed_cartesian_to_cartesian(
+        pointing_vec_x, pointing_vec_y, pointing_vec_z = self.enu2ecef(
             pointing_vec_x, pointing_vec_y, pointing_vec_z, translate=0)
 
         if idx is None:
@@ -517,7 +516,7 @@ def get_lambert_equal_area_crs(polygon: shp.geometry.Polygon):
     )
 
 
-def shrink_country_polygon_by_km(
+def shrink_lonlat_polygon_by_km(
     polygon: shp.geometry.Polygon, km: float
 ) -> shp.geometry.Polygon:
     """Project a Polygon to Lambert Azimuthal Equal Area, shrink by km, and reproject back.
@@ -540,8 +539,11 @@ def shrink_country_polygon_by_km(
     Notes
     -----
     Check for polygon validity after transformation:
-        if poly.is_valid: raise Exception("bad polygon")
-        if not poly.is_empty and poly.area > 0: continue # ignore
+        if (not self._polygon.is_valid
+            or self._polygon.is_empty
+            or self._polygon.area <= 0
+        ):
+            raise Exception("bad polygon")
     """
     # Lambert is more precise, but could prob. get UTM projection
     # Didn't see any practical difference for current use cases
@@ -586,10 +588,10 @@ def shrink_countries_by_km(
 
     for ext_poly in countries:
         if ext_poly.geom_type == 'Polygon':
-            polys.append(shrink_country_polygon_by_km(ext_poly, km))
+            polys.append(shrink_lonlat_polygon_by_km(ext_poly, km))
         elif ext_poly.geom_type == 'MultiPolygon':
             polys.append(shp.ops.unary_union([
-                shrink_country_polygon_by_km(poly, km) for poly in ext_poly.geoms
+                shrink_lonlat_polygon_by_km(poly, km) for poly in ext_poly.geoms
             ]))
 
     for poly in polys:
@@ -789,13 +791,13 @@ if __name__ == "__main__":
 
     # print(get_rotation_matrix_between_vecs(np.array([0,1,0]), np.array([0,0,1])))
 
-    geoconv = GeometryConverter()
+    coord_sys = CoordinateSystem()
 
     sys_lat = 89
     sys_long = 0
     sys_alt = 1200
 
-    # geoconv.set_reference(
+    # coord_sys.set_reference(
     #     sys_lat, sys_long, sys_alt
     # )
     # stat = StationManager(1)
@@ -814,7 +816,7 @@ if __name__ == "__main__":
     # print("stat.azimuth", stat.azimuth)
     # print("stat.elevation", stat.elevation)
     # print("#########")
-    # geoconv.convert_station_3d_to_2d(stat)
+    # coord_sys.station_ecef2enu(stat)
     # print("#########")
 
     # print("stat.x", stat.x)

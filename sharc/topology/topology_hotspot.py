@@ -137,7 +137,7 @@ class TopologyHotspot(Topology):
                                 "ERROR\nInfinite loop while creating hotspots.\n \
                                 Try less hotspots per cell or greater macro cell intersite distance.\n",
                             )
-                            sys.exit(1)
+                            return
                 # if num_attempts > 1: print("number of attempts: {}".format(num_attempts))
             x0, y0 = 0.0, 10000.0
             a, b = 4100.0, 450.0  # semi-comprimentos (m)
@@ -294,7 +294,7 @@ class TopologyHotspot(Topology):
 
 if __name__ == '__main__':
     param = ParametersHotspot()
-    param.num_hotspots_per_cell = 5
+    param.num_hotspots_per_cell = 8
 
     param.max_dist_hotspot_ue = 400
     param.min_dist_bs_hotspot = 0

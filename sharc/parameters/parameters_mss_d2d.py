@@ -4,6 +4,7 @@ from sharc.parameters.parameters_base import ParametersBase
 from sharc.parameters.parameters_orbit import ParametersOrbit
 from sharc.parameters.imt.parameters_imt_mss_dc import ParametersSelectActiveSatellite, ParametersSectorPositioning
 from sharc.parameters.parameters_p619 import ParametersP619
+from sharc.parameters.parameters_antenna import ParametersAntenna
 from sharc.parameters.antenna.parameters_antenna_s1528 import ParametersAntennaS1528
 
 
@@ -177,8 +178,7 @@ class ParametersMssD2d(ParametersBase):
         """
         Propagate relevant parameters to nested antenna and beam positioning objects.
         """
-        self.antenna_s1528.set_external_parameters(
-            antenna_pattern=self.antenna_pattern,
+        self.antenna.set_external_parameters(
             frequency=self.frequency,
             bandwidth=self.bandwidth,
         )

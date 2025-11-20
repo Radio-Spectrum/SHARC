@@ -28,77 +28,57 @@ from shapely.geometry import Point, Polygon, MultiPolygon
 from shapely.ops import unary_union
 
 from sharc.topology.topology import Topology
-from sharc.support.sharc_geom import GeometryConverter
 from sharc.satellite.ngso.constants import EARTH_DEFAULT_CRS
+from sharc.parameters.imt.parameters_Countries_imt import ParametersCountries
+from sharc.support.sharc_geom_countries import GeometryConverter
 
-
-# ----------------------- Parameters -----------------------
-
-@dataclass
-class ParametersCountries:
-    # Selection / counts
-    country_names: List[str] = field(default_factory=list)
-    bs_per_country: Dict[str, int] = field(default_factory=dict)
-    num_bs_total: Optional[int] = None
-
-    # Radio geometry
-    cell_radius: float = 1000.0
-    fixed_azimuth: Optional[float] = None
-
-    # Randomness
-    rng_seed: Optional[int] = None
-
-    # Data sources
-    countries_shapefile: Optional[str] = None
-    population_raster: Optional[str] = None  # EPSG:4326 GeoTIFF
-
-    # Raster encoding: "density" (ppl/km²), "count" (people/pixel), or "indexed" (0..255 palette)
-    raster_encoding: str = "density"
-
-    # For "indexed" rasters only: legend mapping
-    sedac_palette_mode: str = "log"      # "log" or "linear"
-    sedac_min: float = 1.0               # ppl/km² (legend min)
-    sedac_max: float = 1e4               # ppl/km² (legend max)
-    index_nodata: Tuple[int, ...] = (0, 255)  # palette indices treated as NoData/water
-    act_colormap_path: Optional[str] = None   # optional ACT to extend "white-ish" as NoData
-
-    # Pixel-area correction method
-    pixel_area_method: str = "spherical"  # "spherical" | "coslat" | "none"
-
-    # Sampling controls (applied in sampling ONLY; not used in country totals)
-    min_density_threshold: float = 0.0    # ppl/km² threshold (after mapping)
-    density_exponent: float = 1.0         # >1 boosts dense areas in sampling
-
-    # Geometry cleanup
-    mask_inland_water: bool = True        # subtract Natural Earth lakes from polygons
-
-    # NEW: density-band placement
-    dist_type: Optional[str] = None               # "Urban" | "Suburban" | "Rural" (case-insensitive)
-    dist_density_min: Optional[float] = None      # ppl/km² (explicit band; overrides dist_type if set)
-    dist_density_max: Optional[float] = None      # ppl/km² (explicit band; overrides dist_type if set)
-
+_WGS84_A  = 6378137.0                 # semi-major axis [m]
+_WGS84_F  = 1.0 / 298.257223563
+_WGS84_E2 = _WGS84_F * (2.0 - _WGS84_F)
 
 # ----------------------- Topology -----------------------
 
+
 class TopologyCountries(Topology):
+
     """
     Distributes BS positions across selected countries in WGS84 and converts to
-    the transformed Cartesian frame defined by the provided GeometryConverter.
+    .
     """
 
     def __init__(self,
                  params: ParametersCountries,
-                 geometry_converter: GeometryConverter,
-                 random_number_gen: Optional[np.random.RandomState] = None):
-        self.geometry_converter = geometry_converter
+                 geometry_converter,
+                 random_number_gen: np.random.RandomState | None = None):
         self.params = params
-        self.cell_radius = params.cell_radius
-        self.intersite_distance = self.cell_radius * np.sqrt(3)
+        self.geometry_converter = geometry_converter
+        self.rng = random_number_gen if random_number_gen is not None \
+                   else np.random.RandomState(params.rng_seed)
+
+        # Buffers (serão preenchidos em calculate_coordinates)
+        self.countries: List[str] = list(params.country_names)
+        self.country_polys: Dict[str, Polygon | MultiPolygon] = {}
+        self.country_index = np.empty(0, dtype=object)
+
+        self.lats = np.empty(0, dtype=float)
+        self.lons = np.empty(0, dtype=float)
+
+        self.x = np.empty(0, dtype=float)
+        self.y = np.empty(0, dtype=float)
+        self.z = np.empty(0, dtype=float)
+        self.height = np.empty(0, dtype=float)
+        self.azimuth = np.empty(0, dtype=float)
+        self.num_base_stations: int = 0
 
         self.rng = random_number_gen if random_number_gen is not None \
             else np.random.RandomState(params.rng_seed)
 
+    def calculate_coordinates(self,
+                            random_number_gen: np.random.RandomState | None = None) -> "TopologyCountries":
         # Load country polygons (WGS84)
+        params = self.params
+        self.cell_radius = params.cell_radius
+        self.height = params.height
         ne = self._load_countries_gdf(params.countries_shapefile)
 
         if not params.country_names:
@@ -232,11 +212,9 @@ class TopologyCountries(Topology):
         self.lons = np.array(lons)
         self.lats = np.array(lats)
         self.country_index = np.array(country_ix)
-
+        self.height = np.ones(self.num_base_stations) * self.height
         # Convert to transformed Cartesian (simulation coordinates)
-        x, y, z = self.geometry_converter.convert_lla_to_transformed_cartesian(
-            self.lats, self.lons, np.zeros(self.num_base_stations)
-        )
+        x, y, z = self._lla_to_ecef(self.lats, self.lons, self.height)
         self.x = np.array(x)
         self.y = np.array(y)
         self.z = np.array(z)
@@ -248,10 +226,25 @@ class TopologyCountries(Topology):
             self.azimuth = self.rng.uniform(-180.0, 180.0, size=self.num_base_stations)
 
         # Placeholders for StationFactory expectations
-        self.height = np.zeros(self.num_base_stations)
         self.elevation = np.zeros(self.num_base_stations)
 
+        return self
     # ---------- helpers ----------
+    @staticmethod
+    def _lla_to_ecef(lat_deg, lon_deg, height):
+        """Vectorized geodetic (deg,deg,m) -> ECEF XYZ (m) on WGS-84."""
+        lat = np.radians(np.asarray(lat_deg, dtype=float))
+        lon = np.radians(np.asarray(lon_deg, dtype=float))
+        h   = np.asarray(height, dtype=float)
+
+        sl, cl = np.sin(lat), np.cos(lat)
+        sb, cb = np.sin(lon), np.cos(lon)
+
+        N = _WGS84_A / np.sqrt(1.0 - _WGS84_E2 * sl * sl)
+        X = (N + h) * cl * cb
+        Y = (N + h) * cl * sb
+        Z = (N * (1.0 - _WGS84_E2) + h) * sl
+        return X, Y, Z
 
     def _load_countries_gdf(self, shapefile_path: Optional[str]) -> gpd.GeoDataFrame:
         if shapefile_path:
@@ -350,7 +343,7 @@ class TopologyCountries(Topology):
         elif key == "suburban":
             return (300.0, 1500.0)
         elif key == "rural":
-            return (10.0, 300.0)
+            return (0.0, 300.0)
         else:
             raise ValueError(f"Unknown dist_type '{p.dist_type}'. Use 'Urban', 'Suburban', or 'Rural'.")
 
@@ -675,13 +668,12 @@ if __name__ == "__main__":
     num_bs = 5000
     rng_seed = 42
     cell_radius_m = 400.0  # 10 km
-
+    dist_type = "Urban"         # "Urban" | "Suburban" | "Rural" | None
     # Shapefile (or set to None to auto-download Natural Earth via cartopy/geodatasets)
-    shapefile_path = r"C:\Achiles\SHARC\sharc\topology\map\ne_110m_admin_0_countries.shp"
+    shapefile_path = Path.cwd() / "sharc" / "topology" / "map" / "ne_110m_admin_0_countries.shp"
 
     # Population raster (set to None to sample uniformly by area)
     population_raster_path = Path.cwd() / "sharc" / "topology" / "map" / "SEDAC_map2.tiff"
-
     # Raster type:
     #   "density" = people per km² (e.g., GPWv4 density GeoTIFF)
     #   "count"   = people per pixel
@@ -701,29 +693,53 @@ if __name__ == "__main__":
     # Countries (Americas example)
     countries_americas = [
         # South America
-        "Brazil", "Argentina", "Uruguay", "Paraguay", "Chile",
-        "Bolivia", "Peru", "Ecuador", "Colombia", "Venezuela",
-        "Guyana", "Suriname",
-        # Central America
-        "Belize", "Guatemala", "El Salvador", "Honduras",
-        "Nicaragua", "Costa Rica", "Panama",
-        # North America
-        "Mexico", "United States of America", "Canada",
-        # Caribbean (sample)
-        "Cuba", "Haiti", "Dominican Republic", "Jamaica",
-        "Trinidad and Tobago"
+        "Brazil"
     ]
+    # countries_americas = [
+    #    # Europe
+    #    "Albania", "Austria", "Belgium", "Bosnia and Herzegovina",
+    #    "Bulgaria", "Croatia", "Cyprus", "Czechia", "Denmark", "Estonia",
+    #    "Finland", "France", "Germany", "Greece", "Hungary", "Iceland",
+    #    "Ireland", "Italy", "Latvia", "Lithuania",
+    #    "Luxembourg", "Montenegro", "Netherlands",
+    #    "North Macedonia", "Norway", "Poland", "Portugal", "Romania",
+    #    "Slovakia", "Slovenia", "Spain", "Sweden",
+    #    "Switzerland", "Ukraine", "United Kingdom",
+    
+    #    # Africa
+    #    "Algeria", "Angola", "Benin", "Botswana", "Burkina Faso", "Burundi",
+    #    "Cameroon", "Central African Republic", "Chad",
+    #    "Democratic Republic of the Congo", "Djibouti",
+    #    "Egypt", "Equatorial Guinea", "Eritrea", "Ethiopia", "Gabon",
+    #    "Gambia", "Ghana", "Guinea", "Guinea-Bissau", "Kenya", "Lesotho",
+    #    "Liberia", "Libya", "Madagascar", "Malawi", "Mali", "Mauritania",
+    #    "Morocco", "Mozambique", "Namibia", "Niger", "Nigeria",
+    #    "Rwanda", "Senegal",
+    #    "Sierra Leone", "Somalia", "South Africa", "South Sudan", "Sudan",
+    #    "Togo", "Tunisia", "Uganda", "Zambia", "Zimbabwe",
+
+    #    # Middle East (west of the Persian Gulf, incl. Iraq)
+    #     "Iran", "Iraq", "Israel", "Jordan", "Kuwait", "Lebanon",
+    #    "Oman", "Qatar", "Saudi Arabia", "Syria",
+    #    "United Arab Emirates", "Yemen",
+
+    #    # Former Soviet Union (Region 1 portion)
+    #    "Armenia", "Azerbaijan", "Belarus", "Georgia", "Kazakhstan",
+    #    "Kyrgyzstan", "Moldova", "Russia", "Tajikistan", "Turkmenistan",
+    #    "Uzbekistan",
+    # ]
+
+
 
     # NEW: pick a distribution band (choose ONE of the two options below)
     # Option A: use named band
-    dist_type = "Urban"         # "Urban" | "Suburban" | "Rural" | None
+
     # Option B: explicit band (overrides dist_type if uncommented)
-    # dist_density_min = 800.0
-    # dist_density_max = 6000.0
+    # dist_density_min = 300.0
+    # dist_density_max = 10000.0
 
     # ============ Build topology ============
-    geoconv = GeometryConverter()
-    geoconv.set_reference(-15.793889, -47.882778, 0.0)  # Brasília
+
 
     params = ParametersCountries(
         country_names=countries_americas,
@@ -732,27 +748,20 @@ if __name__ == "__main__":
         cell_radius=cell_radius_m,
         countries_shapefile=shapefile_path,
         population_raster=population_raster_path,
+        height=18,
 
         raster_encoding=raster_encoding,
         sedac_palette_mode=sedac_palette_mode,
-        sedac_min=sedac_min,
-        sedac_max=sedac_max,
-        index_nodata=index_nodata,
-
         pixel_area_method="spherical",
-        min_density_threshold=min_density_threshold,
-        density_exponent=density_exponent,
-
-        mask_inland_water=True,
 
         # NEW: band settings
         dist_type=dist_type,
-        # dist_density_min=dist_density_min,
-        # dist_density_max=dist_density_max,
     )
 
-    topo = TopologyCountries(params, geoconv)
-
+    geoconv = GeometryConverter()
+    geoconv.set_reference(-15.793889, -47.882778, 0.0)
+    topo = TopologyCountries(params, geoconv).calculate_coordinates()
+    
     # ============ Figure: Map (left) + BS-per-country (right) ============
     fig = plt.figure(figsize=(14, 9))
     gs = fig.add_gridspec(1, 2, width_ratios=[2.2, 1.0], wspace=0.22)
@@ -784,7 +793,7 @@ if __name__ == "__main__":
     # “Pizza” azimuth wedges for a subset (to avoid clutter)
     max_wedges = 1500
     step = max(1, topo.num_base_stations // max_wedges)  # draw every 'step' stations
-    half_bw_deg = 30  # 60° sector total width
+    half_bw_deg = 60  # 60° sector total width
 
     for lon, lat, az in zip(topo.lons[::step], topo.lats[::step], topo.azimuth[::step]):
         # Convert cell radius (meters) to degrees at this latitude
@@ -827,4 +836,5 @@ if __name__ == "__main__":
         label.set_fontsize(9)
 
     fig.tight_layout()
+
     plt.show()

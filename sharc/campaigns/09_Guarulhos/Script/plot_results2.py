@@ -1,58 +1,66 @@
 """
-Script for post-processing and plotting IMT HIBS RAS 2600 MHz simulation results.
-Keeps original loading/filtering logic and adds a second Monte Carlo aggregation
-over system_dl_interf_power_per_mhz with CCDF plotting.
+Post-processing IMT HIBS RAS 2600 MHz.
 
-Tested with SHARC PostProcessor that does NOT support attr_name in
-generate_ccdf_plots_from_results.
+- Plots CCDF "originais" por arquivo (via PostProcessor)
+- 1º Monte Carlo por arquivo (dl_interf_power_mc_sum_dBm) – opcional
+- 2º Monte Carlo MISTO (3G + 6G) POR DISTÂNCIA (e N),
+  usando MC_K_MIXED amostras de cada propagador,
+  gerando três vetores por par:
+    * dl_interf_power_mc2_3g_dBm   (3G-only)
+    * dl_interf_power_mc2_6g_dBm   (6G-only)
+    * dl_interf_power_mc2_mix_dBm  (3G+6G misto)
+
+As CCDFs finais de 3G, 6G e MISTO são todas baseadas neste 2º Monte Carlo.
 """
 
 import os
 from pathlib import Path
+import re
 import numpy as np
 import plotly.graph_objects as go
 
 from sharc.results import Results
 from sharc.post_processor import PostProcessor
 
-
 # =========================
 # Configuração da Campanha
 # =========================
 
-# ======================================================================
-# === SEGUNDO MONTE CARLO (adicionado após a leitura dos arquivos) ====
-# ======================================================================
-
-# Parâmetros do 2º Monte Carlo
-MC_ATTR_IN    = "system_dl_interf_power_per_mhz"   # dBm (por MHz)
-MC_ATTR_OUT   = "dl_interf_power_mc_sum_dBm"       # novo vetor agregado (dBm/100MHz)
-MC_K          = 35          # nº de amostras aleatórias por somatório
-MC_N_SAMPLES  = 10000       # nº de trials do 2º Monte Carlo
+MC_ATTR_IN    = "system_dl_interf_power_per_mhz"   # dBm/MHz (saída do SHARC)
+MC_ATTR_OUT   = "dl_interf_power_mc_sum_dBm"       # 1º MC (por arquivo) – opcional
+MC_N_SAMPLES  = 10000
 MC_SEED       = 12345
-DB_PER_100MHZ = 20.0 - 6    # converter de dBm/MHz -> dBm/100MHz (+6 dB de filtro)
+DB_PER_100MHZ = 20 - 6  # dBm/MHz -> dBm/100MHz (+6 dB filtro)
 
-## Definition of plot variable (what to plot)
-n_array = [4, 8]
-propag = ['', "FS_"]            # '' e 'FS_' (duas opções de prefixo)
-N = 15                          # número de pontos/distâncias
-max_dist_km = 30000             # distância máxima ao centro da pista (km)
-aux = (np.linspace(0, max_dist_km, N))
-distances_km = [int(val) for val in aux]
-distances_km = [2142, 6428, 15000, 23571]  # exemplo: subconjunto de distâncias
+# 2º Monte Carlo MISTURADO (OPÇÃO A, por par 3G/6G, POR DISTÂNCIA)
+MC_K_MIXED = {
+    '':    int(6000 / (57 * 3)),   # nº de amostras da distribuição 3G
+    '6G_': int(6000 / (57 * 3)),   # nº de amostras da distribuição 6G
+}
 
-## Graphics adjustments
+MC2_3G_ATTR  = "dl_interf_power_mc2_3g_dBm"
+MC2_6G_ATTR  = "dl_interf_power_mc2_6g_dBm"
+MC2_MIX_ATTR = "dl_interf_power_mc2_mix_dBm"
+
+# Grupos
+n_array      = [4, 8, 16]
+propag       = ['', "6G_"]
+distances_km = [1000, 2000, 15000, 20000, 30000]
+
 cutoff_percentage = 0.001
-shift_scale = 0                 # Segment Factor + Filtro (originais)
-legenda_INR_potencia = "INR [dB]"
+shift_scale       = 0.0
+
 legenda_dens_potencia = "dBm"
 
-# Change default legend to the shifted
+# =======================
+# PostProcessor básico
+# =======================
 post_processor = PostProcessor()
-post_processor.RESULT_FIELDNAME_TO_PLOT_INFO['system_inr']['x_label'] = legenda_dens_potencia
-post_processor.RESULT_FIELDNAME_TO_PLOT_INFO['system_dl_interf_power_per_mhz']['x_label'] = legenda_dens_potencia
+post_processor.RESULT_FIELDNAME_TO_PLOT_INFO[MC_ATTR_IN]["x_label"] = legenda_dens_potencia
 
-# Build sorted combinations (mantido)
+# =======================
+# Construção de padrões
+# =======================
 combinations = [
     (b, a, s)
     for b in sorted(propag)
@@ -60,54 +68,48 @@ combinations = [
     for s in sorted(distances_km)
 ]
 
-# Mapa auxiliar para reproduzir as mesmas legendas em qualquer plot
 PATTERN_TO_LEGEND = {}
 valid_patterns = []
 
-# Add them in sorted order (mantido)
 for b, a, s in combinations:
     alt = np.round(s * np.tan(np.deg2rad(3)))
     pattern = f"{b}array_{a}_approach_{s}m"
-    if b == 'FS_':
-        legend = f"FS - N={a} d ={format(int(s), '05d')}m - alt = {alt}"
+    if b == "6G_":
+        legend = f"6G - N={a} d={s:05d}m - alt={alt}"
     else:
-        legend = f"P528 - N={a} d ={format(int(s), '05d')}m - alt = {alt}"
+        legend = f"3G - N={a} d={s:05d}m - alt={alt}"
+
     post_processor.add_plot_legend_pattern(
         dir_name_contains=pattern,
         legend=legend
     )
-    valid_patterns.append(pattern)
     PATTERN_TO_LEGEND[pattern] = legend
+    valid_patterns.append(pattern)
 
-import os, re
-
-_pat = re.compile(r'(FS_)?array_(\d+)_approach_(\d+)m')
+# Regex: extrai propag, N, distância
+_pat = re.compile(r'(6G_)?array_(\d+)_approach_(\d+)m')
 
 def _sort_key(res):
-    # use output_directory/dir_path to extract (propag, N, distance)
     base = os.path.basename(getattr(res, "output_directory", "") or
                             getattr(res, "dir_path", ""))
     m = _pat.search(base)
     if not m:
-        return (99, 99, 10**12)           # push unknowns to the end
-    propag = m.group(1) or ""             # '' or 'FS_'
-    N      = int(m.group(2))
-    dist   = int(m.group(3))
-    propag_rank = {"": 0, "FS_": 1}.get(propag, 9)
-    return (propag_rank, N, dist)         # sort by propag, then N, then distance
+        return (99, 99, 10**12)
+    prop = m.group(1) or ""
+    N    = int(m.group(2))
+    dist = int(m.group(3))
+    prop_rank = {"": 0, "6G_": 1}.get(prop, 9)
+    return (prop_rank, N, dist)
 
-# Define filter function (mantido)
-filter_fn = lambda dir_path: any(
-    pattern in os.path.basename(dir_path) for pattern in valid_patterns
-)
-
+# ==================================
+# Carregar resultados da campanha
+# ==================================
 campaign_base_dir = str((Path(__file__) / ".." / "..").resolve())
 
+def filter_fn(dir_path: str) -> bool:
+    base = os.path.basename(dir_path)
+    return any(pattern in base for pattern in valid_patterns)
 
-
-
-
-# === (MANTIDO) Carrega TODOS os resultados dos diretórios filtrados ===
 many_results = Results.load_many_from_dir(
     os.path.join(campaign_base_dir, "output_dl"),
     only_latest=True,
@@ -124,230 +126,280 @@ many_results.sort(key=_sort_key)
 
 post_processor.add_results(many_results)
 
-
-# ---------------- Helpers p/ legenda idêntica ----------------
-def _legend_for_result(res) -> str:
-    """
-    Retorna a legenda (texto) para um objeto Results, reutilizando os mesmos
-    patterns usados nos plots originais. Usa o basename do diretório para casar.
-    """
-    base = ""
-    for attr in ("dir_path", "base_dir", "directory", "path"):
-        if hasattr(res, attr) and getattr(res, attr):
-            base = os.path.basename(str(getattr(res, attr)))
-            break
-
-    if base:
-        for pattern, legend in PATTERN_TO_LEGEND.items():
-            if pattern in base:
-                return legend
-
-    # Fallbacks
-    return getattr(res, "name", None) or getattr(res, "label", None) or (base or "Resultado")
-
-
-# ---------------- 2º Monte Carlo: soma em mW e volta a dBm -------------
-# Blindagem de tipos (evita TypeError no rng.choice se vierem como float)
-MC_K = int(np.round(MC_K))
-MC_N_SAMPLES = int(np.round(MC_N_SAMPLES))
-
-rng = np.random.default_rng(MC_SEED)
-
-def legend_from_output_dir(output_dir: str,
-                           pattern_to_legend: dict[str, str],
-                           valid_patterns: list[str]) -> tuple[str | None, str | None]:
-    base = os.path.basename(output_dir.rstrip(os.sep))
-    # find all patterns contained in the basename (handles timestamp suffixes)
-    matches = [p for p in valid_patterns if p in base]
-    if not matches:
-        return None, None
-    # prefer the longest match (most specific)
-    pattern = max(matches, key=len)
-    return pattern, pattern_to_legend.get(pattern)
-
-def _mc_sum_dBm(x_dBm: np.ndarray, k: int, n_trials: int) -> np.ndarray:
-    """
-    Escolhe k amostras aleatórias (com reposição) de x_dBm (por MHz),
-    soma em mW e retorna o somatório em dBm.
-    """
-    # Garante inteiros (podem vir como float)
-    k = int(np.round(k))
-    n_trials = int(np.round(n_trials))
-
-    x = np.asarray(x_dBm, dtype=float)
+# ==========================================================
+# 1º Monte Carlo simples (por arquivo) – opcional
+# ==========================================================
+def mc_sum_dBm_per_file(x_dBm, k, n_trials, seed=MC_SEED):
+    x = np.asarray(x_dBm, float)
     x = x[np.isfinite(x)]
     if x.size == 0 or k <= 0 or n_trials <= 0:
         return np.array([])
 
-    # Converte para escala linear (mW), soma e volta para dBm
-    x_mW = 10.0 ** (x / 10.0)
-    draws = rng.choice(x_mW, size=(n_trials, k), replace=True)  # (n_trials, k)
-    sums_mW = draws.sum(axis=1)
-    return 10.0 * np.log10(sums_mW)
+    x_mW = 10 ** (x / 10)
+    rng = np.random.default_rng(seed)
+    draws = rng.choice(x_mW, size=(n_trials, k), replace=True)
+    sums = draws.sum(axis=1)
+    return 10 * np.log10(sums)
 
-# Para cada Results, cria o vetor agregado e salva como novo atributo
-for res in getattr(post_processor, "results", []):
-    x_dBm = getattr(res, MC_ATTR_IN, None)
-    if x_dBm is None:
+MC_K_original = int(round(6000 / (57 * 3)))
+
+for res in many_results:
+    x = getattr(res, MC_ATTR_IN, None)
+    if x is None:
         continue
-    sums_dBm = _mc_sum_dBm(x_dBm, k=MC_K, n_trials=MC_N_SAMPLES)
-    setattr(res, MC_ATTR_OUT, sums_dBm)
+    out = mc_sum_dBm_per_file(x, MC_K_original, MC_N_SAMPLES)
+    setattr(res, MC_ATTR_OUT, out)
 
-# Registra metadados de plot para o novo atributo (para a pipeline CCDF do SHARC)
 post_processor.RESULT_FIELDNAME_TO_PLOT_INFO[MC_ATTR_OUT] = dict(
     x_label=legenda_dens_potencia
 )
 
-# ======================================================================
-# === (MANTIDO) Plots “originais” (per-MHz) no post_processor ==========
-# ======================================================================
+# ===================================================================================
+# 2º MONTE-CARLO (3G-only, 6G-only e MISTO) POR DISTÂNCIA (e N)
+# ===================================================================================
+def collect_attr_for_res_list(res_list, attr_name):
+    vals = []
+    for r in res_list:
+        v = getattr(r, attr_name, None)
+        if v is not None:
+            arr = np.asarray(v, float)
+            arr = arr[np.isfinite(arr)]
+            if arr.size:
+                vals.append(arr)
+    if not vals:
+        return np.array([])
+    return np.concatenate(vals)
+
+def mc_single_distribution(x_dBm, k, n_trials, seed=MC_SEED):
+    """
+    Monte-Carlo para uma única distribuição (3G-only ou 6G-only).
+    Retorna dBm/100MHz (já com DB_PER_100MHZ somado).
+    """
+    x = np.asarray(x_dBm, float)
+    x = x[np.isfinite(x)]
+    if x.size == 0 or k <= 0 or n_trials <= 0:
+        return np.array([])
+
+    x_mW = 10 ** (x / 10)
+    rng = np.random.default_rng(seed)
+    draws = rng.choice(x_mW, size=(n_trials, k), replace=True)
+    sums = draws.sum(axis=1)
+    out_dBm = 10 * np.log10(sums) + DB_PER_100MHZ
+    return out_dBm
+
+def mc_mixed_two_distributions(x3_dBm, x6_dBm, k_dict, n_trials, seed=MC_SEED):
+    """
+    Monte-Carlo misto para um par (3G, 6G):
+    - x3_dBm: amostras 3G (dBm/MHz)
+    - x6_dBm: amostras 6G (dBm/MHz)
+    Retorna vetor em dBm/100MHz (já com DB_PER_100MHZ somado).
+    """
+    x3 = np.asarray(x3_dBm, float)
+    x3 = x3[np.isfinite(x3)]
+    x6 = np.asarray(x6_dBm, float)
+    x6 = x6[np.isfinite(x6)]
+
+    if x3.size == 0 or x6.size == 0:
+        return np.array([])
+
+    x3_mW = 10 ** (x3 / 10)
+    x6_mW = 10 ** (x6 / 10)
+
+    k3 = int(k_dict[''])
+    k6 = int(k_dict['6G_'])
+
+    if k3 <= 0 or k6 <= 0 or n_trials <= 0:
+        return np.array([])
+
+    rng = np.random.default_rng(seed)
+    draws3 = rng.choice(x3_mW, size=(n_trials, k3), replace=True)
+    draws6 = rng.choice(x6_mW, size=(n_trials, k6), replace=True)
+
+    sums_mW = draws3.sum(axis=1) + draws6.sum(axis=1)
+    out_dBm = 10 * np.log10(sums_mW) + DB_PER_100MHZ
+    return out_dBm
+
+# Mapa (N, dist) -> {'': [res_3G...], '6G_': [res_6G...]}
+pairs_map = {}
+
+for res in many_results:
+    base = os.path.basename(getattr(res, "output_directory", "") or
+                            getattr(res, "dir_path", ""))
+    m = _pat.search(base)
+    if not m:
+        continue
+    prop = m.group(1) or ""
+    N    = int(m.group(2))
+    dist = int(m.group(3))
+
+    key = (N, dist)
+    d = pairs_map.setdefault(key, {'': [], '6G_': []})
+    d[prop].append(res)
+
+# Para cada par com 3G + 6G, calcula MC2 (3G-only, 6G-only, MISTO)
+for (N, dist), d in pairs_map.items():
+    res_list_3g = d['']
+    res_list_6g = d['6G_']
+
+    if not res_list_3g or not res_list_6g:
+        continue
+
+    x3 = collect_attr_for_res_list(res_list_3g, MC_ATTR_IN)
+    x6 = collect_attr_for_res_list(res_list_6g, MC_ATTR_IN)
+
+    mc2_3g  = mc_single_distribution(x3, MC_K_MIXED[''],    MC_N_SAMPLES, seed=MC_SEED)
+    mc2_6g  = mc_single_distribution(x6, MC_K_MIXED['6G_'], MC_N_SAMPLES, seed=MC_SEED)
+    mc2_mix = mc_mixed_two_distributions(x3, x6, MC_K_MIXED, MC_N_SAMPLES, seed=MC_SEED)
+
+    if mc2_3g.size == 0 or mc2_6g.size == 0 or mc2_mix.size == 0:
+        continue
+
+    # Guarda MC2_3G e MC2_MIX no primeiro Results 3G do par
+    res3 = res_list_3g[0]
+    setattr(res3, MC2_3G_ATTR,  mc2_3g)
+    setattr(res3, MC2_MIX_ATTR, mc2_mix)
+
+    # Guarda MC2_6G no primeiro Results 6G do par
+    res6 = res_list_6g[0]
+    setattr(res6, MC2_6G_ATTR,  mc2_6g)
+
+# =============================================================
+# CCDF auxiliar
+# =============================================================
+def ccdf(x):
+    x = np.asarray(x, float)
+    x = x[np.isfinite(x)]
+    if x.size == 0:
+        return np.array([]), np.array([])
+    xs = np.sort(x)
+    n = xs.size
+    y = 1.0 - (np.arange(1, n + 1) / (n + 1.0))
+    return xs, y
+
+# Legenda a partir do diretório (mantendo a legenda original)
+def legend_for_result(res):
+    base = os.path.basename(getattr(res, "output_directory", "") or
+                            getattr(res, "dir_path", ""))
+    for pattern, legend in PATTERN_TO_LEGEND.items():
+        if pattern in base:
+            return legend
+    return base or "Resultado"
+
+# =============================================================
+# 1) Plots originais (per-MHz e 1º MC) via PostProcessor
+# =============================================================
 plots_orig = post_processor.generate_ccdf_plots_from_results(
     many_results,
     cutoff_percentage=cutoff_percentage,
-    shift_scale=shift_scale,  # mantendo como no seu script atual
+    shift_scale=shift_scale,
     legenda_dens_potencia=legenda_dens_potencia
 )
 post_processor.add_plots(plots_orig)
 
-# ======================================================================
-# === (NOVO) Plots do agregado (2º MC) EM UM PROCESSOR SEPARADO ========
-# ======================================================================
+# =============================================================
+# 2) Plot manual – 3G-only (2º MC) por distância
+# =============================================================
+results_3g_mc2 = [
+    r for r in many_results
+    if getattr(r, MC2_3G_ATTR, None) is not None
+]
 
-# Cria um segundo PostProcessor só para o agregado
-mc_post_processor = PostProcessor()
-mc_post_processor.RESULT_FIELDNAME_TO_PLOT_INFO[MC_ATTR_OUT] = dict(
-    x_label=legenda_dens_potencia
+fig_3g = go.Figure()
+
+for res in results_3g_mc2:
+    vals = getattr(res, MC2_3G_ATTR, None)
+    if vals is None:
+        continue
+    xs, ys = ccdf(vals)
+    if xs.size == 0:
+        continue
+    label = legend_for_result(res)
+    fig_3g.add_trace(go.Scatter(
+        x=xs, y=ys, mode="lines", name=label
+    ))
+
+fig_3g.update_layout(
+    title="CCDF – 2º Monte Carlo (3G-only) por distância",
+    xaxis_title="Potência (dBm/100MHz)",
+    yaxis_title="CCDF",
+    yaxis_type="log",
+    template="plotly_white",
 )
+fig_3g.add_vline(x=-36, line_dash="dash", line_color="black")
+fig_3g.add_vline(x=-74, line_dash="dash", line_color="black")
 
-# Replica os mesmos patterns de legenda
-for pattern, legend in PATTERN_TO_LEGEND.items():
-    mc_post_processor.add_plot_legend_pattern(
-        dir_name_contains=pattern,
-        legend=legend
-    )
+# =============================================================
+# 3) Plot manual – 6G-only (2º MC) por distância
+# =============================================================
+results_6g_mc2 = [
+    r for r in many_results
+    if getattr(r, MC2_6G_ATTR, None) is not None
+]
 
-# Reaproveita os mesmos Results (já com o atributo MC salvo)
-mc_post_processor.add_results(many_results)
+fig_6g = go.Figure()
 
-# Gera CCDFs (aplicando o offset para dBm/100MHz) e filtra apenas o atributo agregado
-plots_all_mc = mc_post_processor.generate_ccdf_plots_from_results(
-    many_results,
-    cutoff_percentage=cutoff_percentage,
-    shift_scale=DB_PER_100MHZ,       # converter dBm/MHz -> dBm/100MHz (+ filtro)
-    legenda_dens_potencia=legenda_dens_potencia
+for res in results_6g_mc2:
+    vals = getattr(res, MC2_6G_ATTR, None)
+    if vals is None:
+        continue
+    xs, ys = ccdf(vals)
+    if xs.size == 0:
+        continue
+    label = legend_for_result(res)
+    fig_6g.add_trace(go.Scatter(
+        x=xs, y=ys, mode="lines", name=label
+    ))
+
+fig_6g.update_layout(
+    title="CCDF – 2º Monte Carlo (6G-only) por distância",
+    xaxis_title="Potência (dBm/100MHz)",
+    yaxis_title="CCDF",
+    yaxis_type="log",
+    template="plotly_white",
 )
+fig_6g.add_vline(x=-36, line_dash="dash", line_color="black")
+fig_6g.add_vline(x=-74, line_dash="dash", line_color="black")
 
-plots_mc = []
-for p in plots_all_mc:
-    attr = getattr(p, "results_attribute_name", None) \
-        or getattr(p, "attribute_name", None) \
-        or getattr(p, "attr_name", None)
-    if attr == MC_ATTR_OUT:
-        plots_mc.append(p)
+# =============================================================
+# 4) Plot manual – MISTO (2º MC) por distância
+# =============================================================
+results_mix_mc2 = [
+    r for r in many_results
+    if getattr(r, MC2_MIX_ATTR, None) is not None
+]
 
-mc_post_processor.add_plots(plots_mc)
+fig_mix = go.Figure()
 
-# Linhas de referência APENAS no gráfico agregado
-plt_mc = mc_post_processor.get_plot_by_results_attribute_name(MC_ATTR_OUT, plot_type='ccdf')
-if plt_mc:
-    # -36 dB/100MHz [Cat 1]
-    plt_mc.add_trace(
-        go.Scatter(
-            x=[-36, -36],
-            y=[cutoff_percentage, 1],
-            mode="lines",
-            line=dict(dash="dash", color="black"),
-            name=" -36 dB/100MHz [Cat 1]",
-            hoverinfo="skip",
-            showlegend=True
-        )
-    )
-    # -74 dB/100MHz [Cat 2&3]
-    plt_mc.add_trace(
-        go.Scatter(
-            x=[-74, -74],
-            y=[cutoff_percentage, 1],
-            mode="lines",
-            line=dict(dash="dash", color="black"),
-            name=" -74 dB/100MHz [Cat 2&3]",
-            hoverinfo="skip",
-            showlegend=True
-        )
-    )
-    # --------- Deixa tracejado quando a legenda indicar N=8 ----------
-    if hasattr(plt_mc, "figure") and plt_mc.figure:
-        fig_obj = plt_mc.figure
-        for tr in fig_obj.data:
-            name = getattr(tr, "name", "") or ""
-            if "N=8" in name:
-                tr.update(line=dict(dash="dash"))
+for res in results_mix_mc2:
+    vals = getattr(res, MC2_MIX_ATTR, None)
+    if vals is None:
+        continue
+    xs, ys = ccdf(vals)
+    if xs.size == 0:
+        continue
+    label = legend_for_result(res)
+    fig_mix.add_trace(go.Scatter(
+        x=xs, y=ys, mode="lines", name=label
+    ))
 
-# ======================================================================
-# === Renderização separada (com fallback manual) ======================
-# ======================================================================
+fig_mix.update_layout(
+    title="CCDF – 2º Monte Carlo MISTO (3G+6G) por distância",
+    xaxis_title="Potência (dBm/100MHz)",
+    yaxis_title="CCDF",
+    yaxis_type="log",
+    template="plotly_white",
+)
+fig_mix.add_vline(x=-36, line_dash="dash", line_color="black")
+fig_mix.add_vline(x=-74, line_dash="dash", line_color="black")
 
-# 1) Mostra originais (per-MHz)
-for plot in post_processor.plots:
-    plot.show()
+# =============================================================
+# 5) Mostrar tudo
+# =============================================================
+for p in post_processor.plots:
+    p.show()
 
-# 2) Mostra agregados (2º MC) separadamente
-if mc_post_processor.plots:
-    for plot in mc_post_processor.plots:
-        plot.show()
-else:
-    # ---------- Fallback manual: constrói a figura na unha ----------
-    def _ccdf(series_dBm):
-        y = np.asarray(series_dBm, dtype=float)
-        y = y[np.isfinite(y)]
-        if y.size == 0:
-            return np.array([]), np.array([])
-        x_sorted = np.sort(y)
-        n = x_sorted.size
-        ccdf = 1.0 - (np.arange(1, n + 1) / (n + 1.0))
-        return x_sorted, ccdf
+fig_3g.show()
+fig_6g.show()
+fig_mix.show()
 
-    fig_mc = go.Figure()
-    any_trace = False
-    idx = 0
-    for res in many_results:
-        vals = getattr(res, MC_ATTR_OUT, None)
-        if vals is None:
-            continue
-        x, y = _ccdf(vals)
-        x = x + DB_PER_100MHZ  # converter para dBm/100MHz (+ filtro)
-        if x.size:
-            pattern, label = legend_from_output_dir(res.output_directory, PATTERN_TO_LEGEND, valid_patterns)
-            is_n8 = ("N=8" in label)
-            fig_mc.add_trace(go.Scatter(
-                x=x, y=y,
-                mode="lines",
-                name=label,
-                line=dict(dash="dash") if is_n8 else None
-            ))
-            any_trace = True
-        idx = idx+1
-
-    if any_trace:
-        # linhas de referência
-        fig_mc.add_vline(x=-36, line_dash="dash", annotation_text="-36 dB/100MHz", annotation_position="top")
-        fig_mc.add_vline(x=-74, line_dash="dash", annotation_text="-74 dB/100MHz", annotation_position="top")
-        fig_mc.update_layout(
-            title=f"CCDF (Agregado 2º MC) de {MC_ATTR_IN} (somado em mW, exibido em dBm/100MHz)",
-            xaxis_title="Potência (dBm/100MHz)",
-            yaxis_title="CCDF",
-            yaxis_type="log",
-            template="plotly_white",
-            legend_title="Resultados (i)"
-        )
-        fig_mc.show()
-    else:
-        print("[WARN] Nenhum traço agregado para plotar no fallback manual.")
-
-
-
-
-
-
-
-
-
+print("\n[OK] Script executed successfully – 2º MC (3G, 6G e Misto) por distância.")

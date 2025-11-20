@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 
 from sharc.parameters.parameters_base import ParametersBase
 from sharc.parameters.parameters_p619 import ParametersP619
-from sharc.parameters.antenna.parameters_antenna_s1528 import ParametersAntennaS1528
+from sharc.parameters.parameters_antenna import ParametersAntenna
 import numpy as np
 
 
@@ -49,6 +49,9 @@ class ParametersMssSs(ParametersBase):
     # Satellite tx power density in dBW/MHz
     tx_power_density: float = 40.0
 
+    # Satellite Tx max Gain in dBi
+    antenna_gain: float = 30.0
+
     # Satellite azimuth w.r.t. simulation x-axis
     azimuth: float = 45.0
 
@@ -63,9 +66,9 @@ class ParametersMssSs(ParametersBase):
     # Possible values: "ITU-R-S.1528-Section1.2", "ITU-R-S.1528-LEO"
     antenna_pattern: str = "ITU-R-S.1528-LEO"
 
-    # Paramters for the ITU-R-S.1528 antenna patterns
-    antenna_s1528: ParametersAntennaS1528 = field(
-        default_factory=ParametersAntennaS1528)
+    # Paramters for the antenna patterns
+    antenna: ParametersAntenna = field(
+        default_factory=ParametersAntenna)
 
     # paramters for channel model
     param_p619: ParametersP619 = field(default_factory=ParametersP619)
@@ -119,7 +122,8 @@ class ParametersMssSs(ParametersBase):
                 f"""ParametersImt: Inavlid Spectral Mask Name {
                     self.spectral_mask}""")
 
-        self.antenna_s1528.set_external_parameters(
+        self.antenna.set_external_parameters(
+            pattern=self.antenna_pattern,
             frequency=self.frequency,
             bandwidth=self.bandwidth,
         )

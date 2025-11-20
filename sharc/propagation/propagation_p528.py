@@ -635,13 +635,21 @@ if __name__ == "__main__":
     h1_v      = np.full_like(d_km, h1_km, dtype=float)
     h2_v      = np.full_like(d_km, h2_km, dtype=float)
     indoor    = np.zeros_like(d_km, dtype=bool)
-    p_time = np.full(f_vec.size , 10.0)
+    p_time = np.full(f_vec.size , 30.0)
+    p_time2 = np.full(f_vec.size , 50.0)
+    p_time3 = np.full(f_vec.size , 70.0)
 
     rng = np.random.RandomState(42)
     model = PropagationP528(rng)
 
     Lb = model.get_loss(d_m, f_vec, h1_v, h2_v, indoor,
                         0, p_time)
+
+    Lb2 = model.get_loss(d_m, f_vec, h1_v, h2_v, indoor,
+                        0, p_time2)
+
+    Lb3 = model.get_loss(d_m, f_vec, h1_v, h2_v, indoor,
+                        0, p_time3)
 ## Free Space
     d_3d_km = d_m / 1000.0
     FSPL = 32.44 + 20.0*np.log10(d_3d_km) + 20.0*np.log10(f_MHz)
@@ -655,7 +663,9 @@ if __name__ == "__main__":
     try:
         import matplotlib.pyplot as plt
         plt.figure(figsize=(8,5))
-        plt.plot(d_km, Lb,   label="P.528 (pol=V, p=10%)")
+        plt.plot(d_km, Lb,   label="P.528 (pol=V, p=30%)")
+        plt.plot(d_km, Lb2,   label="P.528 (pol=V, p=50%)")
+        plt.plot(d_km, Lb3,   label="P.528 (pol=V, p=80%)")
         plt.plot(d_km, FSPL, label="Free-space loss (FSPL)")
         plt.xlabel("Distance (km)")
         plt.ylabel("Basic transmission loss Lb (dB)")

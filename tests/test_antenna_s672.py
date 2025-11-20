@@ -8,7 +8,7 @@ Created on Tue Apr 18 17:58:50 2017
 import unittest
 
 from sharc.antenna.antenna_s672 import AntennaS672
-from sharc.parameters.parameters_fss_ss import ParametersFssSs
+from sharc.parameters.antenna.parameters_antenna_s672 import ParametersAntennaS672
 
 import numpy as np
 import numpy.testing as npt
@@ -19,10 +19,10 @@ class AntennaS672Test(unittest.TestCase):
 
     def setUp(self):
         """Set up test fixtures for AntennaS672 tests."""
-        param = ParametersFssSs()
+        param = ParametersAntennaS672()
         param.antenna_gain = 50
         param.antenna_pattern = "ITU-R S.672-4"
-        param.antenna_3_dB = 2
+        param.antenna_3_dB_bw = 2
 
         param.antenna_l_s = -20
         self.antenna20 = AntennaS672(param)

@@ -124,7 +124,7 @@ class Parameters(object):
         #######################################################################
         # MSS_D2d
         #######################################################################
-        self.mss_d2d.load_parameters_from_file(self.file_name)
+        #self.mss_d2d.load_parameters_from_file(self.file_name)
 
         self.single_space_station.load_parameters_from_file(self.file_name)
 

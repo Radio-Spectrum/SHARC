@@ -57,7 +57,6 @@ if __name__ == '__main__':
     spourious_emissions = -30.0  # dBm/MHz
 
     mask_steps = [-10, -15, -20]  # dBm/MHz
-    print(mask_steps)
     mask_steps = np.concatenate([mask_steps, [-30]])  # dBm/MHz
 
     # Create mask

@@ -1004,6 +1004,8 @@ mss_d2d:
     tx_power_density: -30
     # Number of sectors
     num_sectors: 19
+    # Spectral mask steps for mask STEPPED
+    spectral_mask_steps: !!python/tuple [-10., -15., -20.]
     beam_positioning:
         # type may be one of 
         # "ANGLE_FROM_SUBSATELLITE", "ANGLE_AND_DISTANCE_FROM_SUBSATELLITE",

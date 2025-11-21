@@ -205,6 +205,24 @@ class StationFactoryNgsoTest(unittest.TestCase):
             self.assertIsInstance(a, AntennaMSSAdjacent)
             self.assertEqual(a.frequency, self.param.frequency)
 
+    def test_ngso_spectral_mask_stepped(self):
+        """Test that NGSO stations use the STEPPED spectral mask when specified."""
+        rng = np.random.RandomState(seed=self.seed)
+
+        self.param.spectral_mask = "STEPPED"
+        self.param.spectral_mask_steps = (-10., -15., -20.)
+        self.param.propagate_parameters()
+        self.param.validate("spectral_mask_stepped_test")
+
+        ngso_manager = StationFactory.generate_mss_d2d(self.param, rng, self.coord_sys)
+
+        # Check that all stations have the correct spectral mask type
+        self.assertEqual(ngso_manager.spectral_mask.__class__.__name__, "SpectralMaskStepped")
+        self.assertEqual(
+            ngso_manager.spectral_mask.mask_steps_dBm_mhz,
+            list(self.param.spectral_mask_steps)
+        )
+
 
 if __name__ == '__main__':
     unittest.main()

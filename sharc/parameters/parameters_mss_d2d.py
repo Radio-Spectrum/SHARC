@@ -1,4 +1,5 @@
 import numpy as np
+import typing
 from dataclasses import dataclass, field, asdict
 from sharc.parameters.parameters_base import ParametersBase
 from sharc.parameters.parameters_orbit import ParametersOrbit
@@ -50,7 +51,14 @@ class ParametersMssD2d(ParametersBase):
     adjacent_ch_emissions: str = "OFF"
 
     # Transmitter spectral mask
-    spectral_mask: str = "MSS"
+    spectral_mask: typing.Literal[
+        "IMT-2020",
+        "3GPP E-UTRA",
+        "MSS",
+        "STEPPED"] = "MSS"
+
+    # Spectral mask steps in dB for STEPPED mask
+    spectral_mask_steps: tuple[float | int, float | int] = None
 
     # Out-of-band spurious emissions in dB/MHz
     spurious_emissions: float = -13.0
@@ -167,7 +175,7 @@ class ParametersMssD2d(ParametersBase):
                     self.adjacent_ch_emissions}""")
 
         if self.spectral_mask.upper() not in [
-                "IMT-2020", "3GPP E-UTRA", "MSS"]:
+                "IMT-2020", "3GPP E-UTRA", "MSS", "STEPPED"]:
             raise ValueError(
                 f"""ParametersMssD2d: Inavlid Spectral Mask Name {
                     self.spectral_mask}""")
@@ -181,6 +189,18 @@ class ParametersMssD2d(ParametersBase):
         if self.beams_load_factor < 0.0 or self.beams_load_factor > 1.0:
             raise ValueError(
                 f"{ctx}.beams_load_factor must be in interval [0.0, 1.0]")
+
+        if self.spectral_mask.upper() == "STEPPED":
+            if self.spectral_mask_steps is None:
+                raise ValueError(
+                    f"ParametersMssD2d: spectral_mask_steps must be defined for STEPPED mask.")
+            if len(self.spectral_mask_steps) < 1:
+                raise ValueError(
+                    f"ParametersMssD2d: spectral_mask_steps must have at least one step defined.")
+            for step in self.spectral_mask_steps:
+                if not isinstance(step, (int, float)):
+                    raise ValueError(
+                        f"ParametersMssD2d: spectral_mask_steps must contain only numeric values.")
 
         super().validate(ctx)
 

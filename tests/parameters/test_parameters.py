@@ -637,6 +637,7 @@ class ParametersTest(unittest.TestCase):
         self.assertEqual(self.parameters.mss_d2d.cell_radius, 19001)
         self.assertEqual(self.parameters.mss_d2d.beam_radius, 19001)
         self.assertEqual(self.parameters.mss_d2d.tx_power_density, -30)
+        self.assertEqual(self.parameters.mss_d2d.spectral_mask_steps, (-10., -15., -20.))
         self.assertEqual(self.parameters.mss_d2d.num_sectors, 19)
         self.assertEqual(
             self.parameters.mss_d2d.antenna.pattern,

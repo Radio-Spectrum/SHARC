@@ -1689,10 +1689,10 @@ class StationFactory(object):
             mss_d2d.spectral_mask = SpectralMaskMSS(params.frequency,
                                                     params.bandwidth,
                                                     params.spurious_emissions)
-        elif params.spectral_mask == "SpectralMaskStepped":
+        elif params.spectral_mask == "STEPPED":
             mss_d2d.spectral_mask = SpectralMaskStepped(params.frequency,
                                                         params.bandwidth,
-                                                        mask_steps_dBm_mhz=[-85.6, -103.6, -113.6])
+                                                        mask_steps_dBm_mhz=list(params.spectral_mask_steps))
         else:
             raise ValueError(
                 f"Invalid or not implemented spectral mask - {params.spectral_mask}")

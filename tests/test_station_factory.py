@@ -12,8 +12,10 @@ import numpy.testing as npt
 from sharc.parameters.imt.parameters_imt import ParametersImt
 from sharc.station_factory import StationFactory
 from sharc.topology.topology_ntn import TopologyNTN
+from sharc.topology.topology_single_base_station import TopologySingleBaseStation
 from sharc.parameters.parameters_single_space_station import ParametersSingleSpaceStation
 from sharc.station_manager import StationManager
+from sharc.antenna.antenna_mss_adjacent import AntennaMSSAdjacent
 from sharc.satellite.ngso.constants import EARTH_RADIUS_M
 
 
@@ -26,6 +28,69 @@ class StationFactoryTest(unittest.TestCase):
 
     def test_generate_imt_base_stations(self):
         """Test IMT base station generation (placeholder)."""
+
+    def test_generate_imt_base_stations_oob_antennas(self):
+        """Test IMT base station generation with and without out-of-band antennas."""
+        rng = np.random.RandomState(42)
+        param_imt = ParametersImt()
+
+        # First test with ARRAY antenna pattern. The oob antenna should be the same object.
+        param_imt.bs.antenna.pattern = "ARRAY"
+        param_imt.bs.use_oob_antenna = True
+
+        param_imt.topology.type = "SINGLE_BS"
+        param_imt.topology.single_bs.num_clusters = 1
+        param_imt.topology.single_bs.intersite_distance = 500
+        param_imt.topology.single_bs.cell_radius = 500
+        param_imt.topology.single_bs.azimuth = "random"
+
+        param_imt.validate("station factory test")
+
+        single_bs_topology = TopologySingleBaseStation(
+            param_imt.topology.single_bs.cell_radius,
+            param_imt.topology.single_bs.num_clusters,
+            param_imt.topology.single_bs.azimuth,
+        )
+
+        single_bs_topology.calculate_coordinates()
+
+        imt_bs = StationFactory.generate_imt_base_stations(
+            param_imt, param_imt.bs.antenna.array, single_bs_topology, rng)
+
+        # When the in-band antenna is ARRAY, the oob antenna should be the same object
+        self.assertIs(imt_bs.oob_antenna, imt_bs.antenna)  # both should point to the same list
+
+        # What if the user sets a non-ARRAY oob-antenna pattern but the in-band is ARRAY?
+        param_imt.bs.oob_antenna.pattern = "MSS Adjacent"
+        param_imt.bs.oob_antenna.gain = 0.0
+        param_imt.bs.oob_antenna.mss_adjacent.frequency = 2000.0
+        param_imt.validate("station factory test 2")
+        imt_bs = StationFactory.generate_imt_base_stations(
+            param_imt, param_imt.bs.antenna.array, single_bs_topology, rng)
+        # When the in-band antenna is ARRAY, the oob antenna should be the same object no matter what
+        self.assertIs(imt_bs.oob_antenna, imt_bs.antenna)  # both should point to the same list
+
+        # Now test with non-ARRAY antenna pattern. The oob antenna should be a different object.
+        # Re-create the imt_bs with a non-ARRAY oob-antenna pattern
+        param_imt.bs.use_oob_antenna = True
+        param_imt.bs.antenna.gain = 30.0
+        param_imt.bs.antenna.pattern = "ITU-R-S.1528-Taylor"
+        param_imt.bs.antenna.itu_r_s_1528.frequency = 2000.0
+        param_imt.bs.antenna.itu_r_s_1528.bandwidth = 5.0
+        param_imt.bs.antenna.itu_r_s_1528.slr = 20.0
+        param_imt.bs.antenna.itu_r_s_1528.n_side_lobes = 2
+        param_imt.bs.oob_antenna.pattern = "MSS Adjacent"
+        param_imt.bs.oob_antenna.gain = 0.0
+        param_imt.bs.oob_antenna.mss_adjacent.frequency = 2000.0
+        param_imt.validate("station factory test 2")
+
+        imt_bs = StationFactory.generate_imt_base_stations(
+            param_imt, param_imt.bs.antenna.array, single_bs_topology, rng)
+
+        # When the in-band antenna is not ARRAY, the oob antenna should be a different object
+        self.assertIsNot(imt_bs.oob_antenna, imt_bs.antenna)
+        for oob_antenna in imt_bs.oob_antenna:
+            self.assertIsInstance(oob_antenna, AntennaMSSAdjacent)
 
     def test_generate_imt_base_stations_ntn(self):
         """Test for IMT-NTN space station generation."""

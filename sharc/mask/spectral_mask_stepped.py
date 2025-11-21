@@ -84,5 +84,3 @@ if __name__ == '__main__':
     print(msk.power_calc(center_f=freq + 1 * band, band=band))
     print(msk.power_calc(center_f=freq + 2 * band, band=band))
     print(msk.power_calc(center_f=freq + 3 * band, band=band))
-
-

@@ -3,6 +3,7 @@ from sharc.parameters.parameters_mss_d2d import ParametersOrbit, ParametersMssD2
 from sharc.support.enumerations import StationType
 from sharc.station_factory import StationFactory
 from sharc.station_manager import StationManager
+from sharc.antenna.antenna_mss_adjacent import AntennaMSSAdjacent
 from sharc.support.sharc_geom import CoordinateSystem, lla2ecef
 
 import numpy as np
@@ -63,6 +64,9 @@ class StationFactoryNgsoTest(unittest.TestCase):
         self.param.antenna.itu_r_s_1528.n_side_lobes = 2
         self.param.antenna.itu_r_s_1528.l_r = 1.6
         self.param.antenna.itu_r_s_1528.l_t = 1.6
+
+        self.param.propagate_parameters()
+        self.param.validate("MSS_D2D_Test")
 
         # Creating an IMT topology
         # imt_topology = TopologySingleBaseStation(
@@ -174,6 +178,32 @@ class StationFactoryNgsoTest(unittest.TestCase):
             self.ngso_manager.elevation,
             ngso_original_coord.elevation,
             atol=1e-500)
+
+    def test_ngso_oob_antenna(self):
+        """Test that out-of-band antenna patterns are created correctly for NGSO stations."""
+        rng = np.random.RandomState(seed=self.seed)
+
+        self.param.use_oob_antenna = False
+        self.param.validate("oob_antenna_test")
+
+        ngso_manager = StationFactory.generate_mss_d2d(self.param, rng, self.coord_sys)
+
+        # If oob_antenna is disabled, both antennas should point to the same object
+        self.assertIs(ngso_manager.oob_antenna, ngso_manager.antenna)
+
+        self.param.use_oob_antenna = True
+        self.param.oob_antenna.pattern = "MSS Adjacent"
+        self.param.oob_antenna.gain = 0.0
+        self.param.propagate_parameters()
+        self.param.validate("oob_antenna_test")
+
+        ngso_manager = StationFactory.generate_mss_d2d(self.param, rng, self.coord_sys)
+
+        # the oob_antenna should be a different object now
+        self.assertIsNot(ngso_manager.oob_antenna, ngso_manager.antenna)
+        for a in ngso_manager.oob_antenna:
+            self.assertIsInstance(a, AntennaMSSAdjacent)
+            self.assertEqual(a.frequency, self.param.frequency)
 
 
 if __name__ == '__main__':

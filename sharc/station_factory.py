@@ -33,7 +33,6 @@ from sharc.mask.spectral_mask_imt import SpectralMaskImt
 from sharc.antenna.antenna import Antenna
 from sharc.antenna.antenna_factory import AntennaFactory
 from sharc.antenna.antenna_fss_ss import AntennaFssSs
-from sharc.antenna.antenna_mss_adjacent import AntennaMSSAdjacent
 from sharc.antenna.antenna_omni import AntennaOmni
 from sharc.antenna.antenna_f699 import AntennaF699
 from sharc.antenna.antenna_f1891 import AntennaF1891
@@ -58,6 +57,7 @@ from sharc.topology.topology_macrocell import TopologyMacrocell
 from sharc.topology.topology_imt_mss_dc import TopologyImtMssDc
 from sharc.mask.spectral_mask_3gpp import SpectralMask3Gpp
 from sharc.mask.spectral_mask_mss import SpectralMaskMSS
+from sharc.mask.spectral_mask_stepped import SpectralMaskStepped
 from sharc.support.sharc_geom import CoordinateSystem
 from sharc.support.sharc_utils import wrap2_180
 
@@ -161,6 +161,18 @@ class StationFactory(object):
             imt_base_stations.elevation,
             num_bs
         )
+
+        # Create out-of-band antenna patterns if specified.
+        # IMT Array antenna pattern has the oob model defined inside
+        if param.bs.use_oob_antenna and param.bs.antenna.pattern != "ARRAY":
+            imt_base_stations.oob_antenna = AntennaFactory.create_n_antennas(
+                param.bs.oob_antenna,
+                imt_base_stations.azimuth,
+                imt_base_stations.elevation,
+                num_bs,
+            )
+        else:
+            imt_base_stations.oob_antenna = imt_base_stations.antenna
 
         # imt_base_stations.antenna = [AntennaOmni(0) for bs in range(num_bs)]
         imt_base_stations.bandwidth = param.bandwidth * np.ones(num_bs)
@@ -465,6 +477,16 @@ class StationFactory(object):
             imt_ue.elevation,
             num_ue,
         )
+        # Create out-of-band antenna patterns if specified.
+        if param.ue.use_oob_antenna and param.ue.antenna.pattern != "ARRAY":
+            imt_ue.oob_antenna = AntennaFactory.create_n_antennas(
+                param.ue.oob_antenna,
+                imt_ue.azimuth,
+                imt_ue.elevation,
+                num_ue,
+            )
+        else:
+            imt_ue.oob_antenna = imt_ue.antenna
 
         # imt_ue.antenna = [AntennaOmni(0) for bs in range(num_ue)]
         imt_ue.bandwidth = param.bandwidth * np.ones(num_ue)
@@ -638,12 +660,14 @@ class StationFactory(object):
         imt_ue.ext_interference = -500 * np.ones(num_ue)
 
         # TODO: this piece of code works only for uplink
+        # FIXME: Why inddor UEs use AntennaBeamformingImt always?
         par = ue_param_ant.get_antenna_parameters()
         for i in range(num_ue):
             imt_ue.antenna[i] = AntennaBeamformingImt(
                 par, imt_ue.azimuth[i],
                 imt_ue.elevation[i],
             )
+        imt_ue.oob_antenna = imt_ue.antenna
 
         # imt_ue.antenna = [AntennaOmni(0) for bs in range(num_ue)]
         imt_ue.bandwidth = param.bandwidth * np.ones(num_ue)
@@ -1665,6 +1689,10 @@ class StationFactory(object):
             mss_d2d.spectral_mask = SpectralMaskMSS(params.frequency,
                                                     params.bandwidth,
                                                     params.spurious_emissions)
+        elif params.spectral_mask == "SpectralMaskStepped":
+            mss_d2d.spectral_mask = SpectralMaskStepped(params.frequency,
+                                                        params.bandwidth,
+                                                        mask_steps_dBm_mhz=[-85.6, -103.6, -113.6])
         else:
             raise ValueError(
                 f"Invalid or not implemented spectral mask - {params.spectral_mask}")
@@ -1676,7 +1704,7 @@ class StationFactory(object):
                 1e6) + 30
         )
 
-       # Configure satellite positions in the StationManager
+        # Configure satellite positions in the StationManager
         mss_d2d.x = mss_d2d_values["sat_x"]
         mss_d2d.y = mss_d2d_values["sat_y"]
         mss_d2d.z = mss_d2d_values["sat_z"]
@@ -1698,22 +1726,24 @@ class StationFactory(object):
         # Initialize satellites antennas
         # we need to initialize them after coordinates transformation because of
         # repeated state (elevation and azimuth) inside multiple transceiver
-        # implementation
-        mss_d2d.antenna = np.empty(total_satellites, dtype=AntennaS1528Leo)
-        if params.antenna.pattern == "ITU-R-S.1528-LEO":
-            antenna_pattern = AntennaS1528Leo(params.antenna.itu_r_s_1528)
-        elif params.antenna.pattern == "ITU-R-S.1528-Section1.2":
-            antenna_pattern = AntennaS1528(params.antenna.itu_r_s_1528)
-        elif params.antenna.pattern == "ITU-R-S.1528-Taylor":
-            antenna_pattern = AntennaS1528Taylor(params.antenna.itu_r_s_1528)
-        elif params.antenna.pattern == "MSS Adjacent":
-            antenna_pattern = AntennaMSSAdjacent(params.frequency)
-        else:
-            raise ValueError(
-                f"generate_mss_ss: Invalid antenna type: {params.antenna.pattern}")
+        # implementation.
+        mss_d2d.antenna = AntennaFactory.create_n_antennas(
+            params.antenna,
+            mss_d2d.azimuth,
+            mss_d2d.elevation,
+            mss_d2d.num_stations
+        )
 
-        for i in range(mss_d2d.num_stations):
-            mss_d2d.antenna[i] = antenna_pattern
+        # Initialize OOB antennas
+        if params.use_oob_antenna and params.antenna.pattern != "ARRAY":
+            mss_d2d.oob_antenna = AntennaFactory.create_n_antennas(
+                params.oob_antenna,
+                mss_d2d.azimuth,
+                mss_d2d.elevation,
+                mss_d2d.num_stations
+            )
+        else:
+            mss_d2d.oob_antenna = mss_d2d.antenna
 
         return mss_d2d  # Return the configured StationManager
 

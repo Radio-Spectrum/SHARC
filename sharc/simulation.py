@@ -569,6 +569,14 @@ class Simulation(ABC, Observable):
         station_1_active = np.where(station_1.active)[0]
         station_2_active = np.where(station_2.active)[0]
 
+        # Select the antenna for in-band or out-of-band emission.
+        # TODO: refactor to avoid code duplication
+        # TODO: station_1 and station_2 naming is confusing here
+        if c_channel:
+            tx_antenna = station_1.antenna
+        else:
+            tx_antenna = station_1.oob_antenna
+
         # Initialize variables (phi, theta, beams_idx)
         if (station_1.station_type is StationType.IMT_BS):
             if (station_2.station_type is StationType.IMT_UE):
@@ -599,61 +607,53 @@ class Simulation(ABC, Observable):
                 for b in range(
                     k * self.parameters.imt.ue.k,
                         (k + 1) * self.parameters.imt.ue.k):
-                    gains[b,
-                          station_2_active] = station_1.antenna[k].calculate_gain(phi_vec=phi[b,
-                                                                                              station_2_active],
-                                                                                  theta_vec=theta[b,
-                                                                                                  station_2_active,
-                                                                                                  ],
-                                                                                  beams_l=np.repeat(beams_idx[b],
-                                                                                                    len(station_2_active)),
-                                                                                  co_channel=c_channel,
-                                                                                  off_axis_angle_vec=off_axis_angle[k,
-                                                                                                                    station_2_active])
+                    gains[b, station_2_active] = \
+                        tx_antenna[k].calculate_gain(
+                            phi_vec=phi[b, station_2_active],
+                            theta_vec=theta[b, station_2_active],
+                            beams_l=np.repeat(beams_idx[b], len(station_2_active)),
+                            co_channel=c_channel,
+                            off_axis_angle_vec=off_axis_angle[k, station_2_active])
 
         elif station_1.station_type is StationType.IMT_UE and not station_2.is_imt_station():
             off_axis_angle = station_1.get_off_axis_angle(station_2)
             for k in station_1_active:
-                gains[k, station_2_active] = station_1.antenna[k].calculate_gain(
-                    off_axis_angle_vec=off_axis_angle[k, station_2_active],
-                    phi_vec=phi[k, station_2_active],
-                    theta_vec=theta[
-                        k,
-                        station_2_active,
-                    ],
-                    beams_l=beams_idx,
-                    co_channel=c_channel,
-                )
+                gains[k, station_2_active] = \
+                    tx_antenna[k].calculate_gain(
+                        off_axis_angle_vec=off_axis_angle[k, station_2_active],
+                        phi_vec=phi[k, station_2_active],
+                        theta_vec=theta[k, station_2_active,],
+                        beams_l=beams_idx,
+                        co_channel=c_channel,)
 
+        # RNS to non-IMT
+        # TODO: refactor to avoid code duplication with non-IMT to RNS
         elif station_1.station_type is StationType.RNS:
-            gains[0, station_2_active] = station_1.antenna[0].calculate_gain(
+            gains[0, station_2_active] = tx_antenna[0].calculate_gain(
                 phi_vec=phi[0, station_2_active],
                 theta_vec=theta[0, station_2_active],
             )
 
+        # non-IMT to IMT
         elif not station_1.is_imt_station():
 
             off_axis_angle = station_1.get_off_axis_angle(station_2)
             phi, theta = station_1.get_pointing_vector_to(station_2)
             for k in station_1_active:
                 gains[k, station_2_active] = \
-                    station_1.antenna[k].calculate_gain(
+                    tx_antenna[k].calculate_gain(
                         off_axis_angle_vec=off_axis_angle[k, station_2_active],
                         theta_vec=theta[k, station_2_active],
-                        phi_vec=phi[k, station_2_active],
-                )
+                        phi_vec=phi[k, station_2_active],)
         else:  # for IMT <-> IMT
             off_axis_angle = station_1.get_off_axis_angle(station_2)
             for k in station_1_active:
-                gains[k, station_2_active] = station_1.antenna[k].calculate_gain(
-                    off_axis_angle_vec=off_axis_angle[k, station_2_active],
-                    phi_vec=phi[k, station_2_active],
-                    theta_vec=theta[
-                        k,
-                        station_2_active,
-                    ],
-                    beams_l=beams_idx,
-                )
+                gains[k, station_2_active] = \
+                    tx_antenna[k].calculate_gain(
+                        off_axis_angle_vec=off_axis_angle[k, station_2_active],
+                        phi_vec=phi[k, station_2_active],
+                        theta_vec=theta[k, station_2_active,],
+                        beams_l=beams_idx,)
         return gains
 
     def calculate_imt_tput(

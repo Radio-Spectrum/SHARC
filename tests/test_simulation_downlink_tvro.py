@@ -78,7 +78,7 @@ class SimulationDownlinkTvroTest(unittest.TestCase):
         self.param.imt.shadowing = False
         self.param.imt.noise_temperature = 290
 
-        self.param.imt.bs.antenna.type = "ARRAY"
+        self.param.imt.bs.antenna.pattern = "ARRAY"
         self.param.imt.bs.antenna.array.adjacent_antenna_model = "BEAMFORMING"
         self.param.imt.ue.antenna.array.adjacent_antenna_model = "BEAMFORMING"
         self.param.imt.bs.antenna.array.normalization = False
@@ -97,7 +97,9 @@ class SimulationDownlinkTvroTest(unittest.TestCase):
         self.param.imt.bs.antenna.array.multiplication_factor = 12
         self.param.imt.bs.antenna.array.downtilt = 10
 
-        self.param.imt.ue.antenna.type = "ARRAY"
+        self.param.imt.bs.oob_antenna = self.param.imt.bs.antenna
+
+        self.param.imt.ue.antenna.pattern = "ARRAY"
         self.param.imt.ue.antenna.array.element_pattern = "FIXED"
         self.param.imt.ue.antenna.array.normalization = False
         self.param.imt.ue.antenna.array.normalization_file = None
@@ -112,6 +114,8 @@ class SimulationDownlinkTvroTest(unittest.TestCase):
         self.param.imt.ue.antenna.array.element_horiz_spacing = 0.5
         self.param.imt.ue.antenna.array.element_vert_spacing = 0.5
         self.param.imt.ue.antenna.array.multiplication_factor = 12
+
+        self.param.imt.ue.oob_antenna = self.param.imt.ue.antenna
 
         self.param.fss_es.location = "FIXED"
         self.param.fss_es.x = 100

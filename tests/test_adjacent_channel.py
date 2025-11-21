@@ -54,7 +54,7 @@ class SimulationAdjacentTest(unittest.TestCase):
 
         self.param.imt.bs.conducted_power = 10
         self.param.imt.bs.height = 6
-        self.param.imt.bs.acs = 30
+        self.param.imt.bs.adjacent_ch_selectivity = 30
         self.param.imt.bs.noise_figure = 7
         self.param.imt.bs.ohmic_loss = 3
         self.param.imt.uplink.attenuation_factor = 0.4
@@ -70,10 +70,9 @@ class SimulationAdjacentTest(unittest.TestCase):
         self.param.imt.ue.p_o_pusch = -95
         self.param.imt.ue.alpha = 0.8
         self.param.imt.ue.p_cmax = 20
-        self.param.imt.ue.conducted_power = 10
         self.param.imt.ue.height = 1.5
-        self.param.imt.ue.aclr = 20
-        self.param.imt.ue.acs = 25
+        self.param.imt.ue.adjacent_ch_leak_ratio = 20
+        self.param.imt.ue.adjacent_ch_selectivity = 25
         self.param.imt.ue.noise_figure = 9
         self.param.imt.ue.ohmic_loss = 3
         self.param.imt.ue.body_loss = 4
@@ -81,48 +80,10 @@ class SimulationAdjacentTest(unittest.TestCase):
         self.param.imt.downlink.sinr_min = -10
         self.param.imt.downlink.sinr_max = 30
         self.param.imt.channel_model = "FSPL"
-        # probability of line-of-sight (not for FSPL)
-        self.param.imt.line_of_sight_prob = 0.75
         self.param.imt.shadowing = False
         self.param.imt.noise_temperature = 290
 
-        self.param.imt.bs.antenna.type = "ARRAY"
-        self.param.imt.ue.antenna.type = "ARRAY"
-
-        self.param.imt.bs.antenna.array.adjacent_antenna_model = "SINGLE_ELEMENT"
-        self.param.imt.ue.antenna.array.adjacent_antenna_model = "SINGLE_ELEMENT"
-        self.param.imt.bs.antenna.array.normalization = False
-        self.param.imt.ue.antenna.array.normalization = False
-
-        self.param.imt.bs.antenna.array.normalization_file = None
-        self.param.imt.bs.antenna.array.element_pattern = "M2101"
-        self.param.imt.bs.antenna.array.minimum_array_gain = -200
-        self.param.imt.bs.antenna.array.element_max_g = 10
-        self.param.imt.bs.antenna.array.element_phi_3db = 80
-        self.param.imt.bs.antenna.array.element_theta_3db = 80
-        self.param.imt.bs.antenna.array.element_am = 25
-        self.param.imt.bs.antenna.array.element_sla_v = 25
-        self.param.imt.bs.antenna.array.n_rows = 16
-        self.param.imt.bs.antenna.array.n_columns = 16
-        self.param.imt.bs.antenna.array.element_horiz_spacing = 1
-        self.param.imt.bs.antenna.array.element_vert_spacing = 1
-        self.param.imt.bs.antenna.array.multiplication_factor = 12
-        self.param.imt.bs.antenna.array.downtilt = 10
-
-        self.param.imt.ue.antenna.array.element_pattern = "M2101"
-        self.param.imt.ue.antenna.array.minimum_array_gain = -200
-        self.param.imt.ue.antenna.array.normalization_file = None
-        self.param.imt.ue.antenna.array.element_max_g = 5
-        self.param.imt.ue.antenna.array.element_phi_3db = 65
-        self.param.imt.ue.antenna.array.element_theta_3db = 65
-        self.param.imt.ue.antenna.array.element_am = 30
-        self.param.imt.ue.antenna.array.element_sla_v = 30
-        self.param.imt.ue.antenna.array.n_rows = 2
-        self.param.imt.ue.antenna.array.n_columns = 1
-        self.param.imt.ue.antenna.array.element_horiz_spacing = 0.5
-        self.param.imt.ue.antenna.array.element_vert_spacing = 0.5
-        self.param.imt.ue.antenna.array.multiplication_factor = 12
-
+        # FSS-SS System Parameters
         self.param.fss_ss.frequency = 5000
         self.param.fss_ss.bandwidth = 100
         self.param.fss_ss.altitude = 35786000
@@ -133,15 +94,7 @@ class SimulationAdjacentTest(unittest.TestCase):
         self.param.fss_ss.noise_temperature = 950
         self.param.fss_ss.antenna_gain = 51
         self.param.fss_ss.antenna_pattern = "OMNI"
-        self.param.fss_ss.imt_altitude = 1000
-        self.param.fss_ss.imt_lat_deg = -23.5629739
-        self.param.fss_ss.imt_long_diff_deg = (-46.6555132 - 75)
         self.param.fss_ss.channel_model = "FSPL"
-        self.param.fss_ss.line_of_sight_prob = 0.01
-        self.param.fss_ss.surf_water_vapour_density = 7.5
-        self.param.fss_ss.specific_gaseous_att = 0.1
-        self.param.fss_ss.time_ratio = 0.5
-        self.param.fss_ss.antenna_l_s = -20
         self.param.fss_ss.adjacent_ch_reception = "ACS"
         self.param.fss_ss.adjacent_ch_selectivity = 46
         self.param.fss_ss.polarization_loss = 3.0
@@ -167,6 +120,7 @@ class SimulationAdjacentTest(unittest.TestCase):
             random_number_gen,
         )
         self.simulation.bs.antenna = np.array([AntennaOmni(1), AntennaOmni(2)])
+        self.simulation.bs.oob_antenna = self.simulation.bs.antenna
         self.simulation.bs.active = np.ones(2, dtype=bool)
 
         self.simulation.ue = StationFactory.generate_imt_ue(
@@ -180,6 +134,7 @@ class SimulationAdjacentTest(unittest.TestCase):
         self.simulation.ue.antenna = np.array(
             [AntennaOmni(10), AntennaOmni(11), AntennaOmni(22), AntennaOmni(23)],
         )
+        self.simulation.ue.oob_antenna = self.simulation.ue.antenna
         self.simulation.ue.active = np.ones(4, dtype=bool)
 
         # test connection method
@@ -304,7 +259,9 @@ class SimulationAdjacentTest(unittest.TestCase):
             self.simulation.topology,
             random_number_gen,
         )
+        # FIXME: We should not set the oob_antenna manually
         self.simulation.bs.antenna = np.array([AntennaOmni(1), AntennaOmni(2)])
+        self.simulation.bs.oob_antenna = self.simulation.bs.antenna
         self.simulation.bs.active = np.ones(2, dtype=bool)
 
         self.simulation.ue = StationFactory.generate_imt_ue(
@@ -318,6 +275,7 @@ class SimulationAdjacentTest(unittest.TestCase):
         self.simulation.ue.antenna = np.array(
             [AntennaOmni(10), AntennaOmni(11), AntennaOmni(22), AntennaOmni(23)],
         )
+        self.simulation.ue.oob_antenna = self.simulation.ue.antenna
         self.simulation.ue.active = np.ones(4, dtype=bool)
 
         # test connection method

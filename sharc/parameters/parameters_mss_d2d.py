@@ -6,6 +6,7 @@ from sharc.parameters.imt.parameters_imt_mss_dc import ParametersSelectActiveSat
 from sharc.parameters.parameters_p619 import ParametersP619
 from sharc.parameters.parameters_antenna import ParametersAntenna
 from sharc.parameters.antenna.parameters_antenna_s1528 import ParametersAntennaS1528
+from sharc.parameters.antenna.parameters_antenna_with_freq import ParametersAntennaWithFreq
 
 
 @dataclass
@@ -83,6 +84,16 @@ class ParametersMssD2d(ParametersBase):
             pattern="ITU-R-S.1528-Taylor",
             gain=30.0,
             itu_r_s_1528=ParametersAntennaS1528()))
+
+    # Flag to indicate if out-of-band antenna pattern should be used
+    use_oob_antenna: bool = False
+
+    # Parameters for the out-of-band antenna pattern
+    oob_antenna: ParametersAntenna = field(
+        default_factory=lambda: ParametersAntenna(
+            pattern="MSS Adjacent",
+            gain=0.0,
+            mss_adjacent=ParametersAntennaWithFreq(frequency=None)))
 
     sat_is_active_if: ParametersSelectActiveSatellite = field(
         default_factory=ParametersSelectActiveSatellite)
@@ -181,6 +192,18 @@ class ParametersMssD2d(ParametersBase):
             frequency=self.frequency,
             bandwidth=self.bandwidth,
         )
+        if self.use_oob_antenna:
+            if self.oob_antenna.pattern not in ["MSS Adjacent"]:  # only supported this pattern for now
+                raise ValueError(
+                    f"ParametersMssD2d: Invalid out-of-band antenna pattern {
+                        self.oob_antenna.pattern}. Only 'MSS Adjacent' is supported.")
+
+            self.oob_antenna.set_external_parameters(
+                frequency=self.frequency,
+            )
+        else:
+            self.oob_antenna = self.antenna  # use the same antenna if not specified
+
         if self.beam_positioning.service_grid.beam_radius is None:
             self.beam_positioning.service_grid.beam_radius = self.cell_radius
 

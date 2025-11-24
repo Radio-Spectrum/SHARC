@@ -306,7 +306,7 @@ class SimulationUplink(Simulation):
 
                 if self.param_system.adjacent_ch_emissions != "OFF":
                     # oob for system is inband for IMT
-                    tx_oob = tx_oob[:, np.newaxis] - self.coupling_loss_imt_system[active_beams, :][:, sys_active]
+                    tx_oob = tx_oob[:, np.newaxis] - self.coupling_loss_imt_system_adjacent[active_beams, :][:, sys_active]
 
                 # oob for IMT
                 rx_oob = rx_oob[:, np.newaxis] - self.coupling_loss_imt_system_adjacent[active_beams, :][:, sys_active]

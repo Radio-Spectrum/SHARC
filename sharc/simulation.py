@@ -373,12 +373,12 @@ class Simulation(ABC, Observable):
                 path_loss, self.parameters.imt.ue.k, 1,
             )
 
-        self.system_imt_antenna_gain = gain_sys_to_imt
-
         if is_co_channel:
+            self.system_imt_antenna_gain = gain_sys_to_imt
             self.imt_system_antenna_gain = gain_imt_to_sys
         else:
             self.imt_system_antenna_gain_adjacent = gain_imt_to_sys
+            self.system_imt_antenna_gain_adjacent = gain_sys_to_imt
 
         # calculate coupling loss
         coupling_loss = \
@@ -571,7 +571,7 @@ class Simulation(ABC, Observable):
 
         # Select the antenna for in-band or out-of-band emission.
         # TODO: refactor to avoid code duplication
-        # TODO: station_1 and station_2 naming is confusing here
+        # TODO: station_1 and station_2 naming is confusing here. We are assuming that the emitting station is station_1
         if c_channel:
             tx_antenna = station_1.antenna
         else:

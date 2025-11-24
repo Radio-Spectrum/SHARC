@@ -179,9 +179,17 @@ class PostProcessor:
             "x_label": "Antenna gain [dBi]",
             "title": "[SYS] system antenna gain towards IMT stations",
         },
+        "system_imt_antenna_gain_adjacent": {
+            "x_label": "Antenna gain [dBi]",
+            "title": "[SYS] system adjacent antenna gain towards IMT stations",
+        },
         "imt_system_antenna_gain": {
             "x_label": "Antenna gain [dBi]",
             "title": "[IMT] IMT station antenna gain towards system",
+        },
+        "imt_system_antenna_gain_adjacnet": {
+            "x_label": "Antenna gain [dBi]",
+            "title": "[IMT] IMT station adjacent antenna gain towards system",
         },
         "imt_system_path_loss": {
             "x_label": "Path Loss [dB]",

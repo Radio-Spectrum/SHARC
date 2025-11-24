@@ -561,6 +561,9 @@ class SimulationUplink(Simulation):
                 if len(self.imt_system_antenna_gain_adjacent):
                     self.results.imt_system_antenna_gain_adjacent.extend(
                         self.imt_system_antenna_gain_adjacent[np.ix_(sys_active, active_beams)].flatten(),)
+                if len(self.system_imt_antenna_gain_adjacent):
+                    self.results.system_imt_antenna_gain_adjacent.extend(
+                        self.system_imt_antenna_gain_adjacent[np.ix_(sys_active, active_beams)].flatten(),)
                 self.results.imt_system_path_loss.extend(
                     self.imt_system_path_loss[np.ix_(sys_active, active_beams)].flatten(),
                 )

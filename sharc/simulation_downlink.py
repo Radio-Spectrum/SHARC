@@ -665,6 +665,10 @@ class SimulationDownlink(Simulation):
                     self.results.imt_system_antenna_gain_adjacent.extend(
                         self.imt_system_antenna_gain_adjacent[sys_active[:, np.newaxis], ue].flatten(),
                     )
+                if len(self.system_imt_antenna_gain_adjacent):
+                    self.results.system_imt_antenna_gain_adjacent.extend(
+                        self.system_imt_antenna_gain_adjacent[sys_active[:, np.newaxis], ue].flatten(),
+                    )
                 self.results.imt_system_path_loss.extend(
                     self.imt_system_path_loss[sys_active[:, np.newaxis], ue].flatten(),
                 )

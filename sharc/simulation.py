@@ -305,7 +305,7 @@ class Simulation(ABC, Observable):
         # system's station
         if imt_station.station_type is StationType.IMT_UE:
             # define antenna gains
-            gain_sys_to_imt = self.calculate_gains(system_station, imt_station)
+            gain_sys_to_imt = self.calculate_gains(system_station, imt_station, is_co_channel)
             gain_imt_to_sys = np.transpose(
                 self.calculate_gains(
                     imt_station,
@@ -318,7 +318,7 @@ class Simulation(ABC, Observable):
             # define antenna gains
             # repeat for each BS beam
             gain_sys_to_imt = np.repeat(
-                self.calculate_gains(system_station, imt_station),
+                self.calculate_gains(system_station, imt_station, is_co_channel),
                 self.parameters.imt.ue.k, 1,
             )
             gain_imt_to_sys = np.transpose(

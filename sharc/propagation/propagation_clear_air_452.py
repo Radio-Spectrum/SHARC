@@ -1627,13 +1627,88 @@ class PropagationClearAir(Propagation):
 
         # Modify the path according to Section 4.5.4, Step 1  and compute clutter losses
         # consider no obstacles profile
-        profile_length = 100
-        num_dists = distance.size
-        d = np.empty([num_dists, profile_length])
-        for ii in range(num_dists):
-            d[ii, :] = np.linspace(0, distance[0][ii], profile_length)
+        if self.model_params.is_terrain:
+            # --- RNG and distribution parameters ---------------------------------
+            rng = np.random.default_rng()
 
-        h = np.zeros(d.shape)
+            # Height distribution: t-location-scale
+            # From your fit: μ, σ², ν  (adjust if your numbers change)
+            nu_h      = 3.24           # degrees of freedom
+            mu_h      = -11.57         # location [m]
+            sigma2_h  = 25468.0        # variance [m²]
+            sigma_h   = np.sqrt(sigma2_h)
+
+            # Distance between peaks/valleys: lognormal
+            # y(x) = 1/(x σ √(2π)) exp(-(log x - μ)²/(2σ²))
+            # Use the μ, σ² you fitted (careful with units: km vs m).
+            mu_d      = 1.01949           # mean in log-space
+            sigma_d   = 0.811082
+
+            # ----------------------------------------------------------------------
+            # Build random profiles: d[ii, :] and h[ii, :] for each link
+            #   - d starts at 0 and ends exactly at distance[0][ii]
+            #   - h starts at 0 and ends at 0
+            #   - intermediate h follow t-location-scale
+            #   - spacings follow lognormal
+            # ----------------------------------------------------------------------
+            num_dists = distance.size
+
+            profiles_d = []
+            profiles_h = []
+
+            rng = np.random.default_rng()
+
+            total_dist = float(np.min(distance))    # use shortest path as reference
+
+            d_vals = [0.0]
+            h_vals = [0.0]
+
+            # Generate a single profile
+            while d_vals[-1] < total_dist:
+
+                # distance step (lognormal, matching Matlab)
+                step = rng.lognormal(mean=mu_d, sigma=sigma_d)
+                next_d = d_vals[-1] + step
+
+                if next_d >= total_dist:
+                    # final point: force exactly at link end
+                    d_vals.append(total_dist)
+                    h_vals.append(0.0)
+                    break
+
+                # add next point
+                d_vals.append(next_d)
+
+                # height (t-location-scale)
+                t_sample = rng.standard_t(df=nu_h)
+                h_sample = mu_h + sigma_h * t_sample
+                h_vals.append(h_sample)
+
+            # Convert to arrays
+            profile_d = np.array(d_vals, dtype=float)
+            profile_h = np.array(h_vals, dtype=float)
+
+            # ============================================================
+            # 2) Repeat profile for all num_dists
+            # ============================================================
+
+            num_dists = distance.size
+            profile_length = len(profile_d)
+
+            d = np.zeros((num_dists, profile_length))
+            h = np.zeros((num_dists, profile_length))
+
+            for ii in range(num_dists):
+                d[ii, :] = profile_d
+                h[ii, :] = profile_h
+        else:
+            profile_length = 100
+            num_dists = distance.size
+            d = np.empty([num_dists, profile_length])
+            for ii in range(num_dists):
+                d[ii, :] = np.linspace(0, distance[0][ii], profile_length)
+
+            h = np.zeros(d.shape)
 
         ha_t = []
         ha_r = []

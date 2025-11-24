@@ -322,12 +322,13 @@ class PropagationClutterLoss(Propagation):
 if __name__ == '__main__':
 
     elevation_angle = np.array([90, 80, 70, 60, 50, 40, 30, 20, 15, 10, 5, 0])
+    elevation_angle = np.array([40, 50, 60, 70])
     loc_percentage = np.linspace(0.1 / 100, 99.9 / 100, 1001)
-    frequency = 2155 * np.ones(loc_percentage.shape)
-    earth_station_height = 20 * np.ones(loc_percentage.shape)
+    frequency = 8150 * np.ones(loc_percentage.shape)
+    earth_station_height = 18 * np.ones(loc_percentage.shape)
     random_number_gen = np.random.RandomState(101)
     cl = PropagationClutterLoss(random_number_gen)
-    below_rooftop = 60
+    #below_rooftop = 65
     clutter_loss = np.empty([len(elevation_angle), len(loc_percentage)])
 
     for i in range(len(elevation_angle)):
@@ -351,7 +352,7 @@ if __name__ == '__main__':
 
     plt.ylabel("percent of locations [%]")
     plt.xlim((-5, 30))
-    plt.ylim((0, 1))
+    plt.ylim((0, 100))
     plt.legend(loc="lower right")
     plt.tight_layout()
     plt.grid()

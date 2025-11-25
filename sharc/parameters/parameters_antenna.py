@@ -147,7 +147,7 @@ class ParametersAntenna(ParametersBase):
         """
         if None in [self.pattern]:
             raise ValueError(
-                f"{ctx}.pattern should be set. Is None instead",
+                f"{ctx}.pattern should be set. It is None instead",
             )
 
         if self.pattern != "ARRAY" and self.gain is None:

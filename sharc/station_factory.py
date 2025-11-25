@@ -868,6 +868,15 @@ class StationFactory(object):
                                           space_station.elevation[0])
         ])
 
+        # Set the OOB antenna pattern if specified
+        if param.use_oob_antenna:
+            space_station.oob_antenna = np.array([
+                AntennaFactory.create_antenna(param.oob_antenna, space_station.azimuth[0],
+                                              space_station.elevation[0])
+            ])
+        else:
+            space_station.oob_antenna = space_station.antenna
+
         space_station.z = space_station.height
         space_station.bandwidth = param.bandwidth
         space_station.noise_temperature = param.noise_temperature
@@ -1225,6 +1234,15 @@ class StationFactory(object):
             )
         ])
 
+        if param.use_oob_antenna:
+            single_earth_station.oob_antenna = np.array([
+                AntennaFactory.create_antenna(
+                    param.oob_antenna, single_earth_station.azimuth, single_earth_station.elevation
+                )
+            ])
+        else:
+            single_earth_station.oob_antenna = single_earth_station.antenna
+
         single_earth_station.active = np.array([True])
         single_earth_station.bandwidth = np.array([param.bandwidth])
 
@@ -1308,6 +1326,9 @@ class StationFactory(object):
             )
             sys.exit(1)
 
+        # The OOB antenna pattern should be the same as in-band.
+        fs_station.oob_antenna = fs_station.antenna
+
         fs_station.noise_temperature = param.noise_temperature
         fs_station.bandwidth = np.array([param.bandwidth])
 
@@ -1371,6 +1392,9 @@ class StationFactory(object):
             )
             sys.exit(1)
 
+        # TODO: Set the OOB antenna pattern if needed
+        haps.oob_antenna = haps.antenna
+
         haps.bandwidth = np.array([param.bandwidth])
 
         return haps
@@ -1425,6 +1449,9 @@ class StationFactory(object):
                 "ERROR\nInvalid RNS antenna pattern: " + param.antenna_pattern,
             )
             sys.exit(1)
+
+        # TODO: Set the oob antenna pattern if needed
+        rns.oob_antenna = rns.antenna
 
         rns.bandwidth = np.array([param.bandwidth])
         rns.noise_temperature = param.noise_temperature
@@ -1554,6 +1581,9 @@ class StationFactory(object):
             )
             sys.exit(1)
 
+        # TODO: Set the oob antenna pattern if needed
+        space_station.oob_antenna = space_station.antenna
+
         space_station.bandwidth = np.array([param.bandwidth])
         # Noise temperature is not an input parameter for yet used systems.
         # It is included here to calculate the useless I/N values
@@ -1600,16 +1630,22 @@ class StationFactory(object):
             param_mss.bandwidth * 10**6)
         mss_ss.antenna = np.empty(num_bs, dtype=AntennaS1528Leo)
 
-        for i in range(num_bs):
-            if param_mss.antenna_pattern == "ITU-R-S.1528-LEO":
-                mss_ss.antenna[i] = AntennaS1528Leo(param_mss.antenna_s1528)
-            elif param_mss.antenna_pattern == "ITU-R-S.1528-Section1.2":
-                mss_ss.antenna[i] = AntennaS1528(param_mss.antenna_s1528)
-            elif param_mss.antenna_pattern == "ITU-R-S.1528-Taylor":
-                mss_ss.antenna[i] = AntennaS1528Taylor(param_mss.antenna_s1528)
-            else:
-                raise ValueError(
-                    "generate_mss_ss: Invalid antenna type: {param_mss.antenna_pattern}")
+        mss_ss.antenna = AntennaFactory.create_n_antennas(
+            param_mss.antenna,
+            mss_ss.azimuth,
+            mss_ss.elevation,
+            mss_ss.num_stations
+        )
+
+        if param_mss.use_oob_antenna:
+            mss_ss.oob_antenna = AntennaFactory.create_n_antennas(
+                param_mss.oob_antenna,
+                mss_ss.azimuth,
+                mss_ss.elevation,
+                mss_ss.num_stations
+            )
+        else:
+            mss_ss.oob_antenna = mss_ss.antenna
 
         if param_mss.spectral_mask == "IMT-2020":
             mss_ss.spectral_mask = SpectralMaskImt(

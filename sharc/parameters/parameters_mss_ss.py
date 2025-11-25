@@ -70,6 +70,12 @@ class ParametersMssSs(ParametersBase):
     antenna: ParametersAntenna = field(
         default_factory=ParametersAntenna)
 
+    # Use out-of-band antenna for emissions outside the assigned bandwidth
+    use_oob_antenna: bool = False
+
+    # Out-of-band antenna parameters - only used if use_oob_antenna is True
+    oob_antenna: ParametersAntenna = field(default_factory=ParametersAntenna)
+
     # paramters for channel model
     param_p619: ParametersP619 = field(default_factory=ParametersP619)
 

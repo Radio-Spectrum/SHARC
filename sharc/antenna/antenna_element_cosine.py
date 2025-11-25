@@ -1,23 +1,20 @@
 
 # -*- coding: utf-8 -*-
-"""Antenna model for MSS adjacent channel systems."""
+"""Antenna model for Cosine Antenna channel systems."""
 from sharc.antenna.antenna import Antenna
 
 import numpy as np
 
 
-class AntennaMSSAdjacent(Antenna):
+class AntennaElementCosine(Antenna):
     """
-    Implements part of EIRP mask for MSS-DC systems given in document WPGC
-    as defined in the WP4C Working Document 4C/356-E
-    You can choose the adjacent channel by choosing the tx power
-    You need to also make sure ACLR_db = 0, otherwise SHARC's implementation will
-    mess the EIRP up.
+    Implements antenna part of EIRP mask for MSS-DC systems
+    as defined in the WP4C Working Document 4C/356-E.
     """
 
     def __init__(self,):
         """
-        Initialize the AntennaMSSAdjacent class.
+        Initialize the AntennaElementCosine class.
 
         """
         super().__init__()
@@ -45,14 +42,14 @@ class AntennaMSSAdjacent(Antenna):
 if __name__ == '__main__':
     import matplotlib.pyplot as plt
 
-    frequency = 2170
-    theta = np.linspace(0.01, 90, num=100000)
-    antenna = AntennaMSSAdjacent(frequency)
+    theta = np.linspace(0.01, 90, num=1000)
+    antenna = AntennaElementCosine()
     gain = antenna.calculate_gain(off_axis_angle_vec=theta)
     fig = plt.figure(facecolor='w', edgecolor='k')
     ax = fig.add_subplot()
     ax.plot(theta, gain)
     ax.grid(True)
+    ax.set_title("Antenna Element Cosine Pattern")
     ax.set_xlabel(r"Off-axis angle $\theta$ [deg]")
     ax.set_ylabel("Antenna Gain [dBi]")
     ax.set_xlim((theta[0], theta[-1]))

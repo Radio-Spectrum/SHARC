@@ -136,6 +136,7 @@ class SimulationE2EAdjacentTest(unittest.TestCase):
 
         # testing attributes that should be per beam towards system
         self.assertEqual(len(res.imt_system_antenna_gain_adjacent), n_beams * n_sys)
+        self.assertEqual(len(res.system_imt_antenna_gain_adjacent), n_beams * n_sys)
         self.assertEqual(len(res.imt_system_path_loss), n_beams * n_sys)
         # NOTE: it may not have co-channel since this test is for adjacent
         # self.assertEqual(len(res.imt_system_antenna_gain), n_beams * n_sys)
@@ -170,6 +171,7 @@ class SimulationE2EAdjacentTest(unittest.TestCase):
 
         # testing attributes that should be per ue towards system
         self.assertEqual(len(res.imt_system_antenna_gain_adjacent), n_ue * n_sys)
+        self.assertEqual(len(res.system_imt_antenna_gain_adjacent), n_ue * n_sys)
         self.assertEqual(len(res.imt_system_path_loss), n_ue * n_sys)
         # NOTE: it may not have co-channel since this test is for adjacent
         # self.assertEqual(len(res.imt_system_antenna_gain), n_ue * n_sys)

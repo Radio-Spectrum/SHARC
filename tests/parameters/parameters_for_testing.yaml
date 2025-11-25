@@ -435,7 +435,7 @@ imt:
         # Out-of-band antenna pattern
         oob_antenna:
             gain: 0.0
-            pattern: MSS Adjacent
+            pattern: Cosine Antenna
             mss_adjacent:
                 frequency: 2170.0
 
@@ -1119,7 +1119,7 @@ mss_d2d:
     use_oob_antenna: true
     # Out-of-band antenna pattern
     oob_antenna:
-        pattern: MSS Adjacent
+        pattern: Cosine Antenna
         mss_adjacent:
             frequency: 2170.1
 

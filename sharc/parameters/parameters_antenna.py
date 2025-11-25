@@ -29,7 +29,7 @@ class ParametersAntenna(ParametersBase):
         "ITU-R-S.1528-Taylor",
         "ITU-R-S.1528-Section1.2",
         "ITU-R-S.1528-LEO",
-        "MSS Adjacent"]
+        "Cosine Antenna"]
 
     # chosen antenna radiation pattern
     pattern: typing.Literal["OMNI",
@@ -44,7 +44,7 @@ class ParametersAntenna(ParametersBase):
                             "ITU-R-S.1528-Taylor",
                             "ITU-R-S.1528-Section1.2",
                             "ITU-R-S.1528-LEO",
-                            "MSS Adjacent"] = None
+                            "Cosine Antenna"] = None
 
     # antenna gain [dBi]
     gain: float = None
@@ -196,7 +196,7 @@ class ParametersAntenna(ParametersBase):
                 self.itu_r_s_1528.validate(f"{ctx}.itu_r_s_1528")
             case "ITU-R-S.672":
                 self.itu_r_s_672.validate(f"{ctx}.itu_r_s_672")
-            case "MSS Adjacent":
+            case "Cosine Antenna":
                 self.mss_adjacent.validate(f"{ctx}.mss_adjacent")
             case _:
                 raise NotImplementedError(

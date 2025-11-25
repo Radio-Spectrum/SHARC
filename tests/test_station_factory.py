@@ -15,7 +15,7 @@ from sharc.topology.topology_ntn import TopologyNTN
 from sharc.topology.topology_single_base_station import TopologySingleBaseStation
 from sharc.parameters.parameters_single_space_station import ParametersSingleSpaceStation
 from sharc.station_manager import StationManager
-from sharc.antenna.antenna_mss_adjacent import AntennaMSSAdjacent
+from sharc.antenna.antenna_element_cosine import AntennaElementCosine
 from sharc.satellite.ngso.constants import EARTH_RADIUS_M
 
 
@@ -61,7 +61,7 @@ class StationFactoryTest(unittest.TestCase):
         self.assertIs(imt_bs.oob_antenna, imt_bs.antenna)  # both should point to the same list
 
         # What if the user sets a non-ARRAY oob-antenna pattern but the in-band is ARRAY?
-        param_imt.bs.oob_antenna.pattern = "MSS Adjacent"
+        param_imt.bs.oob_antenna.pattern = "Cosine Antenna"
         param_imt.bs.oob_antenna.gain = 0.0
         param_imt.bs.oob_antenna.mss_adjacent.frequency = 2000.0
         param_imt.validate("station factory test 2")
@@ -79,7 +79,7 @@ class StationFactoryTest(unittest.TestCase):
         param_imt.bs.antenna.itu_r_s_1528.bandwidth = 5.0
         param_imt.bs.antenna.itu_r_s_1528.slr = 20.0
         param_imt.bs.antenna.itu_r_s_1528.n_side_lobes = 2
-        param_imt.bs.oob_antenna.pattern = "MSS Adjacent"
+        param_imt.bs.oob_antenna.pattern = "Cosine Antenna"
         param_imt.bs.oob_antenna.gain = 0.0
         param_imt.bs.oob_antenna.mss_adjacent.frequency = 2000.0
         param_imt.validate("station factory test 2")
@@ -90,7 +90,7 @@ class StationFactoryTest(unittest.TestCase):
         # When the in-band antenna is not ARRAY, the oob antenna should be a different object
         self.assertIsNot(imt_bs.oob_antenna, imt_bs.antenna)
         for oob_antenna in imt_bs.oob_antenna:
-            self.assertIsInstance(oob_antenna, AntennaMSSAdjacent)
+            self.assertIsInstance(oob_antenna, AntennaElementCosine)
 
     def test_generate_imt_base_stations_ntn(self):
         """Test for IMT-NTN space station generation."""

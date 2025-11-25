@@ -99,7 +99,7 @@ class ParametersMssD2d(ParametersBase):
     # Parameters for the out-of-band antenna pattern
     oob_antenna: ParametersAntenna = field(
         default_factory=lambda: ParametersAntenna(
-            pattern="MSS Adjacent",
+            pattern="Cosine Antenna",
             gain=0.0,
             mss_adjacent=ParametersAntennaWithFreq(frequency=None)))
 
@@ -213,10 +213,10 @@ class ParametersMssD2d(ParametersBase):
             bandwidth=self.bandwidth,
         )
         if self.use_oob_antenna:
-            if self.oob_antenna.pattern not in ["MSS Adjacent"]:  # only supported this pattern for now
+            if self.oob_antenna.pattern not in ["Cosine Antenna"]:  # only supported this pattern for now
                 raise ValueError(
                     f"ParametersMssD2d: Invalid out-of-band antenna pattern {
-                        self.oob_antenna.pattern}. Only 'MSS Adjacent' is supported.")
+                        self.oob_antenna.pattern}. Only 'Cosine Antenna' is supported.")
 
             self.oob_antenna.set_external_parameters(
                 frequency=self.frequency,

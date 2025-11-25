@@ -955,6 +955,9 @@ class StationFactory(object):
             )
             sys.exit(1)
 
+        # Same OOB antenna pattern as in-band
+        fss_space_station.oob_antenna = fss_space_station.antenna
+
         fss_space_station.bandwidth = np.array([param.bandwidth])
         fss_space_station.noise_temperature = np.array(
             [param.noise_temperature])
@@ -1082,6 +1085,9 @@ class StationFactory(object):
                 param.antenna_pattern,
             )
             sys.exit(1)
+
+        # Same OOB antenna pattern as in-band
+        fss_earth_station.oob_antenna = fss_earth_station.antenna
 
         fss_earth_station.noise_temperature = np.array(
             [param.noise_temperature])

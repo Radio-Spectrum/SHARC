@@ -3,7 +3,7 @@ from sharc.parameters.parameters_mss_d2d import ParametersOrbit, ParametersMssD2
 from sharc.support.enumerations import StationType
 from sharc.station_factory import StationFactory
 from sharc.station_manager import StationManager
-from sharc.antenna.antenna_mss_adjacent import AntennaMSSAdjacent
+from sharc.antenna.antenna_element_cosine import AntennaElementCosine
 from sharc.support.sharc_geom import CoordinateSystem, lla2ecef
 
 import numpy as np
@@ -192,7 +192,7 @@ class StationFactoryNgsoTest(unittest.TestCase):
         self.assertIs(ngso_manager.oob_antenna, ngso_manager.antenna)
 
         self.param.use_oob_antenna = True
-        self.param.oob_antenna.pattern = "MSS Adjacent"
+        self.param.oob_antenna.pattern = "Cosine Antenna"
         self.param.oob_antenna.gain = 0.0
         self.param.propagate_parameters()
         self.param.validate("oob_antenna_test")
@@ -202,8 +202,7 @@ class StationFactoryNgsoTest(unittest.TestCase):
         # the oob_antenna should be a different object now
         self.assertIsNot(ngso_manager.oob_antenna, ngso_manager.antenna)
         for a in ngso_manager.oob_antenna:
-            self.assertIsInstance(a, AntennaMSSAdjacent)
-            self.assertEqual(a.frequency, self.param.frequency)
+            self.assertIsInstance(a, AntennaElementCosine)
 
     def test_ngso_spectral_mask_stepped(self):
         """Test that NGSO stations use the STEPPED spectral mask when specified."""

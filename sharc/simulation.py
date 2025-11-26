@@ -113,6 +113,7 @@ class Simulation(ABC, Observable):
         self.coupling_loss_imt = np.empty(0)
         self.coupling_loss_imt_system = np.empty(0)
         self.coupling_loss_imt_system_adjacent = np.empty(0)
+        self.coupling_loss_oob_tx_inband_rx = np.empty(0)  # Used to store coupling loss for oob emissions
 
         self.bs_to_ue_d_2D = np.empty(0)
         self.bs_to_ue_d_3D = np.empty(0)
@@ -271,7 +272,8 @@ class Simulation(ABC, Observable):
         self,
         system_station: StationManager,
         imt_station: StationManager,
-        is_co_channel=True,
+        system_inband=True,
+        imt_inband=True,
     ) -> np.array:
         """
         Calculates the coupling loss (path loss + antenna gains + other losses) between
@@ -286,9 +288,11 @@ class Simulation(ABC, Observable):
             A StationManager object with system stations
         imt_station : StationManager
             A StationManager object with IMT stations
-        is_co_channel : bool, optional
-            Whether the interference analysis is co-channel or not, by default True
-
+        system_inband : bool, optional
+            Whether the interference analysis on system is in-band or adjacent. Default, True.
+        imt_inband: bool, optional
+            Whether the interference analysis on IMT is in-band or adjacent. Default, True.
+b
         Returns
         -------
         np.array
@@ -305,12 +309,12 @@ class Simulation(ABC, Observable):
         # system's station
         if imt_station.station_type is StationType.IMT_UE:
             # define antenna gains
-            gain_sys_to_imt = self.calculate_gains(system_station, imt_station, is_co_channel)
+            gain_sys_to_imt = self.calculate_gains(system_station, imt_station, system_inband)
             gain_imt_to_sys = np.transpose(
                 self.calculate_gains(
                     imt_station,
                     system_station,
-                    is_co_channel))
+                    imt_inband))
             additional_loss = self.parameters.imt.ue.ohmic_loss \
                 + self.parameters.imt.ue.body_loss \
                 + self.polarization_loss
@@ -318,12 +322,12 @@ class Simulation(ABC, Observable):
             # define antenna gains
             # repeat for each BS beam
             gain_sys_to_imt = np.repeat(
-                self.calculate_gains(system_station, imt_station, is_co_channel),
+                self.calculate_gains(system_station, imt_station, system_inband),
                 self.parameters.imt.ue.k, 1,
             )
             gain_imt_to_sys = np.transpose(
                 self.calculate_gains(
-                    imt_station, system_station, is_co_channel,
+                    imt_station, system_station, imt_inband,
                 ),
             )
             additional_loss = self.parameters.imt.bs.ohmic_loss \
@@ -373,16 +377,19 @@ class Simulation(ABC, Observable):
                 path_loss, self.parameters.imt.ue.k, 1,
             )
 
-        if is_co_channel:
+        if system_inband:
             self.system_imt_antenna_gain = gain_sys_to_imt
+        else:
+            self.system_imt_antenna_gain_adjacent = gain_sys_to_imt
+
+        if imt_inband:
             self.imt_system_antenna_gain = gain_imt_to_sys
         else:
             self.imt_system_antenna_gain_adjacent = gain_imt_to_sys
-            self.system_imt_antenna_gain_adjacent = gain_sys_to_imt
 
         # calculate coupling loss
         coupling_loss = \
-            self.imt_system_path_loss - self.system_imt_antenna_gain - gain_imt_to_sys + additional_loss
+            self.imt_system_path_loss - gain_sys_to_imt - gain_imt_to_sys + additional_loss
 
         # Simulator expects imt_stations x system_stations shape
         return np.transpose(coupling_loss)

@@ -49,6 +49,7 @@ class StationManager(object):
         self.station_type = StationType.NONE
         self.is_space_station = False
         self.geom = SimulatorGeometry(n)
+        self.max_earth_sta_interf_distance = np.inf
 
     def get_station_list(self, id=None) -> list:
         """Return a list of Station objects for the given indices.

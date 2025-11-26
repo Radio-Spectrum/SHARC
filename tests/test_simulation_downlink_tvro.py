@@ -14,6 +14,7 @@ from sharc.simulation_downlink import SimulationDownlink
 from sharc.parameters.parameters import Parameters
 from sharc.station_factory import StationFactory
 from sharc.propagation.propagation_factory import PropagationFactory
+from sharc.propagation.propagation_path import PropagationPath
 
 
 class SimulationDownlinkTvroTest(unittest.TestCase):
@@ -189,6 +190,9 @@ class SimulationDownlinkTvroTest(unittest.TestCase):
             self.param, random_number_gen,
         )
 
+        self.simulation.intra_imt_paths = PropagationPath.create_default(
+            self.simulation.ue, self.simulation.bs
+        )
         # test coupling loss method
         self.simulation.coupling_loss_imt = self.simulation.calculate_intra_imt_coupling_loss(
             self.simulation.ue, self.simulation.bs, )
@@ -294,6 +298,9 @@ class SimulationDownlinkTvroTest(unittest.TestCase):
             np.array([0.0]),
         )
 
+        self.simulation.paths_between_imt_and_sys = PropagationPath.create_default(
+            self.simulation.system, self.simulation.bs
+        )
         # test the method that calculates interference from IMT UE to FSS space
         # station
         self.simulation.calculate_external_interference()

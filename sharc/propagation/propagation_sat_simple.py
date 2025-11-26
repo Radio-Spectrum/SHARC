@@ -15,6 +15,7 @@ from sharc.propagation.propagation_building_entry_loss import PropagationBuildin
 from sharc.support.enumerations import StationType
 from sharc.station_manager import StationManager
 from sharc.parameters.parameters import Parameters
+from sharc.propagation.propagation_path import PropagationPath
 
 
 class PropagationSatSimple(Propagation):
@@ -37,14 +38,11 @@ class PropagationSatSimple(Propagation):
         )
         self.atmospheric_loss = 0.75
 
-    @dispatch(Parameters, float, StationManager,
-              StationManager, np.ndarray, np.ndarray)
-    def get_loss(
+    def get_path_loss(
         self,
         params: Parameters,
         frequency: float,
-        station_a: StationManager,
-        station_b: StationManager,
+        path: PropagationPath,
         station_a_gains=None,
         station_b_gains=None,
     ) -> np.array:
@@ -66,41 +64,63 @@ class PropagationSatSimple(Propagation):
             Return an array station_a.num_stations x station_b.num_stations with the path loss
             between each station
         """
-        distance_3d = station_a.geom.get_3d_distance_to(station_b.geom)
-        frequency = frequency * np.ones(distance_3d.shape)
-        indoor_stations = np.tile(
-            station_b.indoor, (station_a.num_stations, 1),
-        )
+        station_a = path.sta_a
+        station_b = path.sta_b
+
+        distance = station_a.geom.get_3d_distance_to(station_b.geom)
+        masked_distance = path.mtx_to_masked(distance)
+        masked_frequency = frequency * np.ones_like(masked_distance)
 
         # Elevation angles seen from the station on Earth.
-        elevation_angles = {}
         raise NotImplementedError(
             "FIXME: apparent_elevation_angle should receive earth station altitude..."
         )
+        masked_elevation_angles = {}
         if station_a.is_space_station:
-            elevation_angles["free_space"] = station_b.geom.get_local_elevation(station_a.geom)
-            # if (station_b_gains.shape != distance.shape):
-            #     raise ValueError(f"Invalid shape for station_b_gains = {station_b_gains.shape}")
-            elevation_angles["apparent"] = PropagationP619.apparent_elevation_angle(
-                elevation_angles["free_space"], station_a.height, )
+            if station_b.geom.uses_local_coords:
+                raise NotImplementedError(
+                    "P619 currently assumes earth station z == height. "
+                    "If ES has local coords != global coords, this probably isn't true"
+                )
+            masked_indoor_stations = path.sta_b_to_masked(station_b.indoor)
+            masked_elevation_angles["free_space"] = station_b.geom.get_local_elevation(station_a.geom)
+            masked_elevation_angles["apparent"] = PropagationP619.apparent_elevation_angle(
+                masked_elevation_angles["free_space"],
+                # FIXME
+                # self.earth_station_alt_m,
+            )
             # Transpose it to fit the expected path loss shape
-            elevation_angles["free_space"] = np.transpose(
-                elevation_angles["free_space"])
-            elevation_angles["apparent"] = np.transpose(
-                elevation_angles["apparent"])
+            masked_elevation_angles["free_space"] = path.mtx_to_masked(np.transpose(
+                masked_elevation_angles["free_space"]))
+            masked_elevation_angles["apparent"] = path.mtx_to_masked(np.transpose(
+                masked_elevation_angles["apparent"]))
         elif station_b.is_space_station:
-            elevation_angles["free_space"] = station_a.geom.get_local_elevation(station_b.geom)
-            elevation_angles["apparent"] = PropagationP619.apparent_elevation_angle(
-                elevation_angles["free_space"], station_b.height, )
+            if station_a.geom.uses_local_coords:
+                raise NotImplementedError(
+                    "P619 currently assumes earth station z == height. "
+                    "If ES has local coords != global coords, this probably isn't true"
+                )
+            masked_indoor_stations = path.sta_a_to_masked(station_a.indoor)
+            masked_elevation_angles["free_space"] = path.mtx_to_masked(
+                station_a.geom.get_local_elevation(station_b.geom)
+            )
+            masked_elevation_angles["apparent"] = PropagationP619.apparent_elevation_angle(
+                masked_elevation_angles["free_space"],
+                # FIXME
+                # self.earth_station_alt_m,
+            )
         else:
             raise ValueError(
                 "PropagationP619: At least one station must be an space station", )
 
-        return self.get_loss(
-            distance_3d,
-            frequency,
-            indoor_stations,
-            elevation_angles)
+        masked_loss = self.get_loss(
+            masked_distance,
+            masked_frequency,
+            masked_indoor_stations,
+            masked_elevation_angles,
+        )
+
+        return path.from_masked_mtx(masked_loss)
 
     @dispatch(np.ndarray, np.ndarray, np.ndarray, dict)
     def get_loss(

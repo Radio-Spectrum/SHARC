@@ -13,6 +13,7 @@ from sharc.simulation import Simulation
 from sharc.parameters.parameters import Parameters
 from sharc.station_factory import StationFactory
 from sharc.parameters.constants import BOLTZMANN_CONSTANT
+from sharc.propagation.propagation_path import PropagationPath
 
 warn = warnings.warn
 
@@ -81,6 +82,22 @@ class SimulationDownlink(Simulation):
             # TODO: remove this:
             self.parameters.imt.ue.antenna.array,
             self.topology, random_number_gen,
+        )
+
+        if self.parameters.imt.interfered_with:
+            self.paths_between_imt_and_sys = PropagationPath.create_default(
+                self.system,
+                self.ue,
+            )
+        else:
+            self.paths_between_imt_and_sys = PropagationPath.create_default(
+                self.system,
+                self.bs,
+            )
+
+        self.intra_imt_paths = PropagationPath.create_default(
+            self.ue,
+            self.bs,
         )
 
         # self.plot_scenario()

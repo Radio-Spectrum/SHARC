@@ -20,6 +20,7 @@ from sharc.parameters.parameters import Parameters
 from sharc.station_manager import StationManager
 from sharc.results import Results
 from sharc.propagation.propagation_factory import PropagationFactory
+from sharc.propagation.propagation_path import PropagationPath
 from sharc.support.sharc_utils import wrap2_180, clip_angle
 
 
@@ -123,6 +124,9 @@ class Simulation(ABC, Observable):
         self.ue = np.empty(0)
         self.bs = np.empty(0)
         self.system = np.empty(0)
+
+        self.paths_between_imt_and_sys: PropagationPath = None
+        self.intra_imt_paths: PropagationPath = None
 
         self.link = dict()
 
@@ -303,9 +307,12 @@ class Simulation(ABC, Observable):
 
         # Calculate the antenna gains of the IMT station with respect to the
         # system's station
+        use_separated_beams = False
         if imt_station.station_type is StationType.IMT_UE:
             # define antenna gains
+            # shape: (n_sys, n_imt)
             gain_sys_to_imt = self.calculate_gains(system_station, imt_station)
+            # shape: (n_sys, n_imt)
             gain_imt_to_sys = np.transpose(
                 self.calculate_gains(
                     imt_station,
@@ -315,17 +322,35 @@ class Simulation(ABC, Observable):
                 + self.parameters.imt.ue.body_loss \
                 + self.polarization_loss
         elif imt_station.station_type is StationType.IMT_BS:
+            use_separated_beams = True
             # define antenna gains
             # repeat for each BS beam
+            # shape: (n_sys, n_imt * ue_k)
             gain_sys_to_imt = np.repeat(
                 self.calculate_gains(system_station, imt_station),
                 self.parameters.imt.ue.k, 1,
             )
+            # shape: (n_sys, n_imt * ue_k)
             gain_imt_to_sys = np.transpose(
                 self.calculate_gains(
                     imt_station, system_station, is_co_channel,
                 ),
             )
+
+            # shape: (n_sys, n_bs, ue_k)
+            gain_sys_to_imt_separated_beams = gain_sys_to_imt.reshape(
+                gain_sys_to_imt.shape[0],
+                gain_sys_to_imt.shape[1] // self.parameters.imt.ue.k,
+                self.parameters.imt.ue.k
+            )
+            # shape: (n_bs, n_sys, ue_k)
+            # reshape makes (n_sys, n_bs, ue_k), transpose changes axis
+            gain_imt_to_sys_separated_beams_imt_frst = gain_imt_to_sys.reshape(
+                gain_imt_to_sys.shape[0],
+                gain_imt_to_sys.shape[1] // self.parameters.imt.ue.k,
+                self.parameters.imt.ue.k
+            ).transpose(1, 0, 2)
+
             additional_loss = self.parameters.imt.bs.ohmic_loss \
                 + self.polarization_loss
         else:
@@ -334,44 +359,36 @@ class Simulation(ABC, Observable):
                 f"Invalid IMT StationType! {
                     imt_station.station_type}")
 
-        # TODO: this performance betterment doesn't work when one of the stations is IMT_BS
-        # so do something that works for it
-        # # Calculate the path loss based on the propagation model only for active stations
-        # actv_sys = copy_active_stations(system_station)
-        # actv_imt = copy_active_stations(imt_station)
-        # path_loss = np.zeros((system_station.num_stations, imt_station.num_stations))
-        # actv_path_loss = self.propagation_system.get_loss(
-        #     self.parameters,
-        #     freq,
-        #     actv_sys,
-        #     actv_imt,
-        #     gain_sys_to_imt,
-        #     gain_imt_to_sys,
-        # )
-        # path_loss[np.ix_(system_station.active, imt_station.active)] = actv_path_loss
+        if use_separated_beams:
+            sta_a_gains = gain_sys_to_imt_separated_beams
+            sta_b_gains = gain_imt_to_sys_separated_beams_imt_frst
+        else:
+            sta_a_gains = gain_sys_to_imt
+            sta_b_gains = gain_imt_to_sys.T
 
-        path_loss = self.propagation_system.get_loss(
+        path_loss = self.paths_between_imt_and_sys.get_path_loss(
+            self.propagation_system,
             self.parameters,
             freq,
-            system_station,
-            imt_station,
-            gain_sys_to_imt,
-            gain_imt_to_sys,
+            sta_a_gains=sta_a_gains,
+            sta_b_gains=sta_b_gains,
         )
 
+        # TODO: remove gambiarra
         # Store antenna gains and path loss samples
         if self.param_system.channel_model == "HDFSS":
             self.imt_system_build_entry_loss = path_loss[1]
             self.imt_system_diffraction_loss = path_loss[2]
             path_loss = path_loss[0]
 
-        if imt_station.station_type is StationType.IMT_UE:
-            self.imt_system_path_loss = path_loss
-        else:
-            # Repeat for each BS beam
-            self.imt_system_path_loss = np.repeat(
-                path_loss, self.parameters.imt.ue.k, 1,
-            )
+        if use_separated_beams:
+            if path_loss.ndim == 3:
+                # (n_sys, n_imt * ue_k)
+                path_loss = path_loss.reshape(path_loss.shape[0], -1)
+            elif path_loss.shape[1] == imt_station.num_stations:
+                path_loss = np.repeat(path_loss, self.parameters.imt.ue.k, -1)
+
+        self.imt_system_path_loss = path_loss
 
         self.system_imt_antenna_gain = gain_sys_to_imt
 
@@ -429,13 +446,12 @@ class Simulation(ABC, Observable):
 
         # Note on the array dimentions for coupling loss calculations:
         # The function get_loss returns an array station_a x station_b
-        path_loss = self.propagation_imt.get_loss(
+        path_loss = self.intra_imt_paths.get_path_loss(
+            self.propagation_imt,
             self.parameters,
             self.parameters.imt.frequency,
-            imt_ue_station,
-            imt_bs_station,
-            ant_gain_ue_to_bs,
-            ant_gain_bs_to_ue,
+            sta_a_gains=ant_gain_ue_to_bs,
+            sta_b_gains=ant_gain_bs_to_ue,
         )
 
         # Collect IMT BS and UE antenna gain samples

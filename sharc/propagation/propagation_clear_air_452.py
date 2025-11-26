@@ -1659,31 +1659,38 @@ class PropagationClearAir(Propagation):
             rng = np.random.default_rng()
 
             total_dist = float(np.min(distance))    # use shortest path as reference
+            while True:   # <-- loop gerador até passar no critério
 
-            d_vals = [0.0]
-            h_vals = [0.0]
+                d_vals = [0.0]
+                h_vals = [0.0]
 
-            # Generate a single profile
-            while d_vals[-1] < total_dist:
+                # Generate a single profile realization
+                while d_vals[-1] < total_dist:
 
-                # distance step (lognormal, matching Matlab)
-                step = rng.lognormal(mean=mu_d, sigma=sigma_d)
-                next_d = d_vals[-1] + step
+                    # distance step (lognormal, matching Matlab)
+                    step = rng.lognormal(mean=mu_d, sigma=sigma_d)
+                    next_d = d_vals[-1] + step
 
-                if next_d >= total_dist:
-                    # final point: force exactly at link end
-                    d_vals.append(total_dist)
-                    h_vals.append(0.0)
-                    break
+                    if next_d >= total_dist:
+                        # final point: snap exactly to total distance
+                        d_vals.append(total_dist)
+                        h_vals.append(0.0)
+                        break
 
-                # add next point
-                d_vals.append(next_d)
+                    # add next segment
+                    d_vals.append(next_d)
 
-                # height (t-location-scale)
-                t_sample = rng.standard_t(df=nu_h)
-                h_sample = mu_h + sigma_h * t_sample
-                h_vals.append(h_sample)
+                    # height sample (t-location-scale)
+                    t_sample = rng.standard_t(df=nu_h)
+                    h_sample = mu_h + sigma_h * t_sample
+                    h_vals.append(h_sample)
 
+                # --------------------------
+                # Aqui está sua condição nova
+                # --------------------------
+                if len(d_vals) > 3:
+                    break   # OK → finaliza
+                
             # Convert to arrays
             profile_d = np.array(d_vals, dtype=float)
             profile_h = np.array(h_vals, dtype=float)
@@ -1701,6 +1708,8 @@ class PropagationClearAir(Propagation):
             for ii in range(num_dists):
                 d[ii, :] = profile_d
                 h[ii, :] = profile_h
+                d[ii, -1] = distance[0, ii]
+                h[ii, -1] = 0.0  # garante topo plano no final
         else:
             profile_length = 100
             num_dists = distance.size

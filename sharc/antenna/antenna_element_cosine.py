@@ -36,7 +36,8 @@ class AntennaElementCosine(Antenna):
             Calculated antenna gain values.
         """
         theta_rad = np.deg2rad(np.absolute(kwargs["off_axis_angle_vec"]))
-        return 10 * np.log10(np.cos(theta_rad) + 1e-5)
+        theta_rad = np.minimum(theta_rad, np.pi / 2 - 1e-5)
+        return np.log10(np.cos(theta_rad))
 
 
 if __name__ == '__main__':

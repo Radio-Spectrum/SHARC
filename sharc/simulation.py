@@ -12,6 +12,7 @@ import numpy as np
 import math
 import sys
 import matplotlib.pyplot as plt
+import typing
 
 from sharc.support.enumerations import StationType
 from sharc.topology.topology_factory import TopologyFactory
@@ -804,6 +805,40 @@ class Simulation(ABC, Observable):
             plt.show()
 
 #        sys.exit(0)
+
+    def add_system_imt_interaction_attr_to_results(
+        self,
+        link: typing.Literal["DL", "UL"],
+        attr: str | object,
+        result_attr: str | None = None,
+        result_obj: typing.Any = None,
+    ):
+        if isinstance(attr, str):
+            v = np.array(getattr(self, attr))
+        else:
+            v = attr
+
+        if result_obj is None:
+            result_obj = self.results
+        if result_attr is None:
+            result_attr = attr
+
+        sys_to_imt_paths_mask = self.paths_between_imt_and_sys._mask
+        n_sys = self.system.num_stations
+
+        assert v.shape[0] == n_sys
+        if (
+            not self.parameters.imt.interfered_with and link == "DL"
+            or self.parameters.imt.interfered_with and link == "UL"
+        ):
+            n_bs = self.bs.num_stations
+            ue_k = self.parameters.imt.ue.k
+            v = v.reshape(
+                    n_sys, n_bs, ue_k
+                )
+        v = v[sys_to_imt_paths_mask]
+
+        getattr(result_obj, result_attr).extend(v.flatten())
 
     @abstractmethod
     def snapshot(self, *args, **kwargs):

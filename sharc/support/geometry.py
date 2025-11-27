@@ -690,7 +690,6 @@ class SimulatorGeometry(GlobalGeometry):
         if not self.uses_local_coords:
             return self.get_global_elevation(other)
 
-        lat, lon, alt = self.local_lla_references
         dist2d, z_dist = self.get_local_distance_to(other, return_z_dist=True)
 
         return np.degrees(np.arctan2(z_dist, dist2d))

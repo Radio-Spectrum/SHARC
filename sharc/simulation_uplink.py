@@ -465,7 +465,6 @@ class SimulationUplink(Simulation):
                         if self.parameters.imt.adjacent_ch_emissions == "OFF":
                             raise ValueError("parameters.imt.adjacent_ch_emissions and parameters.imt.adjacent_ch_reception"
                                              " cannot be both set to \"OFF\"")
-                        pass
                     else:
                         raise ValueError(
                             f"No implementation for self.param_system.adjacent_ch_reception == {self.param_system.adjacent_ch_reception}"

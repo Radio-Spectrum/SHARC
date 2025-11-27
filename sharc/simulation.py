@@ -813,6 +813,11 @@ class Simulation(ABC, Observable):
         result_attr: str | None = None,
         result_obj: typing.Any = None,
     ):
+        """Adds attribute (self.attr if attr is str else attr if attr is object)
+        to the instance results object.
+        Works with system<>imt interaction, getting results based on existing
+        paths_between_imt_and_sys
+        """
         if isinstance(attr, str):
             v = np.array(getattr(self, attr))
         else:

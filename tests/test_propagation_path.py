@@ -14,16 +14,21 @@ def assert_array_not_equal(x, y):
     """Asserts that two arrays are not equal."""
     npt.assert_raises(AssertionError, npt.assert_array_equal, x, y)
 
+
 def create_mock_function(ret):
+    """Creates function that returns the argument
+    """
     def mock_function(*args, **kwargs):
         return ret
     return mock_function
+
 
 class PropagationPathTest(unittest.TestCase):
     """This is more of an integration test since it depends on the parts
     it joins.
     """
     def setUp(self):
+        """setUp that runs before each test"""
         pass
 
     def test_undeduped_masking_operations(self):
@@ -190,6 +195,8 @@ class PropagationPathTest(unittest.TestCase):
         npt.assert_equal(expected, unmskd_mtx)
 
     def test_get_path_loss_fspl(self):
+        """Test get_path_loss with different shapes on fspl
+        """
         bs = StationManager(3)
         bs.geom.set_global_coords(
             np.array([5., 15., 25.]),
@@ -208,7 +215,7 @@ class PropagationPathTest(unittest.TestCase):
         fspl = path.get_path_loss(
             PropagationFreeSpace(None),
             None,
-            1e3, # [MHz]
+            1e3,  # [MHz]
         )
 
         expected_fspl = PropagationFreeSpace(None).get_free_space_loss(
@@ -217,9 +224,11 @@ class PropagationPathTest(unittest.TestCase):
         )
 
         self.assertEqual(fspl.shape, expected_fspl.shape)
-        npt.assert_array_equal(fspl,expected_fspl)
+        npt.assert_array_equal(fspl, expected_fspl)
 
     def test_get_path_loss_in_propagations(self):
+        """Test get_path_loss method with all propagations
+        """
         bs = StationManager(12)
         bs.geom.set_global_coords(
             np.arange(0., 12., 1.0) * 10,
@@ -278,7 +287,7 @@ class PropagationPathTest(unittest.TestCase):
             ploss = path.get_path_loss(
                 propagation,
                 parameters,
-                1e3, # [MHz]
+                1e3,  # [MHz]
                 # sta_a_gains=gains0,
                 sta_a_gains=bs_w_beams_gains,
                 sta_b_gains=gains0.T,
@@ -365,7 +374,7 @@ class PropagationPathTest(unittest.TestCase):
             ploss = path.get_path_loss(
                 propagation,
                 parameters,
-                1e3, # [MHz]
+                1e3,  # [MHz]
                 sta_a_gains=gains0,
                 # sta_b_gains=gains0.T,
                 sta_b_gains=bs_w_beams_gains,

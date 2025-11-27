@@ -58,6 +58,9 @@ class PropagationClutterLoss(Propagation):
         station_a_gains=None,
         station_b_gains=None,
     ) -> np.array:
+        """This class isn't supposed to be directly called in the simulation
+        loop, so this methods doesn't need to be implemented
+        """
         raise NotImplementedError()
 
     def get_loss(self, *args, **kwargs) -> np.array:

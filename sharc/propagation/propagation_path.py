@@ -7,6 +7,12 @@ from sharc.propagation.propagation import Propagation
 
 
 class PropagationPath():
+    """This class defines which paths between stations actually
+    do exist and shall be calculated. The actual paths are calculated
+    right as get_path_loss is called, so there is no risk of being
+    out of date.
+    Paths are marked as disabled by masking functions
+    """
     # either
     # - (sta_a == IMT UE) and (sta_b == IMT BS)
     # OR
@@ -80,6 +86,9 @@ class PropagationPath():
         )
 
     def calc_mask(self, *, deduplicate: bool):
+        """Calculates and updates current mask and paths
+        based on masking functions in instance.
+        """
         mask = np.ones(self._orig_shape, dtype=bool)
         for mask_fn in self._mask_strategies:
             mask = mask_fn(self.sta_a, self.sta_b, mask)
@@ -246,6 +255,7 @@ class PropagationPath():
 
         return PropagationPath(sta_a, sta_b, mask_fns)
 
+
 def create_path_mask_distant_earth_stations(distance_m: float):
     """Receives a distance in meters and returns a function
     deactivate paths between distant earth stations
@@ -255,6 +265,9 @@ def create_path_mask_distant_earth_stations(distance_m: float):
         sta_b: StationManager,
         acc_mask: np.ndarray[np.ndarray[bool]]
     ):
+        """Marks paths with distance between earth stations
+        greater than distance_m as disabled
+        """
         if sta_a.is_space_station or sta_b.is_space_station:
             return acc_mask
 
@@ -275,6 +288,9 @@ def create_path_mask_low_elevation_sat_from_es(min_elev_deg: float = 0.0):
         sta_b: StationManager,
         acc_mask: np.ndarray[np.ndarray[bool]]
     ):
+        """Marks paths with elevation between earth station and space station
+        less than min_elev_deg as disabled
+        """
         es: StationManager = None
         ss: StationManager = None
         if sta_a.is_space_station and not sta_b.is_space_station:
@@ -303,6 +319,8 @@ def path_mask_inactive_stations(
     sta_b: StationManager,
     acc_mask: np.ndarray[np.ndarray[bool]]
 ):
+    """Marks paths with inactive stations as disabled
+    """
     acc_mask[~sta_a.active, :] = False
     acc_mask[:, ~sta_b.active] = False
 

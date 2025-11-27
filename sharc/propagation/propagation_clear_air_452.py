@@ -1813,7 +1813,7 @@ class PropagationClearAir(Propagation):
             clutter_loss = self.clutter.get_loss(
                 frequency=frequency * 1000,
                 distance=distance * 1000,
-                station_type=StationType.FSS_ES,
+                clutter_scenario="terrestrial",  # Always terrestrial for P.452
                 clutter_type=self.model_params.clutter_type
             )
         else:

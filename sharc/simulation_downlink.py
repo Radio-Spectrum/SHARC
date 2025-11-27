@@ -93,8 +93,8 @@ class SimulationDownlink(Simulation):
         # self.plot_scenario()
 
         if self.parameters.general.system == "WIFI":
-            self.system.connect_wifi_sta_to_ap(self.parameters.wifi)
-            self.system.select_sta(random_number_gen, self.parameters.wifi)
+            #self.system.connect_wifi_sta_to_ap(self.parameters.wifi)
+            #self.system.select_sta(random_number_gen, self.parameters.wifi)
             #Calculate intra wifi coupling loss 
             self.coupling_loss_wifi = self.calculate_intra_wifi_coupling_loss(
                 self.system.sta, self.system.ap)
@@ -455,25 +455,24 @@ class SimulationDownlink(Simulation):
                 self.ue,
                 is_co_channel=True,
             )
-
             self.coupling_loss_imt_system_sta = self.calculate_coupling_loss_system_imt(
                 self.system.sta,
                 self.ue,
                 is_co_channel=True,
             )
+
+            
         if self.adjacent_channel:
             self.coupling_loss_imt_system_adjacent = \
                 self.calculate_coupling_loss_system_imt(
-                    self.system,
+                    self.system.ap,
                     self.ue,
                     is_co_channel=False,
                 )
 
         # applying a bandwidth scaling factor since UE transmits on a portion
         # of the satellite's bandwidth
-        active_aps = np.where(self.system.ap.active)[0]
-        active_stas = np.where(self.system.sta.active)[0]
-
+        #active_sys = np.where(self.system.ap.active)[0]
 
         # All UEs are active on an active BS
         bs_active = np.where(self.bs.active)[0]
@@ -489,18 +488,34 @@ class SimulationDownlink(Simulation):
                 float(self.param_system.frequency),
             )
 
-            in_band_interf_power = -500.
+            in_band_interf_power_ap = -np.inf
+            in_band_interf_power_sta = -np.inf
             if self.co_channel:
                 # Inteferer transmit power in dBm over the overlapping band
                 # (MHz) with UEs.
                 if self.overlapping_bandwidth > 0:
-                    # in_band_interf_power = self.param_system.tx_power_density + \
-                    #     10 * np.log10(self.overlapping_bandwidth * 1e6) + 30
-                    in_band_interf_power = \
+                    active_ap = np.where(self.system.ap.active)[0]
+                    in_band_interf_power_ap = \
                         self.param_system.tx_power_density + 10 * np.log10(
                             self.ue.bandwidth[ue, np.newaxis] * 1e6
                         ) + 10 * np.log10(weights)[:, np.newaxis] - \
-                        self.coupling_loss_imt_system_ap[ue, :][:, active_aps] 
+                        self.coupling_loss_imt_system_ap[ue, :][:, active_ap]
+
+                    active_sta = np.where(self.system.sta.active)[0]
+                    # Assuming STAs have the same tx_power_density as APs if they transmit
+                    in_band_interf_power_sta = \
+                        self.param_system.tx_power_density + 10 * np.log10(
+                            self.ue.bandwidth[ue, np.newaxis] * 1e6
+                        ) + 10 * np.log10(weights)[:, np.newaxis] - \
+                        self.coupling_loss_imt_system_sta[ue, :][:, active_sta]
+
+            # Sum interference from all transmitters (APs and STAs) for each UE
+            # The sum is done in linear scale along axis 1 (the transmitters axis)
+            total_interf_linear = np.sum(10**(0.1 * in_band_interf_power_ap), axis=1) + \
+                                  np.sum(10**(0.1 * in_band_interf_power_sta), axis=1)
+            in_band_interf_power = 10 * np.log10(
+                total_interf_linear
+            )
 
             oob_power = np.resize(-500., (len(ue), 1))
             if self.adjacent_channel:
@@ -634,26 +649,40 @@ class SimulationDownlink(Simulation):
 
         # Calculate PFD at the UE
 
-        # Distance from each system transmitter to each UE receiver (in meters)
-        dist_sys_to_imt = self.system.get_3d_distance_to(
+        # Distance from each AP transmitter to each UE receiver (in meters)
+        dist_ap_to_imt = self.system.ap.get_3d_distance_to(
             self.ue)  # shape: [n_tx, n_ue]
+        
+        # Distance from each STA transmitter to each UE receiver (in meters)
+        dist_sta_to_imt = self.system.sta.get_3d_distance_to(
+            self.ue) # shape: [n_sta, n_ue]
 
         # EIRP in dBW/MHz per transmitter
-        eirp_dBW_MHz = self.param_system.tx_power_density + \
-            60 + self.system_imt_antenna_gain
+        eirp_dBW_MHz_ap = self.param_system.tx_power_density + \
+            60 + self.ap_imt_antenna_gain
+        eirp_dBW_MHz_sta = self.param_system.tx_power_density + \
+            60 + self.sta_imt_antenna_gain
+
 
         # PFD formula (dBW/m²/MHz)
         # PFD = EIRP - 10log10(4π) - 20log10(distance)
-        # Store the PFD for each transmitter and each UE
-        self.ue.pfd_external = eirp_dBW_MHz - \
-            10.992098640220963 - 20 * np.log10(dist_sys_to_imt)
+        # PFD from APs
+        pfd_external_ap = eirp_dBW_MHz_ap - \
+            10.992098640220963 - 20 * np.log10(dist_ap_to_imt)
+
+        # PFD from STAs (assuming same EIRP density for now)
+        # TODO: STAs might have different antenna gains. This needs verification.
+        pfd_external_sta = eirp_dBW_MHz_sta - \
+            10.992098640220963 - 20 * np.log10(dist_sta_to_imt)
 
         # Total PFD per UE (sum of PFDs from each transmitter)
         # Convert PFD from dB to linear scale (W/m²/MHz)
-        pfd_linear = 10 ** (self.ue.pfd_external / 10)
-        # Sum PFDs from all transmitters for each UE (axis=0 assumes shape
-        # [n_tx, n_ue])
-        pfd_agg_linear = np.sum(pfd_linear[active_sys], axis=0)
+        pfd_linear_ap = 10 ** (pfd_external_ap / 10)
+        pfd_linear_sta = 10 ** (pfd_external_sta / 10)
+        
+        # Sum PFDs from all active APs and STAs for each UE
+        pfd_agg_linear = np.sum(pfd_linear_ap[active_ap], axis=0) + np.sum(pfd_linear_sta[active_sta], axis=0)
+        
         # Convert back to dBW
         self.ue.pfd_external_aggregated = 10 * np.log10(pfd_agg_linear)
 

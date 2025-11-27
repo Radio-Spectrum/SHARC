@@ -74,6 +74,7 @@ class ParametersWifiSystem(ParametersBase):
 
     @dataclass
     class ParametersSTA(ParametersBase):
+        load_probability = 0.5
         k: int = 3
         k_m: int = 1
         indoor_percent: int = 0.0

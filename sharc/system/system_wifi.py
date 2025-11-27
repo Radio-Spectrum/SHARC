@@ -213,7 +213,8 @@ class SystemWifi:
         wifi_sta.y = np.array(sta_y)
         wifi_sta.z = np.array(sta_z) + self.parameters.sta.height
 
-        wifi_sta.active = np.zeros(self.num_sta, dtype=bool)
+        random_values = random_number_gen.rand(self.num_sta)
+        wifi_sta.active = random_values < self.parameters.sta.load_probability
         wifi_sta.indoor = random_number_gen.random_sample(
             self.num_sta,
         ) <= (self.parameters.sta.indoor_percent / 100)

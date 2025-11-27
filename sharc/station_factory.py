@@ -60,6 +60,7 @@ from sharc.mask.spectral_mask_3gpp import SpectralMask3Gpp
 from sharc.mask.spectral_mask_mss import SpectralMaskMSS
 from sharc.support.sharc_geom import CoordinateSystem
 from sharc.support.sharc_utils import wrap2_180
+from sharc.topology.topology_UE_countries import ParametersUECountries, TopologyUECountries
 
 
 class StationFactory(object):
@@ -110,6 +111,14 @@ class StationFactory(object):
             imt_base_stations.height = topology.height
             imt_base_stations.elevation = topology.elevation
             imt_base_stations.is_space_station = True
+        elif param.topology.type == "Macro_countries":
+            imt_base_stations.x = topology.x
+            imt_base_stations.y = topology.y
+            imt_base_stations.z = topology.z
+            imt_base_stations.elevation = -param_ant.downtilt * np.ones(num_bs)
+            imt_base_stations.latitude = topology.lats
+            imt_base_stations.longitude = topology.lons
+            imt_base_stations.height = param.bs.height * np.ones(num_bs)
         else:
             imt_base_stations.x = topology.x
             imt_base_stations.y = topology.y
@@ -438,6 +447,21 @@ class StationFactory(object):
                     np.arctan((param.bs.height - param.ue.height) / distance),
                 )
                 imt_ue.elevation[idx] = elevation[idx] + psi
+        elif param.ue.distribution_type.upper() == "MACRO_COUNTRIES":
+            UE_params = ParametersUECountries()
+            UE_params.num_ue_per_bs = num_ue_per_bs
+            UE_params.sector_half_bw_deg = azimuth_range[0]   # half beamwidth for UE sector (e.g., 30 => 60° total)
+            UE_params.min_dist_from_bs = param.minimum_separation_distance_bs_ue    # optional guard radius near BS (meters)
+            UE_params.ue_height_m = param.ue.height
+            ue_topo = TopologyUECountries(topology, UE_params)
+            ue_topo.calculate_coordinates()
+            ue_x = ue_topo.x
+            ue_y = ue_topo.y
+            ue_z = ue_topo.z - param.ue.height
+            imt_ue.azimuth = azimuth + ue_topo.azimuth
+            imt_ue.elevation = elevation + ue_topo.ue_elevation_deg
+            imt_ue.latitude = ue_topo.latitude
+            imt_ue.longitude = ue_topo.longitude
 
         else:
             sys.stderr.write(
@@ -843,8 +867,40 @@ class StationFactory(object):
             AntennaFactory.create_antenna(param.antenna, space_station.azimuth[0],
                                           space_station.elevation[0])
         ])
+        
+        if param.is_global_coordinate_system:
+            # Adicionado pelo Achiles
+            x, y, z = _lla_to_ecef(param.geometry.location.fixed.lat_deg, param.geometry.location.fixed.long_deg, param.geometry.altitude)
+            px, py, pz = _lla_to_ecef(np.array(param.geometry.es_lat_deg), np.array(param.geometry.es_long_deg), param.geometry.es_altitude)
+            v_ecef = np.stack([x - px, y - py, z - pz], axis=-1)             # (N,M,3)
+            dist   = np.linalg.norm(v_ecef, axis=-1)
+            dist_safe = np.where(dist == 0.0, 1.0, dist)
 
-        space_station.z = space_station.height
+            # 4) Rotation ECEF->ENU at each BS
+            R = _rot_ecef_to_enu(np.atleast_1d((param.geometry.location.fixed.lat_deg)), np.atleast_1d(np.array(param.geometry.location.fixed.long_deg)))               # (N,3,3)
+
+            # 5) Rotate LOS into ENU of each BS
+            #v_ecef = np.swapaxes(v_ecef, 0, 1)
+            #dist_safe = np.swapaxes(dist_safe, 0, 1)
+            #v_enu = np.einsum('nij,nmj->nmi', R, v_ecef)         # (N,M,3) comp = [E,N,U]
+            v_enu = -R @ v_ecef
+            E = v_enu[..., 0]
+            N = v_enu[..., 1]
+            U = v_enu[..., 2]
+
+            # 6) Angles
+            phi = np.degrees(np.arctan2(N, E))                   # [-180,180]
+            cos_th = np.clip(U / dist_safe, -1.0, 1.0)
+            theta  = 90 - np.degrees(np.arccos(cos_th))               # [0,180], 0=along Up
+            space_station.latitude = np.atleast_1d(np.asarray(param.geometry.location.fixed.lat_deg, dtype=float))
+            space_station.longitude = np.atleast_1d(np.asarray(param.geometry.location.fixed.long_deg, dtype=float))
+            ## Até aqui.
+        
+        space_station.elevation = theta
+        space_station.azimuth = phi
+        space_station.x = np.atleast_1d(np.asarray(x, dtype=float))
+        space_station.y = np.atleast_1d(np.asarray(y, dtype=float))
+        space_station.z = np.atleast_1d(np.asarray(z, dtype=float))
         space_station.bandwidth = param.bandwidth
         space_station.noise_temperature = param.noise_temperature
         space_station.thermal_noise = -500
@@ -2028,3 +2084,51 @@ if __name__ == '__main__':
 
     # fig.tight_layout()
     fig.show()
+
+
+_WGS84_A  = 6378137.0                 # semi-major axis [m]
+_WGS84_F  = 1.0 / 298.257223563
+_WGS84_E2 = _WGS84_F * (2.0 - _WGS84_F)
+
+def _lla_to_ecef(lat_deg, lon_deg, h_m):
+    """Vectorized geodetic (deg,deg,m) -> ECEF XYZ (m) on WGS-84."""
+    lat = np.radians(np.asarray(lat_deg, dtype=float))
+    lon = np.radians(np.asarray(lon_deg, dtype=float))
+    h   = np.asarray(h_m, dtype=float)
+
+    sl, cl = np.sin(lat), np.cos(lat)
+    sb, cb = np.sin(lon), np.cos(lon)
+
+    N = _WGS84_A / np.sqrt(1.0 - _WGS84_E2 * sl * sl)
+    X = (N + h) * cl * cb
+    Y = (N + h) * cl * sb
+    Z = (N * (1.0 - _WGS84_E2) + h) * sl
+    return X, Y, Z
+
+def _rot_ecef_to_enu(lat_deg, lon_deg):
+    """
+    Vectorized rotation matrices R (N,3,3) that map v_ecef -> [E,N,U] at each (lat,lon).
+    Rows are the ENU basis vectors.
+    """
+    lat = np.radians(np.asarray(lat_deg, dtype=float))
+    lon = np.radians(np.asarray(lon_deg, dtype=float))
+    sl, cl = np.sin(lat), np.cos(lat)
+    sb, cb = np.sin(lon), np.cos(lon)
+
+    # Each R has rows [east; north; up]
+    # east  = [-sin(lon),  cos(lon), 0]
+    # north = [-sin(lat)cos(lon), -sin(lat)sin(lon), cos(lat)]
+    # up    = [ cos(lat)cos(lon),  cos(lat)sin(lon), sin(lat)]
+    R = np.empty((lat.shape[0], 3, 3), dtype=float)
+    R[:, 0, 0] = -sb
+    R[:, 0, 1] =  cb
+    R[:, 0, 2] =  0.0
+
+    R[:, 1, 0] = -sl * cb
+    R[:, 1, 1] = -sl * sb
+    R[:, 1, 2] =  cl
+
+    R[:, 2, 0] =  cl * cb
+    R[:, 2, 1] =  cl * sb
+    R[:, 2, 2] =  sl
+    return R

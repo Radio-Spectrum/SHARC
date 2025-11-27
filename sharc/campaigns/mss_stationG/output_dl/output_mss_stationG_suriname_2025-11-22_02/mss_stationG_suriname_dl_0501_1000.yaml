@@ -1,0 +1,128 @@
+general:
+  num_snapshots: 500
+  imt_link: DOWNLINK
+  system: SINGLE_SPACE_STATION
+  enable_cochannel: true
+  enable_adjacent_channel: false
+  seed: 40
+  overwrite_output: false
+  output_dir: campaigns/mss_stationG/output_dl/
+  output_dir_prefix: output_mss_stationG_suriname
+imt:
+  minimum_separation_distance_bs_ue: 35
+  interfered_with: false
+  frequency: 7962.5
+  bandwidth: 100
+  rb_bandwidth: 0.18
+  spectral_mask: IMT-2020
+  spurious_emissions: -13
+  adjacent_antenna_model: BEAMFORMING
+  guard_band_ratio: 0.1
+  topology:
+    type: HOTSPOT
+    hotspot:
+      intersite_distance: 37956
+      wrap_around: false
+      num_clusters: 7
+      num_hotspots_per_cell: 3
+      max_dist_hotspot_ue: 400
+      min_dist_bs_hotspot: 0
+  bs:
+    load_probability: 0.2
+    conducted_power: 22
+    height: 18
+    noise_figure: 6
+    ohmic_loss: 0
+    antenna:
+      array:
+        normalization: false
+        element_pattern: M2101
+        minimum_array_gain: -200
+        horizontal_beamsteering_range: !!python/tuple [-60.,60.]
+        vertical_beamsteering_range: !!python/tuple [90.,100.]
+        downtilt: 6
+        element_max_g: 6.4
+        element_phi_3db: 90 #horizontal
+        element_theta_3db: 65 #vertical
+        n_rows: 8
+        n_columns: 16
+        element_horiz_spacing: 0.5
+        element_vert_spacing: 2.1
+        element_am: 30
+        element_sla_v: 30
+        multiplication_factor: 12
+        subarray: #1.7 (a-b-c) - TABLE19
+          is_enabled: true
+          n_rows: 3
+          element_vert_spacing: 0.7
+          eletrical_downtilt: 3.0
+  ue:
+    k: 3
+    k_m: 1
+    indoor_percent: 70
+    distribution_type: ANGLE_AND_DISTANCE
+    distribution_distance: SQRT(UNIFORM)
+    distribution_azimuth: UNIFORM
+    tx_power_control: true
+    p_o_pusch: -92.2
+    alpha: 0.8
+    p_cmax: 23
+    power_dynamic_range: 56
+    height: 1.5
+    noise_figure: 13
+    ohmic_loss: 0
+    body_loss: 4
+    antenna:
+      array:
+        normalization: false
+        element_pattern: FIXED
+        minimum_array_gain: -200
+        element_max_g: -4
+        element_phi_3db: 180
+        element_theta_3db: 360
+        n_rows: 1
+        n_columns: 1
+        element_am: 25
+        element_sla_v: 25
+        multiplication_factor: 12
+  uplink:
+    attenuation_factor: 0.4
+    sinr_min: -10
+    sinr_max: 22
+  downlink:
+    attenuation_factor: 0.6
+    sinr_min: -10
+    sinr_max: 30
+  channel_model: UMa
+  shadowing: true
+single_space_station:
+  frequency: 7962.5
+  bandwidth: 40
+  tx_power_density: -200
+  polarization_loss: 0
+  noise_temperature: 600
+  channel_model: P619
+  season: SUMMER
+  param_p619:
+    mean_clutter_height: Mid
+    below_rooftop: 65
+  geometry:
+    altitude: 35786000
+    es_altitude: 200
+    es_lat_deg: 4.31
+    es_long_deg: -55.93
+    azimuth:
+      type: POINTING_AT_IMT
+    elevation:
+      type: POINTING_AT_IMT
+    location:
+      type: FIXED
+      fixed:
+        lat_deg: 0
+        long_deg: -65
+  antenna:
+    pattern: ITU-R S.672
+    gain: 56
+    itu_r_s_672:
+      antenna_3_dB: 0.26
+      antenna_l_s: -20

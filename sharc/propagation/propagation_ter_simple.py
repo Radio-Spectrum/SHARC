@@ -30,6 +30,7 @@ class PropagationTerSimple(Propagation):
         self.free_space = PropagationFreeSpace(np.random.RandomState(101))
         self.building_loss = 20
         self.clutter_type = "one_end"
+        self.clutter_scenario = "terrestrial"
 
     def get_path_loss(
         self,
@@ -111,7 +112,8 @@ class PropagationTerSimple(Propagation):
             distance=distance,
             loc_percentage=loc_percentage,
             station_type=StationType.FSS_ES,
-            clutter_type=self.clutter_type
+            clutter_type=self.clutter_type,
+            clutter_scenario=self.clutter_scenario,
         )
 
         building_loss = self.building_loss * indoor_stations

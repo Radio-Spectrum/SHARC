@@ -187,7 +187,10 @@ class SimulationDownlink(Simulation):
                 interference = bs_tx_power_array[bs_interf] - \
                     self.coupling_loss_imt[bs_interf, ui]
 
-                self.ue.rx_interference[ui] = 10 * np.log10(np.sum(np.power(10, 0.1 * interference)))
+                # sum 1e-50 so that rx_interference >= -500
+                self.ue.rx_interference[ui] = 10 * np.log10(
+                    np.sum(np.power(10, 0.1 * interference)) + 1e-50
+                )
 
         # Thermal noise in dBm
         self.ue.thermal_noise = \
@@ -245,7 +248,7 @@ class SimulationDownlink(Simulation):
                     float(self.param_system.frequency),
                 )
 
-                in_band_interf_power = -500.
+                in_band_interf_power = np.array(-500.)
                 if self.co_channel:
                     # Inteferer transmit power in dBm over the overlapping band
                     # (MHz) with UEs.
@@ -260,11 +263,11 @@ class SimulationDownlink(Simulation):
                             )
                             in_band_interf_power = \
                                 self.param_system.tx_power_density + 10 * np.log10(
-                                    self.ue.bandwidth[ue, np.newaxis] * 1e6
+                                    self.ue.bandwidth[ue] * 1e6
                                 ) + 10 * np.log10(weights) - \
                                 self.coupling_loss_imt_system[ue, :][system_interfering]
 
-                oob_power = np.resize(-500., (1, 1))
+                oob_power = np.resize(-500., 1)
                 if self.adjacent_channel:
                     # emissions outside of tx bandwidth and inside of rx bw
                     # due to oob emissions on tx side
@@ -411,7 +414,9 @@ class SimulationDownlink(Simulation):
         pfd_linear = 10 ** (self.ue.pfd_external / 10)
         # Sum PFDs from all transmitters for each UE (axis=0 assumes shape
         # [n_tx, n_ue])
-        pfd_agg_linear = np.sum(pfd_linear[system_interfering], axis=0)
+        sys_active = np.where(self.system.active)[0]
+        # FIXME: consider only correct paths here
+        pfd_agg_linear = np.sum(pfd_linear[sys_active], axis=0)
         # Convert back to dBW
         self.ue.pfd_external_aggregated = 10 * np.log10(pfd_agg_linear)
 

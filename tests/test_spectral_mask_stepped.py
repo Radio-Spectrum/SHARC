@@ -53,6 +53,25 @@ class SpectalMaskSteppedTest(unittest.TestCase):
             ),
         )
 
+        # test between step edges
+        for i in range(len(msk.mask_steps_dBm_mhz) - 1):
+            center_f = freq + 3 * band / 2 + i * band
+            actual_tx_oob = msk.power_calc(center_f=center_f, band=5)
+            desired_tx_oob = 10 * np.log10(np.power(10, (msk.mask_steps_dBm_mhz[i] + 10 * np.log10(band / 2)) / 10) +
+                                           np.power(10, (msk.mask_steps_dBm_mhz[i + 1] + 10 * np.log10(band / 2)) / 10))
+            npt.assert_almost_equal(actual_tx_oob, desired_tx_oob)
+
+        # test between step edges plus an offset
+        for _ in range(1000):  # test for flaky behavior
+            for i in range(len(msk.mask_steps_dBm_mhz) - 1):
+                center_f = freq + 3 * band / 2 + i * band
+                offset = np.random.random() * (2.5)
+                actual_tx_oob = msk.power_calc(center_f=center_f + offset, band=5)
+                desired_tx_oob = 10 * np.log10(
+                    np.power(10, (msk.mask_steps_dBm_mhz[i] + 10 * np.log10(band / 2 - offset)) / 10) +
+                    np.power(10, (msk.mask_steps_dBm_mhz[i + 1] + 10 * np.log10(band / 2 + offset)) / 10))
+                npt.assert_almost_equal(actual_tx_oob, desired_tx_oob)
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -37,13 +37,13 @@ class AntennaElementCosine(Antenna):
         """
         theta_rad = np.deg2rad(np.absolute(kwargs["off_axis_angle_vec"]))
         theta_rad = np.minimum(theta_rad, np.pi / 2 - 1e-5)
-        return np.log10(np.cos(theta_rad))
+        return 10 * np.log10(np.cos(theta_rad))
 
 
 if __name__ == '__main__':
     import matplotlib.pyplot as plt
 
-    theta = np.linspace(0.01, 90, num=1000)
+    theta = np.linspace(0.01, 90.01, num=1000)
     antenna = AntennaElementCosine()
     gain = antenna.calculate_gain(off_axis_angle_vec=theta)
     fig = plt.figure(facecolor='w', edgecolor='k')
@@ -54,5 +54,5 @@ if __name__ == '__main__':
     ax.set_xlabel(r"Off-axis angle $\theta$ [deg]")
     ax.set_ylabel("Antenna Gain [dBi]")
     ax.set_xlim((theta[0], theta[-1]))
-    ax.set_ylim((-80, 10))
+    ax.set_ylim((-40, 10))
     plt.show()

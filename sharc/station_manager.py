@@ -36,6 +36,7 @@ class StationManager(object):
         self.rx_interference = np.empty(n)  # Rx interferece in dBW
         self.ext_interference = np.empty(n)  # External interferece in dBW
         self.antenna = np.empty(n, dtype=Antenna)
+        self.oob_antenna = np.empty(n, dtype=Antenna)  # Out-of-band antenna pattern
         self.bandwidth = np.empty(n)  # Bandwidth in MHz
         self.noise_figure = np.empty(n)
         self.noise_temperature = np.empty(n)

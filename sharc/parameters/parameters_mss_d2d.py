@@ -1,4 +1,5 @@
 import numpy as np
+import typing
 from dataclasses import dataclass, field, asdict
 from sharc.parameters.parameters_base import ParametersBase
 from sharc.parameters.parameters_orbit import ParametersOrbit
@@ -6,6 +7,7 @@ from sharc.parameters.imt.parameters_imt_mss_dc import ParametersSelectActiveSat
 from sharc.parameters.parameters_p619 import ParametersP619
 from sharc.parameters.parameters_antenna import ParametersAntenna
 from sharc.parameters.antenna.parameters_antenna_s1528 import ParametersAntennaS1528
+from sharc.parameters.antenna.parameters_antenna_with_freq import ParametersAntennaWithFreq
 
 
 @dataclass
@@ -49,7 +51,14 @@ class ParametersMssD2d(ParametersBase):
     adjacent_ch_emissions: str = "OFF"
 
     # Transmitter spectral mask
-    spectral_mask: str = "MSS"
+    spectral_mask: typing.Literal[
+        "IMT-2020",
+        "3GPP E-UTRA",
+        "MSS",
+        "STEPPED"] = "MSS"
+
+    # Spectral mask steps in dB for STEPPED mask
+    spectral_mask_steps: tuple[float | int, float | int] = None
 
     # Out-of-band spurious emissions in dB/MHz
     spurious_emissions: float = -13.0
@@ -83,6 +92,16 @@ class ParametersMssD2d(ParametersBase):
             pattern="ITU-R-S.1528-Taylor",
             gain=30.0,
             itu_r_s_1528=ParametersAntennaS1528()))
+
+    # Flag to indicate if out-of-band antenna pattern should be used
+    use_oob_antenna: bool = False
+
+    # Parameters for the out-of-band antenna pattern
+    oob_antenna: ParametersAntenna = field(
+        default_factory=lambda: ParametersAntenna(
+            pattern="Cosine Antenna",
+            gain=0.0,
+            mss_adjacent=ParametersAntennaWithFreq(frequency=None)))
 
     sat_is_active_if: ParametersSelectActiveSatellite = field(
         default_factory=ParametersSelectActiveSatellite)
@@ -156,7 +175,7 @@ class ParametersMssD2d(ParametersBase):
                     self.adjacent_ch_emissions}""")
 
         if self.spectral_mask.upper() not in [
-                "IMT-2020", "3GPP E-UTRA", "MSS"]:
+                "IMT-2020", "3GPP E-UTRA", "MSS", "STEPPED"]:
             raise ValueError(
                 f"""ParametersMssD2d: Inavlid Spectral Mask Name {
                     self.spectral_mask}""")
@@ -171,6 +190,18 @@ class ParametersMssD2d(ParametersBase):
             raise ValueError(
                 f"{ctx}.beams_load_factor must be in interval [0.0, 1.0]")
 
+        if self.spectral_mask.upper() == "STEPPED":
+            if self.spectral_mask_steps is None:
+                raise ValueError(
+                    f"ParametersMssD2d: spectral_mask_steps must be defined for STEPPED mask.")
+            if len(self.spectral_mask_steps) < 1:
+                raise ValueError(
+                    f"ParametersMssD2d: spectral_mask_steps must have at least one step defined.")
+            for step in self.spectral_mask_steps:
+                if not isinstance(step, (int, float)):
+                    raise ValueError(
+                        f"ParametersMssD2d: spectral_mask_steps must contain only numeric values.")
+
         super().validate(ctx)
 
     def propagate_parameters(self):
@@ -181,6 +212,18 @@ class ParametersMssD2d(ParametersBase):
             frequency=self.frequency,
             bandwidth=self.bandwidth,
         )
+        if self.use_oob_antenna:
+            if self.oob_antenna.pattern not in ["Cosine Antenna"]:  # only supported this pattern for now
+                raise ValueError(
+                    f"ParametersMssD2d: Invalid out-of-band antenna pattern {
+                        self.oob_antenna.pattern}. Only 'Cosine Antenna' is supported.")
+
+            self.oob_antenna.set_external_parameters(
+                frequency=self.frequency,
+            )
+        else:
+            self.oob_antenna = self.antenna  # use the same antenna if not specified
+
         if self.beam_positioning.service_grid.beam_radius is None:
             self.beam_positioning.service_grid.beam_radius = self.cell_radius
 

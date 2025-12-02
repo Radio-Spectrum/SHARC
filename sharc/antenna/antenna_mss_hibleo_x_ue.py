@@ -35,7 +35,7 @@ class AntennaMssHibleoXUe(Antenna):
 
     def __init__(self, frequency_MHz: float):
         """
-        Initialize the AntennaMSSAdjacent class.
+        Initialize the AntennaElementCosine class.
 
         Parameters
         ----------

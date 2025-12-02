@@ -61,6 +61,14 @@ class ParametersImt(ParametersBase):
             default_factory=lambda: ParametersAntenna(
                 pattern="ARRAY", array=ParametersAntennaImt(
                     downtilt=0.0)))
+        # Flag to indicate if out-of-band antenna pattern should be used
+        use_oob_antenna: bool = False
+        # Out-of-band antenna model
+        oob_antenna: ParametersAntenna = field(
+            default_factory=lambda: ParametersAntenna(
+                pattern="ARRAY", array=ParametersAntennaImt(
+                    adjacent_antenna_model="SINGLE_ELEMENT",
+                    downtilt=0.0)))
     bs: ParametersBS = field(default_factory=ParametersBS)
 
     topology: ParametersImtTopology = field(
@@ -107,6 +115,15 @@ class ParametersImt(ParametersBase):
         antenna: ParametersAntenna = field(
             default_factory=lambda: ParametersAntenna(
                 pattern="ARRAY"))
+
+        # Flag to indicate if out-of-band antenna pattern should be used
+        use_oob_antenna: bool = False
+        # Out-of-band antenna model
+        oob_antenna: ParametersAntenna = field(
+            default_factory=lambda: ParametersAntenna(
+                pattern="ARRAY", array=ParametersAntennaImt(
+                    adjacent_antenna_model="SINGLE_ELEMENT",
+                    downtilt=0.0)))
 
         def validate(self, ctx: str):
             """Validate the UE antenna beamsteering range parameters."""

@@ -56,6 +56,8 @@ class Results(object):
         self.imt_system_antenna_gain = SampleList()
         # Antenna gain [dBi]
         self.imt_system_antenna_gain_adjacent = SampleList()
+        # Antenna gain [dBi] - antenna gain of adjacent channel emissions
+        self.system_imt_antenna_gain_adjacent = SampleList()
 
         # Path Loss [dB]
         self.imt_system_path_loss = SampleList()
@@ -63,8 +65,6 @@ class Results(object):
         self.imt_system_build_entry_loss = SampleList()
         # System diffraction loss [dB]
         self.imt_system_diffraction_loss = SampleList()
-        # System to IMT coupling loss
-        self.sys_to_imt_coupling_loss = SampleList()
 
         self.imt_dl_tx_power_density = SampleList()
         # Transmit power [dBm]

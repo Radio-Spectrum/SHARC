@@ -152,14 +152,13 @@ class SimulationE2EIMTVictim(unittest.TestCase):
 
         # testing attributes that should be per ue towards system
         self.assertEqual(len(res.imt_system_antenna_gain_adjacent), n_ue * n_sys)
+        self.assertEqual(len(res.system_imt_antenna_gain_adjacent), n_ue * n_sys)
         self.assertEqual(len(res.imt_system_path_loss), n_ue * n_sys)
         # NOTE: it may not have co-channel since this test is for adjacent
         # self.assertEqual(len(res.imt_system_antenna_gain), n_ue * n_sys)
 
         # testing attributes that should be per system towards imt
         self.assertEqual(len(res.system_imt_antenna_gain), n_sys * n_ue)
-        # FIXME: why is this attr only on system -> IMT DL??
-        self.assertEqual(len(res.sys_to_imt_coupling_loss), n_sys * n_ue)
 
     def assert_sys_to_imt_ul_results_attr(
         self,
@@ -197,6 +196,7 @@ class SimulationE2EIMTVictim(unittest.TestCase):
 
         # testing attributes that should be per ue towards system
         self.assertEqual(len(res.imt_system_antenna_gain_adjacent), n_ue * n_sys)
+        self.assertEqual(len(res.system_imt_antenna_gain_adjacent), n_ue * n_sys)
         self.assertEqual(len(res.imt_system_path_loss), n_ue * n_sys)
         # NOTE: it may not have co-channel since this test is for adjacent,
         # so if need be, remove this from here and put it elsewhere
@@ -730,6 +730,8 @@ class SimulationE2EIMTVictim(unittest.TestCase):
         """
         self.param.general.imt_link = "DOWNLINK"
         self.param.imt.interfered_with = True
+        self.param.general.enable_adjacent_channel = True
+        self.param.general.enable_cochannel = False
         self.param.single_earth_station.adjacent_ch_emissions = "SPECTRAL_MASK"
         self.param.single_earth_station.spectral_mask = "MSS"
         self.param.single_earth_station.spurious_emissions = -13.
@@ -830,11 +832,11 @@ class SimulationE2EIMTVictim(unittest.TestCase):
 
         npt.assert_allclose(
             coc_coupling_1k,
-            simulation_1k.coupling_loss_imt_system
+            simulation_1k.coupling_loss_oob_tx_inband_rx
         )
         npt.assert_allclose(
             coc_coupling_3k,
-            simulation_3k.coupling_loss_imt_system
+            simulation_3k.coupling_loss_oob_tx_inband_rx
         )
 
         mask_power_1k = self.param.single_earth_station.spurious_emissions + \
@@ -874,6 +876,8 @@ class SimulationE2EIMTVictim(unittest.TestCase):
         This simplifies spectral mask calculation by only getting the spurious emissions
         """
         self.param.general.imt_link = "UPLINK"
+        self.param.general.enable_adjacent_channel = True
+        self.param.general.enable_cochannel = False
         self.param.imt.interfered_with = True
         self.param.single_earth_station.adjacent_ch_emissions = "SPECTRAL_MASK"
         self.param.single_earth_station.spectral_mask = "MSS"
@@ -965,22 +969,22 @@ class SimulationE2EIMTVictim(unittest.TestCase):
 
         g2 = self.param.single_earth_station.antenna.gain
 
-        coc_coupling_1k = np.transpose(p_loss_1k - g1_co_1k - g2)
-        coc_coupling_3k = np.transpose(p_loss_3k - g1_co_3k - g2)
+        coc_oob_coupling_1k = np.transpose(p_loss_1k - g1_co_1k - g2)
+        coc_oob_coupling_3k = np.transpose(p_loss_3k - g1_co_3k - g2)
 
         npt.assert_allclose(
-            coc_coupling_1k,
-            simulation_1k.coupling_loss_imt_system
+            coc_oob_coupling_1k,
+            simulation_1k.coupling_loss_oob_tx_inband_rx
         )
         npt.assert_allclose(
-            coc_coupling_3k,
-            simulation_3k.coupling_loss_imt_system
+            coc_oob_coupling_3k,
+            simulation_3k.coupling_loss_oob_tx_inband_rx
         )
 
         mask_power_1k = self.param.single_earth_station.spurious_emissions + \
             self.dB(simulation_1k.bs.bandwidth)
         mask_power_3k = np.repeat(
-            self.param.single_earth_station.spurious_emissions + \
+            self.param.single_earth_station.spurious_emissions +
             self.dB(simulation_3k.bs.bandwidth),
             3
         )
@@ -992,8 +996,8 @@ class SimulationE2EIMTVictim(unittest.TestCase):
             1
         )
 
-        rx_power_1k = mask_power_1k - coc_coupling_1k.reshape(mask_power_1k.shape)
-        rx_power_3k = mask_power_3k - coc_coupling_3k.reshape(mask_power_3k.shape)
+        rx_power_1k = mask_power_1k - coc_oob_coupling_1k.reshape(mask_power_1k.shape)
+        rx_power_3k = mask_power_3k - coc_oob_coupling_3k.reshape(mask_power_3k.shape)
 
         npt.assert_almost_equal(
             np.ravel(list(simulation_1k.bs.ext_interference.values())),

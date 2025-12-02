@@ -334,7 +334,6 @@ imt:
         # Base Station Antenna parameters:
         antenna:
             pattern: "ARRAY"
-            # pattern: ITU-R-S.1528-Taylor
             array:
                 ###########################################################################
                 # If normalization of M2101 should be applied for BS
@@ -430,6 +429,17 @@ imt:
                 l_t: 1.6
                 frequency: 2177.0
                 bandwidth: 6.0
+        ###########################################################################
+        # Defines the out-of-band antenna model to be used in compatibility studies
+        use_oob_antenna: true
+        # Out-of-band antenna pattern
+        oob_antenna:
+            gain: 0.0
+            pattern: Cosine Antenna
+            mss_adjacent:
+                frequency: 2170.0
+
+
     ###########################################################################
     # User Equipment parameters:
     ue:
@@ -994,6 +1004,8 @@ mss_d2d:
     tx_power_density: -30
     # Number of sectors
     num_sectors: 19
+    # Spectral mask steps for mask STEPPED
+    spectral_mask_steps: !!python/tuple [-10., -15., -20.]
     beam_positioning:
         # type may be one of 
         # "ANGLE_FROM_SUBSATELLITE", "ANGLE_AND_DISTANCE_FROM_SUBSATELLITE",
@@ -1103,6 +1115,14 @@ mss_d2d:
             l_t: 1.6
             frequency: 2177.0
             bandwidth: 6.0
+    # Flag to indicate if out-of-band antenna pattern should be used
+    use_oob_antenna: true
+    # Out-of-band antenna pattern
+    oob_antenna:
+        pattern: Cosine Antenna
+        mss_adjacent:
+            frequency: 2170.1
+
     # channel model, possible values are "FSPL" (free-space path loss),
     #                                    "SatelliteSimple" (FSPL + 4 + clutter loss)
     #                                    "P619"

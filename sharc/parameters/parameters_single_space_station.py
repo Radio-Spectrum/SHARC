@@ -33,6 +33,12 @@ class ParametersSingleSpaceStation(ParametersBase):
     # Antenna pattern of the sensor
     antenna: ParametersAntenna = field(default_factory=ParametersAntenna)
 
+    # Use out-of-band antenna for emissions outside the assigned bandwidth
+    use_oob_antenna: bool = False
+
+    # Out-of-band antenna parameters - only used if use_oob_antenna is True
+    oob_antenna: ParametersAntenna = field(default_factory=ParametersAntenna)
+
     # Receiver polarization loss
     # e.g. could come from polarization mismatch or depolarization
     # check if IMT parameters don't come in values for single polarization
@@ -191,6 +197,14 @@ class ParametersSingleSpaceStation(ParametersBase):
         self.antenna.set_external_parameters(
             frequency=self.frequency,
         )
+
+        if self.use_oob_antenna:
+            self.oob_antenna.set_external_parameters(
+                frequency=self.frequency
+            )
+        else:
+            # The oob antenna parameters is replicated here to prevent validation failure.
+            self.oob_antenna = self.antenna
 
         # this parameter is required in system get description
         self.antenna_pattern = self.antenna.pattern

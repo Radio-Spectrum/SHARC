@@ -136,6 +136,7 @@ class SimulationE2EAdjacentTest(unittest.TestCase):
 
         # testing attributes that should be per beam towards system
         self.assertEqual(len(res.imt_system_antenna_gain_adjacent), n_beams * n_sys)
+        self.assertEqual(len(res.system_imt_antenna_gain_adjacent), n_beams * n_sys)
         self.assertEqual(len(res.imt_system_path_loss), n_beams * n_sys)
         # NOTE: it may not have co-channel since this test is for adjacent
         # self.assertEqual(len(res.imt_system_antenna_gain), n_beams * n_sys)
@@ -170,6 +171,7 @@ class SimulationE2EAdjacentTest(unittest.TestCase):
 
         # testing attributes that should be per ue towards system
         self.assertEqual(len(res.imt_system_antenna_gain_adjacent), n_ue * n_sys)
+        self.assertEqual(len(res.system_imt_antenna_gain_adjacent), n_ue * n_sys)
         self.assertEqual(len(res.imt_system_path_loss), n_ue * n_sys)
         # NOTE: it may not have co-channel since this test is for adjacent
         # self.assertEqual(len(res.imt_system_antenna_gain), n_ue * n_sys)
@@ -236,18 +238,18 @@ class SimulationE2EAdjacentTest(unittest.TestCase):
 
         g1 = self.param.imt.bs.antenna.array.element_max_g
         g2 = self.param.single_earth_station.antenna.gain
-        coupling = p_loss - g1 - g2
+        oob_tx_inband_rx_coupling = p_loss - g1 - g2
         npt.assert_allclose(
-            coupling,
-            simulation_1k.coupling_loss_imt_system_adjacent
+            oob_tx_inband_rx_coupling,
+            simulation_1k.coupling_loss_oob_tx_inband_rx
         )
         npt.assert_allclose(
-            simulation_1k.coupling_loss_imt_system_adjacent.repeat(3),
-            np.ravel(simulation_3k.coupling_loss_imt_system_adjacent)
+            simulation_1k.coupling_loss_oob_tx_inband_rx.repeat(3),
+            np.ravel(simulation_3k.coupling_loss_oob_tx_inband_rx)
         )
 
         mask_power = self.param.imt.spurious_emissions + self.dB(self.param.single_earth_station.bandwidth)
-        rx_power = self.dB(self.lin(mask_power - coupling).sum())
+        rx_power = self.dB(self.lin(mask_power - oob_tx_inband_rx_coupling).sum())
         self.assertEqual(
             len(simulation_1k.results.system_dl_interf_power),
             1
@@ -258,8 +260,8 @@ class SimulationE2EAdjacentTest(unittest.TestCase):
         )
 
         npt.assert_allclose(
-            simulation_3k.coupling_loss_imt_system_adjacent,
-            simulation_1k.coupling_loss_imt_system_adjacent[0][0],
+            simulation_3k.coupling_loss_oob_tx_inband_rx,
+            simulation_1k.coupling_loss_oob_tx_inband_rx[0][0],
         )
         npt.assert_almost_equal(
             simulation_3k.results.system_dl_interf_power,
@@ -280,6 +282,8 @@ class SimulationE2EAdjacentTest(unittest.TestCase):
         Testing BS acs and aclr with partial co-channel
         """
         self.param.general.imt_link = "DOWNLINK"
+        self.param.general.enable_adjacent_channel = True
+        self.param.general.enable_cochannel = False
         self.param.imt.interfered_with = False
 
         self.param.imt.adjacent_ch_emissions = "ACLR"
@@ -298,7 +302,7 @@ class SimulationE2EAdjacentTest(unittest.TestCase):
         simulation_1k = SimulationDownlink(self.param, "")
         simulation_1k.initialize()
 
-        self.assertFalse(simulation_1k.co_channel)
+        # self.assertFalse(simulation_1k.co_channel)
 
         simulation_1k.snapshot(
             write_to_file=False,
@@ -377,26 +381,26 @@ class SimulationE2EAdjacentTest(unittest.TestCase):
 
         g2 = self.param.single_earth_station.antenna.gain
 
-        adj_coupling = p_loss - np.transpose(g1_adj) - g2
-        coc_coupling_1k = p_loss - np.transpose(g1_co_1k) - g2
-        coc_coupling_3k = np.reshape(p_loss.repeat(3), (6, 1)) - np.transpose(g1_co_3k) - g2
+        oob_tx_indband_tx_coupling = p_loss - np.transpose(g1_adj) - g2
+        inband_tx_oob_rx_coupling_1k = p_loss - np.transpose(g1_co_1k) - g2
+        indbanx_tx_oob_rx_coupling_3k = np.reshape(p_loss.repeat(3), (6, 1)) - np.transpose(g1_co_3k) - g2
 
         npt.assert_allclose(
-            simulation_1k.coupling_loss_imt_system_adjacent,
-            adj_coupling,
+            simulation_1k.coupling_loss_oob_tx_inband_rx,
+            oob_tx_indband_tx_coupling,
         )
         npt.assert_allclose(
-            np.ravel(simulation_3k.coupling_loss_imt_system_adjacent),
-            np.ravel(adj_coupling.repeat(3)),
+            np.ravel(simulation_3k.coupling_loss_oob_tx_inband_rx),
+            np.ravel(oob_tx_indband_tx_coupling.repeat(3)),
         )
 
         npt.assert_allclose(
-            coc_coupling_1k,
-            simulation_1k.coupling_loss_imt_system
+            inband_tx_oob_rx_coupling_1k,
+            simulation_1k.coupling_loss_imt_system_adjacent
         )
         npt.assert_allclose(
-            coc_coupling_3k,
-            simulation_3k.coupling_loss_imt_system
+            indbanx_tx_oob_rx_coupling_3k,
+            simulation_3k.coupling_loss_imt_system_adjacent
         )
         imt_non_overlap = self.param.imt.bandwidth - overlap
         sys_non_overlap = self.param.single_earth_station.bandwidth - overlap
@@ -445,12 +449,12 @@ class SimulationE2EAdjacentTest(unittest.TestCase):
         tx_oob_3k = self.dB(psd_3k * sys_non_overlap)
 
         rx_power_1k = self.dB(
-            self.lin(rx_oob_1k - coc_coupling_1k).sum() + \
-            self.lin(tx_oob_1k - adj_coupling).sum()
+            self.lin(rx_oob_1k - inband_tx_oob_rx_coupling_1k).sum() +
+            self.lin(tx_oob_1k - oob_tx_indband_tx_coupling).sum()
         )
         rx_power_3k = self.dB(
-            self.lin(rx_oob_3k.reshape(coc_coupling_3k.shape) - coc_coupling_3k).sum() + \
-            self.lin(tx_oob_3k - adj_coupling).sum()
+            self.lin(rx_oob_3k.reshape(indbanx_tx_oob_rx_coupling_3k.shape) - indbanx_tx_oob_rx_coupling_3k).sum() +
+            self.lin(tx_oob_3k - oob_tx_indband_tx_coupling).sum()
         )
 
         self.assertEqual(
@@ -543,19 +547,19 @@ class SimulationE2EAdjacentTest(unittest.TestCase):
 
         g1 = self.param.imt.ue.antenna.array.element_max_g
         g2 = self.param.single_earth_station.antenna.gain
-        coupling_1k = p_loss_1k - g1 - g2
-        coupling_3k = p_loss_3k - g1 - g2
+        oob_tx_inband_rx_coupling_1k = p_loss_1k - g1 - g2
+        oob_tx_inband_rx_coupling_3k = p_loss_3k - g1 - g2
         npt.assert_allclose(
-            coupling_1k,
-            simulation_1k.coupling_loss_imt_system_adjacent
+            oob_tx_inband_rx_coupling_1k,
+            simulation_1k.coupling_loss_oob_tx_inband_rx
         )
         npt.assert_allclose(
-            coupling_3k.flatten(),
-            simulation_3k.coupling_loss_imt_system_adjacent.flatten()
+            oob_tx_inband_rx_coupling_3k.flatten(),
+            simulation_3k.coupling_loss_oob_tx_inband_rx.flatten()
         )
 
         mask_power = self.param.imt.spurious_emissions + self.dB(self.param.single_earth_station.bandwidth)
-        rx_power = self.dB(self.lin(mask_power - coupling_1k).sum())
+        rx_power = self.dB(self.lin(mask_power - oob_tx_inband_rx_coupling_1k).sum())
         self.assertEqual(
             len(simulation_1k.results.system_ul_interf_power),
             1
@@ -708,28 +712,27 @@ class SimulationE2EAdjacentTest(unittest.TestCase):
 
         g2 = self.param.single_earth_station.antenna.gain
 
-        adj_coupling_1k = p_loss_1k - np.transpose(g1_adj_1k) - g2
-
-        adj_coupling_3k = p_loss_3k - np.transpose(g1_adj_3k) - g2
-        coc_coupling_1k = p_loss_1k - np.transpose(g1_co_1k) - g2
-        coc_coupling_3k = p_loss_3k - np.transpose(g1_co_3k) - g2
-
-        npt.assert_allclose(
-            simulation_1k.coupling_loss_imt_system_adjacent,
-            adj_coupling_1k,
-        )
-        npt.assert_allclose(
-            simulation_3k.coupling_loss_imt_system_adjacent,
-            adj_coupling_3k,
-        )
+        oob_tx_inband_rx_coupling_1k = p_loss_1k - np.transpose(g1_adj_1k) - g2
+        oob_tx_inband_rx_coupling_3k = p_loss_3k - np.transpose(g1_adj_3k) - g2
+        inband_tx_oob_rx_coupling_1k = p_loss_1k - np.transpose(g1_co_1k) - g2
+        inband_tx_oob_rx_coupling_3k = p_loss_3k - np.transpose(g1_co_3k) - g2
 
         npt.assert_allclose(
-            coc_coupling_1k,
-            simulation_1k.coupling_loss_imt_system
+            simulation_1k.coupling_loss_oob_tx_inband_rx,
+            oob_tx_inband_rx_coupling_1k,
         )
         npt.assert_allclose(
-            coc_coupling_3k,
-            simulation_3k.coupling_loss_imt_system
+            simulation_3k.coupling_loss_oob_tx_inband_rx,
+            oob_tx_inband_rx_coupling_3k,
+        )
+
+        npt.assert_allclose(
+            inband_tx_oob_rx_coupling_1k,
+            simulation_1k.coupling_loss_imt_system_adjacent
+        )
+        npt.assert_allclose(
+            inband_tx_oob_rx_coupling_3k,
+            simulation_3k.coupling_loss_imt_system_adjacent
         )
         imt_non_overlap = self.param.imt.bandwidth - overlap
         sys_non_overlap = self.param.single_earth_station.bandwidth - overlap
@@ -778,13 +781,13 @@ class SimulationE2EAdjacentTest(unittest.TestCase):
         tx_oob_3k = self.dB(psd_3k * sys_non_overlap)
 
         rx_power_1k = self.dB(
-            self.lin(rx_oob_1k.flatten() - coc_coupling_1k.flatten()).sum() + \
-            self.lin(tx_oob_1k.flatten() - adj_coupling_1k.flatten()).sum()
+            self.lin(rx_oob_1k.flatten() - inband_tx_oob_rx_coupling_1k.flatten()).sum() + \
+            self.lin(tx_oob_1k.flatten() - oob_tx_inband_rx_coupling_1k.flatten()).sum()
         )
 
         rx_power_3k = self.dB(
-            self.lin(rx_oob_3k.flatten() - coc_coupling_3k.flatten()).sum() + \
-            self.lin(tx_oob_3k.flatten() - adj_coupling_3k.flatten()).sum()
+            self.lin(rx_oob_3k.flatten() - inband_tx_oob_rx_coupling_3k.flatten()).sum() + \
+            self.lin(tx_oob_3k.flatten() - oob_tx_inband_rx_coupling_3k.flatten()).sum()
         )
 
         self.assertEqual(

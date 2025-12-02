@@ -69,6 +69,12 @@ class ParametersSingleEarthStation(ParametersBase):
     # Antenna pattern of the sensor
     antenna: ParametersAntenna = field(default_factory=ParametersAntenna)
 
+    # Use out-of-band antenna for emissions outside the assigned bandwidth
+    use_oob_antenna: bool = False
+
+    # Out-of-band antenna parameters - only used if use_oob_antenna is True
+    oob_antenna: ParametersAntenna = field(default_factory=ParametersAntenna)
+
     # Channel model, possible values are "FSPL" (free-space path loss), "P619"
     channel_model: typing.Literal[
         "FSPL", "P619",
@@ -283,14 +289,7 @@ class ParametersSingleEarthStation(ParametersBase):
         """
         super().load_parameters_from_file(config_file)
 
-        # this is needed because nested parameters
-        # don't know/cannot access parents attributes
-        self.antenna.set_external_parameters(
-            frequency=self.frequency,
-        )
-
-        # this parameter is required in system get description
-        self.antenna_pattern = self.antenna.pattern
+        self.propagate_parameters()
 
         # this should be done by validating this parameters only if it is the selected system on the general section
         # TODO: make this better by changing the Parameters class itself
@@ -302,6 +301,28 @@ class ParametersSingleEarthStation(ParametersBase):
 
         if should_validate:
             self.validate(self.section_name)
+
+    def propagate_parameters(self):
+        """
+        Propagate relevant parameters to nested objects.
+        """
+
+        # this is needed because nested parameters
+        # don't know/cannot access parents attributes
+        self.antenna.set_external_parameters(
+            frequency=self.frequency,
+        )
+
+        if self.use_oob_antenna:
+            self.oob_antenna.set_external_parameters(
+                frequency=self.frequency
+            )
+        else:
+            # The oob antenna parameters is replicated here to prevent validation failure.
+            self.oob_antenna = self.antenna
+
+        # this parameter is required in system get description
+        self.antenna_pattern = self.antenna.pattern
 
     def validate(self, ctx="single_earth_station"):
         """

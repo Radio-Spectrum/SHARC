@@ -3,7 +3,7 @@
 from sharc.parameters.parameters_antenna import ParametersAntenna
 from sharc.antenna.antenna import Antenna
 
-from sharc.antenna.antenna_mss_adjacent import AntennaMSSAdjacent
+from sharc.antenna.antenna_element_cosine import AntennaElementCosine
 from sharc.antenna.antenna_omni import AntennaOmni
 from sharc.antenna.antenna_mss_hibleo_x_ue import AntennaMssHibleoXUe
 from sharc.antenna.antenna_f699 import AntennaF699
@@ -27,7 +27,16 @@ class AntennaFactory():
         azimuth: float,
         elevation: float,
     ):
-        """Create and return an antenna instance based on the provided parameters, azimuth, and elevation."""
+        """Create and return an antenna instance based on the provided parameters, azimuth, and elevation.
+
+        Args:
+            antenna_params (ParametersAntenna): The parameters defining the antenna configuration.
+            azimuth (float): The azimuth angle for the antenna.
+            elevation (float): The elevation angle for the antenna.
+            oob_pattern (str, optional): Out-of-band pattern to use instead of the main pattern.
+        Returns:
+            Antenna: An instance of the appropriate Antenna subclass.
+        """
         match antenna_params.pattern:
             case "OMNI":
                 return AntennaOmni(antenna_params.gain)
@@ -51,9 +60,8 @@ class AntennaFactory():
                 return AntennaS1855(antenna_params.itu_r_s_1855)
             case "ITU-R Reg. RR. Appendice 7 Annex 3":
                 return AntennaReg_RR_A7_3(antenna_params.itu_reg_rr_a7_3)
-            case "MSS Adjacent":
-                return AntennaMSSAdjacent(
-                    antenna_params.mss_adjacent.frequency)
+            case "Cosine Antenna":
+                return AntennaElementCosine()
             case "ARRAY":
                 return AntennaBeamformingImt(
                     antenna_params.array.get_antenna_parameters(),
@@ -73,11 +81,19 @@ class AntennaFactory():
         n_stations: int,
     ):
         """
-        Creates many antennas based on passed parameters.
+        Create many antennas based on passed parameters.
+
         If antenna does not require each object to have different state,
         only a single antenna object will be created, and every position
         in the array will point to it.
         This is much more performant.
+        Args:
+            antenna_params (ParametersAntenna): The parameters defining the antenna configuration.
+            azimuth (np.ndarray | float): The azimuth angles for the antennas.
+            elevation (np.ndarray | float): The elevation angles for the antennas.
+            n_stations (int): Number of antennas to create.
+        Returns:
+            np.ndarray: An array of Antenna instances.
         """
         antennas = np.empty((n_stations,), dtype=Antenna)
         assert n_stations == len(azimuth)

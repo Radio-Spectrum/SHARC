@@ -182,6 +182,10 @@ class ParametersTest(unittest.TestCase):
         self.assertEqual(self.parameters.imt.bs.antenna.itu_r_s_1528.l_r, 1.6)
         self.assertEqual(self.parameters.imt.bs.antenna.itu_r_s_1528.l_t, 1.6)
 
+        # Check the OOB antenna pattern parameters
+        self.assertEqual(self.parameters.imt.bs.oob_antenna.pattern, "Cosine Antenna")
+        self.assertEqual(self.parameters.imt.bs.oob_antenna.mss_adjacent.frequency, 2170.0)
+
         """Test ParametersSubarrayImt
         """
         # testing default value not enabled
@@ -633,6 +637,7 @@ class ParametersTest(unittest.TestCase):
         self.assertEqual(self.parameters.mss_d2d.cell_radius, 19001)
         self.assertEqual(self.parameters.mss_d2d.beam_radius, 19001)
         self.assertEqual(self.parameters.mss_d2d.tx_power_density, -30)
+        self.assertEqual(self.parameters.mss_d2d.spectral_mask_steps, (-10., -15., -20.))
         self.assertEqual(self.parameters.mss_d2d.num_sectors, 19)
         self.assertEqual(
             self.parameters.mss_d2d.antenna.pattern,
@@ -645,6 +650,10 @@ class ParametersTest(unittest.TestCase):
         self.assertEqual(self.parameters.mss_d2d.antenna.itu_r_s_1528.n_side_lobes, 2)
         self.assertEqual(self.parameters.mss_d2d.antenna.itu_r_s_1528.l_r, 1.6)
         self.assertEqual(self.parameters.mss_d2d.antenna.itu_r_s_1528.l_t, 1.6)
+        # Test oob antenna pattern
+        self.assertEqual(self.parameters.mss_d2d.use_oob_antenna, True)
+        self.assertEqual(self.parameters.mss_d2d.oob_antenna.pattern, 'Cosine Antenna')
+        self.assertEqual(self.parameters.mss_d2d.oob_antenna.mss_adjacent.frequency, 2170.1)
         self.assertEqual(self.parameters.mss_d2d.channel_model, 'P619')
         self.assertEqual(
             self.parameters.mss_d2d.param_p619.earth_station_alt_m, 0.0)

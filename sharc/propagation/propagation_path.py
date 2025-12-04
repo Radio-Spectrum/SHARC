@@ -87,6 +87,7 @@ class PropagationPath():
 
     @property
     def mask(self):
+        """Getter for _mask property"""
         return self._mask
 
     def calc_mask(self, *, deduplicate: bool):

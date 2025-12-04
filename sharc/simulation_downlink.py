@@ -172,7 +172,7 @@ class SimulationDownlink(Simulation):
         Calculates the downlink SINR for each UE.
         """
         bs_active = np.where(self.bs.active)[0]
-        ue_to_bs_path_mask = self.intra_imt_paths._mask
+        ue_to_bs_path_mask = self.intra_imt_paths.mask
         bs_tx_power_array = np.stack([self.bs.tx_power[k] for k in sorted(self.bs.tx_power)]).flatten()
 
         for bs in bs_active:
@@ -230,7 +230,7 @@ class SimulationDownlink(Simulation):
 
         # applying a bandwidth scaling factor since UE transmits on a portion
         # of the satellite's bandwidth
-        ue_interferer_paths = self.paths_between_imt_and_sys._mask.T
+        ue_interferer_paths = self.paths_between_imt_and_sys.mask.T
 
         # All UEs are active on an active BS
         bs_active = np.where(self.bs.active)[0]
@@ -538,7 +538,7 @@ class SimulationDownlink(Simulation):
             )
 
         rx_interference = 0
-        bs_interferer_paths = self.paths_between_imt_and_sys._mask.T
+        bs_interferer_paths = self.paths_between_imt_and_sys.mask.T
         for bs in bs_active:
             system_interfering = np.where(bs_interferer_paths[bs])[0]
             active_beams = [

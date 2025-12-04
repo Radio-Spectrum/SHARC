@@ -375,9 +375,10 @@ class Simulation(ABC, Observable):
             sta_b_gains=sta_b_gains,
         )
 
-        # TODO: remove gambiarra
         # Store antenna gains and path loss samples
         if self.param_system.channel_model == "HDFSS":
+            # TODO: standardized way of storing these results
+            # instead of just for HDFSS
             self.imt_system_build_entry_loss = path_loss[1]
             self.imt_system_diffraction_loss = path_loss[2]
             path_loss = path_loss[0]
@@ -828,7 +829,7 @@ class Simulation(ABC, Observable):
         if result_attr is None:
             result_attr = attr
 
-        sys_to_imt_paths_mask = self.paths_between_imt_and_sys._mask
+        sys_to_imt_paths_mask = self.paths_between_imt_and_sys.mask
         n_sys = self.system.num_stations
 
         assert v.shape[0] == n_sys

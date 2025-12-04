@@ -297,8 +297,8 @@ class PropagationPathTest(unittest.TestCase):
                 ploss = ploss[0]
 
             expected_shape = (ue.num_stations, bs.num_stations)
-            expected_filled = np.stack(np.where(path._mask), axis=0)
-            expected_nans = np.stack(np.where(~path._mask), axis=0)
+            expected_filled = np.stack(np.where(path.mask), axis=0)
+            expected_nans = np.stack(np.where(~path.mask), axis=0)
 
             if ch_model == "INDOOR":
                 # NOTE: current Indoor channel model implementaiton
@@ -384,8 +384,8 @@ class PropagationPathTest(unittest.TestCase):
                 ploss = ploss[0]
 
             expected_shape = (single_sta.num_stations, bs.num_stations)
-            expected_filled = np.stack(np.where(path._mask), axis=0)
-            expected_nans = np.stack(np.where(~path._mask), axis=0)
+            expected_filled = np.stack(np.where(path.mask), axis=0)
+            expected_nans = np.stack(np.where(~path.mask), axis=0)
 
             if ch_model == "INDOOR":
                 # NOTE: current Indoor channel model implementaiton

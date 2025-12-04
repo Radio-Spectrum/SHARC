@@ -41,8 +41,6 @@ class GlobalGeometry(ABC):
 
     num_geometries: int
 
-    # TODO: remove this from here
-    # gambiarra_intersite_dist: float
     intersite_dist: float
 
     def setup(

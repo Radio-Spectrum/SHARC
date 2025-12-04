@@ -148,7 +148,7 @@ class SimulationUplink(Simulation):
         """
         # calculate uplink received power for each active BS
         bs_active = np.where(self.bs.active)[0]
-        bs_to_ue_path_mask = self.intra_imt_paths._mask.T
+        bs_to_ue_path_mask = self.intra_imt_paths.mask.T
         for bs in bs_active:
             ue = self.link[bs]
 
@@ -208,7 +208,7 @@ class SimulationUplink(Simulation):
                 )
 
         bs_active = np.where(self.bs.active)[0]
-        bs_interferer_paths = self.paths_between_imt_and_sys._mask.T
+        bs_interferer_paths = self.paths_between_imt_and_sys.mask.T
 
         for bs in bs_active:
             system_interfering = np.where(bs_interferer_paths[bs])[0]
@@ -374,7 +374,7 @@ class SimulationUplink(Simulation):
         rx_interference = 0
 
         bs_active = np.where(self.bs.active)[0]
-        ue_interf_from_sys_paths_mask = self.paths_between_imt_and_sys._mask.T
+        ue_interf_from_sys_paths_mask = self.paths_between_imt_and_sys.mask.T
         for bs in bs_active:
             ues = self.link[bs]
             for ue in ues:

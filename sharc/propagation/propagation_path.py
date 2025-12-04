@@ -85,6 +85,10 @@ class PropagationPath():
             sta_b_gains,
         )
 
+    @property
+    def mask(self):
+        return self._mask
+
     def calc_mask(self, *, deduplicate: bool):
         """Calculates and updates current mask and paths
         based on masking functions in instance.
@@ -131,7 +135,7 @@ class PropagationPath():
 
         mtx = np.full(self._orig_shape, np.nan)
         expanded_vec = vec[self._deduped_paths_representative_node]
-        mtx[self._mask] = expanded_vec
+        mtx[self.mask] = expanded_vec
 
         return mtx
 

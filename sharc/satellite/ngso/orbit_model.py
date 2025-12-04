@@ -368,7 +368,6 @@ def main():
         t_max=orbit_model_params.t_max,
     )
 
-
     # Get satellite positions over time
     positions = orbit_model.get_satellite_positions_time_interval(n_periods=1)
 

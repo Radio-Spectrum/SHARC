@@ -172,19 +172,34 @@ class SimulationDownlink(Simulation):
         Calculates the downlink SINR for each UE.
         """
         bs_active = np.where(self.bs.active)[0]
-        ue_to_bs_path_mask = self.intra_imt_paths.mask
-        bs_tx_power_array = np.stack([self.bs.tx_power[k] for k in sorted(self.bs.tx_power)]).flatten()
+        ue_k = self.parameters.imt.ue.k
 
+        # paths that actually exist and should make signal or interf
+        ue_to_bs_path_mask = self.intra_imt_paths.mask
+        # since bs tx_power is dict, we get it to array for easier use
+        bs_tx_power_per_beam_array = np.array([
+            self.bs.tx_power[k] if k in self.bs.tx_power
+            else np.full(ue_k, -np.inf)
+            for k in range(self.bs.num_stations)
+        ])
         for bs in bs_active:
             ue = self.link[bs]
             self.ue.rx_power[ue] = self.bs.tx_power[bs] - \
                 self.coupling_loss_imt[bs, ue]
-            # create a list with base stations that generate interference in
             for ui in ue:
+                # base stations that have links/paths to ue
                 bs_interf = np.where(ue_to_bs_path_mask[ui])[0]
-                bs_interf = [bsi for bsi in bs_interf if bsi != bs]
-
-                interference = bs_tx_power_array[bs_interf] - \
+                # remove serving bs to get interferrers
+                bs_interf = bs_interf[bs_interf != bs]
+                # get each base station power per beam
+                interf_tx_pow = bs_tx_power_per_beam_array[bs_interf]
+                # get UE RB index
+                ue_rb_beam_idx = int(self.bs_to_ue_beam_rbs[ui])
+                # only overlapping RB interf power is considered
+                interf_tx_pow = interf_tx_pow[:, ue_rb_beam_idx]
+                # coupling loss already considers only the overlapping beam
+                # from BS
+                interference = interf_tx_pow - \
                     self.coupling_loss_imt[bs_interf, ui]
 
                 # sum 1e-50 so that rx_interference >= -500

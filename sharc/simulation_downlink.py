@@ -173,8 +173,11 @@ class SimulationDownlink(Simulation):
         """
         bs_active = np.where(self.bs.active)[0]
         ue_to_bs_path_mask = self.intra_imt_paths.mask
-        bs_tx_power_array = np.stack([self.bs.tx_power[k] for k in sorted(self.bs.tx_power)]).flatten()
-
+        bs_tx_power_array = np.stack([
+            self.bs.tx_power[k] if k in self.bs.tx_power
+            else np.full(self.parameters.imt.ue.k, -np.inf)
+                for k in range(self.bs.num_stations)
+        ]).flatten()
         for bs in bs_active:
             ue = self.link[bs]
             self.ue.rx_power[ue] = self.bs.tx_power[bs] - \

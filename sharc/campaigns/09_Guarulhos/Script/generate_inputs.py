@@ -14,16 +14,7 @@ APPROACH_SIGN   = -1          # +1 vindo do Leste; -1 do Oeste
 x0, y0          = -2000.0, 10000.0    # offsets locais em metros
 
 # >>> AQUI: vetor de distâncias até o CENTRO da pista (m)
-DISTANCES_M = [
-    1000,
-    2000,
-    6000,
-    10000,
-    15000,
-    20000,
-    25000,
-    30000,
-]
+DISTANCES_M = [1000, 2000, 4000, 8000, 16000, 32000]
 
 yaml = YAML(typ="rt")
 yaml.preserve_quotes = True
@@ -54,7 +45,9 @@ total_files = 0
 
 for n_array in [4, 8]:
     data["imt"]["bs"]["antenna"]["array"]["n_rows"] = n_array
+    data["imt"]["bs"]["conducted_power"] = 34.95 if n_array == 4 else 31.94
 
+    
     # loop direto nas distâncias
     for s_m in DISTANCES_M:
         # altura na rampa

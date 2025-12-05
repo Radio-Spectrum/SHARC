@@ -6,9 +6,12 @@ Created on Thu Feb 16 12:04:27 2017
 """
 import numpy as np
 from multipledispatch import dispatch
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from sharc.propagation.propagation_path import PropagationPath
 
 from sharc.propagation.propagation import Propagation
-from sharc.station_manager import StationManager
 from sharc.parameters.parameters import Parameters
 
 
@@ -19,14 +22,11 @@ class PropagationFreeSpace(Propagation):
     Frequency in MHz and distance are in meters
     """
 
-    @dispatch(Parameters, float, StationManager,
-              StationManager, np.ndarray, np.ndarray)
-    def get_loss(
+    def get_path_loss(
         self,
         params: Parameters,
         frequency: float,
-        station_a: StationManager,
-        station_b: StationManager,
+        path: "PropagationPath",
         station_a_gains=None,
         station_b_gains=None,
     ) -> np.array:
@@ -47,9 +47,12 @@ class PropagationFreeSpace(Propagation):
             Return an array station_a.num_stations x station_b.num_stations with the path loss
             between each station
         """
-        distance_3d = station_a.get_3d_distance_to(station_b)
-        loss = self.get_free_space_loss(
-            frequency=frequency, distance=distance_3d)
+        distance_3d = path.sta_a.geom.get_3d_distance_to(path.sta_b.geom)
+
+        mskd_dist3d = path.mtx_to_masked(distance_3d)
+        mskd_loss = self.get_free_space_loss(
+            frequency=frequency, distance=mskd_dist3d)
+        loss = path.from_masked_mtx(mskd_loss)
 
         return loss
 

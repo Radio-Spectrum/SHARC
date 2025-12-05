@@ -81,9 +81,9 @@ class StationFactoryNgsoTest(unittest.TestCase):
         """Test that the NGSO manager creates the correct number and type of stations."""
         self.assertEqual(self.ngso_manager.station_type, StationType.MSS_D2D)
         self.assertEqual(self.ngso_manager.num_stations, 20 * 32 + 12 * 20)
-        self.assertEqual(self.ngso_manager.x.shape, (20 * 32 + 12 * 20,))
-        self.assertEqual(self.ngso_manager.y.shape, (20 * 32 + 12 * 20,))
-        self.assertEqual(self.ngso_manager.height.shape, (20 * 32 + 12 * 20,))
+        self.assertEqual(self.ngso_manager.geom.x_global.shape, (20 * 32 + 12 * 20,))
+        self.assertEqual(self.ngso_manager.geom.y_global.shape, (20 * 32 + 12 * 20,))
+        self.assertEqual(self.ngso_manager.geom.z_global.shape, (20 * 32 + 12 * 20,))
 
     def test_satellite_antenna_pointing(self):
         """Test that satellite antennas point to nadir and off-axis angles are correct."""
@@ -93,27 +93,29 @@ class StationFactoryNgsoTest(unittest.TestCase):
         # y > 0 <=> azimuth < 0
         # y < 0 <=> azimuth > 0
         npt.assert_array_equal(
-            np.sign(self.ngso_manager.azimuth), -np.sign(self.ngso_manager.y))
+            np.sign(self.ngso_manager.geom.pointn_azim_global), -np.sign(self.ngso_manager.geom.y_global))
 
         # Test: check if center of earth is 0deg off axis, and that its
         # distance to satellite is correct
         earth_center = StationManager(1)
-        earth_center.x = np.array([0.])
-        earth_center.y = np.array([0.])
         x, y, z = lla2ecef(self.lat, self.long, self.alt)
-        earth_center.z = -np.sqrt(
-            x * x + y * y + z * z,
+        earth_center.geom.set_global_coords(
+            np.array([0.]),
+            np.array([0.]),
+            -np.sqrt(
+                x * x + y * y + z * z,
+            )
         )
 
-        self.assertNotAlmostEqual(earth_center.z[0], 0.)
+        self.assertNotAlmostEqual(earth_center.geom.z_global[0], 0.)
 
-        off_axis_angle = self.ngso_manager.get_off_axis_angle(earth_center)
-        distance_to_center_of_earth = self.ngso_manager.get_3d_distance_to(
-            earth_center)
+        off_axis_angle = self.ngso_manager.geom.get_off_axis_angle(earth_center.geom)
+        distance_to_center_of_earth = self.ngso_manager.geom.get_3d_distance_to(
+            earth_center.geom)
         distance_to_center_of_earth_should_eq = np.sqrt(
-            self.ngso_manager.x ** 2 +
-            self.ngso_manager.y ** 2 +
-            (np.sqrt(x * x + y * y + z * z) + self.ngso_manager.z) ** 2,
+            self.ngso_manager.geom.x_global ** 2 +
+            self.ngso_manager.geom.y_global ** 2 +
+            (np.sqrt(x * x + y * y + z * z) + self.ngso_manager.geom.z_global) ** 2,
         )
 
         npt.assert_allclose(off_axis_angle, 0.0, atol=1e-05)
@@ -131,48 +133,69 @@ class StationFactoryNgsoTest(unittest.TestCase):
 
         ngso_original_coord = StationFactory.generate_mss_d2d(
             self.param, rng, self.coord_sys)
-        self.coord_sys.station_enu2ecef(ngso_original_coord)
+        nx, ny, nz = self.coord_sys.enu2ecef(
+            ngso_original_coord.geom.x_global,
+            ngso_original_coord.geom.y_global,
+            ngso_original_coord.geom.z_global,
+        )
+        nazim, nelev = self.coord_sys.angle_enu2ecef(
+            ngso_original_coord.geom.pointn_azim_global,
+            ngso_original_coord.geom.pointn_elev_global,
+        )
+        ngso_original_coord.geom.set_global_coords(
+            nx, ny, nz, nazim, nelev
+        )
         # Test: check if azimuth is pointing towards correct direction
         # y > 0 <=> azimuth < 0
         # y < 0 <=> azimuth > 0
         npt.assert_array_equal(
-            np.sign(ngso_original_coord.azimuth), -np.sign(ngso_original_coord.y))
+            np.sign(ngso_original_coord.geom.pointn_azim_global), -np.sign(ngso_original_coord.geom.y_global))
 
         # Test: check if center of earth is 0deg off axis
         earth_center = StationManager(1)
-        earth_center.x = np.array([0.])
-        earth_center.y = np.array([0.])
-        earth_center.z = np.array([0.])
+        earth_center.geom.set_global_coords(
+            np.array([0.]),
+            np.array([0.]),
+            np.array([0.]),
+        )
 
-        off_axis_angle = ngso_original_coord.get_off_axis_angle(earth_center)
+        off_axis_angle = ngso_original_coord.geom.get_off_axis_angle(earth_center.geom)
 
         npt.assert_allclose(off_axis_angle, 0.0, atol=1e-05)
 
-        self.coord_sys.station_ecef2enu(ngso_original_coord)
+        # convert stations to enu
+        nx, ny, nz = self.coord_sys.ecef2enu(
+            ngso_original_coord.geom.x_global,
+            ngso_original_coord.geom.y_global,
+            ngso_original_coord.geom.z_global,
+        )
+        nazim, nelev = self.coord_sys.angle_ecef2enu(
+            ngso_original_coord.geom.pointn_azim_global,
+            ngso_original_coord.geom.pointn_elev_global,
+        )
+        ngso_original_coord.geom.set_global_coords(
+            nx, ny, nz, nazim, nelev
+        )
 
         npt.assert_allclose(
-            self.ngso_manager.x,
-            ngso_original_coord.x,
+            self.ngso_manager.geom.x_global,
+            ngso_original_coord.geom.x_global,
             atol=1e-500)
         npt.assert_allclose(
-            self.ngso_manager.y,
-            ngso_original_coord.y,
+            self.ngso_manager.geom.y_global,
+            ngso_original_coord.geom.y_global,
             atol=1e-500)
         npt.assert_allclose(
-            self.ngso_manager.z,
-            ngso_original_coord.z,
+            self.ngso_manager.geom.z_global,
+            ngso_original_coord.geom.z_global,
             atol=1e-500)
         npt.assert_allclose(
-            self.ngso_manager.height,
-            ngso_original_coord.height,
+            self.ngso_manager.geom.pointn_azim_global,
+            ngso_original_coord.geom.pointn_azim_global,
             atol=1e-500)
         npt.assert_allclose(
-            self.ngso_manager.azimuth,
-            ngso_original_coord.azimuth,
-            atol=1e-500)
-        npt.assert_allclose(
-            self.ngso_manager.elevation,
-            ngso_original_coord.elevation,
+            self.ngso_manager.geom.pointn_elev_global,
+            ngso_original_coord.geom.pointn_elev_global,
             atol=1e-500)
 
 

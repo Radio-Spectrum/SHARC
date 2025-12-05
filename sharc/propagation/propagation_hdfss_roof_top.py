@@ -58,6 +58,12 @@ class PropagationHDFSSRoofTop(Propagation):
 
         self.SPEED_OF_LIGHT = SPEED_OF_LIGHT
 
+    def get_path_loss(self, *args, **kwargs):
+        """This class isn't supposed to be directly called in the simulation
+        loop, so this methods doesn't need to be implemented
+        """
+        raise NotImplementedError()
+
     def get_loss(self, *args, **kwargs) -> np.array:
         """
         Calculates path loss for given distances and frequencies
@@ -123,51 +129,46 @@ class PropagationHDFSSRoofTop(Propagation):
 
         # Define indexes
         same_build_idx = np.where(same_build)[0]
-        fspl_idx = np.where(fspl_bool)[1]
-        fspl_to_los_idx = np.where(fspl_to_los_bool)[1]
-        los_idx = np.where(los_bool)[1]
-        los_to_nlos_idx = np.where(los_to_nlos_bool)[1]
-        nlos_idx = np.where(nlos_bool)[1]
+
+        fspl_idx = np.where(fspl_bool)[0]
+        fspl_to_los_idx = np.where(fspl_to_los_bool)[0]
+        los_idx = np.where(los_bool)[0]
+        los_to_nlos_idx = np.where(los_to_nlos_bool)[0]
+        nlos_idx = np.where(nlos_bool)[0]
 
         # Path loss
         loss = np.zeros_like(d)
 
         if not self.param.same_building_enabled:
-            loss[:, same_build_idx] += self.HIGH_LOSS
+            loss[same_build_idx] += self.HIGH_LOSS
         else:
-            loss[:, same_build_idx] += self.get_same_build_loss(
+            loss[same_build_idx] += self.get_same_build_loss(
                 imt_z[same_build_idx],
-                es_z,
+                es_z[same_build_idx],
             )
 
-        loss[:, fspl_idx] += self.propagation_fspl.get_free_space_loss(
-            distance=d[:, fspl_idx], frequency=f[:, fspl_idx],
+        loss[fspl_idx] += self.propagation_fspl.get_free_space_loss(
+            distance=d[fspl_idx], frequency=f[fspl_idx],
         )
-        loss[:, fspl_to_los_idx] += self.interpolate_fspl_to_los(
-            d[:, fspl_to_los_idx],
-            f[:, fspl_to_los_idx],
+        loss[fspl_to_los_idx] += self.interpolate_fspl_to_los(
+            d[fspl_to_los_idx],
+            f[fspl_to_los_idx],
             self.param.shadow_enabled,
         )
-        loss[:, los_idx] += self.propagation_p1411.get_loss(
-            distance_3D=d[:, los_idx],
-            frequency=f[
-                :,
-                los_idx,
-            ],
+        loss[los_idx] += self.propagation_p1411.get_loss(
+            distance_3D=d[los_idx],
+            frequency=f[los_idx],
             los=True,
             shadow=self.param.shadow_enabled,
         )
-        loss[:, los_to_nlos_idx] += self.interpolate_los_to_nlos(
-            d[:, los_to_nlos_idx],
-            f[:, los_to_nlos_idx],
+        loss[los_to_nlos_idx] += self.interpolate_los_to_nlos(
+            d[los_to_nlos_idx],
+            f[los_to_nlos_idx],
             self.param.shadow_enabled,
         )
-        loss[:, nlos_idx] += self.propagation_p1411.get_loss(
-            distance_3D=d[:, nlos_idx],
-            frequency=f[
-                :,
-                nlos_idx,
-            ],
+        loss[nlos_idx] += self.propagation_p1411.get_loss(
+            distance_3D=d[nlos_idx],
+            frequency=f[nlos_idx],
             los=False,
             shadow=self.param.shadow_enabled,
         )
@@ -175,10 +176,10 @@ class PropagationHDFSSRoofTop(Propagation):
         # Building entry loss
         if self.param.building_loss_enabled:
             build_loss = np.zeros_like(loss)
-            build_loss[0, not_same_build] = self.get_building_loss(
+            build_loss[not_same_build] = self.get_building_loss(
                 imt_sta_type,
-                f[:, not_same_build],
-                elevation[:, not_same_build],
+                f[not_same_build],
+                elevation[not_same_build],
             )
         else:
             build_loss = 0.0
@@ -191,11 +192,11 @@ class PropagationHDFSSRoofTop(Propagation):
                 es_x, es_y, es_z,
             )
             diff_loss = np.zeros_like(loss)
-            diff_loss[0, not_same_build] = self.get_diffraction_loss(
+            diff_loss[not_same_build] = self.get_diffraction_loss(
                 h[not_same_build],
                 d1[not_same_build],
                 d2[not_same_build],
-                f[:, not_same_build],
+                f[not_same_build],
             )
 
         # Compute final loss
@@ -339,10 +340,10 @@ class PropagationHDFSSRoofTop(Propagation):
             Boolean array indicating if each IMT is in the same building as the earth station.
         """
 
-        building_x_range = es_x + (1 + self.b_tol) * \
-            np.array([-self.b_w / 2, +self.b_w / 2])
-        building_y_range = es_y + (1 + self.b_tol) * \
-            np.array([-self.b_d / 2, +self.b_d / 2])
+        building_x_range = es_x[np.newaxis, :] + (1 + self.b_tol) * \
+            np.array([-self.b_w / 2, +self.b_w / 2])[:, np.newaxis]
+        building_y_range = es_y[np.newaxis, :] + (1 + self.b_tol) * \
+            np.array([-self.b_d / 2, +self.b_d / 2])[:, np.newaxis]
 
         is_in_x = np.logical_and(
             imt_x >= building_x_range[0], imt_x <= building_x_range[1],

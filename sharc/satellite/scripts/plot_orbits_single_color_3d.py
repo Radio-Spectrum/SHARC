@@ -77,9 +77,11 @@ if __name__ == "__main__":
 
     center_of_earth = StationManager(1)
     # rotated and then translated center of earth
-    center_of_earth.x = np.array([0.0])
-    center_of_earth.y = np.array([0.0])
-    center_of_earth.z = np.array([-coord_sys.get_translation()])
+    center_of_earth.geom.set_global_coords(
+        np.array([0.0]),
+        np.array([0.0]),
+        np.array([-coord_sys.get_translation()]),
+    )
 
     vis_elevation = []
     for _ in range(NUM_DROPS):
@@ -87,9 +89,9 @@ if __name__ == "__main__":
         mss_d2d_manager = StationFactory.generate_mss_d2d(params, rng, coord_sys)
 
         # Extract satellite positions
-        x_vec = mss_d2d_manager.x / 1e3  # (Km)
-        y_vec = mss_d2d_manager.y / 1e3  # (Km)
-        z_vec = mss_d2d_manager.z / 1e3  # (Km)
+        x_vec = mss_d2d_manager.geom.x_global / 1e3  # (Km)
+        y_vec = mss_d2d_manager.geom.y_global / 1e3  # (Km)
+        z_vec = mss_d2d_manager.geom.z_global / 1e3  # (Km)
         # Store all positions
         all_positions['x'].extend(x_vec)
         all_positions['y'].extend(y_vec)
@@ -99,12 +101,12 @@ if __name__ == "__main__":
         vis_sat_idxs = np.where(mss_d2d_manager.active)[0]
 
         # should be pointing at nadir
-        off_axis = mss_d2d_manager.get_off_axis_angle(center_of_earth)
+        off_axis = mss_d2d_manager.geom.get_off_axis_angle(center_of_earth.geom)
 
         visible_positions['x'].extend(x_vec[vis_sat_idxs])
         visible_positions['y'].extend(y_vec[vis_sat_idxs])
         visible_positions['z'].extend(z_vec[vis_sat_idxs])
-        vis_elevation.extend(mss_d2d_manager.elevation[vis_sat_idxs])
+        vis_elevation.extend(mss_d2d_manager.geom.pointn_elev_global[vis_sat_idxs])
 
     # Flatten arrays
     all_positions['x'] = np.concatenate([all_positions['x']])
@@ -153,9 +155,9 @@ if __name__ == "__main__":
     ))
 
     # fig.add_trace(go.Scatter3d(
-    #     x=center_of_earth.x / 1e3,
-    #     y=center_of_earth.y / 1e3,
-    #     z=center_of_earth.z / 1e3,
+    #     x=center_of_earth.geom.x_global / 1e3,
+    #     y=center_of_earth.geom.y_global / 1e3,
+    #     z=center_of_earth.geom.z_global / 1e3,
     #     mode='markers',
     #     marker=dict(size=5, color='black', opacity=1.0),
     #     showlegend=False

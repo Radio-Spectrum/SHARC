@@ -11,6 +11,7 @@ from sharc.support.enumerations import StationType
 from sharc.station import Station
 from sharc.antenna.antenna import Antenna
 from sharc.mask.spectral_mask import SpectralMask
+from sharc.support.geometry import SimulatorGeometry
 
 
 class StationManager(object):
@@ -22,12 +23,6 @@ class StationManager(object):
 
     def __init__(self, n):
         self.num_stations = n
-        self.x = np.empty(n)  # x coordinate
-        self.y = np.empty(n)  # y coordinate
-        self.z = np.empty(n)  # z coordinate (includes height above ground)
-        self.azimuth = np.empty(n)
-        self.elevation = np.empty(n)
-        self.height = np.empty(n)  # station height above ground
         self.idx_orbit = np.empty(n)
         self.indoor = np.zeros(n, dtype=bool)
         self.active = np.ones(n, dtype=bool)
@@ -53,7 +48,8 @@ class StationManager(object):
         self.center_freq = np.empty(n)
         self.station_type = StationType.NONE
         self.is_space_station = False
-        self.intersite_dist = 0.0
+        self.geom = SimulatorGeometry(n)
+        self.max_earth_sta_interf_distance = np.inf
 
     def get_station_list(self, id=None) -> list:
         """Return a list of Station objects for the given indices.
@@ -90,12 +86,11 @@ class StationManager(object):
         """
         station = Station()
         station.id = id
-        station.x = self.x[id]
-        station.y = self.y[id]
-        station.z = self.z[id]
-        station.azimuth = self.azimuth[id]
-        station.elevation = self.elevation[id]
-        station.height = self.height[id]
+        station.x = self.geom.x_global[id]
+        station.y = self.geom.y_global[id]
+        station.z = self.geom.z_global[id]
+        station.azimuth = self.geom.pointn_azim_global[id]
+        station.elevation = self.geom.pointn_elev_global[id]
         station.indoor = self.indoor[id]
         station.active = self.active[id]
         station.tx_power = self.tx_power[id]
@@ -114,229 +109,6 @@ class StationManager(object):
         station.inr = self.inr[id]
         station.station_type = self.station_type
         return station
-
-    def get_distance_to(self, station) -> np.array:
-        """Calculate the 2D distance between this manager's stations and another's.
-
-        Parameters
-        ----------
-        station : StationManager
-            StationManager to which the distance is calculated.
-
-        Returns
-        -------
-        np.array
-            2D distance matrix between stations.
-        """
-        distance = np.empty([self.num_stations, station.num_stations])
-        for i in range(self.num_stations):
-            distance[i] = np.sqrt(
-                np.power(self.x[i] - station.x, 2) +
-                np.power(self.y[i] - station.y, 2),
-            )
-        return distance
-
-    def get_3d_distance_to(self, station) -> np.array:
-        """Calculate the 3D distance between this manager's stations and another's.
-
-        Parameters
-        ----------
-        station : StationManager
-            StationManager to which the distance is calculated.
-
-        Returns
-        -------
-        np.array
-            3D distance matrix between stations.
-        """
-        dx = np.subtract.outer(self.x, station.x).astype(np.float64)
-        dy = np.subtract.outer(self.y, station.y).astype(np.float64)
-        dz = np.subtract.outer(self.z, station.z).astype(np.float64)
-        np.square(dx, out=dx)
-        np.square(dy, out=dy)
-        np.square(dz, out=dz)
-        np.sqrt(
-            dx + dy + dz,
-            out=dx
-        )
-        return dx
-
-    def get_dist_angles_wrap_around(self, station) -> np.array:
-        """Calculate distances and angles using the wrap-around technique.
-
-        Parameters
-        ----------
-        station : StationManager
-            StationManager to which distances and angles are calculated.
-
-        Returns
-        -------
-        tuple
-            distance_2D (np.array): 2D distance between stations
-            distance_3D (np.array): 3D distance between stations
-            phi (np.array): azimuth of pointing vector to other stations
-            theta (np.array): elevation of pointing vector to other stations
-        """
-        # Initialize variables
-        distance_3D = np.empty([self.num_stations, station.num_stations])
-        distance_2D = np.inf * np.ones_like(distance_3D)
-        cluster_num = np.zeros_like(distance_3D, dtype=int)
-
-        # Cluster coordinates
-        cluster_x = np.array([
-            station.x,
-            station.x + 3.5 * self.intersite_dist,
-            station.x - 0.5 * self.intersite_dist,
-            station.x - 4.0 * self.intersite_dist,
-            station.x - 3.5 * self.intersite_dist,
-            station.x + 0.5 * self.intersite_dist,
-            station.x + 4.0 * self.intersite_dist,
-        ])
-
-        cluster_y = np.array([
-            station.y,
-            station.y + 1.5 *
-            np.sqrt(3.0) * self.intersite_dist,
-            station.y + 2.5 *
-            np.sqrt(3.0) * self.intersite_dist,
-            station.y + 1.0 *
-            np.sqrt(3.0) * self.intersite_dist,
-            station.y - 1.5 *
-            np.sqrt(3.0) * self.intersite_dist,
-            station.y - 2.5 *
-            np.sqrt(3.0) * self.intersite_dist,
-            station.y - 1.0 * np.sqrt(3.0) * self.intersite_dist,
-        ])
-
-        # Calculate 2D distance
-        temp_distance = np.zeros_like(distance_2D)
-        for k, (x, y) in enumerate(zip(cluster_x, cluster_y)):
-            temp_distance = np.sqrt(
-                np.power(x - self.x[:, np.newaxis], 2) +
-                np.power(y - self.y[:, np.newaxis], 2),
-            )
-            is_shorter = temp_distance < distance_2D
-            distance_2D[is_shorter] = temp_distance[is_shorter]
-            cluster_num[is_shorter] = k
-
-        # Calculate 3D distance
-        distance_3D = np.sqrt(
-            np.power(distance_2D, 2) +
-            np.power(station.height - self.height[:, np.newaxis], 2),
-        )
-
-        # Calcualte pointing vector
-        point_vec_x = cluster_x[cluster_num, np.arange(station.num_stations)] \
-            - self.x[:, np.newaxis]
-        point_vec_y = cluster_y[cluster_num, np.arange(station.num_stations)] \
-            - self.y[:, np.newaxis]
-        point_vec_z = station.height - self.height[:, np.newaxis]
-
-        phi = np.array(
-            np.rad2deg(
-                np.arctan2(
-                    point_vec_y, point_vec_x,
-                ),
-            ), ndmin=2,
-        )
-        theta = np.rad2deg(np.arccos(point_vec_z / distance_3D))
-
-        return distance_2D, distance_3D, phi, theta
-
-    def get_elevation(self, station) -> np.array:
-        """Calculate the elevation angle between this manager's stations and another's.
-
-        Parameters
-        ----------
-        station : StationManager
-            StationManager to which the elevation angle is calculated.
-
-        Returns
-        -------
-        np.array
-            Elevation angle matrix (degrees).
-
-        Notes
-        -----
-        This implementation is essentially the same as get_elevation_angle (free-space elevation angle),
-        despite the different matrix dimensions. The methods should be merged to reuse code.
-        """
-
-        elevation = np.empty([self.num_stations, station.num_stations])
-
-        for i in range(self.num_stations):
-            distance = np.sqrt(
-                np.power(self.x[i] - station.x, 2) +
-                np.power(self.y[i] - station.y, 2),
-            )
-            rel_z = station.z - self.z[i]
-            elevation[i] = np.degrees(np.arctan2(rel_z, distance))
-
-        return elevation
-
-    def get_pointing_vector_to(self, station) -> tuple:
-        """Calculate the pointing vector (angles) with respect to another station.
-
-        Parameters
-        ----------
-        station : StationManager
-            The other StationManager to calculate the pointing vector to.
-
-        Returns
-        -------
-        tuple
-            phi, theta (phi is calculated with respect to x counter-clockwise and
-            theta is calculated with respect to z counter-clockwise).
-        """
-
-        # malloc
-        dx = (station.x - self.x[:, np.newaxis]).astype(np.float64)
-        dy = (station.y - self.y[:, np.newaxis]).astype(np.float64)
-        dz = (station.z - self.z[:, np.newaxis]).astype(np.float64)
-
-        dist = self.get_3d_distance_to(station)
-
-        # NOTE: doing in place calculations
-        phi = np.rad2deg(np.arctan2(dy, dx, out=dx), out=dx)
-        # delete reference dx
-        del dx
-
-        # in place calculations
-        theta = np.rad2deg(np.arccos(np.clip(dz / dist, -1.0, 1.0, out=dz), out=dz), out=dz)
-        # delete reference dz
-        del dz
-
-        return phi, theta
-
-    def get_off_axis_angle(self, station) -> np.array:
-        """Calculate the off-axis angle between this manager's stations and another's.
-
-        Parameters
-        ----------
-        station : StationManager
-            The other StationManager to calculate the off-axis angle to.
-
-        Returns
-        -------
-        np.array
-            Off-axis angle matrix (degrees).
-        """
-        Az, b = self.get_pointing_vector_to(station)
-        Az0 = self.azimuth
-
-        a = 90 - self.elevation[:, np.newaxis]
-        C = Az0[:, np.newaxis] - Az
-
-        cos_phi = np.cos(np.radians(a)) * np.cos(np.radians(b)) \
-            + np.sin(np.radians(a)) * np.sin(np.radians(b)) * np.cos(np.radians(C))
-        phi = np.arccos(
-            # imprecision may accumulate enough for numbers to be slightly out
-            # of arccos range
-            np.clip(cos_phi, -1., 1.)
-        )
-        phi_deg = np.degrees(phi)
-
-        return phi_deg
 
     def is_imt_station(self) -> bool:
         """Return whether this station manager represents IMT stations.
@@ -372,7 +144,6 @@ def copy_active_stations(stations: StationManager) -> StationManager:
         act_sta.z[idx] = stations.z[active_idx]
         act_sta.azimuth[idx] = stations.azimuth[active_idx]
         act_sta.elevation[idx] = stations.elevation[active_idx]
-        act_sta.height[idx] = stations.height[active_idx]
         act_sta.indoor[idx] = stations.indoor[active_idx]
         act_sta.active[idx] = stations.active[active_idx]
         act_sta.tx_power[idx] = stations.tx_power[active_idx]
@@ -394,5 +165,5 @@ def copy_active_stations(stations: StationManager) -> StationManager:
         act_sta.center_freq[idx] = stations.center_freq[active_idx]
         act_sta.station_type = stations.station_type
         act_sta.is_space_station = stations.is_space_station
-        act_sta.intersite_dist = stations.intersite_dist
+        act_sta.intersite_dist = stations.geom.intersite_dist
     return act_sta

@@ -466,16 +466,47 @@ class PostProcessor():
                 x, y = PostProcessor.ccdf_from(attr_val, n_bins=n_bins)
 
                 fig = figs[attr_name]
-                if "lf=20%" in legend:
-                    dash_style = "dash"
+                #if "ter_OFF" in legend:
+                #    dash_style = "dash"
 
-                if "N=4" in legend:
+                if "ter_ON" in legend:
                     dash_style = "solid"
-                elif "RANDOM" in legend:
+                elif "ter_OFF" in legend:
                     dash_style = "dash"
                 else:
                     dash_style = "dot"
+                if '40 km' in legend:
+                    color_line = 'blue'
+                elif '60 km' in legend:   
+                    color_line = 'red' 
+                elif '80 km' in legend:   
+                    color_line = 'green' 
+                elif '100 km' in legend:   
+                    color_line = 'cyan' 
+                elif '120 km' in legend:   
+                    color_line = 'moccasin' 
 
+                if '100 km' in legend:
+                    color_line = 'blue'
+                elif '125 km' in legend:   
+                    color_line = 'red' 
+                elif '150 km' in legend:   
+                    color_line = 'green' 
+                elif '200 km' in legend:   
+                    color_line = 'cyan' 
+                elif '250 km' in legend:   
+                    color_line = 'moccasin' 
+
+                if '5 km' in legend:
+                    color_line = 'blue'
+                elif '10 km' in legend:   
+                    color_line = 'red' 
+                elif '20 km' in legend:   
+                    color_line = 'green' 
+                elif '40 km' in legend:   
+                    color_line = 'cyan' 
+                elif '80 km' in legend:   
+                    color_line = 'moccasin' 
 
 
                 x_aux = x
@@ -489,7 +520,8 @@ class PostProcessor():
                         mode="lines",
                         name=legend,
                         line=dict(dash=dash_style,
-                                   width=3),
+                                   width=3,
+                                   color=color_line),
                     ),
                 )
         pat = re.compile(

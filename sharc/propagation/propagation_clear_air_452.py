@@ -1633,16 +1633,15 @@ class PropagationClearAir(Propagation):
 
             # Height distribution: t-location-scale
             # From your fit: μ, σ², ν  (adjust if your numbers change)
-            nu_h      = 3.24           # degrees of freedom
-            mu_h      = -11.57         # location [m]
-            sigma2_h  = 25468.0        # variance [m²]
-            sigma_h   = np.sqrt(sigma2_h)
+            nu_h      = 1.525           # degrees of freedom
+            mu_h      = 0         # location [m]
+            sigma_h   = 24.52
 
             # Distance between peaks/valleys: lognormal
             # y(x) = 1/(x σ √(2π)) exp(-(log x - μ)²/(2σ²))
             # Use the μ, σ² you fitted (careful with units: km vs m).
-            mu_d      = 1.01949           # mean in log-space
-            sigma_d   = 0.811082
+            mu_d      = 1.06           # mean in log-space
+            sigma_d   = 0.814
 
             # ----------------------------------------------------------------------
             # Build random profiles: d[ii, :] and h[ii, :] for each link

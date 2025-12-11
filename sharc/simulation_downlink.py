@@ -1288,7 +1288,7 @@ class SimulationDownlink(Simulation):
             write_to_file (bool): Whether to write results to file.
             snapshot_number (int): The current snapshot number.
         """
-        self.results.wifi_inr.extend(self.system.inr.flatten())
+        self.results.wifi_dl_inr.extend(self.system.inr.flatten())
         self.results.system_dl_interf_power.extend(
             self.system.rx_interference.flatten(),
         )

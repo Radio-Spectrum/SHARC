@@ -101,7 +101,6 @@ class Results(object):
         self.system_dl_interf_power_per_mhz = SampleList()
         self.system_ul_interf_power_per_mhz = SampleList()
 
-        self.wifi_inr = SampleList()
         self.system_pfd = SampleList()
         self.system_rx_interf = SampleList()
 

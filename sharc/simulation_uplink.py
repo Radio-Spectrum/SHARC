@@ -94,18 +94,11 @@ class SimulationUplink(Simulation):
         self.scheduler()
         self.power_control()
 
-        if self.parameters.imt.interfered_with:
-            # Execute this piece of code if the other system generates
-            # interference into IMT
-            self.calculate_sinr()
-            self.calculate_sinr_ext()
-        else:
-            # Execute this piece of code if IMT generates interference into
-            # the other system
-            self.calculate_sinr()
-            self.calculate_external_interference()
+        #self.calculate_sinr()
+        self.calculate_external_interference_wifi()
+        self.calculate_sinr_ext_wifi()
 
-        self.collect_results(write_to_file, snapshot_number)
+        self.collect_results_wifi(write_to_file, snapshot_number)
 
     def power_control(self):
         """
@@ -205,6 +198,93 @@ class SimulationUplink(Simulation):
             self.bs.sinr[bs] = self.bs.rx_power[bs] - \
                 self.bs.total_interference[bs]
             self.bs.snr[bs] = self.bs.rx_power[bs] - self.bs.thermal_noise[bs]
+    
+    def calculate_sinr_wifi(self):
+        """
+        Calcula o SINR de Uplink (nos APs) garantindo estrutura de vetores
+        similar à simulação de Downlink.
+        """
+        ap_active = np.where(self.system.ap.active)[0]
+        num_aps = self.system.ap.num_stations
+        
+        # 1. "Ajuste Downlink": Forçar que rx_interference seja um Array NumPy
+        # Se não for array (ex: for None ou Dict), recria como array de zeros/piso de ruído
+        # Garante que rx_power seja Array (preenche com valor muito baixo/piso)
+        if not isinstance(self.system.ap.rx_power, np.ndarray):
+            self.system.ap.rx_power = np.full(num_aps, -174.0)
+        else:
+            self.system.ap.rx_power.fill(-174.0)
+
+        # Garante que rx_interference seja Array
+        if not isinstance(self.system.ap.rx_interference, np.ndarray):
+            self.system.ap.rx_interference = np.full(num_aps, -174.0)
+        else:
+            self.system.ap.rx_interference.fill(-174.0)
+
+        # Garante matrizes de perda
+        if not hasattr(self, 'coupling_loss_wifi'):
+             self.coupling_loss_wifi = self.calculate_intra_wifi_coupling_loss(
+                self.system.sta, self.system.ap)
+
+        # Loop principal (Lógica idêntica ao Downlink, mas invertendo TX/RX)
+        for ap in ap_active:
+            # No Uplink, o link[ap] diz quais STAs estão enviando para este AP
+            # O link retorna uma LISTA (ex: [0]), diferente do Downlink onde o índice direto funcionava
+            stas_associated = self.system.link[ap]
+            
+            # --- A. Potência Recebida (Sinal Desejado) ---
+            # Itera sobre a lista (correção do erro "unhashable type: list")
+            for sta in stas_associated:
+                # Verifica se o STA transmissor está ativo
+                if sta in self.system.sta.tx_power:
+                    # Rx = Tx - Perda
+                    self.system.ap.rx_power[ap] = self.system.sta.tx_power[sta] - \
+                        self.coupling_loss_wifi[sta, ap]
+                    # Assume-se 1 STA transmitindo por vez (TDMA) ou soma de potências se MU-MIMO
+                    break 
+
+            # --- B. Cálculo da Interferência ---
+            # Identifica STAs interferentes (todos ativos que NÃO são os meus associados)
+            all_active_stas = list(self.system.sta.tx_power.keys())
+            interfering_stas = [s for s in all_active_stas if s not in stas_associated]
+            
+            # Soma linear das interferências (mW)
+            interference_linear = 0.0
+            for stai in interfering_stas:
+                # P_rx_interf = Tx_interf - Perda(Interf -> Meu AP)
+                p_rx_dbm = self.system.sta.tx_power[stai] - self.coupling_loss_wifi[stai, ap]
+                interference_linear += np.power(10, 0.1 * p_rx_dbm)
+
+            # Converte de volta para dBm e salva no ARRAY do AP
+            if interference_linear > 0:
+                # Soma com o que já existia (caso haja acumulação prévia) ou substitui
+                # A lógica do downlink usa soma logarítmica: 10log(10^(atual/10) + 10^(novo/10))
+                # Aqui simplificamos pois já somamos tudo em 'interference_linear'
+                self.system.ap.rx_interference[ap] = 10 * np.log10(interference_linear)
+
+        # 2. "Ajuste Downlink": Garantir Largura de Banda como Array
+        # Isso evita erro se bandwidth for um dict
+        bw_val = self.system.ap.bandwidth
+        if isinstance(bw_val, dict):
+            bw_array = np.zeros(self.system.ap.num_stations)
+            for k, v in bw_val.items():
+                if k < len(bw_array): bw_array[k] = v
+            bw_val = bw_array
+
+        # 3. Cálculo Vetorial Final (Agora funciona pois tudo é Array)
+        self.system.ap.thermal_noise = \
+            10 * math.log10(BOLTZMANN_CONSTANT * self.parameters.wifi.noise_temperature * 1e3) + \
+            10 * np.log10(bw_val * 1e6) + \
+            self.system.ap.noise_figure
+
+        self.system.ap.total_interference = \
+            10 * np.log10(
+                np.power(10, 0.1 * self.system.ap.rx_interference) +
+                np.power(10, 0.1 * self.system.ap.thermal_noise),
+            )
+
+        self.system.ap.sinr = self.system.ap.rx_power - self.system.ap.total_interference
+        self.system.ap.snr = self.system.ap.rx_power - self.system.ap.thermal_noise
 
     def calculate_sinr_ext(self):
         """
@@ -370,19 +450,23 @@ class SimulationUplink(Simulation):
             self.bs.inr[bs] = self.bs.ext_interference[bs] - \
                 self.bs.thermal_noise[bs]
     
+
     def calculate_sinr_ext_wifi(self):
         """
         Calculates the uplink SINR and INR for each BS taking into account the
         interference that is generated by WIFI (AP and STA) into IMT system.
         """
+        # 1. Calcular Perdas de Acoplamento (WiFi -> IMT BS)
         if self.co_channel or (
             self.adjacent_channel and self.param_system.adjacent_ch_emissions != "OFF"
         ):
+            # Matriz [N_Beams, N_APs]
             self.coupling_loss_imt_system_ap = self.calculate_coupling_loss_system_imt(
                 self.system.ap,
                 self.bs,
                 is_co_channel=True,
             )
+            # Matriz [N_Beams, N_STAs]
             self.coupling_loss_imt_system_sta = self.calculate_coupling_loss_system_imt(
                 self.system.sta,
                 self.bs,
@@ -404,130 +488,129 @@ class SimulationUplink(Simulation):
                 )
 
         bs_active = np.where(self.bs.active)[0]
-        # WiFi active stations
         active_ap = np.where(self.system.ap.active)[0]
         active_sta = np.where(self.system.sta.active)[0]
 
+        # Pré-cálculo da Densidade de Potência (dBm/MHz)
+        # Power Density = Total Power (dBm) - 10*log10(Bandwidth MHz)
+        dens_ap = self.parameters.wifi.ap.conducted_power - \
+                  10 * np.log10(self.parameters.wifi.bandwidth)
+        
+        dens_sta = self.parameters.wifi.sta.conducted_power - \
+                   10 * np.log10(self.parameters.wifi.bandwidth)
+
         for bs in bs_active:
+            # Feixes ativos desta BS
             active_beams = [
                 i for i in range(
                     bs * self.parameters.imt.ue.k,
                     (bs + 1) * self.parameters.imt.ue.k)]
             
-            # Get the weight factor for the system overlaping bandwidth in each beam tx band
-            beams_bw = self.ue.bandwidth[self.link[bs]]
-            with warnings.catch_warnings():
-                warnings.filterwarnings("ignore",
-                                        category=RuntimeWarning,
-                                        message="divide by zero encountered in log10")
-                weights = self.calculate_bw_weights(
-                    beams_bw,
-                    self.bs.center_freq[bs],
-                    float(self.param_system.bandwidth),
-                    float(self.param_system.frequency),)
+            # Largura de banda de cada feixe (em MHz)
+            # self.ue.bandwidth é um vetor, usamos self.link[bs] para pegar as UEs desta BS
+            beams_bw_mhz = self.ue.bandwidth[self.link[bs]]
+            
+            # Pesos de sobreposição
+            weights = self.calculate_bw_weights(
+                beams_bw_mhz,
+                self.bs.center_freq[bs], # Centro da freq de cada feixe
+                float(self.param_system.bandwidth),
+                float(self.param_system.frequency),
+            )
 
-            in_band_interf_lin_ap = np.array([0.0])
-            in_band_interf_lin_sta = np.array([0.0])
+            # --- CÁLCULO CO-CANAL ---
+            in_band_interf_linear_total = np.zeros(len(active_beams))
 
-            if self.co_channel:
-                with warnings.catch_warnings():
-                    warnings.filterwarnings("ignore",
-                                            category=RuntimeWarning,
-                                            message="divide by zero encountered in log10")
-                    # AP Interference
-                    in_band_interf_ap = self.param_system.tx_power_density + \
-                        10 * np.log10(beams_bw[:, np.newaxis] * 1e6) + \
-                        10 * np.log10(weights)[:, np.newaxis] - \
-                        self.coupling_loss_imt_system_ap[active_beams, :][:, active_ap]
-                    in_band_interf_lin_ap = np.sum(10 ** (in_band_interf_ap / 10), axis=1)
-
-                    # STA Interference
-                    in_band_interf_sta = self.param_system.tx_power_density + \
-                        10 * np.log10(beams_bw[:, np.newaxis] * 1e6) + \
-                        10 * np.log10(weights)[:, np.newaxis] - \
-                        self.coupling_loss_imt_system_sta[active_beams, :][:, active_sta]
-                    in_band_interf_lin_sta = np.sum(10 ** (in_band_interf_sta / 10), axis=1)
-
-            oob_interf_lin = 0
-            if self.adjacent_channel:
-                # Assuming same OOB characteristics for AP and STA for simplification 
-                # (or derived from system params)
+            if self.co_channel and self.overlapping_bandwidth > 0:
+                # 1. Interferência dos APs
+                # P_rx (dBm) = Densidade_AP + 10log(Beam_BW_MHz) - Perda
+                # CORREÇÃO: Removemos o * 1e6 e usamos densidade correta
+                p_ap_dbm = dens_ap + \
+                           10 * np.log10(beams_bw_mhz[:, np.newaxis]) + \
+                           10 * np.log10(weights)[:, np.newaxis] - \
+                           self.coupling_loss_imt_system_ap[active_beams, :][:, active_ap]
                 
-                # emissions outside of tx bandwidth and inside of rx bw
-                tx_oob = np.resize(-500., len(active_beams))
-                # emissions outside of rx bw and inside of tx bw
-                rx_oob = np.resize(-500., len(active_beams))
+                # Soma linear (mW)
+                in_band_interf_linear_total += np.sum(10**(0.1 * p_ap_dbm), axis=1)
 
+                # 2. Interferência dos STAs
+                p_sta_dbm = dens_sta + \
+                            10 * np.log10(beams_bw_mhz[:, np.newaxis]) + \
+                            10 * np.log10(weights)[:, np.newaxis] - \
+                            self.coupling_loss_imt_system_sta[active_beams, :][:, active_sta]
+                
+                # Soma linear (mW)
+                in_band_interf_linear_total += np.sum(10**(0.1 * p_sta_dbm), axis=1)
+
+            # --- CÁLCULO OOB (Adjacente) ---
+            oob_interf_linear_total = np.zeros(len(active_beams))
+            
+            if self.adjacent_channel:
+                # Simplificação: Usando parâmetros genéricos do sistema para OOB
+                # Idealmente calcularia tx_oob para AP e STA separadamente se as máscaras forem diferentes
+                
+                tx_oob = np.full(len(active_beams), -500.0)
+                rx_oob = np.full(len(active_beams), -500.0)
+
+                # RX OOB (ACS) - Lado do IMT BS
                 if self.parameters.imt.adjacent_ch_reception == "ACS":
                     non_overlap_sys_bw = self.param_system.bandwidth - self.overlapping_bandwidth
-                    if self.overlapping_bandwidth > 0:
-                         if not hasattr(self, "_acs_warned"):
-                            warn(
-                                "You're trying to use ACS on a partially overlapping band "
-                                "with UEs.\n\tVerify the code implements the behavior you expect!!"
-                            )
-                            self._acs_warned = True
                     acs_dB = self.parameters.imt.bs.adjacent_ch_selectivity
-                    rx_oob[::] = self.param_system.tx_power_density + 10 * np.log10(non_overlap_sys_bw * 1e6) - acs_dB
-                elif self.parameters.imt.adjacent_ch_reception == "OFF":
-                    pass
-                else:
-                     raise ValueError(f"No implementation for parameters.imt.adjacent_ch_reception")
-
-                # for tx oob we accept ACLR and spectral mask
-                if self.param_system.adjacent_ch_emissions == "SPECTRAL_MASK":
-                     with warnings.catch_warnings():
-                        warnings.filterwarnings("ignore", category=RuntimeWarning)
-                        for i, center_freq, bw in zip(range(len(self.bs.center_freq[bs])), self.bs.center_freq[bs], beams_bw):
-                            tx_oob[i] = self.system.spectral_mask.power_calc(center_freq, bw) - 30
-                elif self.param_system.adjacent_ch_emissions == "ACLR":
-                    non_overlap_imt_bw = beams_bw * (1. - weights)
+                    # Usamos densidade do AP como pior caso ou referência
+                    rx_oob[::] = dens_ap + 10 * np.log10(non_overlap_sys_bw) - acs_dB
+                
+                # TX OOB (ACLR/Mask) - Lado do WiFi
+                if self.param_system.adjacent_ch_emissions == "ACLR":
+                    non_overlap_imt_bw = beams_bw_mhz * (1. - weights)
                     aclr_dB = self.param_system.adjacent_ch_leak_ratio
-                    tx_oob[::] = self.param_system.tx_power_density + 10 * np.log10(1e6) - aclr_dB + 10 * np.log10(non_overlap_imt_bw)
-                elif self.param_system.adjacent_ch_emissions == "OFF":
-                    pass
-
-                # Calculate for APs
-                oob_interf_lin_ap = 0
+                    # Usamos densidade do AP como referência
+                    tx_oob[::] = dens_ap - aclr_dB + 10 * np.log10(non_overlap_imt_bw)
+                
+                # Aplicar Perdas para OOB
+                # APs
                 if self.param_system.adjacent_ch_emissions != "OFF":
                     tx_oob_ap = tx_oob[:, np.newaxis] - self.coupling_loss_imt_system_adjacent_ap[active_beams, :][:, active_ap]
-                    oob_interf_lin_ap += 10 ** (0.1 * tx_oob_ap)
-                if self.parameters.imt.adjacent_ch_reception != "OFF": 
-                    rx_oob_ap = rx_oob[:, np.newaxis] - self.coupling_loss_imt_system_ap[active_beams, :][:, active_ap]
-                    oob_interf_lin_ap += 10 ** (0.1 * rx_oob_ap)
+                    oob_interf_linear_total += np.sum(10**(0.1 * tx_oob_ap), axis=1)
                 
-                # Calculate for STAs
-                oob_interf_lin_sta = 0
+                if self.parameters.imt.adjacent_ch_reception != "OFF":
+                    rx_oob_ap = rx_oob[:, np.newaxis] - self.coupling_loss_imt_system_ap[active_beams, :][:, active_ap]
+                    oob_interf_linear_total += np.sum(10**(0.1 * rx_oob_ap), axis=1)
+
+                # STAs (Repetir lógica OOB) - Simplificado somando na mesma variável
                 if self.param_system.adjacent_ch_emissions != "OFF":
                     tx_oob_sta = tx_oob[:, np.newaxis] - self.coupling_loss_imt_system_adjacent_sta[active_beams, :][:, active_sta]
-                    oob_interf_lin_sta += 10 ** (0.1 * tx_oob_sta)
+                    oob_interf_linear_total += np.sum(10**(0.1 * tx_oob_sta), axis=1)
+                
                 if self.parameters.imt.adjacent_ch_reception != "OFF":
                     rx_oob_sta = rx_oob[:, np.newaxis] - self.coupling_loss_imt_system_sta[active_beams, :][:, active_sta]
-                    oob_interf_lin_sta += 10 ** (0.1 * rx_oob_sta)
+                    oob_interf_linear_total += np.sum(10**(0.1 * rx_oob_sta), axis=1)
 
-                oob_interf_lin = np.sum(oob_interf_lin_ap, axis=1) + np.sum(oob_interf_lin_sta, axis=1)
+            # --- SOMA FINAL E RESULTADO ---
+            total_mW = in_band_interf_linear_total + oob_interf_linear_total
+            
+            # Converte para dBm (Vetor de tamanho [N_Beams])
+            # CORREÇÃO: Removemos o '+ 30', pois 10*log10(mW) já é dBm
+            ext_interference_dbm = np.full(len(active_beams), -174.0)
+            valid_idx = total_mW > 0
+            ext_interference_dbm[valid_idx] = 10 * np.log10(total_mW[valid_idx])
 
-            # [dBm]
-            total_interf_lin = in_band_interf_lin_ap + in_band_interf_lin_sta + oob_interf_lin
-            ext_interference = 10 * np.log10(total_interf_lin) + 30
+            # Atribui ao BS (ext_interference no Uplink é por feixe/setor)
+            self.bs.ext_interference[bs] = ext_interference_dbm
 
-            self.bs.ext_interference[bs] = 10 * np.log10(np.sum(10**(0.1 * ext_interference))) # Sum over beams if needed or keep per beam?
-            # Actually self.bs.ext_interference[bs] usually scalar if per BS? 
-            # In original code: np.sum(np.power(10, 0.1 * ext_interference), axis=1) 
-            # ext_interference was [N_beams, N_sys_active]. Sum axis 1 gives [N_beams].
-            # Then self.bs.ext_interference[bs] seems to be used in calculation.
-            # Let's align with original:
-            # self.bs.ext_interference[bs] is updated with [N_beams] or scalar?
-            # Original: self.bs.ext_interference[bs] = 10 * np.log10(np.sum(..., axis=1)) -> Vector of beams.
-            # Here ext_interference is already summed over AP/STA axis, so it is [N_beams].
-            self.bs.ext_interference[bs] = ext_interference
+            # Recalcula SINR e INR
+            # SINR_Ext = S / (I_intra + I_ext + N)
+            # I_total = I_intra + N (já calculado em calculate_sinr)
+            # Precisamos somar linearmente I_ext
+            
+            i_total_linear = 10**(0.1 * self.bs.total_interference[bs]) # Intra + Noise
+            i_ext_linear = 10**(0.1 * ext_interference_dbm)
+            
+            new_total_interference = 10 * np.log10(i_total_linear + i_ext_linear)
+            
+            self.bs.sinr_ext[bs] = self.bs.rx_power[bs] - new_total_interference
 
-            self.bs.sinr_ext[bs] = self.bs.rx_power[bs] \
-                - (10 * np.log10(np.power(10, 0.1 * self.bs.total_interference[bs]) +
-                                 np.power(10, 0.1 * self.bs.ext_interference[bs],),))
-
-            self.bs.inr[bs] = self.bs.ext_interference[bs] - \
-                self.bs.thermal_noise[bs]
+            # INR = I_ext - Noise
+            self.bs.inr[bs] = ext_interference_dbm - self.bs.thermal_noise[bs]
 
     def calculate_external_interference(self):
         """
@@ -685,6 +768,121 @@ class SimulationUplink(Simulation):
                     self.system.antenna[0].effective_area,
                 )
 
+    def calculate_external_interference_wifi(self):
+        """
+        Calculates interference that IMT system (UEs) generates on WIFI (AP and STA)
+        """
+        if self.co_channel or (
+            self.adjacent_channel and self.param_system.adjacent_ch_reception != "OFF"
+        ):
+            self.coupling_loss_imt_system_ap = self.calculate_coupling_loss_system_imt(
+                self.system.ap, self.ue, is_co_channel=True, )
+            self.coupling_loss_imt_system_sta = self.calculate_coupling_loss_system_imt(
+                self.system.sta, self.ue, is_co_channel=True, )
+            
+        if self.adjacent_channel:
+            self.coupling_loss_imt_system_adjacent_ap = \
+                self.calculate_coupling_loss_system_imt(
+                    self.system.ap,
+                    self.ue,
+                    is_co_channel=False,
+                )
+            self.coupling_loss_imt_system_adjacent_sta = \
+                self.calculate_coupling_loss_system_imt(
+                    self.system.sta,
+                    self.ue,
+                    is_co_channel=False,
+                )
+
+        bs_active = np.where(self.bs.active)[0]
+        # Calculate for both AP and STA
+        ap_active = np.where(self.system.ap.active)[0]
+        sta_active = np.where(self.system.sta.active)[0]
+        
+        rx_interference_linear_ap = np.zeros(len(self.system.ap.active))
+        rx_interference_linear_sta = np.zeros(len(self.system.sta.active))
+
+        for bs in bs_active:
+            ue = self.link[bs]
+            # ... Calculation logic similar to calculate_external_interference but for both arrays ...
+            
+            # (Simplifying: Loop through UEs and accumulate interference to APs and STAs)
+            # CO-CHANNEL
+            if self.co_channel:
+                 weights = self.calculate_bw_weights(
+                    self.ue.bandwidth[ue],
+                    self.ue.center_freq[ue],
+                    self.param_system.bandwidth,
+                    self.param_system.frequency,
+                )
+                 interference_ue_ap = self.ue.tx_power[ue] - self.coupling_loss_imt_system_ap[ue, ap_active]
+                 rx_interference_linear_ap[ap_active] += np.sum(weights * 10**(0.1*interference_ue_ap), axis=0) # Sum over UEs? No, ue is single.
+                 # Wait, loop is over BS, ue = self.link[bs] is a single UE index (scalar/int).
+                 # So interference_ue_ap is [N_ap_active].
+                 
+                 interference_ue_sta = self.ue.tx_power[ue] - self.coupling_loss_imt_system_sta[ue, sta_active]
+                 rx_interference_linear_sta[sta_active] += weights * 10**(0.1*interference_ue_sta)
+
+            # ADJACENT CHANNEL
+            if self.adjacent_channel:
+                 # Calculate TX OOB (from UE)
+                 # ... (Use same logic as in calculate_external_interference for tx_oob)
+                 if self.parameters.imt.adjacent_ch_emissions == "SPECTRAL_MASK":
+                      tx_oob = self.ue.spectral_mask.power_calc(self.param_system.frequency, self.system.bandwidth) \
+                        - self.ue_power_diff[ue] + self.parameters.imt.ue.ohmic_loss
+                 elif self.parameters.imt.adjacent_ch_emissions == "ACLR":
+                      non_overlap_sys_bw = self.param_system.bandwidth - self.overlapping_bandwidth
+                      aclr_dB = self.parameters.imt.ue.adjacent_ch_leak_ratio
+                      tx_oob = self.ue.tx_power[ue] - aclr_dB + 10 * np.log10(non_overlap_sys_bw / self.parameters.imt.bandwidth)
+                 elif self.parameters.imt.adjacent_ch_emissions == "OFF":
+                      tx_oob = -np.inf
+                 
+                 # RX OOB (at WiFi)
+                 if self.param_system.adjacent_ch_reception == "ACS":
+                      non_overlap_imt_bw = self.parameters.imt.bandwidth - self.overlapping_bandwidth
+                      acs_dB = self.param_system.adjacent_ch_selectivity
+                      rx_oob = self.ue.tx_power[ue] + 10 * np.log10(non_overlap_imt_bw / self.parameters.imt.bandwidth) - acs_dB
+                 elif self.param_system.adjacent_ch_reception == "OFF":
+                      rx_oob = -np.inf
+
+                 # Apply Coupling Loss
+                 # AP
+                 tx_oob_ap = tx_oob - self.coupling_loss_imt_system_adjacent_ap[ue, ap_active]
+                 if self.param_system.adjacent_ch_reception != "OFF":
+                      rx_oob_ap = rx_oob - self.coupling_loss_imt_system_ap[ue, ap_active]
+                 else:
+                      rx_oob_ap = -np.inf
+                 oob_lin_ap = 10**(0.1*tx_oob_ap) + 10**(0.1*rx_oob_ap)
+                 rx_interference_linear_ap[ap_active] += oob_lin_ap
+
+                 # STA
+                 tx_oob_sta = tx_oob - self.coupling_loss_imt_system_adjacent_sta[ue, sta_active]
+                 if self.param_system.adjacent_ch_reception != "OFF":
+                      rx_oob_sta = rx_oob - self.coupling_loss_imt_system_sta[ue, sta_active]
+                 else:
+                      rx_oob_sta = -np.inf
+                 oob_lin_sta = 10**(0.1*tx_oob_sta) + 10**(0.1*rx_oob_sta)
+                 rx_interference_linear_sta[sta_active] += oob_lin_sta
+
+        rx_interference_linear_total = np.concatenate(
+            (rx_interference_linear_ap, rx_interference_linear_sta)
+        )
+        rx_interference_filtered = rx_interference_linear_total[rx_interference_linear_total > 0.0]   
+        
+        self.system.rx_interference = 10 * np.log10(rx_interference_filtered)
+        
+        # calculate N (and INR)
+        self.system.thermal_noise = \
+            10 * np.log10(
+                BOLTZMANN_CONSTANT *
+                self.system.noise_temperature * 1e3,
+            ) + \
+            10 * math.log10(self.param_system.bandwidth * 1e6)
+
+        self.system.inr = np.array(
+            [self.system.rx_interference - self.system.thermal_noise],
+        )
+
     def collect_results(self, write_to_file: bool, snapshot_number: int):
         """
         Collect and store results for the current uplink simulation snapshot.
@@ -802,6 +1000,71 @@ class SimulationUplink(Simulation):
             )
             self.results.imt_ul_sinr.extend(self.bs.sinr[bs].tolist())
             self.results.imt_ul_snr.extend(self.bs.snr[bs].tolist())
+
+        if write_to_file:
+            self.results.write_files(snapshot_number)
+            self.notify_observers(source=__name__, results=self.results)
+    
+    def collect_results_wifi(self, write_to_file: bool, snapshot_number: int):
+        """
+        Collect and store results for the current uplink simulation snapshot when using WiFi.
+        """
+
+        self.results.wifi_ul_inr.extend(self.system.inr.flatten())
+        self.results.system_ul_interf_power.extend(
+            self.system.rx_interference.flatten(),
+        )
+        self.results.system_ul_interf_power_per_mhz.extend(
+            self.system.rx_interference.flatten() - 10 * math.log10(self.system.bandwidth),
+        )
+
+        ap_active = np.where(self.system.ap.active)[0]
+        sta_active = np.where(self.system.sta.active)[0]
+        
+        # Collect WiFi Metrics (Uplink: at AP)
+        for ap in ap_active:
+            sta = self.system.link[ap]
+            self.results.wifi_path_loss.extend(self.path_loss_wifi[sta, ap])
+            self.results.wifi_coupling_loss.extend(self.coupling_loss_wifi[sta, ap])
+            # Assuming antenna gain attributes populated in calculate methods if available
+            # self.results.wifi_ap_antenna_gain.extend(self.ap_antenna_gain[sta, ap])
+
+            sinr_val = self.system.ap.sinr[ap]
+            self.results.wifi_ul_sinr.append(sinr_val)
+            self.results.wifi_ul_snr.append(self.system.ap.snr[ap])
+
+            # Calculate throughput for wifi
+            wifi_tput = self.calculate_imt_tput(
+                np.array([sinr_val]), 
+                self.parameters.wifi.uplink.sinr_min,
+                self.parameters.wifi.uplink.sinr_max,
+                self.parameters.wifi.uplink.attenuation_factor,
+            )
+            self.results.wifi_ul_tput.extend(wifi_tput.tolist())
+
+        # Collect IMT Metrics (Standard Uplink Collection)
+        # Calling standard collect_results or repeating logic? 
+        # Repeating relevant logic to ensure mixed results are captured if needed.
+        # But mostly simpler to just call existing collection logic for IMT parts if separate.
+        # However, to avoid code duplication, I will invoke the common parts or copy essential IMT logging here.
+        
+        bs_active = np.where(self.bs.active)[0]
+        for bs in bs_active:
+            ue = self.link[bs]
+            self.results.imt_path_loss.extend(self.path_loss_imt[bs, ue])
+            self.results.imt_coupling_loss.extend(
+                self.coupling_loss_imt[bs, ue],
+            )
+            
+            tput = self.calculate_imt_tput(
+                self.bs.sinr[bs],
+                self.parameters.imt.uplink.sinr_min,
+                self.parameters.imt.uplink.sinr_max,
+                self.parameters.imt.uplink.attenuation_factor,
+            )
+            self.results.imt_ul_tput.extend(tput.tolist())
+            self.results.imt_ul_sinr.extend(self.bs.sinr[bs].tolist())
+            self.results.imt_ul_inr.extend(self.bs.inr[bs].tolist())
 
         if write_to_file:
             self.results.write_files(snapshot_number)

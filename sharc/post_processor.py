@@ -693,8 +693,8 @@ class PostProcessor:
         )
         cumulative = np.cumsum(values)
         x = base[:-1]
-        #y = cumulative / cumulative[-1] #cdf
-        y = 1 - (cumulative / cumulative[-1]) #ccdf
+        y = cumulative / cumulative[-1]
+
         return (x, y)
 
     @staticmethod

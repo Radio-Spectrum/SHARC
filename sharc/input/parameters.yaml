@@ -21,7 +21,7 @@ general:
     overwrite_output: TRUE
 imt:
     minimum_separation_distance_bs_ue: 5              # Minimum 2D distance between BS and UE [m]
-    interfered_with: TRUE                           # TRUE = IMT is victim; FALSE = IMT is interferer
+    interfered_with: FALSE                           # TRUE = IMT is victim; FALSE = IMT is interferer
     frequency: 7000                              # IMT center frequency [MHz]
     bandwidth: 80                                    # Total IMT bandwidth [MHz]
     rb_bandwidth: 0.180                               # Resource Block bandwidth [MHz]
@@ -290,7 +290,7 @@ wifi:
         load_probability: 1
         ###########################################################################
         # Conducted power per antenna element [dBm/bandwidth]
-        conducted_power: 11.1
+        conducted_power: 23
         ###########################################################################
         # Base station height [m]
         height: 18
@@ -391,7 +391,7 @@ wifi:
         ###########################################################################
         # Number of UEs that are allocated to each cell within handover margin.
         # Remember that in macrocell network each base station has 3 cells (sectors)
-        k: 3
+        k: 1
         ###########################################################################
         # Multiplication factor that is used to ensure that the sufficient number
         # of UE's will distributed throughout ths system area such that the number
@@ -428,6 +428,7 @@ wifi:
         # tx_power_control = "OFF",power control Off
         tx_power_control: ON
         ###########################################################################
+        conducted_power: 12
         # Power per RB used as target value [dBm]
         p_o_pusch: -95
         ###########################################################################

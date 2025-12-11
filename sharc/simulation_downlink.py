@@ -93,13 +93,14 @@ class SimulationDownlink(Simulation):
         # self.plot_scenario()
 
         if self.parameters.general.system == "WIFI":
-            #self.system.connect_wifi_sta_to_ap(self.parameters.wifi)
-            #self.system.select_sta(random_number_gen, self.parameters.wifi)
-            #Calculate intra wifi coupling loss 
+            self.system.connect_wifi_sta_to_ap
+            self.system.select_sta(random_number_gen, self.parameters.wifi)
+            self.power_control_wifi()
+
             self.coupling_loss_wifi = self.calculate_intra_wifi_coupling_loss(
                 self.system.sta, self.system.ap)
             self.calculate_sinr_wifi()
-            self.power_control_wifi()
+            
             
         self.connect_ue_to_bs()
         self.select_ue(random_number_gen)
@@ -139,6 +140,7 @@ class SimulationDownlink(Simulation):
             
             if self.parameters.general.system == "WIFI":
                 self.calculate_external_interference_wifi()
+                self.calculate_sinr_ext_wifi()
                 self.collect_results_wifi(write_to_file, snapshot_number)
             else:
                 self.calculate_external_interference()
@@ -197,6 +199,16 @@ class SimulationDownlink(Simulation):
         )
         # Update the spectral mask
         self.system.ap.spectral_mask.set_mask(p_tx=total_power)
+
+        total_power = self.parameters.wifi.sta.conducted_power \
+            + self.sta_power_gain
+        sta_active = np.where(self.system.sta.active)[0]
+        self.system.sta.tx_power = dict(
+            [(sta, total_power )
+             for sta in sta_active],)
+        # Update the spectral mask
+        self.system.sta.spectral_mask.set_mask(p_tx=total_power)
+
 
     def calculate_sinr(self):
         """
@@ -1276,14 +1288,13 @@ class SimulationDownlink(Simulation):
             write_to_file (bool): Whether to write results to file.
             snapshot_number (int): The current snapshot number.
         """
-        if not self.parameters.imt.interfered_with and np.any(self.bs.active):
-            self.results.wifi_inr.extend(self.system.inr.flatten())
-            self.results.system_dl_interf_power.extend(
-                self.system.rx_interference.flatten(),
-            )
-            self.results.system_dl_interf_power_per_mhz.extend(
-                self.system.rx_interference.flatten() - 10 * math.log10(self.system.bandwidth),
-            )
+        self.results.wifi_inr.extend(self.system.inr.flatten())
+        self.results.system_dl_interf_power.extend(
+            self.system.rx_interference.flatten(),
+        )
+        self.results.system_dl_interf_power_per_mhz.extend(
+            self.system.rx_interference.flatten() - 10 * math.log10(self.system.bandwidth),
+        )
 
         ap_active = np.where(self.system.ap.active)[0]
         sta_active = np.where(self.system.sta.active)[0]
@@ -1333,7 +1344,7 @@ class SimulationDownlink(Simulation):
                 )
                 self.results.imt_dl_tput.extend(tput.tolist())
 
-             # IMT is the interferer
+            self.results.imt_dl_inr.extend(self.ue.inr[ue].tolist())
             self.results.ap_imt_antenna_gain.extend(
                     self.ap_imt_antenna_gain[ap_active[:, np.newaxis], ue].flatten(),
                 )

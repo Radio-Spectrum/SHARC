@@ -45,7 +45,7 @@ class ParametersWifiSystem(ParametersBase):
     @dataclass
     class ParametersAP(ParametersBase):
         load_probability = 0.5
-        conducted_power = 10.0
+        conducted_power = 22
         height: float = 6.0
         noise_figure: float = 10.0
         ohmic_loss: float = 3.0
@@ -75,7 +75,8 @@ class ParametersWifiSystem(ParametersBase):
     @dataclass
     class ParametersSTA(ParametersBase):
         load_probability = 0.5
-        k: int = 3
+        conducted_power = 12
+        k: int = 1
         k_m: int = 1
         indoor_percent: int = 0.0
         distribution_type: str = "ANGLE_AND_DISTANCE"

@@ -152,6 +152,8 @@ class SystemWifi:
         azimuth = (azimuth_range[1] - azimuth_range[0]) * \
             random_number_gen.random_sample(self.num_sta) + azimuth_range[0]
         
+        wifi_sta.tx_power = self.parameters.sta.conducted_power
+        
         elevation_range = (-90, 90)
         elevation = (elevation_range[1] - elevation_range[0]) * \
             random_number_gen.random_sample(self.num_sta) + elevation_range[0]

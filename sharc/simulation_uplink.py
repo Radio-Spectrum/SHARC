@@ -94,7 +94,7 @@ class SimulationUplink(Simulation):
         self.scheduler()
         self.power_control()
 
-        #self.calculate_sinr()
+        self.calculate_sinr()
         self.calculate_external_interference_wifi()
         self.calculate_sinr_ext_wifi()
 

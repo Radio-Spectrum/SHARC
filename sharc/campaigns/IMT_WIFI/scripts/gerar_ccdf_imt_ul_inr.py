@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import os
 from sharc.post_processor import PostProcessor
 # Caminho do arquivo CSV
-path = os.path.join(os.path.dirname((os.path.dirname(__file__))), 'output', 'wifi_ul_inr.csv')
+path = os.path.join(os.path.dirname((os.path.dirname(__file__))), 'output', 'imt_ul_inr.csv')
 
 # Ler o CSV
 df = pd.read_csv(path)
@@ -20,7 +20,7 @@ plt.figure(figsize=(8,5))
 plt.step(x, y, where="post")
 plt.xlabel("samples")
 plt.ylabel("P(X > x)")
-plt.title("CCDF system_inr")
+plt.title("CCDF imt_ul_inr(WIFI interference to IMT UL)")
 plt.yscale("log")  # igual ao logy=True padrão da classe
 plt.grid(True)
 plt.show()

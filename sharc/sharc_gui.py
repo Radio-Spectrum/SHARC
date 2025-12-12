@@ -10,6 +10,9 @@ import itertools
 import datetime
 import threading
 import subprocess
+import paramiko
+from tkinter import simpledialog
+import shlex
 from pathlib import Path
 import math
 import tkinter as tk
@@ -118,11 +121,42 @@ def add_row_three(parent, r, items):
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
+
+  
+        # ===== SSH PASSWORD MODE (PARAMIKO) =====
+        self.ssh_use_password = tk.BooleanVar(value=True)
+        self.ssh_password = None
+        self.ssh_client = None
+        # ===== SSH TUNNEL VARIABLES =====
+        self.tunnel_bastion_host = tk.StringVar(value="164.41.75.34")
+        self.tunnel_bastion_user = tk.StringVar(value="anatel")
+        self.tunnel_bastion_port = tk.IntVar(value=13508)
+
+        self.tunnel_internal_ip = tk.StringVar(value="192.168.0.204")
+        self.tunnel_internal_port = tk.IntVar(value=22)
+
+        self.tunnel_local_port = tk.IntVar(value=2222)
+        self.tunnel_key_path = tk.StringVar(value="C:/Users/PC-CASA/OneDrive/Achiles/Pessoal/1 - UNB/3 - Pós-Graduação/3 - Pesquisas/Atuais/10 - Anatel 2/23 - Servidor/key")
+
+        self.tunnel_status = tk.StringVar(value="🔴 Túnel Inativo")
+        self.tunnel_process = None
+        # ===== SSH GUI Variables =====
+        self.var_run_mode = tk.StringVar(value="LOCAL")
+        self.ssh_host = tk.StringVar(value="164.41.75.34")
+        self.ssh_user = tk.StringVar(value="achiles.mota")
+        self.ssh_port = tk.IntVar(value=2222)
+        self.ssh_remote_dir = tk.StringVar(value="")
+        self.ssh_use_tunnel = tk.BooleanVar(value=False)
+        self.ssh_key_path = tk.StringVar()
+        self.ssh_status = tk.StringVar(value="Desconectado")
+        self.ssh_connected = False
+
+
         self.report_callback_exception = self._report_callback_exception
         self.title("SHARC – YAML GUI (IMT + Single Space Station)")
         self.geometry("1260x900")
         self.minsize(1100, 800)
-        
+
         # ------ General ------
         self.var_seed = tk.IntVar(value=157)
         self.var_snaps = tk.IntVar(value=10000)
@@ -1016,9 +1050,155 @@ class App(tk.Tk):
         self._draw_preview_3d()
         self._update_yaml_preview()
 
+    
     def _tab_runner(self, root):
-        top = ttk.Frame(root); top.pack(fill="x")
-        self.run_folder = tk.StringVar(value=os.path.join(Path.cwd(), "/sharc/campaigns"))
+
+        # =========================================================
+        # TÚNEL SSH (BASTION)
+        # =========================================================
+        frm_tunnel = ttk.LabelFrame(root, text="Túnel SSH (Bastion)")
+        frm_tunnel.pack(fill="x", pady=6)
+
+        ttk.Label(frm_tunnel, text="Host Bastion").grid(row=0, column=0)
+        ttk.Entry(frm_tunnel, textvariable=self.tunnel_bastion_host).grid(row=0, column=1)
+
+        ttk.Label(frm_tunnel, text="Usuário Bastion").grid(row=0, column=2)
+        ttk.Entry(frm_tunnel, textvariable=self.tunnel_bastion_user).grid(row=0, column=3)
+
+        ttk.Label(frm_tunnel, text="Porta Bastion").grid(row=0, column=4)
+        ttk.Entry(frm_tunnel, textvariable=self.tunnel_bastion_port, width=6).grid(row=0, column=5)
+
+        ttk.Label(frm_tunnel, text="IP Interno").grid(row=1, column=0)
+        ttk.Entry(frm_tunnel, textvariable=self.tunnel_internal_ip).grid(row=1, column=1)
+
+        ttk.Label(frm_tunnel, text="Porta Interna").grid(row=1, column=2)
+        ttk.Entry(frm_tunnel, textvariable=self.tunnel_internal_port, width=6).grid(row=1, column=3)
+
+        ttk.Label(frm_tunnel, text="Porta Local").grid(row=1, column=4)
+        ttk.Entry(frm_tunnel, textvariable=self.tunnel_local_port, width=6).grid(row=1, column=5)
+
+        ttk.Label(frm_tunnel, text="Chave").grid(row=2, column=0)
+        ttk.Entry(frm_tunnel, textvariable=self.tunnel_key_path, width=50).grid(row=2, column=1, columnspan=4)
+
+        ttk.Button(
+            frm_tunnel,
+            text="Escolher",
+            command=lambda: self._pick_file(
+                self.tunnel_key_path,
+                [
+                    ("Chaves SSH", "*.pem *.ppk *.key *.rsa"),
+                    ("Todos os arquivos", "*.*")
+                ]
+            )
+        ).grid(row=2, column=5)
+
+
+        ttk.Button(frm_tunnel, text="Criar Túnel", command=self._create_tunnel).grid(row=3, column=0, pady=4)
+        ttk.Button(frm_tunnel, text="Fechar Túnel", command=self._close_tunnel).grid(row=3, column=1, pady=4)
+
+        ttk.Label(frm_tunnel, textvariable=self.tunnel_status).grid(row=3, column=2, columnspan=3)
+        # =========================================================
+        # MODO DE EXECUÇÃO (LOCAL ou SSH)
+        # =========================================================
+        frm_mode = ttk.LabelFrame(root, text="Modo de Execução")
+        frm_mode.pack(fill="x", pady=6)
+
+        ttk.Radiobutton(
+            frm_mode, text="Local", value="LOCAL",
+            variable=self.var_run_mode
+        ).pack(side="left", padx=6)
+
+        ttk.Radiobutton(
+            frm_mode, text="Remoto (SSH)", value="SSH",
+            variable=self.var_run_mode
+        ).pack(side="left", padx=6)
+
+        # =========================================================
+        # CONEXÃO SSH (aparece apenas quando modo = SSH)
+        # =========================================================
+        frm_ssh = ttk.LabelFrame(root, text="Conexão SSH")
+
+        ttk.Label(frm_ssh, text="Host").grid(row=0, column=0, sticky="w")
+        ttk.Entry(frm_ssh, textvariable=self.ssh_host, width=24).grid(row=0, column=1, sticky="we", padx=(0,4))
+
+        ttk.Label(frm_ssh, text="Usuário").grid(row=0, column=2, sticky="w")
+        ttk.Entry(frm_ssh, textvariable=self.ssh_user, width=18).grid(row=0, column=3, sticky="we", padx=(0,4))
+
+        ttk.Label(frm_ssh, text="Porta").grid(row=0, column=4, sticky="w")
+        ttk.Entry(frm_ssh, textvariable=self.ssh_port, width=6).grid(row=0, column=5, sticky="w")
+
+        ttk.Label(frm_ssh, text="Diretório remoto").grid(row=1, column=0, sticky="w", pady=(4,0))
+        ttk.Entry(frm_ssh, textvariable=self.ssh_remote_dir, width=60).grid(row=1, column=1, columnspan=5, sticky="we", pady=(4,0))
+
+        # --- Túnel / chave SSH ---
+        ttk.Checkbutton(
+            frm_ssh, text="Usar chave SSH / túnel",
+            variable=self.ssh_use_tunnel
+        ).grid(row=2, column=0, sticky="w", pady=(4,0))
+
+        ttk.Button(frm_ssh, text="HTOP", command=self._open_htop_window).grid(row=3, column=3, padx=4)
+        frm_tunnel_opts = ttk.Frame(frm_ssh)
+        # entry + botão dentro do subframe
+        ent_key = ttk.Entry(frm_tunnel_opts, textvariable=self.ssh_key_path, width=50)
+        ent_key.pack(side="left", fill="x", expand=True)
+        ttk.Button(
+            frm_tunnel_opts, text="Escolher",
+            command=lambda: self._pick_file(self.ssh_key_path, [("Chave SSH", "*.pem *.ppk *.key *.rsa"), ("Todos", "*.*")])
+        ).pack(side="left", padx=(4,0))
+
+        # Botões conectar / desconectar + status
+        ttk.Button(frm_ssh, text="Conectar", command=self._ssh_connect).grid(row=3, column=0, pady=6, sticky="w")
+        ttk.Button(frm_ssh, text="Desconectar", command=self._ssh_disconnect).grid(row=3, column=1, pady=6, sticky="w")
+        ttk.Label(frm_ssh, textvariable=self.ssh_status).grid(row=3, column=2, columnspan=3, sticky="w")
+        ttk.Checkbutton(
+            frm_ssh,
+            text="Usar senha",
+            variable=self.ssh_use_password
+        ).grid(row=0, column=4, padx=6)
+        
+        self.lbl_remote_branch = ttk.Label(frm_ssh, text="Branch: --")
+        self.lbl_remote_branch.grid(row=2, column=1, padx=6, sticky="w")
+        # Lista de branches remotas
+        self.var_git_branch = tk.StringVar()
+        self.cmb_git_branch = ttk.Combobox(frm_ssh, textvariable=self.var_git_branch, state="readonly", width=28)
+        self.cmb_git_branch.grid(row=2, column=4, padx=6)
+
+        ttk.Button(
+            frm_ssh,
+            text="Trocar Branch (FORCE)",
+            command=self._on_force_checkout_clicked
+        ).grid(row=2, column=5, padx=4)
+        for c in range(6):
+            frm_ssh.grid_columnconfigure(c, weight=1)
+
+        # --- callbacks de visibilidade ---
+        def _toggle_ssh_frame(*_args):
+            if self.var_run_mode.get() == "SSH":
+                if not frm_ssh.winfo_manager():
+                    frm_ssh.pack(fill="x", pady=6)
+            else:
+                if frm_ssh.winfo_manager():
+                    frm_ssh.pack_forget()
+
+        def _toggle_tunnel(*_args):
+            if self.ssh_use_tunnel.get():
+                if not frm_tunnel_opts.winfo_manager():
+                    frm_tunnel_opts.grid(row=2, column=1, columnspan=5, sticky="we", padx=(4,0), pady=(4,0))
+            else:
+                if frm_tunnel_opts.winfo_manager():
+                    frm_tunnel_opts.grid_remove()
+
+        self.var_run_mode.trace_add("write", _toggle_ssh_frame)
+        self.ssh_use_tunnel.trace_add("write", _toggle_tunnel)
+        _toggle_ssh_frame()
+        _toggle_tunnel()
+
+        # =========================================================
+        # LISTA DE ARQUIVOS + EXECUÇÃO
+        # =========================================================
+        top = ttk.Frame(root)
+        top.pack(fill="x")
+        self.run_folder = tk.StringVar(value=os.path.join(Path.cwd(), "/sharc/sharc/campaigns"))
         ttk.Label(top, text="Pasta com arquivos .yaml").pack(side="left")
         e = ttk.Entry(top, textvariable=self.run_folder)
         e.pack(side="left", fill="x", expand=True, padx=6)
@@ -1028,7 +1208,8 @@ class App(tk.Tk):
         tk.Spinbox(top, from_=1, to=32, width=4, textvariable=self.var_max_workers).pack(side="left")
 
         # Tree for files + progress
-        mid = ttk.Frame(root); mid.pack(fill="both", expand=True, pady=(8,0))
+        mid = ttk.Frame(root)
+        mid.pack(fill="both", expand=True, pady=(8,0))
         self.tree = ttk.Treeview(mid, columns=("yaml","status","snap","pct","eta"), show="headings", height=12)
         self.tree.heading("yaml", text="YAML")
         self.tree.heading("status", text="Status")
@@ -1041,10 +1222,12 @@ class App(tk.Tk):
         self.tree.column("pct", width=60, anchor="e")
         self.tree.column("eta", width=120)
         self.tree.pack(side="left", fill="both", expand=True)
-        sb = ttk.Scrollbar(mid, orient="vertical", command=self.tree.yview); sb.pack(side="left", fill="y")
+        sb = ttk.Scrollbar(mid, orient="vertical", command=self.tree.yview)
+        sb.pack(side="left", fill="y")
         self.tree.configure(yscroll=sb.set)
 
-        right = ttk.Frame(root); right.pack(fill="x", pady=(8,0))
+        right = ttk.Frame(root)
+        right.pack(fill="x", pady=(8,0))
         self.main_cli_path = tk.StringVar(value=os.path.join(os.path.dirname(os.path.abspath(__file__)), "main_cli.py"))
         ttk.Label(right, text="main_cli.py:").pack(side="left")
         ttk.Entry(right, textvariable=self.main_cli_path, width=44).pack(side="left", padx=6, fill="x", expand=True)
@@ -1059,177 +1242,176 @@ class App(tk.Tk):
         self._scan_yaml_files()
         self.after(150, self._drain_log_queue)
         self.after(250, self._runner_scheduler_tick)
-        
     def _tab_results(self, root):
-        # Lado esquerdo: controles / Lado direito: figura
-        left = ttk.Frame(root); right = ttk.Frame(root)
-        left.pack(side="left", fill="y"); right.pack(side="right", fill="both", expand=True)
+            # Lado esquerdo: controles / Lado direito: figura
+            left = ttk.Frame(root); right = ttk.Frame(root)
+            left.pack(side="left", fill="y"); right.pack(side="right", fill="both", expand=True)
 
-        # ---- Seleção de pastas ----
-        ttk.Label(left, text="Pastas de resultados (comparação):").pack(anchor="w", pady=(6,2))
-        frm_dirs = ttk.Frame(left); frm_dirs.pack(fill="x")
-        self.lb_dirs = tk.Listbox(frm_dirs, height=6, selectmode="extended")
-        self.lb_dirs.pack(side="left", fill="both", expand=True)
-        sb = ttk.Scrollbar(frm_dirs, orient="vertical", command=self.lb_dirs.yview)
-        sb.pack(side="right", fill="y"); self.lb_dirs.config(yscrollcommand=sb.set)
+            # ---- Seleção de pastas ----
+            ttk.Label(left, text="Pastas de resultados (comparação):").pack(anchor="w", pady=(6,2))
+            frm_dirs = ttk.Frame(left); frm_dirs.pack(fill="x")
+            self.lb_dirs = tk.Listbox(frm_dirs, height=6, selectmode="extended")
+            self.lb_dirs.pack(side="left", fill="both", expand=True)
+            sb = ttk.Scrollbar(frm_dirs, orient="vertical", command=self.lb_dirs.yview)
+            sb.pack(side="right", fill="y"); self.lb_dirs.config(yscrollcommand=sb.set)
 
-        def _add_dir():
-            init = str(Path(self.var_outdir.get() or Path.cwd()))
-            path = filedialog.askdirectory(initialdir=init, title="Selecionar pasta de resultados")
-            if path and path not in self.res_dirs:
-                self.res_dirs.append(path)
-                self.lb_dirs.insert("end", path)
-                self._draw_results_plots()
-
-        def _add_current_outdir():
-            path = str(Path(self.var_outdir.get()))
-            if path and path not in self.res_dirs:
-                self.res_dirs.append(path)
-                self.lb_dirs.insert("end", path)
-                self._draw_results_plots()
-
-        def _remove_dir():
-            sel = list(self.lb_dirs.curselection())[::-1]
-            for idx in sel:
-                path = self.lb_dirs.get(idx)
-                self.res_dirs.remove(path)
-                self.lb_dirs.delete(idx)
-            self._draw_results_plots()
-
-        frm_btn = ttk.Frame(left); frm_btn.pack(fill="x", pady=(4,8))
-        ttk.Button(frm_btn, text="Adicionar pasta…", command=_add_dir).pack(side="left", padx=(0,4))
-        ttk.Button(frm_btn, text="Usar output_dir atual", command=_add_current_outdir).pack(side="left", padx=(0,4))
-        ttk.Button(frm_btn, text="Remover selecionadas", command=_remove_dir).pack(side="left")
-
-        # ---- Grid de subplots ----
-        frm_grid = ttk.LabelFrame(left, text="Layout de subfiguras")
-        frm_grid.pack(fill="x", pady=(6,6))
-        ttk.Label(frm_grid, text="Linhas").grid(row=0, column=0, padx=4, pady=4, sticky="w")
-        ttk.Spinbox(frm_grid, from_=1, to=3, textvariable=self.var_rows, width=5, command=self._draw_results_plots).grid(row=0, column=1, padx=4, pady=4)
-        ttk.Label(frm_grid, text="Colunas").grid(row=0, column=2, padx=4, pady=4, sticky="w")
-        ttk.Spinbox(frm_grid, from_=1, to=3, textvariable=self.var_cols, width=5, command=self._draw_results_plots).grid(row=0, column=3, padx=4, pady=4)
-
-        # ---- Configuração por subfigura (até _max_axes)
-        frm_cfg = ttk.LabelFrame(left, text="Configuração de cada subfigura")
-        frm_cfg.pack(fill="x", pady=(6,8))
-        self._subplot_cfg_rows = []
-        for i in range(self._max_axes):
-            r = ttk.Frame(frm_cfg); r.pack(fill="x", pady=2)
-            ttk.Label(r, text=f"{i+1:02d}").pack(side="left", padx=(2,6))
-
-            # MÉTRICA
-            cb_field = ttk.Combobox(r, values=self.result_fields, width=34)
-            cb_field.set(self._axes_cfg[i]["field"])
-            cb_field.pack(side="left", padx=(0,6))
-
-            # CDF/CCDF
-            cb_mode = ttk.Combobox(r, values=["CDF","CCDF"], width=6)
-            cb_mode.set(self._axes_cfg[i]["mode"])
-            cb_mode.pack(side="left", padx=(0,6))
-
-            # Y-SCALE (Linear/Log)
-            cb_ys = ttk.Combobox(r, values=["Linear","Log"], width=7)
-            cb_ys.set(self._axes_cfg[i]["yscale"])
-            cb_ys.pack(side="left", padx=(0,6))
-
-            # REFERÊNCIAS (%, ex.: 5,10,50)
-            ttk.Label(r, text="Refs(%)").pack(side="left")
-            ent_refs = ttk.Entry(r, width=10)
-            ent_refs.insert(0, self._axes_cfg[i]["refs"])
-            ent_refs.pack(side="left", padx=(4,6))
-
-            def _mk_upd(idx, combof, combom, comboys, entryrefs):
-                def _upd(*_):
-                    self._axes_cfg[idx]["field"]  = combof.get()
-                    self._axes_cfg[idx]["mode"]   = combom.get()
-                    self._axes_cfg[idx]["yscale"] = comboys.get()
-                    self._axes_cfg[idx]["refs"]   = entryrefs.get()
+            def _add_dir():
+                init = str(Path(self.var_outdir.get() or Path.cwd()))
+                path = filedialog.askdirectory(initialdir=init, title="Selecionar pasta de resultados")
+                if path and path not in self.res_dirs:
+                    self.res_dirs.append(path)
+                    self.lb_dirs.insert("end", path)
                     self._draw_results_plots()
-                return _upd
 
-            upd = _mk_upd(i, cb_field, cb_mode, cb_ys, ent_refs)
-            cb_field.bind("<<ComboboxSelected>>", upd)
-            cb_mode.bind("<<ComboboxSelected>>", upd)
-            cb_ys.bind("<<ComboboxSelected>>", upd)
-            ent_refs.bind("<FocusOut>", upd)
-            ent_refs.bind("<Return>", upd)
+            def _add_current_outdir():
+                path = str(Path(self.var_outdir.get()))
+                if path and path not in self.res_dirs:
+                    self.res_dirs.append(path)
+                    self.lb_dirs.insert("end", path)
+                    self._draw_results_plots()
 
-            self._subplot_cfg_rows.append((cb_field, cb_mode, cb_ys, ent_refs))
+            def _remove_dir():
+                sel = list(self.lb_dirs.curselection())[::-1]
+                for idx in sel:
+                    path = self.lb_dirs.get(idx)
+                    self.res_dirs.remove(path)
+                    self.lb_dirs.delete(idx)
+                self._draw_results_plots()
 
-        # ---- Atualização automática ----
-        frm_auto = ttk.LabelFrame(left, text="Atualização")
-        frm_auto.pack(fill="x", pady=(6,8))
-        ttk.Checkbutton(frm_auto, text="Atualização automática", variable=self.var_auto_update,
+            frm_btn = ttk.Frame(left); frm_btn.pack(fill="x", pady=(4,8))
+            ttk.Button(frm_btn, text="Adicionar pasta…", command=_add_dir).pack(side="left", padx=(0,4))
+            ttk.Button(frm_btn, text="Usar output_dir atual", command=_add_current_outdir).pack(side="left", padx=(0,4))
+            ttk.Button(frm_btn, text="Remover selecionadas", command=_remove_dir).pack(side="left")
+
+            # ---- Grid de subplots ----
+            frm_grid = ttk.LabelFrame(left, text="Layout de subfiguras")
+            frm_grid.pack(fill="x", pady=(6,6))
+            ttk.Label(frm_grid, text="Linhas").grid(row=0, column=0, padx=4, pady=4, sticky="w")
+            ttk.Spinbox(frm_grid, from_=1, to=3, textvariable=self.var_rows, width=5, command=self._draw_results_plots).grid(row=0, column=1, padx=4, pady=4)
+            ttk.Label(frm_grid, text="Colunas").grid(row=0, column=2, padx=4, pady=4, sticky="w")
+            ttk.Spinbox(frm_grid, from_=1, to=3, textvariable=self.var_cols, width=5, command=self._draw_results_plots).grid(row=0, column=3, padx=4, pady=4)
+
+            # ---- Configuração por subfigura (até _max_axes)
+            frm_cfg = ttk.LabelFrame(left, text="Configuração de cada subfigura")
+            frm_cfg.pack(fill="x", pady=(6,8))
+            self._subplot_cfg_rows = []
+            for i in range(self._max_axes):
+                r = ttk.Frame(frm_cfg); r.pack(fill="x", pady=2)
+                ttk.Label(r, text=f"{i+1:02d}").pack(side="left", padx=(2,6))
+
+                # MÉTRICA
+                cb_field = ttk.Combobox(r, values=self.result_fields, width=34)
+                cb_field.set(self._axes_cfg[i]["field"])
+                cb_field.pack(side="left", padx=(0,6))
+
+                # CDF/CCDF
+                cb_mode = ttk.Combobox(r, values=["CDF","CCDF"], width=6)
+                cb_mode.set(self._axes_cfg[i]["mode"])
+                cb_mode.pack(side="left", padx=(0,6))
+
+                # Y-SCALE (Linear/Log)
+                cb_ys = ttk.Combobox(r, values=["Linear","Log"], width=7)
+                cb_ys.set(self._axes_cfg[i]["yscale"])
+                cb_ys.pack(side="left", padx=(0,6))
+
+                # REFERÊNCIAS (%, ex.: 5,10,50)
+                ttk.Label(r, text="Refs(%)").pack(side="left")
+                ent_refs = ttk.Entry(r, width=10)
+                ent_refs.insert(0, self._axes_cfg[i]["refs"])
+                ent_refs.pack(side="left", padx=(4,6))
+
+                def _mk_upd(idx, combof, combom, comboys, entryrefs):
+                    def _upd(*_):
+                        self._axes_cfg[idx]["field"]  = combof.get()
+                        self._axes_cfg[idx]["mode"]   = combom.get()
+                        self._axes_cfg[idx]["yscale"] = comboys.get()
+                        self._axes_cfg[idx]["refs"]   = entryrefs.get()
+                        self._draw_results_plots()
+                    return _upd
+
+                upd = _mk_upd(i, cb_field, cb_mode, cb_ys, ent_refs)
+                cb_field.bind("<<ComboboxSelected>>", upd)
+                cb_mode.bind("<<ComboboxSelected>>", upd)
+                cb_ys.bind("<<ComboboxSelected>>", upd)
+                ent_refs.bind("<FocusOut>", upd)
+                ent_refs.bind("<Return>", upd)
+
+                self._subplot_cfg_rows.append((cb_field, cb_mode, cb_ys, ent_refs))
+
+            # ---- Atualização automática ----
+            frm_auto = ttk.LabelFrame(left, text="Atualização")
+            frm_auto.pack(fill="x", pady=(6,8))
+            ttk.Checkbutton(frm_auto, text="Atualização automática", variable=self.var_auto_update,
+                            command=self._schedule_auto_update).pack(side="left", padx=(4,8))
+            ttk.Label(frm_auto, text="Período (ms):").pack(side="left")
+            ttk.Spinbox(frm_auto, from_=500, to=10000, increment=500, textvariable=self.var_update_period_ms, width=8,
                         command=self._schedule_auto_update).pack(side="left", padx=(4,8))
-        ttk.Label(frm_auto, text="Período (ms):").pack(side="left")
-        ttk.Spinbox(frm_auto, from_=500, to=10000, increment=500, textvariable=self.var_update_period_ms, width=8,
-                    command=self._schedule_auto_update).pack(side="left", padx=(4,8))
-        ttk.Button(frm_auto, text="Atualizar agora", command=self._draw_results_plots).pack(side="left")
+            ttk.Button(frm_auto, text="Atualizar agora", command=self._draw_results_plots).pack(side="left")
 
-        # ---- Exportar figura ----
-        frm_export = ttk.LabelFrame(left, text="Exportar")
-        frm_export.pack(fill="x", pady=(6,8))
-        ttk.Label(frm_export, text="DPI:").pack(side="left", padx=(6,4))
-        self.var_export_dpi = tk.IntVar(value=200)
-        ttk.Spinbox(frm_export, from_=100, to=600, increment=50, textvariable=self.var_export_dpi, width=6).pack(side="left", padx=(0,8))
-        ttk.Button(frm_export, text="Exportar figura…", command=self._export_results_fig).pack(side="left")
-        # ---- Escala / Exportar ----
-        frm_extras = ttk.LabelFrame(left, text="Escala e Exportação")
-        frm_extras.pack(fill="x", pady=(6,8))
+            # ---- Exportar figura ----
+            frm_export = ttk.LabelFrame(left, text="Exportar")
+            frm_export.pack(fill="x", pady=(6,8))
+            ttk.Label(frm_export, text="DPI:").pack(side="left", padx=(6,4))
+            self.var_export_dpi = tk.IntVar(value=200)
+            ttk.Spinbox(frm_export, from_=100, to=600, increment=50, textvariable=self.var_export_dpi, width=6).pack(side="left", padx=(0,8))
+            ttk.Button(frm_export, text="Exportar figura…", command=self._export_results_fig).pack(side="left")
+            # ---- Escala / Exportar ----
+            frm_extras = ttk.LabelFrame(left, text="Escala e Exportação")
+            frm_extras.pack(fill="x", pady=(6,8))
 
-        # Escala log no X
-        ttk.Checkbutton(
-            frm_extras, text="Escala log no eixo X",
-            variable=self.var_xlog,
-            command=self._draw_results_plots
-        ).pack(fill="x", padx=4, pady=(2,6))
+            # Escala log no X
+            ttk.Checkbutton(
+                frm_extras, text="Escala log no eixo X",
+                variable=self.var_xlog,
+                command=self._draw_results_plots
+            ).pack(fill="x", padx=4, pady=(2,6))
 
-        # Exportar figura
-        fexp = ttk.Frame(frm_extras); fexp.pack(fill="x", pady=(2,4))
-        ttk.Label(fexp, text="Formato:").pack(side="left")
-        ttk.Combobox(
-            fexp, textvariable=self.var_export_fmt,
-            values=["PNG","SVG","PDF"], width=6, state="readonly"
-        ).pack(side="left", padx=(4,8))
-        ttk.Label(fexp, text="DPI:").pack(side="left")
-        ttk.Spinbox(
-            fexp, from_=72, to=600, increment=10, width=6,
-            textvariable=self.var_export_dpi
-        ).pack(side="left", padx=(4,8))
-        #ttk.Button(fexp, text="Exportar figura…", command=self._export_results_figure).pack(side="left")
+            # Exportar figura
+            fexp = ttk.Frame(frm_extras); fexp.pack(fill="x", pady=(2,4))
+            ttk.Label(fexp, text="Formato:").pack(side="left")
+            ttk.Combobox(
+                fexp, textvariable=self.var_export_fmt,
+                values=["PNG","SVG","PDF"], width=6, state="readonly"
+            ).pack(side="left", padx=(4,8))
+            ttk.Label(fexp, text="DPI:").pack(side="left")
+            ttk.Spinbox(
+                fexp, from_=72, to=600, increment=10, width=6,
+                textvariable=self.var_export_dpi
+            ).pack(side="left", padx=(4,8))
+            #ttk.Button(fexp, text="Exportar figura…", command=self._export_results_figure).pack(side="left")
 
-        # ---- Linhas de referência (globais) ----
-        frm_refs = ttk.LabelFrame(left, text="Linhas de referência (todas as subfiguras)")
-        frm_refs.pack(fill="x", pady=(6,8))
+            # ---- Linhas de referência (globais) ----
+            frm_refs = ttk.LabelFrame(left, text="Linhas de referência (todas as subfiguras)")
+            frm_refs.pack(fill="x", pady=(6,8))
 
-        ref_row = ttk.Frame(frm_refs); ref_row.pack(fill="x", pady=(2,4))
-        ttk.Label(ref_row, text="x=").pack(side="left")
-        self._ref_x_entry = ttk.Entry(ref_row, width=10)
-        self._ref_x_entry.pack(side="left", padx=(4,8))
-        ttk.Label(ref_row, text="rótulo:").pack(side="left")
-        self._ref_label_entry = ttk.Entry(ref_row, width=18)
-        self._ref_label_entry.pack(side="left", padx=(4,8))
-        ttk.Button(ref_row, text="Adicionar", command=self._ref_add).pack(side="left")
+            ref_row = ttk.Frame(frm_refs); ref_row.pack(fill="x", pady=(2,4))
+            ttk.Label(ref_row, text="x=").pack(side="left")
+            self._ref_x_entry = ttk.Entry(ref_row, width=10)
+            self._ref_x_entry.pack(side="left", padx=(4,8))
+            ttk.Label(ref_row, text="rótulo:").pack(side="left")
+            self._ref_label_entry = ttk.Entry(ref_row, width=18)
+            self._ref_label_entry.pack(side="left", padx=(4,8))
+            ttk.Button(ref_row, text="Adicionar", command=self._ref_add).pack(side="left")
 
-        # lista de linhas
-        list_frame = ttk.Frame(frm_refs); list_frame.pack(fill="x", pady=(2,4))
-        self.lb_refs = tk.Listbox(list_frame, height=5, selectmode="extended")
-        self.lb_refs.pack(side="left", fill="both", expand=True)
-        sb2 = ttk.Scrollbar(list_frame, orient="vertical", command=self.lb_refs.yview)
-        sb2.pack(side="right", fill="y")
-        self.lb_refs.config(yscrollcommand=sb2.set)
+            # lista de linhas
+            list_frame = ttk.Frame(frm_refs); list_frame.pack(fill="x", pady=(2,4))
+            self.lb_refs = tk.Listbox(list_frame, height=5, selectmode="extended")
+            self.lb_refs.pack(side="left", fill="both", expand=True)
+            sb2 = ttk.Scrollbar(list_frame, orient="vertical", command=self.lb_refs.yview)
+            sb2.pack(side="right", fill="y")
+            self.lb_refs.config(yscrollcommand=sb2.set)
 
-        btns = ttk.Frame(frm_refs); btns.pack(fill="x")
-        ttk.Button(btns, text="Remover selecionadas", command=self._ref_remove).pack(side="left")
-        ttk.Button(btns, text="Aplicar (redesenhar)", command=self._draw_results_plots).pack(side="left", padx=(6,0))
+            btns = ttk.Frame(frm_refs); btns.pack(fill="x")
+            ttk.Button(btns, text="Remover selecionadas", command=self._ref_remove).pack(side="left")
+            ttk.Button(btns, text="Aplicar (redesenhar)", command=self._draw_results_plots).pack(side="left", padx=(6,0))
 
-        # ---- Figura de resultados (matplotlib)
-        self.fig_res = plt.figure(figsize=(7.8, 6.2))
-        self.canvas_res = FigureCanvasTkAgg(self.fig_res, master=right)
-        self.canvas_res.get_tk_widget().pack(fill="both", expand=True)
+            # ---- Figura de resultados (matplotlib)
+            self.fig_res = plt.figure(figsize=(7.8, 6.2))
+            self.canvas_res = FigureCanvasTkAgg(self.fig_res, master=right)
+            self.canvas_res.get_tk_widget().pack(fill="both", expand=True)
 
-        self._draw_results_plots()
-        self._schedule_auto_update()
+            self._draw_results_plots()
+            self._schedule_auto_update()
 
     # ---------------- YAML root ----------------
     def _current_yaml(self) -> dict:
@@ -2282,20 +2464,120 @@ class App(tk.Tk):
             var.set(path)
             self._scan_yaml_files()
 
+    def _open_htop_window(self):
+        if not self.ssh_client:
+            messagebox.showerror("SSH", "Você não está conectado ao servidor.")
+            return
+
+        win = tk.Toplevel(self)
+        win.title("HTOP - Servidor Remoto")
+        win.geometry("1000x600")
+
+        txt = tk.Text(win, wrap="none", bg="black", fg="lime")
+        txt.pack(fill="both", expand=True)
+
+        # barras de rolagem
+        yscroll = ttk.Scrollbar(win, orient="vertical", command=txt.yview)
+        yscroll.pack(side="right", fill="y")
+        txt.configure(yscrollcommand=yscroll.set)
+
+        # botão fechar
+        ttk.Button(win, text="Fechar", command=win.destroy).pack(pady=4)
+
+        self._htop_window = win
+        self._htop_text = txt
+
+        self._update_htop_loop()
+    def _update_htop_loop(self):
+        if not hasattr(self, "_htop_window"):
+            return
+
+        if not self._htop_window.winfo_exists():
+            return
+
+        try:
+            # Se htop existir, usa ele; senão cai para top
+            cmd = "htop -b -n 1 || top -b -n 1"
+
+            out, err = self._exec_remote_paramiko(cmd)
+
+            self._htop_text.configure(state="normal")
+            self._htop_text.delete("1.0", "end")
+            self._htop_text.insert("end", out)
+            self._htop_text.configure(state="disabled")
+
+        except Exception as e:
+            self._htop_text.configure(state="normal")
+            self._htop_text.insert("end", f"\nERRO AO ATUALIZAR HTOP:\n{e}\n")
+            self._htop_text.configure(state="disabled")
+
+        # atualiza a cada 2 segundos
+        self.after(2000, self._update_htop_loop)
+
     def _scan_yaml_files(self):
         if not hasattr(self, "tree"):
             return
+
+        from tkinter import messagebox  # local import to evitar ciclos
+
         self.tree.delete(*self.tree.get_children())
+
+        # Se modo SSH, lista arquivos no servidor remoto
+        """"if getattr(self, "var_run_mode", None) is not None and self.var_run_mode.get() == "SSH":
+            if not getattr(self, "ssh_connected", False):
+                messagebox.showwarning("Runner (SSH)", "Conecte ao servidor SSH antes de listar os YAML.")
+                return
+
+            host = self.ssh_host.get().strip()
+            user = self.ssh_user.get().strip()
+            port = self.ssh_port.get()
+            rdir = self.ssh_remote_dir.get().strip() or "."
+
+            remote_cmd = f'cd "{rdir}" && ls *.yaml *.yml 2>/dev/null'
+
+            try:
+                out = subprocess.check_output(
+                    ["ssh", "-p", str(port), f"{user}@{host}", remote_cmd],
+                    stderr=subprocess.STDOUT,
+                    text=True,
+                )
+            except subprocess.CalledProcessError as e:
+                messagebox.showerror("Runner (SSH)", f"Erro ao listar YAML no servidor:\n{e.output}")
+                return
+            except Exception as e:
+                messagebox.showerror("Runner (SSH)", f"Falha ao executar SSH: {e}")
+                return
+
+            files = [ln.strip() for ln in out.splitlines() if ln.strip()]
+            files.sort()
+            if not files:
+                return
+
+            for fname in files:
+                # caminho remoto completo (assumindo rdir como base)
+                if fname.startswith("/"):
+                    ypath = fname
+                    label = os.path.basename(fname)
+                else:
+                    ypath = rdir.rstrip("/") + "/" + fname
+                    label = fname
+                total = int(self.var_snaps.get())
+                self.tree.insert("", "end", iid=ypath,
+                                 values=(label, "Pronto", f"0/{total}", "0", "--"))
+            return
+            """
+        # Modo LOCAL (comportamento anterior)
         folder = getattr(self, "run_folder", tk.StringVar(value=os.getcwd())).get()
         if not os.path.isdir(folder):
             return
-        files = [f for f in os.listdir(folder) if f.lower().endswith((".yaml",".yml"))]
+        files = [f for f in os.listdir(folder) if f.lower().endswith((".yaml", ".yml"))]
         files.sort()
         for f in files:
             path = os.path.join(folder, f)
             total = self._yaml_num_snapshots(path) or int(self.var_snaps.get())
-            self.tree.insert("", "end", iid=path, values=(os.path.basename(path), "Pronto", f"0/{total}", "0", "--"))
-
+            self.tree.insert("", "end", iid=path,
+                             values=(os.path.basename(path), "Pronto", f"0/{total}", "0", "--"))
+            
     def _yaml_num_snapshots(self, ypath):
         try:
             with open(ypath, "r", encoding="utf-8") as fh:
@@ -2309,36 +2591,616 @@ class App(tk.Tk):
             pass
         return None
 
+    def _create_remote_tmp_dir(self):
+        """
+        Cria uma pasta temporária no servidor dentro de:
+        /home/achiles.mota/SHARC/sharc/campaigns/
+
+        Retorna o caminho completo da pasta criada.
+        """
+        if not self.ssh_client:
+            raise RuntimeError("SSH não conectado.")
+
+        base_dir = "/home/achiles.mota/SHARC/sharc/campaigns"
+
+        timestamp = time.strftime("%Y%m%d_%H%M%S")
+        remote_tmp = f"{base_dir}/remote_run_{timestamp}"
+
+        cmd = f"mkdir -p {remote_tmp}"
+        out, err = self._exec_remote_paramiko(cmd)
+
+        if err.strip():
+            raise RuntimeError(f"Erro ao criar diretório remoto:\n{err}")
+
+        return remote_tmp
+    
+    def _cleanup_remote_tmp_dir(self):
+        if not hasattr(self, "_remote_tmp_dir"):
+            return
+
+        if not self._remote_tmp_dir:
+            return
+
+        try:
+            cmd = f"rm -rf {self._remote_tmp_dir}"
+            self._exec_remote_paramiko(cmd)
+
+            self._append_log(
+                f"[REMOTE] Pasta temporária removida: {self._remote_tmp_dir}"
+            )
+
+            self._remote_tmp_dir = None
+
+        except Exception as e:
+            self._append_log(
+                f"[REMOTE][ERRO] Falha ao remover pasta temporária: {e}"
+            ) 
+    def _append_log(self, msg: str):
+        import time
+        timestamp = time.strftime("%H:%M:%S")
+        line = f"[{timestamp}] {msg}\n"
+
+        try:
+            self.txt_log.configure(state="normal")
+            self.txt_log.insert("end", line)
+            self.txt_log.see("end")
+            self.txt_log.configure(state="disabled")
+        except Exception as e:
+            print("LOG ERROR:", e, line)
+
+        # Sempre manda também para o console (debug)
+        try:
+            print(line, end="")
+        except Exception:
+            pass
+
+    def _upload_yaml_files_remote(self, yaml_files, remote_dir):
+        """
+        Envia os arquivos YAML locais para a pasta remota criada no servidor.
+        Usa SFTP via Paramiko (não pede senha novamente).
+        """
+        if not self.ssh_client:
+            raise RuntimeError("SSH não conectado.")
+
+        try:
+            sftp = self.ssh_client.open_sftp()
+
+            for local_yaml in yaml_files:
+                fname = os.path.basename(local_yaml)
+                remote_path = f"{remote_dir}/{fname}"
+
+                self._append_log(
+                    f"[REMOTE] Enviando {fname} -> {remote_path}"
+                )
+
+                sftp.put(local_yaml, remote_path)
+
+            sftp.close()
+            self._append_log("[REMOTE] Upload dos YAMLs concluído.")
+
+        except Exception as e:
+            raise RuntimeError(f"Erro no upload dos YAMLs via SFTP:\n{e}")
+    
+    def _run_remote_yaml_paramiko(self, remote_yaml, tree_iid, declared_total):
+        """
+        Executa main_cli.py remotamente via Paramiko e atualiza a Treeview
+        em tempo real, de forma análoga ao runner local.
+        """
+
+        cmd = (
+            "cd /home/achiles.mota/SHARC && "
+            "source /home/achiles.mota/SHARC/.sharc_env/bin/activate && "
+            f"python3 /home/achiles.mota/SHARC/sharc/main_cli.py -p {remote_yaml} 2>&1"
+        )
+
+        # Arquitetura similar ao _run_one_yaml
+        pat_xy = re.compile(r"(?:snapshot|snap)\s*:?\s*(\d+)\s*/\s*(\d+)", re.IGNORECASE)
+        pat_hash = re.compile(r"Snapshot\s*#\s*(\d+)", re.IGNORECASE)
+
+        done = 0
+        total = declared_total
+        t0 = time.time()
+
+        # Marca início
+        self._update_row(
+            tree_iid,
+            status="Rodando (remoto)",
+            snap=f"0/{total}",
+            pct="0",
+            eta="--",
+        )
+
+        stdin, stdout, stderr = self.ssh_client.exec_command(cmd)
+        if not declared_total or declared_total <= 0:
+            declared_total = 1_000_000  # fallback de segurança
+        # Lê linha a linha, em tempo real
+        for line in iter(stdout.readline, ""):
+            if not line:
+                break
+
+            line = line.rstrip("\n")
+            self._append_log(f"[REMOTE] {line}")
+
+            m1 = pat_drop1.search(line)
+            m2 = pat_drop2.search(line)
+            m3 = pat_hash.search(line)
+
+            if m1:
+                done = int(m1.group(1))
+                total = int(m1.group(2))
+            elif m2:
+                done = int(m2.group(1))
+                total = int(m2.group(2))
+            elif m3 and total:
+                done = int(m3.group(1))
+            if "drop" in line.lower() or "mc" in line.lower() or "iter" in line.lower():
+                self._append_log(f"[REMOTE][PROGRESS RAW] {line}")
+            if done:
+                now = time.time()
+                pct = f"{(100.0 * done / max(total, 1)):.1f}"
+                eta = self._eta_string(t0, now, done, total)
+
+                self._update_row(
+                    tree_iid,
+                    status="Rodando (remoto)",
+                    snap=f"{done}/{total}",
+                    pct=pct,
+                    eta=eta,
+                )
+
+        # Espera fim do comando
+        rc = stdout.channel.recv_exit_status()
+        final_status = "OK" if rc == 0 else f"Erro {rc}"
+
+        self._update_row(
+            tree_iid,
+            status=final_status,
+            snap=f"{done}/{total}",
+            pct="100" if rc == 0 else f"{(100.0 * done / max(total, 1)):.1f}",
+            eta="00:00",
+        )
+        # Limpeza automática da pasta temporária
+        self._cleanup_remote_tmp_dir()
+
+
+    def _kill_remote_yaml(self, remote_yaml, tree_iid):
+
+        try:
+            # 1) Localizar PID remoto
+            find_pid_cmd = (
+                f"ps -eo pid,cmd | grep '{remote_yaml}' "
+                f"| grep -v grep | awk '{{print $1}}'"
+            )
+
+            stdin, stdout, stderr = self.ssh_client.exec_command(find_pid_cmd)
+            pid = stdout.read().decode().strip()
+
+            if not pid:
+                self._append_log(f"[REMOTE] Nenhum processo encontrado para {remote_yaml}.")
+                self._update_row(tree_iid, status="Finalizado")
+                return
+
+            self._append_log(f"[REMOTE] Matando processo PID={pid} para {remote_yaml}")
+
+            # 2) Enviar sinal de término
+            kill_cmd = f"kill -9 {pid}"
+            self.ssh_client.exec_command(kill_cmd)
+
+            self._update_row(tree_iid, status="Cancelado")
+            self._append_log(f"[REMOTE] Processo {pid} finalizado.")
+
+        except Exception as e:
+            messagebox.showerror("SSH Kill", f"Erro ao parar execução remota:\n{e}")
+            self._append_log(f"[REMOTE][ERRO kill] {e}")
+
+
+    def _run_remote_yaml_worker(self, remote_yaml, tree_iid, declared_total):
+
+        with self._remote_semaphore:
+
+            try:
+                cmd = (
+                    "cd /home/achiles.mota/SHARC && "
+                    "source /home/achiles.mota/SHARC/.sharc_env/bin/activate && "
+                    f"python3 /home/achiles.mota/SHARC/sharc/main_cli.py -p {remote_yaml} 2>&1"
+                )
+
+                self._append_log(f"[REMOTE][CMD] {cmd}")
+
+                pat_xy = re.compile(r"(?:snapshot|snap)\s*:?\s*(\d+)\s*/\s*(\d+)", re.IGNORECASE)
+                pat_hash = re.compile(r"Snapshot\s*#\s*(\d+)", re.IGNORECASE)
+
+                done = 0
+                total = declared_total
+                t0 = time.time()
+
+                self._update_row(tree_iid, status="Rodando (remoto)", snap=f"0/{total}", pct="0", eta="--")
+
+                stdin, stdout, stderr = self.ssh_client.exec_command(cmd)
+
+                # ============ LEITURA EM TEMPO REAL ============
+                while True:
+                    line = stdout.readline()
+
+                    if not line:
+                        break
+
+                    line = line.rstrip()
+                    self._append_log(f"[REMOTE] {line}")
+
+                    m1 = pat_xy.search(line)
+                    m2 = pat_hash.search(line)
+
+                    if m1:
+                        done = int(m1.group(1))
+                        total = int(m1.group(2))
+                    elif m2:
+                        done = int(m2.group(1))
+
+                    if done and total:
+                        pct = f"{(100.0 * done / total):.1f}"
+                        eta = self._eta_string(t0, time.time(), done, total)
+
+                        self._update_row(
+                            tree_iid,
+                            status="Rodando (remoto)",
+                            snap=f"{done}/{total}",
+                            pct=pct,
+                            eta=eta,
+                        )
+
+                # ============ STATUS DE SAÍDA ============
+                rc = stdout.channel.recv_exit_status()
+
+                if rc == 0:
+                    final_status = "OK"
+                else:
+                    final_status = f"Erro {rc}"
+
+                    err_out = stderr.read().decode()
+                    self._append_log(f"[REMOTE][ERRO STD] {err_out}")
+
+                self._update_row(
+                    tree_iid,
+                    status=final_status,
+                    snap=f"{done}/{total}",
+                    pct="100" if rc == 0 else f"{(100.0 * done / total):.1f}",
+                    eta="00:00",
+                )
+
+            except Exception as e:
+                self._update_row(tree_iid, status=f"Erro: {e}")
+                self._append_log(f"[REMOTE][EXCEPTION] {e}")
+
+            finally:
+                self._remote_pending.discard(tree_iid)
+
+                # ✅ SÓ LIMPA QUANDO A ÚLTIMA TERMINAR
+                if not self._remote_pending:
+                    self._append_log("[REMOTE] Todas as simulações concluídas.")
+                    self._cleanup_remote_tmp_dir()
+
+
+
+
     def _run_selected_yaml_parallel(self):
+
+        # ===== MODO REMOTO (SSH) =====
+        if self.var_run_mode.get() == "SSH":
+
+            yaml_ids = self.tree.selection()
+            if not yaml_ids:
+                messagebox.showwarning("Runner", "Nenhum YAML selecionado.")
+                return
+
+            if not self.ssh_client:
+                messagebox.showerror("SSH", "Você não está conectado ao servidor.")
+                return
+
+            # Aqui os iids já devem ser caminhos REMOTOS
+            remote_yaml_paths = list(yaml_ids)
+
+            #self._append_log("[REMOTE] Iniciando execução remota...")
+            self._run_selected_yaml_remote_option_c(remote_yaml_paths)
+            return   # <<< ESSENCIAL: impede cair no modo local
+
+
+        # ===== MODO LOCAL (RUNNER ORIGINAL) =====
         sel = self.tree.selection()
         if not sel:
             messagebox.showwarning("Runner", "Selecione pelo menos um arquivo YAML.")
             return
+
         for iid in sel:
+            # se já tem thread viva para esse YAML, pula
             if iid in self.proc_threads and self.proc_threads[iid].is_alive():
                 continue
+
             self.jobs_q.put(iid)
             self._update_row(iid, status="Na fila", snap=None, pct=None, eta="--")
+
+    def _run_selected_yaml_remote_option_c(self, yaml_files):
+
+        if not self.ssh_client:
+            messagebox.showerror("SSH", "Conecte-se ao servidor primeiro.")
+            return
+
+        try:
+            ts_dir = self._create_remote_tmp_dir()
+            self._remote_tmp_dir = ts_dir
+            self._remote_pending = set()   # controla processos ativos
+
+            self._append_log(f"[REMOTE] Pasta temporária criada: {ts_dir}")
+
+            self._upload_yaml_files_remote(yaml_files, ts_dir)
+
+            max_parallel = int(self.var_max_workers.get())
+            self._remote_semaphore = threading.Semaphore(max_parallel)
+
+            for local_yaml in yaml_files:
+                fname = os.path.basename(local_yaml)
+                remote_yaml = f"{ts_dir}/{fname}"
+
+                tree_iid = local_yaml
+                declared_total = self._yaml_num_snapshots(local_yaml) or int(self.var_snaps.get())
+
+                self._append_log(f"[REMOTE] Executando: {remote_yaml}")
+
+                self._remote_pending.add(tree_iid)
+
+                t = threading.Thread(
+                    target=self._run_remote_yaml_worker,
+                    args=(remote_yaml, tree_iid, declared_total),
+                    daemon=True,
+                )
+                t.start()
+
+        except Exception as e:
+            messagebox.showerror("Runner (SSH)", f"Erro na execução remota:\n{e}")
+            self._append_log(f"[REMOTE][ERRO] {e}")
+
 
     def _stop_selected(self):
         sel = self.tree.selection()
         if not sel:
             messagebox.showwarning("Runner", "Selecione pelo menos um YAML.")
             return
-        for iid in sel:
-            p = self.procs.get(iid)
-            if p and (p.poll() is None):
+
+
+        # ============================================================
+        # ===================== MODO REMOTO (SSH) ====================
+        # ============================================================
+        if self.var_run_mode.get() == "SSH":
+
+            if not self.ssh_client:
+                messagebox.showerror("SSH", "Você não está conectado ao servidor.")
+                return
+
+            if not hasattr(self, "_remote_tmp_dir") or not self._remote_tmp_dir:
+                messagebox.showwarning("SSH", "Nenhuma pasta remota ativa para cancelamento.")
+                return
+
+            for iid in sel:
                 try:
-                    p.terminate()
-                    try:
-                        p.wait(timeout=2.0)
-                    except Exception:
-                        p.kill()
-                    self._update_row(iid, status="Parado pelo usuário", eta="--")
+                    local_yaml = iid
+                    fname = os.path.basename(local_yaml)
+                    remote_yaml = f"{self._remote_tmp_dir}/{fname}"
+
+                    def _kill():
+                        try:
+                            # localizar PID
+                            find_pid_cmd = (
+                                f"ps -eo pid,cmd | grep '{remote_yaml}' "
+                                f"| grep -v grep | awk '{{print $1}}'"
+                            )
+
+                            stdin, stdout, stderr = self.ssh_client.exec_command(find_pid_cmd)
+                            pid = stdout.read().decode().strip()
+
+                            if not pid:
+                                self._append_log(f"[REMOTE] Nenhum processo encontrado para {fname}")
+                                self._update_row(iid, status="Não está rodando", eta="--")
+                                return
+
+                            self._append_log(f"[REMOTE] Matando PID {pid} ({fname})")
+
+                            kill_cmd = f"kill -9 {pid}"
+                            self.ssh_client.exec_command(kill_cmd)
+
+                            self._update_row(iid, status="Parado pelo usuário", eta="--")
+                            self._cleanup_remote_tmp_dir()
+
+                        except Exception as e:
+                            self._update_row(iid, status=f"Erro ao parar: {e}")
+                            self._cleanup_remote_tmp_dir()
+
+                    threading.Thread(target=_kill, daemon=True).start()
+
                 except Exception as e:
                     self._update_row(iid, status=f"Erro ao parar: {e}")
-            else:
-                self._update_row(iid, status="Não está rodando")
+                    self._cleanup_remote_tmp_dir()
+
+            return  # <<< impede cair na lógica local
+        else:
+            # ============================================================
+            # ======================== MODO LOCAL ========================
+            # ============================================================
+            for iid in sel:
+                p = self.procs.get(iid)
+                if p and (p.poll() is None):
+                    try:
+                        p.terminate()
+                        try:
+                            p.wait(timeout=2.0)
+                        except Exception:
+                            p.kill()
+                        self._update_row(iid, status="Parado pelo usuário", eta="--")
+                    except Exception as e:
+                        self._update_row(iid, status=f"Erro ao parar: {e}")
+                else:
+                    self._update_row(iid, status="Não está rodando")
+
+    def _get_remote_git_branch(self):
+        try:
+            # Mostra branch real ou "DETACHED"
+            cmd = """
+            cd /home/achiles.mota/SHARC &&
+            git symbolic-ref --quiet --short HEAD || echo "DETACHED-HEAD ($(git rev-parse --short HEAD))"
+            """
+            out, err = self._exec_remote_paramiko(cmd)
+            return out.strip()
+
+        except Exception as e:
+            return f"(erro: {e})"
+    def _on_force_checkout_clicked(self):
+        branch = self.var_git_branch.get().strip()
+        if not branch:
+            messagebox.showwarning("Git", "Selecione uma branch.")
+            return
+
+        resp = messagebox.askyesno(
+            "Git - FORCE CHECKOUT",
+            f"Isso vai APAGAR TODAS as modificações locais no servidor.\n\n"
+            f"Deseja realmente trocar para a branch:\n\n{branch} ?"
+        )
+
+        if not resp:
+            return
+
+        self._force_checkout_remote_branch(branch)     
+    def _get_remote_git_branches(self):
+        try:
+            # Atualiza referências remotas
+            self._exec_remote_paramiko(
+                "cd /home/achiles.mota/SHARC && git fetch --all --prune"
+            )
+
+            # Lista TODAS as branches (local + remotas)
+            out, err = self._exec_remote_paramiko(
+                "cd /home/achiles.mota/SHARC && git branch -a"
+            )
+
+            branches = set()
+
+            for line in out.splitlines():
+                line = line.strip()
+
+                # Remove marcador da branch atual
+                if line.startswith("*"):
+                    line = line[1:].strip()
+
+                # Ignora ponteiros simbólicos tipo origin/HEAD -> origin/main
+                if "->" in line:
+                    continue
+
+                # Normaliza origin/nome
+                if line.startswith("remotes/origin/"):
+                    line = line.replace("remotes/origin/", "")
+
+                if line:
+                    branches.add(line)
+
+            return sorted(branches)
+
+        except Exception as e:
+            messagebox.showerror("Git", f"Erro ao listar branches:\n{e}")
+            return []
+
+    def _force_checkout_remote_branch(self, branch):
+        try:
+            base = "/home/achiles.mota/SHARC"
+
+            # 1) GIT: fetch + reset + clean + checkout
+            self._append_log(f"[GIT] FORCE checkout para branch: {branch}")
+            cmd_git = (
+                f"cd {base} && "
+                f"git fetch --all --prune && "
+                f"git reset --hard && "
+                f"git clean -fd && "
+                f"git checkout {branch}"
+            )
+            out, err = self._exec_remote_paramiko(cmd_git)
+            if out.strip():
+                self._append_log(f"[GIT][OUT]\n{out}")
+            if err.strip():
+                self._append_log(f"[GIT][ERR]\n{err}")
+
+            # 2) VENV: criar (versão simples e robusta)
+            self._append_log("[ENV] Verificando / criando .sharc_env/")
+
+            cmd_venv = (
+                f"cd {base} && "
+                "if [ ! -d .sharc_env/ ]; then "
+                "echo '[ENV] Criando ambiente virtual .sharc_env/'; "
+                "(python3 -m venv .sharc_env/ || python -m venv .sharc_env/); "
+                "fi"
+            )
+
+            out2, err2 = self._exec_remote_paramiko(cmd_venv)
+            if out2.strip():
+                self._append_log(f"[ENV][OUT]\n{out2}")
+            if err2.strip():
+                self._append_log(f"[ENV][ERR]\n{err2}")
+
+
+            """# 2b) Checar se o activate realmente existe
+            cmd_check = (
+                f"cd {base} && "
+                "if [ -f ..venv_sharc/bin/activate ]; then "
+                "echo 'OK_VENV'; "
+                "else "
+                "echo 'MISSING_VENV'; "
+                "fi"
+            )
+            out3, err3 = self._exec_remote_paramiko(cmd_check)
+            if out3.strip():
+                self._append_log(f"[ENV][CHECK]\n{out3}")
+            if "MISSING_VENV" in out3:
+                raise RuntimeError(
+                    "Ambiente virtual ..venv_sharc/ não foi criado corretamente no servidor. "
+                    "Verifique se o pacote python3-venv está instalado no sistema."
+                )"""
+
+            # 3) ATIVAR VENV + ATUALIZAR PIP + REQUIREMENTS + SHARC (-e)
+            self._append_log("[ENV] Ativando venv e instalando dependências/SHARC")
+            cmd_req = (
+                f"cd {base} && "
+                "python3 -m venv .sharc_env &&"
+                "source /home/achiles.mota/SHARC/.sharc_env/bin/activate && "
+                "python -m pip install --upgrade pip && "
+                "if [ -f requirements.txt ]; then "
+                "pip install -r requirements.txt; "
+                "else "
+                "echo '[ENV] Nenhum requirements.txt encontrado'; "
+                "fi && "
+                "pip install -e ."
+            )
+            out4, err4 = self._exec_remote_paramiko(cmd_req)
+            if out4.strip():
+                self._append_log(f"[ENV][OUT]\n{out4}")
+            if err4.strip():
+                self._append_log(f"[ENV][ERR]\n{err4}")
+
+            # Atualiza label da branch na interface
+            new_branch = self._get_remote_git_branch()
+            if hasattr(self, "lbl_remote_branch"):
+                self.lbl_remote_branch.config(text=f"Branch: {new_branch}")
+
+            messagebox.showinfo(
+                "Git / Ambiente remoto",
+                f"Branch alterada para: {new_branch}\n\n"
+                "Ambiente virtual .sharcarc_env verificado/criado, "
+                "requirements instalados e SHARC instalado em modo editável."
+            )
+
+        except Exception as e:
+            self._append_log(f"[GIT/ENV][EXCEPTION] {e}")
+            messagebox.showerror(
+                "Git / Ambiente remoto", f"Erro no FORCE checkout / ambiente:\n{e}"
+            )
+
+
+
 
     def _runner_scheduler_tick(self):
         # inicia até max_workers simultâneos
@@ -2356,13 +3218,39 @@ class App(tk.Tk):
         # reaplicar em loop
         self.after(300, self._runner_scheduler_tick)
 
+    
     def _run_one_yaml(self, ypath):
         declared_total = self._yaml_num_snapshots(ypath) or int(self.var_snaps.get())
-        self.runtime[ypath] = {"status":"Rodando", "done":0, "total":declared_total, "declared_total":declared_total, "t0":time.time(), "last_snap_time":None}
+        self.runtime[ypath] = {
+            "status": "Rodando",
+            "done": 0,
+            "total": declared_total,
+            "t0": time.time(),
+            "last_snap_time": None,
+        }
         self._update_row(ypath, status="Rodando", snap=f"0/{declared_total}", pct="0", eta="--")
 
         try:
-            cmd = [sys.executable, self.main_cli_path.get(), "-p", ypath]
+            # Escolhe comando LOCAL ou SSH
+            if getattr(self, "var_run_mode", None) is not None and self.var_run_mode.get() == "SSH":
+                if not getattr(self, "ssh_connected", False):
+                    raise RuntimeError("SSH não conectado.")
+
+                host = self.ssh_host.get().strip()
+                user = self.ssh_user.get().strip()
+                port = self.ssh_port.get()
+                remote_main = self.main_cli_path.get().strip()
+                remote_yaml = ypath
+
+                if not remote_main:
+                    raise RuntimeError("Caminho remoto do main_cli.py não definido.")
+
+                # Usa python3 no servidor e repassa o caminho do YAML
+                remote_cmd = f'python3 "{remote_main}" -p "{remote_yaml}"'
+                cmd = ["ssh", "-p", str(port), f"{user}@{host}", remote_cmd]
+            else:
+                cmd = [sys.executable, self.main_cli_path.get(), "-p", ypath]
+
             proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, bufsize=1, text=True)
             self.procs[ypath] = proc
 
@@ -2371,12 +3259,13 @@ class App(tk.Tk):
 
             total = declared_total
             for line in proc.stdout:
-                self.line_q.put(f"[{os.path.basename(ypath)}] {line}")
+                text = line.rstrip()
+                self._append_log(f"[LOCAL] {text}")
                 m1 = pat_xy.search(line)
                 m2 = pat_hash.search(line)
-
                 if m1:
-                    done = int(m1.group(1)); total_in_line = int(m1.group(2))
+                    done = int(m1.group(1))
+                    total_in_line = int(m1.group(2))
                     if total_in_line:
                         total = max(total, total_in_line)
                     self.runtime[ypath]["done"] = done
@@ -2390,30 +3279,34 @@ class App(tk.Tk):
 
                 now = time.time()
                 self.runtime[ypath]["last_snap_time"] = now
-                pct = f"{(100.0*self.runtime[ypath]['done']/max(total,1)):.1f}"
+                pct = f"{(100.0 * self.runtime[ypath]['done'] / max(total, 1)):.1f}"
                 eta = self._eta_string(self.runtime[ypath]["t0"], now, self.runtime[ypath]["done"], total)
                 self._update_row(ypath, status="Rodando", snap=f"{self.runtime[ypath]['done']}/{total}", pct=pct, eta=eta)
 
             proc.wait()
             rc = proc.returncode
             done = self.runtime[ypath]["done"]
-            pct = "100" if rc == 0 else f"{(100.0*done/max(total,1)):.1f}"
-            self._update_row(ypath, status=("OK" if rc==0 else f"Erro {rc}"), snap=f"{done}/{total}", pct=pct, eta="00:00")
+            pct = "100" if rc == 0 else f"{(100.0 * done / max(total, 1)):.1f}"
+            self._update_row(ypath, status=("OK" if rc == 0 else f"Erro {rc}"), snap=f"{done}/{total}", pct=pct, eta="00:00")
         except Exception as e:
-            self._update_row(ypath, status=f"Falha: {e}", snap=f"--/--", pct="--", eta="--")
+            self._update_row(ypath, status=f"Falha: {e}", snap="--/--", pct="--", eta="--")
         finally:
             if ypath in self.running:
                 self.running.remove(ypath)
             if ypath in self.procs:
-                self.procs.pop(ypath, None)
-
+                p = self.procs[ypath]
+                try:
+                    if p.poll() is None:
+                        p.terminate()
+                except Exception:
+                    pass
     def _eta_string(self, t0, now, done, total):
-        if done <= 0 or total <= 0:
-            return "--"
-        elapsed = now - t0
-        rate = elapsed / max(done, 1)  # seg/snapshot
-        remain = max(total - done, 0) * rate
-        return str(datetime.timedelta(seconds=int(remain)))
+            if done <= 0 or total <= 0:
+                return "--"
+            elapsed = now - t0
+            rate = elapsed / max(done, 1)  # seg/snapshot
+            remain = max(total - done, 0) * rate
+            return str(datetime.timedelta(seconds=int(remain)))
 
     def _update_row(self, iid, status=None, snap=None, pct=None, eta=None):
         try:
@@ -2893,7 +3786,168 @@ class App(tk.Tk):
             ax3d.scatter(xs[is_indoor], ys[is_indoor], zs[is_indoor],
                         s=s, depthshade=False, color="tab:purple", edgecolors="none", label="UE indoor")
             
+    # ============================================================
+    # SSH BACKEND
+    # ============================================================
+    def _ssh_connect(self):
+        host = self.ssh_host.get().strip()
+        user = self.ssh_user.get().strip()
+        port = int(self.ssh_port.get())
 
+        if not host or not user:
+            messagebox.showerror("SSH", "Host e usuário são obrigatórios.")
+            return
+
+        # ===========================================
+        # 1) MODO SENHA (PARAMIKO)
+        # ===========================================
+        if self.ssh_use_password.get():
+            import paramiko
+            from tkinter import simpledialog
+
+            pwd = simpledialog.askstring(
+                "Senha SSH",
+                f"Senha para {user}@{host}:",
+                show="*"
+            )
+
+            if not pwd:
+                messagebox.showwarning("SSH", "Senha não informada.")
+                return
+
+            try:
+                cli = paramiko.SSHClient()
+                cli.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+                cli.connect(
+                    hostname=host,
+                    port=port,
+                    username=user,
+                    password=pwd,
+                    timeout=10,
+                    allow_agent=False,
+                    look_for_keys=False
+                )
+                self.ssh_client = cli
+                self.ssh_connected = True
+                self.ssh_status.set("🟢 Conectado (Senha)")
+                try:
+                    branch = self._get_remote_git_branch()
+                except Exception:
+                    branch = "(indefinida)"
+
+                if hasattr(self, "lbl_remote_branch"):
+                    self.lbl_remote_branch.config(text=f"Branch: {branch}")
+
+                # ===== Atualiza lista de branches disponíveis =====
+                try:
+                    branches = self._get_remote_git_branches()
+                except Exception:
+                    branches = []
+
+                if hasattr(self, "cmb_git_branch"):
+                    self.cmb_git_branch["values"] = branches
+
+                # ===== Se a branch atual existir na lista, seleciona =====
+                if branch in branches and hasattr(self, "var_git_branch"):
+                    self.var_git_branch.set(branch)
+                else:
+                    if hasattr(self, "var_git_branch"):
+                        self.var_git_branch.set("")
+
+
+                messagebox.showinfo("SSH", "Conectado via senha com Paramiko.")
+                return
+
+            except Exception as e:
+                self.ssh_client = None
+                self.ssh_connected = False
+                self.ssh_status.set("🔴 Falha SSH")
+                messagebox.showerror("SSH", f"Erro ao conectar via senha:\n{e}")
+                return
+
+        # ===========================================
+        # 2) MODO CHAVE / SSH LOCAL
+        # ===========================================
+        cmd = ["ssh", "-p", str(port), f"{user}@{host}", "echo SSH_OK"]
+
+        try:
+            out = subprocess.check_output(cmd, timeout=6).decode().strip()
+            if "SSH_OK" in out:
+                self.ssh_connected = True
+                self.ssh_status.set("🟢 Conectado (Chave)")
+                # Atualiza branch atual
+                branch = self._get_remote_git_branch()
+                self.lbl_remote_branch.config(text=f"Branch: {branch}")
+
+                # Atualiza lista de branches disponíveis
+                branches = self._get_remote_git_branches()
+                self.cmb_git_branch["values"] = branches
+                messagebox.showinfo("SSH", "Conexão estabelecida com sucesso.")
+        except Exception as e:
+            self.ssh_connected = False
+            self.ssh_status.set("🔴 Falha na conexão")
+            messagebox.showerror("SSH", f"Falha na conexão:\n{e}")
+
+
+
+    def _ssh_disconnect(self):
+        self.ssh_connected = False
+        self.ssh_status.set("Desconectado")
+
+    # ============================================================
+    # SSH TUNNEL BACKEND (BASTION)
+    # ============================================================
+    def _create_tunnel(self):
+        host = self.tunnel_bastion_host.get()
+        user = self.tunnel_bastion_user.get()
+        port = self.tunnel_bastion_port.get()
+        internal_ip = self.tunnel_internal_ip.get()
+        internal_port = self.tunnel_internal_port.get()
+        local_port = self.tunnel_local_port.get()
+        key = self.tunnel_key_path.get()
+
+        if not all([host, user, key, internal_ip]):
+            messagebox.showerror("Túnel", "Preencha todos os dados do túnel.")
+            return
+
+        try:
+            cmd = [
+                "ssh",
+                "-i", key,
+                "-N",
+                "-L", f"{local_port}:{internal_ip}:{internal_port}",
+                f"{user}@{host}",
+                "-p", str(port)
+            ]
+
+            self.tunnel_process = subprocess.Popen(cmd)
+            self.tunnel_status.set("🟢 Túnel Ativo")
+
+            # Auto-preencher dados de SSH
+            self.ssh_host.set("localhost")
+            self.ssh_port.set(local_port)
+
+            messagebox.showinfo("Túnel", "Túnel criado com sucesso.")
+
+        except Exception as e:
+            self.tunnel_status.set("🔴 Falha no túnel")
+            messagebox.showerror("Túnel", str(e))
+
+    def _close_tunnel(self):
+        if self.tunnel_process:
+            self.tunnel_process.terminate()
+            self.tunnel_process = None
+
+        self.tunnel_status.set("🔴 Túnel Inativo")
+        messagebox.showinfo("Túnel", "Túnel fechado.")
+
+    def _exec_remote_paramiko(self, command: str):
+        if not self.ssh_client:
+            raise RuntimeError("SSH Paramiko não está conectado.")
+        stdin, stdout, stderr = self.ssh_client.exec_command(command)
+        out = stdout.read().decode(errors="ignore")
+        err = stderr.read().decode(errors="ignore")
+        return out, err       
 # --- Plot labels/titles for result fields ---
 RESULT_FIELDNAME_TO_PLOT_INFO = {
     "imt_ul_tx_power_density": {"x_label": "Transmit power density [dBm/Hz]", "title": "[IMT] UE transmit power density"},
@@ -2933,5 +3987,7 @@ RESULT_FIELDNAME_TO_PLOT_INFO = {
 
 
 # --------------- main ---------------
+
+
 if __name__ == "__main__":
     App().mainloop()

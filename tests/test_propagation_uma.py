@@ -24,12 +24,12 @@ class PropagationUMaTest(unittest.TestCase):
         distance_2D = np.array([
             [10, 15, 40],
             [17, 60, 80],
-        ])
-        h_ue = np.array([1.5, 8, 15])
+        ]).flatten()
+        h_ue = np.repeat([1.5, 8, 15], 2)
         los_probability = np.array([
             [1, 1, 0.74],
             [1, 0.57, 0.45],
-        ])
+        ]).flatten()
         npt.assert_allclose(
             self.uma.get_los_probability(distance_2D, h_ue),
             los_probability,
@@ -38,14 +38,14 @@ class PropagationUMaTest(unittest.TestCase):
 
     def test_breakpoint_distance(self):
         """Test the calculation of breakpoint distance for UMa scenario."""
-        h_bs = np.array([15, 20, 25, 30])
-        h_ue = np.array([3, 4])
-        h_e = np.ones((h_ue.size, h_bs.size))
+        h_bs = np.tile([15, 20, 25, 30], 2)
+        h_ue = np.repeat([3, 4], 4)
+        h_e = np.ones((h_ue.size,))
         frequency = 30000 * np.ones(h_e.shape)
         breakpoint_distance = np.array([
             [11200, 15200, 19200, 23200],
             [16800, 22800, 28800, 34800],
-        ])
+        ]).flatten()
         npt.assert_array_equal(
             self.uma.get_breakpoint_distance(frequency, h_bs, h_ue, h_e),
             breakpoint_distance,
@@ -58,11 +58,11 @@ class PropagationUMaTest(unittest.TestCase):
             [200, 600],
             [300, 700],
             [400, 800],
-        ])
-        h_bs = np.array([30, 35])
-        h_ue = np.array([2, 3, 4, 5])
+        ]).flatten()
+        h_bs = np.tile([30, 35], 4)
+        h_ue = np.repeat([2, 3, 4, 5], 2)
         h_e = np.ones(distance_2D.shape)
-        distance_3D = np.sqrt(distance_2D**2 + (h_bs - h_ue[:, np.newaxis])**2)
+        distance_3D = np.sqrt(distance_2D**2 + (h_bs - h_ue)**2)
         frequency = 30000 * np.ones(distance_2D.shape)
         shadowing_std = 0
         loss = np.array([
@@ -70,7 +70,7 @@ class PropagationUMaTest(unittest.TestCase):
             [108.09, 117.56],
             [111.56, 118.90],
             [114.05, 120.06],
-        ])
+        ]).flatten()
         npt.assert_allclose(
             self.uma.get_loss_los(
                 distance_2D, distance_3D, frequency,
@@ -85,11 +85,11 @@ class PropagationUMaTest(unittest.TestCase):
             [200, 600],
             [300, 700],
             [400, 800],
-        ])
-        h_bs = np.array([30, 35])
-        h_ue = np.array([2, 3, 4, 5])
+        ]).flatten()
+        h_bs = np.tile([30, 35], 4)
+        h_ue = np.repeat([2, 3, 4, 5], 2)
         h_e = np.ones(distance_2D.shape)
-        distance_3D = np.sqrt(distance_2D**2 + (h_bs - h_ue[:, np.newaxis])**2)
+        distance_3D = np.sqrt(distance_2D**2 + (h_bs - h_ue)**2)
         frequency = 300 * np.ones(distance_2D.shape)
         shadowing_std = 0
         loss = np.array([
@@ -97,7 +97,7 @@ class PropagationUMaTest(unittest.TestCase):
             [68.09, 84.39],
             [71.56, 83.57],
             [74.05, 83.40],
-        ])
+        ]).flatten()
         npt.assert_allclose(
             self.uma.get_loss_los(
                 distance_2D, distance_3D, frequency,
@@ -114,11 +114,11 @@ class PropagationUMaTest(unittest.TestCase):
             [200, 600],
             [300, 700],
             [400, 800],
-        ])
-        h_bs = np.array([30, 35])
-        h_ue = np.array([2, 3, 4, 5])
+        ]).flatten()
+        h_bs = np.tile([30, 35], 4)
+        h_ue = np.repeat([2, 3, 4, 5], 2)
         h_e = np.ones(distance_2D.shape)
-        distance_3D = np.sqrt(distance_2D**2 + (h_bs - h_ue[:, np.newaxis])**2)
+        distance_3D = np.sqrt(distance_2D**2 + (h_bs - h_ue)**2)
         frequency = 30000 * np.ones(distance_2D.shape)
         shadowing_std = 0
         loss = np.array([
@@ -126,7 +126,7 @@ class PropagationUMaTest(unittest.TestCase):
             [132.25, 150.77],
             [138.45, 152.78],
             [142.70, 154.44],
-        ])
+        ]).flatten()
         npt.assert_allclose(
             self.uma.get_loss_nlos(
                 distance_2D, distance_3D, frequency,
@@ -141,11 +141,11 @@ class PropagationUMaTest(unittest.TestCase):
             [2000, 6000],
             [5000, 7000],
             [4000, 8000],
-        ])
-        h_bs = np.array([30, 35])
-        h_ue = np.array([2, 3, 4, 5])
+        ]).flatten()
+        h_bs = np.tile([30, 35], 4)
+        h_ue = np.repeat([2, 3, 4, 5], 2)
         h_e = np.ones(distance_2D.shape)
-        distance_3D = np.sqrt(distance_2D**2 + (h_bs - h_ue[:, np.newaxis])**2)
+        distance_3D = np.sqrt(distance_2D**2 + (h_bs - h_ue)**2)
         frequency = 300 * np.ones(distance_2D.shape)
         shadowing_std = 0
         loss = np.array([
@@ -153,7 +153,7 @@ class PropagationUMaTest(unittest.TestCase):
             [131.18, 149.83],
             [146.13, 151.84],
             [141.75, 153.51],
-        ])
+        ]).flatten()
         npt.assert_allclose(
             self.uma.get_loss_nlos(
                 distance_2D, distance_3D, frequency,

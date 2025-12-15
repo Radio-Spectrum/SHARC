@@ -39,7 +39,6 @@ def setup_logging(log_file=None, default_level="INFO"):
         root_logger.addHandler(file_handler)
 
 
-
 class SimulationLogger:
     """
     Logs simulation metadata to a YAML file for reproducibility.

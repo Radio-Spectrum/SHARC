@@ -14,6 +14,7 @@ from sharc.propagation.propagation_free_space import PropagationFreeSpace
 from sharc.propagation.propagation import Propagation
 from sharc.station_manager import StationManager
 from sharc.parameters.parameters import Parameters
+from sharc.propagation.propagation_path import PropagationPath
 
 
 class PropagationTvro(Propagation):
@@ -42,12 +43,11 @@ class PropagationTvro(Propagation):
 
         self.free_space_path_loss = PropagationFreeSpace(random_number_gen)
 
-    def get_loss(
+    def get_path_loss(
         self,
         params: Parameters,
         frequency: float,
-        station_a: StationManager,
-        station_b: StationManager,
+        path: "PropagationPath",
         station_a_gains=None,
         station_b_gains=None,
     ) -> np.array:
@@ -79,35 +79,34 @@ class PropagationTvro(Propagation):
                 and params.imt.topology.hotspot.num_clusters == 1
 
         if wrap_around_enabled and (
-                station_a.is_imt_station() and station_b.is_imt_station()):
+                path.sta_a.is_imt_station() and path.sta_b.is_imt_station()):
             distances_2d, distances_3d, _, _ = \
-                station_a.geom.get_global_dist_angles_wrap_around(station_b.geom)
+                path.sta_a.geom.get_global_dist_angles_wrap_around(path.sta_b.geom)
         else:
-            distances_2d = station_a.geom.get_local_distance_to(station_b.geom)
-            distances_3d = station_a.geom.get_3d_distance_to(station_b.geom)
+            distances_2d = path.sta_a.geom.get_local_distance_to(path.sta_b.geom)
+            distances_3d = path.sta_a.geom.get_3d_distance_to(path.sta_b.geom)
 
-        indoor_stations = np.tile(
-            station_a.indoor, (station_b.num_stations, 1)).transpose()
+        indoor_stations = path.sta_a.indoor
 
         # Use the right interface whether the link is IMT-IMT or IMT-System
         # TODO: Refactor __get_loss and get rid of that if-else.
-        if station_a.is_imt_station() and station_b.is_imt_station():
-            if station_a.geom.uses_local_coords:
+        if path.sta_a.is_imt_station() and path.sta_b.is_imt_station():
+            if path.sta_a.geom.uses_local_coords:
                 raise NotImplementedError(
                     "TVRO currently assumes UE z == height. "
                     "If UE has local coords != global coords, this probably isn't true"
                 )
-
+            mskd_distance_3d = path.mtx_to_masked(distances_3d)
             loss = self._get_loss(
-                distance_3D=distances_3d,
-                distance_2D=distances_2d,
-                frequency=frequency * np.ones(distances_2d.shape),
-                ue_height=station_a.geom.z_global,
-                indoor_stations=indoor_stations
+                distance_3D=mskd_distance_3d,
+                distance_2D=path.mtx_to_masked(distances_2d),
+                frequency=frequency * np.ones(mskd_distance_3d.shape),
+                ue_height=path.sta_a_to_masked(path.sta_a.geom.z_local),
+                indoor_stations=path.sta_a_to_masked(indoor_stations)
             )
         else:
-            imt_station, sys_station = (station_a, station_b) \
-                if station_a.is_imt_station() else (station_b, station_a)
+            imt_station, sys_station = (path.sta_a, path.sta_b) \
+                if path.sta_a.is_imt_station() else (path.sta_b, path.sta_a)
 
             if sys_station.geom.uses_local_coords:
                 raise NotImplementedError(
@@ -115,16 +114,23 @@ class PropagationTvro(Propagation):
                     "If System has local coords != global coords, this probably isn't true"
                 )
 
+            es_z = sys_station.geom.z_local
+            if sys_station == path.sta_a:
+                es_z = path.sta_a_to_masked(es_z)
+            else:
+                es_z = path.sta_b_to_masked(es_z)
+
+            mskd_distance_3d = path.mtx_to_masked(distances_3d)
             loss = self._get_loss(
-                distance_3D=distances_3d,
-                distance_2D=distances_2d,
-                frequency=frequency * np.ones(distances_2d.shape),
+                distance_3D=mskd_distance_3d,
+                distance_2D=path.mtx_to_masked(distances_2d),
+                frequency=frequency * np.ones(mskd_distance_3d.shape),
                 imt_sta_type=imt_station.station_type,
-                es_z=sys_station.geom.z_global,
-                indoor_stations=indoor_stations
+                es_z=es_z,
+                indoor_stations=path.sta_a_to_masked(indoor_stations)
             )
 
-        return loss
+        return path.from_masked_mtx(loss)
 
     def _get_loss(self, *args, **kwargs) -> np.array:
         """

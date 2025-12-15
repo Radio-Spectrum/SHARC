@@ -11,7 +11,7 @@ from cycler import cycler
 from multipledispatch import dispatch
 
 from sharc.propagation.propagation import Propagation
-from sharc.station_manager import StationManager
+from sharc.propagation.propagation_path import PropagationPath
 from sharc.parameters.parameters import Parameters
 
 
@@ -21,14 +21,11 @@ class PropagationUMa(Propagation):
     to 3GPP TR 38.900 v14.2.0.
     TODO: calculate the effective environment height for the generic case
     """
-    @dispatch(Parameters, float, StationManager,
-              StationManager, np.ndarray, np.ndarray)
-    def get_loss(
+    def get_path_loss(
         self,
         params: Parameters,
         frequency: float,
-        station_a: StationManager,
-        station_b: StationManager,
+        path: PropagationPath,
         station_a_gains=None,
         station_b_gains=None,
     ) -> np.array:
@@ -57,33 +54,35 @@ class PropagationUMa(Propagation):
         if params.imt.topology.type == "HOTSPOT":
             wrap_around_enabled = params.imt.topology.hotspot.wrap_around \
                 and params.imt.topology.hotspot.num_clusters == 1
+        is_intra_imt = path.sta_a.is_imt_station() and path.sta_b.is_imt_station()
 
-        if wrap_around_enabled and (
-                station_a.is_imt_station() and station_b.is_imt_station()):
+        if wrap_around_enabled and is_intra_imt:
             distances_2d, distances_3d, _, _ = \
-                station_a.geom.get_global_dist_angles_wrap_around(station_b.geom)
+                path.sta_a.geom.get_global_dist_angles_wrap_around(path.sta_b.geom)
         else:
-            distances_2d = station_a.geom.get_local_distance_to(station_b.geom)
-            distances_3d = station_a.geom.get_3d_distance_to(station_b.geom)
+            distances_2d = path.sta_a.geom.get_local_distance_to(path.sta_b.geom)
+            distances_3d = path.sta_a.geom.get_3d_distance_to(path.sta_b.geom)
 
-        if station_a.geom.uses_local_coords or station_b.geom.uses_local_coords:
+        if path.sta_a.geom.uses_local_coords or path.sta_b.geom.uses_local_coords:
             raise NotImplementedError(
                 "UMa currently assumes stations z == height. "
                 "If stations has local coords != global coords, this probably isn't true"
             )
 
-        loss = self.get_loss(
-            distances_3d,
-            distances_2d,
-            frequency * np.ones(distances_2d.shape),
-            station_b.geom.z_global,
-            station_a.geom.z_global,
+        mskd_distances_3d = path.mtx_to_masked(distances_3d)
+        mskd_distances_2d = path.mtx_to_masked(distances_2d)
+        mskd_loss = self.get_loss(
+            mskd_distances_3d,
+            mskd_distances_2d,
+            frequency * np.ones(mskd_distances_2d.shape),
+            path.sta_b_to_masked(path.sta_b.geom.z_local),
+            path.sta_a_to_masked(path.sta_a.geom.z_local),
             params.imt.shadowing,
         )
 
         # the interface expects station_a.num_stations x station_b.num_stations
         # array
-        return loss
+        return path.from_masked_mtx(mskd_loss)
 
     @dispatch(np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, bool)
     def get_loss(
@@ -182,7 +181,7 @@ class PropagationUMa(Propagation):
         idl = np.where(distance_2D < breakpoint_distance)
 
         # get index where distance if greater than breakpoint
-        idg = np.where(distance_2D >= breakpoint_distance)
+        idg = np.asarray(distance_2D >= breakpoint_distance).nonzero()
 
         loss = np.empty(distance_2D.shape)
 
@@ -194,7 +193,7 @@ class PropagationUMa(Propagation):
             fitting_term = -10 * \
                 np.log10(
                     breakpoint_distance**2 +
-                    (h_bs - h_ue[:, np.newaxis])**2,
+                    (h_bs - h_ue)**2,
                 )
             loss[idg] = 40 * np.log10(distance_3D[idg]) + 20 * \
                 np.log10(frequency[idg]) - 27.55 + fitting_term[idg]
@@ -227,7 +226,7 @@ class PropagationUMa(Propagation):
             h_bs : array of base stations antenna heights [m]
             h_ue : array of user equipments antenna heights [m]        """
         loss_nlos = -46.46 + 39.08 * np.log10(distance_3D) + 20 * np.log10(frequency) \
-            - 0.6 * (h_ue[:, np.newaxis] - 1.5)
+            - 0.6 * (h_ue - 1.5)
 
         idl = np.where(distance_2D < 5000)
         if len(idl[0]):
@@ -268,7 +267,7 @@ class PropagationUMa(Propagation):
         """
         #  calculate the effective antenna heights
         h_bs_eff = h_bs - h_e
-        h_ue_eff = h_ue[:, np.newaxis] - h_e
+        h_ue_eff = h_ue - h_e
 
         # calculate the breakpoint distance
         breakpoint_distance = 4 * h_bs_eff * \
@@ -315,7 +314,7 @@ class PropagationUMa(Propagation):
         idc = np.where(h_ue > 13)[0]
 
         if len(idc):
-            c_prime[:, idc] = np.power((h_ue[idc] - 13) / 10, 1.5)
+            c_prime[idc] = np.power((h_ue[idc] - 13) / 10, 1.5)
 
         p_los = np.ones(distance_2D.shape)
         idl = np.where(distance_2D > 18)
@@ -330,11 +329,9 @@ if __name__ == '__main__':
     ###########################################################################
     # Print LOS probability
     distance_2D = np.column_stack((
-        np.linspace(1, 10000, num=10000)[:, np.newaxis],
-        np.linspace(1, 10000, num=10000)[
-            :, np.newaxis,
-        ],
-        np.linspace(1, 10000, num=10000)[:, np.newaxis],
+        np.linspace(1, 10000, num=10000),
+        np.linspace(1, 10000, num=10000),
+        np.linspace(1, 10000, num=10000),
     ))
     h_ue = np.array([1.5, 17, 23])
     uma = PropagationUMa(np.random.RandomState(101))

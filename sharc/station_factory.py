@@ -2024,17 +2024,6 @@ if __name__ == '__main__':
 
     import plotly.graph_objects as go
 
-    # fig.add_trace(
-    #     go.Scatter3d(
-    #         x=[0],
-    #         y=[0],
-    #         z=[0],
-    #         mode='markers',
-    #         marker=dict(size=3, color='black', opacity=1),
-    #         showlegend=False
-    #     )
-    # )
-
     from sharc.support.geometry import plot_geom
     plot_geom(fig, imt_ue.geom)
     plot_geom(fig, imt_bs.geom, {"marker": dict(size=2, color='blue', opacity=1)}, True)

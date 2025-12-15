@@ -15,6 +15,7 @@ from sharc.antenna.antenna_omni import AntennaOmni
 from sharc.antenna.antenna_beamforming_imt import AntennaBeamformingImt
 from sharc.station_factory import StationFactory
 from sharc.propagation.propagation_factory import PropagationFactory
+from sharc.propagation.propagation_path import PropagationPath
 
 
 class SimulationUplinkTest(unittest.TestCase):
@@ -232,6 +233,9 @@ class SimulationUplinkTest(unittest.TestCase):
             random_number_gen,
         )
 
+        self.simulation.intra_imt_paths = PropagationPath.create_default(
+            self.simulation.ue, self.simulation.bs
+        )
         # test coupling loss method
         self.simulation.coupling_loss_imt = self.simulation.calculate_intra_imt_coupling_loss(
             self.simulation.ue, self.simulation.bs, )
@@ -370,6 +374,9 @@ class SimulationUplinkTest(unittest.TestCase):
             np.array([0]),
             np.array([self.param.fss_ss.altitude]),
         )
+        self.simulation.paths_between_imt_and_sys = PropagationPath.create_default(
+            self.simulation.system, self.simulation.ue
+        )
 
         # test the method that calculates interference from IMT UE to FSS space
         # station
@@ -463,6 +470,9 @@ class SimulationUplinkTest(unittest.TestCase):
             random_number_gen,
         )
 
+        self.simulation.intra_imt_paths = PropagationPath.create_default(
+            self.simulation.ue, self.simulation.bs
+        )
         # test coupling loss method
         self.simulation.coupling_loss_imt = self.simulation.calculate_intra_imt_coupling_loss(
             self.simulation.ue, self.simulation.bs, )
@@ -592,6 +602,10 @@ class SimulationUplinkTest(unittest.TestCase):
             self.param.fss_es, random_number_gen,
         )
 
+        self.simulation.paths_between_imt_and_sys = PropagationPath.create_default(
+            self.simulation.system, self.simulation.bs
+        )
+
         # what if FSS ES is interferer???
         self.simulation.calculate_sinr_ext()
 
@@ -660,6 +674,9 @@ class SimulationUplinkTest(unittest.TestCase):
             atol=1e-2,
         )
 
+        self.simulation.paths_between_imt_and_sys = PropagationPath.create_default(
+            self.simulation.system, self.simulation.ue
+        )
         # what if IMT is interferer?
         self.simulation.calculate_external_interference()
 
@@ -751,6 +768,9 @@ class SimulationUplinkTest(unittest.TestCase):
             self.simulation.param_system,
             random_number_gen,
         )
+        self.simulation.intra_imt_paths = PropagationPath.create_default(
+            self.simulation.ue, self.simulation.bs
+        )
 
         # test coupling loss method
         self.simulation.coupling_loss_imt = self.simulation.calculate_intra_imt_coupling_loss(
@@ -790,6 +810,9 @@ class SimulationUplinkTest(unittest.TestCase):
             np.array([-2000]),
             np.array([0]),
             np.array([self.param.ras.geometry.height]),
+        )
+        self.simulation.paths_between_imt_and_sys = PropagationPath.create_default(
+            self.simulation.system, self.simulation.ue
         )
         self.simulation.system.antenna[0].effective_area = 54.9779
 

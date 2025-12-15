@@ -15,6 +15,7 @@ from sharc.propagation.propagation import Propagation
 from sharc.propagation.propagation_free_space import PropagationFreeSpace
 from sharc.propagation.propagation_inh_office import PropagationInhOffice
 from sharc.propagation.propagation_building_entry_loss import PropagationBuildingEntryLoss
+from sharc.propagation.propagation_path import PropagationPath
 
 
 class PropagationIndoor(Propagation):
@@ -55,14 +56,11 @@ class PropagationIndoor(Propagation):
         self.bs_per_building = param.num_cells
         self.ue_per_building = ue_per_cell * param.num_cells
 
-    @dispatch(Parameters, float, StationManager,
-              StationManager, np.ndarray, np.ndarray)
-    def get_loss(
+    def get_path_loss(
         self,
         params: Parameters,
         frequency: float,
-        station_a: StationManager,
-        station_b: StationManager,
+        path: "PropagationPath",
         station_a_gains=None,
         station_b_gains=None,
     ) -> np.array:
@@ -100,17 +98,18 @@ class PropagationIndoor(Propagation):
 
         if wrap_around_enabled:
             bs_to_ue_dist_2d, bs_to_ue_dist_3d, _, _ = \
-                station_b.geom.get_global_dist_angles_wrap_around(station_a.geom)
+                path.sta_b.geom.get_global_dist_angles_wrap_around(path.sta_a.geom)
         else:
-            bs_to_ue_dist_2d = station_b.geom.get_local_distance_to(station_a.geom)
-            bs_to_ue_dist_3d = station_b.geom.get_3d_distance_to(station_a.geom)
+            bs_to_ue_dist_2d = path.sta_b.geom.get_local_distance_to(path.sta_a.geom)
+            bs_to_ue_dist_3d = path.sta_b.geom.get_3d_distance_to(path.sta_a.geom)
 
         frequency_array = frequency * np.ones(bs_to_ue_dist_2d.shape)
         indoor_stations = np.tile(
-            station_a.indoor, (station_b.num_stations, 1),
+            path.sta_a.indoor, (path.sta_b.num_stations, 1),
         )
-        elevation = np.transpose(station_a.geom.get_local_elevation(station_b.geom))
-
+        elevation = np.transpose(path.sta_a.geom.get_local_elevation(path.sta_b.geom))
+        # NOTE: we're not masking only selected paths since indoor implementation depends
+        # on being able to use UE axis separated from BS axis
         return self.get_loss(
             bs_to_ue_dist_3d,
             bs_to_ue_dist_2d,
@@ -118,7 +117,7 @@ class PropagationIndoor(Propagation):
             elevation,
             indoor_stations,
             params.imt.shadowing,
-        )
+        ).T
 
     # pylint: disable=function-redefined
     # pylint: disable=arguments-renamed

@@ -15,6 +15,7 @@ from sharc.parameters.parameters import Parameters
 from sharc.antenna.antenna_omni import AntennaOmni
 from sharc.station_factory import StationFactory
 from sharc.propagation.propagation_factory import PropagationFactory
+from sharc.propagation.propagation_path import PropagationPath
 from sharc.parameters.imt.parameters_imt_topology import ParametersImtTopology
 from sharc.parameters.imt.parameters_single_bs import ParametersSingleBS
 
@@ -241,6 +242,10 @@ class SimulationDownlinkTest(unittest.TestCase):
             random_number_gen,
         )
 
+        self.simulation.intra_imt_paths = PropagationPath.create_default(
+            self.simulation.ue, self.simulation.bs
+        )
+
         # test coupling loss method
         self.simulation.coupling_loss_imt = self.simulation.calculate_intra_imt_coupling_loss(
             self.simulation.ue, self.simulation.bs, )
@@ -346,6 +351,9 @@ class SimulationDownlinkTest(unittest.TestCase):
             np.array([self.param.single_space_station.geometry.altitude]),
         )
 
+        self.simulation.paths_between_imt_and_sys = PropagationPath.create_default(
+            self.simulation.system, self.simulation.bs
+        )
         # test the method that calculates interference from IMT UE to FSS space
         # station
         self.simulation.calculate_external_interference()
@@ -438,6 +446,9 @@ class SimulationDownlinkTest(unittest.TestCase):
             self.param,
             self.simulation.param_system,
             random_number_gen,
+        )
+        self.simulation.intra_imt_paths = PropagationPath.create_default(
+            self.simulation.ue, self.simulation.bs
         )
 
         self.simulation.connect_ue_to_bs()
@@ -544,6 +555,9 @@ class SimulationDownlinkTest(unittest.TestCase):
             self.simulation.param_system,
             random_number_gen,
         )
+        self.simulation.paths_between_imt_and_sys = PropagationPath.create_default(
+            self.simulation.system, self.simulation.ue
+        )
         # what if FSS ES is the interferer?
         self.simulation.calculate_sinr_ext()
 
@@ -585,6 +599,9 @@ class SimulationDownlinkTest(unittest.TestCase):
             atol=1e-2,
         )
 
+        self.simulation.paths_between_imt_and_sys = PropagationPath.create_default(
+            self.simulation.system, self.simulation.bs
+        )
         # what if IMT is interferer?
         self.simulation.calculate_external_interference()
 
@@ -670,10 +687,11 @@ class SimulationDownlinkTest(unittest.TestCase):
             self.simulation.param_system,
             random_number_gen,
         )
+        self.simulation.intra_imt_paths = PropagationPath.create_default(
+            self.simulation.ue, self.simulation.bs
+        )
 
         self.simulation.connect_ue_to_bs()
-        self.simulation.select_ue(random_number_gen)
-        self.simulation.link = {0: [0, 1], 1: [2, 3]}
         self.simulation.select_ue(random_number_gen)
         self.simulation.link = {0: [0, 1], 1: [2, 3]}
         self.simulation.coupling_loss_imt = self.simulation.calculate_intra_imt_coupling_loss(
@@ -717,6 +735,9 @@ class SimulationDownlinkTest(unittest.TestCase):
         )
         npt.assert_equal(gains, np.array([[50, 50]]))
 
+        self.simulation.paths_between_imt_and_sys = PropagationPath.create_default(
+            self.simulation.system, self.simulation.bs
+        )
         self.simulation.calculate_external_interference()
 
         polarization_loss = 3

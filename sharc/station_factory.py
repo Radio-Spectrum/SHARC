@@ -52,6 +52,7 @@ from sharc.antenna.antenna_s1528 import AntennaS1528
 from sharc.antenna.antenna_s1855 import AntennaS1855
 from sharc.antenna.antenna_s1528 import AntennaS1528, AntennaS1528Leo, AntennaS1528Taylor
 from sharc.antenna.antenna_beamforming_imt import AntennaBeamformingImt
+from sharc.antenna.antenna_beamforming_satellite import AntennaBeamformingSatellite
 from sharc.topology.topology import Topology
 from sharc.topology.topology_ntn import TopologyNTN
 from sharc.topology.topology_macrocell import TopologyMacrocell
@@ -59,6 +60,7 @@ from sharc.topology.topology_imt_mss_dc import TopologyImtMssDc
 from sharc.mask.spectral_mask_3gpp import SpectralMask3Gpp
 from sharc.mask.spectral_mask_mss import SpectralMaskMSS
 from sharc.support.sharc_geom import CoordinateSystem
+from sharc.support.geometry import SimulatorGeometry
 from sharc.support.sharc_utils import wrap2_180
 
 
@@ -1718,6 +1720,14 @@ class StationFactory(object):
         mss_d2d = StationManager(n=total_satellites)
         mss_d2d.station_type = StationType.MSS_D2D  # Set the station type to MSS D2D
         mss_d2d.is_space_station = True  # Indicate that the station is in space
+        mss_d2d.geom = SimulatorGeometry(
+            mss_d2d.num_stations, True,
+            (
+                coordinate_system.ref_lat,
+                coordinate_system.ref_long,
+                coordinate_system.ref_alt,
+            )
+        )
 
         if params.spectral_mask == "IMT-2020":
             mss_d2d.spectral_mask = SpectralMaskImt(StationType.IMT_BS,
@@ -1752,6 +1762,16 @@ class StationFactory(object):
         z = mss_d2d_values["sat_z"]
         elev = mss_d2d_values["sat_antenna_elev"]
         azim = mss_d2d_values["sat_antenna_azim"]
+
+        sat_lat = mss_d2d_values["sat_lat"]
+        sat_lon = mss_d2d_values["sat_lon"]
+
+        mss_d2d.geom.set_local_coord_sys(
+            sat_lat,
+            sat_lon,
+            # put local coord system in subsatellite
+            np.zeros_like(sat_lon)
+        )
         mss_d2d.geom.set_global_coords(
             x, y, z,
             azim, elev,
@@ -1783,11 +1803,27 @@ class StationFactory(object):
             antenna_pattern = AntennaS1528Taylor(params.antenna.itu_r_s_1528)
         elif params.antenna.pattern == "MSS Adjacent":
             antenna_pattern = AntennaMSSAdjacent(params.frequency)
+        elif params.antenna.pattern == "Satellite Beamforming":
+            pass
         else:
             raise ValueError(
                 f"generate_mss_ss: Invalid antenna type: {params.antenna.pattern}")
 
         for i in range(mss_d2d.num_stations):
+            if params.antenna.pattern == "Satellite Beamforming":
+                import sharc.antenna.ast as ast
+                antenna_pattern = AntennaBeamformingSatellite(
+                    mss_d2d.geom,
+                    i,
+                    ast.maxNx, ast.maxNy, ast.dx, ast.dy,
+                    float(params.frequency), ast.lingain,
+                    ast.taper_fn
+                )
+                antenna_pattern.add_beam(
+                    mss_d2d.geom.pointn_azim_global[i],
+                    mss_d2d.geom.pointn_elev_global[i],
+                )
+
             mss_d2d.antenna[i] = antenna_pattern
 
         return mss_d2d  # Return the configured StationManager

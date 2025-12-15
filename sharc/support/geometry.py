@@ -481,6 +481,7 @@ class SimulatorGeometry(GlobalGeometry):
         *,
         translate=True,
         permutate=False,
+        specific_index=None
     ):
         """Receives a vector shaped as (N, 3) and applies local2global transform,
             returning (N, 3).
@@ -492,7 +493,32 @@ class SimulatorGeometry(GlobalGeometry):
         local2ecef_t = self._local2ecef_transl_mtx if translate else 0
         ecef2global_t = self._ecef2global_transl_mtx if translate else 0
 
-        if not permutate:
+        if specific_index is not None:
+            if not permutate:
+                assert p_local.shape == (3,)
+                if translate:
+                    local2ecef_t = local2ecef_t[specific_index]
+                    ecef2global_t = ecef2global_t[specific_index]
+                # remove ecef2local translation
+                p_local = p_local + local2ecef_t  # (3,)
+                # rotate local2ecef2global
+                p_global = self._local2global_rot_mtx[specific_index] @ p_local  # (3,)
+                # add ecef2global translation
+                p_global = p_global + ecef2global_t  # (3,)
+            else:
+                local2ecef_t_cast = local2ecef_t
+                ecef2global_t_cast = ecef2global_t
+                if translate:
+                    raise NotImplementedError()
+                    # local2ecef_t_cast = local2ecef_t[specific_index]
+                    # ecef2global_t_cast = ecef2global_t[specific_index]
+            # p_local_exp = p_local[None, :, :] + local2ecef_t_cast  # (N,M,3)
+            # p_global = (self._local2global_rot_mtx[:, None, :, :] @ p_local_exp[..., None]).squeeze(-1)
+            # p_global += ecef2global_t_cast
+                p_local_exp = p_local + local2ecef_t_cast  # (N,M,3)
+                p_global = (self._local2global_rot_mtx[specific_index][None, :, :] @ p_local_exp[..., None]).squeeze(-1)
+                p_global += ecef2global_t_cast
+        elif not permutate:
             assert p_local.shape == (N, 3)
             # remove ecef2local translation
             p_local = p_local + local2ecef_t  # (N,3)
@@ -507,7 +533,7 @@ class SimulatorGeometry(GlobalGeometry):
                 local2ecef_t_cast = local2ecef_t[:, None, :]
                 ecef2global_t_cast = ecef2global_t[:, None, :]
             p_local_exp = p_local[None, :, :] + local2ecef_t_cast  # (N,M,3)
-            p_global = (self._global2local_rot_mtx[:, None, :, :] @ p_local_exp[..., None]).squeeze(-1)
+            p_global = (self._local2global_rot_mtx[:, None, :, :] @ p_local_exp[..., None]).squeeze(-1)
             p_global += ecef2global_t_cast
 
         return p_global
@@ -550,7 +576,8 @@ class SimulatorGeometry(GlobalGeometry):
         p_global,
         *,
         translate=True,
-        permutate=False
+        permutate=False,
+        specific_index=None
     ):
         """Receives a vector shaped as (N, 3) and applies global2local transform,
             returning (N, 3).
@@ -562,7 +589,21 @@ class SimulatorGeometry(GlobalGeometry):
         global2ecef_t = self._global2ecef_transl_mtx if translate else 0
         ecef2local_t = self._ecef2local_transl_mtx if translate else 0
 
-        if not permutate:
+        if specific_index is not None:
+            if not permutate:
+                assert p_global.shape == (3,)
+
+                # remove ecef2global translation
+                p_global = p_global + global2ecef_t  # (3,)
+
+                # rotate global2ecef2local
+                p_local = self._global2local_rot_mtx[specific_index] @ p_global  # (3,)
+
+                # add ecef2local translation
+                p_local += ecef2local_t  # (3,)
+            else:
+                raise NotImplementedError()
+        elif not permutate:
             assert p_global.shape == (N, 3)
 
             # remove ecef2global translation

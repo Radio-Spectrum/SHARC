@@ -29,7 +29,8 @@ class ParametersAntenna(ParametersBase):
         "ITU-R-S.1528-Taylor",
         "ITU-R-S.1528-Section1.2",
         "ITU-R-S.1528-LEO",
-        "MSS Adjacent"]
+        "MSS Adjacent",
+        "Satellite Beamforming"]
 
     # chosen antenna radiation pattern
     pattern: typing.Literal["OMNI",
@@ -44,7 +45,8 @@ class ParametersAntenna(ParametersBase):
                             "ITU-R-S.1528-Taylor",
                             "ITU-R-S.1528-Section1.2",
                             "ITU-R-S.1528-LEO",
-                            "MSS Adjacent"] = None
+                            "MSS Adjacent",
+                            "Satellite Beamforming"] = None
 
     # antenna gain [dBi]
     gain: float = None
@@ -198,6 +200,8 @@ class ParametersAntenna(ParametersBase):
                 self.itu_r_s_672.validate(f"{ctx}.itu_r_s_672")
             case "MSS Adjacent":
                 self.mss_adjacent.validate(f"{ctx}.mss_adjacent")
+            case "Satellite Beamforming":
+                pass
             case _:
                 raise NotImplementedError(
                     "ParametersAntenna.validate does not implement this antenna validation!", )

@@ -119,7 +119,7 @@ class ParametersWifiSystem(ParametersBase):
     #                                    "TVRO-SUBURBAN"
     #                                    "ABG" (Alpha-Beta-Gamma)
     # TODO: check if we wanna separate the channel model definition in its own nested attributes
-    channel_model: str = "FSPL"
+    channel_model: str = "UMi"
     season: str = "SUMMER"
 
     # TODO: create parameters for where this is needed

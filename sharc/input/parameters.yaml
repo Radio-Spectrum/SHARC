@@ -4,7 +4,7 @@ general:
     num_snapshots: 1000
     ###########################################################################
     # IMT link that will be simulated (DOWNLINK or UPLINK)
-    imt_link: UPLINK
+    imt_link: DOWNLINK
     ###########################################################################
     # The chosen system for sharing study
     # EESS_PASSIVE, FSS_SS, FSS_ES, FS, RAS, SINGLE_EARTH_STATION
@@ -253,6 +253,8 @@ wifi:
     spurious_emissions: -27
     ###########################################################################
     adjacent_ch_selectivity: 20.0
+    channel_model: UMi                                # Channel model: FSPL, CI, UMa, UMi, etc.
+    shadowing: TRUE
     polarization_loss: 0
     topology:
         ###########################################################################

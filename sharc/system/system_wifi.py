@@ -85,6 +85,7 @@ class SystemWifi:
         wifi_aps.x = self.topology.x
         wifi_aps.y = self.topology.y
         wifi_aps.z = self.topology.z + self.parameters.ap.height
+        wifi_aps.height = wifi_aps.z
         wifi_aps.elevation = -param_ant.downtilt * np.ones(num_aps)
 
         wifi_aps.azimuth =  wrap2_180(self.topology.azimuth)
@@ -213,7 +214,9 @@ class SystemWifi:
 
         wifi_sta.x = np.array(sta_x)
         wifi_sta.y = np.array(sta_y)
-        wifi_sta.z = np.array(sta_z) + self.parameters.sta.height
+        wifi_sta.z = np.full(self.num_sta, self.parameters.sta.height)
+        wifi_sta.height = wifi_sta.z
+
 
         random_values = random_number_gen.rand(self.num_sta)
         wifi_sta.active = random_values < self.parameters.sta.load_probability
@@ -250,122 +253,6 @@ class SystemWifi:
 
         return wifi_sta
 
-
-    def generate_stas_indoor(self, random_number_gen: np.random.RandomState) -> StationManager:
-        num_sta_per_ap = self.parameters.sta.k * self.parameters.sta.k_m
-        wifi_sta = StationManager(self.num_sta)
-        wifi_sta.station_type = StationType.WIFI_STA
-        
-        sta_x = list()
-        sta_y = list()
-        sta_z = list()
-
-        wifi_sta.indoor = np.ones(self.num_sta, dtype=bool)
-
-        azimuth_range = (-60, 60)
-        azimuth = (azimuth_range[1] - azimuth_range[0]) * \
-            random_number_gen.random_sample(self.num_sta) + azimuth_range[0]
-
-        elevation_range = (-90, 90)
-        elevation = (elevation_range[1] - elevation_range[0]) * \
-            random_number_gen.random_sample(self.num_sta) + elevation_range[0]
-
-        delta_x = (
-            self.topology.b_w / math.sqrt(self.topology.sta_indoor_percent) - self.topology.b_w
-        ) / 2
-        delta_y = (
-            self.topology.b_d / math.sqrt(self.topology.sta_indoor_percent) - self.topology.b_d
-        ) / 2
-
-        for ap in range(self.num_aps):
-            idx = [
-                i for i in range(
-                    ap * num_sta_per_ap, ap * num_sta_per_ap + num_sta_per_ap,
-                )
-            ]
-            if ap % self.topology.num_cells == 0 and ap < self.topology.total_ap_level:
-                x_min = self.topology.x[ap] - self.topology.cell_radius - delta_x
-                x_max = self.topology.x[ap] + self.topology.cell_radius
-            elif ap % self.topology.num_cells == self.topology.num_cells - 1 and ap < self.topology.total_ap_level:
-                x_min = self.topology.x[ap] - self.topology.cell_radius
-                x_max = self.topology.x[ap] + self.topology.cell_radius + delta_x
-            else:
-                x_min = self.topology.x[ap] - self.topology.cell_radius
-                x_max = self.topology.x[ap] + self.topology.cell_radius
-
-            if ap < self.topology.total_ap_level:
-                y_min = self.topology.y[ap] - self.topology.b_d / 2 - delta_y
-                y_max = self.topology.y[ap] + self.topology.b_d / 2 + delta_y
-            else:
-                y_min = self.topology.y[ap] - self.topology.b_d / 2
-                y_max = self.topology.y[ap] + self.topology.b_d / 2
-
-            x = (x_max - x_min) * \
-                random_number_gen.random_sample(num_sta_per_ap) + x_min
-            y = (y_max - y_min) * \
-                random_number_gen.random_sample(num_sta_per_ap) + y_min
-            z = [
-                self.topology.height[ap] - self.topology.b_h +
-                self.parameters.sta.height for k in range(num_sta_per_ap)
-            ]
-            sta_x.extend(x)
-            sta_y.extend(y)
-            sta_z.extend(z)
-
-            theta = np.degrees(
-                np.arctan2(
-                    y - self.topology.y[ap], x - self.topology.x[ap],
-                ),
-            )
-            wifi_sta.azimuth[idx] = (azimuth[idx] + theta + 180) % 360
-
-            distance = np.sqrt(
-                (self.topology.x[ap] - x)**2 + (self.topology.y[ap] - y)**2,
-            )
-            psi = np.degrees(
-                np.arctan((self.parameters.ap.height - self.parameters.sta.height) / distance),
-            )
-            wifi_sta.elevation[idx] = elevation[idx] + psi
-
-            if ap % self.topology.num_cells == 0:
-                out = (x < self.topology.x[ap] - self.topology.cell_radius) | \
-                    (y > self.topology.y[ap] + self.topology.b_d / 2) | \
-                    (y < self.topology.y[ap] - self.topology.b_d / 2)
-            elif ap % self.topology.num_cells == self.topology.num_cells - 1:
-                out = (x > self.topology.x[ap] + self.topology.cell_radius) | \
-                    (y > self.topology.y[ap] + self.topology.b_d / 2) | \
-                    (y < self.topology.y[ap] - self.topology.b_d / 2)
-            else:
-                out = (y > self.topology.y[ap] + self.topology.b_d / 2) | \
-                    (y < self.topology.y[ap] - self.topology.b_d / 2)
-            wifi_sta.indoor[idx] = ~out
-
-        wifi_sta.x = np.array(sta_x)
-        wifi_sta.y = np.array(sta_y)
-        wifi_sta.z = np.array(sta_z)
-
-        wifi_sta.active = np.zeros(self.num_sta, dtype=bool)
-        wifi_sta.rx_interference = -500 * np.ones(self.num_sta)
-        wifi_sta.ext_interference = -500 * np.ones(self.num_sta)
-        wifi_sta.bandwidth = self.parameters.bandwidth * np.ones(self.num_sta)
-        wifi_sta.center_freq = self.parameters.frequency * np.ones(self.num_sta)
-        wifi_sta.noise_figure = self.parameters.ap.noise_figure * np.ones(self.num_sta)
-        wifi_sta.thermal_noise = -500 * np.ones(self.num_sta)
-
-        for i in range(self.num_sta):
-            wifi_sta.antenna[i] = AntennaOmni()
-        
-        if self.parameters.spectral_mask == "WIFI-2020":
-            wifi_sta.spectral_mask = SpectralMaskWifi(
-                self.parameters.frequency,
-                self.parameters.bandwidth,
-                StationType.WIFI_STA,
-                self.parameters.spurious_emissions,
-            )
-        wifi_sta.spectral_mask.set_mask()
-
-        return wifi_sta
-    
     def connect_wifi_sta_to_ap(self, parameters: ParametersWifiSystem):
         """
         Link the Wi-Fi STA's to the serving AP. It is assumed that each group of K

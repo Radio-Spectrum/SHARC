@@ -83,12 +83,12 @@ class TopologyCountries(Topology):
 
         # Resolve shapefile path (absolute or relative to SHARC root)
         shp = params.countries_shapefile
-        # 1) Se veio com caminho Windows, pega só o sufixo a partir de "\sharc\"
-        if isinstance(shp, str) and ("\\sharc\\" in shp.lower() or "/sharc/" in shp.lower()):
-            low = shp.lower().replace("\\", "/")
-            i = low.find("/sharc/")
-            shp = shp[i+1:]  # vira "sharc/topology/map/....shp"
-
+        shp_str = str(Path(shp)).replace("\\", "/")
+        low = shp_str.lower()
+        # Se veio como Windows absolute, extrai sufixo a partir de /sharc/
+        i = low.find("/sharc/")
+        if i != -1:
+            shp_str = shp_str[i+1:]   # -> "sharc/..."
         # 2) Se não é absoluto, resolve relativo ao root do pacote SHARC
         shp_path = Path(shp)
         if not shp_path.is_absolute():
@@ -144,29 +144,29 @@ class TopologyCountries(Topology):
             if params.num_bs_total is None:
                 raise ValueError("Provide either 'bs_per_country' or 'num_bs_total'.")
 
-            # Resolve raster path (absolute, Windows-style, or relative to SHARC root)
-            r = params.population_raster
+            r = params.population_raster  # pode ser WindowsPath/Path/str
+            if r:
+                s = str(r).replace("\\", "/")
+                #low = s.lower()
 
-            if isinstance(r, str):
-                r_low = r.lower().replace("\\", "/")
+                # pega SEMPRE o sufixo a partir do ÚLTIMO "/sharc/"
+                j = low.rfind("/sharc/")
+                if j != -1:
+                    s = s[j+1:]          # -> "sharc/topology/map/SEDAC_map2.tiff"
 
-                # Caso 1: veio como C:\...\sharc\...
-                if "/sharc/" in r_low:
-                    idx = r_low.find("/sharc/")
-                    r = r[idx + 1:]  # vira "sharc/..."
+                raster_path = Path(s)
 
-            raster_path = Path(r)
+                # resolve relativo ao root do SHARC (no ambiente atual)
+                if not raster_path.is_absolute():
+                    SHARC_ROOT = Path(sharc.__file__).resolve().parent.parent
+                    raster_path = SHARC_ROOT / raster_path
 
-            # Caso 2: relativo ao root do SHARC
-            if not raster_path.is_absolute():
-                SHARC_ROOT = Path(sharc.__file__).resolve().parent.parent
-                raster_path = SHARC_ROOT / raster_path
+                if not raster_path.exists():
+                    raise FileNotFoundError(f"Population raster não encontrado: {raster_path}")
 
-            # Falha explícita se não existir
-            if not raster_path.exists():
-                raise FileNotFoundError(f"Population raster não encontrado: {raster_path}")
-
-            params.population_raster = raster_path
+                params.population_raster = str(raster_path)
+            else:
+                params.population_raster = None
 
             if params.population_raster:
                 # Population-based allocation (physical totals; no gamma here)

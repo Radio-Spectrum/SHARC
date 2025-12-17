@@ -81,21 +81,8 @@ class TopologyCountries(Topology):
         self.cell_radius = params.cell_radius
         self.height = params.height
 
-        # Resolve shapefile path (absolute or relative to SHARC root)
-        shp = params.countries_shapefile
-        shp_str = str(Path(shp)).replace("\\", "/")
-        low = shp_str.lower()
-        # Se veio como Windows absolute, extrai sufixo a partir de /sharc/
-        i = low.find("/sharc/")
-        if i != -1:
-            shp_str = shp_str[i+1:]   # -> "sharc/..."
-        # 2) Se não é absoluto, resolve relativo ao root do pacote SHARC
-        shp_path = Path(shp)
-        if not shp_path.is_absolute():
-            sharc_root = Path(sharc.__file__).resolve().parent.parent
-            shp_path = sharc_root / shp_path
-
-        ne = self._load_countries_gdf(str(shp_path))
+        p = self._resolve_asset(params.shapefile_path)
+        ne = self._load_countries_gdf(str(p))
 
         if not params.country_names:
             raise ValueError("TopologyCountries: 'country_names' cannot be empty.")
@@ -144,29 +131,8 @@ class TopologyCountries(Topology):
             if params.num_bs_total is None:
                 raise ValueError("Provide either 'bs_per_country' or 'num_bs_total'.")
 
-            r = params.population_raster  # pode ser WindowsPath/Path/str
-            if r:
-                s = str(r).replace("\\", "/")
-                #low = s.lower()
-
-                # pega SEMPRE o sufixo a partir do ÚLTIMO "/sharc/"
-                j = low.rfind("/sharc/")
-                if j != -1:
-                    s = s[j+1:]          # -> "sharc/topology/map/SEDAC_map2.tiff"
-
-                raster_path = Path(s)
-
-                # resolve relativo ao root do SHARC (no ambiente atual)
-                if not raster_path.is_absolute():
-                    SHARC_ROOT = Path(sharc.__file__).resolve().parent.parent
-                    raster_path = SHARC_ROOT / raster_path
-
-                if not raster_path.exists():
-                    raise FileNotFoundError(f"Population raster não encontrado: {raster_path}")
-
-                params.population_raster = str(raster_path)
-            else:
-                params.population_raster = None
+            p = self._resolve_asset(params.population_raster)
+            params.population_raster = (str(p))
 
             if params.population_raster:
                 # Population-based allocation (physical totals; no gamma here)
@@ -692,7 +658,33 @@ class TopologyCountries(Topology):
                 self.y[bs_idx] + y_local,
                 self.z[bs_idx] + z_local)
 
+    @staticmethod
+    def _resolve_asset(p):
+        if not p:
+            return None
 
+        s = str(p).strip().replace("\\", "/")
+        low = s.lower()
+
+        # detecta caminho Windows tipo "C:/..." ou "C:\..."
+        is_windows_abs = (len(s) >= 2 and s[1] == ":")
+
+        # se tiver "/sharc/", pegue o sufixo a partir da ÚLTIMA ocorrência
+        j = low.rfind("/sharc/")
+        if j != -1:
+            s = s[j+1:]  # "sharc/..."
+
+        path = Path(s)
+
+        # se era windows abs e não tinha /sharc/, não dá pra resolver no linux
+        if is_windows_abs and j == -1:
+            raise ValueError(f"Path Windows não-portável no Linux: {p}")
+
+        if not path.is_absolute():
+            sharc_root = Path(sharc.__file__).resolve().parent.parent
+            path = sharc_root / path
+
+        return path
 # For convenience if someone imports TopologyCountry by mistake
 TopologyCountry = TopologyCountries
 

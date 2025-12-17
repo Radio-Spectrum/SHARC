@@ -10,6 +10,7 @@ import numpy as np
 import sys
 import math
 
+from sharc.support.sharc_logger import SimulationLogger
 from sharc.support.enumerations import StationType
 from sharc.parameters.parameters import Parameters
 from sharc.parameters.imt.parameters_imt import ParametersImt
@@ -216,6 +217,21 @@ class StationFactory(object):
             imt_base_stations.geom.intersite_dist = param.topology.macrocell.intersite_distance
         elif param.topology.type == 'HOTSPOT':
             imt_base_stations.geom.intersite_dist = param.topology.hotspot.intersite_distance
+
+        # NOTE: Experimental features for logging and analysis
+        if param.topology.type == 'MSS_DC':
+            # número de beams ativos
+            SimulationLogger.log_to_csv("num_of_active_beams", [np.sum(imt_base_stations.active)])
+            # número de satélites, deduplicar posição
+            all_pos = np.stack((imt_base_stations.geom.x_global, imt_base_stations.geom.y_global, imt_base_stations.geom.z_global), axis=-1)
+            _, sat_idx, num_of_beams_per_sat = np.unique(
+                all_pos,
+                axis=0,
+                return_index=True,
+                return_counts=True,
+            )
+            SimulationLogger.log_to_csv("num_of_sat", [len(num_of_beams_per_sat)])
+            SimulationLogger.log_to_csv("num_of_beams_per_sat", num_of_beams_per_sat)
 
         return imt_base_stations
 

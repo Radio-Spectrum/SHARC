@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import csv
 import os
 import sys
 import yaml
@@ -57,6 +58,41 @@ class SimulationLogger:
         """Return the global output directory, if set."""
         return cls._global_output_dir
 
+    @classmethod
+    def log_to_csv(
+        cls,
+        csv_name: str,
+        vals: list
+    ):
+        """
+        Log a list of values to a CSV file.
+        Args:
+            csv_name (str): The name of the CSV file (without extension).
+            vals (list): A list of values to be logged to the CSV file.
+        Returns:
+            None
+        Notes:
+            - Creates a new CSV file if it doesn't exist.
+            - Appends values to the file if it already exists.
+            - Automatically writes a "samples" header row for new files.
+            - Each value is written as a separate row in a single column.
+        """
+        if cls._global_output_dir is None:
+            # Output directory not yet initialized, skip CSV logging
+            return
+        
+        p = cls._global_output_dir / f"{csv_name}.csv"
+
+        write_header = not p.exists()
+
+        data = [[v] for v in vals]
+        with open(p, "a", newline="") as file:
+            writer = csv.writer(file)
+            if write_header:
+                writer.writerow(["samples"])
+
+            writer.writerows(data)
+
     def __init__(self, param_file: str, log_base: str = "simulation_log"):
         self.param_file: Path = Path(param_file).resolve()
         self.param_name: str = self.param_file.stem
@@ -96,7 +132,7 @@ class SimulationLogger:
         self.output_dir = base_dir / f"simulation_{self.param_name}_{self.timestamp}"
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
-        self.log_path = self.output_dir / f"{self.log_base}_{self.timestamp}.yaml"
+        self.   path = self.output_dir / f"{self.log_base}_{self.timestamp}.yaml"
 
         with open(self.log_path, "w") as f:
             yaml.dump(self.data, f, sort_keys=False, allow_unicode=True)

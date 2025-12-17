@@ -15,6 +15,7 @@ import numpy as np
 import geopandas as gpd
 import functools
 
+from sharc.support.sharc_logger import SimulationLogger
 from collections import defaultdict
 from sharc.support.sharc_utils import to_scalar
 from sharc.topology.topology import Topology
@@ -447,6 +448,10 @@ class TopologyImtMssDc(Topology):
 
             eligible_sats_msk &= polygon_mask
             eligible_sats_idx = np.where(eligible_sats_msk)[0]
+
+            # NOTE: Experimental features for logging and analysis
+            # número de satélites candidatos/elegíveis
+            SimulationLogger.log_to_csv("num_of_candidate_sats", [len(eligible_sats_idx)])
 
             all_elevations = calc_elevation(
                 grid_lat[:, np.newaxis],

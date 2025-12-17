@@ -1752,6 +1752,7 @@ class StationFactory(object):
         z = mss_d2d_values["sat_z"]
         elev = mss_d2d_values["sat_antenna_elev"]
         azim = mss_d2d_values["sat_antenna_azim"]
+        beams_ground_elev = mss_d2d_values["beams_ground_elev"]
         mss_d2d.geom.set_global_coords(
             x, y, z,
             azim, elev,
@@ -1788,6 +1789,23 @@ class StationFactory(object):
                 f"generate_mss_ss: Invalid antenna type: {params.antenna.pattern}")
 
         for i in range(mss_d2d.num_stations):
+            if params.antenna.pattern == "Satellite Beamforming":
+                if beams_ground_elev[i] >= 50:
+                    params.antenna.itu_r_s_1528.antenna_pattern = "ITU-R-S.1528-Section1.2"
+                    params.antenna.itu_r_s_1528.antenna_gain = 34.6
+                    params.antenna.itu_r_s_1528.antenna_3_dB_bw = 3.06
+                    params.antenna.itu_r_s_1528.antenna_l_s = -35.0
+                    params.antenna.itu_r_s_1528.far_out_side_lobe = -25
+
+                else:
+                    params.antenna.itu_r_s_1528.antenna_pattern = "ITU-R-S.1528-Section1.2"
+                    params.antenna.itu_r_s_1528.antenna_gain = 40.0
+                    params.antenna.itu_r_s_1528.antenna_3_dB_bw = 1.68
+                    params.antenna.itu_r_s_1528.antenna_l_s = -20.0
+                    params.antenna.itu_r_s_1528.far_out_side_lobe = -15
+
+                antenna_pattern = AntennaS1528(params.antenna.itu_r_s_1528)
+
             mss_d2d.antenna[i] = antenna_pattern
 
         return mss_d2d  # Return the configured StationManager

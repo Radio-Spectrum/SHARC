@@ -31,6 +31,7 @@ from sharc.topology.topology import Topology
 from sharc.satellite.ngso.constants import EARTH_DEFAULT_CRS
 from sharc.parameters.imt.parameters_Countries_imt import ParametersCountries
 from sharc.support.sharc_geom_countries import GeometryConverter
+import sharc
 
 _WGS84_A  = 6378137.0                 # semi-major axis [m]
 _WGS84_F  = 1.0 / 298.257223563
@@ -79,6 +80,7 @@ class TopologyCountries(Topology):
         params = self.params
         self.cell_radius = params.cell_radius
         self.height = params.height
+
         # Resolve shapefile path (absolute or relative to SHARC root)
         shp = params.countries_shapefile
         # 1) Se veio com caminho Windows, pega só o sufixo a partir de "\sharc\"

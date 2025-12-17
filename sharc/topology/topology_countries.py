@@ -80,10 +80,18 @@ class TopologyCountries(Topology):
         self.cell_radius = params.cell_radius
         self.height = params.height
         # Resolve shapefile path (absolute or relative to SHARC root)
-        shp_path = Path(params.countries_shapefile)
+        shp = params.countries_shapefile
+        # 1) Se veio com caminho Windows, pega só o sufixo a partir de "\sharc\"
+        if isinstance(shp, str) and ("\\sharc\\" in shp.lower() or "/sharc/" in shp.lower()):
+            low = shp.lower().replace("\\", "/")
+            i = low.find("/sharc/")
+            shp = shp[i+1:]  # vira "sharc/topology/map/....shp"
+
+        # 2) Se não é absoluto, resolve relativo ao root do pacote SHARC
+        shp_path = Path(shp)
         if not shp_path.is_absolute():
-            SHARC_ROOT = Path(sharc.__file__).resolve().parent.parent
-            shp_path = SHARC_ROOT / shp_path
+            sharc_root = Path(sharc.__file__).resolve().parent.parent
+            shp_path = sharc_root / shp_path
 
         ne = self._load_countries_gdf(str(shp_path))
 
@@ -133,12 +141,29 @@ class TopologyCountries(Topology):
         else:
             if params.num_bs_total is None:
                 raise ValueError("Provide either 'bs_per_country' or 'num_bs_total'.")
-            
-            # Resolve raster path (absolute or relative to SHARC root)
-            raster_path = Path(params.population_raster)
+
+            # Resolve raster path (absolute, Windows-style, or relative to SHARC root)
+            r = params.population_raster
+
+            if isinstance(r, str):
+                r_low = r.lower().replace("\\", "/")
+
+                # Caso 1: veio como C:\...\sharc\...
+                if "/sharc/" in r_low:
+                    idx = r_low.find("/sharc/")
+                    r = r[idx + 1:]  # vira "sharc/..."
+
+            raster_path = Path(r)
+
+            # Caso 2: relativo ao root do SHARC
             if not raster_path.is_absolute():
                 SHARC_ROOT = Path(sharc.__file__).resolve().parent.parent
                 raster_path = SHARC_ROOT / raster_path
+
+            # Falha explícita se não existir
+            if not raster_path.exists():
+                raise FileNotFoundError(f"Population raster não encontrado: {raster_path}")
+
             params.population_raster = raster_path
 
             if params.population_raster:

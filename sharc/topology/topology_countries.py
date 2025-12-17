@@ -18,7 +18,7 @@ Population-weighted mode:
 
 Requires: numpy, geopandas, shapely, rasterio (only if using population_raster).
 """
-
+from pathlib import Path
 from dataclasses import dataclass, field
 from typing import List, Dict, Optional, Tuple
 
@@ -79,7 +79,13 @@ class TopologyCountries(Topology):
         params = self.params
         self.cell_radius = params.cell_radius
         self.height = params.height
-        ne = self._load_countries_gdf(params.countries_shapefile)
+        # Resolve shapefile path (absolute or relative to SHARC root)
+        shp_path = Path(params.countries_shapefile)
+        if not shp_path.is_absolute():
+            SHARC_ROOT = Path(sharc.__file__).resolve().parent.parent
+            shp_path = SHARC_ROOT / shp_path
+
+        ne = self._load_countries_gdf(str(shp_path))
 
         if not params.country_names:
             raise ValueError("TopologyCountries: 'country_names' cannot be empty.")
@@ -127,6 +133,13 @@ class TopologyCountries(Topology):
         else:
             if params.num_bs_total is None:
                 raise ValueError("Provide either 'bs_per_country' or 'num_bs_total'.")
+            
+            # Resolve raster path (absolute or relative to SHARC root)
+            raster_path = Path(params.population_raster)
+            if not raster_path.is_absolute():
+                SHARC_ROOT = Path(sharc.__file__).resolve().parent.parent
+                raster_path = SHARC_ROOT / raster_path
+            params.population_raster = raster_path
 
             if params.population_raster:
                 # Population-based allocation (physical totals; no gamma here)

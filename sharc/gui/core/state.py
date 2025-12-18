@@ -1,13 +1,16 @@
 import tkinter as tk
 from pathlib import Path
 import sys
+from functools import lru_cache
 
-# Tenta importar DEFAULTS, se falhar define um fallback para não quebrar o exemplo
+# --- Tenta importar DEFAULTS ---
 try:
     from config import DEFAULTS
 except ImportError:
+    # Fallback caso config.py não seja encontrado imediatamente
     DEFAULTS = {
         "seed": 42, "num_snapshots": 10, "output_dir": "outputs",
+        "default_dir": "",  # Adicionado para evitar erro nas chaves
         "ssh_host": "", "ssh_user": "", "ssh_port": 22,
         "remote_base_dir": "", "tunnel_bastion_host": "",
         "tunnel_bastion_user": "", "tunnel_bastion_port": 22,
@@ -15,49 +18,57 @@ except ImportError:
         "tunnel_local_port": 8080, "tunnel_key_path": ""
     }
 
+# --- FUNÇÃO GLOBAL DE LOCALIZAÇÃO DO PROJETO ---
+
+
+@lru_cache(maxsize=1)
+def get_sharc_root() -> Path:
+    """
+    Localiza a raiz do projeto 'sharc' de forma global e determinística.
+    Pode ser importada e usada por qualquer outra parte do código.
+    """
+    try:
+        # Pega o caminho real do arquivo atual
+        current_path = Path(__file__).resolve()
+    except NameError:
+        # Fallback para ambientes interativos (Jupyter/REPL)
+        current_path = Path.cwd()
+
+    # Sobe na árvore de diretórios procurando a raiz
+    for parent in [current_path] + list(current_path.parents):
+        # 1. Sinal forte: Existe a pasta 'topology' (estrutura interna do sharc)
+        if (parent / "topology").exists() and (parent / "topology").is_dir():
+            return parent
+
+        # 2. Sinal pelo nome: A pasta se chama 'sharc'
+        if parent.name.lower() == 'sharc':
+            return parent
+
+    # Fallback final: Retorna o diretório onde o script está
+    print("AVISO: Raiz 'sharc' não encontrada automaticamente. Usando diretório do script.")
+    return current_path.parent
+
 
 class AppState:
     """
     Classe responsável apenas por inicializar e armazenar o estado (variáveis).
-    Localiza automaticamente a raiz do projeto 'sharc'.
+    Usa a função global get_sharc_root() para garantir caminhos corretos.
     """
 
     def __init__(self):
-        # 1. Localiza a raiz do projeto dinamicamente
-        self.project_root = self._get_sharc_root()
-        print(f"Raiz do projeto detectada em: {self.project_root}")
+        # 1. Chama a função global para definir a raiz
+        self.project_root = get_sharc_root()
+        print(f"Raiz do projeto definida em: {self.project_root}")
 
         # Helper para reduzir repetição
         self._create_vars()
-
-    def _get_sharc_root(self) -> Path:
-        """
-        Descobre o diretório raiz do projeto (sharc) independentemente
-        de onde o script foi executado.
-
-        Estratégia: Sobe os diretórios pais a partir deste arquivo até
-        encontrar a pasta 'topology' ou o diretório se chamar 'sharc'.
-        """
-        current_path = Path(__file__).resolve()
-
-        for parent in current_path.parents:
-            # Critério 1: Verifica se existe a pasta 'topology' dentro deste pai
-            # (Assumindo que 'topology' está na raiz do sharc)
-            if (parent / "topology").exists():
-                return parent
-
-            # Critério 2: Verifica se o nome da pasta é 'sharc'
-            if parent.name.lower() == 'sharc':
-                return parent
-
-        # Fallback: Retorna a pasta onde este script está se nada for achado
-        return current_path.parent
 
     def _add(self, value, var_type=str):
         if var_type == int:
             return tk.IntVar(value=value)
         if var_type == bool:
             return tk.BooleanVar(value=value)
+        # .as_posix() é chamado preventivamente se for Path, mas garantimos strings aqui
         return tk.StringVar(value=str(value))
 
     def _create_vars(self):
@@ -66,13 +77,16 @@ class AppState:
         self.var_snaps = self._add(DEFAULTS["num_snapshots"], int)
         self.var_overwrite = self._add(False, bool)
 
-        # Ajusta diretórios de output para serem relativos à raiz ou absolutos
-        out_dir = Path(DEFAULTS["output_dir"])
-        if not out_dir.is_absolute():
-            out_dir = self.project_root / out_dir
+        # --- Tratamento Robusto de Diretórios ---
+        # Converte o output_dir do config em Path absoluto baseado na raiz
+        default_out = Path(DEFAULTS["output_dir"])
+        if not default_out.is_absolute():
+            abs_out_dir = self.project_root / default_out
+        else:
+            abs_out_dir = default_out
 
-        self.var_outdir = self._add(out_dir)
-        self.var_yaml_dir = self._add(out_dir)
+        self.var_outdir = self._add(abs_out_dir.as_posix())
+        self.var_yaml_dir = self._add(abs_out_dir.as_posix())
 
         self.var_prefix = self._add("output_mss_{long}")
         self.var_system = self._add("SINGLE_SPACE_STATION")
@@ -107,13 +121,13 @@ class AppState:
             "Bolivia", "Peru", "Ecuador", "Colombia", "Venezuela"
         ]))
 
-        # --- MAPAS (CORREÇÃO APLICADA AQUI) ---
-        # Usamos self.project_root para montar o caminho absoluto
-        # .as_posix() garante que use barras '/' mesmo no Windows, o que evita bugs em algumas libs
+        # --- MAPAS (CORREÇÃO FINAL DE PATHS) ---
+        # Monta o caminho absoluto usando self.project_root
 
         path_shp_file = self.project_root / "topology/map/ne_110m_admin_0_countries.shp"
         path_raster_file = self.project_root / "topology/map/SEDAC_map2.tiff"
 
+        # Usa as_posix() para garantir compatibilidade de string com Tkinter/Windows
         self.path_shp = self._add(path_shp_file.as_posix())
         self.path_raster = self._add(path_raster_file.as_posix())
 
@@ -250,15 +264,18 @@ class AppState:
         self.var_run_mode = self._add("LOCAL")
         self.var_max_workers = self._add(2, int)
 
-        # Pasta de execução também deve ser relativa à raiz, se necessário
-        self.run_folder = self._add(out_dir)
+        # Pasta de execução: Usa o caminho absoluto já calculado
+        self.run_folder = self._add(abs_out_dir.as_posix())
 
         # --- SSH / Tunnel ---
         self.ssh_host = self._add(DEFAULTS["ssh_host"])
         self.ssh_user = self._add(DEFAULTS["ssh_user"])
         self.ssh_port = self._add(DEFAULTS["ssh_port"], int)
+
+        # Remote dir é string, concatenação simples é ok se for caminho Linux remoto
         self.ssh_remote_dir = self._add(
-            DEFAULTS["remote_base_dir"] + "/campaigns")
+            self.project_root / "campaigns")
+
         self.ssh_use_tunnel = self._add(False, bool)
         self.ssh_use_password = self._add(True, bool)
         self.ssh_key_path = self._add("")

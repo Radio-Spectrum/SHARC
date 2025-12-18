@@ -19,7 +19,7 @@ except ImportError:
 # --- Importações dos Módulos Locais e Core ---
 from utils import build_yaml_text
 from managers import RunnerManager
-from core.state import AppState
+from core.state import AppState, get_sharc_root
 from core.yaml_builder import build_yaml_structure
 
 # Importa as abas
@@ -27,6 +27,8 @@ from ui.tabs import (
     GeneralTab, IMTTab, VictimTab,
     PreviewTab, RunnerTab, ResultsTab
 )
+
+PROJECT_ROOT = get_sharc_root()
 
 
 class App(tb.Window if HAS_BOOTSTRAP else tk.Tk):
@@ -46,8 +48,8 @@ class App(tb.Window if HAS_BOOTSTRAP else tk.Tk):
         self.state_model = AppState()
         self.__dict__.update(self.state_model.__dict__)
 
-        self.main_cli_path = tk.StringVar(value=os.path.join(
-            os.path.dirname(os.path.abspath(__file__)), "main_cli.py"))
+        self.main_cli_path = tk.StringVar(
+            value=os.path.join(PROJECT_ROOT / "main_cli.py"))
 
         # 3. Backend e Filas
         self.line_q = queue.Queue()

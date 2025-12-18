@@ -1,0 +1,277 @@
+import tkinter as tk
+from pathlib import Path
+import sys
+
+# Tenta importar DEFAULTS, se falhar define um fallback para não quebrar o exemplo
+try:
+    from config import DEFAULTS
+except ImportError:
+    DEFAULTS = {
+        "seed": 42, "num_snapshots": 10, "output_dir": "outputs",
+        "ssh_host": "", "ssh_user": "", "ssh_port": 22,
+        "remote_base_dir": "", "tunnel_bastion_host": "",
+        "tunnel_bastion_user": "", "tunnel_bastion_port": 22,
+        "tunnel_internal_ip": "", "tunnel_internal_port": 80,
+        "tunnel_local_port": 8080, "tunnel_key_path": ""
+    }
+
+
+class AppState:
+    """
+    Classe responsável apenas por inicializar e armazenar o estado (variáveis).
+    Localiza automaticamente a raiz do projeto 'sharc'.
+    """
+
+    def __init__(self):
+        # 1. Localiza a raiz do projeto dinamicamente
+        self.project_root = self._get_sharc_root()
+        print(f"Raiz do projeto detectada em: {self.project_root}")
+
+        # Helper para reduzir repetição
+        self._create_vars()
+
+    def _get_sharc_root(self) -> Path:
+        """
+        Descobre o diretório raiz do projeto (sharc) independentemente
+        de onde o script foi executado.
+
+        Estratégia: Sobe os diretórios pais a partir deste arquivo até
+        encontrar a pasta 'topology' ou o diretório se chamar 'sharc'.
+        """
+        current_path = Path(__file__).resolve()
+
+        for parent in current_path.parents:
+            # Critério 1: Verifica se existe a pasta 'topology' dentro deste pai
+            # (Assumindo que 'topology' está na raiz do sharc)
+            if (parent / "topology").exists():
+                return parent
+
+            # Critério 2: Verifica se o nome da pasta é 'sharc'
+            if parent.name.lower() == 'sharc':
+                return parent
+
+        # Fallback: Retorna a pasta onde este script está se nada for achado
+        return current_path.parent
+
+    def _add(self, value, var_type=str):
+        if var_type == int:
+            return tk.IntVar(value=value)
+        if var_type == bool:
+            return tk.BooleanVar(value=value)
+        return tk.StringVar(value=str(value))
+
+    def _create_vars(self):
+        # --- General ---
+        self.var_seed = self._add(DEFAULTS["seed"], int)
+        self.var_snaps = self._add(DEFAULTS["num_snapshots"], int)
+        self.var_overwrite = self._add(False, bool)
+
+        # Ajusta diretórios de output para serem relativos à raiz ou absolutos
+        out_dir = Path(DEFAULTS["output_dir"])
+        if not out_dir.is_absolute():
+            out_dir = self.project_root / out_dir
+
+        self.var_outdir = self._add(out_dir)
+        self.var_yaml_dir = self._add(out_dir)
+
+        self.var_prefix = self._add("output_mss_{long}")
+        self.var_system = self._add("SINGLE_SPACE_STATION")
+        self.var_imt_link = self._add("DOWNLINK")
+        self.var_adj = self._add(False, bool)
+        self.var_coch = self._add(True, bool)
+
+        # --- IMT (Gerais) ---
+        self.imt_min_sep = self._add("35")
+        self.imt_interfered = self._add(False, bool)
+        self.imt_freq = self._add("8150")
+        self.imt_bw = self._add("100")
+        self.imt_rb_bw = self._add("0.18")
+        self.imt_spec_mask = self._add("IMT-2020")
+        self.imt_spurious = self._add("-13")
+        self.imt_adj_ant_model = self._add("SINGLE_ELEMENT")
+        self.imt_guard_ratio = self._add("0.1")
+
+        # --- Topologia ---
+        self.topo_c_lat = self._add("-15.793889")
+        self.topo_c_lon = self._add("-47.882778")
+        self.topo_c_alt = self._add("0")
+        self.topo_type = self._add("Macro_countries")
+        self.topo_dist_type = self._add("Urban")
+        self.topo_num_bs = self._add("100")
+        self.topo_cell_radius = self._add("400")
+        self.topo_rng = self._add("10")
+        self.topo_raster_enc = self._add("Denspop")
+
+        self.topo_countries = self._add("\n".join([
+            "Brazil", "Argentina", "Uruguay", "Paraguay", "Chile",
+            "Bolivia", "Peru", "Ecuador", "Colombia", "Venezuela"
+        ]))
+
+        # --- MAPAS (CORREÇÃO APLICADA AQUI) ---
+        # Usamos self.project_root para montar o caminho absoluto
+        # .as_posix() garante que use barras '/' mesmo no Windows, o que evita bugs em algumas libs
+
+        path_shp_file = self.project_root / "topology/map/ne_110m_admin_0_countries.shp"
+        path_raster_file = self.project_root / "topology/map/SEDAC_map2.tiff"
+
+        self.path_shp = self._add(path_shp_file.as_posix())
+        self.path_raster = self._add(path_raster_file.as_posix())
+
+        self.raster_encoding = self._add("indexed")
+        self.sedac_mode = self._add("log")
+        self.sedac_min = self._add("1.0")
+        self.sedac_max = self._add("1e4")
+        self.pixel_area_method = self._add("spherical")
+
+        # Topologia (Específicos)
+        self.macro_intersite = self._add("600")
+        self.macro_wrap = self._add(False, bool)
+        self.macro_clusters = self._add("1")
+
+        self.hotspot_intersite = self._add("600")
+        self.hotspot_wrap = self._add(False, bool)
+        self.hotspot_clusters = self._add("1")
+        self.hotspot_num_per_cell = self._add("3")
+        self.hotspot_max_dist_ue = self._add("400.0")
+        self.hotspot_min_dist_bs = self._add("40.0")
+
+        self.sbs_intersite = self._add("600")
+        self.sbs_cell_radius = self._add("400")
+        self.sbs_clusters = self._add("1")
+        self.sbs_azimuth = self._add("120")
+
+        # --- BS ---
+        self.bs_load_prob = self._add("0.2")
+        self.bs_power = self._add("22")
+        self.bs_height = self._add("18")
+        self.bs_nf = self._add("6")
+        self.bs_ohmic = self._add("0")
+        self.bs_norm = self._add(False, bool)
+        self.bs_elem_pat = self._add("M2101")
+        self.bs_min_arr_gain = self._add("-200")
+        self.bs_h_steer = (self._add("-60"), self._add("60"))
+        self.bs_v_steer = (self._add("90"), self._add("100"))
+        self.bs_downtilt = self._add("6")
+        self.bs_elem_max_g = self._add("6.4")
+        self.bs_phi3 = self._add("90")
+        self.bs_theta3 = self._add("65")
+        self.bs_rows = self._add("8")
+        self.bs_cols = self._add("16")
+        self.bs_elem_hs = self._add("0.5")
+        self.bs_elem_vs = self._add("2.1")
+        self.bs_elem_am = self._add("30")
+        self.bs_elem_sla_v = self._add("30")
+        self.bs_mult = self._add("12")
+        self.bs_sub_enabled = self._add(True, bool)
+        self.bs_sub_rows = self._add("3")
+        self.bs_sub_evspace = self._add("0.7")
+        self.bs_sub_e_downtilt = self._add("3")
+
+        # --- UE ---
+        self.ue_k = self._add("3")
+        self.ue_km = self._add("1")
+        self.ue_indoor = self._add("70")
+        self.ue_dist_type = self._add("Macro_countries")
+        self.ue_dist_distance = self._add("RAYLEIGH")
+        self.ue_dist_azimuth = self._add("NORMAL")
+        self.ue_az_min = self._add("-60")
+        self.ue_az_max = self._add("60")
+        self.ue_tx_power_ctrl = self._add(True, bool)
+        self.ue_p_o_pusch = self._add("-92.2")
+        self.ue_alpha = self._add("0.8")
+        self.ue_p_cmax = self._add("23")
+        self.ue_p_dyn = self._add("56")
+        self.ue_height = self._add("1.5")
+        self.ue_nf = self._add("13")
+        self.ue_ohmic = self._add("0")
+        self.ue_body_loss = self._add("4")
+        self.ue_norm = self._add(False, bool)
+        self.ue_elem_pat = self._add("FIXED")
+        self.ue_min_arr_gain = self._add("-200")
+        self.ue_elem_max_g = self._add("-4")
+        self.ue_phi3 = self._add("180")
+        self.ue_theta3 = self._add("360")
+        self.ue_rows = self._add("1")
+        self.ue_cols = self._add("1")
+        self.ue_elem_am = self._add("25")
+        self.ue_elem_sla_v = self._add("25")
+        self.ue_mult = self._add("12")
+        self.ue_sub_enabled = self._add(False, bool)
+        self.ue_sub_rows = self._add("1")
+        self.ue_sub_evspace = self._add("1.0")
+        self.ue_sub_e_downtilt = self._add("0.0")
+
+        self.ul_att = self._add("0.4")
+        self.ul_sinr_min = self._add("-10")
+        self.ul_sinr_max = self._add("22")
+        self.dl_att = self._add("0.6")
+        self.dl_sinr_min = self._add("-10")
+        self.dl_sinr_max = self._add("30")
+        self.ch_model = self._add("UMa")
+        self.shadowing = self._add(True, bool)
+
+        # --- Victim ---
+        self.v_freq = self._add("8150")
+        self.v_bw = self._add("40")
+        self.v_txpsd = self._add("-200")
+        self.v_pol_loss = self._add("0")
+        self.v_tnoise = self._add("500")
+        self.v_ch_model = self._add("P619")
+        self.v_season = self._add("SUMMER")
+        self.v_p619_clutter = self._add("Mid")
+        self.v_p619_below_rooftop = self._add("65")
+        self.ss_is_global_cs = self._add(True, bool)
+        self.v_alt = self._add("35786000")
+        self.v_fix_lat = self._add("0")
+        self.v_fix_lon = self._add("-110")
+        self.v_es_alt = self._add("200")
+        self.v_es_lat = self._add("-10.871349")
+        self.v_es_lon = self._add("-51.6424333")
+        self.v_az_type = self._add("POINTING_AT_IMT")
+        self.v_el_type = self._add("POINTING_AT_IMT")
+        self.v_ant_pattern = self._add("ITU-R S.672")
+        self.v_ant_gain = self._add("30")
+        self.v_s672_3db = self._add("5")
+        self.v_s672_ls = self._add("-20")
+
+        # --- Visual / Export / Runner ---
+        self.var_show_gainmap = self._add(False, bool)
+        self.var_gain_vmin = self._add("auto")
+        self.var_gain_vmax = self._add("auto")
+        self.show_borders = self._add(True, bool)
+        self.var_rows = self._add(1, int)
+        self.var_cols = self._add(1, int)
+        self.var_auto_update = self._add(True, bool)
+        self.var_update_period_ms = self._add(2000, int)
+        self.var_xlog = self._add(False, bool)
+        self.var_export_dpi = self._add(200, int)
+        self.var_export_fmt = self._add("PNG")
+
+        self.var_run_mode = self._add("LOCAL")
+        self.var_max_workers = self._add(2, int)
+
+        # Pasta de execução também deve ser relativa à raiz, se necessário
+        self.run_folder = self._add(out_dir)
+
+        # --- SSH / Tunnel ---
+        self.ssh_host = self._add(DEFAULTS["ssh_host"])
+        self.ssh_user = self._add(DEFAULTS["ssh_user"])
+        self.ssh_port = self._add(DEFAULTS["ssh_port"], int)
+        self.ssh_remote_dir = self._add(
+            DEFAULTS["remote_base_dir"] + "/campaigns")
+        self.ssh_use_tunnel = self._add(False, bool)
+        self.ssh_use_password = self._add(True, bool)
+        self.ssh_key_path = self._add("")
+        self.ssh_status = self._add("Desconectado")
+        self.var_git_branch = self._add("")
+
+        self.tunnel_bastion_host = self._add(DEFAULTS["tunnel_bastion_host"])
+        self.tunnel_bastion_user = self._add(DEFAULTS["tunnel_bastion_user"])
+        self.tunnel_bastion_port = self._add(
+            DEFAULTS["tunnel_bastion_port"], int)
+        self.tunnel_internal_ip = self._add(DEFAULTS["tunnel_internal_ip"])
+        self.tunnel_internal_port = self._add(
+            DEFAULTS["tunnel_internal_port"], int)
+        self.tunnel_local_port = self._add(DEFAULTS["tunnel_local_port"], int)
+        self.tunnel_key_path = self._add(DEFAULTS["tunnel_key_path"])
+        self.tunnel_status = self._add("🔴 Túnel Inativo")

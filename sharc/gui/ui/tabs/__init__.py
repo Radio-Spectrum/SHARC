@@ -7,7 +7,6 @@ from .preview import PreviewTab
 from .runner import RunnerTab
 from .results import ResultsTab
 
-# Define o que é exportado quando alguém faz "from ui.tabs import *"
 __all__ = [
     "GeneralTab",
     "IMTTab",

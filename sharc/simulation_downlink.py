@@ -356,11 +356,13 @@ class SimulationDownlink(Simulation):
                             # profile extends beyond the ACLR-defined region, which may overestimate interference
                             # FIXME: if the victim bw fully contains tx bw, then
                             # EACH region should be <= measurement_bw
-                            warn(
-                                "Using System ACLR into IMT, but ACLR measurement bw is "
-                                f"{measurement_bw} while the IMT bw is bigger ({self.parameters.imt.bandwidth}).\n"
-                                "Are you sure you intend to apply the same ACLR to the entire IMT bw?"
-                            )
+                            if not getattr(self, "_aclr_system_warned", False):
+                                self._aclr_system_warned = True
+                            # warn(
+                            #     "Using System ACLR into IMT, but ACLR measurement bw is "
+                            #     f"{measurement_bw} while the IMT bw is bigger ({self.parameters.imt.bandwidth}).\n"
+                            #     "Are you sure you intend to apply the same ACLR to the entire IMT bw?"
+                            # )
 
                         # tx_oob_in_measurement = (tx_pow_lin / aclr)
                         # => approx. PSD = (tx_pow_lin / aclr) / measurement_bw
@@ -418,11 +420,22 @@ class SimulationDownlink(Simulation):
         eirp_dBW_MHz = self.param_system.tx_power_density + \
             60 + self.system_imt_antenna_gain
 
+        # Based on 1503
         # PFD formula (dBW/m²/MHz)
         # PFD = EIRP - 10log10(4π) - 20log10(distance)
         # Store the PFD for each transmitter and each UE
-        self.ue.pfd_external = eirp_dBW_MHz - \
-            10.992098640220963 - 20 * np.log10(dist_sys_to_imt)
+        # self.ue.pfd_external = eirp_dBW_MHz - \
+        #     10.992098640220963 - 20 * np.log10(dist_sys_to_imt)
+
+        # NOTE: EXPERIMENTAL - Using received interference power and effective area to calculate PFD
+        # Total received interference power in dBW/MHz per UE
+        other_losses = self.parameters.imt.ue.ohmic_loss + self.parameters.imt.ue.body_loss + self.polarization_loss
+        total_received_int_power = eirp_dBW_MHz - self.imt_system_path_loss - other_losses  # dBW/MHz
+        effective_area = (10 ** (0.1 * self.imt_system_antenna_gain)) * \
+            (3e8 / (self.ue.center_freq * 1e6)) ** 2 / (4 * np.pi)  # m²
+
+        # PFD measured in dBW/m².MHz
+        self.ue.pfd_external = total_received_int_power - 10 * np.log10(effective_area)  # dBW/m².MHz
 
         # Total PFD per UE (sum of PFDs from each transmitter)
         # Convert PFD from dB to linear scale (W/m²/MHz)

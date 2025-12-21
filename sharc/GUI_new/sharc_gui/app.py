@@ -23,7 +23,7 @@ class App(tk.Tk, CoreMixin,
 
         # ===== SSH PASSWORD MODE (PARAMIKO) =====
         self.ssh_use_password = tk.BooleanVar(value=True)
-        self.ssh_password = tk.StringVar(value="7MLRfdkhUL")
+        self.ssh_password = tk.StringVar(value="")
         self.var_ssh_auth = tk.StringVar(value="KEY")
         self.ssh_client = None
         # ===== SSH TUNNEL VARIABLES =====

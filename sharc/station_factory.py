@@ -1784,21 +1784,9 @@ class StationFactory(object):
             antenna_pattern = AntennaS1528Taylor(params.antenna.itu_r_s_1528)
         elif params.antenna.pattern == "MSS Adjacent":
             antenna_pattern = AntennaMSSAdjacent(params.frequency)
-        elif params.antenna.pattern == "Satellite Beamforming":
-            params.antenna.itu_r_s_1528.antenna_pattern = "ITU-R-S.1528-Section1.2"
-            params.antenna.itu_r_s_1528.antenna_gain = 34.6
-            params.antenna.itu_r_s_1528.antenna_3_dB_bw = 3.06
-            params.antenna.itu_r_s_1528.antenna_l_s = -35.0
-            params.antenna.itu_r_s_1528.far_out_side_lobe = -25
-            antenna_pattern_high = AntennaS1528(params.antenna.itu_r_s_1528)
-
-            # Different antenna parameters for low elevation beams
-            params.antenna.itu_r_s_1528.antenna_pattern = "ITU-R-S.1528-Section1.2"
-            params.antenna.itu_r_s_1528.antenna_gain = 40.0
-            params.antenna.itu_r_s_1528.antenna_3_dB_bw = 1.68
-            params.antenna.itu_r_s_1528.antenna_l_s = -20.0
-            params.antenna.itu_r_s_1528.far_out_side_lobe = -15
-            antenna_pattern_low = AntennaS1528(params.antenna.itu_r_s_1528)
+        elif params.antenna.pattern == "Antenna System 4":
+            antenna_pattern_high = AntennaS1528(params.antenna.antenna_system_4.antenna_parameters_high)
+            antenna_pattern_low = AntennaS1528(params.antenna.antenna_system_4.antenna_parameters_low)
 
         else:
             raise ValueError(

@@ -1024,6 +1024,22 @@ mss_d2d:
     tx_power_density: -30
     # Number of sectors
     num_sectors: 19
+    power_control_zones:
+        zones:
+        - geometry:
+            type: CIRCLE
+            circle:
+                center_lat: 0
+                center_lon: 0
+                radius_km: 10
+          power_backoff_db: 13.0
+        - geometry:
+            type: CIRCLE
+            circle:
+                center_lat: 0
+                center_lon: 0
+                radius_km: 15.5
+          power_backoff_db: 5.0
     beam_positioning:
         # type may be one of
         # "ANGLE_FROM_SUBSATELLITE", "ANGLE_AND_DISTANCE_FROM_SUBSATELLITE",

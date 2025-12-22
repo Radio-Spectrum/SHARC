@@ -1753,6 +1753,19 @@ class StationFactory(object):
         elev = mss_d2d_values["sat_antenna_elev"]
         azim = mss_d2d_values["sat_antenna_azim"]
         beams_ground_elev = mss_d2d_values["beams_ground_elev"]
+        power_backoff = mss_d2d_values["sat_power_backoff"]
+
+        mss_d2d.tx_power_backoff = power_backoff
+
+        sat_lat = mss_d2d_values["sat_lat"]
+        sat_lon = mss_d2d_values["sat_lon"]
+
+        mss_d2d.geom.set_local_coord_sys(
+            sat_lat,
+            sat_lon,
+            # put local coord system in subsatellite
+            np.zeros_like(sat_lon)
+        )
         mss_d2d.geom.set_global_coords(
             x, y, z,
             azim, elev,
@@ -1793,7 +1806,7 @@ class StationFactory(object):
                 f"generate_mss_ss: Invalid antenna type: {params.antenna.pattern}")
 
         for i in range(mss_d2d.num_stations):
-            if params.antenna.pattern == "Satellite Beamforming":
+            if params.antenna.pattern == "Antenna System 4":
                 if beams_ground_elev[i] >= 50:
                     antenna_pattern = antenna_pattern_high
                 else:

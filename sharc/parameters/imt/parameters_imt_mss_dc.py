@@ -6,7 +6,11 @@ from pathlib import Path
 
 from sharc.parameters.parameters_base import ParametersBase
 from sharc.parameters.parameters_orbit import ParametersOrbit
-from sharc.parameters.imt.parameters_grid import ParametersSatelliteWithServiceGrid, ParametersSelectActiveSatellite
+from sharc.parameters.imt.parameters_grid import (
+    ParametersSatelliteWithServiceGrid,
+    ParametersSelectActiveSatellite,
+    ParametersZone,
+)
 
 SHARC_ROOT_DIR = (Path(__file__) / ".." / ".." / ".." / "..").resolve()
 
@@ -190,6 +194,18 @@ class ParametersSectorPositioning(ParametersBase):
 
 
 @dataclass
+class ParametersPowerControlZone(ParametersBase):
+    geometry: ParametersZone = field(default_factory=ParametersZone)
+    power_backoff_db: float =  None
+
+
+@dataclass
+class ParametersPowerControl(ParametersBase):
+    zones: list[ParametersPowerControlZone] = field(
+        default_factory=lambda: [ParametersPowerControlZone()])
+
+
+@dataclass
 class ParametersImtMssDc(ParametersBase):
     """Dataclass for the IMT MSS-DC topology parameters."""
     section_name: str = "imt_mss_dc"
@@ -210,6 +226,9 @@ class ParametersImtMssDc(ParametersBase):
     # The beam radius should be calculated based on the Antenna Pattern used
     # for IMT Space Stations
     beam_radius: float = 36516.0
+
+    power_control_zones: ParametersPowerControl = field(
+        default_factory=ParametersPowerControl)
 
     sat_is_active_if: ParametersSelectActiveSatellite = field(
         default_factory=ParametersSelectActiveSatellite)

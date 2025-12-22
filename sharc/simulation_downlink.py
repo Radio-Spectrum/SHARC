@@ -390,9 +390,9 @@ class SimulationDownlink(Simulation):
                         10 ** (0.1 * tx_oob) + 10 ** (0.1 * rx_oob)
                     )
                 # Total external interference into the UE in dBm
-                ue_ext_int = 10 * np.log10(np.power(10,
-                                                    0.1 * in_band_interf_power) + np.power(10,
-                                                                                           0.1 * oob_power))
+                ue_ext_int = 10 * np.log10(
+                    np.power(10, 0.1 * in_band_interf_power) +
+                    np.power(10, 0.1 * oob_power)) - self.system.tx_power_backoff[system_interfering]
 
                 # Sum all the interferers for each UE
                 self.ue.ext_interference[ue] = 10 * \
@@ -413,12 +413,12 @@ class SimulationDownlink(Simulation):
         # Calculate PFD at the UE
 
         # Distance from each system transmitter to each UE receiver (in meters)
-        dist_sys_to_imt = self.system.geom.get_3d_distance_to(
-            self.ue.geom)  # shape: [n_tx, n_ue]
+        # dist_sys_to_imt = self.system.geom.get_3d_distance_to(
+        #     self.ue.geom)  # shape: [n_tx, n_ue]
 
         # EIRP in dBW/MHz per transmitter
         eirp_dBW_MHz = self.param_system.tx_power_density + \
-            60 + self.system_imt_antenna_gain
+            60 + self.system_imt_antenna_gain - self.system.tx_power_backoff[:, np.newaxis]
 
         # Based on 1503
         # PFD formula (dBW/m²/MHz)

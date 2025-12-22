@@ -26,7 +26,10 @@ class StationManager(object):
         self.idx_orbit = np.empty(n)
         self.indoor = np.zeros(n, dtype=bool)
         self.active = np.ones(n, dtype=bool)
-        self.tx_power = np.empty(n)
+        # tx_power is dB for system and dBm for IMT
+        self.tx_power = np.zeros(n)
+        # for system power control
+        self.tx_power_backoff = np.zeros(n)
         self.rx_power = np.empty(n)
         self.rx_interference = np.empty(n)  # Rx interferece in dBW
         self.ext_interference = np.empty(n)  # External interferece in dBW

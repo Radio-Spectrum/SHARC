@@ -744,6 +744,50 @@ class ParametersTest(unittest.TestCase):
         self.assertEqual(
             self.parameters.mss_d2d.sat_is_active_if.maximum_elevation_from_es,
             1.113)
+        self.assertEqual(
+            len(self.parameters.mss_d2d.power_control_zones.zones),
+            2
+        )
+        self.assertEqual(
+            self.parameters.mss_d2d.power_control_zones.zones[0].geometry.type,
+            "CIRCLE"
+        )
+        self.assertEqual(
+            self.parameters.mss_d2d.power_control_zones.zones[0].geometry.circle.radius_km,
+            10.
+        )
+        self.assertEqual(
+            self.parameters.mss_d2d.power_control_zones.zones[0].geometry.circle.center_lat,
+            0.
+        )
+        self.assertEqual(
+            self.parameters.mss_d2d.power_control_zones.zones[0].geometry.circle.center_lon,
+            0.
+        )
+        self.assertEqual(
+            self.parameters.mss_d2d.power_control_zones.zones[0].power_backoff_db,
+            13.
+        )
+        self.assertEqual(
+            self.parameters.mss_d2d.power_control_zones.zones[1].geometry.type,
+            "CIRCLE"
+        )
+        self.assertEqual(
+            self.parameters.mss_d2d.power_control_zones.zones[1].geometry.circle.radius_km,
+            15.5
+        )
+        self.assertEqual(
+            self.parameters.mss_d2d.power_control_zones.zones[1].geometry.circle.center_lat,
+            0.
+        )
+        self.assertEqual(
+            self.parameters.mss_d2d.power_control_zones.zones[1].geometry.circle.center_lon,
+            0.
+        )
+        self.assertEqual(
+            self.parameters.mss_d2d.power_control_zones.zones[1].power_backoff_db,
+            5.0
+        )
         self.assertEqual(self.parameters.mss_d2d.param_p619.season, 'SUMMER')
         self.assertTrue(isinstance(self.parameters.mss_d2d.orbits, list))
         expected_orbit_params = [

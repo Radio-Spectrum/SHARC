@@ -278,7 +278,7 @@ class TopologyImtMssDc(Topology):
             _, all_azimuth, all_elevation = cartesian_to_polar(
                 pointing_vec_x, pointing_vec_y, pointing_vec_z)
 
-            beams_elev, beams_azim, beams_ground_elev, sx, sy = TopologyImtMssDc.get_satellite_pointing(
+            beams_power_backoff, beams_elev, beams_azim, beams_ground_elev, sx, sy = TopologyImtMssDc.get_satellite_pointing(
                 random_number_gen,
                 coordinate_system,
                 orbit_params,
@@ -312,6 +312,12 @@ class TopologyImtMssDc(Topology):
                     y: list(x) +
                     list(y),
                     beams_ground_elev))
+            space_station_power_backoff = np.array(
+                functools.reduce(
+                    lambda x,
+                    y: list(x) +
+                    list(y),
+                    beams_power_backoff))
 
             space_station_x = np.repeat(space_station_x, sat_ocurr)
             space_station_y = np.repeat(space_station_y, sat_ocurr)
@@ -326,6 +332,7 @@ class TopologyImtMssDc(Topology):
         assert (space_station_x.shape == (num_base_stations,))
         assert (space_station_y.shape == (num_base_stations,))
         assert (space_station_z.shape == (num_base_stations,))
+        assert (space_station_power_backoff.shape == (num_base_stations,))
         assert (lat.shape == (num_base_stations,))
         assert (lon.shape == (num_base_stations,))
         assert (altitudes.shape == (num_base_stations,))
@@ -347,6 +354,7 @@ class TopologyImtMssDc(Topology):
             "num_satellites": num_base_stations,
             "num_active_satellites": len(active_satellite_idxs),
             "active_satellites_idxs": active_satellite_idxs,
+            "sat_power_backoff": space_station_power_backoff,
             "sat_x": space_station_x,
             "sat_y": space_station_y,
             "sat_z": space_station_z,
@@ -393,6 +401,27 @@ class TopologyImtMssDc(Topology):
             grid = orbit_params.beam_positioning.service_grid.lon_lat_grid
             grid_lon = grid[0]
             grid_lat = grid[1]
+
+            # create points(lon, lat) to compare to country
+            grid_points = gpd.points_from_xy(
+                grid_lon, grid_lat, crs=EARTH_DEFAULT_CRS)
+
+            power_backoff_zones = orbit_params.power_control_zones.zones
+
+            grid_power_backoffs = np.zeros_like(grid_lon)
+            # the first definition takes precedence
+            # so it should be executed last
+            for zone in reversed(power_backoff_zones):
+                zone.geometry.validate("gambiarra")
+                mask = grid_points.within(
+                    zone.geometry._polygon
+                )
+                grid_power_backoffs[mask] = zone.power_backoff_db
+
+            # pb = grid_power_backoffs[grid_power_backoffs!= 0.]
+            # print("pb", pb)
+            # exit()
+
             grid_ecef = orbit_params.beam_positioning.service_grid.ecef_grid
             grid_x = grid_ecef[0]
             grid_y = grid_ecef[1]
@@ -473,6 +502,7 @@ class TopologyImtMssDc(Topology):
             beams_elev = []
             beams_ground_elev = []
             n = 0
+            power_backoff = []
 
             for act_sat in active_satellite_idxs:
                 if act_sat in sat_points_towards:
@@ -481,16 +511,19 @@ class TopologyImtMssDc(Topology):
                     beams_elev.append(elev[sat_points_towards[act_sat]])
                     beams_ground_elev.append(all_elevations[
                         sat_points_towards[act_sat], eligible_sats_idx == act_sat])
+                    power_backoff.append(grid_power_backoffs[sat_points_towards[act_sat]])
                 else:
                     beams_azim.append([])
                     beams_elev.append([])
+                    beams_ground_elev.append([])
+                    power_backoff.append([])
 
             # FIXME: change either this or the transform_ue_xyz to make this correct
             # we don't currently care
             sx = np.zeros(n)
             sy = np.zeros(n)
 
-            return beams_elev, beams_azim, beams_ground_elev, sx, sy
+            return power_backoff, beams_elev, beams_azim, beams_ground_elev, sx, sy
         # We borrow the TopologyNTN method to calculate the sectors azimuth and elevation angles from their
         # respective x and y boresight coordinates
         sx, sy = TopologyNTN.get_sectors_xy(
@@ -607,7 +640,7 @@ class TopologyImtMssDc(Topology):
                 nadir_azim[i]
             )
 
-        return beams_elev, beams_azim, beams_ground_elev, sx, sy
+        return np.zeros_like(beams_elev), beams_elev, beams_azim, beams_ground_elev, sx, sy
 
     @staticmethod
     def get_distr(

@@ -429,8 +429,7 @@ class SimulationDownlink(Simulation):
 
         # NOTE: EXPERIMENTAL - Using received interference power and effective area to calculate PFD
         # Total received interference power in dBW/MHz per UE
-        other_losses = self.parameters.imt.ue.ohmic_loss + self.parameters.imt.ue.body_loss + self.polarization_loss
-        total_received_int_power = eirp_dBW_MHz - self.imt_system_path_loss - other_losses  # dBW/MHz
+        total_received_int_power = eirp_dBW_MHz - self.imt_system_path_loss  # dBW/MHz
         effective_area = (10 ** (0.1 * self.imt_system_antenna_gain)) * \
             (3e8 / (self.ue.center_freq * 1e6)) ** 2 / (4 * np.pi)  # m²
 

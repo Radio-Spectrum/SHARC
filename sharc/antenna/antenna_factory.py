@@ -60,6 +60,12 @@ class AntennaFactory():
                     azimuth,
                     elevation
                 )
+            case "Antenna System 4":
+                # Handled in station_factory.py since it requires two antennas
+                raise NotImplementedError(
+                    "Antenna System 4 requires two antenna instances and "
+                    "should be created in station_factory.py"
+                )
             case _:
                 raise ValueError(
                     f"Antenna factory does not support pattern {

@@ -5,6 +5,7 @@ from sharc.parameters.antenna.parameters_antenna_s1528 import ParametersAntennaS
 from sharc.parameters.antenna.parameters_antenna_s672 import ParametersAntennaS672
 from sharc.parameters.antenna.parameters_antenna_with_freq import ParametersAntennaWithFreq
 from sharc.parameters.imt.parameters_antenna_imt import ParametersAntennaImt
+from sharc.parameters.antenna.parameters_antenna_system4 import ParametersAntennaSystem4
 
 from dataclasses import dataclass, field
 import typing
@@ -30,7 +31,7 @@ class ParametersAntenna(ParametersBase):
         "ITU-R-S.1528-Section1.2",
         "ITU-R-S.1528-LEO",
         "MSS Adjacent",
-        "Satellite Beamforming"]
+        "Antenna System 4"]
 
     # chosen antenna radiation pattern
     pattern: typing.Literal["OMNI",
@@ -46,7 +47,7 @@ class ParametersAntenna(ParametersBase):
                             "ITU-R-S.1528-Section1.2",
                             "ITU-R-S.1528-LEO",
                             "MSS Adjacent",
-                            "Satellite Beamforming"] = None
+                            "Antenna System 4"] = None
 
     # antenna gain [dBi]
     gain: float = None
@@ -94,6 +95,10 @@ class ParametersAntenna(ParametersBase):
 
     itu_r_s_672: ParametersAntennaS672 = field(
         default_factory=ParametersAntennaS672,
+    )
+
+    antenna_system_4: ParametersAntennaSystem4 = field(
+        default_factory=ParametersAntennaSystem4,
     )
 
     def set_external_parameters(self, **kwargs):
@@ -200,8 +205,8 @@ class ParametersAntenna(ParametersBase):
                 self.itu_r_s_672.validate(f"{ctx}.itu_r_s_672")
             case "MSS Adjacent":
                 self.mss_adjacent.validate(f"{ctx}.mss_adjacent")
-            case "Satellite Beamforming":
-                pass
+            case "Antenna System 4":
+                self.antenna_system_4.validate(f"{ctx}.antenna_system_4")
             case _:
                 raise NotImplementedError(
                     "ParametersAntenna.validate does not implement this antenna validation!", )

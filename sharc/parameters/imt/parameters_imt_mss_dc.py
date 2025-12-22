@@ -204,6 +204,12 @@ class ParametersPowerControl(ParametersBase):
     zones: list[ParametersPowerControlZone] = field(
         default_factory=lambda: [ParametersPowerControlZone()])
 
+    def validate(self, ctx):
+        super().validate(ctx)
+        for i in range(len(self.zones)):
+            self.zones[i].geometry.validate(ctx + f"zones.{i}.geometry")
+            if not isinstance(self.zones[i].power_backoff_db, float):
+                raise ValueError("OPAA")
 
 @dataclass
 class ParametersImtMssDc(ParametersBase):

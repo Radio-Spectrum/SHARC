@@ -412,7 +412,6 @@ class TopologyImtMssDc(Topology):
             # the first definition takes precedence
             # so it should be executed last
             for zone in reversed(power_backoff_zones):
-                zone.geometry.validate("gambiarra")
                 mask = grid_points.within(
                     zone.geometry._polygon
                 )

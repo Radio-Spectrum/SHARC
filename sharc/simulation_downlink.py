@@ -685,6 +685,29 @@ class SimulationDownlink(Simulation):
         for bs in bs_active:
             ue = self.link[bs]
 
+            #############################################
+            # gambi
+            if self.parameters.imt.ue.antenna.pattern == "ARRAY":
+            # assert self.parameters.imt.ue.antenna.pattern == "ARRAY"
+                Gr = self.parameters.imt.ue.antenna.array.element_max_g
+                if self.parameters.imt.ue.antenna.array.element_pattern != "FIXED":
+                    raise ValueError("OPA")
+            elif self.parameters.imt.ue.antenna.pattern != "OMNI":
+                raise ValueError("OPA2")
+            else:
+                Gr = self.parameters.imt.ue.antenna.gain
+
+            # TODO: check if also remove polarization_loss
+            L = self.parameters.imt.ue.ohmic_loss \
+                + self.parameters.imt.ue.body_loss
+            lmbda = 3e8/self.parameters.imt.frequency
+            # self.ue.ext_interference[ue] is already without noise
+            # and after coupling loss
+            # WARNING: overwriting stuff
+            self.ue.pfd_external_aggregated[ue] = self.ue.ext_interference[ue] - Gr + L - \
+                10 * np.log10(lmbda**2 / (4 * np.pi))
+            #############################################
+
             if not self.parameters.imt.imt_dl_intra_sinr_calculation_disabled:
                 self.results.imt_path_loss.extend(self.path_loss_imt[bs, ue])
                 self.results.imt_coupling_loss.extend(

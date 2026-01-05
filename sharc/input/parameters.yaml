@@ -29,7 +29,7 @@ imt:
     spectral_mask: IMT-2020                           # Spectral mask model
     spurious_emissions: -15                         # Spurious emission level [dBm/MHz]
     guard_band_ratio: 0.1                             # Ratio of total bandwidth used as guard band
-    channel_model: FSPL                                # Channel model: FSPL, CI, UMa, UMi, etc.
+    channel_model: UMi                                # Channel model: FSPL, CI, UMa, UMi, etc.
     shadowing: TRUE  
     ###########################################################################
     # Topology Type. Possible values are "MACROCELL", "HOTSPOT", "SINGLE_BS"
@@ -268,7 +268,7 @@ wifi:
             intersite_distance: 321
             ###########################################################################
             # Enable wrap around.
-            wrap_around: FALSE
+            wrap_around: true
             ###########################################################################
             # Number of clusters in macro cell topology
             num_clusters: 1
@@ -295,7 +295,7 @@ wifi:
         conducted_power: 23
         ###########################################################################
         # Base station height [m]
-        height: 18
+        height: 1.5
         ###########################################################################
         # Base station noise figure [dB]
         noise_figure: 10.1

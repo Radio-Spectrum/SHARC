@@ -11,8 +11,8 @@ general:
     system: "WIFI"
     ###########################################################################
     # Compatibility scenario (co-channel and/or adjacent channel interference)
-    enable_cochannel: FALSE
-    enable_adjacent_channel: TRUE
+    enable_cochannel: TRUE
+    enable_adjacent_channel: FALSE
     ###########################################################################
     # Seed for random number generator
     seed: 101

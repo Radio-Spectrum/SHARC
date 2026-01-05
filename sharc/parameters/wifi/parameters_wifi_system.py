@@ -141,7 +141,8 @@ class ParametersWifiSystem(ParametersBase):
         ValueError
             If a parameter is not valid.
         """
-
+        super().load_parameters_from_file(config_file)
+        
         if self.channel_model not in ["FSPL", "CI", "UMa", "UMi", "TVRO-URBAN", "TVRO-SUBURBAN", "ABG", "P619"]:
             raise ValueError(f"ParamtersImt: \
                              Invalid value for parameter channel_model - {self.channel_model}. \

@@ -1909,179 +1909,65 @@ class StationFactory(object):
 
 
 if __name__ == '__main__':
-    rand_gen = np.random.RandomState(101)
-    geometry_converter = GeometryConverter()
+    from matplotlib import pyplot as plt
+    from sharc.parameters.wifi.parameters_hotspot import ParametersHotspot
+    from sharc.topology.topology_hotspot import TopologyHotspot
+    from sharc.topology.topology_macrocell import TopologyMacrocell
 
-    # somente vou utilizar a translação que o satélite teoricamente sofreu:
-    ref_lat = -14.1
-    ref_long = -45.1
-    ref_alt = 1200
-    geometry_converter.set_reference(ref_lat, ref_long, ref_alt)
-    from sharc.parameters.parameters_orbit import ParametersOrbit
+    # plot uniform distribution in macrocell scenario
 
-    orbit = ParametersOrbit(
-        n_planes=20,
-        sats_per_plane=32,
-        phasing_deg=3.9,
-        long_asc_deg=18.0,
-        inclination_deg=54.5,
-        perigee_alt_km=525,
-        apogee_alt_km=525
-    )
-    from sharc.parameters.imt.parameters_imt_mss_dc import ParametersImtMssDc
-    params = ParametersImtMssDc(
-        beam_radius=36516.0,
-        num_beams=7,
-        orbits=[orbit]
-    )
-    params.sat_is_active_if.conditions = ["MINIMUM_ELEVATION_FROM_ES"]
-    params.sat_is_active_if.minimum_elevation_from_es = 5.0
+    factory = StationFactory()
 
-    topology = TopologyImtMssDc(params, geometry_converter)
+    wifi_ant_param = ParametersAntennaWifi()
+    wifi_param = ParametersWifiSystem()
+    t_param = ParametersHotspot()
 
-    topology.calculate_coordinates(rand_gen)
+    wifi_topology = TopologyHotspot(t_param, 321, 1)
+    wifi_topology.calculate_coordinates()
 
-    topology.calculate_coordinates(rand_gen)
+    imt_topology = TopologyMacrocell(321, 1)
+    imt_topology.calculate_coordinates()
 
-    parameters = ParametersImt()
-    parameters.ue.k = 1
-    parameters.ue.k_m = 1
-    parameters.ue.azimuth_range = (-180, 180)
-    parameters.ue.distribution_distance = "UNIFORM"
-    parameters.ue.distribution_type = "ANGLE_AND_DISTANCE"
-    parameters.ue.distribution_azimuth = "NORMAL"
-    parameters.ue.height = 1.5
-    parameters.ue.indoor_percent = 0
-    parameters.bandwidth = 10
-    parameters.frequency = 10
-    parameters.ue.noise_figure = 0
+    params = Parameters()
 
-    imt_ue = StationFactory.generate_imt_ue_outdoor(
-        parameters,
-        parameters.ue.antenna.array,
-        rand_gen,
-        topology
-    )
+    imt_ant_param = ParametersAntennaImt()
 
-    from sharc.satellite.scripts.plot_globe import plot_globe_with_borders
-    fig = plot_globe_with_borders(True, geometry_converter, False)
+    rnd = np.random.RandomState(1)
 
-    import plotly.graph_objects as go
+    imt_ue = factory.generate_imt_ue(params.imt, imt_ant_param, imt_topology, rnd)
+    imt_bs = factory.generate_imt_base_stations(params.imt, imt_ant_param, imt_topology, rnd)
 
-    # fig.add_trace(go.Scatter3d(
-    #     x=topology.x,
-    #     y=topology.y,
-    #     z=topology.z,
-    #     mode='markers',
-    #     marker=dict(size=3, color='green', opacity=0.8),
-    #     showlegend=False
-    # ))
-    fig.add_trace(go.Scatter3d(
-        x=topology.space_station_x,
-        y=topology.space_station_y,
-        z=topology.space_station_z,
-        mode='markers',
-        marker=dict(size=3, color='green', opacity=0.8),
-        showlegend=False
-    ))
+    wifi = factory.generate_wifi_system(wifi_param, wifi_ant_param, wifi_ant_param, rnd, wifi_topology)
+    # Separar por tipo de estação
+    # Base stations
+    imt_bs_x = imt_bs.x
+    imt_bs_y = imt_bs.y
 
-    fig.add_trace(
-        go.Scatter3d(
-            x=imt_ue.x,
-            y=imt_ue.y,
-            z=imt_ue.z,
-            mode='markers',
-            marker=dict(size=1, color='red', opacity=1),
-            showlegend=False
-        )
-    )
+    wifi_aps_x = wifi.ap.x + 100
+    wifi_aps_y = wifi.ap.y + 100
 
-    # TODO: replace this with generate imt mss dc station
-    st = StationManager(topology.num_base_stations)
-    st.x = topology.space_station_x
-    st.y = topology.space_station_y
-    st.z = topology.space_station_z
+    # User equipments
+    imt_ue_x = imt_ue.x 
+    imt_ue_y = imt_ue.y
 
-    fig.add_trace(
-        go.Scatter3d(
-            x=[0],
-            y=[0],
-            z=[0],
-            mode='markers',
-            marker=dict(size=3, color='black', opacity=1),
-            showlegend=False
-        )
-    )
+    wifi_sta_x = wifi.sta.x + 100
+    wifi_sta_y = wifi.sta.y + 100
 
-    from sharc.support.sharc_geom import polar_to_cartesian
-    # Plot beam boresight vectors
-    boresight_length = 100 * 1e3  # Length of the boresight vectors for visualization
-    boresight_x, boresight_y, boresight_z = polar_to_cartesian(
-        boresight_length,
-        imt_ue.azimuth,
-        imt_ue.elevation
-    )
-    # Add arrow heads to the end of the boresight vectors
-    for x, y, z, bx, by, bz in zip(imt_ue.x,
-                                   imt_ue.y,
-                                   imt_ue.z,
-                                   boresight_x,
-                                   boresight_y,
-                                   boresight_z):
-        fig.add_trace(go.Cone(
-            x=[x + bx],
-            y=[y + by],
-            z=[z + bz],
-            u=[bx],
-            v=[by],
-            w=[bz],
-            colorscale=[[0, 'orange'], [1, 'orange']],
-            sizemode='absolute',
-            sizeref=2 * boresight_length / 5,
-            showscale=False
-        ))
-    for x, y, z, bx, by, bz in zip(imt_ue.x,
-                                   imt_ue.y,
-                                   imt_ue.z,
-                                   boresight_x,
-                                   boresight_y,
-                                   boresight_z):
-        fig.add_trace(go.Scatter3d(
-            x=[x, x + bx],
-            y=[y, y + by],
-            z=[z, z + bz],
-            mode='lines',
-            line=dict(color='orange', width=2),
-            name='Boresight'
-        ))
-    # Suppress the legend for the boresight plot
-    fig.update_traces(showlegend=False, selector=dict(name='Boresight'))
+    fig = plt.figure(figsize=(8, 8), facecolor='w', edgecolor='k')
+    ax = fig.add_subplot(1, 1, 1)
+    imt_topology.plot(ax)
 
-    # Maintain axis proportions
-    fig.update_layout(scene_aspectmode='data')
+    plt.axis('image')
+    plt.title("Macro cell topology")
+    plt.xlabel("x-coordinate [m]")
+    plt.ylabel("y-coordinate [m]")
 
-    ref_x = imt_ue.x[11]
-    ref_y = imt_ue.y[11]
-    ref_z = imt_ue.z[11]
-    range_scale = 1000
+    # Plotagem diferenciada
+    ax.plot(imt_bs_x, imt_bs_y, "bs", label="IMT BS")       # azul, quadrado
+    ax.plot(wifi_aps_x, wifi_aps_y, "go", label="WiFi AP")  # verde, círculo
+    ax.plot(imt_ue_x, imt_ue_y, "r^", label="IMT UE")        # vermelho, triângulo
+    ax.plot(wifi_sta_x, wifi_sta_y, "m.", label="WiFi STA") # magenta, ponto
 
-    range_scale = 5000
-    ref_x = 0
-    ref_y = 0
-    ref_z = 0
-    fig.update_layout(
-        scene=dict(
-            zaxis=dict(
-                range=(-1e3 * range_scale + ref_z, 1e3 * range_scale + ref_z)
-            ),
-            yaxis=dict(
-                range=(-1e3 * range_scale + ref_y, 1e3 * range_scale + ref_y)
-            ),
-            xaxis=dict(
-                range=(-1e3 * range_scale + ref_x, 1e3 * range_scale + ref_x)
-            ),
-        )
-    )
-
-    # fig.tight_layout()
-    fig.show()
+    plt.legend(loc="best")
+    plt.tight_layout()
+    plt.show()

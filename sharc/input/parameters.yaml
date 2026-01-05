@@ -29,7 +29,7 @@ imt:
     spectral_mask: IMT-2020                           # Spectral mask model
     spurious_emissions: -15                         # Spurious emission level [dBm/MHz]
     guard_band_ratio: 0.1                             # Ratio of total bandwidth used as guard band
-    channel_model: UMi                                # Channel model: FSPL, CI, UMa, UMi, etc.
+    channel_model: FSPL                                # Channel model: FSPL, CI, UMa, UMi, etc.
     shadowing: TRUE  
     ###########################################################################
     # Topology Type. Possible values are "MACROCELL", "HOTSPOT", "SINGLE_BS"
@@ -268,7 +268,7 @@ wifi:
             intersite_distance: 321
             ###########################################################################
             # Enable wrap around.
-            wrap_around: true
+            wrap_around: FALSE
             ###########################################################################
             # Number of clusters in macro cell topology
             num_clusters: 1
@@ -510,180 +510,5 @@ wifi:
                 # side lobes when beamforming is assumed in adjacent channel.
                 #       Original value: 12 (Rec. ITU-R M.2101)
                 multiplication_factor: 12
-    ###########################################################################
-    # Defines the antenna model to be used in compatibility studies between
-    # IMT and other services in adjacent band
-    # Possible values: SINGLE_ELEMENT, BEAMFORMING
-    geometry:
-        ###########################################################################
-        # Antenna height [meters]
-        height: 1
-        ###########################################################################
-        # Azimuth angle [degrees]
-        azimuth:
-            ###########################################################################
-            # Type of azimuth. May be "UNIFORM_DIST", "FIXED"
-            type: FIXED
-            ###########################################################################
-            # Value of azimuth when type == "FIXED" [deg]
-            fixed: 0
-            ###########################################################################
-            # Limits of random uniform distribution when type == "UNIFORM_DIST"
-            uniform_dist:
-                ###########################################################################
-                # uniform distribution lower bound [deg]
-                min: -180
-                ###########################################################################
-                # uniform distribution upper bound [deg]
-                max: 180
-        ###########################################################################
-        # Elevation angle [degrees]
-        elevation:
-            # Type of elevation. May be "UNIFORM_DIST", "FIXED"
-            type: FIXED
-            # Value of elevation when type == "FIXED" [deg]
-            fixed: 60
-            # Limits of random uniform distribution when type == "UNIFORM_DIST"
-            uniform_dist:
-                # uniform distribution lower bound [deg]
-                min: 30
-                # uniform distribution upper bound [deg]
-                max: 65
-        ###########################################################################
-        # Station 2d location [meters]:
-        location:
-            ###########################################################################
-            # choose way to set location. May be "CELL", "NETWORK", "UNIFORM_DIST" or "FIXED"
-            # location.type == CELL means that the ES will be distributed randomly,
-            #                           but always in the central cell
-            # location.type == NETWORK means that the ES will be distributed randomly,
-            #                           in a random cell
-            # location.type == UNIFORM_DIST means that the ES will be distributed randomly,
-            #                           in a ring shaped section with delimited outer and inner radius
-            # location.type == FIXED means that the ES will be always at SAME fixed location
-            type: CELL
-            ###########################################################################
-            # Value of position (x,y) when type == "FIXED" [(m, m)]
-            fixed:
-                x: 10
-                y: 100
-            cell:
-                ###########################################################################
-                # Minimum distance to IMT BS when location.type == CELL [m]
-                min_dist_to_bs: 100
-            network:
-                ###########################################################################
-                # Minimum distance to IMT BS when location.type == NETWORK [m]
-                min_dist_to_bs: 150
-            uniform_dist:
-                ###########################################################################
-                # Ring inner radius [m]
-                min_dist_to_center: 101
-                ###########################################################################
-                # Ring outer radius [m]
-                max_dist_to_center: 102
-    antenna:
-        ###########################################################################
-        # Choose the antenna pattern. Can be one of:
-        # "OMNI", "ITU-R F.699", "ITU-R S.465", "ITU-R S.580", "MODIFIED ITU-R S.465", "ITU-R S.1855",
-        # "ITU-R Reg. RR. Appendice 7 Annex 3"
-        pattern: ITU-R S.465
-        ###########################################################################
-        # Earth station peak receive antenna gain [dBi]
-        gain: 28
-        itu_r_f_699:
-            ###########################################################################
-            # Antenna diameter [m]
-            diameter: 1.1
-        itu_r_s_465:
-            ###########################################################################
-            # Antenna diameter [m]
-            diameter: 1.1
-        itu_r_s_580:
-            ###########################################################################
-            # Antenna diameter [m]
-            diameter: 1.1
-        itu_r_s_1855:
-            ###########################################################################
-            # Antenna diameter [m]
-            diameter: 1.1
-        itu_reg_rr_a7_3:
-            ###########################################################################
-            # Antenna diameter [m]
-            # if no diameter is passed, a diameter will be assumed according to document
-            diameter: 1.1
-        itu_r_s_465_modified:
-            ###########################################################################
-            # Antenna envelope gain [dBi]
-            envelope_gain: -4
-    ###########################################################################
-    # Selected channel model
-    # Possible values are "P619", "P452", "TerrestrialSimple"
-    channel_model: "P452"
-
-    ###########################################################################
-    # Parameters for P619 channel model
-    param_p619:
-        ###########################################################################
-        # altitude of the space station [m]
-        space_station_alt_m: 540000
-        ###########################################################################
-        # altitude of ES system [m]
-        earth_station_alt_m: 1200
-        ###########################################################################
-        # latitude of ES system [m]
-        earth_station_lat_deg: 13
-        ###########################################################################
-        # difference between longitudes of IMT-NTN station and FSS-ES system [deg]
-        #   (positive if space-station is to the East of earth-station)
-        earth_station_long_diff_deg: 10
-
-    ###########################################################################
-    # season - season of the year.
-    #   Only actually useful for P619, but we can't put it inside param_p619 without changing more code
-    season: SUMMER
-
-    ###########################################################################
-    # Parameters for P452 channel model
-    param_p452:
-        ###########################################################################
-        # Total air pressure [hPa]
-        atmospheric_pressure: 1
-        ###########################################################################
-        # Temperature [K]
-        air_temperature: 2
-        ###########################################################################
-        # Sea-level surface refractivity (use the map)
-        N0: 3
-        ###########################################################################
-        # Average radio-refractive (use the map)
-        delta_N: 4
-        ###########################################################################
-        # percentage p. Float (0 to 100) or RANDOM
-        percentage_p: 5
-        ###########################################################################
-        # Distance over land from the transmit and receive antennas to the coast (km)
-        Dct: 6
-        ###########################################################################
-        # Distance over land from the transmit and receive antennas to the coast (km)
-        Dcr: 7
-        ###########################################################################
-        # Effective height of interfering antenna (m)
-        Hte: 8
-        ###########################################################################
-        # Effective height of interfered-with antenna (m)
-        Hre: 9
-        ###########################################################################
-        # Latitude of transmitter
-        tx_lat: 10
-        ###########################################################################
-        # Latitude of receiver
-        rx_lat: 11
-        ###########################################################################
-        # Antenna polarization. Possible values are "horizontal", "vertical"
-        polarization: horizontal
-        ###########################################################################
-        # determine whether clutter loss following ITU-R P.2108 is added (TRUE/FALSE)
-        clutter_loss: TRUE
-
+    
 

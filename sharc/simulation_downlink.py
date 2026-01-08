@@ -93,7 +93,7 @@ class SimulationDownlink(Simulation):
         # self.plot_scenario()
 
         if self.parameters.general.system == "WIFI":
-            self.system.connect_wifi_sta_to_ap
+            self.system.connect_wifi_sta_to_ap(self.param_system)
             self.system.select_sta(random_number_gen, self.parameters.wifi)
             self.power_control_wifi()
 

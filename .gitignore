@@ -109,3 +109,5 @@ sharc/campaigns/mss_d2d_to_imt/output/*.yaml
 
 /logs
 /sharc/output
+
+/.yaml

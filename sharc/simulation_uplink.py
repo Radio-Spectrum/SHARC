@@ -491,14 +491,6 @@ class SimulationUplink(Simulation):
         active_ap = np.where(self.system.ap.active)[0]
         active_sta = np.where(self.system.sta.active)[0]
 
-        # Pré-cálculo da Densidade de Potência (dBm/MHz)
-        # Power Density = Total Power (dBm) - 10*log10(Bandwidth MHz)
-        dens_ap = self.parameters.wifi.ap.conducted_power - \
-                  10 * np.log10(self.parameters.wifi.bandwidth)
-        
-        dens_sta = self.parameters.wifi.sta.conducted_power - \
-                   10 * np.log10(self.parameters.wifi.bandwidth)
-
         for bs in bs_active:
             # Feixes ativos desta BS
             active_beams = [
@@ -518,33 +510,30 @@ class SimulationUplink(Simulation):
                 float(self.param_system.frequency),
             )
 
-            # --- CÁLCULO CO-CANAL ---
-            in_band_interf_linear_total = np.zeros(len(active_beams))
-
+            in_band_interf_power = np.full(len(active_beams), -500.0)
             if self.co_channel and self.overlapping_bandwidth > 0:
                 # 1. Interferência dos APs
                 # P_rx (dBm) = Densidade_AP + 10log(Beam_BW_MHz) - Perda
                 # CORREÇÃO: Removemos o * 1e6 e usamos densidade correta
-                p_ap_dbm = dens_ap + \
-                           10 * np.log10(beams_bw_mhz[:, np.newaxis]) + \
-                           10 * np.log10(weights)[:, np.newaxis] - \
-                           self.coupling_loss_imt_system_ap[active_beams, :][:, active_ap]
+                interf_ap_lin = np.sum(10 ** (0.1 * (
+                        self.param_system.tx_power_density + 
+                        10 * np.log10(beams_bw_mhz[:, np.newaxis] * 1e6) + 
+                        10 * np.log10(weights)[:, np.newaxis] - 
+                        self.coupling_loss_imt_system_ap[active_beams, :][:, active_ap]
+                    )), axis=1)
                 
-                # Soma linear (mW)
-                in_band_interf_linear_total += np.sum(10**(0.1 * p_ap_dbm), axis=1)
-
-                # 2. Interferência dos STAs
-                p_sta_dbm = dens_sta + \
-                            10 * np.log10(beams_bw_mhz[:, np.newaxis]) + \
-                            10 * np.log10(weights)[:, np.newaxis] - \
-                            self.coupling_loss_imt_system_sta[active_beams, :][:, active_sta]
+                interf_sta_lin = np.sum(10 ** (0.1 * (
+                        self.param_system.tx_power_density + 
+                        10 * np.log10(beams_bw_mhz[:, np.newaxis] * 1e6) + 
+                        10 * np.log10(weights)[:, np.newaxis] - 
+                        self.coupling_loss_imt_system_sta[active_beams, :][:, active_sta]
+                    )), axis=1)
                 
-                # Soma linear (mW)
-                in_band_interf_linear_total += np.sum(10**(0.1 * p_sta_dbm), axis=1)
-
-            # --- CÁLCULO OOB (Adjacente) ---
-            oob_interf_linear_total = np.zeros(len(active_beams))
+                total_interf_lin = interf_ap_lin + interf_sta_lin
+                valid_idx = total_interf_lin > 0
+                in_band_interf_power[valid_idx] = 10 * np.log10(total_interf_lin[valid_idx])
             
+            oob_power = np.resize(-500., (len(active_beams), 1))
             if self.adjacent_channel:
                 # Simplificação: Usando parâmetros genéricos do sistema para OOB
                 # Idealmente calcularia tx_oob para AP e STA separadamente se as máscaras forem diferentes
@@ -585,32 +574,20 @@ class SimulationUplink(Simulation):
                     rx_oob_sta = rx_oob[:, np.newaxis] - self.coupling_loss_imt_system_sta[active_beams, :][:, active_sta]
                     oob_interf_linear_total += np.sum(10**(0.1 * rx_oob_sta), axis=1)
 
-            # --- SOMA FINAL E RESULTADO ---
-            total_mW = in_band_interf_linear_total + oob_interf_linear_total
             
-            # Converte para dBm (Vetor de tamanho [N_Beams])
-            # CORREÇÃO: Removemos o '+ 30', pois 10*log10(mW) já é dBm
-            ext_interference_dbm = np.full(len(active_beams), -174.0)
-            valid_idx = total_mW > 0
-            ext_interference_dbm[valid_idx] = 10 * np.log10(total_mW[valid_idx])
+            total_ext_mw = 10 ** (0.1 * in_band_interf_power) + 10 ** (0.1 * oob_power)
+            ext_interf_dbm = 10 * np.log10(total_ext_mw) + 30
+            
+            self.bs.ext_interference[bs] = ext_interf_dbm
 
-            # Atribui ao BS (ext_interference no Uplink é por feixe/setor)
-            self.bs.ext_interference[bs] = ext_interference_dbm
+            # Recalcula SINR Externo: S / (I_intra + I_ext + N)
+            i_intra_noise_lin = 10 ** (0.1 * self.bs.total_interference[bs])
+            i_ext_lin = 10 ** (0.1 * ext_interf_dbm)
+            
+            self.bs.sinr_ext[bs] = self.bs.rx_power[bs] - 10 * np.log10(i_intra_noise_lin + i_ext_lin)
 
-            # Recalcula SINR e INR
-            # SINR_Ext = S / (I_intra + I_ext + N)
-            # I_total = I_intra + N (já calculado em calculate_sinr)
-            # Precisamos somar linearmente I_ext
-            
-            i_total_linear = 10**(0.1 * self.bs.total_interference[bs]) # Intra + Noise
-            i_ext_linear = 10**(0.1 * ext_interference_dbm)
-            
-            new_total_interference = 10 * np.log10(i_total_linear + i_ext_linear)
-            
-            self.bs.sinr_ext[bs] = self.bs.rx_power[bs] - new_total_interference
-
-            # INR = I_ext - Noise
-            self.bs.inr[bs] = ext_interference_dbm - self.bs.thermal_noise[bs]
+            # INR = I_externa - Ruído Térmico
+            self.bs.inr[bs] = ext_interf_dbm - self.bs.thermal_noise[bs]
 
     def calculate_external_interference(self):
         """

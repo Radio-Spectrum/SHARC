@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import csv
 import os
 import sys
 import yaml
@@ -56,6 +57,24 @@ class SimulationLogger:
     def get_output_dir(cls) -> Optional[Path]:
         """Return the global output directory, if set."""
         return cls._global_output_dir
+
+    @classmethod
+    def log_to_csv(
+        cls,
+        csv_name: str,
+        vals: list
+    ):
+        p = cls._global_output_dir / f"{csv_name}.csv"
+
+        write_header = not p.exists()
+
+        data = [[v] for v in vals]
+        with open(p, "a", newline="") as file:
+            writer = csv.writer(file)
+            if write_header:
+                writer.writerow(["samples"])
+
+            writer.writerows(data)
 
     def __init__(self, param_file: str, log_base: str = "simulation_log"):
         self.param_file: Path = Path(param_file).resolve()

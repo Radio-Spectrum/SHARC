@@ -80,9 +80,6 @@ class TopologyImtMssDc(Topology):
 
         MAX_ITER = 10000  # Maximum iterations to find at least one visible satellite
 
-        # for logging purposes
-        temporary_num_of_visible_sats = 0
-
         while num_base_stations == 0:
             # Calculate the total number of satellites across all orbits
             total_satellites = sum(
@@ -190,8 +187,6 @@ class TopologyImtMssDc(Topology):
                         # angle
                         active_sats_mask = active_sats_mask & (elev_from_bs.flatten(
                         ) >= orbit_params.sat_is_active_if.minimum_elevation_from_es)
-
-                        temporary_num_of_visible_sats = np.sum(active_sats_mask)
 
                     if "MAXIMUM_ELEVATION_FROM_ES" in orbit_params.sat_is_active_if.conditions:
                         # no need to recalculate if already calculated above
@@ -336,7 +331,7 @@ class TopologyImtMssDc(Topology):
 
             altitudes = np.repeat(sat_altitude, sat_ocurr)
 
-        SimulationLogger.log_to_csv("num_of_visible_sats", [temporary_num_of_visible_sats])
+        SimulationLogger.log_to_csv("num_of_candidate_sats", [len(active_satellite_idxs)])
         assert (space_station_x.shape == (num_base_stations,))
         assert (space_station_y.shape == (num_base_stations,))
         assert (space_station_z.shape == (num_base_stations,))

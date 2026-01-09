@@ -17,16 +17,36 @@ class ImtTabTabMixin:
 
             # Frame real onde você adiciona os widgets
             imt_body = ttk.Frame(canvas)
-            # cria uma window dentro do canvas
             canvas_window = canvas.create_window((0, 0), window=imt_body, anchor="nw")
 
-            def _on_frame_config(event):
-                # ajusta região de scroll para caber o conteúdo
+            # Faz o scroll acompanhar o tamanho do conteúdo
+            def _on_frame_configure(event):
                 canvas.configure(scrollregion=canvas.bbox("all"))
-                # mantém a largura do frame igual à largura visível do canvas
-                canvas.itemconfig(canvas_window, width=canvas.winfo_width())
 
-            imt_body.bind("<Configure>", _on_frame_config)
+            imt_body.bind("<Configure>", _on_frame_configure)
+
+            # Faz o frame interno ocupar a largura do canvas
+            def _on_canvas_configure(event):
+                canvas.itemconfigure(canvas_window, width=event.width)
+
+            canvas.bind("<Configure>", _on_canvas_configure)
+
+            # =========================================================
+            # Campo: IMT config path (JSON)
+            # =========================================================
+            row_imt = ttk.LabelFrame(imt_body, text="IMT config (.json)")
+            row_imt.pack(fill="x", padx=8, pady=(8, 6))
+
+            ttk.Label(row_imt, text="Arquivo:").pack(side="left")
+            e_imt = ttk.Entry(row_imt, textvariable=self.var_imt_config_path)
+            e_imt.pack(side="left", fill="x", expand=True, padx=(6, 6))
+            ttk.Button(row_imt, text="Selecionar...", command=self._pick_imt_config).pack(side="left")
+            ttk.Button(row_imt, text="Carregar", command=self._load_imt_from_general_path).pack(side="left", padx=(6, 0))
+
+
+            # ... abaixo daqui você continua criando o resto dos widgets IMT,
+            # mas SEMPRE como filhos de imt_body (ou de frames dentro de imt_body)
+
 
             # suporte a rodinha do mouse
             def _on_mousewheel(event):
@@ -443,55 +463,102 @@ class ImtTabTabMixin:
                     if fn:
                         self.path_shp.set(fn)
 
-    def _load_imt_config(self):
-            path = filedialog.askopenfilename(filetypes=[("JSON","*.json")])
-            if not path: return
-            with open(path, "r", encoding="utf-8") as f: vals = json.load(f)
-            def S(name, var):
-                if name in vals:
-                    try: var.set(vals[name])
-                    except: pass
-            for k, v in vals.items():
-                # generic assign where possible
+    def _apply_imt_config_dict(self, vals: dict):
+        """Aplica um dict (lido do JSON) nas variáveis do IMT. Única fonte de verdade."""
+        def S(name, var):
+            if name in vals:
+                try:
+                    var.set(vals[name])
+                except Exception:
+                    pass
+
+        # --- mesmo mapeamento do seu _load_imt_config atual ---
+        S("imt_min_sep", self.imt_min_sep); S("imt_interfered", self.imt_interfered)
+        S("imt_freq", self.imt_freq); S("imt_bw", self.imt_bw); S("imt_rb_bw", self.imt_rb_bw)
+        S("imt_spec_mask", self.imt_spec_mask); S("imt_spurious", self.imt_spurious)
+        S("imt_adj_ant_model", self.imt_adj_ant_model); S("imt_guard_ratio", self.imt_guard_ratio)
+
+        S("topo_c_lat", self.topo_c_lat); S("topo_c_lon", self.topo_c_lon); S("topo_c_alt", self.topo_c_alt)
+        S("topo_type", self.topo_type); S("topo_dist_type", self.topo_dist_type)
+        S("topo_num_bs", self.topo_num_bs); S("topo_cell_radius", self.topo_cell_radius); S("topo_rng", self.topo_rng)
+
+        if "countries" in vals:
+            try:
+                self.txt_countries.delete("1.0", "end")
+                self.txt_countries.insert("1.0", vals["countries"])
+            except Exception:
                 pass
-            S("imt_min_sep", self.imt_min_sep); S("imt_interfered", self.imt_interfered)
-            S("imt_freq", self.imt_freq); S("imt_bw", self.imt_bw); S("imt_rb_bw", self.imt_rb_bw)
-            S("imt_spec_mask", self.imt_spec_mask); S("imt_spurious", self.imt_spurious)
-            S("imt_adj_ant_model", self.imt_adj_ant_model); S("imt_guard_ratio", self.imt_guard_ratio)
-            S("topo_c_lat", self.topo_c_lat); S("topo_c_lon", self.topo_c_lon); S("topo_c_alt", self.topo_c_alt)
-            S("topo_type", self.topo_type); S("topo_dist_type", self.topo_dist_type)
-            S("topo_num_bs", self.topo_num_bs); S("topo_cell_radius", self.topo_cell_radius); S("topo_rng", self.topo_rng)
-            if "countries" in vals:
-                self.txt_countries.delete("1.0","end"); self.txt_countries.insert("1.0", vals["countries"])
-            S("path_shp", self.path_shp); S("path_raster", self.path_raster)
-            S("raster_encoding", self.raster_encoding); S("sedac_mode", self.sedac_mode)
-            S("sedac_min", self.sedac_min); S("sedac_max", self.sedac_max); S("pixel_area_method", self.pixel_area_method)
-            # BS
-            S("bs_load_prob", self.bs_load_prob); S("bs_power", self.bs_power); S("bs_height", self.bs_height)
-            S("bs_nf", self.bs_nf); S("bs_ohmic", self.bs_ohmic); S("bs_norm", self.bs_norm)
-            S("bs_elem_pat", self.bs_elem_pat); S("bs_min_arr_gain", self.bs_min_arr_gain)
-            S("bs_downtilt", self.bs_downtilt); S("bs_elem_max_g", self.bs_elem_max_g)
-            S("bs_phi3", self.bs_phi3); S("bs_theta3", self.bs_theta3)
-            S("bs_rows", self.bs_rows); S("bs_cols", self.bs_cols)
-            S("bs_elem_hs", self.bs_elem_hs); S("bs_elem_vs", self.bs_elem_vs)
-            S("bs_elem_am", self.bs_elem_am); S("bs_elem_sla_v", self.bs_elem_sla_v)
-            S("bs_mult", self.bs_mult); S("bs_sub_enabled", self.bs_sub_enabled)
-            S("bs_sub_rows", self.bs_sub_rows); S("bs_sub_evspace", self.bs_sub_evspace)
-            S("bs_sub_e_downtilt", self.bs_sub_e_downtilt)
-            # UE
-            S("ue_k", self.ue_k); S("ue_km", self.ue_km); S("ue_indoor", self.ue_indoor); S("ue_dist_type", self.ue_dist_type)
-            S("ue_tx_power_ctrl", self.ue_tx_power_ctrl); S("ue_p_o_pusch", self.ue_p_o_pusch)
-            S("ue_alpha", self.ue_alpha); S("ue_p_cmax", self.ue_p_cmax); S("ue_p_dyn", self.ue_p_dyn)
-            S("ue_height", self.ue_height); S("ue_nf", self.ue_nf); S("ue_ohmic", self.ue_ohmic); S("ue_body_loss", self.ue_body_loss)
-            S("ue_norm", self.ue_norm); S("ue_elem_pat", self.ue_elem_pat); S("ue_min_arr_gain", self.ue_min_arr_gain)
-            S("ue_elem_max_g", self.ue_elem_max_g); S("ue_phi3", self.ue_phi3); S("ue_theta3", self.ue_theta3)
-            S("ue_rows", self.ue_rows); S("ue_cols", self.ue_cols); S("ue_elem_am", self.ue_elem_am)
-            S("ue_elem_sla_v", self.ue_elem_sla_v); S("ue_mult", self.ue_mult)
-            # UL/DL
-            S("ul_att", self.ul_att); S("ul_sinr_min", self.ul_sinr_min); S("ul_sinr_max", self.ul_sinr_max)
-            S("dl_att", self.dl_att); S("dl_sinr_min", self.dl_sinr_min); S("dl_sinr_max", self.dl_sinr_max)
-            S("ch_model", self.ch_model); S("shadowing", self.shadowing)
+
+        S("path_shp", self.path_shp); S("path_raster", self.path_raster)
+        S("raster_encoding", self.raster_encoding); S("sedac_mode", self.sedac_mode)
+        S("sedac_min", self.sedac_min); S("sedac_max", self.sedac_max); S("pixel_area_method", self.pixel_area_method)
+
+        # BS
+        S("bs_load_prob", self.bs_load_prob); S("bs_power", self.bs_power); S("bs_height", self.bs_height)
+        S("bs_nf", self.bs_nf); S("bs_ohmic", self.bs_ohmic); S("bs_norm", self.bs_norm)
+        S("bs_elem_pat", self.bs_elem_pat); S("bs_min_arr_gain", self.bs_min_arr_gain)
+        S("bs_downtilt", self.bs_downtilt); S("bs_elem_max_g", self.bs_elem_max_g)
+        S("bs_phi3", self.bs_phi3); S("bs_theta3", self.bs_theta3)
+        S("bs_rows", self.bs_rows); S("bs_cols", self.bs_cols)
+        S("bs_elem_hs", self.bs_elem_hs); S("bs_elem_vs", self.bs_elem_vs)
+        S("bs_elem_am", self.bs_elem_am); S("bs_elem_sla_v", self.bs_elem_sla_v)
+        S("bs_mult", self.bs_mult); S("bs_sub_enabled", self.bs_sub_enabled)
+        S("bs_sub_rows", self.bs_sub_rows); S("bs_sub_evspace", self.bs_sub_evspace)
+        S("bs_sub_e_downtilt", self.bs_sub_e_downtilt)
+
+        # UE
+        S("ue_k", self.ue_k); S("ue_km", self.ue_km); S("ue_indoor", self.ue_indoor); S("ue_dist_type", self.ue_dist_type)
+        S("ue_tx_power_ctrl", self.ue_tx_power_ctrl); S("ue_p_o_pusch", self.ue_p_o_pusch)
+        S("ue_alpha", self.ue_alpha); S("ue_p_cmax", self.ue_p_cmax); S("ue_p_dyn", self.ue_p_dyn)
+        S("ue_height", self.ue_height); S("ue_nf", self.ue_nf); S("ue_ohmic", self.ue_ohmic); S("ue_body_loss", self.ue_body_loss)
+        S("ue_norm", self.ue_norm); S("ue_elem_pat", self.ue_elem_pat); S("ue_min_arr_gain", self.ue_min_arr_gain)
+        S("ue_elem_max_g", self.ue_elem_max_g); S("ue_phi3", self.ue_phi3); S("ue_theta3", self.ue_theta3)
+        S("ue_rows", self.ue_rows); S("ue_cols", self.ue_cols); S("ue_elem_am", self.ue_elem_am)
+        S("ue_elem_sla_v", self.ue_elem_sla_v); S("ue_mult", self.ue_mult)
+
+        # UL/DL
+        S("ul_att", self.ul_att); S("ul_sinr_min", self.ul_sinr_min); S("ul_sinr_max", self.ul_sinr_max)
+        S("dl_att", self.dl_att); S("dl_sinr_min", self.dl_sinr_min); S("dl_sinr_max", self.dl_sinr_max)
+        S("ch_model", self.ch_model); S("shadowing", self.shadowing)
+
+
+    def _load_imt_config_from_path(self, path: str, silent: bool = False) -> bool:
+        """Carrega IMT config a partir de um path (sem abrir janela)."""
+        path = (path or "").strip()
+        if not path:
+            if not silent:
+                messagebox.showwarning("IMT", "Caminho do JSON está vazio.")
+            return False
+
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                vals = json.load(f)
+        except Exception as e:
+            if not silent:
+                messagebox.showerror("IMT", f"Falha ao carregar:\n{path}\n\n{e}")
+            return False
+
+        self._apply_imt_config_dict(vals)
+        if not silent:
             messagebox.showinfo("IMT", "Configuração IMT carregada.")
+        return True
+
+
+    def _load_imt_config(self):
+        """Botão antigo: escolhe arquivo e chama o mesmo loader."""
+        path = filedialog.askopenfilename(filetypes=[("JSON", "*.json"), ("Todos", "*.*")])
+        if not path:
+            return
+        # opcional: atualiza o Entry do path se você tiver self.var_imt_config_path
+        if hasattr(self, "var_imt_config_path"):
+            self.var_imt_config_path.set(path)
+        self._load_imt_config_from_path(path, silent=False)
+
+
+    def _load_imt_from_general_path(self):
+        """Botão novo 'Carregar' ao lado do Entry."""
+        path = (self.var_imt_config_path.get() or "").strip()
+        self._load_imt_config_from_path(path, silent=False)
 
     def _pair_entries(self, parent, var1, var2, w=6):
             f = ttk.Frame(parent)
@@ -610,4 +677,181 @@ class ImtTabTabMixin:
                     self._ue_col_dist_frame.grid()      # mostra
                 else:
                     self._ue_col_dist_frame.grid_remove()
+    def _pick_imt_config(self):
+        p = filedialog.askopenfilename(
+            title="Selecionar configuração IMT (.json)",
+            filetypes=[("JSON", "*.json"), ("Todos", "*.*")]
+        )
+        if p:
+            self.var_imt_config_path.set(p)
+
+    def _load_imt_from_general_path(self):
+        path = (self.var_imt_config_path.get() or "").strip()
+        if not path:
+            messagebox.showwarning("IMT", "Informe um caminho para o JSON.")
+            return
+        self._load_imt_config_from_path(path, silent=False)
+
+    def _imt_to_dict(self) -> dict:
+        # =========================
+        # TOPOLOGY
+        # =========================
+        topo_type = str(self.topo_type.get())
+
+        topology = {
+            "central_latitude": self._num_or_str(self.topo_c_lat.get()),
+            "central_longitude": self._num_or_str(self.topo_c_lon.get()),
+            "central_altitude": self._num_or_str(self.topo_c_alt.get()),
+            "type": topo_type,
+        }
+
+        if topo_type == "Macro_countries":
+            country_names = [c.strip() for c in self.txt_countries.get("1.0", "end").splitlines() if c.strip()]
+
+            enc_ui = (self.topo_raster_enc.get() or "").strip()
+            if enc_ui == "Uniforme":
+                pop_raster = ''
+                raster_encoding = None
+            else:
+                pop_raster = self.path_raster.get().strip() or None
+                raster_encoding = "indexed"
+
+            topology["macrocell_countries"] = {
+                "country_names": country_names,
+                "num_bs_total": int(self._num_or_str(self.topo_num_bs.get())),
+                "cell_radius": self._num_or_str(self.topo_cell_radius.get()),
+                "rng_seed": int(self._num_or_str(self.topo_rng.get())),
+                "dist_type": self.topo_dist_type.get(),
+                "countries_shapefile": self.path_shp.get().strip() or None,
+                "population_raster": pop_raster,
+            }
+            if raster_encoding is not None:
+                topology["macrocell_countries"]["raster_encoding"] = raster_encoding
+
+        elif topo_type == "MACROCELL":
+            topology["macrocell"] = {
+                "intersite_distance": self._num_or_str(self.macro_intersite.get()),
+                "wrap_around": bool(self.macro_wrap.get()),
+                "num_clusters": int(self._num_or_str(self.macro_clusters.get())),
+            }
+
+        elif topo_type == "HOTSPOT":
+            topology["hotspot"] = {
+                "intersite_distance": self._num_or_str(self.hotspot_intersite.get()),
+                "wrap_around": bool(self.hotspot_wrap.get()),
+                "num_clusters": int(self._num_or_str(self.hotspot_clusters.get())),
+                "num_hotspots_per_cell": int(self._num_or_str(self.hotspot_num_per_cell.get())),
+                "max_dist_hotspot_ue": self._num_or_str(self.hotspot_max_dist_ue.get()),
+                "min_dist_bs_hotspot": self._num_or_str(self.hotspot_min_dist_bs.get()),
+            }
+
+        # =========================
+        # UE
+        # =========================
+        ue_block = {
+            "k": int(self._num_or_str(self.ue_k.get())),
+            "k_m": int(self._num_or_str(self.ue_km.get())),
+            "indoor_percent": bool(self.ue_indoor.get()),
+            "distribution_type": self.ue_dist_type.get(),
+            "tx_power_control": bool(self.ue_tx_power_ctrl.get()),
+            "p_o_pusch": self._num_or_str(self.ue_p_o_pusch.get()),
+            "alpha": self._num_or_str(self.ue_alpha.get()),
+            "p_cmax": self._num_or_str(self.ue_p_cmax.get()),
+            "power_dynamic_range": self._num_or_str(self.ue_p_dyn.get()),
+            "height": self._num_or_str(self.ue_height.get()),
+            "noise_figure": self._num_or_str(self.ue_nf.get()),
+            "ohmic_loss": self._num_or_str(self.ue_ohmic.get()),
+            "body_loss": self._num_or_str(self.ue_body_loss.get()),
+            "antenna": {
+                "array": {
+                    "normalization": bool(self.ue_norm.get()),
+                    "element_pattern": self.ue_elem_pat.get(),
+                    "minimum_array_gain": self._num_or_str(self.ue_min_arr_gain.get()),
+                    "element_max_g": self._num_or_str(self.ue_elem_max_g.get()),
+                    "element_phi_3db": self._num_or_str(self.ue_phi3.get()),
+                    "element_theta_3db": self._num_or_str(self.ue_theta3.get()),
+                    "n_rows": self._num_or_str(self.ue_rows.get()),
+                    "n_columns": self._num_or_str(self.ue_cols.get()),
+                    "element_am": self._num_or_str(self.ue_elem_am.get()),
+                    "element_sla_v": self._num_or_str(self.ue_elem_sla_v.get()),
+                    "multiplication_factor": self._num_or_str(self.ue_mult.get()),
+                }
+            },
+        }
+
+        # Só inclui distribution_distance/azimuth se ANGLE_AND_DISTANCE
+        if self.ue_dist_type.get().upper() == "ANGLE_AND_DISTANCE":
+            ue_block["distribution_distance"] = self.ue_dist_distance.get()
+            ue_block["distribution_azimuth"] = self.ue_dist_azimuth.get()
+
+        # =========================
+        # IMT (BS / UE / UL / DL / channel)
+        # =========================
+        imt = {
+            "minimum_separation_distance_bs_ue": self._num_or_str(self.imt_min_sep.get()),
+            "interfered_with": bool(self.imt_interfered.get()),
+            "frequency": self._num_or_str(self.imt_freq.get()),
+            "bandwidth": self._num_or_str(self.imt_bw.get()),
+            "rb_bandwidth": self._num_or_str(self.imt_rb_bw.get()),
+            "spectral_mask": self.imt_spec_mask.get(),
+            "spurious_emissions": self._num_or_str(self.imt_spurious.get()),
+            "adjacent_antenna_model": self.imt_adj_ant_model.get(),
+            "guard_band_ratio": self._num_or_str(self.imt_guard_ratio.get()),
+            "topology": topology,
+            "bs": {
+                "load_probability": self._num_or_str(self.bs_load_prob.get()),
+                "conducted_power": self._num_or_str(self.bs_power.get()),
+                "height": self._num_or_str(self.bs_height.get()),
+                "noise_figure": self._num_or_str(self.bs_nf.get()),
+                "ohmic_loss": self._num_or_str(self.bs_ohmic.get()),
+                "antenna": {
+                    "array": {
+                        "normalization": bool(self.bs_norm.get()),
+                        "element_pattern": self.bs_elem_pat.get(),
+                        "minimum_array_gain": self._num_or_str(self.bs_min_arr_gain.get()),
+                        "horizontal_beamsteering_range": [
+                            self._num_or_str(self.bs_h_steer[0].get()),
+                            self._num_or_str(self.bs_h_steer[1].get())
+                        ],
+                        "vertical_beamsteering_range": [
+                            self._num_or_str(self.bs_v_steer[0].get()),
+                            self._num_or_str(self.bs_v_steer[1].get())
+                        ],
+                        "downtilt": self._num_or_str(self.bs_downtilt.get()),
+                        "element_max_g": self._num_or_str(self.bs_elem_max_g.get()),
+                        "element_phi_3db": self._num_or_str(self.bs_phi3.get()),
+                        "element_theta_3db": self._num_or_str(self.bs_theta3.get()),
+                        "n_rows": self._num_or_str(self.bs_rows.get()),
+                        "n_columns": self._num_or_str(self.bs_cols.get()),
+                        "element_horiz_spacing": self._num_or_str(self.bs_elem_hs.get()),
+                        "element_vert_spacing": self._num_or_str(self.bs_elem_vs.get()),
+                        "element_am": self._num_or_str(self.bs_elem_am.get()),
+                        "element_sla_v": self._num_or_str(self.bs_elem_sla_v.get()),
+                        "multiplication_factor": self._num_or_str(self.bs_mult.get()),
+                        "subarray": {
+                            "is_enabled": bool(self.bs_sub_enabled.get()),
+                            "n_rows": self._num_or_str(self.bs_sub_rows.get()),
+                            "element_vert_spacing": self._num_or_str(self.bs_sub_evspace.get()),
+                            "eletrical_downtilt": self._num_or_str(self.bs_sub_e_downtilt.get()),
+                        }
+                    }
+                }
+            },
+            "ue": ue_block,
+            "uplink": {
+                "attenuation_factor": self._num_or_str(self.ul_att.get()),
+                "sinr_min": self._num_or_str(self.ul_sinr_min.get()),
+                "sinr_max": self._num_or_str(self.ul_sinr_max.get()),
+            },
+            "downlink": {
+                "attenuation_factor": self._num_or_str(self.dl_att.get()),
+                "sinr_min": self._num_or_str(self.dl_sinr_min.get()),
+                "sinr_max": self._num_or_str(self.dl_sinr_max.get()),
+            },
+            "channel_model": self.ch_model.get(),
+            "shadowing": bool(self.shadowing.get()),
+        }
+
+        return imt
+
 

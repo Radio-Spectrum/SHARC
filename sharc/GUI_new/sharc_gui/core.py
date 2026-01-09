@@ -1,6 +1,8 @@
 # Auto-split from original sharc_gui.py
 from sharc_gui.common.imports import *  # noqa
 from sharc_gui.common.plot_info import RESULT_FIELDNAME_TO_PLOT_INFO  # noqa
+from pathlib import Path
+import random 
 
 class CoreMixin:
     def _add_polygon3d(self, ax3d, poly_xy, z=0.0, face_alpha=0.06, edge_color="k", lw=1.0):
@@ -10,29 +12,109 @@ class CoreMixin:
             pcoll.set_facecolor(edge_color)
             ax3d.add_collection3d(pcoll)
 
-    def _apply_variables_to_prefix(self, prefix: str, combo: dict) -> str:
-            try:
-                return prefix.format(**combo)
-            except Exception:
-                return prefix
+    def _apply_variables_to_prefix(self, base_prefix: str, combo_tags: dict) -> str:
+        """
+        Usa o output_dir_prefix como template e substitui {var} pelo TAG.
+        Ex: base_prefix="output_{dist}" + combo_tags={"dist":"D1"} -> "output_D1"
+        """
+        try:
+            return (base_prefix or "scenario").format(**(combo_tags or {}))
+        except Exception:
+            return base_prefix or "scenario"
+
+
+
 
     def _collect_var_combos(self):
-            names, lists = [], []
-            for iid in self.var_table.get_children():
-                name, vals = self.var_table.item(iid, "values")
+        """
+        Agora cada variável fornece uma lista de PARES (tag, value).
+        Ex. dist: tags=["D1","D2"], values=[10000,20000]
+            -> [("D1",10000), ("D2",20000)]
+        Retorno:
+        [{"vars": {...}, "tags": {...}}, ...]
+        """
+        var_names = []
+        pair_lists = []
+
+        for iid in self.var_table.get_children():
+            var_key, tags_raw, vals_raw = self.var_table.item(iid, "values")
+
+            var_key = str(var_key).strip()
+            if not var_key:
+                messagebox.showwarning("Variáveis", "var_key vazio.")
+                return None
+
+            # tags: precisa ser lista
+            try:
+                tags = ast.literal_eval(str(tags_raw))
+                if not isinstance(tags, (list, tuple)) or len(tags) == 0:
+                    raise ValueError()
+                tags = [str(t).strip() for t in tags]
+            except Exception:
+                messagebox.showwarning("Variáveis", f"Tags inválidas para '{var_key}'. Use lista, ex: [\"D1\",\"D2\"].")
+                return None
+
+            # values: pode ser lista python OU glob/pasta (se você quiser manter paths automáticos)
+            vals = self._expand_paths_field(str(vals_raw)) if hasattr(self, "_expand_paths_field") else None
+            if vals is None or len(vals) == 0:
                 try:
-                    vlist = ast.literal_eval(vals)
-                    if not isinstance(vlist, (list, tuple)):
+                    vals = ast.literal_eval(str(vals_raw))
+                    if not isinstance(vals, (list, tuple)) or len(vals) == 0:
                         raise ValueError()
+                    vals = list(vals)
                 except Exception:
-                    messagebox.showwarning("Variáveis", f"Valores inválidos para '{name}'. Use lista Python.")
+                    messagebox.showwarning("Variáveis", f"Valores inválidos para '{var_key}'.")
                     return None
-                names.append(str(name))
-                lists.append(list(vlist))
-            if not names:
-                return [{}]  # sem variáveis → apenas 1 combinação vazia
-            combos = [dict(zip(names, prod)) for prod in itertools.product(*lists)]
-            return combos
+
+            if len(tags) != len(vals):
+                messagebox.showwarning(
+                    "Variáveis",
+                    f"'{var_key}': quantidade de tags ({len(tags)}) diferente da quantidade de valores ({len(vals)})."
+                )
+                return None
+
+            pairs = list(zip(tags, vals))  # [(tag,value),...]
+            var_names.append(var_key)
+            pair_lists.append(pairs)
+
+        if not var_names:
+            return [{"vars": {}, "tags": {}}]
+
+        combos = []
+        for prod in itertools.product(*pair_lists):
+            # prod é uma tupla com 1 par por variável: ((tag1,val1),(tag2,val2),...)
+            combo_vars = {}
+            combo_tags = {}
+            for (var_key, (tag, val)) in zip(var_names, prod):
+                combo_vars[var_key] = val
+                combo_tags[var_key] = tag
+
+            combos.append({"vars": combo_vars, "tags": combo_tags})
+
+        return combos
+
+
+
+    def _expand_paths_field(self, raw: str):
+        s = (raw or "").strip()
+        if not s:
+            return []
+
+        try:
+            obj = ast.literal_eval(s)
+            if isinstance(obj, (list, tuple)):
+                return [str(x) for x in obj]
+        except Exception:
+            pass
+
+        if any(ch in s for ch in ["*", "?", "["]):
+            return sorted(glob.glob(s))
+
+        if os.path.isdir(s):
+            return sorted(glob.glob(os.path.join(s, "*.yaml"))) + \
+                sorted(glob.glob(os.path.join(s, "*.yml")))
+
+        return [s]
 
     def _current_yaml(self) -> dict:
             general = {
@@ -431,15 +513,15 @@ class CoreMixin:
             # 🔥 LIMPA tudo automaticamente
             return self._clean_yaml(yaml_dict)
 
-    def _deep_format(self, obj, combo):
+    def _deep_format(self, obj, combo_vars):
             """Aplica .format(**combo) recursivamente em strings do dicionário."""
             if isinstance(obj, dict):
-                return {k: self._deep_format(v, combo) for k, v in obj.items()}
+                return {k: self._deep_format(v, combo_vars) for k, v in obj.items()}
             if isinstance(obj, list):
-                return [self._deep_format(v, combo) for v in obj]
+                return [self._deep_format(v, combo_vars) for v in obj]
             if isinstance(obj, str):
                 try:
-                    return obj.format(**combo)
+                    return obj.format(**combo_vars)
                 except Exception:
                     return obj
             return obj
@@ -603,16 +685,87 @@ class CoreMixin:
                             s=s, depthshade=False, color="tab:purple", edgecolors="none", label="UE indoor")
 
     def _write_yaml_combos(self, root, outdir, combos):
-            base_prefix = root["general"]["output_dir_prefix"] or "scenario"
-            for combo in combos:
-                # aplica placeholders no prefix do arquivo
-                prefix = self._apply_variables_to_prefix(base_prefix, combo)
-                # aplica placeholders em TODO o dicionário (strings apenas)
-                root_fmt = self._deep_format(root, combo)
-                text = build_yaml_text(root_fmt)
-                path = os.path.join(outdir, f"{prefix}.yaml")
-                with open(path, "w", encoding="utf-8") as f:
-                    f.write(text)
+        base_prefix = (root.get("general", {}) or {}).get("output_dir_prefix") or "scenario"
+
+        os.makedirs(outdir, exist_ok=True)
+
+        for combo in combos:
+            combo_vars = combo.get("vars", {})
+            combo_tags = combo.get("tags", {})
+
+            # 1) Nome do YAML usa TAGS
+            prefix_final = self._apply_variables_to_prefix(base_prefix, combo_tags)
+
+            # 2) Conteúdo base do YAML usa VALORES
+            root_fmt = self._deep_format(root, combo_vars)
+
+            # 3) output_dir_prefix no YAML = nome do YAML
+            root_fmt.setdefault("general", {})
+            root_fmt["general"]["output_dir_prefix"] = prefix_final
+
+            # 4) Seed aleatório por YAML
+            try:
+                if hasattr(self, "var_seed_random") and bool(self.var_seed_random.get()):
+                    root_fmt["general"]["seed"] = random.randint(1, 9999)
+            except Exception:
+                pass
+
+            # =========================================================
+            # 5) IMT config: carregar por combo e INJETAR no root_fmt
+            # =========================================================
+            imt_cfg_path = None
+
+            # Preferência 1: variável dedicada
+            if "imt_config_path" in combo_vars:
+                imt_cfg_path = combo_vars.get("imt_config_path")
+
+            # Preferência 2: campo global (resolvido por VALORES)
+            if not imt_cfg_path and hasattr(self, "var_imt_config_path"):
+                tpl = (self.var_imt_config_path.get() or "").strip()
+                if tpl:
+                    try:
+                        imt_cfg_path = tpl.format(**combo_vars)  # VALORES primeiro
+                    except Exception:
+                        imt_cfg_path = tpl
+
+            # Preferência 3: autodetect .json em combo_vars
+            if not imt_cfg_path:
+                for v in combo_vars.values():
+                    if isinstance(v, str):
+                        s = v.strip().strip('"').strip("'")
+                        if s.lower().endswith(".json"):
+                            imt_cfg_path = s
+                            break
+
+            # Se houver IMT json, carrega e injeta no YAML
+            if imt_cfg_path:
+                imt_cfg_path = str(imt_cfg_path).strip()
+
+                if "{" in imt_cfg_path and "}" in imt_cfg_path:
+                    raise FileNotFoundError(f"IMT config ainda tem placeholder não resolvido: {imt_cfg_path}")
+
+                if not os.path.isfile(imt_cfg_path):
+                    raise FileNotFoundError(f"IMT config não encontrado: {imt_cfg_path}")
+
+                ok = self._load_imt_config_from_path(imt_cfg_path, silent=True)
+                if not ok:
+                    raise RuntimeError(f"Falha ao carregar IMT config: {imt_cfg_path}")
+
+                # >>> A LINHA QUE FALTAVA <<<
+                # Atualiza o bloco IMT do YAML com o estado recém-carregado
+                root_fmt["imt"] = self._imt_to_dict()
+
+            # 6) Escreve YAML
+            text = build_yaml_text(root_fmt)
+            fpath = os.path.join(outdir, f"{prefix_final}.yaml")
+            with open(fpath, "w", encoding="utf-8") as f:
+                f.write(text)
+
+
+
+
+
+
 
     def _clean_yaml(self, obj):
         """

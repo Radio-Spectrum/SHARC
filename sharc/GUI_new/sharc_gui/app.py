@@ -69,11 +69,13 @@ class App(tk.Tk, CoreMixin,
         self.var_imt_link = tk.StringVar(value="DOWNLINK")
         self.var_adj = tk.BooleanVar(value=False)
         self.var_coch = tk.BooleanVar(value=True)
+        self.var_seed_random = tk.BooleanVar(value=False)
 
         # ------ Variables (General) ------
         self.vars_model = []  # list of dicts: {"name": str, "values": list}
 
         # ------ IMT: gerais ------
+        self.var_imt_config_path = tk.StringVar(value="")
         self.imt_min_sep = tk.StringVar(value="35")
         self.imt_interfered = tk.BooleanVar(value=False)
         self.imt_freq = tk.StringVar(value="8150")

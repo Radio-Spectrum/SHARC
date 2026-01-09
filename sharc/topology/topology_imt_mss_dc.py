@@ -15,6 +15,7 @@ import numpy as np
 import geopandas as gpd
 import functools
 
+from sharc.support.sharc_logger import SimulationLogger
 from collections import defaultdict
 from sharc.support.sharc_utils import to_scalar
 from sharc.topology.topology import Topology
@@ -333,6 +334,7 @@ class TopologyImtMssDc(Topology):
         #         np.arange(orbit_params.num_beams)
         # )
         active_satellite_idxs = np.arange(0, num_base_stations)
+        SimulationLogger.log_to_csv("num_of_candidate_sats", [len(active_satellite_idxs)])
 
         return {
             "num_satellites": num_base_stations,

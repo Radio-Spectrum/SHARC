@@ -10,6 +10,7 @@ import numpy as np
 import sys
 import math
 
+from sharc.support.sharc_logger import SimulationLogger
 from sharc.support.enumerations import StationType
 from sharc.parameters.parameters import Parameters
 from sharc.parameters.imt.parameters_imt import ParametersImt
@@ -1813,6 +1814,25 @@ class StationFactory(object):
         else:
             raise ValueError(
                 f"generate_mss_ss: Invalid antenna type: {params.antenna.pattern}")
+
+        # número de beams ativos
+        SimulationLogger.log_to_csv("num_of_active_beams", [np.sum(mss_d2d.active)])
+        # número de satélites, deduplicar posição
+        all_pos = np.stack((mss_d2d.geom.x_global, mss_d2d.geom.y_global, mss_d2d.geom.z_global), axis=-1)[mss_d2d.active]
+        uniq_pos, inv_idx = np.unique(
+            all_pos,
+            axis=0,
+            return_inverse=True
+        )
+        SimulationLogger.log_to_csv("num_of_active_sat", [len(uniq_pos)])
+        beams_per_sat = np.bincount(inv_idx)
+        SimulationLogger.log_to_csv("num_of_active_beams_per_sat", beams_per_sat)
+        # quantidade média de beams por satélite
+
+        # temos 3 angulos/distancias:
+        # entre IMT TN e satélites (ativação do sat)
+        # minimo de cobertura
+        # borda da zona de power control
 
         for i in range(mss_d2d.num_stations):
             if params.antenna.pattern == "Antenna System 4":

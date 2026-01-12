@@ -650,6 +650,29 @@ class SimulationDownlink(Simulation):
         for bs in bs_active:
             ue = self.link[bs]
 
+            #############################################
+            # Experimental PFD calculation at UE based on received power
+            if self.parameters.imt.ue.antenna.pattern == "ARRAY":
+                Gr = self.parameters.imt.ue.antenna.array.element_max_g
+                if self.parameters.imt.ue.antenna.array.element_pattern != "FIXED":
+                    raise NotImplementedError("PFD with non-FIXED element pattern is not implemented")
+            elif self.parameters.imt.ue.antenna.pattern != "OMNI":
+                raise NotImplementedError("This antenna pattern is not implemented for PFD calc")
+            else:
+                Gr = self.parameters.imt.ue.antenna.gain
+
+            # TODO: check if also remove polarization_loss
+            L = self.parameters.imt.ue.ohmic_loss \
+                + self.parameters.imt.ue.body_loss
+            wavelen = SPEED_OF_LIGHT / (self.parameters.imt.frequency * 1e6)
+            # self.ue.ext_interference[ue] is already without noise
+            # and after coupling loss
+            # WARNING: overwriting stuff
+            # self.ue.ext_interference is in dBm
+            self.ue.pfd_external_aggregated[ue] = self.ue.ext_interference[ue] - 30 - Gr + L - \
+                10 * np.log10(wavelen**2 / (4 * np.pi)) - 10 * np.log10(self.ue.bandwidth[ue])
+            #############################################
+
             if not self.parameters.imt.imt_dl_intra_sinr_calculation_disabled:
                 self.results.imt_path_loss.extend(self.path_loss_imt[bs, ue])
                 self.results.imt_coupling_loss.extend(

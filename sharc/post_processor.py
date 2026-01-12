@@ -259,6 +259,10 @@ class PostProcessor:
             "title": "[IMT] DL Power Flux Density (PFD) ",
             "x_label": "PFD [dBW/m²/MHz]",
         },
+        "imt_dl_aggregated_pfd": {
+            "title": "[IMT] DL Aggregated Power Flux Density (PFD) ",
+            "x_label": "PFD [dBW/m²/MHz]",
+        },
         # these ones were not plotted already, so will continue to not be
         # plotted:
         "imt_dl_tx_power_density": IGNORE_FIELD,

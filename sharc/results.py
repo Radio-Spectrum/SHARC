@@ -88,6 +88,7 @@ class Results(object):
 
         # PFD at the IMT receiver [dBW/m²/MHz]
         self.imt_dl_pfd = SampleList()
+        self.imt_dl_aggregated_pfd = SampleList()
         self.imt_ul_pfd = SampleList()
 
         self.system_ul_coupling_loss = SampleList()

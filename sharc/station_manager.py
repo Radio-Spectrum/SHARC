@@ -42,6 +42,7 @@ class StationManager(object):
         self.sinr_ext = np.empty(n)
         self.inr = np.empty(n)  # INR in dBm/MHz
         self.pfd = np.empty(n)  # Powerflux density in dBm/m^2
+        self.pfd_external_aggregated = np.empty(n)  # External aggregated PFD in dBm/m^2
         self.spectral_mask = np.empty(n, dtype=SpectralMask)
         self.center_freq = np.empty(n)
         self.station_type = StationType.NONE

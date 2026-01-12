@@ -12,7 +12,7 @@ import warnings
 from sharc.simulation import Simulation
 from sharc.parameters.parameters import Parameters
 from sharc.station_factory import StationFactory
-from sharc.parameters.constants import BOLTZMANN_CONSTANT
+from sharc.parameters.constants import BOLTZMANN_CONSTANT, SPEED_OF_LIGHT
 from sharc.propagation.propagation_path import PropagationPath
 
 warn = warnings.warn
@@ -436,17 +436,6 @@ class SimulationDownlink(Simulation):
         # PFD measured in dBW/m².MHz
         self.ue.pfd_external = total_received_int_power - 10 * np.log10(effective_area)  # dBW/m².MHz
 
-        # Total PFD per UE (sum of PFDs from each transmitter)
-        # Convert PFD from dB to linear scale (W/m²/MHz)
-        pfd_linear = 10 ** (self.ue.pfd_external / 10)
-        # Sum PFDs from all transmitters for each UE (axis=0 assumes shape
-        # [n_tx, n_ue])
-        sys_active = np.where(self.system.active)[0]
-        # FIXME: consider only correct paths here
-        pfd_agg_linear = np.sum(pfd_linear[sys_active], axis=0)
-        # Convert back to dBW
-        self.ue.pfd_external_aggregated = 10 * np.log10(pfd_agg_linear)
-
     def calculate_external_interference(self):
         """
         Calculates interference that IMT system generates on other system
@@ -686,7 +675,7 @@ class SimulationDownlink(Simulation):
             ue = self.link[bs]
 
             #############################################
-            # gambi
+            # Experimental PFD calculation at UE based on received power
             if self.parameters.imt.ue.antenna.pattern == "ARRAY":
             # assert self.parameters.imt.ue.antenna.pattern == "ARRAY"
                 Gr = self.parameters.imt.ue.antenna.array.element_max_g
@@ -700,12 +689,13 @@ class SimulationDownlink(Simulation):
             # TODO: check if also remove polarization_loss
             L = self.parameters.imt.ue.ohmic_loss \
                 + self.parameters.imt.ue.body_loss
-            lmbda = 3e8/self.parameters.imt.frequency
+            wavelen = SPEED_OF_LIGHT / (self.parameters.imt.frequency * 1e6)
             # self.ue.ext_interference[ue] is already without noise
             # and after coupling loss
             # WARNING: overwriting stuff
-            self.ue.pfd_external_aggregated[ue] = self.ue.ext_interference[ue] - Gr + L - \
-                10 * np.log10(lmbda**2 / (4 * np.pi))
+            # self.ue.ext_interference is in dBm
+            self.ue.pfd_external_aggregated[ue] = self.ue.ext_interference[ue] - 30 - Gr + L - \
+                10 * np.log10(wavelen**2 / (4 * np.pi)) - 10 * np.log10(self.ue.bandwidth[ue])
             #############################################
 
             if not self.parameters.imt.imt_dl_intra_sinr_calculation_disabled:

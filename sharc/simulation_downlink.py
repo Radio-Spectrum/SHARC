@@ -18,7 +18,7 @@ from sharc.simulation import Simulation
 from sharc.station_factory import StationFactory
 from sharc.support.enumerations import StationType
 from sharc.parameters.constants import BOLTZMANN_CONSTANT
-
+import sys
 warn = warnings.warn
 
 
@@ -93,8 +93,8 @@ class SimulationDownlink(Simulation):
         # self.plot_scenario()
 
         if self.parameters.general.system == "WIFI":
-            self.system.connect_wifi_sta_to_ap(self.param_system)
-            self.system.select_sta(random_number_gen, self.parameters.wifi)
+            self.system.connect_wifi_sta_to_ap(self.parameters.wifi)
+            self.system.run_csma_ca_scheduling(random_number_gen)
             self.power_control_wifi()
 
             self.coupling_loss_wifi = self.calculate_intra_wifi_coupling_loss(
@@ -475,6 +475,9 @@ class SimulationDownlink(Simulation):
             )
 
         if self.adjacent_channel:
+            sys.stderr.write(
+                "ERROR\nAdjacent channel interference is not supported for DOWNLINK simulation", )
+            sys.exit(1)
             self.coupling_loss_imt_system_adjacent = \
                 self.calculate_coupling_loss_system_imt(
                     self.system.ap,

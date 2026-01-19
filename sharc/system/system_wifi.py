@@ -253,6 +253,55 @@ class SystemWifi:
 
         return wifi_sta
 
+    def run_csma_ca_scheduling(self, random_gen):
+        # 1. Pré-calcular as matrizes de distância (Vetorizado e rápido)
+        # Retornam matrizes NumPy [origem x destino]
+        d_ap_ap = self.ap.get_distance_to(self.ap)
+        d_ap_sta = self.ap.get_distance_to(self.sta)
+        d_sta_sta = self.sta.get_distance_to(self.sta)
+        
+        # Mapeamento para facilitar a busca dinâmica por tipo
+        dist_map = {
+            (StationType.WIFI_APS, StationType.WIFI_APS): d_ap_ap,
+            (StationType.WIFI_APS, StationType.WIFI_STA): d_ap_sta,
+            (StationType.WIFI_STA, StationType.WIFI_APS): d_ap_sta.T, # Transposta
+            (StationType.WIFI_STA, StationType.WIFI_STA): d_sta_sta
+        }
+
+        # 2. Pegar os índices dos que 'querem' transmitir (Intent to transmit)
+        ap_candidates = np.where(self.ap.active)[0]
+        sta_candidates = np.where(self.sta.active)[0]
+        
+        # Pool único de (Manager, Index)
+        candidates = []
+        candidates.extend([(self.ap, i) for i in ap_candidates])
+        candidates.extend([(self.sta, i) for i in sta_candidates])
+        
+        # 3. Resetar o estado 'active' (agora ele representará 'vencedores do canal')
+        self.ap.active[:] = False
+        self.sta.active[:] = False
+
+        # 4. Embaralhar para garantir justiça no sorteio (Simula Backoff)
+        random_gen.shuffle(candidates)
+
+        radius_km = self.parameters.max_dist_hotspot_ue
+
+        # 5. Processo de Contenção (CSMA/CA)
+        while candidates:
+            mgr_tx, idx_tx = candidates.pop(0)
+            mgr_tx.active[idx_tx] = True # Este nó ganhou o canal
+            
+            # Filtrar os vizinhos usando os índices nas matrizes pré-calculadas
+            remaining = []
+            for mgr_target, idx_target in candidates:
+                # Busca a distância na matriz correta usando os índices
+                dist = dist_map[(mgr_tx.station_type, mgr_target.station_type)][idx_tx, idx_target]
+                
+                if dist >= radius_km:
+                    remaining.append((mgr_target, idx_target))
+            
+            candidates = remaining
+    
     def connect_wifi_sta_to_ap(self, parameters: ParametersWifiSystem):
         """
         Link the Wi-Fi STA's to the serving AP. It is assumed that each group of K

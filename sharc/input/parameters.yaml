@@ -29,7 +29,7 @@ imt:
     spectral_mask: IMT-2020                           # Spectral mask model
     spurious_emissions: -15                         # Spurious emission level [dBm/MHz]
     guard_band_ratio: 0.1                             # Ratio of total bandwidth used as guard band
-    channel_model: UMi                                # Channel model: FSPL, CI, UMa, UMi, etc.
+    channel_model: FSPL                                # Channel model: FSPL, CI, UMa, UMi, etc.
     shadowing: TRUE  
     ###########################################################################
     # Topology Type. Possible values are "MACROCELL", "HOTSPOT", "SINGLE_BS"
@@ -289,7 +289,7 @@ wifi:
         # The load probability (or activity factor) models the statistical
         # variation of the network load by defining the number of fully loaded
         # base stations that are simultaneously transmitting
-        load_probability: 1
+        load_probability: 0.5
         ###########################################################################
         # Conducted power per antenna element [dBm/bandwidth]
         conducted_power: 23
@@ -403,6 +403,7 @@ wifi:
         ###########################################################################
         # Percentage of indoor UE's [%]
         indoor_percent: 5
+        load_probability: 0.5
         ###########################################################################
         # Regarding the distribution of active UE's over the cell area, this
         # parameter states how the UEs will be distributed

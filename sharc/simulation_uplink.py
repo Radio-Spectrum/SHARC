@@ -13,6 +13,7 @@ from sharc.simulation import Simulation
 from sharc.parameters.parameters import Parameters
 from sharc.station_factory import StationFactory
 from sharc.parameters.constants import BOLTZMANN_CONSTANT
+import sys
 
 warn = warnings.warn
 
@@ -758,6 +759,9 @@ class SimulationUplink(Simulation):
                 self.system.sta, self.ue, is_co_channel=True, )
             
         if self.adjacent_channel:
+            sys.stderr.write(
+                "ERROR\nAdjacent channel interference is not supported for UPLINK simulation", )
+            sys.exit(1)
             self.coupling_loss_imt_system_adjacent_ap = \
                 self.calculate_coupling_loss_system_imt(
                     self.system.ap,

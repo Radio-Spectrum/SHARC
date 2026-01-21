@@ -40,8 +40,8 @@ class App(tb.Window if HAS_BOOTSTRAP else tk.Tk):
             super().__init__()
 
         self.title("SHARC – SHARing and Compatibility")
-        self.geometry("1400x950")
-        self.minsize(1280, 800)
+        self.geometry("800x600")
+        self.minsize(800, 600)
 
         # 2. Inicializar Variáveis de Estado
         self.state_model = AppState()

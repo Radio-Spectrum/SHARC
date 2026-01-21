@@ -25,22 +25,58 @@ class SingleEarthStationTab:
         self._build_ui()
 
     def _build_ui(self):
-        root = self.frame
-        app = self.app # Alias para facilitar a leitura, como no seu código original
+        # Frame principal (pai)
+        main_container = self.frame
+        app = self.app 
 
-        # Top bar
-        topbar = ttk.Frame(root)
-        topbar.pack(fill="x", pady=(0, 6))
-        ttk.Label(
-            topbar,
-            text="SINGLE_EARTH_STATION – parâmetros de vítima (Earth Station)",
-            font=("Segoe UI", 10, "bold"),
-        ).pack(side="left")
+        # --- TOP BAR (Fixa, não rola) ---
+        topbar = ttk.Frame(main_container)
+        topbar.pack(fill="x", pady=(0, 6), side="top")
 
         actions = ttk.Frame(topbar)
         actions.pack(side="right")
         ttk.Button(actions, text="Salvar config", command=self._se_save_config).pack(side="left", padx=(0, 6))
         ttk.Button(actions, text="Carregar config", command=self._se_load_config).pack(side="left")
+
+        # --- ÁREA DE SCROLL ---
+        # 1. Cria o Canvas e a Scrollbar
+        canvas_frame = ttk.Frame(main_container)
+        canvas_frame.pack(fill="both", expand=True, side="top")
+
+        self.canvas = tk.Canvas(canvas_frame)
+        scrollbar = ttk.Scrollbar(canvas_frame, orient="vertical", command=self.canvas.yview)
+        
+        # 2. Cria o Frame interno que conterá os widgets (scrollable_frame)
+        self.scrollable_frame = ttk.Frame(self.canvas)
+        
+        # O 'root' agora passa a ser esse frame interno
+        root = self.scrollable_frame
+
+        # 3. Configura a janela dentro do canvas
+        # window_id é guardado para redimensionar a largura corretamente
+        self.canvas_window = self.canvas.create_window((0, 0), window=self.scrollable_frame, anchor="nw")
+
+        # 4. Lógica de atualização do Scrollregion
+        def configure_scroll_region(event):
+            self.canvas.configure(scrollregion=self.canvas.bbox("all"))
+
+        def configure_window_width(event):
+            # Ajusta a largura do frame interno para igualar a do canvas (evita que fique estreito)
+            self.canvas.itemconfig(self.canvas_window, width=event.width)
+
+        self.scrollable_frame.bind("<Configure>", configure_scroll_region)
+        self.canvas.bind("<Configure>", configure_window_width)
+
+        # 5. Configurações finais de pack do canvas
+        self.canvas.configure(yscrollcommand=scrollbar.set)
+        scrollbar.pack(side="right", fill="y")
+        self.canvas.pack(side="left", fill="both", expand=True)
+
+        # 6. Bind do Mouse Wheel (Scroll do mouse)
+        self._bind_mouse_scroll(self.canvas)
+        self._bind_mouse_scroll(self.scrollable_frame)
+
+        # --- A PARTIR DAQUI, O CÓDIGO É O MESMO, MAS USANDO 'root' (que é o scrollable_frame) ---
 
         # --- BASIC PARAMETERS ---
         frm0 = ttk.LabelFrame(root, text="Parâmetros básicos")
@@ -221,7 +257,6 @@ class SingleEarthStationTab:
         # Sincronia de alturas e visibilidade
         def _sync_hre_with_height(*_):
             app.p452_Hre.set(app.se_height.get())
-            # Verifica se as vars externas existem (depende do App)
             if hasattr(app, 'bs_height') and hasattr(app, 'ue_height') and hasattr(app, 'var_imt_link'):
                 if app.var_imt_link.get() == "DOWNLINK":
                     app.p452_Hte.set(app.bs_height.get())
@@ -235,7 +270,25 @@ class SingleEarthStationTab:
         app.p452_clutter_loss.trace_add("write", self._refresh_clutter_ui)
         self._refresh_ch_ui()
 
-        ttk.Frame(root, height=10).pack(fill="x")
+        # Espaço extra no final do scroll
+        ttk.Frame(root, height=30).pack(fill="x")
+
+    def _bind_mouse_scroll(self, widget):
+        """Binda o scroll do mouse ao widget (suporta Windows, Linux, MacOS)."""
+        def _on_mousewheel(event):
+            # Windows e MacOS
+            if event.delta:
+                self.canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+        
+        def _on_linux_scroll_up(event):
+            self.canvas.yview_scroll(-1, "units")
+            
+        def _on_linux_scroll_down(event):
+            self.canvas.yview_scroll(1, "units")
+
+        widget.bind("<MouseWheel>", _on_mousewheel)
+        widget.bind("<Button-4>", _on_linux_scroll_up)
+        widget.bind("<Button-5>", _on_linux_scroll_down)
 
     # --- UI Logic Methods (converted to instance methods) ---
     def _refresh_loc_ui(self, *args):

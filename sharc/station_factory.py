@@ -1761,9 +1761,17 @@ class StationFactory(object):
                 size=len(mss_d2d_values["active_satellites_idxs"])) < params.beams_load_factor
         else:
             # Set active satellite flags
-            mss_d2d.active = random_number_gen.uniform(
-                size=total_satellites
-            ) < params.beams_load_factor
+            iterations = 0
+            while not np.any(mss_d2d.active):  # Ensure at least one satellite is active for low load factors.
+                if iterations >= 1000:
+                    raise RuntimeError(
+                        f"Failed to activate at least one satellite after 1000 iterations. "
+                        f"Consider increasing beams_load_factor (current: {params.beams_load_factor})"
+                    )
+                mss_d2d.active = random_number_gen.uniform(
+                    size=total_satellites
+                ) < params.beams_load_factor
+                iterations += 1
 
         # Initialize satellites antennas
         # we need to initialize them after coordinates transformation because of

@@ -224,6 +224,8 @@ class SimulationDownlink(Simulation):
         # applying a bandwidth scaling factor since UE transmits on a portion
         # of the satellite's bandwidth
         active_sys = np.where(self.system.active)[0]
+        if active_sys.size == 0:
+            raise RuntimeError("No active system stations found when calculating external interference.")
 
         # All UEs are active on an active BS
         bs_active = np.where(self.bs.active)[0]

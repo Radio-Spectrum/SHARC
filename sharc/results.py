@@ -82,9 +82,9 @@ class Results(object):
         # Throughput [bits/s/Hz]
         self.imt_dl_tput = SampleList()
 
-        # PFD
-        self.imt_dl_pfd_external = SampleList()
-        self.imt_dl_pfd_external_aggregated = SampleList()
+        # PFD at the IMT receiver [dBW/m²/MHz]
+        self.imt_dl_pfd = SampleList()
+        self.imt_ul_pfd = SampleList()
 
         self.system_ul_coupling_loss = SampleList()
         self.system_ul_interf_power = SampleList()

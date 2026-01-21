@@ -350,6 +350,8 @@ class SimulationUplink(Simulation):
             self.bs.inr[bs] = self.bs.ext_interference[bs] - \
                 self.bs.thermal_noise[bs]
 
+        self.calculate_system_to_imt_pfd(self.bs)
+
     def calculate_external_interference(self):
         """
         Calculates interference that IMT system generates on other system
@@ -582,6 +584,11 @@ class SimulationUplink(Simulation):
                     self.bs.sinr_ext[bs].tolist(),
                 )
                 self.results.imt_ul_inr.extend(self.bs.inr[bs].tolist())
+                self.add_system_imt_interaction_attr_to_results(
+                    "UL",
+                    self.system_imt_pfd,
+                    "imt_ul_pfd",
+                )
 
             self.results.imt_ul_tx_power.extend(self.ue.tx_power[ue].tolist())
             imt_ul_tx_power_density = 10 * np.log10(

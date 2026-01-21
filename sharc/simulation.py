@@ -105,6 +105,7 @@ class Simulation(ABC, Observable):
         self.imt_bs_antenna_gain = list()
         self.imt_ue_antenna_gain = list()
         self.system_imt_antenna_gain = list()
+        self.system_imt_pfd = list()
         self.imt_system_antenna_gain = list()
         self.imt_system_antenna_gain_adjacent = list()
         self.imt_system_path_loss = list()
@@ -744,6 +745,24 @@ class Simulation(ABC, Observable):
         ) / bw_ue, 0.0, 1.0)
 
         return overlap
+
+    def calculate_system_to_imt_pfd(self, imt_station: StationManager):
+        """Calculates the Power Flux Density (PFD) at the IMT station
+
+        PFD formula (dBW/m²/MHz)
+        PFD = EIRP - 10log10(4π) - 20log10(distance)
+
+        Parameters
+        ----------
+        imt_station : StationManager
+            A StationManager object with IMT stations
+        """
+        # EIRP in dBW/MHz
+        eirp_dBW_MHz = self.param_system.tx_power_density + 60 + \
+            self.system_imt_antenna_gain - \
+            self.system.tx_power_backoff[:, np.newaxis]
+        dist_sys_to_imt = self.system.geom.get_3d_distance_to(imt_station.geom)
+        self.system_imt_pfd = eirp_dBW_MHz - 10.992098640220963 - 20 * np.log10(dist_sys_to_imt)
 
     def plot_scenario(self):
         """

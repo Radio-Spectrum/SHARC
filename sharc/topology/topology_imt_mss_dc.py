@@ -592,6 +592,10 @@ class TopologyImtMssDc(Topology):
             (total_active_satellites, orbit_params.num_beams)
         )
 
+        beams_ground_elev = beams_ground_elev.reshape(
+            (total_active_satellites, orbit_params.num_beams)
+        )
+
         # Rotate and set the each beam azimuth and elevation angles - only for
         # the visible satellites
         nadir_elev = all_nadir_elev[active_satellite_idxs]

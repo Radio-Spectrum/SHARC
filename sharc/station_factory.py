@@ -59,6 +59,7 @@ from sharc.topology.topology_imt_mss_dc import TopologyImtMssDc
 from sharc.mask.spectral_mask_3gpp import SpectralMask3Gpp
 from sharc.mask.spectral_mask_mss import SpectralMaskMSS
 from sharc.support.sharc_geom import CoordinateSystem
+from sharc.support.geometry import SimulatorGeometry
 from sharc.support.sharc_utils import wrap2_180
 
 
@@ -1718,6 +1719,14 @@ class StationFactory(object):
         mss_d2d = StationManager(n=total_satellites)
         mss_d2d.station_type = StationType.MSS_D2D  # Set the station type to MSS D2D
         mss_d2d.is_space_station = True  # Indicate that the station is in space
+        mss_d2d.geom = SimulatorGeometry(
+            mss_d2d.num_stations, True,
+            (
+                coordinate_system.ref_lat,
+                coordinate_system.ref_long,
+                coordinate_system.ref_alt,
+            )
+        )
 
         if params.spectral_mask == "IMT-2020":
             mss_d2d.spectral_mask = SpectralMaskImt(StationType.IMT_BS,

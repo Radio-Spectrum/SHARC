@@ -17,24 +17,24 @@ except ImportError:
     print("ERRO CRÍTICO: Instale 'pip install ttkbootstrap' para ver o novo visual.")
 
 # --- Importações dos Módulos Locais e Core ---
+# Certifique-se que estes arquivos existem ou são mocks, conforme seu ambiente
 from utils import build_yaml_text
 from managers import RunnerManager
 from core.state import AppState, get_sharc_root
 from core.yaml_builder import build_yaml_structure
 
-# Importa as abas
+# Importa as abas existentes
 from ui.tabs import (
-    GeneralTab, IMTTab, VictimTab,
-    PreviewTab, RunnerTab, ResultsTab
+    GeneralTab, IMTTab, 
+    # VictimTab,  <-- Não precisamos mais importar o VictimTab antigo se vamos substituir
+    PreviewTab, RunnerTab, ResultsTab, SingleEarthStationTab
 )
-
 PROJECT_ROOT = get_sharc_root()
 
 
 class App(tb.Window if HAS_BOOTSTRAP else tk.Tk):
     def __init__(self):
         # 1. Configuração do Tema (Claro e Profissional)
-        # 'cosmo', 'flatly', 'yeti', 'litera' são ótimos temas claros.
         if HAS_BOOTSTRAP:
             super().__init__(themename="cosmo")
         else:
@@ -108,7 +108,6 @@ class App(tb.Window if HAS_BOOTSTRAP else tk.Tk):
         self.grid_rowconfigure(1, weight=1)
 
         # --- A. Sidebar (Esquerda) ---
-        # bg-light ou secondary para contraste suave com o conteúdo branco
         self.sidebar = tb.Frame(self, bootstyle="light")
         self.sidebar.grid(row=0, column=0, rowspan=3, sticky="nsew")
 
@@ -122,7 +121,6 @@ class App(tb.Window if HAS_BOOTSTRAP else tk.Tk):
         self._build_system_monitor()
 
         # --- B. Header Bar (Topo Direita) ---
-        # Fundo branco para limpeza visual
         self.header = tb.Frame(self, bootstyle="bg-white", height=70)
         self.header.grid(row=0, column=1, sticky="ew")
         self._build_header_content()
@@ -137,7 +135,6 @@ class App(tb.Window if HAS_BOOTSTRAP else tk.Tk):
         self.content_area.grid(row=1, column=1, sticky="nsew")
 
         # --- D. Status Bar (Rodapé Direita) ---
-        # Azul forte para rodapé
         self.status_bar = tb.Frame(self, bootstyle="primary")
         self.status_bar.grid(row=2, column=1, sticky="ew")
         self._build_footer_content()
@@ -193,8 +190,6 @@ class App(tb.Window if HAS_BOOTSTRAP else tk.Tk):
             btn_save, text="Gera e salva os arquivos YAML com a configuração atual.")
 
     def _build_footer_content(self):
-        # Status Bar estilo VS Code (Fundo Azul)
-
         # SSH Status
         f_ssh = tb.Frame(self.status_bar, bootstyle="primary", padding=(15, 5))
         f_ssh.pack(side="right", fill="y")
@@ -218,10 +213,14 @@ class App(tb.Window if HAS_BOOTSTRAP else tk.Tk):
 
     def _init_pages(self):
         """Inicializa as páginas e cria a estrutura de navegação."""
+        
+        # --- [ALTERAÇÃO AQUI] ---
+        # Substituímos VictimTab por SingleEarthStationTab na lista
         pages = [
             ("general", "General Settings", GeneralTab, "⚙"),
             ("imt", "IMT Configuration", IMTTab, "📡"),
-            ("victim", "Station Logic", VictimTab, "🛰"),
+            # Nova aba inserida aqui:
+            ("victim", "Station Logic", SingleEarthStationTab, "🛰"),
             ("preview", "Visual Preview", PreviewTab, "👁"),
             ("runner", "Execution Runner", RunnerTab, "🚀"),
             ("results", "Data Analysis", ResultsTab, "📊"),
@@ -229,7 +228,6 @@ class App(tb.Window if HAS_BOOTSTRAP else tk.Tk):
 
         for key, label, Cls, icon in pages:
             # 1. Cria Botão de Menu (Sidebar)
-            # 'secondary-link' em tema claro cria um efeito de botão cinza sem borda
             btn = tb.Button(
                 self.menu_frame,
                 text=f"  {icon}   {label}",
@@ -245,6 +243,7 @@ class App(tb.Window if HAS_BOOTSTRAP else tk.Tk):
 
             # 3. Instância da Lógica (Controlador da Aba)
             # Passamos 'container' como parent. A classe da aba desenha dentro dele.
+            # E passamos 'self' (App) para que a aba acesse as variáveis de estado.
             instance = Cls(self, container)
 
             # 4. Registra referências
@@ -255,16 +254,10 @@ class App(tb.Window if HAS_BOOTSTRAP else tk.Tk):
     def _switch_page(self, key, label_text=None):
         """Troca a página visível e SINCRONIZA dados."""
 
-        # --- [CORREÇÃO CRÍTICA] Sincronização de Dados ---
-        # Antes de sair da tela anterior ou entrar na nova, garantimos que o estado global
-        # esteja atualizado com o que foi digitado nas abas.
-
         # Sincroniza IMT Countries (necessário para a visualização 3D funcionar)
         if hasattr(self, 'tab_imt') and hasattr(self.tab_imt, 'txt_countries'):
             try:
-                # Pega o texto bruto do widget Text
                 raw_txt = self.tab_imt.txt_countries.get("1.0", "end").strip()
-                # Atualiza a variável de estado que o PreviewTab usa
                 if raw_txt:
                     self.topo_countries.set(raw_txt)
             except Exception:
@@ -283,35 +276,30 @@ class App(tb.Window if HAS_BOOTSTRAP else tk.Tk):
         # Atualiza estilo dos botões (Highlight no ativo)
         for k, btn in self.nav_buttons.items():
             if k == key:
-                # Botão ativo: Azul sólido (primary)
                 btn.configure(bootstyle="primary")
             else:
-                # Botão inativo: Link cinza (secondary-link)
                 btn.configure(bootstyle="secondary-link")
 
         # Mostra container novo
         self.current_frame = self.frames[key]
         self.current_frame.pack(fill="both", expand=True)
 
-        # --- [CORREÇÃO CRÍTICA] Trigger de Refresh ---
+        # --- Trigger de Refresh ---
         # Se for a aba Preview, força o redesenho do mapa
         if key == "preview":
             logic_instance = getattr(self, f"tab_{key}", None)
             if logic_instance:
-                # Tenta métodos comuns de refresh (depende do seu arquivo tabs.py)
                 if hasattr(logic_instance, "refresh"):
                     logic_instance.refresh()
                 elif hasattr(logic_instance, "update_plot"):
                     logic_instance.update_plot()
-                elif hasattr(logic_instance, "draw_map"):
-                    logic_instance.draw_map()
 
     def _show_welcome_toast(self):
         toast = ToastNotification(
             title="SHARC",
             message="System Ready.\nTheme: Cosmo Light",
             duration=3000,
-            bootstyle="light",  # Toast claro
+            bootstyle="light",
             position=(40, 60, "ne")
         )
         toast.show_toast()
@@ -364,7 +352,6 @@ class App(tb.Window if HAS_BOOTSTRAP else tk.Tk):
                             if payload["pct"] is not None:
                                 cur[3] = payload["pct"]
                                 try:
-                                    # Atualiza o Meter da Sidebar
                                     pct_float = float(
                                         payload["pct"].strip('%'))
                                     self.sys_meter.configure(
@@ -383,7 +370,6 @@ class App(tb.Window if HAS_BOOTSTRAP else tk.Tk):
     # --- YAML Generation ---
 
     def current_yaml_dict(self) -> dict:
-        # Garante sincronia antes de gerar YAML
         if hasattr(self, 'tab_imt') and hasattr(self.tab_imt, 'txt_countries'):
             try:
                 txt = self.tab_imt.txt_countries.get("1.0", "end")

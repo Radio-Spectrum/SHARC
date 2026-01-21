@@ -6,6 +6,7 @@ from .victim import VictimTab
 from .preview import PreviewTab
 from .runner import RunnerTab
 from .results import ResultsTab
+from .single_earth_station import SingleEarthStationTab
 
 __all__ = [
     "GeneralTab",

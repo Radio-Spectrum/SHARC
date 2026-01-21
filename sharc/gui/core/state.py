@@ -10,7 +10,7 @@ except ImportError:
     # Fallback caso config.py não seja encontrado imediatamente
     DEFAULTS = {
         "seed": 42, "num_snapshots": 10, "output_dir": "outputs",
-        "default_dir": "",  # Adicionado para evitar erro nas chaves
+        "default_dir": "",
         "ssh_host": "", "ssh_user": "", "ssh_port": 22,
         "remote_base_dir": "", "tunnel_bastion_host": "",
         "tunnel_bastion_user": "", "tunnel_bastion_port": 22,
@@ -20,31 +20,22 @@ except ImportError:
 
 # --- FUNÇÃO GLOBAL DE LOCALIZAÇÃO DO PROJETO ---
 
-
 @lru_cache(maxsize=1)
 def get_sharc_root() -> Path:
     """
     Localiza a raiz do projeto 'sharc' de forma global e determinística.
-    Pode ser importada e usada por qualquer outra parte do código.
     """
     try:
-        # Pega o caminho real do arquivo atual
         current_path = Path(__file__).resolve()
     except NameError:
-        # Fallback para ambientes interativos (Jupyter/REPL)
         current_path = Path.cwd()
 
-    # Sobe na árvore de diretórios procurando a raiz
     for parent in [current_path] + list(current_path.parents):
-        # 1. Sinal forte: Existe a pasta 'topology' (estrutura interna do sharc)
         if (parent / "topology").exists() and (parent / "topology").is_dir():
             return parent
-
-        # 2. Sinal pelo nome: A pasta se chama 'sharc'
         if parent.name.lower() == 'sharc':
             return parent
 
-    # Fallback final: Retorna o diretório onde o script está
     print("AVISO: Raiz 'sharc' não encontrada automaticamente. Usando diretório do script.")
     return current_path.parent
 
@@ -52,23 +43,26 @@ def get_sharc_root() -> Path:
 class AppState:
     """
     Classe responsável apenas por inicializar e armazenar o estado (variáveis).
-    Usa a função global get_sharc_root() para garantir caminhos corretos.
     """
 
     def __init__(self):
-        # 1. Chama a função global para definir a raiz
         self.project_root = get_sharc_root()
         print(f"Raiz do projeto definida em: {self.project_root}")
 
-        # Helper para reduzir repetição
         self._create_vars()
 
     def _add(self, value, var_type=str):
+        """
+        Helper para criar variáveis Tkinter tipadas.
+        """
         if var_type == int:
             return tk.IntVar(value=value)
+        if var_type == float:
+            return tk.DoubleVar(value=value)
         if var_type == bool:
             return tk.BooleanVar(value=value)
-        # .as_posix() é chamado preventivamente se for Path, mas garantimos strings aqui
+        
+        # Padrão é StringVar
         return tk.StringVar(value=str(value))
 
     def _create_vars(self):
@@ -77,8 +71,7 @@ class AppState:
         self.var_snaps = self._add(DEFAULTS["num_snapshots"], int)
         self.var_overwrite = self._add(False, bool)
 
-        # --- Tratamento Robusto de Diretórios ---
-        # Converte o output_dir do config em Path absoluto baseado na raiz
+        # Output Dir
         default_out = Path(DEFAULTS["output_dir"])
         if not default_out.is_absolute():
             abs_out_dir = self.project_root / default_out
@@ -89,7 +82,7 @@ class AppState:
         self.var_yaml_dir = self._add(abs_out_dir.as_posix())
 
         self.var_prefix = self._add("output_mss_{long}")
-        self.var_system = self._add("SINGLE_SPACE_STATION")
+        self.var_system = self._add("SINGLE_SPACE_STATION") # Default inicial
         self.var_imt_link = self._add("DOWNLINK")
         self.var_adj = self._add(False, bool)
         self.var_coch = self._add(True, bool)
@@ -121,13 +114,10 @@ class AppState:
             "Bolivia", "Peru", "Ecuador", "Colombia", "Venezuela"
         ]))
 
-        # --- MAPAS (CORREÇÃO FINAL DE PATHS) ---
-        # Monta o caminho absoluto usando self.project_root
-
+        # --- MAPAS ---
         path_shp_file = self.project_root / "topology/map/ne_110m_admin_0_countries.shp"
         path_raster_file = self.project_root / "topology/map/SEDAC_map2.tiff"
 
-        # Usa as_posix() para garantir compatibilidade de string com Tkinter/Windows
         self.path_shp = self._add(path_shp_file.as_posix())
         self.path_raster = self._add(path_raster_file.as_posix())
 
@@ -157,7 +147,7 @@ class AppState:
         # --- BS ---
         self.bs_load_prob = self._add("0.2")
         self.bs_power = self._add("22")
-        self.bs_height = self._add("18")
+        self.bs_height = self._add("18") # Mantido como string/float genérico
         self.bs_nf = self._add("6")
         self.bs_ohmic = self._add("0")
         self.bs_norm = self._add(False, bool)
@@ -224,7 +214,77 @@ class AppState:
         self.ch_model = self._add("UMa")
         self.shadowing = self._add(True, bool)
 
-        # --- Victim ---
+        # =========================================================
+        # --- SINGLE EARTH STATION (Victim) - Variáveis Novas ---
+        # =========================================================
+        # Parâmetros Básicos
+        self.se_frequency = self._add(3800.0, float)
+        self.se_bandwidth = self._add(100.0, float)
+        self.se_noise_temperature = self._add(290.0, float)
+        self.se_adjacent_ch_reception = self._add("OFF")
+        self.se_adjacent_ch_selectivity = self._add(0.0, float)
+        self.se_adjacent_ch_emissions = self._add("OFF")
+        self.se_adjacent_ch_leak_ratio = self._add(0.0, float)
+        self.se_spectral_mask = self._add("")
+        self.se_spurious_emissions = self._add(-60.0, float)
+        self.se_tx_power_density = self._add(-50.0, float)
+        self.se_height = self._add(10.0, float)
+        self.se_polarization_loss = self._add(0.0, float)
+
+        # Localização
+        self.se_loc_type = self._add("FIXED")
+        self.se_loc_fixed_x = self._add(0.0, float)
+        self.se_loc_fixed_y = self._add(0.0, float)
+        self.se_loc_cell_min_dist_to_bs = self._add(100.0, float)
+        self.se_loc_network_min_dist_to_bs = self._add(500.0, float)
+        self.se_loc_ud_min_dist_to_center = self._add(0.0, float)
+        self.se_loc_ud_max_dist_to_center = self._add(1000.0, float)
+
+        # Azimute / Elevação
+        self.se_az_type = self._add("FIXED")
+        self.se_az_fixed = self._add(0.0, float)
+        self.se_az_ud_min = self._add(0.0, float)
+        self.se_az_ud_max = self._add(360.0, float)
+
+        self.se_el_type = self._add("FIXED")
+        self.se_el_fixed = self._add(0.0, float)
+        self.se_el_ud_min = self._add(0.0, float)
+        self.se_el_ud_max = self._add(90.0, float)
+
+        # Antena
+        self.se_ant_pattern = self._add("ITU-R F.699")
+        self.se_ant_gain = self._add(30.0, float)
+        self.se_ant_diameter = self._add(1.2, float)
+        self.se_ant_envelope_gain = self._add(0.0, float)
+        self.se_ant_3db = self._add(0.0, float)
+        self.se_ant_l_s = self._add(0.0, float)
+        self.se_ant_f1245_gain = self._add(0.0, float)
+        self.se_ant_f1245_diameter = self._add(0.0, float)
+        self.se_ant_f1245_frequency = self._add(0.0, float)
+
+        # Channel Model
+        self.se_channel_model = self._add("FSPL")
+
+        # P452 Parameters
+        self.p452_atmospheric_pressure = self._add(1013.25, float)
+        self.p452_air_temperature = self._add(293.15, float)
+        self.p452_percentage_p = self._add(20.0, float)
+        self.p452_N0 = self._add(315.0, float)
+        self.p452_delta_N = self._add(45.0, float)
+        self.p452_polarization = self._add(0.0, float) # 0=Horiz, 1=Vert
+        self.p452_Dct = self._add(500.0, float)
+        self.p452_Dcr = self._add(500.0, float)
+        self.p452_Hte = self._add(30.0, float)
+        self.p452_Hre = self._add(10.0, float)
+        self.p452_clutter_loss = self._add(False, bool)
+        self.p452_clutter_type = self._add("one_end")
+        self.p452_tx_lat = self._add(45.0, float)
+        self.p452_rx_lat = self._add(45.0, float)
+        self.p452_is_terrain = self._add(False, bool)
+
+        # =========================================================
+
+        # --- Victim (Legacy / Space Station) ---
         self.v_freq = self._add("8150")
         self.v_bw = self._add("40")
         self.v_txpsd = self._add("-200")
@@ -264,7 +324,7 @@ class AppState:
         self.var_run_mode = self._add("LOCAL")
         self.var_max_workers = self._add(2, int)
 
-        # Pasta de execução: Usa o caminho absoluto já calculado
+        # Pasta de execução
         self.run_folder = self._add(abs_out_dir.as_posix())
 
         # --- SSH / Tunnel ---
@@ -272,9 +332,7 @@ class AppState:
         self.ssh_user = self._add(DEFAULTS["ssh_user"])
         self.ssh_port = self._add(DEFAULTS["ssh_port"], int)
 
-        # Remote dir é string, concatenação simples é ok se for caminho Linux remoto
-        self.ssh_remote_dir = self._add(
-            self.project_root / "campaigns")
+        self.ssh_remote_dir = self._add(self.project_root / "campaigns")
 
         self.ssh_use_tunnel = self._add(False, bool)
         self.ssh_use_password = self._add(True, bool)
@@ -284,11 +342,9 @@ class AppState:
 
         self.tunnel_bastion_host = self._add(DEFAULTS["tunnel_bastion_host"])
         self.tunnel_bastion_user = self._add(DEFAULTS["tunnel_bastion_user"])
-        self.tunnel_bastion_port = self._add(
-            DEFAULTS["tunnel_bastion_port"], int)
+        self.tunnel_bastion_port = self._add(DEFAULTS["tunnel_bastion_port"], int)
         self.tunnel_internal_ip = self._add(DEFAULTS["tunnel_internal_ip"])
-        self.tunnel_internal_port = self._add(
-            DEFAULTS["tunnel_internal_port"], int)
+        self.tunnel_internal_port = self._add(DEFAULTS["tunnel_internal_port"], int)
         self.tunnel_local_port = self._add(DEFAULTS["tunnel_local_port"], int)
         self.tunnel_key_path = self._add(DEFAULTS["tunnel_key_path"])
         self.tunnel_status = self._add("🔴 Túnel Inativo")

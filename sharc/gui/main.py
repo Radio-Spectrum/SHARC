@@ -25,8 +25,7 @@ from core.yaml_builder import build_yaml_structure
 
 # Importa as abas existentes
 from ui.tabs import (
-    GeneralTab, IMTTab, 
-    # VictimTab,  <-- Não precisamos mais importar o VictimTab antigo se vamos substituir
+    GeneralTab, IMTTab, VictimTab,
     PreviewTab, RunnerTab, ResultsTab, SingleEarthStationTab
 )
 PROJECT_ROOT = get_sharc_root()
@@ -219,8 +218,8 @@ class App(tb.Window if HAS_BOOTSTRAP else tk.Tk):
         pages = [
             ("general", "General Settings", GeneralTab, "⚙"),
             ("imt", "IMT Configuration", IMTTab, "📡"),
-            # Nova aba inserida aqui:
-            ("victim", "Station Logic", SingleEarthStationTab, "🛰"),
+            ("victim", "Victim", VictimTab, ""),
+            ("station", "Single Earth Station", SingleEarthStationTab, "🛰"),
             ("preview", "Visual Preview", PreviewTab, "👁"),
             ("runner", "Execution Runner", RunnerTab, "🚀"),
             ("results", "Data Analysis", ResultsTab, "📊"),

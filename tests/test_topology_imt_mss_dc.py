@@ -2,7 +2,7 @@ import unittest
 import numpy as np
 import numpy.testing as npt
 from sharc.topology.topology_imt_mss_dc import TopologyImtMssDc
-from sharc.parameters.imt.parameters_imt_mss_dc import ParametersImtMssDc
+from sharc.parameters.imt.parameters_imt_mss_dc import ParametersImtMssDc, ParametersPowerControlZone
 from sharc.station_manager import StationManager
 from sharc.parameters.parameters_orbit import ParametersOrbit
 from sharc.support.sharc_geom import CoordinateSystem, lla2ecef
@@ -176,6 +176,9 @@ class TestTopologyImtMssDc(unittest.TestCase):
         self.params.beam_positioning.service_grid.grid_in_zone.circle.center_lat = 0.0
         self.params.beam_positioning.service_grid.grid_in_zone.circle.center_lon = 0.0
         self.params.beam_positioning.service_grid.grid_in_zone.circle.radius_km = 10 * 111.0
+        power_control_zone = ParametersPowerControlZone()
+        power_control_zone.power_backoff_db = 0.0
+        self.params.power_control_zones.zones = [power_control_zone]
         self.params.validate("")
 
         self.imt_mss_dc_topology = TopologyImtMssDc(

@@ -30,9 +30,7 @@ class ParametersTest(unittest.TestCase):
         self.parameters.read_params()
 
     def test_parameters_imt(self):
-        """Unit test for ParametersIMT."""
-        """Unit test for ParametersIMT
-        """
+        """Unit test for ParametersIMT"""
         self.assertEqual(self.parameters.imt.topology.type, "INDOOR")
         self.assertEqual(
             self.parameters.imt.minimum_separation_distance_bs_ue, 1.3,
@@ -285,6 +283,39 @@ class ParametersTest(unittest.TestCase):
         self.assertEqual(
             self.parameters.imt.topology.mss_dc.sat_is_active_if.conditions,
             ["LAT_LONG_INSIDE_COUNTRY", "MINIMUM_ELEVATION_FROM_ES", "MAXIMUM_ELEVATION_FROM_ES"],
+        )
+
+        #   power_control_zones:
+        #     zones:
+        #     - power_backoff_db: 0.0
+        #     geometry:
+        #         type: FROM_COUNTRIES
+        #         from_countries:
+        #         country_names:
+        #         - Brazil
+        #         margin_from_border: 150.0
+        #     - power_backoff_db: 0.0
+        #     geometry:
+        #         type: FROM_COUNTRIES
+        #         from_countries:
+        #         country_names:
+        #         - Brazil
+        #         margin_from_border: 0
+        # Test power control zones parameters
+        self.assertEqual(
+            self.parameters.imt.topology.mss_dc.power_control_zones.zones[0].power_backoff_db,
+            0.0)
+        self.assertEqual(
+            self.parameters.imt.topology.mss_dc.power_control_zones.zones[0].geometry.type,
+            "FROM_COUNTRIES"
+        )
+        self.assertEqual(
+            self.parameters.imt.topology.mss_dc.power_control_zones.zones[0].geometry.from_countries.country_names[0],
+            "Brazil"
+        )
+        self.assertEqual(
+            self.parameters.imt.topology.mss_dc.power_control_zones.zones[0].geometry.from_countries.margin_from_border,
+            150.
         )
 
         self.parameters.imt.topology.mss_dc.validate("test_imt")

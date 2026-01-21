@@ -337,7 +337,7 @@ class SimulationUplink(Simulation):
 
             # [dBm]
             ext_interference = 10 * np.log10(in_band_interf_lin + oob_interf_lin) + 30 - \
-                self.system.tx_power_backoff[np.newaxis, sys_active]
+                self.system.tx_power_backoff[system_interfering]
 
             # Sum all the interferers from each active system transmitters for each bs
             self.bs.ext_interference[bs] = 10 * np.log10(

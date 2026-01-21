@@ -2,11 +2,10 @@ import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 import ast
 import os
+import random  # <--- Import necessário
 
 # Importa a função auxiliar definida em utils.py
-# Certifique-se de que utils.py esteja na mesma pasta
 from utils import add_row_three
-
 
 class GeneralTab:
     def __init__(self, app, parent_frame):
@@ -16,6 +15,9 @@ class GeneralTab:
         """
         self.app = app
         self.frame = parent_frame
+
+        # Variável local para controlar o Checkbox de Random
+        self.var_use_random_seed = tk.BooleanVar(value=False)
 
         # Constrói a interface
         self._build_ui()
@@ -32,8 +34,20 @@ class GeneralTab:
         frm.pack(fill="x")
 
         # --- Linha 1: Seed, Snaps, System ---
-        e_seed = ttk.Entry(frm, textvariable=self.app.var_seed, width=12,
+        
+        # [MODIFICAÇÃO] Container para Seed + Checkbox Random
+        f_seed_cont = ttk.Frame(frm)
+        
+        self.e_seed = ttk.Entry(f_seed_cont, textvariable=self.app.var_seed, width=8,
                            validate='key', validatecommand=vcmd)
+        self.e_seed.pack(side="left")
+
+        # Checkbutton para ativar modo aleatório
+        cb_rnd = ttk.Checkbutton(f_seed_cont, text="Random SEED", variable=self.var_use_random_seed,
+                                 command=self._toggle_random_seed)
+        cb_rnd.pack(side="left", padx=(5, 0))
+
+        # Demais campos da linha 1
         e_snaps = ttk.Entry(frm, textvariable=self.app.var_snaps, width=12,
                             validate='key', validatecommand=vcmd)
 
@@ -42,8 +56,9 @@ class GeneralTab:
                                       "SINGLE_SPACE_STATION"],
                               state="readonly", width=26)
 
+        # Adiciona à grade usando o container do seed
         add_row_three(frm, 0, [
-            ("seed", e_seed),
+            ("seed", f_seed_cont),
             ("num_snapshots", e_snaps),
             ("system", cb_sys)
         ])
@@ -51,8 +66,7 @@ class GeneralTab:
         # --- Linha 2: Output Dir ---
         row2 = ttk.Frame(frm)
         row2.grid(row=1, column=0, columnspan=6, sticky="we", pady=2)
-        ttk.Label(row2, text="output_dir (vai dentro do YAML)").pack(
-            side="left")
+        ttk.Label(row2, text="output_dir (vai dentro do YAML)").pack(side="left")
 
         self.e_outdir = ttk.Entry(row2, textvariable=self.app.var_outdir)
         self.e_outdir.pack(side="left", fill="x", expand=True, padx=(6, 6))
@@ -63,8 +77,7 @@ class GeneralTab:
         # --- Linha 3: YAML Dir ---
         row2b = ttk.Frame(frm)
         row2b.grid(row=2, column=0, columnspan=6, sticky="we", pady=2)
-        ttk.Label(row2b, text="yaml_dir (onde salvar os .yaml)").pack(
-            side="left")
+        ttk.Label(row2b, text="yaml_dir (onde salvar os .yaml)").pack(side="left")
 
         self.e_yamldir = ttk.Entry(row2b, textvariable=self.app.var_yaml_dir)
         self.e_yamldir.pack(side="left", fill="x", expand=True, padx=(6, 6))
@@ -135,6 +148,19 @@ class GeneralTab:
         row_gen.pack(fill="x", pady=(8, 0))
         ttk.Button(row_gen, text="Gerar YAML(s) no yaml_dir (todas combinações)",
                    command=self.app.save_yaml_to_yamldir).pack(side="left")
+
+    # ---------------- Lógica Nova (Random Seed) ----------------
+    def _toggle_random_seed(self):
+        """Ativa ou desativa a geração de seed aleatória."""
+        if self.var_use_random_seed.get():
+            # Gera número entre 1 e 9999
+            rnd_val = random.randint(1, 9999)
+            self.app.var_seed.set(str(rnd_val))
+            # Desabilita edição manual para garantir consistência
+            self.e_seed.configure(state='disabled')
+        else:
+            # Habilita edição manual novamente
+            self.e_seed.configure(state='normal')
 
     # ---------------- Setup de Traces e Validadores ----------------
 

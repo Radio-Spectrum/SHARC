@@ -7,7 +7,9 @@ import re
 import sys
 import queue
 from datetime import timedelta
+from core.state import get_sharc_root
 
+PROJECT_ROOT = get_sharc_root()
 
 class RunnerManager:
     def __init__(self, log_callback, update_row_callback):
@@ -194,8 +196,7 @@ class RunnerManager:
                 {"iid": ypath, "status": "Iniciando...", "snap": None, "pct": None, "eta": None})
 
             # Tenta descobrir o main_cli.py
-            main_script = os.path.join(os.path.dirname(
-                os.path.dirname(os.path.abspath(__file__))), "main_cli.py")
+            main_script = os.path.join(PROJECT_ROOT / "main_cli.py")
             # Se não existir lá, tenta usar o sys.executable se estiver rodando como script
             if not os.path.exists(main_script):
                 self.log_callback(

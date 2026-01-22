@@ -97,6 +97,7 @@ class StationFactory(object):
         num_bs = topology.num_base_stations
         imt_base_stations = StationManager(num_bs)
         imt_base_stations.station_type = StationType.IMT_BS
+        power_backoff = 0.0
         if param.topology.type == "NTN":
             imt_base_stations.geom.set_global_coords(
                 topology.space_station_x * np.ones(num_bs),
@@ -113,6 +114,7 @@ class StationFactory(object):
                 elev=topology.elevation
             )
             imt_base_stations.is_space_station = True
+            power_backoff = topology.power_backoff
         else:
             if topology.determines_local_geometry:
                 imt_base_stations.geom = topology.get_bs_geometry()
@@ -133,7 +135,9 @@ class StationFactory(object):
         imt_base_stations.active = random_number_gen.rand(
             num_bs,
         ) < param.bs.load_probability
-        imt_base_stations.tx_power = param.bs.conducted_power * np.ones(num_bs)
+        # Conducted power per antenna element. Total power will depend on
+        # the number of antenna elements and it's configured in power control.
+        imt_base_stations.tx_power = param.bs.conducted_power * np.ones(num_bs) - power_backoff
         imt_base_stations.rx_power = dict(
             [(bs, -500 * np.ones(param.ue.k)) for bs in range(num_bs)],
         )

@@ -152,20 +152,23 @@ class SimulationDownlink(Simulation):
         """
         # Currently, the maximum transmit power of the base station is equaly
         # divided among the selected UEs
-        total_power = self.parameters.imt.bs.conducted_power \
+        total_power = self.bs.tx_power \
             + self.bs_power_gain
         tx_power = total_power - 10 * math.log10(self.parameters.imt.ue.k)
         # calculate transmit powers to have a structure such as
         # {bs_1: [pwr_1, pwr_2,...], ...}, where bs_1 is the base station id,
         # pwr_1 is the transmit power from bs_1 to ue_1, pwr_2 is the transmit
         # power from bs_1 to ue_2, etc
+        # NOTE: Re-writing bs.tx_power here as dict
         bs_active = np.where(self.bs.active)[0]
         self.bs.tx_power = dict(
-            [(bs, tx_power * np.ones(self.parameters.imt.ue.k)) for bs in bs_active])
+            [(bs, tx_power[bs] * np.ones(self.parameters.imt.ue.k)) for bs in bs_active])
 
         # Update the spectral mask
         if self.adjacent_channel:
-            self.bs.spectral_mask.set_mask(p_tx=total_power)
+            # FIXME: assumes all BS have same total power
+            max_tx_power = self.parameters.imt.bs.conducted_power + self.bs_power_gain
+            self.bs.spectral_mask.set_mask(p_tx=max_tx_power)
 
     def calculate_sinr(self):
         """

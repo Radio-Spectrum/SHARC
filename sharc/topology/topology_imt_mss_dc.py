@@ -63,6 +63,7 @@ class TopologyImtMssDc(Topology):
         self.space_station_x = None
         self.space_station_y = None
         self.space_station_z = None
+        self.power_backoff = None  # power backoff per beam
 
         self.lat = None
         self.lon = None
@@ -709,6 +710,9 @@ class TopologyImtMssDc(Topology):
         self.x = sat_values["sectors_x"]
         self.y = sat_values["sectors_y"]
         self.z = sat_values["sectors_z"]
+
+        # power backoff per beam
+        self.power_backoff = sat_values["sat_power_backoff"]
 
         self.indoor = np.zeros(
             self.num_base_stations,

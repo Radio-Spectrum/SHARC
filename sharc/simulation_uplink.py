@@ -237,7 +237,7 @@ class SimulationUplink(Simulation):
                     warnings.filterwarnings("ignore",
                                             category=RuntimeWarning,
                                             message="divide by zero encountered in log10")
-                    in_band_interf = self.param_system.tx_power_density + \
+                    in_band_interf = self.system.tx_power_density[system_interfering] + \
                         10 * np.log10(beams_bw[:, np.newaxis] * 1e6) + \
                         10 * np.log10(weights)[:, np.newaxis] - \
                         self.coupling_loss_imt_system[active_beams, :][:, system_interfering]
@@ -247,11 +247,11 @@ class SimulationUplink(Simulation):
             if self.adjacent_channel:
                 # emissions outside of tx bandwidth and inside of rx bw
                 # due to oob emissions on tx side
-                tx_oob = np.resize(-500., len(active_beams))
+                tx_oob = np.ones((len(active_beams), len(system_interfering))) * -500.
 
                 # emissions outside of rx bw and inside of tx bw
                 # due to non ideal filtering on rx side
-                rx_oob = np.resize(-500., len(active_beams))
+                rx_oob = np.ones((len(active_beams), len(system_interfering))) * -500.
 
                 # NOTE: M.2101 states that:
                 # "The ACIR value should be calculated based on per UE allocated number of resource blocks"
@@ -265,7 +265,8 @@ class SimulationUplink(Simulation):
                             )
                             self._acs_warned = True
                     acs_dB = self.parameters.imt.bs.adjacent_ch_selectivity
-                    rx_oob[::] = self.param_system.tx_power_density + 10 * np.log10(non_overlap_sys_bw * 1e6) - acs_dB
+                    rx_oob[:] = self.system.tx_power_density[system_interfering] + \
+                        10 * np.log10(non_overlap_sys_bw * 1e6) - acs_dB
                 elif self.parameters.imt.adjacent_ch_reception == "OFF":
                     pass
                 elif self.parameters.imt.adjacent_ch_reception is False:
@@ -281,11 +282,12 @@ class SimulationUplink(Simulation):
                         warnings.filterwarnings("ignore",
                                                 category=RuntimeWarning,
                                                 message="divide by zero encountered in log10")
+                        # FIXME: given that each system station may have different power, this may not be correct.
                         for i, center_freq, bw in zip(
                                 range(len(self.bs.center_freq[bs])), self.bs.center_freq[bs], beams_bw):
                             # mask returns dBm
                             # so we convert to [dB]
-                            tx_oob[i] = self.system.spectral_mask.power_calc(
+                            tx_oob[i, :] = self.system.spectral_mask.power_calc(
                                 center_freq,
                                 bw
                             ) - 30
@@ -310,10 +312,8 @@ class SimulationUplink(Simulation):
                         )
 
                     # [dB]
-                    tx_oob[::] = self.param_system.tx_power_density + \
-                        10 * np.log10(1e6) -  \
-                        aclr_dB + 10 * np.log10(
-                            non_overlap_imt_bw)
+                    tx_oob[:] = self.system.tx_power_density[system_interfering] + 60 - \
+                        aclr_dB + 10 * np.log10(non_overlap_imt_bw)[:, np.newaxis]
                 elif self.param_system.adjacent_ch_emissions == "OFF":
                     pass
                 else:
@@ -323,10 +323,10 @@ class SimulationUplink(Simulation):
 
                 if self.param_system.adjacent_ch_emissions != "OFF":
                     # oob for system is inband for IMT
-                    tx_oob = tx_oob[:, np.newaxis] - self.coupling_loss_imt_system[active_beams, :][:, system_interfering]
+                    tx_oob = tx_oob - self.coupling_loss_imt_system[active_beams, :][:, system_interfering]
 
                 # oob for IMT
-                rx_oob = rx_oob[:, np.newaxis] - self.coupling_loss_imt_system_adjacent[active_beams, :][:, system_interfering]
+                rx_oob = rx_oob - self.coupling_loss_imt_system_adjacent[active_beams, :][:, system_interfering]
 
                 # Out of band power
                 # sum linearly power leaked into band and power received in the
@@ -336,9 +336,7 @@ class SimulationUplink(Simulation):
                 oob_interf_lin = 10 ** (0.1 * tx_oob) + 10 ** (0.1 * rx_oob)
 
             # [dBm]
-            ext_interference = 10 * np.log10(in_band_interf_lin + oob_interf_lin) + 30 - \
-                self.system.tx_power_backoff[system_interfering]
-
+            ext_interference = 10 * np.log10(in_band_interf_lin + oob_interf_lin) + 30
             # Sum all the interferers from each active system transmitters for each bs
             self.bs.ext_interference[bs] = 10 * np.log10(
                 np.sum(np.power(10, 0.1 * ext_interference), axis=1))

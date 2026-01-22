@@ -28,6 +28,7 @@ class StationManager(object):
         self.active = np.ones(n, dtype=bool)
         # tx_power is dB for system and dBm for IMT
         self.tx_power = np.zeros(n)
+        self.tx_power_density = np.empty(n)  # dB/Hz
         # for system power control
         self.tx_power_backoff = np.zeros(n)
         self.rx_power = np.empty(n)

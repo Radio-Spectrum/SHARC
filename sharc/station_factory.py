@@ -870,10 +870,7 @@ class StationFactory(object):
         )
 
         space_station.active = np.array([True])
-        space_station.tx_power = np.array(
-            [param.tx_power_density + 10 *
-                math.log10(param.bandwidth * 1e6) + 30],
-        )
+        space_station.tx_power_density = param.tx_power_density * np.ones(space_station.num_stations)
         space_station.rx_interference = -500
 
         space_station.antenna = np.array([
@@ -945,10 +942,7 @@ class StationFactory(object):
         )
 
         fss_space_station.active = np.array([True])
-        fss_space_station.tx_power = np.array(
-            [param.tx_power_density + 10 *
-                math.log10(param.bandwidth * 1e6) + 30],
-        )
+        fss_space_station.tx_power_density = np.ones(fss_space_station.num_stations) * param.tx_power_density
         fss_space_station.rx_interference = np.array([-500])
 
         if param.antenna_pattern == "OMNI":
@@ -1080,10 +1074,7 @@ class StationFactory(object):
         )
 
         fss_earth_station.active = np.array([True])
-        fss_earth_station.tx_power = np.array(
-            [param.tx_power_density + 10 *
-                math.log10(param.bandwidth * 1e6) + 30],
-        )
+        fss_earth_station.tx_power_density = np.ones(fss_earth_station.num_stations) * param.tx_power_density
         fss_earth_station.rx_interference = np.array([-500])
 
         if param.antenna_pattern.upper() == "OMNI":
@@ -1254,10 +1245,8 @@ class StationFactory(object):
         single_earth_station.active = np.array([True])
         single_earth_station.bandwidth = np.array([param.bandwidth])
 
-        single_earth_station.tx_power = np.array(
-            [param.tx_power_density + 10 *
-                math.log10(param.bandwidth * 1e6) + 30],
-        )
+        single_earth_station.tx_power_density = np.ones(
+            single_earth_station.num_stations) * param.tx_power_density
 
         single_earth_station.noise_temperature = np.array(
             [param.noise_temperature])
@@ -1318,10 +1307,7 @@ class StationFactory(object):
         )
 
         fs_station.active = np.array([True])
-        fs_station.tx_power = np.array(
-            [param.tx_power_density + 10 *
-                math.log10(param.bandwidth * 1e6) + 30],
-        )
+        fs_station.tx_power_density = np.ones(fs_station.num_stations) * param.tx_power_density
         fs_station.rx_interference = -500
 
         if param.antenna_pattern == "OMNI":
@@ -1386,6 +1372,8 @@ class StationFactory(object):
         haps.active = np.ones(num_haps, dtype=bool)
 
         haps.antenna = np.empty(num_haps, dtype=Antenna)
+
+        haps.tx_power_density = np.ones(haps.num_stations) * param.tx_power_density
 
         if param.antenna_pattern == "OMNI":
             for i in range(num_haps):
@@ -1459,6 +1447,7 @@ class StationFactory(object):
             )
             sys.exit(1)
 
+        rns.tx_power_density = np.ones(rns.num_stations) * param.tx_power_density
         rns.bandwidth = np.array([param.bandwidth])
         rns.noise_temperature = param.noise_temperature
         rns.thermal_noise = -500
@@ -1570,6 +1559,8 @@ class StationFactory(object):
         space_station.active = np.array([True])
         space_station.rx_interference = np.array([-500])
 
+        space_station.tx_power_density = np.ones(space_station.num_stations) * param.tx_power_density
+
         if param.antenna_pattern == "OMNI":
             space_station.antenna = np.array([AntennaOmni(param.antenna_gain)])
         elif param.antenna_pattern == "ITU-R RS.1813":
@@ -1636,9 +1627,9 @@ class StationFactory(object):
 
         mss_ss.is_space_station = True
         mss_ss.active = np.ones(num_bs, dtype=int)
-        mss_ss.tx_power = np.ones(
-            num_bs, dtype=int) * param_mss.tx_power_density + 10 * np.log10(
-            param_mss.bandwidth * 10**6)
+        mss_ss.tx_power_density = np.ones(
+            num_bs, dtype=int) * param_mss.tx_power_density
+
         mss_ss.antenna = np.empty(num_bs, dtype=AntennaS1528Leo)
 
         for i in range(num_bs):
@@ -1747,15 +1738,10 @@ class StationFactory(object):
         else:
             raise ValueError(
                 f"Invalid or not implemented spectral mask - {params.spectral_mask}")
-        mss_d2d.spectral_mask.set_mask(
-            params.tx_power_density +
-            10 *
-            np.log10(
-                params.bandwidth *
-                1e6) + 30
-        )
 
-       # Configure satellite positions in the StationManager
+        max_tx_power = params.tx_power_density + 10 * np.log10(params.bandwidth * 1e6)
+
+        # Configure satellite positions in the StationManager
         x = mss_d2d_values["sat_x"]
         y = mss_d2d_values["sat_y"]
         z = mss_d2d_values["sat_z"]
@@ -1764,7 +1750,11 @@ class StationFactory(object):
         beams_ground_elev = mss_d2d_values["beams_ground_elev"]
         power_backoff = mss_d2d_values["sat_power_backoff"]
 
-        mss_d2d.tx_power_backoff = power_backoff
+        mss_d2d.tx_power_density = params.tx_power_density * np.ones(
+            mss_d2d.num_stations,
+        ) - power_backoff
+
+        mss_d2d.spectral_mask.set_mask(max_tx_power + 30)
 
         sat_lat = mss_d2d_values["sat_lat"]
         sat_lon = mss_d2d_values["sat_lon"]

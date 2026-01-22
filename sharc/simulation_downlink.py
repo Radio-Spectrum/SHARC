@@ -411,7 +411,6 @@ class SimulationDownlink(Simulation):
             # Calculate PFD at the UE
             self.calculate_system_to_imt_pfd(self.ue)
 
-
     def calculate_external_interference(self):
         """
         Calculates interference that IMT system generates on other system

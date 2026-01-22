@@ -758,8 +758,16 @@ class Simulation(ABC, Observable):
             A StationManager object with IMT stations
         """
         # EIRP in dBW/MHz
+        if imt_station.station_type is StationType.IMT_BS:
+            sys_to_imt_antenna_gain = \
+                self.system_imt_antenna_gain[:, np.arange(0,
+                                                          self.system_imt_antenna_gain.shape[1] - 1,
+                                                          self.parameters.imt.ue.k)]
+        else:
+            sys_to_imt_antenna_gain = self.system_imt_antenna_gain
+
         eirp_dBW_MHz = self.param_system.tx_power_density + 60 + \
-            self.system_imt_antenna_gain - \
+            sys_to_imt_antenna_gain - \
             self.system.tx_power_backoff[:, np.newaxis]
         dist_sys_to_imt = self.system.geom.get_3d_distance_to(imt_station.geom)
         self.system_imt_pfd = eirp_dBW_MHz - 10.992098640220963 - 20 * np.log10(dist_sys_to_imt)

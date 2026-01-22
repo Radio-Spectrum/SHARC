@@ -588,10 +588,8 @@ class SimulationUplink(Simulation):
                 self.results.imt_ul_interf_power.extend(
                     (self.bs.ext_interference[bs] - 30).tolist(),
                 )
-                self.add_system_imt_interaction_attr_to_results(
-                    "UL",
-                    self.system_imt_pfd,
-                    "imt_ul_pfd",
+                self.results.imt_ul_pfd.extend(
+                    self.system_imt_pfd.T[bs].tolist(),
                 )
 
             self.results.imt_ul_tx_power.extend(self.ue.tx_power[ue].tolist())

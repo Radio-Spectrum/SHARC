@@ -141,8 +141,6 @@ class SimulationE2EIMTVictim(unittest.TestCase):
         self.assertEqual(len(res.imt_bs_antenna_gain), n_ue)
         self.assertEqual(len(res.imt_ue_antenna_gain), n_ue)
 
-        self.assertEqual(len(res.imt_dl_pfd_external), n_ue)
-        self.assertEqual(len(res.imt_dl_pfd_external_aggregated), n_ue)
         self.assertEqual(len(res.imt_dl_sinr_ext), n_ue)
         self.assertEqual(len(res.imt_dl_sinr), n_ue)
         self.assertEqual(len(res.imt_dl_snr), n_ue)
@@ -153,6 +151,7 @@ class SimulationE2EIMTVictim(unittest.TestCase):
         # testing attributes that should be per ue towards system
         self.assertEqual(len(res.imt_system_antenna_gain_adjacent), n_ue * n_sys)
         self.assertEqual(len(res.imt_system_path_loss), n_ue * n_sys)
+        self.assertEqual(len(res.imt_dl_pfd), n_ue * n_sys)
         # NOTE: it may not have co-channel since this test is for adjacent
         # self.assertEqual(len(res.imt_system_antenna_gain), n_ue * n_sys)
 
@@ -194,6 +193,7 @@ class SimulationE2EIMTVictim(unittest.TestCase):
         self.assertEqual(len(res.imt_ul_inr), n_ue)
         self.assertEqual(len(res.imt_ul_tput_ext), n_ue)
         self.assertEqual(len(res.imt_ul_tput), n_ue)
+        self.assertEqual(len(res.imt_ul_pfd), n_bs * n_sys)
 
         # testing attributes that should be per ue towards system
         self.assertEqual(len(res.imt_system_antenna_gain_adjacent), n_ue * n_sys)

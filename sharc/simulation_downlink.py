@@ -12,7 +12,7 @@ import warnings
 from sharc.simulation import Simulation
 from sharc.parameters.parameters import Parameters
 from sharc.station_factory import StationFactory
-from sharc.parameters.constants import BOLTZMANN_CONSTANT
+from sharc.parameters.constants import BOLTZMANN_CONSTANT, SPEED_OF_LIGHT
 from sharc.propagation.propagation_path import PropagationPath
 
 warn = warnings.warn
@@ -409,15 +409,6 @@ class SimulationDownlink(Simulation):
                     self.ue.thermal_noise[ue]
 
             # Calculate PFD at the UE
-            # PFD formula (dBW/m²/MHz)
-            # PFD = EIRP - 10log10(4π) - 20log10(distance)
-            # Store the PFD for each transmitter and each UE
-            # EIRP in dBW/MHz per transmitter
-            # eirp_dBW_MHz = self.param_system.tx_power_density + 60 + \
-            #     self.system_imt_antenna_gain - \
-            #     self.system.tx_power_backoff[:, np.newaxis]
-            # dist_sys_to_imt = self.system.geom.get_3d_distance_to(self.ue.geom)
-            # self.system_imt_pfd = eirp_dBW_MHz - 10.992098640220963 - 20 * np.log10(dist_sys_to_imt)
             self.calculate_system_to_imt_pfd(self.ue)
 
 
@@ -693,6 +684,10 @@ class SimulationDownlink(Simulation):
                     self.ue.sinr_ext[ue].tolist(),
                 )
                 self.results.imt_dl_inr.extend(self.ue.inr[ue].tolist())
+
+                self.results.imt_dl_interf_power.extend(
+                    (self.ue.ext_interference[ue] - 30).tolist(),
+                )
 
             self.results.imt_dl_tx_power.extend(self.bs.tx_power[bs].tolist())
 

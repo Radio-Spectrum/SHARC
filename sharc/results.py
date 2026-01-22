@@ -42,6 +42,8 @@ class Results(object):
         self.imt_ul_tput_ext = SampleList()
         # Throughput [bits/s/Hz]
         self.imt_ul_tput = SampleList()
+        # System to IMT interference power [dB] - UL
+        self.imt_ul_interf_power = SampleList()
 
         self.imt_path_loss = SampleList()
         self.imt_coupling_loss = SampleList()
@@ -81,6 +83,8 @@ class Results(object):
         self.imt_dl_tput_ext = SampleList()
         # Throughput [bits/s/Hz]
         self.imt_dl_tput = SampleList()
+        # System to IMT interference power [dB] - DL
+        self.imt_dl_interf_power = SampleList()
 
         # PFD at the IMT receiver [dBW/m²/MHz]
         self.imt_dl_pfd = SampleList()

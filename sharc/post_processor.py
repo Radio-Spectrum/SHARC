@@ -159,6 +159,10 @@ class PostProcessor:
             "title": "[IMT] UL throughput",
             "x_label": "Throughput [bits/s/Hz]",
         },
+        "imt_ul_interf_power": {
+            "title": "[IMT] UL interference power",
+            "x_label": "Interference Power [dB]",
+        },
         "imt_path_loss": {
             "title": "[IMT] path loss",
             "x_label": "Path loss [dB]",
@@ -222,6 +226,10 @@ class PostProcessor:
         "imt_dl_tput": {
             "title": "[IMT] DL throughput",
             "x_label": "Throughput [bits/s/Hz]",
+        },
+        "imt_dl_interf_power": {
+            "title": "[IMT] DL interference power",
+            "x_label": "Interference Power [dB]",
         },
         "system_ul_interf_power": {
             "title": "[SYS] system interference power from IMT UL",

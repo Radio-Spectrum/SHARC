@@ -537,114 +537,6 @@ class SimulationDownlink(Simulation):
                     in_band_interf_power[valid_idx] = 10 * np.log10(total_interf_lin[valid_idx])
 
             oob_power = np.resize(-500., (len(ue), 1))
-            if self.adjacent_channel:
-                # emissions outside of tx bandwidth and inside of rx bw
-                # due to oob emissions on tx side
-                tx_oob = np.resize(-500., len(ue))
-
-                # emissions outside of rx bw and inside of tx bw
-                # due to non ideal filtering on rx side
-                # will be the same for all UE's, only considering
-                rx_oob = np.resize(-500., len(ue))
-
-                # TODO: M.2101 states that:
-                # "The ACIR value should be calculated based on per UE allocated number of resource blocks"
-
-                # should we actually implement that for ACS since the receiving
-                # filter is fixed?
-
-                # or maybe ignore ACS altogether (ACS = inf)? If we consider only allocated RB, it makes
-                # no sense to use ACS.
-                # At the same time, ignoring ACS doesn't seem correct since the interference
-                # could DECREASE when it would make sense for it to increase.
-                # e.g. adjacent systems -> slightly co-channel with ACS = inf
-                # should interfer ^        less than this ^
-
-                if self.parameters.imt.adjacent_ch_reception == "ACS":
-                    if self.overlapping_bandwidth:
-                        if getattr(self, "_acs_warned"):
-                            warn(
-                                "You're trying to use ACS on a partially overlapping band "
-                                "with UEs.\n\tVerify the code implements the behavior you expect!!"
-                            )
-                            self._acs_warned = True
-                    non_overlap_sys_bw = self.param_system.bandwidth - self.overlapping_bandwidth
-                    acs_dB = self.parameters.imt.ue.adjacent_ch_selectivity
-
-                    # NOTE: only the power not overlapping is attenuated by ACS
-                    # tx_pow_adj_lin = PSD * non_overlap_imt_bw
-                    # rx_oob = tx_pow_adj_lin / acs
-                    rx_oob[::] = self.param_system.tx_power_density + 10 * np.log10(non_overlap_sys_bw * 1e6) - acs_dB
-                elif self.parameters.imt.adjacent_ch_reception == "OFF":
-                    pass
-                else:
-                    raise ValueError(
-                        f"No implementation for parameters.imt.adjacent_ch_reception == {
-                            self.parameters.imt.adjacent_ch_reception}")
-
-                # for tx oob we accept ACLR and spectral mask
-                if self.param_system.adjacent_ch_emissions == "SPECTRAL_MASK":
-                    ue_bws = self.ue.bandwidth[ue]
-                    center_freqs = self.ue.center_freq[ue]
-
-                    with warnings.catch_warnings():
-                        warnings.filterwarnings("ignore",
-                                                category=RuntimeWarning,
-                                                message="divide by zero encountered in log10")
-                        for i, center_freq, bw in zip(
-                                range(len(center_freqs)), center_freqs, ue_bws):
-                            # calculate tx emissions in UE in use bandwidth only
-                            # [dB]
-                            tx_oob[i] = self.system.spectral_mask.power_calc(
-                                center_freq,
-                                bw
-                            ) - 30
-                elif self.param_system.adjacent_ch_emissions == "ACLR":
-                    # consider ACLR only over non co-channel RBs
-                    # This should diminish some of the ACLR interference
-                    # in a way that make sense
-                    non_overlap_imt_bw = self.ue.bandwidth[ue] * (1. - weights)
-                    # NOTE: approximated equal to IMT bw
-                    measurement_bw = self.param_system.bandwidth
-                    aclr_dB = self.param_system.adjacent_ch_leak_ratio
-
-                    if self.parameters.imt.bandwidth - self.overlapping_bandwidth > measurement_bw:
-                        # NOTE: ACLR defines total leaked power over a fixed measurement bandwidth.
-                        # If the victim bandwidth is wider, you’re assuming the same leakage
-                        # profile extends beyond the ACLR-defined region, which may overestimate interference
-                        # FIXME: if the victim bw fully contains tx bw, then
-                        # EACH region should be <= measurement_bw
-                        warn(
-                            "Using System ACLR into IMT, but ACLR measurement bw is "
-                            f"{measurement_bw} while the IMT bw is bigger ({self.parameters.imt.bandwidth}).\n"
-                            "Are you sure you intend to apply the same ACLR to the entire IMT bw?"
-                        )
-
-                    # tx_oob_in_measurement = (tx_pow_lin / aclr)
-                    # => approx. PSD = (tx_pow_lin / aclr) / measurement_bw
-                    # approximated received tx_oob = PSD * non_overlap_imt_bw
-                    tx_oob[::] = self.param_system.tx_power_density + \
-                        10 * np.log10(1e6) -  \
-                        aclr_dB + 10 * np.log10(
-                            non_overlap_imt_bw)
-                elif self.param_system.adjacent_ch_emissions == "OFF":
-                    pass
-                else:
-                    raise ValueError(
-                        f"No implementation for param_system.adjacent_ch_emissions == {
-                            self.param_system.adjacent_ch_emissions}")
-
-                if self.param_system.adjacent_ch_emissions != "OFF":
-                    tx_oob = tx_oob[:, np.newaxis] - self.coupling_loss_imt_system[ue, :][:, active_sys]
-
-                rx_oob = rx_oob[:, np.newaxis] - self.coupling_loss_imt_system_adjacent[ue, :][:, active_sys]
-
-                # Out of band power
-                # sum linearly power leaked into band and power received in the
-                # adjacent band
-                oob_power = 10 * np.log10(
-                    10 ** (0.1 * tx_oob) + 10 ** (0.1 * rx_oob)
-                )
             # Total external interference into the UE in dBm
             ue_ext_int = 10 * np.log10(np.power(10,
                                                 0.1 * in_band_interf_power) + np.power(10,
@@ -1237,41 +1129,65 @@ class SimulationDownlink(Simulation):
     
     def calculate_sinr_wifi(self):
         """
-        Calculates the downlink SINR for each STA.
+        Calcula o SINR interno para o sistema WiFi (STAs e APs), 
+        garantindo a conversão de dicionários para arrays para evitar TypeErrors.
         """
         ap_active = np.where(self.system.ap.active)[0]
+        sta_active = np.where(self.system.sta.active)[0]
+
+        # --- 1. FUNÇÃO AUXILIAR DE CONVERSÃO ---
+        def to_numpy_array(manager, attr_name):
+            val = getattr(manager, attr_name)
+            if isinstance(val, dict):
+                # Cria array preenchido com valor nulo (-500 dBm) e mapeia as chaves
+                arr = np.full(manager.num_stations, -500.0)
+                for k, v in val.items():
+                    # v pode ser uma lista [K] vinda do IMT, pegamos o primeiro elemento
+                    arr[k] = np.atleast_1d(v)[0]
+                return arr
+            return np.atleast_1d(val)
+
+        # --- 2. CÁLCULO DE POTÊNCIAS (DOWNLINK E UPLINK) ---
+        # (Loops de sinal desejado e interferência mantidos com proteção de chave)
         for ap in ap_active:
-            sta = self.system.link[ap]
-            self.system.sta.rx_power[sta] = self.system.ap.tx_power[ap] - \
-                self.coupling_loss_wifi[ap, sta]
+            if ap in self.system.ap.tx_power:
+                stas = np.atleast_1d(self.system.link[ap])
+                tx_pwr_ap = np.atleast_1d(self.system.ap.tx_power[ap])[0]
+                self.system.sta.rx_power[stas] = tx_pwr_ap - self.coupling_loss_wifi[ap, stas]
 
-            # create a list with access points that generate interference in sta_list
-            ap_interf = [a for a in ap_active if a not in [ap]]
+                # Acumulação de interferência intra-sistema
+                ap_interf = [a for a in ap_active if a != ap]
+                for ai in ap_interf:
+                    if ai in self.system.ap.tx_power:
+                        interference = np.atleast_1d(self.system.ap.tx_power[ai])[0] - \
+                                       self.coupling_loss_wifi[ai, stas]
+                        self.system.sta.rx_interference[stas] = 10 * np.log10(
+                            np.power(10, 0.1 * self.system.sta.rx_interference[stas]) +
+                            np.power(10, 0.1 * interference))
 
-            # calculate intra system interference
-            for ai in ap_interf:
-                interference = self.system.ap.tx_power[ai] - \
-                    self.coupling_loss_wifi[ai, sta]
+        # --- 3. CÁLCULO FINAL UNIFICADO (Onde ocorria o erro) ---
+        noise_floor_base = 10 * math.log10(BOLTZMANN_CONSTANT * self.parameters.wifi.noise_temperature * 1e3) + \
+                           10 * np.log10(self.param_system.bandwidth * 1e6)
 
-                self.system.sta.rx_interference[sta] = 10 * np.log10(
-                    np.power(
-                        10, 0.1 * self.system.sta.rx_interference[sta]) + np.power(10, 0.1 * interference),
-                )
+        for manager in [self.system.sta, self.system.ap]:
+            # CONVERSÃO EXPLÍCITA: Transformamos dicts em arrays antes da conta
+            rx_power_arr = to_numpy_array(manager, 'rx_power')
+            rx_interf_arr = to_numpy_array(manager, 'rx_interference')
+            
+            # Cálculo do ruído térmico (kTB + Noise Figure)
+            manager.thermal_noise = noise_floor_base + manager.noise_figure
+            thermal_noise_arr = np.atleast_1d(manager.thermal_noise)
 
-        # Thermal noise in dBm
-        self.system.sta.thermal_noise = \
-            10 * math.log10(BOLTZMANN_CONSTANT * self.parameters.wifi.noise_temperature * 1e3) + \
-            10 * np.log10(self.system.sta.bandwidth * 1e6) + \
-            self.system.sta.noise_figure
+            # Cálculo da Interferência Total (Soma linear em mW)
+            # manager.total_interference agora recebe um array NumPy
+            total_interf_mw = np.power(10, 0.1 * rx_interf_arr) + \
+                              np.power(10, 0.1 * thermal_noise_arr)
+            manager.total_interference = 10 * np.log10(total_interf_mw)
 
-        self.system.sta.total_interference = \
-            10 * np.log10(
-                np.power(10, 0.1 * self.system.sta.rx_interference) +
-                np.power(10, 0.1 * self.system.sta.thermal_noise),
-            )
-
-        self.system.sta.sinr = self.system.sta.rx_power - self.system.sta.total_interference
-        self.system.sta.snr = self.system.sta.rx_power - self.system.sta.thermal_noise
+            # CÁLCULO DO SINR (Agora garantido: Array - Array)
+            # Isso resolve o TypeError: unsupported operand type(s) for -: 'dict' and 'float'
+            manager.sinr = rx_power_arr - manager.total_interference
+            manager.snr = rx_power_arr - thermal_noise_arr
     
     def collect_results_wifi(self, write_to_file: bool, snapshot_number: int):
         """

@@ -19,7 +19,7 @@ class ParametersHotspot(ParametersBase):
     num_hotspots_per_cell: float = 1
     # Maximum 2D distance between hotspot and UE [m]
     # This is the hotspot radius
-    max_dist_hotspot_ue: float = 100.0
+    max_dist_hotspot_ue: float = 200.0
     # Minimum 2D distance between macro cell base station and hotspot [m]
     min_dist_bs_hotspot: float = 0.0
 

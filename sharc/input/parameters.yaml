@@ -29,7 +29,7 @@ imt:
     spectral_mask: IMT-2020                           # Spectral mask model
     spurious_emissions: -15                         # Spurious emission level [dBm/MHz]
     guard_band_ratio: 0.1                             # Ratio of total bandwidth used as guard band
-    channel_model: FSPL                                # Channel model: FSPL, CI, UMa, UMi, etc.
+    channel_model: UMi                               # Channel model: FSPL, CI, UMa, UMi, etc.
     shadowing: TRUE  
     ###########################################################################
     # Topology Type. Possible values are "MACROCELL", "HOTSPOT", "SINGLE_BS"
@@ -242,7 +242,7 @@ wifi:
     noise_temperature: 190
     ###########################################################################
     # Peak transmit power spectral density (clear sky) [dBW/Hz]
-    tx_power_density: -65
+    tx_power_density: -35
     # Adjacent channel selectivity [dB]
     ###########################################################################
     adjacent_ch_selectivity: 35
@@ -251,6 +251,7 @@ wifi:
     spectral_mask: WIFI-2020
     ###########################################################################
     spurious_emissions: -27
+    max_dist_hotspot_ue: 200
     ###########################################################################
     adjacent_ch_selectivity: 20.0
     channel_model: UMi                                # Channel model: FSPL, CI, UMa, UMi, etc.

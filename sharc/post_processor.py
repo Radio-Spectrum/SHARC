@@ -452,8 +452,8 @@ class PostProcessor():
                             )
                         ],
                         legend=dict(
-                            x=0.8,          # x position (20% from the left)
-                            y=0.6,          # y position (50% from the bottom)
+                            x=.55,          # x position (20% from the left)
+                            y=0.55,          # y position (50% from the bottom)
                             xanchor='right', # anchor the legend's right side at x=0.95
                             yanchor='top',   # anchor the legend's top at y=0.95
                             bgcolor='rgba(255,255,255,0.5)',  # Optional: semi-transparent white background
@@ -466,47 +466,41 @@ class PostProcessor():
                 x, y = PostProcessor.ccdf_from(attr_val, n_bins=n_bins)
 
                 fig = figs[attr_name]
-                #if "ter_OFF" in legend:
+
+
+                #if "right" in legend:
+                #    dash_style = "solid"
+                #elif "left" in legend:
                 #    dash_style = "dash"
+                #else:
+                #    dash_style = "dot"
+
+                #if "RANDOM_CENARIO" in legend:
+                #    dash_style = "solid"
+                #elif "p=20%" in legend:
+                #    dash_style = "dash"
+                #else:
+                #    dash_style = "dot"
 
                 if "ter_ON" in legend:
-                    dash_style = "solid"
-                elif "ter_OFF" in legend:
                     dash_style = "dash"
                 else:
-                    dash_style = "dot"
-                if '40 km' in legend:
-                    color_line = 'blue'
-                elif '60 km' in legend:   
-                    color_line = 'red' 
-                elif '80 km' in legend:   
-                    color_line = 'green' 
-                elif '100 km' in legend:   
-                    color_line = 'cyan' 
-                elif '120 km' in legend:   
-                    color_line = 'moccasin' 
+                    dash_style = "solid"
 
-                if '100 km' in legend:
-                    color_line = 'blue'
-                elif '125 km' in legend:   
-                    color_line = 'red' 
-                elif '150 km' in legend:   
-                    color_line = 'green' 
-                elif '200 km' in legend:   
-                    color_line = 'cyan' 
-                elif '250 km' in legend:   
-                    color_line = 'moccasin' 
+                #if '5 km' in legend:
+                #    color_line = 'blue'
+                #elif '10 km' in legend:
+                #    color_line = 'red'
+                #elif '40 km' in legend:
+                #    color_line = 'green'
+                #elif '200 km' in legend:
+                #    color_line = 'cyan'
+                #elif '250 km' in legend:
+                #    color_line = 'moccasin'
+                #else:
+                #    color_line = 'moccasin'
 
-                if '5 km' in legend:
-                    color_line = 'blue'
-                elif '10 km' in legend:   
-                    color_line = 'red' 
-                elif '20 km' in legend:   
-                    color_line = 'green' 
-                elif '40 km' in legend:   
-                    color_line = 'cyan' 
-                elif '80 km' in legend:   
-                    color_line = 'moccasin' 
+
 
 
                 x_aux = x
@@ -520,8 +514,8 @@ class PostProcessor():
                         mode="lines",
                         name=legend,
                         line=dict(dash=dash_style,
-                                   width=3,
-                                   color=color_line),
+                                   width=3),
+                                   #color=color_line),
                     ),
                 )
         pat = re.compile(

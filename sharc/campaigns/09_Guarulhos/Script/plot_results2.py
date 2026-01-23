@@ -32,8 +32,8 @@ DB_PER_100MHZ = 15  # (20 - 5) dB
 
 # 2º MC
 MC_K_MIXED = {
-    '':    int(30000 / (57 * 3)),
-    '6G_': int(30000 / (57 * 3)),
+    '':    int(30000 / (57 * 7)),
+    '6G_': int(30000 / (57 * 7)),
 }
 
 MC2_3G_ATTR  = "dl_interf_power_mc2_3g_dBm"
@@ -41,11 +41,12 @@ MC2_6G_ATTR  = "dl_interf_power_mc2_6g_dBm"
 MC2_MIX_ATTR = "dl_interf_power_mc2_mix_dBm"
 
 # Grupos
-n_array      = [4, 8, 16]
+n_array      = [4,8,84 ]#8, 84, 16]
 propag       = ['']   #, "6G_"
 #distances_km = [1000, 2000, 10000, 15000, 25000, 35000, 40000]
 #distances_km = [1000, 2000, 4000, 6000, 10000, 12000, 15000, 16000, 17000, 20000, 22000, 25000, 27000, 32000, 35000, 40000]
-distances_km = [1000, 2000, 4000, 8000, 16000, 32000]
+distances_km = [1000, 1500, 2000, 3000, 4000, 6000, 8000, 12000, 16000, 24000, 32000]
+#distances_km = [1000, 2000, 4000, 8000, 16000, 32000]
 cutoff_percentage = 0.001
 shift_scale       = 0.0
 legenda_dens_potencia = "dBm"
@@ -75,10 +76,13 @@ for b, a, s in combinations:
     alt = np.round(s * np.tan(np.deg2rad(3)))
     s1 = s / 1000
     if b == "6G_":
-        legend = f"6,5 GHz - N={a} x 8 - d={int(s1):02d} km - alt={int(alt):03d}m"
+        legend = f"6,5 GHz - N = 8L x {a}C - d={int(s1):02d} km - alt={int(alt):03d}m"
         pattern = f"{b}array_{a}_approach_{s}m"
     else:
-        legend = f"3,65 GHz - N={a} x 8 - d={int(s1):02d} km - alt={int(alt):03d}m"
+        if a == 84:
+            legend = f"3,65 GHz - N = 8L x 4C - d={int(s1):02d} km - alt={int(alt):03d}m"
+        else:
+            legend = f"3,65 GHz - N = {a}L x 8C - d={int(s1):02d} km - alt={int(alt):03d}m"
         pattern = f"{b}array_{a}_approach_{s}m"
 
     post_processor.add_plot_legend_pattern(
@@ -145,7 +149,7 @@ def mc_sum_dBm_per_file(x_dBm, k, n_trials, seed=MC_SEED):
     sums  = draws.sum(axis=1)
     return 10 * np.log10(sums)
 
-MC_K_original = int(round(30000 / (57 * 3)))
+MC_K_original = int(round(30000 / (57 * 7)))
 
 for res in many_results:
     x = getattr(res, MC_ATTR_IN, None)
@@ -196,7 +200,15 @@ for res in many_results:
         base
     )
 
-    linestyle = "--" if "N=8" in label else "-"
+    if "8L x 8C" in label:
+        linestyle = "--"
+    elif "4L x 8C" in label:
+        linestyle = ":"
+    else:
+        linestyle = "-"
+
+    #linestyle = "--" if "4L x" in label else "-"
+    #linestyle = "--" if "x 16C" in label else "-"
     if '1 km' in label:
         color_line = 'blue'
     elif '2 km' in label:
@@ -224,12 +236,12 @@ itm_worst_limits_dBm100MHz = {
 }
 
 for cat, lim in itm_worst_limits_dBm100MHz.items():
-    plt.axvline(lim, color="red", linestyle=":", linewidth=2)
+    plt.axvline(lim, color="black", linestyle="-.", linewidth=2)
     plt.text(
         lim, 1e-3,  # posição do texto no gráfico
         f"{cat}: {lim:.1f} dBm/100MHz",
         rotation=90,
-        color="red",
+        color="black",
         verticalalignment="bottom",
         fontsize=12
     )
@@ -254,7 +266,7 @@ plt.show()
 
 ITM_LIMITS = {
     1: { "alt_ft": np.array([10,200,1000,5000, 30000]),
-         "psd_dBm_MHz": np.array([-39,-39,-46,-53, -53]) },
+         "psd_dBm_MHz": np.array([-39, -39, -46, -53, -53]) },
 
     2: { "alt_ft": np.array([10,200,1000,2000, 30000]),
          "psd_dBm_MHz": np.array([-76,-76,-86,-94, -94]) },
@@ -344,6 +356,89 @@ for res in many_results:
         pct_viol = 100.0 * np.mean(x > limite)     # %
 
         viol_by_cat[cat][family_label].append((alt_ft, pct_viol))
+
+# =============================================================
+# Figura por categoria: Margem (cutoff - ITM) vs Distância
+# =============================================================
+
+print("\n=== Margem entre amostra no cutoff e o limite ITM por distância ===")
+
+margins_by_cat = {
+    1: defaultdict(list),
+    2: defaultdict(list),
+    3: defaultdict(list),
+}
+
+for res in many_results:
+    x = getattr(res, MC_ATTR_OUT, None)
+    if x is None:
+        continue
+    x = np.asarray(x, float)
+    x = x[np.isfinite(x)]
+    if x.size == 0:
+        continue
+
+    base = os.path.basename(getattr(res, "output_directory", "") or
+                            getattr(res, "dir_path", ""))
+    m = _pat.search(base)
+    if not m:
+        continue
+
+    dist_km = float(m.group(3)) / 1000
+    alt_m  = dist_km * 1000 * np.tan(np.deg2rad(3.0))
+    alt_ft = alt_m * 3.28084
+
+    x_cut = np.percentile(x, 100 * (1 - cutoff_percentage))
+
+    full_label = next(
+        (p["legend"]
+         for p in post_processor.plot_legend_patterns
+         if p["dir_name_contains"] in base),
+        base or "Resultado"
+    )
+    family_label = full_label.split(" d=")[0].strip()
+
+    for cat in (1, 2, 3):
+        lim_dBmMHz = itm_limit_psd(cat, alt_ft)
+        margin = -(x_cut - lim_dBmMHz)
+        margins_by_cat[cat][family_label].append((dist_km, margin))
+
+# -------------------------------------------------------------
+# Plots: 3 figuras, uma por categoria ITM
+# -------------------------------------------------------------
+for cat in (1, 2, 3):
+    plt.figure(figsize=(9, 6))
+
+    for family_label, pairs in margins_by_cat[cat].items():
+        pairs = np.asarray(pairs, float)
+        if pairs.shape[0] < 2:
+            continue
+
+        dists = pairs[:, 0]
+        margins = pairs[:, 1]
+
+        order = np.argsort(dists)
+        dists = dists[order]
+        margins = margins[order]
+
+        linestyle = "--" if "6,5 G" in family_label else "-"
+
+        plt.plot(dists, margins, linestyle=linestyle, marker="o", label=family_label)
+
+    plt.xscale("log")
+    ticks = [1, 5, 10, 20, 40]
+    plt.xticks(ticks)
+    plt.gca().xaxis.set_major_formatter(ticker.FormatStrFormatter('%d'))
+    plt.grid(True, which="both", ls="--", alpha=0.4)
+    plt.xlabel("Distância (km)")
+    plt.ylabel("Margem (dB) entre cutoff e ITM")
+    plt.title(f"Margem de Segurança vs Limite ITM – Categoria {cat}")
+    plt.legend()
+    plt.tight_layout()
+    plt.show()
+
+
+
 
 # -------------------------------------------------------------
 # Plots: 3 figuras, uma para cada categoria ITM
@@ -521,12 +616,12 @@ for dist_m, (xs, ys) in sorted(ccdf_mixed_by_dist.items()):
     label = f"d = {dist_m/1000:.1f} km"
     plt.plot(xs, ys, label=label)
 for cat, lim in itm_worst_limits_dBm100MHz.items():
-    plt.axvline(lim, color="red", linestyle=":", linewidth=2)
+    plt.axvline(lim, color="black", linestyle="-.", linewidth=2)
     plt.text(
         lim, 1e-3,  # posição do texto no gráfico
         f"{cat}: {lim:.1f} dBm/100MHz",
         rotation=90,
-        color="red",
+        color="black",
         verticalalignment="bottom",
         fontsize=12
     )
@@ -535,7 +630,7 @@ plt.ylim(1e-3,1)
 plt.grid(True, which="both", ls="--", alpha=0.4)
 plt.xlabel("Power (dBm/100 MHz)")
 plt.ylabel("CCDF")
-plt.title("CCDF por Distância com o agregado das BSs (3,65 GHz + 6,5 GHz)")
+plt.title("CCDF por Distância com o agregado das ERBs (3,65 GHz + 6,5 GHz)")
 plt.legend()
 plt.tight_layout()
 plt.show()
@@ -631,7 +726,7 @@ plt.gca().xaxis.set_major_formatter(ticker.FormatStrFormatter('%d'))
 plt.grid(True, which="both", ls="--", alpha=0.4)
 plt.xlabel("Distância (km)")
 plt.ylabel("% de Violações")
-plt.title("Probabilidade de Violação do Critério com o agregado das BSs (3,65 GHz + 6,5 GHz)")
+plt.title("Probabilidade de Violação do Critério com o agregado das ERBs (3,65 GHz + 6,5 GHz)")
 plt.legend()
 plt.tight_layout()
 plt.show()
@@ -666,6 +761,95 @@ for cat, color, label_txt in [
 plt.grid(True, which="both", ls="--", alpha=0.4)
 plt.xlabel("Altitude (m)")
 plt.ylabel("Potência para desensibilização (dBm/100MHz)")
+plt.legend()
+plt.tight_layout()
+plt.show()
+
+
+
+# =============================================================
+# NOVA FIGURA FINAL – Margem (cutoff - ITM) para sistema TOTAL (3G+6G misto)
+# =============================================================
+
+print("\n=== Margem do sistema total (misto) entre o cutoff e o limite ITM ===")
+
+margem_mista_por_cat = {
+    1: {"dist_km": [], "margin_dB": []},
+    2: {"dist_km": [], "margin_dB": []},
+    3: {"dist_km": [], "margin_dB": []},
+}
+
+rng_margin = np.random.default_rng(MC_SEED + 9999)
+
+for dist_m in sorted(distances_km):
+    pool_3g = pools_mW.get(dist_m, {}).get("3G", None)
+    pool_6g = pools_mW.get(dist_m, {}).get("6G", None)
+
+    if pool_3g is None and pool_6g is None:
+        print(f"[AVISO] Sem pools válidos para distância {dist_m} m.")
+        continue
+
+    samples_dBm_MHz = []
+
+    for _ in range(MC_N_SAMPLES):
+        total_mW = 0.0
+
+        if pool_3g is not None and MC_K_MIXED[''] > 0:
+            draws_3g = rng_margin.choice(pool_3g, size=MC_K_MIXED[''], replace=True)
+            total_mW += draws_3g.sum()
+
+        if pool_6g is not None and MC_K_MIXED['6G_'] > 0:
+            draws_6g = rng_margin.choice(pool_6g, size=MC_K_MIXED['6G_'], replace=True)
+            total_mW += draws_6g.sum()
+
+        if total_mW <= 0.0:
+            continue
+
+        p_dBm_MHz = 10.0 * np.log10(total_mW)
+        samples_dBm_MHz.append(p_dBm_MHz)
+
+    samples_dBm_MHz = np.asarray(samples_dBm_MHz, float)
+    if samples_dBm_MHz.size == 0:
+        continue
+
+    p_cut = np.percentile(samples_dBm_MHz, 100 * (1 - cutoff_percentage))
+    alt_m  = dist_m * np.tan(np.deg2rad(3.0))
+    alt_ft = alt_m * 3.28084
+    dist_km = dist_m / 1000
+
+    for cat in (1, 2, 3):
+        lim = itm_limit_psd(cat, alt_ft)
+        margem = -(p_cut - lim)
+        margem_mista_por_cat[cat]["dist_km"].append(dist_km)
+        margem_mista_por_cat[cat]["margin_dB"].append(margem)
+
+# -------------------------------------------------------------
+# Plot: figura única com 3 curvas (uma por categoria)
+# -------------------------------------------------------------
+plt.figure(figsize=(10, 6))
+
+cores = {1: "tab:red", 2: "tab:green", 3: "tab:blue"}
+
+for cat in (1, 2, 3):
+    x = np.asarray(margem_mista_por_cat[cat]["dist_km"], float)
+    y = np.asarray(margem_mista_por_cat[cat]["margin_dB"], float)
+
+    if x.size == 0:
+        continue
+
+    order = np.argsort(x)
+    x = x[order]
+    y = y[order]
+
+    plt.plot(x, y, "-o", label=f"Categoria {cat}", color=cores[cat])
+
+plt.xscale("log")
+plt.xticks([1, 5, 10, 20, 40])
+plt.gca().xaxis.set_major_formatter(ticker.FormatStrFormatter('%d'))
+plt.grid(True, which="both", ls="--", alpha=0.4)
+plt.xlabel("Distância (km)")
+plt.ylabel("Margem (dB) entre cutoff e limite ITM")
+plt.title("Margem de Segurança – Sistema Total (3G + 6G)")
 plt.legend()
 plt.tight_layout()
 plt.show()

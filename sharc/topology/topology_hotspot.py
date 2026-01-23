@@ -294,14 +294,14 @@ class TopologyHotspot(Topology):
 
 if __name__ == '__main__':
     param = ParametersHotspot()
-    param.num_hotspots_per_cell = 8
+    param.num_hotspots_per_cell = 3
 
     param.max_dist_hotspot_ue = 400
     param.min_dist_bs_hotspot = 0
 
-    intersite_distance = 13380
+    intersite_distance = 4954.6
 
-    num_clusters = 1
+    num_clusters = 7
     topology = TopologyHotspot(param, intersite_distance, num_clusters)
     topology.calculate_coordinates()
 

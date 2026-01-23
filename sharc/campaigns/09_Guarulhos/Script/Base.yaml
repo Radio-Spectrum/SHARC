@@ -25,7 +25,7 @@ imt:
       intersite_distance: 4954.6
       wrap_around: false
       num_clusters: 7
-      num_hotspots_per_cell: 3
+      num_hotspots_per_cell: 1
       max_dist_hotspot_ue: 400
       min_dist_bs_hotspot: 0
   bs:
@@ -50,7 +50,7 @@ imt:
         element_phi_3db: 90
         element_theta_3db: 65
         n_rows: 4  ## Alterar para 8
-        n_columns: 8
+        n_columns: 4
         element_horiz_spacing: 0.5
         element_vert_spacing: 2.1
         element_am: 30 ##Verificar se é o item 1.4 da tabela 9

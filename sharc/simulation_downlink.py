@@ -152,20 +152,23 @@ class SimulationDownlink(Simulation):
         """
         # Currently, the maximum transmit power of the base station is equaly
         # divided among the selected UEs
-        total_power = self.parameters.imt.bs.conducted_power \
+        total_power = self.bs.tx_power \
             + self.bs_power_gain
         tx_power = total_power - 10 * math.log10(self.parameters.imt.ue.k)
         # calculate transmit powers to have a structure such as
         # {bs_1: [pwr_1, pwr_2,...], ...}, where bs_1 is the base station id,
         # pwr_1 is the transmit power from bs_1 to ue_1, pwr_2 is the transmit
         # power from bs_1 to ue_2, etc
+        # NOTE: Re-writing bs.tx_power here as dict
         bs_active = np.where(self.bs.active)[0]
         self.bs.tx_power = dict(
-            [(bs, tx_power * np.ones(self.parameters.imt.ue.k)) for bs in bs_active])
+            [(bs, tx_power[bs] * np.ones(self.parameters.imt.ue.k)) for bs in bs_active])
 
         # Update the spectral mask
         if self.adjacent_channel:
-            self.bs.spectral_mask.set_mask(p_tx=total_power)
+            # FIXME: assumes all BS have same total power
+            max_tx_power = self.parameters.imt.bs.conducted_power + self.bs_power_gain
+            self.bs.spectral_mask.set_mask(p_tx=max_tx_power)
 
     def calculate_sinr(self):
         """
@@ -268,8 +271,6 @@ class SimulationDownlink(Simulation):
                     # Inteferer transmit power in dBm over the overlapping band
                     # (MHz) with UEs.
                     if self.overlapping_bandwidth > 0:
-                        # in_band_interf_power = self.param_system.tx_power_density + \
-                        #     10 * np.log10(self.overlapping_bandwidth * 1e6) + 30
                         with warnings.catch_warnings():
                             warnings.filterwarnings(
                                 "ignore",
@@ -277,7 +278,7 @@ class SimulationDownlink(Simulation):
                                 message="divide by zero encountered in log10",
                             )
                             in_band_interf_power = \
-                                self.param_system.tx_power_density + 10 * np.log10(
+                                self.system.tx_power_density[system_interfering] + 10 * np.log10(
                                     self.ue.bandwidth[ue] * 1e6
                                 ) + 10 * np.log10(weights) - \
                                 self.coupling_loss_imt_system[ue, :][system_interfering]
@@ -286,12 +287,12 @@ class SimulationDownlink(Simulation):
                 if self.adjacent_channel:
                     # emissions outside of tx bandwidth and inside of rx bw
                     # due to oob emissions on tx side
-                    tx_oob = np.resize(-500., 1)
+                    tx_oob = np.ones_like(system_interfering) * -500.
 
                     # emissions outside of rx bw and inside of tx bw
                     # due to non ideal filtering on rx side
                     # will be the same for all UE's, only considering
-                    rx_oob = np.resize(-500., 1)
+                    rx_oob = np.ones_like(system_interfering) * -500.
 
                     # TODO: M.2101 states that:
                     # "The ACIR value should be calculated based on per UE allocated number of resource blocks"
@@ -320,7 +321,8 @@ class SimulationDownlink(Simulation):
                         # NOTE: only the power not overlapping is attenuated by ACS
                         # tx_pow_adj_lin = PSD * non_overlap_imt_bw
                         # rx_oob = tx_pow_adj_lin / acs
-                        rx_oob[::] = self.param_system.tx_power_density + 10 * np.log10(non_overlap_sys_bw * 1e6) - acs_dB
+                        rx_oob[::] = self.system.tx_power_density[system_interfering] + \
+                            10 * np.log10(non_overlap_sys_bw * 1e6) - acs_dB
                     elif self.parameters.imt.adjacent_ch_reception == "OFF":
                         pass
                     else:
@@ -337,7 +339,7 @@ class SimulationDownlink(Simulation):
                             warnings.filterwarnings("ignore",
                                                     category=RuntimeWarning,
                                                     message="divide by zero encountered in log10")
-                            tx_oob[0] = self.system.spectral_mask.power_calc(
+                            tx_oob[::] = self.system.spectral_mask.power_calc(
                                 center_freqs,
                                 ue_bws
                             ) - 30
@@ -365,8 +367,7 @@ class SimulationDownlink(Simulation):
                         # tx_oob_in_measurement = (tx_pow_lin / aclr)
                         # => approx. PSD = (tx_pow_lin / aclr) / measurement_bw
                         # approximated received tx_oob = PSD * non_overlap_imt_bw
-                        tx_oob[::] = self.param_system.tx_power_density + \
-                            10 * np.log10(1e6) -  \
+                        tx_oob[::] = self.system.tx_power_density[system_interfering] + 60 - \
                             aclr_dB + 10 * np.log10(
                                 non_overlap_imt_bw)
                     elif self.param_system.adjacent_ch_emissions == "OFF":
@@ -377,9 +378,9 @@ class SimulationDownlink(Simulation):
                                 self.param_system.adjacent_ch_emissions}")
 
                     if self.param_system.adjacent_ch_emissions != "OFF":
-                        tx_oob = tx_oob[:] - self.coupling_loss_imt_system[ue, :][system_interfering]
+                        tx_oob = tx_oob - self.coupling_loss_imt_system[ue, system_interfering]
 
-                    rx_oob = rx_oob[:] - self.coupling_loss_imt_system_adjacent[ue, :][system_interfering]
+                    rx_oob = rx_oob - self.coupling_loss_imt_system_adjacent[ue, system_interfering]
 
                     # Out of band power
                     # sum linearly power leaked into band and power received in the
@@ -390,7 +391,7 @@ class SimulationDownlink(Simulation):
                 # Total external interference into the UE in dBm
                 ue_ext_int = 10 * np.log10(
                     np.power(10, 0.1 * in_band_interf_power) +
-                    np.power(10, 0.1 * oob_power)) - self.system.tx_power_backoff[system_interfering]
+                    np.power(10, 0.1 * oob_power))
 
                 # Sum all the interferers for each UE
                 self.ue.ext_interference[ue] = 10 * \

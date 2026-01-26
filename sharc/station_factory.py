@@ -115,6 +115,8 @@ class StationFactory(object):
             )
             imt_base_stations.is_space_station = True
             power_backoff = topology.power_backoff
+            if param.bs.antenna.pattern == "Antenna System 4":
+                param.bs.antenna.antenna_system_4.beam_ground_elev_angles = topology.beam_ground_elev_angles
         else:
             if topology.determines_local_geometry:
                 imt_base_stations.geom = topology.get_bs_geometry()

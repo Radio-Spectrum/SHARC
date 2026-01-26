@@ -32,6 +32,10 @@ class ParametersAntennaSystem4(ParametersBase):
         )
     )
 
+    # Elevation angles (degrees) separating high and low elevation beams
+    # This is set during simulation runtime.
+    beam_ground_elev_angles: list[float] = None
+
     def load_parameters_from_file(self, config_file: str):
         """Load the parameters from file an run a sanity check.
 

@@ -63,6 +63,7 @@ class TopologyImtMssDc(Topology):
         self.space_station_x = None
         self.space_station_y = None
         self.space_station_z = None
+        self.beam_ground_elev_angles = None  # beam ground elevation angle
         self.power_backoff = None  # power backoff per beam
 
         self.lat = None
@@ -710,6 +711,9 @@ class TopologyImtMssDc(Topology):
         self.x = sat_values["sectors_x"]
         self.y = sat_values["sectors_y"]
         self.z = sat_values["sectors_z"]
+
+        # Beam ground elevation angle
+        self.beam_ground_elev_angles = sat_values["beams_ground_elev"]
 
         # power backoff per beam
         self.power_backoff = sat_values["sat_power_backoff"]

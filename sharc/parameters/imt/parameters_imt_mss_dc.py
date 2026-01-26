@@ -214,7 +214,7 @@ class ParametersPowerControl(ParametersBase):
         for i in range(len(self.zones)):
             self.zones[i].geometry.validate(ctx + f"zones.{i}.geometry")
             if not isinstance(self.zones[i].power_backoff_db, float):
-                raise ValueError("power_backoff_db is not properly defined.")
+                self.zones[i].power_backoff_db = 0.0  # Default to 0 dB if not set - we make sure it's not applied later.
 
 
 @dataclass

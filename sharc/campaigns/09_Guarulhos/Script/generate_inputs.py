@@ -14,7 +14,7 @@ APPROACH_SIGN   = -1          # +1 vindo do Leste; -1 do Oeste
 x0, y0          = -2000.0, 10000.0    # offsets locais em metros
 
 # >>> AQUI: vetor de distâncias até o CENTRO da pista (m)
-DISTANCES_M = [1500, 3000, 6000, 12000, 24000]
+DISTANCES_M = [1000, 1500, 2000, 3000, 4000, 6000, 8000, 12000, 16000, 24000, 32000]
 
 yaml = YAML(typ="rt")
 yaml.preserve_quotes = True

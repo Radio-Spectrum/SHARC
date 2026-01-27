@@ -3,10 +3,13 @@ from ruamel.yaml import YAML
 from copy import deepcopy
 import math
 import random
+import os
 
-# ===== Caminhos =====
-BASE_YAML = Path(r"C:\Achiles\SHARC\sharc\campaigns\09_Guarulhos\Script\Base_6GHz.yaml")
-OUT_DIR   = Path(r"C:\Achiles\SHARC\sharc\campaigns\09_Guarulhos\input")
+
+HERE = Path(__file__).resolve().parent
+BASE_DIR = HERE.parent
+BASE_YAML = HERE / "Base_6GHz.yaml"
+OUT_DIR   = BASE_DIR / "input"
 
 # ===== Parâmetros =====
 GLIDESLOPE_DEG  = 3.0         # rampa (graus)
@@ -14,7 +17,7 @@ APPROACH_SIGN   = -1          # +1 vindo do Leste; -1 do Oeste
 x0, y0          = -2000.0, 10000.0    # offsets locais em metros
 
 # >>> AQUI: vetor de distâncias até o CENTRO da pista (m)
-DISTANCES_M = [1000, 2000, 4000, 8000, 16000, 32000]
+DISTANCES_M = [1000, 1500, 2000, 3000, 4000, 6000, 8000, 12000, 16000, 24000, 32000]
 
 yaml = YAML(typ="rt")
 yaml.preserve_quotes = True
@@ -78,6 +81,7 @@ for n_array in [8, 16]:
         # muda também o prefixo
         if "general" in doc and isinstance(doc["general"], dict):
             doc["general"]["output_dir_prefix"] = f"6G_array_{n_array}_approach_{int(s_m)}m"
+            doc["general"]["output_dir"] = str((BASE_DIR / "output").as_posix())
 
         # salva com nome pela distância
         out = OUT_DIR / f"6G_input_air_approach_array_{n_array}_{int(s_m)}m.yaml"

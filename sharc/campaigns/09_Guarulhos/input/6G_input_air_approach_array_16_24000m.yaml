@@ -1,39 +1,39 @@
 general:
-  num_snapshots: 30000
+  num_snapshots: 10000
   imt_link: DOWNLINK
   system: SINGLE_SPACE_STATION
   enable_cochannel: true
-  enable_adjacent_channel: false
-  seed: 103
+  enable_adjacent_channel: true
+  seed: 212
   overwrite_output: false
   output_dir: campaigns/09_Guarulhos/output_dl/
-  output_dir_prefix: array_4_approach_15000m
+  output_dir_prefix: 6G_array_16_approach_24000m
 imt:
   minimum_separation_distance_bs_ue: 35
   interfered_with: false
-  frequency: 3650
+  frequency: 6475 # A banda vai de 6 425 a 7 125, então pensei na faixa de 100 MHz mais próxima do início da banda
   bandwidth: 100
   rb_bandwidth: 0.18
-  spectral_mask: 3GPP E-UTRA
-  spurious_emissions: -30
-  adjacent_ch_emissions: SPECTRAL_MASK
-  adjacent_antenna_model: SINGLE_ELEMENT
+  spectral_mask: 3GPP E-UTRA #Conferir com a tabela 3-2/3, mas acho que não importa, certo?
+  spurious_emissions: -30 # CatB de 1 GHz a 26 GHz
+  adjacent_ch_emissions: SPECTRAL_MASK # conferir se é a que se estabelece na Table 3-2/3, mas acho que não importa, certo?
+  adjacent_antenna_model: SINGLE_ELEMENT # Como funciona isso?
   guard_band_ratio: 0.1
   topology:
     type: HOTSPOT
     hotspot:
-      intersite_distance: 13380
+      intersite_distance: 4954.6
       wrap_around: false
-      num_clusters: 1
+      num_clusters: 7
       num_hotspots_per_cell: 3
-      max_dist_hotspot_ue: 400
+      max_dist_hotspot_ue: 300
       min_dist_bs_hotspot: 0
   bs:
     load_probability: 0.5
-    conducted_power: 28
-    height: 20
-    noise_figure: 5
-    ohmic_loss: 0  #1.8 of table 9 and Note 1
+    conducted_power: 30.9691
+    height: 18
+    noise_figure: 11 # 6, 11, 14 dB for wide, medium, local area BS
+    ohmic_loss: 0  #1.8 of table 10 and Note 1
     antenna:
       array:
         normalization: false
@@ -46,23 +46,23 @@ imt:
           - 90.0
           - 100.0
         downtilt: 6
-        element_max_g: 6.4
+        element_max_g: 3.65
         element_phi_3db: 90
         element_theta_3db: 65
-        n_rows: 4  ## Alterar para 8
-        n_columns: 8
+        n_rows: 8  # Verificar com o Frederico se iremos altrar no caso dos 6 GHz
+        n_columns: 16 # Idem
         element_horiz_spacing: 0.5
-        element_vert_spacing: 2.1
-        element_am: 30 ##Verificar se é o item 1.4 da tabela 9
-        element_sla_v: 30 ##Verificar se é o item 1.4 da tabela 9
-        multiplication_factor: 12 ## Procurar!
+        element_vert_spacing: 4.2
+        element_am: 30 # Item 1.4 da tabela 10
+        element_sla_v: 30 # Item 1.4 da tabela 10
+        multiplication_factor: 12 # Tablea 3 do Anexo 1 da ITU-R M.2101
         subarray:
           is_enabled: true
-          n_rows: 3
-          element_vert_spacing: 0.7
-          eletrical_downtilt: 3.0
+          n_rows: 6 # Note 2 Tabela 10, mas não está tão claro quanto na tabela 9, para faixa menor -> 3 após reiunião com Frederico
+          element_vert_spacing: 0.7 # Não está definido na tabela 10, como está na tabela 9 -> 0.7 após resunião com Frederico
+          eletrical_downtilt: 3.0 # Idem.
   ue:
-    k: 3
+    k: 4
     k_m: 1
     indoor_percent: 70
     distribution_type: ANGLE_AND_DISTANCE
@@ -74,9 +74,9 @@ imt:
     p_cmax: 23
     power_dynamic_range: 56 ## Verificar
     height: 1.5
-    noise_figure: 9
+    noise_figure: 9 #Conferir, mas não impacta a simulação atual.
     ohmic_loss: 0
-    body_loss: 4 ## Variar
+    body_loss: 4 # Variar
     antenna:
       array:
         element_pattern: FIXED
@@ -84,17 +84,17 @@ imt:
         n_rows: 1
         n_columns: 1
   uplink:
-    attenuation_factor: 0.4
-    sinr_min: -10
-    sinr_max: 22
+    attenuation_factor: 0.4 # Não achei
+    sinr_min: -10 # Idem
+    sinr_max: 22 # Idem
   downlink:
-    attenuation_factor: 0.6
-    sinr_min: -10
-    sinr_max: 30
+    attenuation_factor: 0.6 #Não achei
+    sinr_min: -10 # Idem
+    sinr_max: 30 #Idem
   channel_model: UMa
   shadowing: true
 single_space_station:
-  frequency: 3650
+  frequency: 6475
   bandwidth: 300
   tx_power_density: -200
   polarization_loss: 3
@@ -104,7 +104,7 @@ single_space_station:
     time_percentage: RANDOM
     polarization: 1
   geometry:
-    altitude: 786.12
+    altitude: 1257.79
     es_altitude: 0
     es_lat_deg: -60
     es_long_deg: -15
@@ -120,7 +120,7 @@ single_space_station:
       type: FIXED
       fixed:
         lat_deg: -59.910017
-        long_deg: -15.305426
+        long_deg: -15.467122
   antenna:
     pattern: RA_M2319
     gain: 0

@@ -278,7 +278,7 @@ class SimulationE2EIMTVictim(unittest.TestCase):
         )
 
         p_loss_1k = self.fspl.get_loss(
-            simulation_1k.system.get_3d_distance_to(simulation_1k.ue),
+            simulation_1k.system.geom.get_3d_distance_to(simulation_1k.ue.geom),
             # TODO: maybe should change this?
             np.array([self.param.single_earth_station.frequency])
         )
@@ -287,7 +287,7 @@ class SimulationE2EIMTVictim(unittest.TestCase):
             simulation_1k.results.imt_system_path_loss
         )
         p_loss_3k = self.fspl.get_loss(
-            simulation_3k.system.get_3d_distance_to(simulation_3k.ue),
+            simulation_3k.system.geom.get_3d_distance_to(simulation_3k.ue.geom),
             # TODO: maybe should change this?
             np.array([self.param.single_earth_station.frequency])
         )
@@ -298,7 +298,7 @@ class SimulationE2EIMTVictim(unittest.TestCase):
 
         g1_co_1k = np.zeros((1, 2))
         g1_adj_1k = np.zeros((1, 2))
-        phis, thetas = simulation_1k.ue.get_pointing_vector_to(simulation_1k.system)
+        phis, thetas = simulation_1k.ue.geom.get_global_pointing_vector_to(simulation_1k.system.geom)
 
         for i, phi, theta in zip(range(2), phis, thetas):
             g1_co_1k[0][i] = simulation_1k.ue.antenna[i].calculate_gain(
@@ -321,7 +321,7 @@ class SimulationE2EIMTVictim(unittest.TestCase):
 
         g1_co_3k = np.zeros((1, 6))
         g1_adj_3k = np.zeros((1, 6))
-        phis, thetas = simulation_3k.ue.get_pointing_vector_to(simulation_1k.system)
+        phis, thetas = simulation_3k.ue.geom.get_global_pointing_vector_to(simulation_1k.system.geom)
 
         for i, phi, theta in zip(range(6), phis, thetas):
             g1_co_3k[0][i] = simulation_3k.ue.antenna[i].calculate_gain(
@@ -523,7 +523,7 @@ class SimulationE2EIMTVictim(unittest.TestCase):
         )
 
         p_loss = self.fspl.get_loss(
-            simulation_1k.bs.get_3d_distance_to(simulation_1k.system),
+            simulation_1k.bs.geom.get_3d_distance_to(simulation_1k.system.geom),
             # TODO: maybe should change this?
             np.array([self.param.single_earth_station.frequency])
         )
@@ -772,7 +772,7 @@ class SimulationE2EIMTVictim(unittest.TestCase):
         )
 
         p_loss_1k = self.fspl.get_loss(
-            simulation_1k.system.get_3d_distance_to(simulation_1k.ue),
+            simulation_1k.system.geom.get_3d_distance_to(simulation_1k.ue.geom),
             # TODO: maybe should change this?
             np.array([self.param.single_earth_station.frequency])
         )
@@ -782,7 +782,7 @@ class SimulationE2EIMTVictim(unittest.TestCase):
         )
 
         p_loss_3k = self.fspl.get_loss(
-            simulation_3k.system.get_3d_distance_to(simulation_3k.ue),
+            simulation_3k.system.geom.get_3d_distance_to(simulation_3k.ue.geom),
             # TODO: maybe should change this?
             np.array([self.param.single_earth_station.frequency])
         )
@@ -792,7 +792,7 @@ class SimulationE2EIMTVictim(unittest.TestCase):
         )
 
         g1_co_1k = np.zeros((1, 2))
-        phis, thetas = simulation_1k.ue.get_pointing_vector_to(simulation_1k.system)
+        phis, thetas = simulation_1k.ue.geom.get_global_pointing_vector_to(simulation_1k.system.geom)
 
         for i, phi, theta in zip(range(2), phis, thetas):
             g1_co_1k[0][i] = simulation_1k.ue.antenna[i].calculate_gain(
@@ -808,7 +808,7 @@ class SimulationE2EIMTVictim(unittest.TestCase):
         )
 
         g1_co_3k = np.zeros((1, 6))
-        phis, thetas = simulation_3k.ue.get_pointing_vector_to(simulation_1k.system)
+        phis, thetas = simulation_3k.ue.geom.get_global_pointing_vector_to(simulation_1k.system.geom)
 
         for i, phi, theta in zip(range(6), phis, thetas):
             g1_co_3k[0][i] = simulation_3k.ue.antenna[i].calculate_gain(
@@ -919,7 +919,7 @@ class SimulationE2EIMTVictim(unittest.TestCase):
         )
 
         p_loss_1k = self.fspl.get_loss(
-            simulation_1k.system.get_3d_distance_to(simulation_1k.bs),
+            simulation_1k.system.geom.get_3d_distance_to(simulation_1k.bs.geom),
             # TODO: maybe should change this?
             np.array([self.param.single_earth_station.frequency])
         )

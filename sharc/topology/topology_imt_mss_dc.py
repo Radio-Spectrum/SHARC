@@ -47,6 +47,11 @@ class TopologyImtMssDc(Topology):
             CoordinateSystem object that converts the ECEF coordinate system to one
             centered at CoordinateSystem.reference.
         """
+        super().__init__(
+            # FIXME: generated UEs won't follow radius exactly
+            params.beam_radius * np.sqrt(3),
+            params.beam_radius
+        )
         # That means the we need to pass the groud reference points to the base
         # stations generator
         self.is_space_station = True
@@ -58,10 +63,6 @@ class TopologyImtMssDc(Topology):
         self.space_station_x = None
         self.space_station_y = None
         self.space_station_z = None
-
-        self.cell_radius = params.beam_radius
-        # TODO: check this:
-        self.intersite_distance = self.cell_radius * np.sqrt(3)
 
         self.lat = None
         self.lon = None
@@ -376,7 +377,7 @@ class TopologyImtMssDc(Topology):
             # TODO: remove this reset_grid call from here.
             # Since it should be called once per drop, it shouldn't
             # be this deep in the program
-            orbit_params.beam_positioning.service_grid.reset_grid("service_grid", random_number_gen)
+            orbit_params.beam_positioning.service_grid.reset_grid("service_grid", random_number_gen, True)
 
             # 2xN, (lon, lat)
             grid = orbit_params.beam_positioning.service_grid.lon_lat_grid

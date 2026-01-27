@@ -42,6 +42,8 @@ class ParametersFssEs(ParametersBase):
     bandwidth: float = 6.0
     # adjacent channel selectivity (dB)
     adjacent_ch_selectivity: float = 0.0
+    # Adjacent channel emissions model
+    adjacent_ch_emissions: str = "OFF"
     # Peak transmit power spectral density (clear sky) [dBW/Hz]
     tx_power_density: float = -68.3
     # System receive noise temperature [K]

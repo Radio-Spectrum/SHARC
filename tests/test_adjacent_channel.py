@@ -16,6 +16,7 @@ from sharc.parameters.parameters import Parameters
 from sharc.antenna.antenna_omni import AntennaOmni
 from sharc.station_factory import StationFactory
 from sharc.propagation.propagation_factory import PropagationFactory
+from sharc.propagation.propagation_path import PropagationPath
 from sharc.parameters.imt.parameters_imt_topology import ParametersImtTopology
 from sharc.parameters.imt.parameters_single_bs import ParametersSingleBS
 
@@ -129,8 +130,10 @@ class SimulationAdjacentTest(unittest.TestCase):
             self.simulation.topology,
             random_number_gen,
         )
-        self.simulation.ue.x = np.array([20, 70, 110, 170])
-        self.simulation.ue.y = np.array([0, 0, 0, 0])
+        self.simulation.ue.geom.set_global_coords(
+            np.array([20, 70, 110, 170]),
+            np.array([0, 0, 0, 0]),
+        )
         self.simulation.ue.antenna = np.array(
             [AntennaOmni(10), AntennaOmni(11), AntennaOmni(22), AntennaOmni(23)],
         )
@@ -159,6 +162,9 @@ class SimulationAdjacentTest(unittest.TestCase):
             random_number_gen,
         )
 
+        self.simulation.intra_imt_paths = PropagationPath.create_default(
+            self.simulation.ue, self.simulation.bs
+        )
         # test coupling loss method
         self.simulation.coupling_loss_imt = self.simulation.calculate_intra_imt_coupling_loss(
             self.simulation.ue, self.simulation.bs, )
@@ -198,12 +204,16 @@ class SimulationAdjacentTest(unittest.TestCase):
         self.simulation.system = StationFactory.generate_fss_space_station(
             self.param.fss_ss,
         )
-        self.simulation.system.x = np.array([0.01])  # avoids zero-division
-        self.simulation.system.y = np.array([0])
-        self.simulation.system.z = np.array([self.param.fss_ss.altitude])
-        self.simulation.system.height = np.array([self.param.fss_ss.altitude])
+        self.simulation.system.geom.set_global_coords(
+            np.array([0.01]),  # avoids zero-division
+            np.array([0]),
+            np.array([self.param.fss_ss.altitude]),
+        )
 
-        # test the method that calculates interference from IMT UE to FSS space
+        self.simulation.paths_between_imt_and_sys = PropagationPath.create_default(
+            self.simulation.system, self.simulation.bs
+        )
+        # test the method that calculates interference from IMT BS to FSS space
         # station
         self.simulation.calculate_external_interference()
 
@@ -270,8 +280,10 @@ class SimulationAdjacentTest(unittest.TestCase):
             self.simulation.topology,
             random_number_gen,
         )
-        self.simulation.ue.x = np.array([20, 70, 110, 170])
-        self.simulation.ue.y = np.array([0, 0, 0, 0])
+        self.simulation.ue.geom.set_global_coords(
+            np.array([20, 70, 110, 170]),
+            np.array([0, 0, 0, 0]),
+        )
         self.simulation.ue.antenna = np.array(
             [AntennaOmni(10), AntennaOmni(11), AntennaOmni(22), AntennaOmni(23)],
         )
@@ -299,6 +311,9 @@ class SimulationAdjacentTest(unittest.TestCase):
             random_number_gen,
         )
 
+        self.simulation.intra_imt_paths = PropagationPath.create_default(
+            self.simulation.ue, self.simulation.bs
+        )
         # test coupling loss method
         self.simulation.coupling_loss_imt = self.simulation.calculate_intra_imt_coupling_loss(
             self.simulation.ue, self.simulation.bs, )
@@ -336,11 +351,15 @@ class SimulationAdjacentTest(unittest.TestCase):
         self.simulation.system = StationFactory.generate_fss_space_station(
             self.param.fss_ss,
         )
-        self.simulation.system.x = np.array([0])
-        self.simulation.system.y = np.array([0])
-        self.simulation.system.z = np.array([self.param.fss_ss.altitude])
-        self.simulation.system.height = np.array([self.param.fss_ss.altitude])
+        self.simulation.system.geom.set_global_coords(
+            np.array([0.01]),  # avoids zero-division
+            np.array([0]),
+            np.array([self.param.fss_ss.altitude]),
+        )
 
+        self.simulation.paths_between_imt_and_sys = PropagationPath.create_default(
+            self.simulation.system, self.simulation.ue
+        )
         # test the method that calculates interference from IMT UE to FSS space
         # station
         self.simulation.calculate_external_interference()

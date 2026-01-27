@@ -19,6 +19,8 @@ class ParametersHaps(ParametersBase):
     eirp_density: float = 4.4
     # tx antenna power density [dBW/MHz]
     tx_power_density: float = eirp_density - antenna_gain - 60
+    # Adjacent channel emissions model
+    adjacent_ch_emissions: str = "OFF"
     # HAPS altitude [m] and latitude [deg]
     altitude: float = 20000.0
     lat_deg: float = 0.0

@@ -50,6 +50,19 @@ class PropagationClutterLoss(Propagation):
              estimate clutter loss.
     """
 
+    def get_path_loss(
+        self,
+        params,
+        frequency: float,
+        path,
+        station_a_gains=None,
+        station_b_gains=None,
+    ) -> np.array:
+        """This class isn't supposed to be directly called in the simulation
+        loop, so this methods doesn't need to be implemented
+        """
+        raise NotImplementedError()
+
     def get_loss(self, *args, **kwargs) -> np.array:
         """
         Calculates clutter loss according to Recommendation P.2108-0

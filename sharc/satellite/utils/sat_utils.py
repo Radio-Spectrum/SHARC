@@ -19,9 +19,11 @@ def ecef2lla(x: np.ndarray, y: np.ndarray, z: np.ndarray) -> tuple:
     tuple (lat, long, alt)
         lat long and altitude in spherical earth model
     """
-    x = np.atleast_1d(x)
-    y = np.atleast_1d(y)
-    z = np.atleast_1d(z)
+    # Transform to kilometers to prevent overflow
+    x = np.atleast_1d(x).astype(float)
+    y = np.atleast_1d(y).astype(float)
+    z = np.atleast_1d(z).astype(float)
+
     xy = np.sqrt(x**2 + y**2)
 
     lon = np.arccos(x / xy)

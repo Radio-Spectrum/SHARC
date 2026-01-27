@@ -12,7 +12,7 @@ from scipy.interpolate import interp1d
 import numpy as np
 from multipledispatch import dispatch
 from warnings import warn
-from sharc.station_manager import StationManager
+from sharc.propagation.propagation_path import PropagationPath
 from sharc.parameters.parameters import Parameters
 from sharc.propagation.propagation import Propagation
 from sharc.propagation.propagation_free_space import PropagationFreeSpace
@@ -59,6 +59,7 @@ class PropagationP619(Propagation):
         """
 
         super().__init__(random_number_gen)
+        self.needs_antenna_gains = True
 
         self.is_earth_space_model = True
         self.clutter = PropagationClutterLoss(self.random_number_gen)
@@ -310,16 +311,13 @@ class PropagationP619(Propagation):
 
         return elevation_deg + tau_fs_deg
 
-    @dispatch(Parameters, float, StationManager,
-              StationManager, np.ndarray, np.ndarray)
-    def get_loss(
+    def get_path_loss(
         self,
         params: Parameters,
         frequency: float,
-        station_a: StationManager,
-        station_b: StationManager,
-        station_a_gains=None,
-        station_b_gains=None,
+        path: PropagationPath,
+        station_a_gains,
+        station_b_gains,
     ) -> np.array:
         """Wrapper for the get_loss function that satisfies the ABS class interface
 
@@ -340,35 +338,48 @@ class PropagationP619(Propagation):
             Return an array station_a.num_stations x station_b.num_stations with the path loss
             between each station
         """
-        distance = station_a.get_3d_distance_to(station_b)
-        frequency = frequency * np.ones(distance.shape)
-        indoor_stations = np.tile(
-            station_b.indoor, (station_a.num_stations, 1),
-        )
+        station_a = path.sta_a
+        station_b = path.sta_b
+
+        distance = station_a.geom.get_3d_distance_to(station_b.geom)
+        masked_distance = path.mtx_to_masked(distance)
+        masked_frequency = frequency * np.ones_like(masked_distance)
 
         # Elevation angles seen from the station on Earth.
-        elevation_angles = {}
+        masked_elevation_angles = {}
         if station_a.is_space_station:
-            earth_station_height = station_b.height
-            elevation_angles["free_space"] = station_b.get_elevation(station_a)
-            earth_station_antenna_gain = station_b_gains
-            # if (station_b_gains.shape != distance.shape):
-            #     raise ValueError(f"Invalid shape for station_b_gains = {station_b_gains.shape}")
-            elevation_angles["apparent"] = self.apparent_elevation_angle(
-                elevation_angles["free_space"],
+            if station_b.geom.uses_local_coords:
+                raise NotImplementedError(
+                    "P619 currently assumes earth station z == height. "
+                    "If ES has local coords != global coords, this probably isn't true"
+                )
+            masked_indoor_stations = path.sta_b_to_masked(station_b.indoor)
+            masked_earth_station_height = path.sta_b_to_masked(station_b.geom.z_global)
+            masked_elevation_angles["free_space"] = station_b.geom.get_local_elevation(station_a.geom)
+            masked_earth_station_antenna_gain = path.mtx_to_masked(np.swapaxes(station_b_gains, 0, 1))
+            masked_elevation_angles["apparent"] = self.apparent_elevation_angle(
+                masked_elevation_angles["free_space"],
                 self.earth_station_alt_m,
             )
             # Transpose it to fit the expected path loss shape
-            elevation_angles["free_space"] = np.transpose(
-                elevation_angles["free_space"])
-            elevation_angles["apparent"] = np.transpose(
-                elevation_angles["apparent"])
+            masked_elevation_angles["free_space"] = path.mtx_to_masked(np.transpose(
+                masked_elevation_angles["free_space"]))
+            masked_elevation_angles["apparent"] = path.mtx_to_masked(np.transpose(
+                masked_elevation_angles["apparent"]))
         elif station_b.is_space_station:
-            earth_station_height = station_a.height
-            elevation_angles["free_space"] = station_a.get_elevation(station_b)
-            earth_station_antenna_gain = station_a_gains
-            elevation_angles["apparent"] = self.apparent_elevation_angle(
-                elevation_angles["free_space"],
+            if station_a.geom.uses_local_coords:
+                raise NotImplementedError(
+                    "P619 currently assumes earth station z == height. "
+                    "If ES has local coords != global coords, this probably isn't true"
+                )
+            masked_indoor_stations = path.sta_a_to_masked(station_a.indoor)
+            masked_earth_station_height = path.sta_a_to_masked(station_a.geom.z_global)
+            masked_elevation_angles["free_space"] = path.mtx_to_masked(
+                station_a.geom.get_local_elevation(station_b.geom)
+            )
+            masked_earth_station_antenna_gain = path.mtx_to_masked(station_a_gains)
+            masked_elevation_angles["apparent"] = self.apparent_elevation_angle(
+                masked_elevation_angles["free_space"],
                 self.earth_station_alt_m,
             )
         else:
@@ -403,16 +414,18 @@ class PropagationP619(Propagation):
                 is_earth_to_space_link = False if imt_station.is_space_station else True
                 is_single_entry_interf = False
 
-        loss = self.get_loss(
-            distance,
-            frequency,
-            indoor_stations,
-            elevation_angles,
+        masked_loss = self.get_loss(
+            masked_distance,
+            masked_frequency,
+            masked_indoor_stations,
+            masked_elevation_angles,
             is_earth_to_space_link,
-            earth_station_antenna_gain,
+            masked_earth_station_antenna_gain,
             is_single_entry_interf,
-            earth_station_height,
+            masked_earth_station_height,
         )
+
+        loss = path.from_masked_mtx(masked_loss)
 
         return loss
 
@@ -459,6 +472,7 @@ class PropagationP619(Propagation):
 
         atmospheric_gasses_loss = self._get_atmospheric_gasses_loss(
             frequency_MHz=freq_set,
+            # FIXME: mean of apparent elevation????
             apparent_elevation=np.mean(elevation["apparent"]),
         )
         beam_spreading_attenuation = self._get_beam_spreading_att(
@@ -469,14 +483,25 @@ class PropagationP619(Propagation):
         diffraction_loss = 0
 
         if single_entry:
+            # if earth station is IMT BS with ue_k beams
+            elev = elevation["free_space"]
+            if earth_station_antenna_gain.ndim == 2:
+                elev = np.repeat(
+                    elevation["free_space"][..., np.newaxis],
+                    earth_station_antenna_gain.shape[1],
+                    -1
+                )
             tropo_scintillation_loss = self.scintillation.get_tropospheric_attenuation(
-                elevation=elevation["free_space"],
+                elevation=elev,
                 antenna_gain_dB=earth_station_antenna_gain,
                 frequency_MHz=freq_set,
                 earth_station_alt_m=self.earth_station_alt_m,
                 earth_station_lat_deg=self.earth_station_lat_deg,
                 season=self.season,
             )
+            if tropo_scintillation_loss.ndim > 1:
+                # TODO: better fix for this
+                tropo_scintillation_loss = np.min(tropo_scintillation_loss, -1)
 
             loss = free_space_loss + self.depolarization_loss + atmospheric_gasses_loss + \
                 beam_spreading_attenuation + diffraction_loss + tropo_scintillation_loss

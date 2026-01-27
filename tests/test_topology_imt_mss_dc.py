@@ -107,18 +107,22 @@ class TestTopologyImtMssDc(unittest.TestCase):
 
         # by default, satellites should always point to nadir (earth center)
         ref_earth_center = StationManager(1)
-        ref_earth_center.x = self.earth_center_x.flatten()
-        ref_earth_center.y = self.earth_center_y.flatten()
-        ref_earth_center.z = self.earth_center_z.flatten()
+        ref_earth_center.geom.set_global_coords(
+            self.earth_center_x.flatten(),
+            self.earth_center_y.flatten(),
+            self.earth_center_z.flatten(),
+        )
 
         ref_space_stations = StationManager(
             self.imt_mss_dc_topology.num_base_stations)
-        ref_space_stations.x = self.imt_mss_dc_topology.space_station_x
-        ref_space_stations.y = self.imt_mss_dc_topology.space_station_y
-        ref_space_stations.z = self.imt_mss_dc_topology.space_station_z
+        ref_space_stations.geom.set_global_coords(
+            self.imt_mss_dc_topology.space_station_x,
+            self.imt_mss_dc_topology.space_station_y,
+            self.imt_mss_dc_topology.space_station_z,
+        )
 
-        phi, theta = ref_space_stations.get_pointing_vector_to(
-            ref_earth_center)
+        phi, theta = ref_space_stations.geom.get_global_pointing_vector_to(
+            ref_earth_center.geom)
         npt.assert_array_almost_equal(
             np.squeeze(
                 phi[center_beam_idxs]),

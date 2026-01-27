@@ -313,17 +313,17 @@ class ParametersTest(unittest.TestCase):
             self.parameters.imt.topology.mss_dc.beam_positioning.service_grid.transform_grid_randomly,
             True)
         self.assertEqual(
-            self.parameters.imt.topology.mss_dc.beam_positioning.service_grid.grid_margin_from_border,
+            self.parameters.imt.topology.mss_dc.beam_positioning.service_grid.grid_in_zone.from_countries.margin_from_border,
             0.11)
         self.assertEqual(
             self.parameters.imt.topology.mss_dc.beam_positioning.service_grid.eligible_sats_margin_from_border, -2.1)
         self.assertEqual(len(
-            self.parameters.imt.topology.mss_dc.beam_positioning.service_grid.country_names), 2)
+            self.parameters.imt.topology.mss_dc.beam_positioning.service_grid.grid_in_zone.from_countries.country_names), 2)
         self.assertEqual(
-            self.parameters.imt.topology.mss_dc.beam_positioning.service_grid.country_names[0],
+            self.parameters.imt.topology.mss_dc.beam_positioning.service_grid.grid_in_zone.from_countries.country_names[0],
             "Brazil")
         self.assertEqual(
-            self.parameters.imt.topology.mss_dc.beam_positioning.service_grid.country_names[1],
+            self.parameters.imt.topology.mss_dc.beam_positioning.service_grid.grid_in_zone.from_countries.country_names[1],
             "Chile")
 
         self.assertEqual(len(
@@ -395,6 +395,39 @@ class ParametersTest(unittest.TestCase):
                 self.assertEqual(
                     getattr(orbit_params, k),
                     expected_orbit_params[i][k])
+        """
+        Test parameters spherical topology
+        """
+        sampling_from_spherical_grid = self.parameters.imt.topology.sampling_from_spherical_grid
+        self.assertEqual(
+            sampling_from_spherical_grid.num_bs,
+            324,
+        )
+        self.assertEqual(
+            sampling_from_spherical_grid.grid.cell_radius,
+            111,
+        )
+        self.assertEqual(
+            sampling_from_spherical_grid.grid.grid_in_zone.type,
+            "CIRCLE",
+        )
+        self.assertEqual(
+            sampling_from_spherical_grid.grid.grid_in_zone.circle.center_lat,
+            1,
+        )
+        self.assertEqual(
+            sampling_from_spherical_grid.grid.grid_in_zone.circle.center_lon,
+            2,
+        )
+        self.assertEqual(
+            sampling_from_spherical_grid.grid.grid_in_zone.circle.radius_km,
+            3,
+        )
+
+        self.assertEqual(
+            sampling_from_spherical_grid.max_ue_distance,
+            132,
+        )
 
     def test_imt_validation(self):
         """
@@ -681,17 +714,17 @@ class ParametersTest(unittest.TestCase):
             self.parameters.mss_d2d.beam_positioning.service_grid.transform_grid_randomly,
             True)
         self.assertEqual(
-            self.parameters.mss_d2d.beam_positioning.service_grid.grid_margin_from_border,
+            self.parameters.mss_d2d.beam_positioning.service_grid.grid_in_zone.from_countries.margin_from_border,
             0.11)
         self.assertEqual(
             self.parameters.mss_d2d.beam_positioning.service_grid.eligible_sats_margin_from_border, -2.1)
         self.assertEqual(
-            len(self.parameters.mss_d2d.beam_positioning.service_grid.country_names), 2)
+            len(self.parameters.mss_d2d.beam_positioning.service_grid.grid_in_zone.from_countries.country_names), 2)
         self.assertEqual(
-            self.parameters.mss_d2d.beam_positioning.service_grid.country_names[0],
+            self.parameters.mss_d2d.beam_positioning.service_grid.grid_in_zone.from_countries.country_names[0],
             "Brazil")
         self.assertEqual(
-            self.parameters.mss_d2d.beam_positioning.service_grid.country_names[1],
+            self.parameters.mss_d2d.beam_positioning.service_grid.grid_in_zone.from_countries.country_names[1],
             "Chile")
 
         self.assertEqual(
@@ -938,7 +971,7 @@ class ParametersTest(unittest.TestCase):
         beam_radius_m = 40e3
         seed = 2
         self.parameters.mss_d2d.beam_positioning.service_grid.beam_radius = beam_radius_m
-        self.parameters.mss_d2d.beam_positioning.service_grid.grid_margin_from_border = beam_radius_m / 1e3
+        self.parameters.mss_d2d.beam_positioning.service_grid.grid_in_zone.from_countries.margin_from_border = beam_radius_m / 1e3
         rng = np.random.RandomState(seed)
 
         self.parameters.mss_d2d.beam_positioning.service_grid.country_names = [
@@ -976,7 +1009,7 @@ class ParametersTest(unittest.TestCase):
         # at frienship bridge, so should affect more than 1 grid
         grid_exclusion_zone.circle.center_lat = -25.5094741
         grid_exclusion_zone.circle.center_lon = -54.6007197
-        grid_exclusion_zone.circle.radius_km = 2 * beam_radius_m / 1e3
+        grid_exclusion_zone.circle.radius_km = 4 * beam_radius_m / 1e3
 
         rng = np.random.RandomState(seed)
         grid_exclusion_zone._calculate_polygon()
@@ -988,8 +1021,8 @@ class ParametersTest(unittest.TestCase):
         n_original = original_grid.shape[1]
         n_after = grid_w_exclusion.shape[1]
 
-        # aft >= orig - 6
-        self.assertLessEqual(n_original - 6, n_after)
+        # aft >= orig - 12
+        self.assertLessEqual(n_original - 12, n_after)
         # aft < orig
         self.assertLess(n_after, n_original)
 

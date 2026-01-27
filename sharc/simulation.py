@@ -411,11 +411,11 @@ class Simulation(ABC, Observable):
            
             if self.parameters.general.system == "WIFI":
                 gain_sys_to_imt = np.repeat(self.calculate_gains(system_station, imt_station), self.parameters.imt.ue.k, 1)
-                gain_imt_to_sys = np.repeat(np.transpose(
+                gain_imt_to_sys = np.transpose(
                     self.calculate_gains(
                         imt_station, system_station, is_co_channel,
-                    )), self.parameters.imt.ue.k, 1
-                )
+                    ))
+                
 
             else:
                 gain_sys_to_imt = np.repeat(
@@ -762,16 +762,6 @@ class Simulation(ABC, Observable):
                 phi = self.bs_to_ue_phi
                 theta = self.bs_to_ue_theta
                 beams_idx = self.bs_to_ue_beam_rbs[station_2_active]
-            
-            elif station_2.station_type is StationType.WIFI_APS:
-                phi = self.bs_to_ap_phi
-                theta = self.bs_to_ap_theta
-                beams_idx = self.bs_to_ap_beam_rbs[station_2_active]
-            
-            elif station_2.station_type is StationType.WIFI_STA:
-                phi = self.bs_to_sta_phi
-                theta = self.bs_to_sta_theta
-                beams_idx = self.bs_to_sta_beam_rbs[station_2_active]
                 
             else:
                 phi, theta = station_1.get_pointing_vector_to(station_2)
@@ -781,6 +771,7 @@ class Simulation(ABC, Observable):
                     np.arange(self.parameters.imt.ue.k), self.bs.num_stations,
                 )
 
+        
         elif np.isin(station_1.station_type, [StationType.IMT_UE, StationType.WIFI_STA]).any():
             phi, theta = station_1.get_pointing_vector_to(station_2)
             beams_idx = np.zeros(len(station_2_active), dtype=int)
@@ -804,6 +795,9 @@ class Simulation(ABC, Observable):
                 phi = self.ap_to_ue_phi
                 theta = self.ap_to_ue_theta
                 beams_idx = self.ap_to_ue_beam_rbs[station_2_active]
+            else:
+                phi, theta = station_1.get_pointing_vector_to(station_2)
+                beams_idx = np.zeros(len(station_2_active), dtype=int)
 
         '''elif np.isin(station_1.station_type, [StationType.IMT_UE, StationType.WIFI_STA]).any():
             phi, theta = station_1.get_pointing_vector_to(station_2)

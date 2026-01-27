@@ -86,14 +86,15 @@ class SimulationUplink(Simulation):
 
         self.connect_ue_to_bs()
         self.select_ue(random_number_gen)
-
+        self.scheduler()
+        self.power_control()
+        
         # Calculate coupling loss after beams are created
         self.coupling_loss_imt = self.calculate_intra_imt_coupling_loss(
             self.ue,
             self.bs,
         )
-        self.scheduler()
-        self.power_control()
+        
 
         self.calculate_sinr()
         self.calculate_external_interference_wifi()
@@ -205,72 +206,156 @@ class SimulationUplink(Simulation):
         Calcula o SINR de Uplink (nos APs) garantindo estrutura de vetores
         similar à simulação de Downlink.
         """
+        self.coupling_loss_wifi_ap_ap = self.calculate_intra_wifi_coupling_loss(
+                self.system.ap, self.system.ap)
+
+        self.coupling_loss_wifi_sta_sta = self.calculate_intra_wifi_coupling_loss(
+                self.system.sta, self.system.sta)
+        
+
         ap_active = np.where(self.system.ap.active)[0]
+        sta_active = np.where(self.system.sta.active)[0]
         num_aps = self.system.ap.num_stations
-        all_active_stas = set(np.where(self.system.sta.active)[0])
+        num_stas = self.system.sta.num_stations
+
+        all_active_stas = set(sta_active)
+        all_active_aps = set(ap_active)
+
+        if not isinstance(self.system.ap.rx_power, np.ndarray):
+            self.system.ap.rx_power = np.full(num_aps, -174.0)
+            self.system.ap.rx_interference = np.full(num_aps, -174.0)
+        else:
+            self.system.ap.rx_power.fill(-174.0)
+            self.system.ap.rx_interference.fill(-174.0)
+
+        if not isinstance(self.system.sta.rx_power, np.ndarray):
+            self.system.sta.rx_power = np.full(num_stas, -174.0)
+            self.system.sta.rx_interference = np.full(num_stas, -174.0)
+        else:
+            self.system.sta.rx_power.fill(-174.0)
+            self.system.sta.rx_interference.fill(-174.0)
 
         for ap in ap_active:
             associated_stas = self.system.link[ap]
-        
             if not isinstance(associated_stas, list):
                 associated_stas = [associated_stas]
-            
-            rx_signal_linear = 0.0
-        
             associated_stas_set = set(associated_stas)
 
+            # A1. Sinal Útil
+            rx_signal_linear = 0.0
             for sta in associated_stas:
                 if sta in all_active_stas:
                     p_rx_dbm = self.system.sta.tx_power[sta] - self.coupling_loss_wifi[sta, ap]
                     rx_signal_linear += np.power(10, 0.1 * p_rx_dbm)
-
-        if rx_signal_linear > 0:
-            self.system.ap.rx_power[ap] = 10 * np.log10(rx_signal_linear)
-        
-        interference_linear = 0.0
-        
-        # Identify interfering STAs (Set difference)
-        interfering_stas = all_active_stas - associated_stas_set
-
-        for sta_interferer in interfering_stas:
-            # Interferência gerada pelo STA vizinho no meu AP
-            interf_dbm = self.system.sta.tx_power[sta_interferer] - \
-                            self.coupling_loss_wifi[sta_interferer, ap]
             
-            interference_linear += np.power(10, 0.1 * interf_dbm)
+            if rx_signal_linear > 0:
+                self.system.ap.rx_power[ap] = 10 * np.log10(rx_signal_linear)
 
-        # Atualiza o vetor de interferência (soma com o piso de ruído inicial se necessário)
-        if interference_linear > 0:
-            # Soma com o valor atual (que pode conter ruído de fundo ou interferência prévia)
-            current_interf_linear = np.power(10, 0.1 * self.system.ap.rx_interference[ap])
-            self.system.ap.rx_interference[ap] = 10 * np.log10(current_interf_linear + interference_linear)
+            # A2. Interferência no AP
+            interference_linear = 0.0
+            
+            # Fonte 1: Outras STAs
+            interfering_stas = all_active_stas - associated_stas_set
+            for sta_int in interfering_stas:
+                interf_dbm = self.system.sta.tx_power[sta_int] - self.coupling_loss_wifi[sta_int, ap]
+                interference_linear += np.power(10, 0.1 * interf_dbm)
+
+            # Fonte 2: Outros APs
+            interfering_aps = all_active_aps - {ap}
+            for ap_int in interfering_aps:
+                interf_dbm = self.system.ap.tx_power[ap_int] - self.coupling_loss_wifi_ap_ap[ap_int, ap]
+                interference_linear += np.power(10, 0.1 * interf_dbm)
+
+            if interference_linear > 0:
+                current_interf = np.power(10, 0.1 * self.system.ap.rx_interference[ap])
+                self.system.ap.rx_interference[ap] = 10 * np.log10(current_interf + interference_linear)
 
 
-        # 3. CÁLCULO DE RUÍDO TÉRMICO (N)
-        # Normalização da largura de banda para evitar erros de tipo
-        bw_val = self.system.ap.bandwidth
-        if isinstance(bw_val, (dict, list, np.ndarray)):
-                bw_mhz = bw_val[ap] if ap < len(bw_val) else bw_val[0] # Fallback seguro
-        else:
-                bw_mhz = float(bw_val)
+        # ==============================================================================
+        # PARTE B: DOWNLINK (Receiver = STA)
+        # ==============================================================================
+        for ap in ap_active:
+            associated_stas = self.system.link[ap]
+            if not isinstance(associated_stas, list):
+                associated_stas = [associated_stas]
+            
+            # Para cada STA que está recebendo sinal (Downlink)
+            for sta in associated_stas:
+                if sta not in all_active_stas:
+                    continue
 
-        self.system.ap.thermal_noise[ap] = \
+                # B1. Sinal Útil (AP -> STA)
+                p_rx_dbm = self.system.ap.tx_power[ap] - self.coupling_loss_wifi[ap, sta]
+                self.system.sta.rx_power[sta] = p_rx_dbm
+                
+                # B2. Interferência na STA
+                interference_linear = 0.0
+
+                # Fonte 1: Outros APs (APs nas STAs)
+                interfering_aps = all_active_aps - {ap}
+                for ap_int in interfering_aps:
+                    interf_dbm = self.system.ap.tx_power[ap_int] - self.coupling_loss_wifi[ap_int, sta]
+                    interference_linear += np.power(10, 0.1 * interf_dbm)
+
+                # Fonte 2: Outras STAs (STA nas STAs) <--- ADICIONADO
+                # Outras STAs transmitindo (Uplink) interferem na minha recepção (Downlink)?
+                # Depende se é TDD síncrono ou não. Se for simulação Snapshot aleatória, assumimos
+                # que todos 'active' estão transmitindo.
+                
+                # Excluímos a própria STA da lista de interferentes
+                interfering_stas = all_active_stas - {sta}
+                for sta_int in interfering_stas:
+                    # Usa a nova matriz STA->STA
+                    interf_dbm = self.system.sta.tx_power[sta_int] - self.coupling_loss_wifi_sta_sta[sta_int, sta]
+                    interference_linear += np.power(10, 0.1 * interf_dbm)
+
+                if interference_linear > 0:
+                    current_interf = np.power(10, 0.1 * self.system.sta.rx_interference[sta])
+                    self.system.sta.rx_interference[sta] = 10 * np.log10(current_interf + interference_linear)
+
+        # ==============================================================================
+        # PARTE C: CÁLCULO FINAL DE SINR/SNR (Igual ao anterior)
+        # ==============================================================================
+        # C.1 AP (Uplink)
+        bw_ap = self._ensure_flat_array(self.system.ap.bandwidth, num_aps)
+        nf_ap = self._ensure_flat_array(self.system.ap.noise_figure, num_aps)
+        
+        self.system.ap.thermal_noise = \
             10 * np.log10(BOLTZMANN_CONSTANT * self.parameters.wifi.noise_temperature * 1e3) + \
-            10 * np.log10(bw_mhz * 1e6) + \
-            self.system.ap.noise_figure
+            10 * np.log10(bw_ap * 1e6) + nf_ap
 
+        self.system.ap.total_interference = 10 * np.log10(
+            np.power(10, 0.1 * self.system.ap.rx_interference) +
+            np.power(10, 0.1 * self.system.ap.thermal_noise)
+        )
+        self.system.ap.sinr = self.system.ap.rx_power - self.system.ap.total_interference
+        self.system.ap.snr = self.system.ap.rx_power - self.system.ap.thermal_noise
 
-        # 4. CÁLCULO DE I + N (Interferência Total)
-        self.system.ap.total_interference[ap] = \
-            10 * np.log10(
-                np.power(10, 0.1 * self.system.ap.rx_interference[ap]) +
-                np.power(10, 0.1 * self.system.ap.thermal_noise[ap])
-            )
+        # C.2 STA (Downlink)
+        bw_sta = self._ensure_flat_array(self.system.sta.bandwidth, num_stas)
+        nf_sta = self._ensure_flat_array(self.system.sta.noise_figure, num_stas)
 
-        # 5. CÁLCULO DE SINR e SNR
-        self.system.ap.sinr[ap] = self.system.ap.rx_power[ap] - self.system.ap.total_interference[ap]
-        self.system.ap.snr[ap]  = self.system.ap.rx_power[ap] - self.system.ap.thermal_noise[ap]
+        self.system.sta.thermal_noise = \
+            10 * np.log10(BOLTZMANN_CONSTANT * self.parameters.wifi.noise_temperature * 1e3) + \
+            10 * np.log10(bw_sta * 1e6) + nf_sta
 
+        self.system.sta.total_interference = 10 * np.log10(
+            np.power(10, 0.1 * self.system.sta.rx_interference) +
+            np.power(10, 0.1 * self.system.sta.thermal_noise)
+        )
+        self.system.sta.sinr = self.system.sta.rx_power - self.system.sta.total_interference
+        self.system.sta.snr = self.system.sta.rx_power - self.system.sta.thermal_noise
+    
+    def _ensure_flat_array(self, value, size):
+        if isinstance(value, dict):
+            arr = np.zeros(size)
+            for k, v in value.items():
+                if k < size: arr[k] = v
+            return arr
+        elif isinstance(value, np.ndarray):
+            return value.flatten()
+        else:
+            return np.full(size, float(value))
 
     def calculate_sinr_ext(self):
         """
@@ -989,24 +1074,34 @@ class SimulationUplink(Simulation):
         
         # Collect WiFi Metrics (Uplink: at AP)
         for ap in ap_active:
-            sta = self.system.link[ap]
-            self.results.wifi_path_loss.extend(self.path_loss_wifi[sta, ap])
-            self.results.wifi_coupling_loss.extend(self.coupling_loss_wifi[sta, ap])
-            # Assuming antenna gain attributes populated in calculate methods if available
-            # self.results.wifi_ap_antenna_gain.extend(self.ap_antenna_gain[sta, ap])
-
+            stas = self.system.link[ap]
+            num_stas = len(stas) if isinstance(stas, list) else 1
+            
+            # 1. Path Loss e Coupling Loss (Gera N valores)
+            self.results.wifi_path_loss.extend(self.path_loss_wifi[stas, ap])
+            self.results.wifi_coupling_loss.extend(self.coupling_loss_wifi[stas, ap])
+            
+            # 2. SINR e SNR (Do AP)
+            # CORREÇÃO: Repetir o valor do AP para alinhar com o número de STAs
             sinr_val = self.system.ap.sinr[ap]
-            self.results.wifi_ul_sinr.append(sinr_val)
-            self.results.wifi_ul_snr.append(self.system.ap.snr[ap])
+            snr_val = self.system.ap.snr[ap]
+            
+            self.results.wifi_ul_sinr.extend([sinr_val] * num_stas)
+            self.results.wifi_ul_snr.extend([snr_val] * num_stas)
 
-            # Calculate throughput for wifi
+            # 3. Throughput
+            # Calcula o Tput baseado no SINR
             wifi_tput = self.calculate_imt_tput(
                 np.array([sinr_val]), 
                 self.parameters.wifi.uplink.sinr_min,
                 self.parameters.wifi.uplink.sinr_max,
                 self.parameters.wifi.uplink.attenuation_factor,
             )
-            self.results.wifi_ul_tput.extend(wifi_tput.tolist())
+            
+            # O cálculo retorna um array de 1 posição. 
+            # Precisamos extrair o valor e repetir N vezes.
+            tput_value = wifi_tput[0]
+            self.results.wifi_ul_tput.extend([tput_value] * num_stas)
 
         # Collect IMT Metrics (Standard Uplink Collection)
         # Calling standard collect_results or repeating logic? 

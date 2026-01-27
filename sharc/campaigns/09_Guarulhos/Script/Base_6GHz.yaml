@@ -25,7 +25,7 @@ imt:
       intersite_distance: 4954.6
       wrap_around: false
       num_clusters: 7
-      num_hotspots_per_cell: 3
+      num_hotspots_per_cell: 1
       max_dist_hotspot_ue: 300
       min_dist_bs_hotspot: 0
   bs:

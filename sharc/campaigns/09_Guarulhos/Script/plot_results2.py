@@ -41,12 +41,12 @@ MC2_6G_ATTR  = "dl_interf_power_mc2_6g_dBm"
 MC2_MIX_ATTR = "dl_interf_power_mc2_mix_dBm"
 
 # Grupos
-n_array      = [4,8,84 ]#8, 84, 16]
-propag       = ['']   #, "6G_"
+n_array      = [4, 8, 84] #8, 84, 16]
+propag       = ['', "6G_"]   #, "6G_"
 #distances_km = [1000, 2000, 10000, 15000, 25000, 35000, 40000]
 #distances_km = [1000, 2000, 4000, 6000, 10000, 12000, 15000, 16000, 17000, 20000, 22000, 25000, 27000, 32000, 35000, 40000]
-distances_km = [1000, 1500, 2000, 3000, 4000, 6000, 8000, 12000, 16000, 24000, 32000]
-#distances_km = [1000, 2000, 4000, 8000, 16000, 32000]
+#distances_km = [1000, 2000, 2142, 4000, 6428, 8000, 10714, 15000, 16000, 23571, 30000, 32000]
+distances_km = [1000, 2000, 4000, 8000, 16000, 32000]
 cutoff_percentage = 0.001
 shift_scale       = 0.0
 legenda_dens_potencia = "dBm"
@@ -406,8 +406,23 @@ for res in many_results:
 # -------------------------------------------------------------
 # Plots: 3 figuras, uma por categoria ITM
 # -------------------------------------------------------------
-for cat in (1, 2, 3):
-    plt.figure(figsize=(9, 6))
+import matplotlib.gridspec as gridspec
+def dist_to_alt_ft(dist_km):
+    alt_m = dist_km * 1000 * np.tan(np.deg2rad(3.0))
+    alt_ft = alt_m
+    return alt_ft
+
+def km_to_ft_ticks(x_vals):
+    return [f"{int(dist_to_alt_ft(x))}" for x in x_vals]
+
+# Plot principal
+fig = plt.figure(figsize=(10, 10))
+gs = gridspec.GridSpec(3, 1, height_ratios=[1, 1, 1], hspace=0.05, figure=fig)
+axs = []
+
+for idx, cat in enumerate((1, 2, 3)):
+    ax = fig.add_subplot(gs[idx, 0])
+    axs.append(ax)
 
     for family_label, pairs in margins_by_cat[cat].items():
         pairs = np.asarray(pairs, float)
@@ -422,21 +437,41 @@ for cat in (1, 2, 3):
         margins = margins[order]
 
         linestyle = "--" if "6,5 G" in family_label else "-"
+        ax.plot(dists, margins, linestyle=linestyle, marker="o", label=family_label)
 
-        plt.plot(dists, margins, linestyle=linestyle, marker="o", label=family_label)
+    # Configurações de cada subplot
+    ax.set_xscale("log")
+    ax.invert_xaxis()
+    ax.xaxis.set_major_formatter(ticker.FormatStrFormatter('%d'))
+    ax.grid(True, which="both", ls="--", alpha=0.4)
+    ax.set_ylabel("Margem (dB)")
 
-    plt.xscale("log")
-    ticks = [1, 5, 10, 20, 40]
-    plt.xticks(ticks)
-    plt.gca().xaxis.set_major_formatter(ticker.FormatStrFormatter('%d'))
-    plt.grid(True, which="both", ls="--", alpha=0.4)
-    plt.xlabel("Distância (km)")
-    plt.ylabel("Margem (dB) entre cutoff e ITM")
-    plt.title(f"Margem de Segurança vs Limite ITM – Categoria {cat}")
-    plt.legend()
-    plt.tight_layout()
-    plt.show()
+    if idx == 0:
+        ax.set_ylim([0, 30])
+        ax.set_xticks([1, 5, 10, 20, 40])
+        ax.legend()
+    elif idx == 1:
+        ax.set_ylim([-30, 0])
+        ax.set_xticks([1, 5, 10, 20, 40])
+    else:
+        ax.set_ylim([-30, 0])
+        ax.set_xticks([1, 5, 10, 20, 40])
 
+# Eixo X inferior (distância)
+axs[-1].set_xlabel("Distância (km)")
+
+# Eixo superior (altitude) sincronizado com o eixo X do primeiro subplot
+top_ax = axs[0].twiny()
+top_ax.set_xscale("log")
+top_ax.set_xlim(axs[0].get_xlim())
+#top_ax.invert_xaxis()
+top_ax.set_xticks([1, 5, 10, 20, 40])
+top_ax.set_xticklabels(km_to_ft_ticks([1, 5, 10, 20, 40]))
+#top_ax.set_xlabel("Altitude equivalente (ft)")
+
+# Ajuste final
+plt.subplots_adjust(hspace=0.15)
+plt.show()
 
 
 
@@ -826,7 +861,8 @@ for dist_m in sorted(distances_km):
 # -------------------------------------------------------------
 # Plot: figura única com 3 curvas (uma por categoria)
 # -------------------------------------------------------------
-plt.figure(figsize=(10, 6))
+
+fig, ax = plt.subplots(figsize=(10, 6))
 
 cores = {1: "tab:red", 2: "tab:green", 3: "tab:blue"}
 
@@ -841,15 +877,27 @@ for cat in (1, 2, 3):
     x = x[order]
     y = y[order]
 
-    plt.plot(x, y, "-o", label=f"Categoria {cat}", color=cores[cat])
+    ax.plot(x, y, "-o", label=f"Categoria {cat}", color=cores[cat])
 
-plt.xscale("log")
-plt.xticks([1, 5, 10, 20, 40])
-plt.gca().xaxis.set_major_formatter(ticker.FormatStrFormatter('%d'))
-plt.grid(True, which="both", ls="--", alpha=0.4)
-plt.xlabel("Distância (km)")
-plt.ylabel("Margem (dB) entre cutoff e limite ITM")
-plt.title("Margem de Segurança – Sistema Total (3G + 6G)")
-plt.legend()
+# Eixo X principal (distância)
+ax.set_xscale("log")
+ax.set_xlim([40, 1])  # inverter eixo x
+ax.set_xticks([1, 5, 10, 20, 40])
+ax.xaxis.set_major_formatter(ticker.FormatStrFormatter('%d'))
+ax.grid(True, which="both", ls="--", alpha=0.4)
+ax.set_xlabel("Distância (km)")
+ax.set_ylabel("Margem (dB) entre cutoff e limite ITM")
+ax.set_title("Margem de Segurança – Sistema Total (3G + 6G)")
+ax.legend()
+
+# Eixo superior (altitude equivalente)
+top_ax = ax.twiny()
+top_ax.set_xscale("log")
+top_ax.set_xlim(ax.get_xlim())
+#top_ax.invert_xaxis()  # para alinhar com eixo invertido inferior
+top_ax.set_xticks([1, 5, 10, 20, 40])
+top_ax.set_xticklabels(km_to_ft_ticks([1, 5, 10, 20, 40]))
+top_ax.set_xlabel("Altitude equivalente (ft)")
+
 plt.tight_layout()
 plt.show()

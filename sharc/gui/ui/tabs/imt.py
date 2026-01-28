@@ -2,47 +2,58 @@ import tkinter as tk
 from tkinter import ttk, filedialog
 from typing import Dict, Any, Optional
 
-# Assumindo que estas importações existem no seu projeto
+# Assuming these imports exist in your project structure
 from utils import add_row_three
 from ui.tabs.assets.imt_state import IMTStateManager
 
-# Constantes de Estilo para padronização
+# Style Constants
 PAD_X = (6, 4)
 PAD_Y = 2
 SECTION_PAD_Y = (2, 8)
 
 
 class IMTTab:
+    """
+    Manages the IMT (International Mobile Telecommunications) configuration tab.
+    Handles the UI for defining network topology, Base Station (BS) parameters,
+    User Equipment (UE) distributions, and Channel models.
+    """
+
     def __init__(self, app, parent_frame: tk.Widget):
+        """
+        Initializes the IMTTab.
+
+        Args:
+            app: The main application instance.
+            parent_frame: The parent widget where this tab is rendered.
+        """
         self.app = app
         self.frame = parent_frame
 
-        # Inicializa o gerenciador de estado
+        # Initialize state manager
         self.state = IMTStateManager()
 
-        # Variáveis de UI que precisam ser acessadas em outros métodos
+        # UI variables accessed across methods
         self.inner_frame: Optional[ttk.Frame] = None
         self.txt_countries: Optional[tk.Text] = None
 
-        # Referências aos frames de topologia para o toggle
+        # Topology frame references for toggling visibility
         self.frm_t_countries: Optional[ttk.LabelFrame] = None
         self.frm_t_macro: Optional[ttk.LabelFrame] = None
         self.frm_t_hotspot: Optional[ttk.LabelFrame] = None
         self.frm_t_sbs: Optional[ttk.LabelFrame] = None
         self.col_dist_ue: Optional[ttk.LabelFrame] = None
 
-        # Widgets de inputs específicos que precisam de referência
+        # Specific widget references
         self.ent_raster: Optional[ttk.Entry] = None
         self.btn_raster: Optional[ttk.Button] = None
 
-        # Constrói a interface
         self._init_ui()
 
     def _init_ui(self):
-        """Método mestre que orquestra a construção da interface."""
+        """Master method to orchestrate UI construction."""
         self._setup_scroll_container()
 
-        # Construção dos blocos
         self._build_topbar()
         self._build_general_section()
         self._build_topology_section()
@@ -50,11 +61,11 @@ class IMTTab:
         self._build_ue_section()
         self._build_channel_section()
 
-        # Configuração final (binds e estado inicial)
         self._setup_initial_state()
 
-    # ================== 1. ESTRUTURA BÁSICA (SCROLL) ==================
+    # ================== 1. BASIC STRUCTURE (SCROLL) ==================
     def _setup_scroll_container(self):
+        """Sets up a scrollable canvas to hold the configuration controls."""
         container = ttk.Frame(self.frame)
         container.pack(fill="both", expand=True)
 
@@ -66,24 +77,22 @@ class IMTTab:
         canvas.pack(side="left", fill="both", expand=True)
 
         self.inner_frame = ttk.Frame(canvas)
-        # Anchor nw é importante para que o frame comece no topo
+
+        # Anchor 'nw' ensures the frame starts at the top-left
         canvas_window = canvas.create_window(
             (0, 0), window=self.inner_frame, anchor="nw")
 
         def _on_frame_config(event):
             canvas.configure(scrollregion=canvas.bbox("all"))
-            # Garante que o inner_frame ocupe a largura do canvas
             canvas.itemconfig(canvas_window, width=canvas.winfo_width())
 
         self.inner_frame.bind("<Configure>", _on_frame_config)
 
-        # Bind no canvas também para redimensionamento da janela
         canvas.bind("<Configure>", lambda e: canvas.itemconfig(
             canvas_window, width=e.width))
 
-        # Mousewheel
+        # Mousewheel scrolling
         def _on_mousewheel(event):
-            # Proteção para plataformas diferentes
             if self.inner_frame.winfo_exists():
                 delta = int(-1 * (event.delta / 120))
                 canvas.yview_scroll(delta, "units")
@@ -94,20 +103,25 @@ class IMTTab:
         canvas.bind_all(
             "<Button-5>", lambda e: canvas.yview_scroll(1, "units"))
 
-    # ================== 2. SEÇÕES DA UI ==================
+    # ================== 2. UI SECTIONS ==================
     def _build_topbar(self):
+        """Builds the top bar with Load/Save buttons."""
         topbar = ttk.Frame(self.inner_frame)
         topbar.pack(fill="x", pady=(0, 6))
 
-        ttk.Button(topbar, text="Salvar configuração IMT (.json)",
+        ttk.Button(topbar, text="Save IMT Config (.json)",
                    command=self._save_proxy).pack(side="left")
 
-        ttk.Button(topbar, text="Carregar configuração IMT (.json)",
+        ttk.Button(topbar, text="Load IMT Config (.json)",
                    command=self._load_proxy).pack(side="left", padx=(6, 0))
 
     def _build_general_section(self):
+        """Builds the General Parameters section."""
+        #
+        # This section defines frequency and emission standards essential for interference analysis.
+
         frm_g = ttk.LabelFrame(
-            self.inner_frame, text="IMT – Parâmetros gerais")
+            self.inner_frame, text="IMT – General Parameters")
         frm_g.pack(fill="x", pady=SECTION_PAD_Y)
 
         add_row_three(frm_g, 0, [
@@ -136,10 +150,13 @@ class IMTTab:
         ])
 
     def _build_topology_section(self):
-        frm_t = ttk.LabelFrame(self.inner_frame, text="Topologia – IMT")
+        """Builds the Topology selection and subsection containers."""
+        #
+        # Visualizing the difference between Macrocells and Hotspots helps in selecting the correct topology type.
+
+        frm_t = ttk.LabelFrame(self.inner_frame, text="Topology – IMT")
         frm_t.pack(fill="x", pady=SECTION_PAD_Y)
 
-        # Seletor de Tipo
         row_type = ttk.Frame(frm_t)
         row_type.grid(row=0, column=0, columnspan=6, sticky="we", pady=(0, 4))
 
@@ -149,10 +166,9 @@ class IMTTab:
                                             "SINGLE_BS", "Macro_countries"],
                                     state="readonly", width=18)
         cb_topo_type.pack(side="left", padx=(6, 0))
-        # Bind para atualizar visualização
         cb_topo_type.bind("<<ComboboxSelected>>", self._toggle_topology_frames)
 
-        # Parâmetros comuns de topologia
+        # Common topology parameters
         add_row_three(frm_t, 1, [
             ("central_latitude", ttk.Entry(
                 frm_t, textvariable=self.state.get("topo_c_lat"), width=12)),
@@ -162,19 +178,19 @@ class IMTTab:
                 frm_t, textvariable=self.state.get("topo_c_alt"), width=12)),
         ])
 
-        # Sub-seções (Frames)
+        # Sub-sections
         self._build_topology_countries(frm_t)
         self._build_topology_macro(frm_t)
         self._build_topology_hotspot(frm_t)
         self._build_topology_sbs(frm_t)
 
     def _build_topology_countries(self, parent):
+        """Builds the specific UI for Macro_countries topology."""
         self.frm_t_countries = ttk.LabelFrame(
-            parent, text="Topologia – COUNTRIES (Macro_countries)")
+            parent, text="Topology – COUNTRIES (Macro_countries)")
         self.frm_t_countries.grid(
             row=2, column=0, columnspan=6, sticky="we", pady=(4, 8))
 
-        # Opções de Raster/Dist
         row_opts = ttk.Frame(self.frm_t_countries)
         row_opts.grid(row=0, column=0, columnspan=6, sticky="we", pady=(2, 4))
 
@@ -183,10 +199,9 @@ class IMTTab:
         self._add_inline_combo(row_opts, "dist_type", self.state.get("topo_dist_type"), [
                                "Urban", "Suburban", "Rural"], width=12, pack_padx=(6, 0))
 
-        # Text Area
         row_c = ttk.Frame(self.frm_t_countries)
         row_c.grid(row=1, column=0, columnspan=6, sticky="we", pady=2)
-        ttk.Label(row_c, text="country_names (1/linha)").pack(side="left")
+        ttk.Label(row_c, text="country_names (1/line)").pack(side="left")
 
         self.txt_countries = tk.Text(row_c, width=48, height=7)
         self.txt_countries.insert("1.0", self.state.get("countries").get())
@@ -202,7 +217,6 @@ class IMTTab:
              textvariable=self.state.get("topo_rng"), width=10)),
         ])
 
-        # File Pickers
         self._add_file_picker_row(self.frm_t_countries, 3, "countries_shapefile",
                                   self.state.get("path_shp"), self._browse_shapefile)
 
@@ -211,7 +225,8 @@ class IMTTab:
             self.state.get("path_raster"), self._browse_raster, return_widgets=True)
 
     def _build_topology_macro(self, parent):
-        self.frm_t_macro = ttk.LabelFrame(parent, text="Topologia – MACROCELL")
+        """Builds the specific UI for MACROCELL topology."""
+        self.frm_t_macro = ttk.LabelFrame(parent, text="Topology – MACROCELL")
         self.frm_t_macro.grid(row=3, column=0, columnspan=6,
                               sticky="we", pady=(4, 8))
 
@@ -225,7 +240,8 @@ class IMTTab:
         ])
 
     def _build_topology_hotspot(self, parent):
-        self.frm_t_hotspot = ttk.LabelFrame(parent, text="Topologia – HOTSPOT")
+        """Builds the specific UI for HOTSPOT topology."""
+        self.frm_t_hotspot = ttk.LabelFrame(parent, text="Topology – HOTSPOT")
         self.frm_t_hotspot.grid(
             row=4, column=0, columnspan=6, sticky="we", pady=(4, 8))
 
@@ -247,7 +263,8 @@ class IMTTab:
         ])
 
     def _build_topology_sbs(self, parent):
-        self.frm_t_sbs = ttk.LabelFrame(parent, text="Topologia – SINGLE_BS")
+        """Builds the specific UI for SINGLE_BS topology."""
+        self.frm_t_sbs = ttk.LabelFrame(parent, text="Topology – SINGLE_BS")
         self.frm_t_sbs.grid(row=5, column=0, columnspan=6,
                             sticky="we", pady=(4, 8))
 
@@ -260,20 +277,24 @@ class IMTTab:
              textvariable=self.state.get("sbs_clusters"), width=8)),
         ])
         add_row_three(self.frm_t_sbs, 1, [
-            ("azimuth (lista ou str)", ttk.Entry(self.frm_t_sbs,
+            ("azimuth (list or str)", ttk.Entry(self.frm_t_sbs,
              textvariable=self.state.get("sbs_azimuth"), width=28)),
             ("", ttk.Label(self.frm_t_sbs, text="")),
             ("", ttk.Label(self.frm_t_sbs, text="")),
         ])
 
     def _build_bs_section(self):
-        frm_bs = ttk.LabelFrame(self.inner_frame, text="BS – Parâmetros")
+        """Builds the Base Station (BS) parameters section."""
+        #
+        # This image helps visualize antenna parameters like beamsteering, theta_3db, and element spacing.
+
+        frm_bs = ttk.LabelFrame(self.inner_frame, text="BS – Parameters")
         frm_bs.pack(fill="x", padx=6, pady=8)
         for c in range(3):
             frm_bs.columnconfigure(c, weight=1, uniform="bscols")
 
         # BS Basic
-        col_basic = self._create_sub_column(frm_bs, 0, "BS – Básico")
+        col_basic = self._create_sub_column(frm_bs, 0, "BS – Basic")
         self._add_field(col_basic, 0, "load_probability", ttk.Entry(
             col_basic, textvariable=self.state.get("bs_load_prob"), width=10))
         self._add_field(col_basic, 1, "conducted_power [dBm]", ttk.Entry(
@@ -286,7 +307,7 @@ class IMTTab:
             col_basic, textvariable=self.state.get("bs_ohmic"), width=10))
 
         # BS Array
-        col_array = self._create_sub_column(frm_bs, 1, "BS – Array da Antena")
+        col_array = self._create_sub_column(frm_bs, 1, "BS – Antenna Array")
         self._add_field(col_array, 0, "normalization", ttk.Checkbutton(
             col_array, variable=self.state.get("bs_norm"), text=""))
         self._add_field(col_array, 1, "element_pattern", ttk.Combobox(col_array, textvariable=self.state.get(
@@ -338,13 +359,14 @@ class IMTTab:
             col_sub, textvariable=self.state.get("bs_sub_e_downtilt"), width=10))
 
     def _build_ue_section(self):
-        frm_ue = ttk.LabelFrame(self.inner_frame, text="UE – Parâmetros")
+        """Builds the User Equipment (UE) parameters section."""
+        frm_ue = ttk.LabelFrame(self.inner_frame, text="UE – Parameters")
         frm_ue.pack(fill="x", padx=6, pady=8)
         for c in range(3):
             frm_ue.columnconfigure(c, weight=1, uniform="uecols")
 
         # UE Basic
-        col_basic = self._create_sub_column(frm_ue, 0, "UE – Básico")
+        col_basic = self._create_sub_column(frm_ue, 0, "UE – Basic")
         self._add_field(col_basic, 0, "k", ttk.Entry(
             col_basic, textvariable=self.state.get("ue_k"), width=8))
         self._add_field(col_basic, 1, "k_m", ttk.Entry(
@@ -378,7 +400,7 @@ class IMTTab:
             col_basic, textvariable=self.state.get("ue_body_loss"), width=10))
 
         # UE Array
-        col_array = self._create_sub_column(frm_ue, 1, "UE – Array da Antena")
+        col_array = self._create_sub_column(frm_ue, 1, "UE – Antenna Array")
         self._add_field(col_array, 0, "normalization", ttk.Checkbutton(
             col_array, variable=self.state.get("ue_norm"), text=""))
         self._add_field(col_array, 1, "element_pattern", ttk.Combobox(col_array, textvariable=self.state.get(
@@ -413,9 +435,9 @@ class IMTTab:
         self._add_field(col_sub, 3, "eletrical_downtilt [deg]", ttk.Entry(
             col_sub, textvariable=self.state.get("ue_sub_e_downtilt"), width=10))
 
-        # UE Dist (Linha extra)
+        # UE Dist (Extra Row)
         self.col_dist_ue = ttk.LabelFrame(
-            frm_ue, text="UE – Distribuição (Angle&Distance)")
+            frm_ue, text="UE – Distribution (Angle&Distance)")
         self.col_dist_ue.grid(
             row=1, column=0, sticky="nsew", padx=(3, 6), pady=(0, 6))
         for c in range(4):
@@ -432,6 +454,10 @@ class IMTTab:
                         ttk.Entry(self.col_dist_ue, textvariable=self.state.get("ue_az_max"), width=8))
 
     def _build_channel_section(self):
+        """Builds the Channel and Shadowing configuration section."""
+        #
+        # Illustrates attenuation factors, path loss, and shadowing effects in the channel model.
+
         frm_l = ttk.LabelFrame(
             self.inner_frame, text="UL / DL / Channel / Shadowing")
         frm_l.pack(fill="x", pady=SECTION_PAD_Y)
@@ -454,13 +480,14 @@ class IMTTab:
         ])
 
     def _setup_initial_state(self):
-        """Aplica a visibilidade inicial baseada nos valores carregados ou default."""
+        """Applies initial visibility states based on loaded or default values."""
         self._toggle_topology_frames()
         self._toggle_raster_by_encoding()
         self._toggle_ue_distribution()
 
     # ================== 3. UI HELPER METHODS ==================
     def _create_sub_column(self, parent, col_idx, title):
+        """Helper to create a column inside a multi-column frame."""
         frame = ttk.LabelFrame(parent, text=title)
         frame.grid(row=0, column=col_idx, sticky="nsew", padx=3, pady=6)
         for c in range(4):
@@ -468,6 +495,7 @@ class IMTTab:
         return frame
 
     def _add_inline_combo(self, parent, text, variable, values, width=12, command=None, pack_padx=(0, 0)):
+        """Helper to add a label and combobox in a single line."""
         ttk.Label(parent, text=text).pack(side="left")
         cb = ttk.Combobox(parent, textvariable=variable,
                           values=values, state="readonly", width=width)
@@ -477,6 +505,7 @@ class IMTTab:
         return cb
 
     def _add_file_picker_row(self, parent, row, label, variable, command, return_widgets=False):
+        """Helper to add a file selection row (Entry + Button)."""
         row_frame = ttk.Frame(parent)
         row_frame.grid(row=row, column=0, columnspan=6,
                        sticky="we", pady=(2, 2))
@@ -492,12 +521,14 @@ class IMTTab:
             return entry, btn
 
     def _add_field(self, parent, row, label, widget, col=0, col_span=2):
+        """Helper to add a standard Label + Widget pair in a grid."""
         ttk.Label(parent, text=label).grid(
             row=row, column=col, sticky="w", padx=PAD_X, pady=PAD_Y)
         widget.grid(row=row, column=col + 1, columnspan=col_span -
                     1, sticky="we", padx=(0, 6), pady=PAD_Y)
 
-    def _add_range(self, parent, row, label, wmin, wmax, sep_text="a"):
+    def _add_range(self, parent, row, label, wmin, wmax, sep_text="to"):
+        """Helper to add a Min/Max range input."""
         ttk.Label(parent, text=label).grid(
             row=row, column=0, sticky="w", padx=PAD_X, pady=PAD_Y)
         wmin.grid(row=row, column=1, sticky="we", padx=(0, 4), pady=PAD_Y)
@@ -506,6 +537,7 @@ class IMTTab:
         wmax.grid(row=row, column=3, sticky="we", padx=(0, 6), pady=PAD_Y)
 
     def _pair_entries(self, parent, var1, var2, w=6):
+        """Helper to create two side-by-side entries."""
         f = ttk.Frame(parent)
         e1 = ttk.Entry(f, textvariable=var1, width=w)
         e1.pack(side="left")
@@ -514,9 +546,9 @@ class IMTTab:
         e2.pack(side="left")
         return f
 
-    # ================== 4. LÓGICA DE EVENTOS (TOGGLES) ==================
+    # ================== 4. LOGIC & EVENTS (TOGGLES) ==================
     def _toggle_topology_frames(self, *_):
-        # Esconde todos primeiro
+        """Shows/Hides topology frames based on the selected 'type'."""
         for f in (self.frm_t_countries, self.frm_t_macro, self.frm_t_hotspot, self.frm_t_sbs):
             if f:
                 f.grid_remove()
@@ -534,6 +566,7 @@ class IMTTab:
             target.grid()
 
     def _toggle_raster_by_encoding(self, *_):
+        """Enables/Disables raster inputs based on the encoding selection."""
         if not self.ent_raster:
             return
 
@@ -547,6 +580,7 @@ class IMTTab:
         self.btn_raster.configure(state=state)
 
     def _toggle_ue_distribution(self):
+        """Shows/Hides specific UE distribution fields."""
         if not self.col_dist_ue:
             return
         is_ang_dist = (self.state.get(
@@ -556,15 +590,16 @@ class IMTTab:
         else:
             self.col_dist_ue.grid_remove()
 
-    # ================== 5. PERSISTÊNCIA & ARQUIVOS ==================
+    # ================== 5. PERSISTENCE & FILES ==================
     def _save_proxy(self):
-        # Coleta dados extras que não estão nas variáveis (o Text Widget)
+        """Saves current state to JSON, including text widget content."""
         extra = {}
         if self.txt_countries:
             extra["countries"] = self.txt_countries.get("1.0", "end").strip()
         self.state.save_to_file(extra)
 
     def _load_proxy(self):
+        """Loads state from JSON and updates UI."""
         data = self.state.load_from_file(
             callback_after_load=lambda d: [
                 self._setup_initial_state()
@@ -575,13 +610,15 @@ class IMTTab:
             self.txt_countries.insert("1.0", data["countries"])
 
     def _browse_shapefile(self):
-        fn = filedialog.askopenfilename(title="Escolher shapefile",
+        """Opens file dialog for Shapefile selection."""
+        fn = filedialog.askopenfilename(title="Choose Shapefile",
                                         filetypes=[("Shapefile", "*.shp"), ("All", "*.*")])
         if fn:
             self.state.get("path_shp").set(fn)
 
     def _browse_raster(self):
-        fn = filedialog.askopenfilename(title="Escolher raster",
+        """Opens file dialog for GeoTIFF raster selection."""
+        fn = filedialog.askopenfilename(title="Choose Raster",
                                         filetypes=[("GeoTIFF", "*.tif;*.tiff"), ("All", "*.*")])
         if fn:
             self.state.get("path_raster").set(fn)

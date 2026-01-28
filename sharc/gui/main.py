@@ -212,17 +212,17 @@ class App(tb.Window if HAS_BOOTSTRAP else tk.Tk):
 
     def _init_pages(self):
         """Inicializa as páginas e cria a estrutura de navegação."""
-        
+
         # --- [ALTERAÇÃO AQUI] ---
         # Substituímos VictimTab por SingleEarthStationTab na lista
         pages = [
-            ("general", "General Settings", GeneralTab, "⚙"),
-            ("imt", "IMT Configuration", IMTTab, "📡"),
-            ("victim", "Victim", VictimTab, ""),
+            ("general", "General", GeneralTab, "⚙"),
+            ("imt", "IMT", IMTTab, "📡"),
+            ("victim", "Victim", VictimTab, "🛰"),
             ("station", "Single Earth Station", SingleEarthStationTab, "🛰"),
-            ("preview", "Visual Preview", PreviewTab, "👁"),
+            ("preview", "Preview", PreviewTab, "👁"),
             ("runner", "Execution Runner", RunnerTab, "🚀"),
-            ("results", "Data Analysis", ResultsTab, "📊"),
+            ("results", "Results", ResultsTab, "📊"),
         ]
 
         for key, label, Cls, icon in pages:

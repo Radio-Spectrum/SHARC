@@ -158,7 +158,7 @@ class TestTopologyImtMssDc(unittest.TestCase):
         npt.assert_array_less(min_elevation_angle, xy_plane_elevations)
 
     def test_minimum_service_angle(self):
-        """Test minimum visilibity angle for service grid service."""
+        """Test minimum visibility angle for service grid service."""
         orbit = ParametersOrbit(
             n_planes=1,
             sats_per_plane=1,

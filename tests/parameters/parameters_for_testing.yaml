@@ -264,6 +264,7 @@ imt:
                     # if positive, makes border smaller by x km
                     # if negative, makes border bigger by x km
                     eligible_sats_margin_from_border: -2.1
+                    minimum_service_angle: 10.1
             sat_is_active_if:
                 # for a satellite to be active, it needs to respect ALL conditions
                 conditions:
@@ -998,6 +999,9 @@ single_space_station:
             # Antenna diameter [m]
             # if no diameter is passed, a diameter will be assumed according to document
             diameter: 2.12
+        itu_r_s_1528:
+            major_minor_axis_ratio: 1.0
+            far_out_side_lobe: -25
     ###########################################################################
     # Selected channel model
     channel_model: "P619"
@@ -1096,6 +1100,7 @@ mss_d2d:
             # if positive, makes border smaller by x km
             # if negative, makes border bigger by x km
             eligible_sats_margin_from_border: -2.1
+            minimum_service_angle: 12.1
     sat_is_active_if:
         # for a satellite to be active, it needs to respect ALL conditions
         conditions:

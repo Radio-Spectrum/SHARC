@@ -313,6 +313,8 @@ class ParametersTest(unittest.TestCase):
             0.11)
         self.assertEqual(
             self.parameters.imt.topology.mss_dc.beam_positioning.service_grid.eligible_sats_margin_from_border, -2.1)
+        self.assertEqual(
+            self.parameters.imt.topology.mss_dc.beam_positioning.service_grid.minimum_service_angle, 10.1)
         self.assertEqual(len(
             self.parameters.imt.topology.mss_dc.beam_positioning.service_grid.grid_in_zone.from_countries.country_names), 2)
         self.assertEqual(
@@ -710,6 +712,8 @@ class ParametersTest(unittest.TestCase):
         self.assertEqual(
             self.parameters.mss_d2d.beam_positioning.service_grid.eligible_sats_margin_from_border, -2.1)
         self.assertEqual(
+            self.parameters.mss_d2d.beam_positioning.service_grid.minimum_service_angle, 12.1)
+        self.assertEqual(
             len(self.parameters.mss_d2d.beam_positioning.service_grid.grid_in_zone.from_countries.country_names), 2)
         self.assertEqual(
             self.parameters.mss_d2d.beam_positioning.service_grid.grid_in_zone.from_countries.country_names[0],
@@ -869,6 +873,20 @@ class ParametersTest(unittest.TestCase):
         self.assertEqual(
             self.parameters.single_space_station.antenna.itu_reg_rr_a7_3.antenna_gain,
             self.parameters.single_space_station.antenna.gain,
+        )
+
+        self.assertEqual(
+            self.parameters.single_space_station.antenna.itu_r_s_1528.antenna_gain,
+            self.parameters.single_space_station.antenna.gain,
+        )
+        self.assertEqual(
+            self.parameters.single_space_station.antenna.itu_r_s_1528.major_minor_axis_ratio,
+            1.0
+        )
+
+        self.assertEqual(
+            self.parameters.single_space_station.antenna.itu_r_s_1528.far_out_side_lobe,
+            -25
         )
 
         self.assertEqual(

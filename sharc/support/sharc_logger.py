@@ -77,6 +77,10 @@ class SimulationLogger:
             - Automatically writes a "samples" header row for new files.
             - Each value is written as a separate row in a single column.
         """
+        if cls._global_output_dir is None:
+            # Output directory not yet initialized, skip CSV logging
+            return
+        
         p = cls._global_output_dir / f"{csv_name}.csv"
 
         write_header = not p.exists()

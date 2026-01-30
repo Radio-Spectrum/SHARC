@@ -241,6 +241,22 @@ class StationFactory(object):
         elif param.topology.type == 'HOTSPOT':
             imt_base_stations.geom.intersite_dist = param.topology.hotspot.intersite_distance
 
+        # Log IMT MSS-DC statistics (only for MSS_DC topology with active beams)
+        if param.topology.type == "MSS_DC":
+            # número de beams ativos
+            SimulationLogger.log_to_csv("num_of_active_beams", [np.sum(imt_base_stations.active)])
+            # número de satélites únicos (deduplicar posição)
+            all_pos = np.stack((imt_base_stations.geom.x_global, imt_base_stations.geom.y_global, imt_base_stations.geom.z_global), axis=-1)[imt_base_stations.active]
+            if len(all_pos) > 0:
+                uniq_pos, inv_idx = np.unique(
+                    all_pos,
+                    axis=0,
+                    return_inverse=True
+                )
+                SimulationLogger.log_to_csv("num_of_active_sat", [len(uniq_pos)])
+                beams_per_sat = np.bincount(inv_idx)
+                SimulationLogger.log_to_csv("num_of_active_beams_per_sat", beams_per_sat)
+
         return imt_base_stations
 
     @staticmethod

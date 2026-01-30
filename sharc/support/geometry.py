@@ -5,6 +5,7 @@ from sharc.satellite.ngso.constants import EARTH_RADIUS_M
 from sharc.support.sharc_geom import cartesian_to_polar, polar_to_cartesian
 import scipy
 import numpy as np
+from dataclasses import dataclass
 from abc import ABC
 
 
@@ -303,10 +304,181 @@ class GlobalGeometry(ABC):
         return phi_deg
 
 
+@dataclass(frozen=True)
+class RigidTransform:
+    """
+    Defines a transformation of the type
+        A(X) = rot @ X + t
+    where it applies rotation to X and then translates the result.
+    """
+    rot: scipy.spatial.transform.Rotation  # N rotations
+    t: np.ndarray                          # (N, 3)
+
+    def __post_init__(self):
+        if not isinstance(self.rot, scipy.spatial.transform.Rotation):
+            raise ValueError("rot must be a scipy Rotation")
+
+        n_rot = len(self.rot)
+        n_t = self.t.shape[0]
+
+        if self.t.shape != (n_t, 3):
+            raise ValueError(f"Invalid transform shape t={n_t}")
+
+        # if some is equal to one, broadcasting still works
+        if not (n_rot == n_t or n_rot == 1 or n_t == 1):
+            raise ValueError(
+                f"Incompatible RigidTransform shapes: rot={n_rot}, t={n_t}"
+            )
+        self.t.flags.writeable = False
+
+    @property
+    def N(self):
+        n_rot = len(self.rot)
+        n_t = self.t.shape[0]
+        return max(n_rot, n_t)
+
+    def inv(self) -> "RigidTransform":
+        rot_inv = self.rot.inv()
+        t_inv = -rot_inv.apply(self.t)
+        return RigidTransform(rot_inv, t_inv)
+
+    def and_then(self, other: "RigidTransform") -> "RigidTransform":
+        """Apply self, then other (composition: other @ self)."""
+        return RigidTransform(
+            rot=other.rot * self.rot,
+            t=other.rot.apply(self.t) + other.t
+        )
+
+    def take(self, idx: int) -> "RigidTransform":
+        # NOTE: we slice instead of taking indice to maintain
+        # array shape structure for functional broadcasting
+        # and batch computing
+        return RigidTransform(
+            rot=self.rot[idx:idx+1],
+            t=self.t[idx:idx+1],
+        )
+
+    def apply_points(self, x: np.ndarray) -> np.ndarray:
+        """Applies rotations and translations to the points"""
+        return self.apply_vectors(x) + self.t
+
+    def apply_points_permutation(self, x: np.ndarray) -> np.ndarray:
+        """Applies rotation and translation to the point"""
+        t = self.t                     # (N,3)
+
+        return self.apply_vectors_permutation(x) + t[:, None, :]
+
+    def apply_vectors(self, v: np.ndarray) -> np.ndarray:
+        """Applies only rotations, considering the vectors as a pointing vec"""
+        v = np.atleast_2d(v)
+        assert v.ndim == 2 and v.shape[1] == 3
+        M = v.shape[0]
+        assert self.N == 1 or M == 1 or M == self.N
+
+        return self.rot.apply(v) + np.zeros_like(self.t)
+
+    def apply_vectors_permutation(self, v: np.ndarray) -> np.ndarray:
+        """Applies rotation and translation to the point"""
+        # TODO: change impl
+        v = np.atleast_2d(v)
+        assert v.ndim == 2 and v.shape[1] == 3
+
+        # (N,3,3)
+        R = self.rot.as_matrix()
+
+        # einsum: (N,3,3) . (M,3) -> (N,M,3)
+        return (
+            np.einsum("nij,mj->nmi", R, v)
+            + np.zeros_like(self.t)[:, None, :]
+        )
+
+
+class ReferenceFrame(ABC):
+    """
+    Defines a reference frame, which generates a rigid transform
+    between ecef and its own local coordinate system.
+    It should be noted that, while this may define axis position,
+    the bearing considered (azimuth, elevation) for calculations
+    CANNOT USE NAVIGATION CONVENTION.
+    """
+    __slots__ = ('_from_ecef', '_to_ecef')
+
+    @property
+    def from_ecef(self) -> RigidTransform:
+        return self._from_ecef
+
+    @property
+    def to_ecef(self) -> RigidTransform:
+        return self._to_ecef
+
+
+class ENUReferenceFrame(ReferenceFrame):
+    """
+    Defines ENU reference frame.
+
+    NOTE: this does not change bearing convention to azimuth being
+    angular distance from North. Azimuth is still from x axis towards y axis.
+    """
+    __slots__ = ("_lat", "_lon", "_alt")
+
+    def __init__(
+        self,
+        *,
+        lat: np.ndarray,
+        lon: np.ndarray,
+        alt: np.ndarray,
+    ):
+        lat = np.atleast_1d(lat)
+        lon = np.atleast_1d(lon)
+        alt = np.atleast_1d(alt)
+        if lat.shape != lon.shape or lat.shape != alt.shape:
+            raise ValueError("lat, lon, alt must have identical shapes")
+
+        if lat.shape != (len(lat),):
+            raise ValueError(
+                "The lla shapes used must be one dimensional: (N,), but is"
+                f" {lat.shape}"
+            )
+
+        self._lat = np.copy(lat)
+        self._lon = np.copy(lon)
+        self._alt = np.copy(alt)
+
+        self._from_ecef = self._compute_to_local()
+        self._to_ecef = self._from_ecef.inv()
+
+        # freeze frame
+        self._lat.flags.writeable = False
+        self._lon.flags.writeable = False
+        self._alt.flags.writeable = False
+
+    def _compute_to_local(self):
+        lat = self._lat
+        lon = self._lon
+        alt = self._alt
+        N = lat.shape[0]
+
+        rotation_around_z = -lon - 90
+        rotation_around_x = lat - 90
+
+        ecef2local_rot = scipy.spatial.transform.Rotation.from_euler(
+            'zx',
+            np.stack([rotation_around_z, rotation_around_x], axis=-1),
+            degrees=True
+        )
+        ecef2local_translation = np.zeros((N, 3))
+        # NOTE: using constant earth radius works because of spherical Earth
+        ecef2local_translation[:, 2] = -(alt + EARTH_RADIUS_M)
+        ecef2local = RigidTransform(
+            ecef2local_rot, ecef2local_translation
+        )
+        return ecef2local
+
+
 @readonly_properties(
     "x_local", "y_local", "z_local",
     "pointn_azim_local", "pointn_elev_local",
-    "global_lla_reference", "local_lla_references"
+    "global_reference_frame", "local_reference_frame"
 )
 class SimulatorGeometry(GlobalGeometry):
     """
@@ -320,8 +492,8 @@ class SimulatorGeometry(GlobalGeometry):
     pointn_azim_local: np.ndarray  # (N,)
     pointn_elev_local: np.ndarray  # (N,)
 
-    local_lla_references: np.ndarray[np.ndarray[float]]  # (3, N)
-    global_lla_reference: tuple[float, float, float]
+    local_reference_frame: ReferenceFrame
+    global_reference_frame: ReferenceFrame
 
     uses_local_coords: bool
 
@@ -345,14 +517,14 @@ class SimulatorGeometry(GlobalGeometry):
         self,
         num_geometries,
         uses_local_coords=False,
-        global_cs: tuple[float, float, float] = None,
+        global_cs: ReferenceFrame = None,
     ):
         """
         Initializes variables based on number of geometries considered
         """
         super().setup(num_geometries)
 
-        self._global_lla_reference = global_cs
+        self._global_reference_frame = global_cs
         self.uses_local_coords = True
 
         if not uses_local_coords:
@@ -373,25 +545,16 @@ class SimulatorGeometry(GlobalGeometry):
         self._z_local = np.empty(num_geometries)
         self._pointn_azim_local = np.empty(num_geometries)
         self._pointn_elev_local = np.empty(num_geometries)
-        self._local_lla_references = np.empty((3, num_geometries))
+        self._local_reference_frame = None
 
-    def set_local_coord_sys(
-        self,
-        ref_lats,
-        ref_lons,
-        ref_alts,
+    def set_local_reference_frame(
+        self, frame: ReferenceFrame
     ):
         """
         Sets local coord system references and prepares
         global<->local coordinate transformation
         """
-        for r in [ref_lats, ref_lons, ref_alts]:
-            if len(r) != self.num_geometries:
-                raise ValueError(
-                    "Incongruent number of coordinate systems. "
-                    f"Passed {len(r)} but should have passed {self.num_geometries}"
-                )
-        self._local_lla_references = np.stack((ref_lats, ref_lons, ref_alts))
+        self._local_reference_frame = frame
 
         self._compute_global_local_transform()
 
@@ -453,7 +616,7 @@ class SimulatorGeometry(GlobalGeometry):
 
         p_local = np.stack([self.x_local, self.y_local, self.z_local], axis=-1)
 
-        p_global = self._vec_local2global(p_local)
+        p_global = self._local2global_points(p_local)
 
         # Store results
         self._x_global = p_global[:, 0]
@@ -465,8 +628,8 @@ class SimulatorGeometry(GlobalGeometry):
         point_local = np.stack(polar_to_cartesian(
             r, self.pointn_azim_local, self.pointn_elev_local), axis=-1)
 
-        point_global_x, point_global_y, point_global_z = self._vec_local2global(
-            point_local, translate=False
+        point_global_x, point_global_y, point_global_z = self._local2global_vectors(
+            point_local
         ).T
 
         _, global_azimuth, global_elevation = cartesian_to_polar(
@@ -475,42 +638,73 @@ class SimulatorGeometry(GlobalGeometry):
         self._pointn_elev_global = global_elevation
         self._pointn_azim_global = global_azimuth
 
-    def _vec_local2global(
-        self,
-        p_local,
-        *,
-        translate=True,
-        permutate=False,
+    def _local2global_points(
+        self, p_local,
+    ):
+        """Receives points shaped as (N, 3) and applies local2global transform,
+        returning (N, 3), where N is the number of local coordinate systems.
+        """
+        return self.local2global.apply_points(p_local)
+
+    def _local2global_vectors(
+        self, p_local,
     ):
         """Receives a vector shaped as (N, 3) and applies local2global transform,
-            returning (N, 3).
-        If permutate == True, then may receive a vector (M, 3),
-            returning (N, M, 3)
+        returning (N, 3), where N is the number of local coordinate systems.
+        Does not apply translations, just rotations
         """
-        N = self.num_geometries
+        return self.local2global.apply_vectors(p_local)
 
-        local2ecef_t = self._local2ecef_transl_mtx if translate else 0
-        ecef2global_t = self._ecef2global_transl_mtx if translate else 0
+    def _local2global_points_permutation(
+        self, p_local,
+    ):
+        """Receives points as (M, 3), returning (N, M, 3),
+        where N is the number of local coordinate systems
+        """
+        return self.local2global.apply_points_permutation(p_local)
 
-        if not permutate:
-            assert p_local.shape == (N, 3)
-            # remove ecef2local translation
-            p_local = p_local + local2ecef_t  # (N,3)
-            # rotate local2ecef2global
-            p_global = (self._local2global_rot_mtx @ p_local[..., None]).squeeze(-1)  # (N,3)
-            # add ecef2global translation
-            p_global = p_global + ecef2global_t  # (N,3)
-        else:
-            local2ecef_t_cast = local2ecef_t
-            ecef2global_t_cast = ecef2global_t
-            if translate:
-                local2ecef_t_cast = local2ecef_t[:, None, :]
-                ecef2global_t_cast = ecef2global_t[:, None, :]
-            p_local_exp = p_local[None, :, :] + local2ecef_t_cast  # (N,M,3)
-            p_global = (self._global2local_rot_mtx[:, None, :, :] @ p_local_exp[..., None]).squeeze(-1)
-            p_global += ecef2global_t_cast
+    def _local2global_vectors_permutation(
+        self, p_local,
+    ):
+        """Receives points as (M, 3), returning (N, M, 3),
+        where N is the number of local coordinate systems.
+        Does not apply translations, just rotations
+        """
+        return self.local2global.apply_vectors_permutation(p_local)
 
-        return p_global
+    def _global2local_points(
+        self, p_local,
+    ):
+        """Receives points shaped as (N, 3) and applies global2local transform,
+        returning (N, 3), where N is the number of local coordinate systems.
+        """
+        return self.global2local.apply_points(p_local)
+
+    def _global2local_vectors(
+        self, p_local,
+    ):
+        """Receives a vector shaped as (N, 3) and applies global2local transform,
+        returning (N, 3), where N is the number of local coordinate systems.
+        Does not apply translations, just rotations
+        """
+        return self.global2local.apply_vectors(p_local)
+
+    def _global2local_points_permutation(
+        self, p_local,
+    ):
+        """Receives points as (M, 3), returning (N, M, 3),
+        where N is the number of local coordinate systems
+        """
+        return self.global2local.apply_points_permutation(p_local)
+
+    def _global2local_vectors_permutation(
+        self, p_local,
+    ):
+        """Receives points as (M, 3), returning (N, M, 3),
+        where N is the number of local coordinate systems.
+        Does not apply translations, just rotations
+        """
+        return self.global2local.apply_vectors_permutation(p_local)
 
     def _compute_local_from_global(self):
         if not self.uses_local_coords:
@@ -523,7 +717,7 @@ class SimulatorGeometry(GlobalGeometry):
 
         p_global = np.stack([self.x_global, self.y_global, self.z_global], axis=-1)
 
-        p_local = self._vec_global2local(p_global)
+        p_local = self._global2local_points(p_global)
 
         # Store results
         self._x_local = p_local[:, 0]
@@ -535,8 +729,8 @@ class SimulatorGeometry(GlobalGeometry):
         point_global = np.stack(polar_to_cartesian(
             r, self.pointn_azim_global, self.pointn_elev_global), axis=-1)
 
-        point_local_x, point_local_y, point_local_z = self._vec_global2local(
-            point_global, translate=False
+        point_local_x, point_local_y, point_local_z = self._global2local_vectors(
+            point_global
         ).T
 
         _, local_azimuth, local_elevation = cartesian_to_polar(
@@ -545,92 +739,22 @@ class SimulatorGeometry(GlobalGeometry):
         self._pointn_elev_local = local_elevation
         self._pointn_azim_local = local_azimuth
 
-    def _vec_global2local(
-        self,
-        p_global,
-        *,
-        translate=True,
-        permutate=False
-    ):
-        """Receives a vector shaped as (N, 3) and applies global2local transform,
-            returning (N, 3).
-        If permutate == True, then may receive a vector (M, 3),
-            returning (N, M, 3)
-        """
-        N = self.num_geometries
-
-        global2ecef_t = self._global2ecef_transl_mtx if translate else 0
-        ecef2local_t = self._ecef2local_transl_mtx if translate else 0
-
-        if not permutate:
-            assert p_global.shape == (N, 3)
-
-            # remove ecef2global translation
-            p_global = p_global + global2ecef_t  # (N,3)
-
-            # rotate global2ecef2local
-            p_local = (self._global2local_rot_mtx @ p_global[..., None]).squeeze(-1)  # (N,3)
-
-            # add ecef2local translation
-            p_local += ecef2local_t  # (N,3)
-        else:
-            global2ecef_t_cast = global2ecef_t
-            ecef2local_t_cast = ecef2local_t
-            if translate:
-                global2ecef_t_cast = global2ecef_t[:, None, :]
-                ecef2local_t_cast = ecef2local_t[:, None, :]
-            p_global_exp = p_global[None, :, :] + global2ecef_t_cast  # (N,M,3)
-            p_local = (self._global2local_rot_mtx[:, None, :, :] @ p_global_exp[..., None]).squeeze(-1)
-            p_local += ecef2local_t_cast
-
-        return p_local
-
     def _compute_global_local_transform(self):
         # get ecef to local
-        local_lat, local_lon, local_alt = self.local_lla_references
-        rotation_around_z = -local_lon - 90
-        rotation_around_x = local_lat - 90
-
-        ecef2local_rot = scipy.spatial.transform.Rotation.from_euler(
-            'zx',
-            np.stack([rotation_around_z, rotation_around_x], axis=-1),
-            degrees=True
+        self.global2local = (
+            self.global_reference_frame
+                .to_ecef
+                .and_then(
+                    self.local_reference_frame.from_ecef
+                )
         )
-
-        # first translation, after rotation
-        self._local2ecef_transl_mtx = np.zeros((self.num_geometries, 3))
-        # NOTE: works because of spherical Earth
-        self._local2ecef_transl_mtx[:, 2] = local_alt + EARTH_RADIUS_M
-        local2ecef_rot_mtx = ecef2local_rot.inv().as_matrix()
-
-        # first rotation, after translation
-        ecef2local_rot_mtx = ecef2local_rot.as_matrix()
-        self._ecef2local_transl_mtx = -self._local2ecef_transl_mtx
-
-        # global transforms
-        global_lat, global_lon, global_alt = self._global_lla_reference
-        rotation_around_z = -global_lon - 90
-        rotation_around_x = global_lat - 90
-
-        ecef2global_rot = scipy.spatial.transform.Rotation.from_euler(
-            'zx',
-            np.stack([rotation_around_z, rotation_around_x], axis=-1),
-            degrees=True
+        self.local2global = (
+            self.local_reference_frame
+                .to_ecef
+                .and_then(
+                    self.global_reference_frame.from_ecef
+                )
         )
-
-        # first translation, after rotation
-        self._global2ecef_transl_mtx = np.zeros((1, 3))
-        # NOTE: works because of spherical Earth
-        self._global2ecef_transl_mtx[:, 2] = global_alt + EARTH_RADIUS_M
-        global2ecef_rot_mtx = ecef2global_rot.inv().as_matrix()
-
-        # first rotation, after translation
-        ecef2global_rot_mtx = ecef2global_rot.as_matrix()
-        self._ecef2global_transl_mtx = -self._global2ecef_transl_mtx
-
-        self._local2global_rot_mtx = ecef2global_rot_mtx @ local2ecef_rot_mtx
-
-        self._global2local_rot_mtx = ecef2local_rot_mtx @ global2ecef_rot_mtx
 
     def get_local_distance_to(
         self,
@@ -655,9 +779,8 @@ class SimulatorGeometry(GlobalGeometry):
             return self.get_global_distance_to(other)
 
         p_global = np.stack([other.x_global, other.y_global, other.z_global], axis=-1)
-        other_local = self._vec_global2local(
+        other_local = self._global2local_points_permutation(
             p_global,
-            permutate=True
         )
         own_local = np.stack([self.x_local, self.y_local, np.zeros_like(self.z_local)], axis=-1)
 
@@ -765,17 +888,21 @@ def plot_geom(
 
 if __name__ == "__main__":
     global_lla = (-14, -45, 1200)
+    global_reference_frame = ENUReferenceFrame(
+        lat=np.array([global_lla[0]]),
+        lon=np.array([global_lla[1]]),
+        alt=np.array([global_lla[2]]),
+    )
     # tg = SimulatorGeometry(
     #     1,
     #     1,
-    #     global_lla
+    #     global_reference_frame
     # )
-    # tg.set_local_coord_sys(
+    # tg.set_local_reference_frame(
     #     np.array([-14]),
     #     np.array([-45]),
     #     np.array([1200]),
     # )
-    # print(tg.local_lla_references)
 
     from sharc.topology.topology_macrocell import TopologyMacrocell
     rng = np.random.RandomState(seed=0xcaffe)
@@ -790,23 +917,27 @@ if __name__ == "__main__":
     bs_geom = SimulatorGeometry(
         topology.num_base_stations,
         topology.num_base_stations,
-        global_lla
+        global_reference_frame
     )
     ue_geom = SimulatorGeometry(
         num_ue * topology.num_base_stations,
         num_ue * topology.num_base_stations,
-        global_lla
+        global_reference_frame
     )
 
-    bs_geom.set_local_coord_sys(
-        np.repeat(11, topology.num_base_stations),
-        np.repeat(-47, topology.num_base_stations),
-        np.repeat(1200, topology.num_base_stations),
+    bs_geom.set_local_reference_frame(
+        ENUReferenceFrame(
+            lat=np.repeat(11, topology.num_base_stations),
+            lon=np.repeat(-47, topology.num_base_stations),
+            alt=np.repeat(1200, topology.num_base_stations),
+        )
     )
-    ue_geom.set_local_coord_sys(
-        np.repeat(11, num_ue * topology.num_base_stations),
-        np.repeat(-47, num_ue * topology.num_base_stations),
-        np.repeat(1200, num_ue * topology.num_base_stations),
+    ue_geom.set_local_reference_frame(
+        ENUReferenceFrame(
+            lat=np.repeat(11, num_ue * topology.num_base_stations),
+            lon=np.repeat(-47, num_ue * topology.num_base_stations),
+            alt=np.repeat(1200, num_ue * topology.num_base_stations),
+        )
     )
 
     bs_geom.set_local_coords(

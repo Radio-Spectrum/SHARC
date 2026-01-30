@@ -1,9 +1,341 @@
 import unittest
 import numpy as np
 import numpy.testing as npt
-from sharc.support.geometry import SimulatorGeometry
+from sharc.support.geometry import (
+    SimulatorGeometry, ENUReferenceFrame, RigidTransform
+)
 from sharc.satellite.ngso.constants import EARTH_RADIUS_M
 from copy import deepcopy
+from scipy.spatial.transform import Rotation
+from itertools import product
+
+
+def random_rigid_transform(rng, N):
+    """
+    Generate a random RigidTransform with batch size N.
+    Rotations are orthonormal matrices generated via QR.
+    """
+    A = rng.normal(size=(N, 3, 3))
+    Q, _ = np.linalg.qr(A)
+
+    # ensure right-handed (det = +1)
+    det = np.linalg.det(Q)
+    Q[det < 0, :, 0] *= -1
+
+    t = rng.normal(size=(N, 3))
+
+    return RigidTransform(Rotation.from_matrix(Q), t)
+
+def rot_identity(n=1):
+    return Rotation.from_rotvec(np.zeros((n, 3)))
+
+def rot_z(angle_deg, n=1):
+    return Rotation.from_rotvec(
+        np.tile([0.0, 0.0, angle_deg], (n, 1)),
+        degrees=True
+    )
+
+def rot_x(angle_deg, n=1):
+    return Rotation.from_rotvec(
+        np.tile([angle_deg, 0.0, 0.0], (n, 1)),
+        degrees=True
+    )
+
+def rot_y(angle_deg, n=1):
+    return Rotation.from_rotvec(
+        np.tile([0.0, angle_deg, 0.0], (n, 1)),
+        degrees=True
+    )
+
+
+class TestRigidTransform(unittest.TestCase):
+    def setUp(self):
+        pass
+
+    def test_init_and_broadcasting(self):
+        for rot_shp, t_shp in product(
+            [(1, 3), (4, 3)],
+            [(1, 3), (4, 3)],
+        ):
+            Nrot = rot_shp[0]
+            Nt = t_shp[0]
+            N = max(Nrot, Nt)
+
+            rot = rot_identity(rot_shp[0])
+            t = np.zeros(t_shp)
+
+            with self.assertRaises(ValueError):
+                RigidTransform(rot, np.zeros((3,)))
+
+            if Nt > 1:
+                with self.assertRaises(ValueError):
+                    RigidTransform(rot_identity(N+1), t)
+
+            if Nrot > 1:
+                with self.assertRaises(ValueError):
+                    RigidTransform(rot, np.zeros((N+1, 3)))
+
+            # should not throw:
+            tr = RigidTransform(rot, t)
+            RigidTransform(rot, np.zeros((1, 3)))
+            RigidTransform(rot_identity(1), t)
+
+            # test broadcasting contracts:
+            for fn in [tr.apply_points, tr.apply_vectors]:
+                if N > 1:
+                    with self.assertRaises(AssertionError):
+                        fn(np.zeros((N+1, 3)))
+
+                for in_shp in [(1, 3), (N, 3)]:
+                    res = fn(np.zeros(in_shp))
+                    npt.assert_equal(
+                        res.shape, (N, 3)
+                    )
+
+            for fn, in_shp in product(
+                [tr.apply_points_permutation, tr.apply_vectors_permutation],
+                [(1, 3), (N, 3), (N+1, 3)]
+            ):
+                Nin = in_shp[0]
+                res = fn(np.zeros(in_shp))
+                npt.assert_equal(
+                    res.shape, (N, Nin, 3)
+                )
+
+    def test_simple_transformations(self):
+        eps = 1e-4
+
+        ux = np.array([1., 0., 0.])
+        uy = np.array([0., 1., 0.])
+        uz = np.array([0., 0., 1.])
+        u = np.array([ux, uy, uz, ux + uy + uz])
+
+        #######################################################################
+        # Identity transform
+        id_tr = RigidTransform(rot_identity(4), np.zeros((1, 3)))
+        out = id_tr.apply_points(u)
+        npt.assert_equal(out, u)
+
+        out = id_tr.apply_vectors(u)
+        npt.assert_equal(out, u)
+
+        out = id_tr.apply_points_permutation(u)
+        npt.assert_equal(out, np.stack((u, u, u, u)))
+
+        out = id_tr.apply_vectors_permutation(u)
+        npt.assert_equal(out, np.stack((u, u, u, u)))
+
+        #######################################################################
+        # Translation only transform
+        t1_tr = RigidTransform(rot_identity(4), np.ones((1, 3)))
+        out = t1_tr.apply_points(u)
+        npt.assert_equal(out, u + 1.)
+        out = t1_tr.inv().apply_points(out)
+        npt.assert_equal(out, u)
+
+        out = t1_tr.apply_vectors(u)
+        npt.assert_equal(out, u)
+
+        out = t1_tr.apply_points_permutation(u)
+        npt.assert_equal(out, np.stack((u, u, u, u)) + 1.)
+        out = t1_tr.inv().apply_points(out[0])
+        npt.assert_equal(out, u)
+
+        out = t1_tr.apply_vectors_permutation(u)
+        npt.assert_equal(out, np.stack((u, u, u, u)))
+
+        #######################################################################
+        # Rotation Z only transform
+        rot_z90_tr = RigidTransform(
+            rot_z(-90.), np.zeros((1, 3))
+        )
+        out_rot_z90 = rot_z90_tr.apply_points(u)
+        npt.assert_allclose(
+            out_rot_z90,
+            np.array([
+                -uy, ux, uz, ux - uy + uz
+            ]),
+            atol=eps
+        )
+        out = rot_z90_tr.inv().apply_points(out_rot_z90)
+        npt.assert_allclose(
+            out,
+            u,
+            atol=eps
+        )
+
+        #######################################################################
+        # Rotation X only transform
+        rot_x90_tr = RigidTransform(
+            rot_x(-90., 4), np.zeros((1, 3))
+        )
+
+        out_rot_z90_x90 = rot_x90_tr.apply_points(out_rot_z90)
+        expected_out_rot_z90_x90 = np.array([
+            uz, ux, uy, ux + uy + uz
+        ])
+        npt.assert_allclose(
+            out_rot_z90_x90,
+            expected_out_rot_z90_x90,
+            atol=eps
+        )
+        out = rot_x90_tr.inv().apply_points(expected_out_rot_z90_x90)
+        npt.assert_allclose(
+            out,
+            out_rot_z90,
+            atol=eps
+        )
+
+        #######################################################################
+        # Rotation Z and then Rotation X transform
+        npt.assert_allclose(
+            rot_z90_tr.and_then(rot_x90_tr).apply_points(u),
+            expected_out_rot_z90_x90,
+            atol=eps,
+        )
+        npt.assert_allclose(
+            (rot_z90_tr.and_then(rot_x90_tr).inv()
+                .apply_points(expected_out_rot_z90_x90)),
+            u,
+            atol=eps,
+        )
+        npt.assert_allclose(
+            (rot_x90_tr.inv().and_then(rot_z90_tr.inv())
+                .apply_points(expected_out_rot_z90_x90)),
+            u,
+            atol=eps,
+        )
+
+        #######################################################################
+        # Rotation Z and then Rotation X and then Translation transform
+        npt.assert_allclose(
+            rot_z90_tr.and_then(rot_x90_tr).and_then(t1_tr).apply_points(u),
+            expected_out_rot_z90_x90 + 1.,
+            atol=eps,
+        )
+        npt.assert_allclose(
+            (rot_z90_tr.and_then(rot_x90_tr).and_then(t1_tr).inv()
+                .apply_points(expected_out_rot_z90_x90 + 1.)),
+            u,
+            atol=eps,
+        )
+        npt.assert_allclose(
+            (t1_tr.inv().and_then(rot_x90_tr.inv().and_then(rot_z90_tr.inv()))
+                .apply_points(expected_out_rot_z90_x90 + 1.)),
+            u,
+            atol=eps,
+        )
+        # considering that VECTOR calculation should NOT translate
+        npt.assert_allclose(
+            rot_z90_tr.and_then(rot_x90_tr).and_then(t1_tr).apply_vectors(u),
+            expected_out_rot_z90_x90,
+            atol=eps,
+        )
+        npt.assert_allclose(
+            (rot_z90_tr.and_then(rot_x90_tr).and_then(t1_tr).inv()
+                .apply_vectors(expected_out_rot_z90_x90)),
+            u,
+            atol=eps,
+        )
+        npt.assert_allclose(
+            (t1_tr.inv().and_then(rot_x90_tr.inv().and_then(rot_z90_tr.inv()))
+                .apply_vectors(expected_out_rot_z90_x90)),
+            u,
+            atol=eps,
+        )
+
+    def test_permutation_points_equivalence(self):
+        rng = np.random.default_rng(0)
+
+        for n in range(1, 10):
+            tr = random_rigid_transform(rng, n)
+
+            x = rng.normal(size=(n, 3))
+
+            y = tr.apply_points(x)
+            y_permutation = tr.apply_points_permutation(x)
+
+            # diagonal of permutation must equal non-permutation
+            npt.assert_allclose(
+                y,
+                y_permutation.diagonal().T,
+                atol=1e-12,
+            )
+
+    def test_permutation_vectors_equivalence(self):
+        rng = np.random.default_rng(0)
+
+        for n in range(1, 10):
+            tr = random_rigid_transform(rng, n)
+
+            x = rng.normal(size=(n, 3))
+
+            y = tr.apply_vectors(x)
+            y_permutation = tr.apply_vectors_permutation(x)
+
+            # diagonal of permutation must equal non-permutation
+            npt.assert_allclose(
+                y,
+                y_permutation.diagonal().T,
+                atol=1e-12,
+            )
+
+    def test_take_commutes_with_apply_points(self):
+        rng = np.random.default_rng(0)
+
+        for n in range(1, 10):
+            tr = random_rigid_transform(rng, n)
+            x = rng.normal(size=(n, 3))
+
+            y_full = tr.apply_points(x)
+
+            for i in range(n):
+                y_take = tr.take(i).apply_points(x)
+                npt.assert_allclose(
+                    y_take[i],
+                    y_full[i],
+                    atol=1e-12,
+                )
+
+    def test_take_matches_permutation_points(self):
+        rng = np.random.default_rng(1)
+
+        for n in [2, 5]:
+            tr = random_rigid_transform(rng, n)
+            x = rng.normal(size=(n, 3))
+
+            Y = tr.apply_points_permutation(x)
+
+            for i in range(n):
+                tr_i = tr.take(i)
+                yi = tr_i.apply_points(x)
+
+                npt.assert_allclose(
+                    yi,
+                    Y[i],
+                    rtol=1e-12,
+                    atol=1e-12,
+                )
+
+    def test_take_matches_permutation_vectors(self):
+        rng = np.random.default_rng(1)
+
+        for n in [2, 5]:
+            tr = random_rigid_transform(rng, n)
+            x = rng.normal(size=(n, 3))
+
+            Y = tr.apply_vectors_permutation(x)
+
+            for i in range(n):
+                tr_i = tr.take(i)
+                yi = tr_i.apply_vectors(x)
+
+                npt.assert_allclose(
+                    yi,
+                    Y[i],
+                    rtol=1e-12,
+                    atol=1e-12,
+                )
 
 
 class TestGeometry(unittest.TestCase):
@@ -18,9 +350,14 @@ class TestGeometry(unittest.TestCase):
         only_global_azim=None,
         only_local_azim=None
     ):
-        npt.assert_allclose(geom.x_local, expect_local["x"], atol=0.001)
-        npt.assert_allclose(geom.y_local, expect_local["y"], atol=0.001)
-        npt.assert_allclose(geom.z_local, expect_local["z"], atol=0.001)
+        npt.assert_allclose(
+            np.stack((geom.x_local, geom.y_local, geom.z_local)),
+            np.stack((expect_local["x"], expect_local["y"], expect_local["z"])),
+            atol=0.001
+        )
+        # npt.assert_allclose(geom.x_local, expect_local["x"], atol=0.001)
+        # npt.assert_allclose(geom.y_local, expect_local["y"], atol=0.001)
+        # npt.assert_allclose(geom.z_local, expect_local["z"], atol=0.001)
         npt.assert_allclose(geom.pointn_elev_local, expect_local["elev"], atol=0.001)
         if only_local_azim is None:
             npt.assert_allclose(geom.pointn_azim_local, expect_local["azim"], atol=0.001)
@@ -32,9 +369,14 @@ class TestGeometry(unittest.TestCase):
                 atol=0.001
             )
 
-        npt.assert_allclose(geom.x_global, expect_global["x"], atol=0.001)
-        npt.assert_allclose(geom.y_global, expect_global["y"], atol=0.001)
-        npt.assert_allclose(geom.z_global, expect_global["z"], atol=0.001)
+        npt.assert_allclose(
+            np.stack((geom.x_global, geom.y_global, geom.z_global)),
+            np.stack((expect_global["x"], expect_global["y"], expect_global["z"])),
+            atol=0.001
+        )
+        # npt.assert_allclose(geom.x_global, expect_global["x"], atol=0.001)
+        # npt.assert_allclose(geom.y_global, expect_global["y"], atol=0.001)
+        # npt.assert_allclose(geom.z_global, expect_global["z"], atol=0.001)
         npt.assert_allclose(geom.pointn_elev_global, expect_global["elev"], atol=0.001)
         if only_global_azim is None:
             npt.assert_allclose(
@@ -57,14 +399,18 @@ class TestGeometry(unittest.TestCase):
     def test_set_coords_when_local_eq_global(self):
         """Test setting coordinates when local should eq global
         """
-        ref = (10, -5, 1200)
-
-        no_local = SimulatorGeometry(3, False, ref)
-        local_eq_global = SimulatorGeometry(3, True, ref)
-        local_eq_global.set_local_coord_sys(
-            np.repeat([ref[0]], 3),
-            np.repeat([ref[1]], 3),
-            np.repeat([ref[2]], 3),
+        ref_lla = (10, -5, 1200)
+        ref_frame = ENUReferenceFrame(
+            lat=ref_lla[0], lon=ref_lla[1], alt=ref_lla[2],
+        )
+        no_local = SimulatorGeometry(3, False, ref_frame)
+        local_eq_global = SimulatorGeometry(3, True, ref_frame)
+        local_eq_global.set_local_reference_frame(
+            ENUReferenceFrame(
+                lat=np.repeat([ref_lla[0]], 3),
+                lon=np.repeat([ref_lla[1]], 3),
+                alt=np.repeat([ref_lla[2]], 3),
+            )
         )
 
         """Test setting global coordinates
@@ -102,16 +448,21 @@ class TestGeometry(unittest.TestCase):
     def test_setting_different_alts(self):
         """Test setting coordinates when local should eq global
         """
-        ref = (-45.0, 90, 30.)
+        ref_lla = (-45.0, 90, 30.)
+        ref_frame = ENUReferenceFrame(
+            lat=ref_lla[0], lon=ref_lla[1], alt=ref_lla[2],
+        )
 
         alt_vals = np.array([500., 800., 1200., 1800.])
 
         def init_diff_alt():
-            geom = SimulatorGeometry(4, True, ref)
-            geom.set_local_coord_sys(
-                np.repeat([ref[0]], 4),
-                np.repeat([ref[1]], 4),
-                alt_vals,
+            geom = SimulatorGeometry(4, True, ref_frame)
+            geom.set_local_reference_frame(
+                ENUReferenceFrame(
+                    lat=np.repeat([ref_lla[0]], 4),
+                    lon=np.repeat([ref_lla[1]], 4),
+                    alt=alt_vals,
+                )
             )
             return geom
         diff_alt = init_diff_alt()
@@ -124,7 +475,7 @@ class TestGeometry(unittest.TestCase):
             "azim": np.array([90., 10., -179., 180.]), "elev": np.array([89., -89., -1., 12.]),
         }
         expect_global = deepcopy(expect_local)
-        alt_vals_diff = ref[2] - alt_vals
+        alt_vals_diff = ref_lla[2] - alt_vals
         expect_global["z"] -= alt_vals_diff
 
         diff_alt.set_global_coords(**expect_global)
@@ -147,7 +498,10 @@ class TestGeometry(unittest.TestCase):
     def test_setting_different_llas(self):
         """Test setting coordinates when local should eq global
         """
-        ref = (0.0, 0.0, 0.0)
+        ref_lla = (0.0, 0.0, 0.0)
+        ref_frame = ENUReferenceFrame(
+            lat=ref_lla[0], lon=ref_lla[1], alt=ref_lla[2],
+        )
 
         llas = np.array([
             [-90., 0., 0.],
@@ -157,11 +511,13 @@ class TestGeometry(unittest.TestCase):
         ]).T
 
         def init_diff_llas():
-            geom = SimulatorGeometry(4, True, ref)
-            geom.set_local_coord_sys(
-                llas[0],
-                llas[1],
-                llas[2],
+            geom = SimulatorGeometry(4, True, ref_frame)
+            geom.set_local_reference_frame(
+                ENUReferenceFrame(
+                    lat=llas[0],
+                    lon=llas[1],
+                    alt=llas[2],
+                )
             )
             return geom
 
@@ -203,7 +559,10 @@ class TestGeometry(unittest.TestCase):
         """Tests getting local distance from a station to another when
         they have different local references
         """
-        ref = (90., 0., 0.)
+        ref_lla = (90., 0., 0.)
+        ref_frame = ENUReferenceFrame(
+            lat=ref_lla[0], lon=ref_lla[1], alt=ref_lla[2],
+        )
         local_llas = np.array([
             [0., 0., 0.],
             [0., 1., 0.],
@@ -213,11 +572,13 @@ class TestGeometry(unittest.TestCase):
         ]).T
 
         def init_geom():
-            geom = SimulatorGeometry(5, True, ref)
-            geom.set_local_coord_sys(
-                local_llas[0],
-                local_llas[1],
-                local_llas[2],
+            geom = SimulatorGeometry(5, True, ref_frame)
+            geom.set_local_reference_frame(
+                ENUReferenceFrame(
+                    lat=local_llas[0],
+                    lon=local_llas[1],
+                    alt=local_llas[2],
+                )
             )
             geom.set_local_coords(
                 np.repeat(0., 5),
@@ -268,7 +629,10 @@ class TestGeometry(unittest.TestCase):
         """Tests getting local distance from a station to another when
         they have same local references
         """
-        ref = (90., 0., 0.)
+        ref_lla = (90., 0., 0.)
+        ref_frame = ENUReferenceFrame(
+            lat=ref_lla[0], lon=ref_lla[1], alt=ref_lla[2],
+        )
         local_llas = np.array([
             [0., 0., 0.],
             [0., 0., 0.],
@@ -277,11 +641,13 @@ class TestGeometry(unittest.TestCase):
         ]).T
 
         def init_geom():
-            geom = SimulatorGeometry(4, True, ref)
-            geom.set_local_coord_sys(
-                local_llas[0],
-                local_llas[1],
-                local_llas[2],
+            geom = SimulatorGeometry(4, True, ref_frame)
+            geom.set_local_reference_frame(
+                ENUReferenceFrame(
+                    lat=local_llas[0],
+                    lon=local_llas[1],
+                    alt=local_llas[2],
+                )
             )
             geom.set_local_coords(
                 np.tile([0., 20.], 2),
@@ -353,7 +719,10 @@ class TestGeometry(unittest.TestCase):
     def test_get_local_elevation(self):
         """Tests getting local elevation from a station to another.
         """
-        ref = (90., 0., 0.)
+        ref_lla = (90., 0., 0.)
+        ref_frame = ENUReferenceFrame(
+            lat=ref_lla[0], lon=ref_lla[1], alt=ref_lla[2],
+        )
         local_llas = np.array([
             [0., 0., 0.],
             [0., 0., 0.],
@@ -362,11 +731,13 @@ class TestGeometry(unittest.TestCase):
         ]).T
 
         def init_geom():
-            geom = SimulatorGeometry(4, True, ref)
-            geom.set_local_coord_sys(
-                local_llas[0],
-                local_llas[1],
-                local_llas[2],
+            geom = SimulatorGeometry(4, True, ref_frame)
+            geom.set_local_reference_frame(
+                ENUReferenceFrame(
+                    lat=local_llas[0],
+                    lon=local_llas[1],
+                    alt=local_llas[2],
+                )
             )
             geom.set_local_coords(
                 np.tile([0., 20.], 2),

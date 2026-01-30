@@ -33,22 +33,7 @@ class StationManager(object):
         self.ext_interference = np.empty(n)  # External interferece
         self.antenna = np.empty(n, dtype=Antenna)  # antenna objects, one for each station
         self.bandwidth = np.empty(n)  # Bandwidth in MHz
-        self.noise_figure = np.empty(n)
-        self.noise_temperature = np.empty(n)
-        self.thermal_noise = np.empty(n)
-        self.total_interference = np.empty(n)
-        self.snr = np.empty(n)
-        self.sinr = np.empty(n)
-        self.sinr_ext = np.empty(n)
-        self.inr = np.empty(n)  # INR in dBm/MHz
-        self.pfd = np.empty(n)  # Powerflux density in dBm/m^2
-        self.pfd_external_aggregated = np.empty(n)  # External aggregated PFD in dBm/m^2
-        self.spectral_mask = np.empty(n, dtype=SpectralMask)
-        self.center_freq = np.empty(n)
-        self.station_type = StationType.NONE
-        self.is_space_station = False
-        self.geom = SimulatorGeometry(n)
-        self.max_earth_sta_interf_distance = np.inf
+
         self.noise_figure = np.empty(n)  # Noise figure in dB
         self.noise_temperature = np.empty(n)  # Noise temperature in K
         self.thermal_noise = np.empty(n)  # Thermal noise in dBm/MHz
@@ -58,6 +43,7 @@ class StationManager(object):
         self.sinr_ext = np.empty(n)  # Used to store IMT SINR with external interference in dB
         self.inr = np.empty(n)  # INR in dB
         self.pfd = np.empty(n)  # Power flux density in dBm/m^2/MHz
+        self.pfd_external_aggregated = np.empty(n)  # External aggregated PFD in dBm/m^2
         self.spectral_mask = np.empty(n, dtype=SpectralMask)  # Spectral mask objects, one for each station
         self.center_freq = np.empty(n)  # Center frequency in MHz
         self.station_type = StationType.NONE  # Station type

@@ -278,7 +278,7 @@ class TopologyImtMssDc(Topology):
             _, all_azimuth, all_elevation = cartesian_to_polar(
                 pointing_vec_x, pointing_vec_y, pointing_vec_z)
 
-            beams_elev, beams_azim, sx, sy = TopologyImtMssDc.get_satellite_pointing(
+            beams_elev, beams_azim, beams_ground_elev, sx, sy = TopologyImtMssDc.get_satellite_pointing(
                 random_number_gen,
                 coordinate_system,
                 orbit_params,
@@ -306,6 +306,12 @@ class TopologyImtMssDc(Topology):
                     y: list(x) +
                     list(y),
                     beams_azim))
+            ground_elev = np.array(
+                functools.reduce(
+                    lambda x,
+                    y: list(x) +
+                    list(y),
+                    beams_ground_elev))
 
             space_station_x = np.repeat(space_station_x, sat_ocurr)
             space_station_y = np.repeat(space_station_y, sat_ocurr)
@@ -349,6 +355,7 @@ class TopologyImtMssDc(Topology):
             "sat_alt": altitudes,
             "sat_antenna_elev": elevation,
             "sat_antenna_azim": azimuth,
+            "beams_ground_elev": ground_elev,
             "sectors_x": sx,
             "sectors_y": sy,
             "sectors_z": np.zeros_like(sx)
@@ -464,6 +471,7 @@ class TopologyImtMssDc(Topology):
             # the caller asked with the active_sat_idxs parameter
             beams_azim = []
             beams_elev = []
+            beams_ground_elev = []
             n = 0
 
             for act_sat in active_satellite_idxs:
@@ -471,6 +479,8 @@ class TopologyImtMssDc(Topology):
                     n += len(sat_points_towards[act_sat])
                     beams_azim.append(azim[sat_points_towards[act_sat]])
                     beams_elev.append(elev[sat_points_towards[act_sat]])
+                    beams_ground_elev.append(all_elevations[
+                        sat_points_towards[act_sat], eligible_sats_idx == act_sat])
                 else:
                     beams_azim.append([])
                     beams_elev.append([])
@@ -480,7 +490,7 @@ class TopologyImtMssDc(Topology):
             sx = np.zeros(n)
             sy = np.zeros(n)
 
-            return beams_elev, beams_azim, sx, sy
+            return beams_elev, beams_azim, beams_ground_elev, sx, sy
         # We borrow the TopologyNTN method to calculate the sectors azimuth and elevation angles from their
         # respective x and y boresight coordinates
         sx, sy = TopologyNTN.get_sectors_xy(
@@ -572,12 +582,17 @@ class TopologyImtMssDc(Topology):
                 np.repeat(
                     sat_altitude,
                     orbit_params.num_beams))) - 90
+        beams_ground_elev = 90 - beams_elev
 
         beams_azim = beams_azim.reshape(
             (total_active_satellites, orbit_params.num_beams)
         )
 
         beams_elev = beams_elev.reshape(
+            (total_active_satellites, orbit_params.num_beams)
+        )
+
+        beams_ground_elev = beams_ground_elev.reshape(
             (total_active_satellites, orbit_params.num_beams)
         )
 
@@ -596,7 +611,7 @@ class TopologyImtMssDc(Topology):
                 nadir_azim[i]
             )
 
-        return beams_elev, beams_azim, sx, sy
+        return beams_elev, beams_azim, beams_ground_elev, sx, sy
 
     @staticmethod
     def get_distr(

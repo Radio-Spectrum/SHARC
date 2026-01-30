@@ -1752,6 +1752,7 @@ class StationFactory(object):
         z = mss_d2d_values["sat_z"]
         elev = mss_d2d_values["sat_antenna_elev"]
         azim = mss_d2d_values["sat_antenna_azim"]
+        beams_ground_elev = mss_d2d_values["beams_ground_elev"]
         mss_d2d.geom.set_global_coords(
             x, y, z,
             azim, elev,
@@ -1783,11 +1784,21 @@ class StationFactory(object):
             antenna_pattern = AntennaS1528Taylor(params.antenna.itu_r_s_1528)
         elif params.antenna.pattern == "MSS Adjacent":
             antenna_pattern = AntennaMSSAdjacent(params.frequency)
+        elif params.antenna.pattern == "Antenna System 4":
+            antenna_pattern_high = AntennaS1528(params.antenna.antenna_system_4.antenna_parameters_high)
+            antenna_pattern_low = AntennaS1528(params.antenna.antenna_system_4.antenna_parameters_low)
+
         else:
             raise ValueError(
                 f"generate_mss_ss: Invalid antenna type: {params.antenna.pattern}")
 
         for i in range(mss_d2d.num_stations):
+            if params.antenna.pattern == "Satellite Beamforming":
+                if beams_ground_elev[i] >= 50:
+                    antenna_pattern = antenna_pattern_high
+                else:
+                    antenna_pattern = antenna_pattern_low
+
             mss_d2d.antenna[i] = antenna_pattern
 
         return mss_d2d  # Return the configured StationManager

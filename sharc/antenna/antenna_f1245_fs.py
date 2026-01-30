@@ -15,6 +15,8 @@ import math
 
 
 class Antenna_f1245_fs(Antenna):
+    """Class that implements the ITU-R F.1245 antenna pattern for fixed
+    satellite service earth stations."""
 
     def __init__(self, param: ParametersImt):
         super().__init__()

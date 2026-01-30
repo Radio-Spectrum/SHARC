@@ -110,6 +110,7 @@ class ParametersAntenna(ParametersBase):
         frequency: float = None
 
         def validate(self, ctx):
+            """ do a sanity check of the parameters """
             if None in [self.gain, self.diameter, self.frequency]:
                 raise ValueError(f"{ctx}.antenna_3_dB should be set to a number")
 

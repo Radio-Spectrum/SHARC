@@ -29,7 +29,8 @@ class ParametersAntenna(ParametersBase):
         "ITU-R-S.1528-Taylor",
         "ITU-R-S.1528-Section1.2",
         "ITU-R-S.1528-LEO",
-        "MSS Adjacent"]
+        "MSS Adjacent",
+        "ITU-R F.1245_fs"]
 
     # chosen antenna radiation pattern
     pattern: typing.Literal["OMNI",
@@ -44,7 +45,8 @@ class ParametersAntenna(ParametersBase):
                             "ITU-R-S.1528-Taylor",
                             "ITU-R-S.1528-Section1.2",
                             "ITU-R-S.1528-LEO",
-                            "MSS Adjacent"] = None
+                            "MSS Adjacent",
+                            "ITU-R F.1245_fs"] = None
 
     # antenna gain [dBi]
     gain: float = None
@@ -92,6 +94,20 @@ class ParametersAntenna(ParametersBase):
 
     itu_r_s_672: ParametersAntennaS672 = field(
         default_factory=ParametersAntennaS672,
+    )
+
+    @dataclass
+    class ParametersAntennaRF1245(ParametersBase):
+        gain: float = -25
+        diameter: float = None
+        frequency: float = None
+
+        def validate(self, ctx):
+            if None in [self.gain, self.diameter, self.frequency]:
+                raise ValueError(f"{ctx}.antenna_3_dB should be set to a number")
+       
+    itu_r_f_1245_fs: ParametersAntennaRF1245 = field(
+        default_factory=ParametersAntennaRF1245,
     )
 
     def set_external_parameters(self, **kwargs):
@@ -198,6 +214,8 @@ class ParametersAntenna(ParametersBase):
                 self.itu_r_s_672.validate(f"{ctx}.itu_r_s_672")
             case "MSS Adjacent":
                 self.mss_adjacent.validate(f"{ctx}.mss_adjacent")
+            case "ITU-R F.1245_fs":
+                self.itu_r_f_1245_fs.validate(f"{ctx}.itu_r_f_1245_fs")
             case _:
                 raise NotImplementedError(
                     "ParametersAntenna.validate does not implement this antenna validation!", )

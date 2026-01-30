@@ -98,11 +98,36 @@ class ParametersAntenna(ParametersBase):
 
     @dataclass
     class ParametersAntennaRF1245(ParametersBase):
+        """
+        Parameters for ITU-R F.1245 antenna model. It's commonly used
+        for fixed service antennas.
+
+        Paremeters
+        ----------
+        gain : float, default=-25
+            Antenna gain in dB.
+        diameter : float, optional
+            Antenna diameter in meters.
+        frequency : float, optional
+            Operating frequency.
+        """
         gain: float = -25
         diameter: float = None
         frequency: float = None
 
         def validate(self, ctx):
+            """
+            Validate the antenna parameters for correctness.
+
+            Parameters
+            ----------
+            ctx : str
+                Context string for error messages.
+            Raises
+            ------
+            ValueError
+                If any parameter is invalid.
+            """
             if None in [self.gain, self.diameter, self.frequency]:
                 raise ValueError(f"{ctx}.antenna_3_dB should be set to a number")
 

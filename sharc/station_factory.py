@@ -59,6 +59,7 @@ from sharc.topology.topology_imt_mss_dc import TopologyImtMssDc
 from sharc.mask.spectral_mask_3gpp import SpectralMask3Gpp
 from sharc.mask.spectral_mask_mss import SpectralMaskMSS
 from sharc.support.sharc_geom import CoordinateSystem
+from sharc.support.geometry import SimulatorGeometry
 from sharc.support.sharc_utils import wrap2_180
 
 
@@ -96,6 +97,7 @@ class StationFactory(object):
         num_bs = topology.num_base_stations
         imt_base_stations = StationManager(num_bs)
         imt_base_stations.station_type = StationType.IMT_BS
+        power_backoff = 0.0
         if param.topology.type == "NTN":
             imt_base_stations.geom.set_global_coords(
                 topology.space_station_x * np.ones(num_bs),
@@ -112,6 +114,7 @@ class StationFactory(object):
                 elev=topology.elevation
             )
             imt_base_stations.is_space_station = True
+            power_backoff = topology.power_backoff
         else:
             if topology.determines_local_geometry:
                 imt_base_stations.geom = topology.get_bs_geometry()
@@ -132,7 +135,9 @@ class StationFactory(object):
         imt_base_stations.active = random_number_gen.rand(
             num_bs,
         ) < param.bs.load_probability
-        imt_base_stations.tx_power = param.bs.conducted_power * np.ones(num_bs)
+        # Conducted power per antenna element. Total power will depend on
+        # the number of antenna elements and it's configured in power control.
+        imt_base_stations.tx_power = param.bs.conducted_power * np.ones(num_bs) - power_backoff
         imt_base_stations.rx_power = dict(
             [(bs, -500 * np.ones(param.ue.k)) for bs in range(num_bs)],
         )
@@ -869,10 +874,7 @@ class StationFactory(object):
         )
 
         space_station.active = np.array([True])
-        space_station.tx_power = np.array(
-            [param.tx_power_density + 10 *
-                math.log10(param.bandwidth * 1e6) + 30],
-        )
+        space_station.tx_power_density = param.tx_power_density * np.ones(space_station.num_stations)
         space_station.rx_interference = -500
 
         space_station.antenna = np.array([
@@ -944,10 +946,7 @@ class StationFactory(object):
         )
 
         fss_space_station.active = np.array([True])
-        fss_space_station.tx_power = np.array(
-            [param.tx_power_density + 10 *
-                math.log10(param.bandwidth * 1e6) + 30],
-        )
+        fss_space_station.tx_power_density = np.ones(fss_space_station.num_stations) * param.tx_power_density
         fss_space_station.rx_interference = np.array([-500])
 
         if param.antenna_pattern == "OMNI":
@@ -1079,10 +1078,7 @@ class StationFactory(object):
         )
 
         fss_earth_station.active = np.array([True])
-        fss_earth_station.tx_power = np.array(
-            [param.tx_power_density + 10 *
-                math.log10(param.bandwidth * 1e6) + 30],
-        )
+        fss_earth_station.tx_power_density = np.ones(fss_earth_station.num_stations) * param.tx_power_density
         fss_earth_station.rx_interference = np.array([-500])
 
         if param.antenna_pattern.upper() == "OMNI":
@@ -1253,10 +1249,8 @@ class StationFactory(object):
         single_earth_station.active = np.array([True])
         single_earth_station.bandwidth = np.array([param.bandwidth])
 
-        single_earth_station.tx_power = np.array(
-            [param.tx_power_density + 10 *
-                math.log10(param.bandwidth * 1e6) + 30],
-        )
+        single_earth_station.tx_power_density = np.ones(
+            single_earth_station.num_stations) * param.tx_power_density
 
         single_earth_station.noise_temperature = np.array(
             [param.noise_temperature])
@@ -1317,10 +1311,7 @@ class StationFactory(object):
         )
 
         fs_station.active = np.array([True])
-        fs_station.tx_power = np.array(
-            [param.tx_power_density + 10 *
-                math.log10(param.bandwidth * 1e6) + 30],
-        )
+        fs_station.tx_power_density = np.ones(fs_station.num_stations) * param.tx_power_density
         fs_station.rx_interference = -500
 
         if param.antenna_pattern == "OMNI":
@@ -1385,6 +1376,8 @@ class StationFactory(object):
         haps.active = np.ones(num_haps, dtype=bool)
 
         haps.antenna = np.empty(num_haps, dtype=Antenna)
+
+        haps.tx_power_density = np.ones(haps.num_stations) * param.tx_power_density
 
         if param.antenna_pattern == "OMNI":
             for i in range(num_haps):
@@ -1458,6 +1451,7 @@ class StationFactory(object):
             )
             sys.exit(1)
 
+        rns.tx_power_density = np.ones(rns.num_stations) * param.tx_power_density
         rns.bandwidth = np.array([param.bandwidth])
         rns.noise_temperature = param.noise_temperature
         rns.thermal_noise = -500
@@ -1569,6 +1563,8 @@ class StationFactory(object):
         space_station.active = np.array([True])
         space_station.rx_interference = np.array([-500])
 
+        space_station.tx_power_density = np.ones(space_station.num_stations) * param.tx_power_density
+
         if param.antenna_pattern == "OMNI":
             space_station.antenna = np.array([AntennaOmni(param.antenna_gain)])
         elif param.antenna_pattern == "ITU-R RS.1813":
@@ -1635,9 +1631,9 @@ class StationFactory(object):
 
         mss_ss.is_space_station = True
         mss_ss.active = np.ones(num_bs, dtype=int)
-        mss_ss.tx_power = np.ones(
-            num_bs, dtype=int) * param_mss.tx_power_density + 10 * np.log10(
-            param_mss.bandwidth * 10**6)
+        mss_ss.tx_power_density = np.ones(
+            num_bs, dtype=int) * param_mss.tx_power_density
+
         mss_ss.antenna = np.empty(num_bs, dtype=AntennaS1528Leo)
 
         for i in range(num_bs):
@@ -1718,6 +1714,14 @@ class StationFactory(object):
         mss_d2d = StationManager(n=total_satellites)
         mss_d2d.station_type = StationType.MSS_D2D  # Set the station type to MSS D2D
         mss_d2d.is_space_station = True  # Indicate that the station is in space
+        mss_d2d.geom = SimulatorGeometry(
+            mss_d2d.num_stations, True,
+            (
+                coordinate_system.ref_lat,
+                coordinate_system.ref_long,
+                coordinate_system.ref_alt,
+            )
+        )
 
         if params.spectral_mask == "IMT-2020":
             mss_d2d.spectral_mask = SpectralMaskImt(StationType.IMT_BS,
@@ -1738,20 +1742,33 @@ class StationFactory(object):
         else:
             raise ValueError(
                 f"Invalid or not implemented spectral mask - {params.spectral_mask}")
-        mss_d2d.spectral_mask.set_mask(
-            params.tx_power_density +
-            10 *
-            np.log10(
-                params.bandwidth *
-                1e6) + 30
-        )
 
-       # Configure satellite positions in the StationManager
+        max_tx_power = params.tx_power_density + 10 * np.log10(params.bandwidth * 1e6)
+
+        # Configure satellite positions in the StationManager
         x = mss_d2d_values["sat_x"]
         y = mss_d2d_values["sat_y"]
         z = mss_d2d_values["sat_z"]
         elev = mss_d2d_values["sat_antenna_elev"]
         azim = mss_d2d_values["sat_antenna_azim"]
+        beams_ground_elev = mss_d2d_values["beams_ground_elev"]
+        power_backoff = mss_d2d_values["sat_power_backoff"]
+
+        mss_d2d.tx_power_density = params.tx_power_density * np.ones(
+            mss_d2d.num_stations,
+        ) - power_backoff
+
+        mss_d2d.spectral_mask.set_mask(max_tx_power + 30)
+
+        sat_lat = mss_d2d_values["sat_lat"]
+        sat_lon = mss_d2d_values["sat_lon"]
+
+        mss_d2d.geom.set_local_coord_sys(
+            sat_lat,
+            sat_lon,
+            # put local coord system in subsatellite
+            np.zeros_like(sat_lon)
+        )
         mss_d2d.geom.set_global_coords(
             x, y, z,
             azim, elev,
@@ -1783,11 +1800,21 @@ class StationFactory(object):
             antenna_pattern = AntennaS1528Taylor(params.antenna.itu_r_s_1528)
         elif params.antenna.pattern == "MSS Adjacent":
             antenna_pattern = AntennaMSSAdjacent(params.frequency)
+        elif params.antenna.pattern == "Antenna System 4":
+            antenna_pattern_high = AntennaS1528(params.antenna.antenna_system_4.antenna_parameters_high)
+            antenna_pattern_low = AntennaS1528(params.antenna.antenna_system_4.antenna_parameters_low)
+
         else:
             raise ValueError(
                 f"generate_mss_ss: Invalid antenna type: {params.antenna.pattern}")
 
         for i in range(mss_d2d.num_stations):
+            if params.antenna.pattern == "Antenna System 4":
+                if beams_ground_elev[i] >= 50:
+                    antenna_pattern = antenna_pattern_high
+                else:
+                    antenna_pattern = antenna_pattern_low
+
             mss_d2d.antenna[i] = antenna_pattern
 
         return mss_d2d  # Return the configured StationManager

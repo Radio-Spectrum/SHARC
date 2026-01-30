@@ -11,7 +11,7 @@ general:
 imt:
     minimum_separation_distance_bs_ue: 0
     interfered_with: false
-    frequency: 2168.5
+    frequency: 2167.5
     bandwidth: 5.0
     rb_bandwidth: 0.18
     adjacent_antenna_model: SINGLE_ELEMENT
@@ -57,8 +57,8 @@ imt:
                                 # - Argentina
                             margin_from_border: 25 # variar depois
                     eligible_sats_margin_from_border: -200.0
-                    minimum_service_angle: 30 # Variar depois
-            beam_radius: 20470
+                    minimum_service_angle: 40 # Variar depois
+            beam_radius: 24000
             power_control_zones:
                 zones:
                     - power_backoff_db: 0.0

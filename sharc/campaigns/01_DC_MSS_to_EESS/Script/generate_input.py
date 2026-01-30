@@ -23,7 +23,7 @@ OUTPUT_DIR = CAMPAIGN_DIR / "output"
 
 
 # Sweep — service grid
-MARGINS_KM = [30, 60, 90]
+MARGINS_KM = [0, 30, 60, 90]
 MIN_SERVICE_ANGLE_DEG = [30]
 LOAD_FACTORS = [0.1, 0.2, 0.5]
 
@@ -37,8 +37,8 @@ LOAD_FACTORS = [0.1, 0.2, 0.5]
 #  - single_earth_station.geometry.elevation.uniform_dist.min
 # ------------------------------------------------------------
 VICTIM_STATIONS = {
-    "B": {"antenna_gain": 45.8, "height_m": 20, "min_elevation_deg": 5},
-    "D": {"antenna_gain": 39.0, "height_m": 40, "min_elevation_deg": 5},
+    "B": {"antenna_gain": 45.8, "height_m": 20, "min_elevation_deg": 5, "bandwidth": 4},
+    "D": {"antenna_gain": 39.0, "height_m": 40, "min_elevation_deg": 5, "bandwidth": 6},
 }
 
 # ------------------------------------------------------------
@@ -161,6 +161,7 @@ def main():
 
                                 # Altura
                                 ses["geometry"]["height"] = float(victim["height_m"])
+                                ses["bandwidth"] = float(victim["bandwidth"])
 
                                 # Elevação mínima (min dentro de elevation.uniform_dist)
                                 elev = ses["geometry"]["elevation"]

@@ -112,7 +112,7 @@ class ParametersAntenna(ParametersBase):
         def validate(self, ctx):
             if None in [self.gain, self.diameter, self.frequency]:
                 raise ValueError(f"{ctx}.antenna_3_dB should be set to a number")
-       
+
     itu_r_f_1245_fs: ParametersAntennaRF1245 = field(
         default_factory=ParametersAntennaRF1245,
     )

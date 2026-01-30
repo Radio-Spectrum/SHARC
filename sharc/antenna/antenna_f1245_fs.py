@@ -41,16 +41,16 @@ class Antenna_f1245_fs(Antenna):
         np.array
             Calculated antenna gain values.
         """
-        #phi_vec = np.absolute(kwargs["phi_vec"])
-        #theta_vec = np.absolute(kwargs["theta_vec"])
-        #beams_l = np.absolute(kwargs["beams_l"])
+        # phi_vec = np.absolute(kwargs["phi_vec"])
+        # theta_vec = np.absolute(kwargs["theta_vec"])
+        # beams_l = np.absolute(kwargs["beams_l"])
         off_axis = np.absolute(kwargs["off_axis_angle_vec"])
         if self.d_lmbda > 100:
             gain = self.calculate_gain_greater(off_axis)
         else:
             gain = self.calculate_gain_less(off_axis)
-            #idx_max_gain = np.where(beams_l == -1)[0]
-            #gain = self.peak_gain
+            # idx_max_gain = np.where(beams_l == -1)[0]
+            # gain = self.peak_gain
         return gain
 
     def calculate_gain_greater(self, phi: float) -> np.array:
@@ -166,12 +166,12 @@ if __name__ == '__main__':
     antenna_gt = Antenna_f1245_fs(param)
     gain_gt_3 = antenna_gt.calculate_gain(
         off_axis_angle_vec=off_axis_angle_vec,
-    )   
+    )
     param.diameter = 1.8
     antenna_gt = Antenna_f1245_fs(param)
     gain_gt_18 = antenna_gt.calculate_gain(
         off_axis_angle_vec=off_axis_angle_vec,
-    )   
+    )
 
     fig = plt.figure(
         figsize=(8, 7), facecolor='w',
@@ -185,7 +185,7 @@ if __name__ == '__main__':
     plt.xlabel(r"Off-axis angle $\phi$ [deg]")
     plt.ylabel("Gain relative to $G_m$ [dB]")
     plt.legend(loc="lower left")
-    #plt.xlim((phi[0], phi[-1]))
+    # plt.xlim((phi[0], phi[-1]))
     plt.ylim((-20, 50))
     # ax = plt.gca()
     # ax.set_yticks([-30, -20, -10, 0])

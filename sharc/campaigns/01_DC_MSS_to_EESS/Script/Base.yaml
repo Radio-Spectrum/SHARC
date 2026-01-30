@@ -1,0 +1,172 @@
+general:
+    seed: 838
+    num_snapshots: 2000
+    overwrite_output: false
+    output_dir: campaigns/system4_vs_fs/output/
+    output_dir_prefix: output_dc2fs_Sys4_H690_h20_A90_lf20_MO25
+    system: SINGLE_EARTH_STATION
+    imt_link: DOWNLINK
+    enable_adjacent_channel: true
+    enable_cochannel: false
+imt:
+    minimum_separation_distance_bs_ue: 0
+    interfered_with: false
+    frequency: 2168.5
+    bandwidth: 5.0
+    rb_bandwidth: 0.18
+    adjacent_antenna_model: SINGLE_ELEMENT
+    adjacent_ch_reception: "OFF"
+    spectral_mask: MSS
+    adjacent_ch_emissions: ACLR
+    spurious_emissions: -13 #Precisa desse parâmetro?
+    guard_band_ratio: 0
+    topology:
+        central_latitude: -25.5549751
+        central_longitude: -54.5746686
+        central_altitude: 200 #Definir os 3 últimos valores para Bolívia e Colômbia (Paulo)
+        type: MSS_DC
+        mss_dc:
+            orbits:
+                - n_planes: 96
+                  inclination_deg: 53.0
+                  perigee_alt_km: 690.0
+                  apogee_alt_km: 690.0
+                  sats_per_plane: 1
+                  long_asc_deg: 1.875 #(checar se muda ao colocar 0)
+                  phasing_deg: 97.5
+                  initial_mean_anomaly: 48.75 #(checar se muda ao colocar 0)
+            sat_is_active_if:
+                conditions:
+                    - LAT_LONG_INSIDE_COUNTRY
+                    - MINIMUM_ELEVATION_FROM_ES
+                minimum_elevation_from_es: 5
+                lat_long_inside_country:
+                    country_names:
+                        - Brazil
+                        # - Argentina # Isso vai variar para diferentes cenários a serem estudados (Depois)
+                    margin_from_border: 0 # Variar valores
+            beam_positioning:
+                type: SERVICE_GRID
+                service_grid:
+                    transform_grid_randomly: true
+                    grid_in_zone:
+                        type: FROM_COUNTRIES
+                        from_countries:
+                            country_names:
+                                - Brazil
+                                # - Argentina
+                            margin_from_border: 25 # variar depois
+                    eligible_sats_margin_from_border: -200.0
+                    minimum_service_angle: 30 # Variar depois
+            beam_radius: 20470
+            power_control_zones:
+                zones:
+                    - power_backoff_db: 0.0
+                      geometry:
+                          type: FROM_COUNTRIES
+                          from_countries:
+                              country_names:
+                                  - Brazil
+                                  #   - Argentina
+                              margin_from_border: 150.0 # Variar
+                    - power_backoff_db: 10.0
+                      geometry:
+                          type: FROM_COUNTRIES
+                          from_countries:
+                              country_names:
+                                  - Brazil
+                                  #   - Argentina
+                              margin_from_border: 0
+    bs:
+        adjacent_ch_leak_ratio: 50.0
+        load_probability: 0.2 # Variar 0.1, 0.2 e 0.5
+        conducted_power: 33.39 # -17.6 (dBW/Hz) + 30 (dbW->dbm) + 10*log10(5e6) (Banda) - 46.0 (Ganho da antena) para chegar em dBm
+        height: 690000
+        noise_figure: 5.0
+        ohmic_loss: 0.0
+        antenna:
+            gain: 0
+            pattern: Antenna System 4
+            antenna_system_4:
+                antenna_parameters_high:
+                    antenna_gain: 41.0
+                    antenna_3_dB_bw: 1.50
+                    antenna_l_s: -35
+                    far_out_side_lobe: -20
+                antenna_parameters_low:
+                    antenna_gain: 46.0
+                    antenna_3_dB_bw: 0.82
+                    antenna_l_s: -20
+                    far_out_side_lobe: -10
+    ue:
+        k: 1
+        k_m: 1
+        indoor_percent: 0.0
+        distribution_type: UNIFORM_IN_CELL
+        distribution_distance: RAYLEIGH
+        distribution_azimuth: UNIFORM
+        tx_power_control: false
+        p_o_pusch: -92.2
+        alpha: 0.8
+        p_cmax: 23
+        power_dynamic_range: 63
+        height: 1.5
+        noise_figure: 9
+        ohmic_loss: 0
+        body_loss: 4
+        antenna:
+            array:
+                element_pattern: FIXED
+                element_max_g: -3
+                n_rows: 1
+                n_columns: 1
+    uplink:
+        attenuation_factor: 0.4
+        sinr_min: -10
+        sinr_max: 22
+    downlink:
+        attenuation_factor: 0.8
+        sinr_min: -10
+        sinr_max: 30
+    channel_model: FSPL
+    noise_temperature: 290
+    imt_dl_intra_sinr_calculation_disabled: true
+
+single_earth_station:
+  frequency: 2202
+  bandwidth: 4
+  tx_power_density: -200
+  noise_temperature: 190
+  adjacent_ch_selectivity: 35
+  channel_model: P619
+  polarization_loss: 3
+  geometry:
+    height: 15 # Alterar no gerador (20m e 40m)
+    azimuth:
+      type: UNIFORM_DIST
+      uniform_dist:
+        min: -180 # Alterar no gerador (0, 90, 180, 270)
+        max: 180
+    elevation:
+      type: UNIFORM_DIST
+      uniform_dist:
+        min: 5 # Alterar no gerador (0, 90, 180, 270)
+        max: 90
+    location:
+      type: FIXED
+      fixed:
+        x: 0
+        y: 0
+  antenna:
+    pattern: ITU-R S.465
+    gain: 45.8
+    itu_r_s_465:
+      antenna_gain: 45.8
+      diameter: 8.91
+  adjacent_ch_reception: ACS
+  season: SUMMER
+  param_p619:
+    earth_station_lat_deg: -15.33
+    earth_station_alt_m: 200
+    mean_clutter_height: low  # Alterar no gerador 
+    below_rooftop: 60 # Alterar no gerador

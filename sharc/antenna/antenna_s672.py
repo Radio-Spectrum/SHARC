@@ -6,7 +6,7 @@ Created on Thu Apr 13 17:18:59 2017
 """
 
 from sharc.antenna.antenna import Antenna
-from sharc.parameters.parameters_fss_ss import ParametersFssSs
+from sharc.parameters.antenna.parameters_antenna_s672 import ParametersAntennaS672
 
 import numpy as np
 import sys
@@ -18,7 +18,7 @@ class AntennaS672(Antenna):
     according to Recommendation ITU-R S.672-4 Annex 1
     """
 
-    def __init__(self, param: ParametersFssSs):
+    def __init__(self, param: ParametersAntennaS672):
         super().__init__()
         self.peak_gain = param.antenna_gain
         self.l_s = param.antenna_l_s
@@ -37,7 +37,7 @@ class AntennaS672(Antenna):
 
         self.b = 6.32
 
-        self.psi_0 = param.antenna_3_dB / 2
+        self.psi_0 = param.antenna_3_dB_bw / 2
         self.psi_1 = self.psi_0 * \
             np.power(10, (self.peak_gain + self.l_s + 20) / 25)
 
@@ -83,10 +83,10 @@ if __name__ == '__main__':
     import matplotlib.pyplot as plt
 
     # initialize antenna parameters
-    param = ParametersFssSs()
+    param = ParametersAntennaS672()
     param.antenna_gain = 50
     param.antenna_pattern = "ITU-R S.672-4"
-    param.antenna_3_dB = 2
+    param.antenna_3_dB_bw = 2
     psi = np.linspace(1, 30, num=1000)
 
     param.antenna_l_s = -20

@@ -70,17 +70,13 @@ usage: main_cli.py -p <param_file>
    python main_cli.py -p /path/to/parameters.yaml
    ```
 
-   If you don't specify a parameters file, it will default to `input/parameters.yaml`:
-   ```bash
-   python main_cli.py
-   ```
-
 3. **View Logs:**
-   The simulation will start, and logs will be displayed in the terminal. You can monitor these logs for progress and results. Logging is automatically set up via the `Logging.setup_logging()` function.
+   The simulation will start, and logs will be displayed in the terminal. You might also pass a log file with the 
+   `-l` parameter.
 
 ## 5. Parameters File
 
-The configuration file (`parameters.yaml`) should define the simulation parameters.
+The configuration file should define the simulation parameters.
 
 
 ### Example `parameters.yaml`
@@ -95,13 +91,16 @@ general:
     imt_link: DOWNLINK
     ###########################################################################
     # The chosen system for sharing study
-    # EESS_PASSIVE, FSS_SS, FSS_ES, FS, RAS,
-    system: RAS
+    system: SINGLE_EARTH_STATION
     ###########################################################################
 **(example)**
 ```
 
 These parameters will be used by the simulator during execution, and you can modify them as needed.
+The parameter file used for testing in `tests/parameters/parameters_for_testing.yaml`
+is a good staring point for checking all possible parameters for every system implemented in the simulator.
+For details of the parameter structure and logic refer to the `Parameter` package. You'll find all
+the expected parameters and their validation.
 
 ## 6. Simulator Components
 

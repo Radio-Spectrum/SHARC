@@ -44,6 +44,12 @@ class PropagationP1411(Propagation):
             self.nlos_gamma = 2.36
             self.nlos_sigma = 7.60
 
+    def get_path_loss(self, *args, **kwargs):
+        """This class isn't supposed to be directly called in the simulation
+        loop, so this methods doesn't need to be implemented
+        """
+        raise NotImplementedError()
+
     def get_loss(self, *args, **kwargs) -> np.array:
         """Calculate the path loss using the ITU-R P.1411 model.
 

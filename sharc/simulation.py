@@ -12,14 +12,16 @@ import numpy as np
 import math
 import sys
 import matplotlib.pyplot as plt
+import typing
 
 from sharc.support.enumerations import StationType
 from sharc.topology.topology_factory import TopologyFactory
-from sharc.support.sharc_geom import GeometryConverter
+from sharc.support.sharc_geom import CoordinateSystem
 from sharc.parameters.parameters import Parameters
 from sharc.station_manager import StationManager
 from sharc.results import Results
 from sharc.propagation.propagation_factory import PropagationFactory
+from sharc.propagation.propagation_path import PropagationPath
 from sharc.support.sharc_utils import wrap2_180, clip_angle
 
 
@@ -81,20 +83,20 @@ class Simulation(ABC, Observable):
         self.co_channel = self.parameters.general.enable_cochannel
         self.adjacent_channel = self.parameters.general.enable_adjacent_channel
 
-        geometry_converter = GeometryConverter()
+        coordinate_system = CoordinateSystem()
 
         if self.parameters.imt.topology.central_latitude is not None:
-            geometry_converter.set_reference(
+            coordinate_system.set_reference(
                 self.parameters.imt.topology.central_latitude,
                 self.parameters.imt.topology.central_longitude,
                 self.parameters.imt.topology.central_altitude,
             )
 
-        self.geometry_converter = geometry_converter
+        self.coordinate_system = coordinate_system
 
         self.topology = TopologyFactory.createTopology(
             self.parameters,
-            geometry_converter
+            coordinate_system
         )
 
         self.bs_power_gain = 0
@@ -123,6 +125,9 @@ class Simulation(ABC, Observable):
         self.ue = np.empty(0)
         self.bs = np.empty(0)
         self.system = np.empty(0)
+
+        self.paths_between_imt_and_sys: PropagationPath = None
+        self.intra_imt_paths: PropagationPath = None
 
         self.link = dict()
 
@@ -303,9 +308,12 @@ class Simulation(ABC, Observable):
 
         # Calculate the antenna gains of the IMT station with respect to the
         # system's station
+        use_separated_beams = False
         if imt_station.station_type is StationType.IMT_UE:
             # define antenna gains
+            # shape: (n_sys, n_imt)
             gain_sys_to_imt = self.calculate_gains(system_station, imt_station)
+            # shape: (n_sys, n_imt)
             gain_imt_to_sys = np.transpose(
                 self.calculate_gains(
                     imt_station,
@@ -315,17 +323,35 @@ class Simulation(ABC, Observable):
                 + self.parameters.imt.ue.body_loss \
                 + self.polarization_loss
         elif imt_station.station_type is StationType.IMT_BS:
+            use_separated_beams = True
             # define antenna gains
             # repeat for each BS beam
+            # shape: (n_sys, n_imt * ue_k)
             gain_sys_to_imt = np.repeat(
                 self.calculate_gains(system_station, imt_station),
                 self.parameters.imt.ue.k, 1,
             )
+            # shape: (n_sys, n_imt * ue_k)
             gain_imt_to_sys = np.transpose(
                 self.calculate_gains(
                     imt_station, system_station, is_co_channel,
                 ),
             )
+
+            # shape: (n_sys, n_bs, ue_k)
+            gain_sys_to_imt_separated_beams = gain_sys_to_imt.reshape(
+                gain_sys_to_imt.shape[0],
+                gain_sys_to_imt.shape[1] // self.parameters.imt.ue.k,
+                self.parameters.imt.ue.k
+            )
+            # shape: (n_bs, n_sys, ue_k)
+            # reshape makes (n_sys, n_bs, ue_k), transpose changes axis
+            gain_imt_to_sys_separated_beams_imt_frst = gain_imt_to_sys.reshape(
+                gain_imt_to_sys.shape[0],
+                gain_imt_to_sys.shape[1] // self.parameters.imt.ue.k,
+                self.parameters.imt.ue.k
+            ).transpose(1, 0, 2)
+
             additional_loss = self.parameters.imt.bs.ohmic_loss \
                 + self.polarization_loss
         else:
@@ -334,44 +360,37 @@ class Simulation(ABC, Observable):
                 f"Invalid IMT StationType! {
                     imt_station.station_type}")
 
-        # TODO: this performance betterment doesn't work when one of the stations is IMT_BS
-        # so do something that works for it
-        # # Calculate the path loss based on the propagation model only for active stations
-        # actv_sys = copy_active_stations(system_station)
-        # actv_imt = copy_active_stations(imt_station)
-        # path_loss = np.zeros((system_station.num_stations, imt_station.num_stations))
-        # actv_path_loss = self.propagation_system.get_loss(
-        #     self.parameters,
-        #     freq,
-        #     actv_sys,
-        #     actv_imt,
-        #     gain_sys_to_imt,
-        #     gain_imt_to_sys,
-        # )
-        # path_loss[np.ix_(system_station.active, imt_station.active)] = actv_path_loss
+        if use_separated_beams:
+            sta_a_gains = gain_sys_to_imt_separated_beams
+            sta_b_gains = gain_imt_to_sys_separated_beams_imt_frst
+        else:
+            sta_a_gains = gain_sys_to_imt
+            sta_b_gains = gain_imt_to_sys.T
 
-        path_loss = self.propagation_system.get_loss(
+        path_loss = self.paths_between_imt_and_sys.get_path_loss(
+            self.propagation_system,
             self.parameters,
             freq,
-            system_station,
-            imt_station,
-            gain_sys_to_imt,
-            gain_imt_to_sys,
+            sta_a_gains=sta_a_gains,
+            sta_b_gains=sta_b_gains,
         )
 
         # Store antenna gains and path loss samples
         if self.param_system.channel_model == "HDFSS":
+            # TODO: standardized way of storing these results
+            # instead of just for HDFSS
             self.imt_system_build_entry_loss = path_loss[1]
             self.imt_system_diffraction_loss = path_loss[2]
             path_loss = path_loss[0]
 
-        if imt_station.station_type is StationType.IMT_UE:
-            self.imt_system_path_loss = path_loss
-        else:
-            # Repeat for each BS beam
-            self.imt_system_path_loss = np.repeat(
-                path_loss, self.parameters.imt.ue.k, 1,
-            )
+        if use_separated_beams:
+            if path_loss.ndim == 3:
+                # (n_sys, n_imt * ue_k)
+                path_loss = path_loss.reshape(path_loss.shape[0], -1)
+            elif path_loss.shape[1] == imt_station.num_stations:
+                path_loss = np.repeat(path_loss, self.parameters.imt.ue.k, -1)
+
+        self.imt_system_path_loss = path_loss
 
         self.system_imt_antenna_gain = gain_sys_to_imt
 
@@ -429,13 +448,12 @@ class Simulation(ABC, Observable):
 
         # Note on the array dimentions for coupling loss calculations:
         # The function get_loss returns an array station_a x station_b
-        path_loss = self.propagation_imt.get_loss(
+        path_loss = self.intra_imt_paths.get_path_loss(
+            self.propagation_imt,
             self.parameters,
             self.parameters.imt.frequency,
-            imt_ue_station,
-            imt_bs_station,
-            ant_gain_ue_to_bs,
-            ant_gain_bs_to_ue,
+            sta_a_gains=ant_gain_ue_to_bs,
+            sta_b_gains=ant_gain_bs_to_ue,
         )
 
         # Collect IMT BS and UE antenna gain samples
@@ -475,16 +493,16 @@ class Simulation(ABC, Observable):
         """
         if self.wrap_around_enabled:
             self.bs_to_ue_d_2D, self.bs_to_ue_d_3D, self.bs_to_ue_phi, self.bs_to_ue_theta = \
-                self.bs.get_dist_angles_wrap_around(self.ue)
+                self.bs.geom.get_global_dist_angles_wrap_around(self.ue.geom)
         else:
-            self.bs_to_ue_d_2D = self.bs.get_distance_to(self.ue)
-            self.bs_to_ue_d_3D = self.bs.get_3d_distance_to(self.ue)
-            self.bs_to_ue_phi, self.bs_to_ue_theta = self.bs.get_pointing_vector_to(
-                self.ue, )
+            self.bs_to_ue_d_2D = self.bs.geom.get_local_distance_to(self.ue.geom)
+            self.bs_to_ue_d_3D = self.bs.geom.get_3d_distance_to(self.ue.geom)
+            self.bs_to_ue_phi, self.bs_to_ue_theta = self.bs.geom.get_global_pointing_vector_to(
+                self.ue.geom, )
 
         bs_active = np.where(self.bs.active)[0]
 
-        assert np.all((-180 <= self.bs.azimuth) & (self.bs.azimuth <= 180)), "BS azimuth angles should be in [-180, 180] range"
+        assert np.all((-180 <= self.bs.geom.pointn_azim_global) & (self.bs.geom.pointn_azim_global <= 180)), "BS azimuth angles should be in [-180, 180] range"
         for bs in bs_active:
             # select K UE's among the ones that are connected to BS
             random_number_gen.shuffle(self.link[bs])
@@ -498,7 +516,7 @@ class Simulation(ABC, Observable):
 
                     # limit beamforming angle
                     beam_h_min, beam_h_max = wrap2_180(
-                        self.parameters.imt.bs.antenna.array.horizontal_beamsteering_range + self.bs.azimuth[bs]
+                        self.parameters.imt.bs.antenna.array.horizontal_beamsteering_range + self.bs.geom.pointn_azim_global[bs]
                     )
 
                     bs_beam_phi = clip_angle(
@@ -576,7 +594,7 @@ class Simulation(ABC, Observable):
                 theta = self.bs_to_ue_theta
                 beams_idx = self.bs_to_ue_beam_rbs[station_2_active]
             elif not station_2.is_imt_station():
-                phi, theta = station_1.get_pointing_vector_to(station_2)
+                phi, theta = station_1.geom.get_global_pointing_vector_to(station_2.geom)
                 phi = np.repeat(phi, self.parameters.imt.ue.k, 0)
                 theta = np.repeat(theta, self.parameters.imt.ue.k, 0)
                 beams_idx = np.tile(
@@ -584,17 +602,17 @@ class Simulation(ABC, Observable):
                 )
 
         elif (station_1.station_type is StationType.IMT_UE):
-            phi, theta = station_1.get_pointing_vector_to(station_2)
+            phi, theta = station_1.geom.get_global_pointing_vector_to(station_2.geom)
             beams_idx = np.zeros(len(station_2_active), dtype=int)
 
         elif not station_1.is_imt_station():
-            phi, theta = station_1.get_pointing_vector_to(station_2)
+            phi, theta = station_1.geom.get_global_pointing_vector_to(station_2.geom)
             beams_idx = np.zeros(len(station_2_active), dtype=int)
 
         # Calculate gains
         gains = np.zeros(phi.shape)
         if station_1.station_type is StationType.IMT_BS and not station_2.is_imt_station():
-            off_axis_angle = station_1.get_off_axis_angle(station_2)
+            off_axis_angle = station_1.geom.get_off_axis_angle(station_2.geom)
             for k in station_1_active:
                 for b in range(
                     k * self.parameters.imt.ue.k,
@@ -612,7 +630,7 @@ class Simulation(ABC, Observable):
                                                                                                                     station_2_active])
 
         elif station_1.station_type is StationType.IMT_UE and not station_2.is_imt_station():
-            off_axis_angle = station_1.get_off_axis_angle(station_2)
+            off_axis_angle = station_1.geom.get_off_axis_angle(station_2.geom)
             for k in station_1_active:
                 gains[k, station_2_active] = station_1.antenna[k].calculate_gain(
                     off_axis_angle_vec=off_axis_angle[k, station_2_active],
@@ -633,8 +651,8 @@ class Simulation(ABC, Observable):
 
         elif not station_1.is_imt_station():
 
-            off_axis_angle = station_1.get_off_axis_angle(station_2)
-            phi, theta = station_1.get_pointing_vector_to(station_2)
+            off_axis_angle = station_1.geom.get_off_axis_angle(station_2.geom)
+            phi, theta = station_1.geom.get_global_pointing_vector_to(station_2.geom)
             for k in station_1_active:
                 gains[k, station_2_active] = \
                     station_1.antenna[k].calculate_gain(
@@ -643,7 +661,7 @@ class Simulation(ABC, Observable):
                         phi_vec=phi[k, station_2_active],
                 )
         else:  # for IMT <-> IMT
-            off_axis_angle = station_1.get_off_axis_angle(station_2)
+            off_axis_angle = station_1.geom.get_off_axis_angle(station_2.geom)
             for k in station_1_active:
                 gains[k, station_2_active] = station_1.antenna[k].calculate_gain(
                     off_axis_angle_vec=off_axis_angle[k, station_2_active],
@@ -739,7 +757,7 @@ class Simulation(ABC, Observable):
 
         # Plot user equipments
         ax.scatter(
-            self.ue.x, self.ue.y, color='r',
+            self.ue.geom.x_global, self.ue.geom.y_global, color='r',
             edgecolor="w", linewidth=0.5, label="UE",
         )
 
@@ -748,13 +766,13 @@ class Simulation(ABC, Observable):
 
         # Plot UE's azimuth
         d = 0.1 * self.topology.cell_radius
-        for i in range(len(self.ue.x)):
+        for i in range(len(self.ue.geom.x_global)):
             plt.plot(
-                [self.ue.x[i], self.ue.x[i] + d *
-                    math.cos(math.radians(self.ue.azimuth[i]))],
+                [self.ue.geom.x_global[i], self.ue.geom.x_global[i] + d *
+                    math.cos(math.radians(self.ue.geom.pointn_azim_global[i]))],
                 [
-                    self.ue.y[i], self.ue.y[i] + d *
-                    math.sin(math.radians(self.ue.azimuth[i])),
+                    self.ue.geom.y_global[i], self.ue.geom.y_global[i] + d *
+                    math.sin(math.radians(self.ue.geom.pointn_azim_global[i])),
                 ],
                 'r-',
             )
@@ -776,7 +794,7 @@ class Simulation(ABC, Observable):
 
             # Plot user equipments
             ax.scatter(
-                self.ue.x, self.ue.height, color='r',
+                self.ue.geom.x_global, self.ue.geom.z_global, color='r',
                 edgecolor="w", linewidth=0.5, label="UE",
             )
 
@@ -788,6 +806,45 @@ class Simulation(ABC, Observable):
             plt.show()
 
 #        sys.exit(0)
+
+    def add_system_imt_interaction_attr_to_results(
+        self,
+        link: typing.Literal["DL", "UL"],
+        attr: str | object,
+        result_attr: str | None = None,
+        result_obj: typing.Any = None,
+    ):
+        """Adds attribute (self.attr if attr is str else attr if attr is object)
+        to the instance results object.
+        Works with system<>imt interaction, getting results based on existing
+        paths_between_imt_and_sys
+        """
+        if isinstance(attr, str):
+            v = np.array(getattr(self, attr))
+        else:
+            v = attr
+
+        if result_obj is None:
+            result_obj = self.results
+        if result_attr is None:
+            result_attr = attr
+
+        sys_to_imt_paths_mask = self.paths_between_imt_and_sys.mask
+        n_sys = self.system.num_stations
+
+        assert v.shape[0] == n_sys
+        if (
+            not self.parameters.imt.interfered_with and link == "DL"
+            or self.parameters.imt.interfered_with and link == "UL"
+        ):
+            n_bs = self.bs.num_stations
+            ue_k = self.parameters.imt.ue.k
+            v = v.reshape(
+                    n_sys, n_bs, ue_k
+                )
+        v = v[sys_to_imt_paths_mask]
+
+        getattr(result_obj, result_attr).extend(v.flatten())
 
     @abstractmethod
     def snapshot(self, *args, **kwargs):

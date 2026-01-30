@@ -6,7 +6,7 @@ from pathlib import Path
 from sharc.satellite.ngso.constants import EARTH_RADIUS_KM
 
 
-def plot_back(fig, geoconv, in_km):
+def plot_back(fig, coord_sys, in_km):
     """back half of sphere"""
     clor = 'rgb(220, 220, 220)'
     # Create a mesh grid for latitude and longitude.
@@ -22,7 +22,7 @@ def plot_back(fig, geoconv, in_km):
     lat_flat = lat.flatten()
     lon_flat = lon.flatten()
 
-    if geoconv is None:
+    if coord_sys is None:
         lon = lon * np.pi / 180
         lat = lat * np.pi / 180
 
@@ -36,7 +36,7 @@ def plot_back(fig, geoconv, in_km):
         # Convert the lat/lon grid to transformed Cartesian coordinates.
         # Ensure your converter function can handle vectorized (numpy array)
         # inputs.
-        x_flat, y_flat, z_flat = geoconv.convert_lla_to_transformed_cartesian(
+        x_flat, y_flat, z_flat = coord_sys.lla2enu(
             lat_flat, lon_flat, 0)
         if in_km:
             x_flat, y_flat, z_flat = x_flat / 1e3, y_flat / 1e3, z_flat / 1e3
@@ -58,7 +58,7 @@ def plot_back(fig, geoconv, in_km):
     )
 
 
-def plot_front(fig, geoconv, in_km):
+def plot_front(fig, coord_sys, in_km):
     """front half of sphere"""
     clor = 'rgb(220, 220, 220)'
 
@@ -75,7 +75,7 @@ def plot_front(fig, geoconv, in_km):
     lat_flat = lat.flatten()
     lon_flat = lon.flatten()
 
-    if geoconv is None:
+    if coord_sys is None:
         lon = lon * np.pi / 180
         lat = lat * np.pi / 180
 
@@ -89,7 +89,7 @@ def plot_front(fig, geoconv, in_km):
         # Convert the lat/lon grid to transformed Cartesian coordinates.
         # Ensure your converter function can handle vectorized (numpy array)
         # inputs.
-        x_flat, y_flat, z_flat = geoconv.convert_lla_to_transformed_cartesian(
+        x_flat, y_flat, z_flat = coord_sys.lla2enu(
             lat_flat, lon_flat, 0)
         if in_km:
             x_flat, y_flat, z_flat = x_flat / 1e3, y_flat / 1e3, z_flat / 1e3
@@ -111,13 +111,13 @@ def plot_front(fig, geoconv, in_km):
     )
 
 
-def plot_polygon(poly, geoconv, in_km, alt=0):
+def plot_polygon(poly, coord_sys, in_km, alt=0):
     """
     Convert a polygon's coordinates to 3D Cartesian coordinates for plotting on a globe.
 
     Args:
         poly: The polygon object with exterior coordinates.
-        geoconv: Geodetic converter object or None.
+        coord_sys: Geodetic converter object or None.
         in_km (bool): Whether to use kilometers for the output coordinates.
         alt (float, optional): Altitude to add to the radius. Defaults to 0.
 
@@ -129,7 +129,7 @@ def plot_polygon(poly, geoconv, in_km, alt=0):
     lon = np.array(xy_coords[0])
     lat = np.array(xy_coords[1])
 
-    if geoconv is None:
+    if coord_sys is None:
         lon = lon * np.pi / 180
         lat = lat * np.pi / 180
 
@@ -140,7 +140,7 @@ def plot_polygon(poly, geoconv, in_km, alt=0):
         y = R * np.cos(lat) * np.sin(lon)
         z = R * np.sin(lat)
     else:
-        x, y, z = geoconv.convert_lla_to_transformed_cartesian(
+        x, y, z = coord_sys.lla2enu(
             lat, lon, alt * (1e3 if in_km else 1))
         if in_km:
             x, y, z = x / 1e3, y / 1e3, z / 1e3
@@ -148,13 +148,13 @@ def plot_polygon(poly, geoconv, in_km, alt=0):
     return x, y, z
 
 
-def plot_mult_polygon(mult_poly, geoconv, in_km: bool, alt=0):
+def plot_mult_polygon(mult_poly, coord_sys, in_km: bool, alt=0):
     """
     Convert a MultiPolygon or Polygon to a list of 3D Cartesian coordinate arrays for plotting.
 
     Args:
         mult_poly: The MultiPolygon or Polygon object.
-        geoconv: Geodetic converter object or None.
+        coord_sys: Geodetic converter object or None.
         in_km (bool): Whether to use kilometers for the output coordinates.
         alt (float, optional): Altitude to add to the radius. Defaults to 0.
 
@@ -162,19 +162,19 @@ def plot_mult_polygon(mult_poly, geoconv, in_km: bool, alt=0):
         list: A list of tuples containing arrays of x, y, z coordinates for each polygon.
     """
     if mult_poly.geom_type == 'Polygon':
-        return [plot_polygon(mult_poly, geoconv, in_km, alt)]
+        return [plot_polygon(mult_poly, coord_sys, in_km, alt)]
     elif mult_poly.geom_type == 'MultiPolygon':
-        return [plot_polygon(poly, geoconv, in_km, alt)
+        return [plot_polygon(poly, coord_sys, in_km, alt)
                 for poly in mult_poly.geoms]
 
 
-def plot_globe_with_borders(opaque_globe: bool, geoconv, in_km: bool):
+def plot_globe_with_borders(opaque_globe: bool, coord_sys, in_km: bool):
     """
     Plot a 3D globe with country borders using Plotly.
 
     Args:
         opaque_globe (bool): Whether to plot the globe as opaque.
-        geoconv: Geodetic converter object or None.
+        coord_sys: Geodetic converter object or None.
         in_km (bool): Whether to use kilometers for the output coordinates.
 
     Returns:
@@ -196,8 +196,8 @@ def plot_globe_with_borders(opaque_globe: bool, geoconv, in_km: bool):
     #     margin=dict(l=0, r=0, b=0, t=0)
     # )
     if opaque_globe:
-        plot_front(fig, geoconv, in_km)
-        plot_back(fig, geoconv, in_km)
+        plot_front(fig, coord_sys, in_km)
+        plot_back(fig, coord_sys, in_km)
     x_all, y_all, z_all = [], [], []
 
     for i in gdf.index:
@@ -206,7 +206,7 @@ def plot_globe_with_borders(opaque_globe: bool, geoconv, in_km: bool):
         polys = gdf.loc[i].geometry         # Polygons or MultiPolygons
 
         if polys.geom_type == 'Polygon':
-            x, y, z = plot_polygon(polys, geoconv, in_km, 1 if in_km else 1e3)
+            x, y, z = plot_polygon(polys, coord_sys, in_km, 1 if in_km else 1e3)
             x_all.extend(x)
             x_all.extend([None])  # None separates different polygons
             y_all.extend(y)
@@ -218,7 +218,7 @@ def plot_globe_with_borders(opaque_globe: bool, geoconv, in_km: bool):
 
             for poly in polys.geoms:
                 x, y, z = plot_polygon(
-                    poly, geoconv, in_km, 1 if in_km else 1e3)
+                    poly, coord_sys, in_km, 1 if in_km else 1e3)
                 x_all.extend(x)
                 x_all.extend([None])  # None separates different polygons
                 y_all.extend(y)

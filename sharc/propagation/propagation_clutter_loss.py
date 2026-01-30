@@ -50,6 +50,19 @@ class PropagationClutterLoss(Propagation):
              estimate clutter loss.
     """
 
+    def get_path_loss(
+        self,
+        params,
+        frequency: float,
+        path,
+        station_a_gains=None,
+        station_b_gains=None,
+    ) -> np.array:
+        """This class isn't supposed to be directly called in the simulation
+        loop, so this methods doesn't need to be implemented
+        """
+        raise NotImplementedError()
+
     def get_loss(self, *args, **kwargs) -> np.array:
         """
         Calculates clutter loss according to Recommendation P.2108-0
@@ -61,19 +74,24 @@ class PropagationClutterLoss(Propagation):
             elevation (np.array) : elevation angles [deg]
             loc_percentage (np.array) : Percentage locations range [0, 1[
                                         "RANDOM" for random percentage (Default = RANDOM)
-            station_type (StationType) : if type is IMT or FSS_ES, assume terrestrial
-                terminal within the clutter (ref § 3.2); otherwise, assume that
-                one terminal is within the clutter and the other is a satellite,
-                aeroplane or other platform above the surface of the Earth.
+            clutter_scenario (str) : clutter scenario type:
+                                        "spatial" for Earth-space and aeronautical paths
+                                        "terrestrial" for terrestrial paths
 
         Returns
         -------
             array with clutter loss values with dimensions of distance
 
         """
+        # Check for required parameters
+        required_params = ["frequency", "clutter_scenario", "distance"]
+        missing_params = [p for p in required_params if p not in kwargs]
+        if missing_params:
+            raise ValueError(f"Missing required parameter(s): {', '.join(missing_params)}")
+
         f = kwargs["frequency"]
         loc_per = kwargs.pop("loc_percentage", "RANDOM")
-        type = kwargs["station_type"]
+        clutter_scenario = kwargs["clutter_scenario"]
         d = kwargs["distance"]
 
         if f.size == 1:
@@ -86,7 +104,7 @@ class PropagationClutterLoss(Propagation):
             p1 = loc_per * np.ones(d.shape)
             p2 = loc_per * np.ones(d.shape)
 
-        if type is StationType.IMT_BS or type is StationType.IMT_UE or type is StationType.FSS_ES:
+        if clutter_scenario == "terrestrial":
             clutter_type = kwargs["clutter_type"]
             if clutter_type == 'one_end':
                 loss = self.get_terrestrial_clutter_loss(f, d, p1, True)
@@ -94,20 +112,22 @@ class PropagationClutterLoss(Propagation):
                 loss = self.get_terrestrial_clutter_loss(f, d, p1, True) + self.get_terrestrial_clutter_loss(f, d, p2, False)
             else:
                 raise ValueError("Invalid type of Clutter-type. It can be either 'one_end' or 'both-ends'")
-        else:
+        elif clutter_scenario == "spatial":
             theta = kwargs["elevation"]
             earth_station_height = kwargs["earth_station_height"]
             mean_clutter_height = kwargs["mean_clutter_height"]
             below_rooftop = kwargs["below_rooftop"]
-            loss = self.get_spacial_clutter_loss(f, theta, p1, earth_station_height, mean_clutter_height)
+            loss = self.get_spatial_clutter_loss(f, theta, p1, earth_station_height, mean_clutter_height)
             mult_1 = np.zeros(d.shape)
             num_ones = int(np.round(mult_1.size * below_rooftop / 100))
             indices = self.random_number_gen.choice(mult_1.size, size=num_ones, replace=False)
             mult_1.flat[indices] = 1
             loss *= mult_1
+        else:
+            raise ValueError("Invalid type of Clutter-scenario. It can be either 'terrestrial' or 'spatial'")
         return loss
 
-    def get_spacial_clutter_loss(
+    def get_spatial_clutter_loss(
         self, frequency: float,
         elevation_angle: float,
         loc_percentage,
@@ -323,7 +343,7 @@ if __name__ == '__main__':
     clutter_loss = np.empty([len(elevation_angle), len(loc_percentage)])
 
     for i in range(len(elevation_angle)):
-        clutter_loss[i, :] = cl.get_spacial_clutter_loss(
+        clutter_loss[i, :] = cl.get_spatial_clutter_loss(
             frequency,
             elevation_angle[i],
             loc_percentage,

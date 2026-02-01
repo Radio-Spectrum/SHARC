@@ -2,39 +2,54 @@ import tkinter as tk
 from tkinter import ttk
 from utils import add_row_three
 
-# Importa o gerenciador (assumindo que a pasta assets está no path ou relativa)
+# Import manager (assuming assets folder is in path or relative)
 from ui.tabs.assets.victim_state import VictimStateManager
 
 
 class VictimTab:
+    """
+    Manages the 'Victim' configuration tab.
+
+    This class handles the UI for configuring the victim receiver system, including
+    basic link budget parameters, propagation models (e.g., ITU-R P.619), 
+    geometry (Spacecraft/Earth Station), and antenna characteristics.
+    """
+
     def __init__(self, app, parent_frame):
         """
-        :param app: Instância da classe App (main.py)
-        :param parent_frame: O widget onde esta aba será desenhada
+        Initializes the VictimTab.
+
+        Args:
+            app: Instance of the main App class (main.py).
+            parent_frame: The widget where this tab will be drawn.
         """
         self.app = app
         self.frame = parent_frame
 
-        # Inicializa o Estado (Dados)
         self.state = VictimStateManager()
 
-        # Constrói a interface
         self._build_ui()
 
     def _build_ui(self):
-        # Topbar: Botões Salvar/Carregar (Delegados ao State)
+        """Constructs the user interface elements."""
+
+        # Topbar: Save/Load Buttons (Delegated to State)
         topbar = ttk.Frame(self.frame)
         topbar.pack(fill="x", pady=(0, 6))
 
-        ttk.Button(topbar, text="Salvar config (.json)",
+        ttk.Button(topbar, text="Save Config (.json)",
                    command=self.state.save_to_file).pack(side="left")
 
-        ttk.Button(topbar, text="Carregar config (.json)",
+        ttk.Button(topbar, text="Load Config (.json)",
                    command=lambda: self.state.load_from_file(callback_after_load=self._toggle_antenna)).pack(side="left", padx=(6, 0))
 
-        # ==== Parâmetros Básicos ====
-        frm0 = ttk.LabelFrame(self.frame, text="Parâmetros básicos")
+        # ==== Basic Parameters ====
+        frm0 = ttk.LabelFrame(self.frame, text="Basic Parameters")
         frm0.pack(fill="x", padx=2, pady=4)
+
+        #
+        # Defines the fundamental characteristics of the victim link, including
+        # bandwidth and power density, which are critical for calculating C/I (Carrier-to-Interference) ratios.
 
         add_row_three(frm0, 0, [
             ("frequency [MHz]", ttk.Entry(
@@ -53,20 +68,24 @@ class VictimTab:
                 "v_ch_model"), values=["P619", "FSPL"], state="readonly", width=12)),
         ])
 
-        # Checkbox solto para "Terra Esférica"
         chk_sphere = ttk.Checkbutton(
             frm0, variable=self.state.get("ss_is_global_cs"), text="")
 
         add_row_three(frm0, 2, [
             ("season", ttk.Combobox(frm0, textvariable=self.state.get(
                 "v_season"), values=["SUMMER", "WINTER"], state="readonly", width=10)),
-            ("Terra Esférica?", chk_sphere),
+            ("Spherical Earth?", chk_sphere),
             ("", ttk.Label(frm0, text="")),
         ])
 
         # ==== P619 ====
-        frm1 = ttk.LabelFrame(self.frame, text="P619 parameters")
+        frm1 = ttk.LabelFrame(self.frame, text="P619 Parameters")
         frm1.pack(fill="x", padx=2, pady=4)
+
+        #
+        # ITU-R P.619 models propagation loss for Earth-to-space paths, accounting for
+        # beam spreading, attenuation by atmospheric gases, and clutter/building loss.
+
         add_row_three(frm1, 0, [
             ("mean_clutter_height", ttk.Combobox(frm1, textvariable=self.state.get(
                 "v_p619_clutter"), values=["Low", "Mid", "High"], state="readonly", width=10)),
@@ -75,9 +94,13 @@ class VictimTab:
             ("", ttk.Label(frm1, text="")),
         ])
 
-        # ==== Geometria (subdividida) ====
-        wrap = ttk.LabelFrame(self.frame, text="Geometria – Classes")
+        # ==== Geometry (Subdivided) ====
+        wrap = ttk.LabelFrame(self.frame, text="Geometry – Classes")
         wrap.pack(fill="x", padx=2, pady=4)
+
+        #
+        # Defines the physical relationship between the satellite (Spacecraft) and the
+        # Earth Station receiver, including altitude and coordinates.
 
         # Spacecraft (FIXED)
         frm_sc = ttk.LabelFrame(wrap, text="Spacecraft – Location (FIXED/GEO)")
@@ -93,7 +116,7 @@ class VictimTab:
 
         # Earth Station
         frm_es = ttk.LabelFrame(
-            wrap, text="Earth Station – Reference point on Earth")
+            wrap, text="Earth Station – Reference Point on Earth")
         frm_es.pack(fill="x", padx=2, pady=(0, 6))
         add_row_three(frm_es, 0, [
             ("es_altitude [m]", ttk.Entry(
@@ -105,7 +128,7 @@ class VictimTab:
         ])
 
         # Pointing (export only)
-        frm_pt = ttk.LabelFrame(wrap, text="Pointing (export only)")
+        frm_pt = ttk.LabelFrame(wrap, text="Pointing (Export Only)")
         frm_pt.pack(fill="x", padx=2, pady=(0, 6))
         add_row_three(frm_pt, 0, [
             ("azimuth.type", ttk.Combobox(frm_pt, textvariable=self.state.get(
@@ -119,7 +142,11 @@ class VictimTab:
         frm3 = ttk.LabelFrame(self.frame, text="Antenna")
         frm3.pack(fill="x", padx=2, pady=4)
 
-        # Seletor de Padrão
+        #
+        # The S.672 standard defines a reference radiation pattern for satellite system antennas,
+        # specifying the gain roll-off from the main lobe to the side lobes.
+
+        # Pattern Selector
         add_row_three(frm3, 0, [
             ("pattern", ttk.Combobox(frm3, textvariable=self.state.get("v_ant_pattern"),
                                      values=["ITU-R S.672", "ITU-R M.2101", "3GPP TR 38.901", "Custom"], state="readonly", width=18)),
@@ -128,7 +155,7 @@ class VictimTab:
             ("", ttk.Label(frm3, text="")),
         ])
 
-        # Frame S.672 (visível condicionalmente)
+        # S.672 Frame (Conditionally Visible)
         self.frm_s672 = ttk.Frame(frm3)
         self.frm_s672.grid(row=1, column=0, columnspan=6,
                            sticky="we", pady=(4, 0))
@@ -140,21 +167,20 @@ class VictimTab:
             ("", ttk.Label(self.frm_s672, text="")),
         ])
 
-        # Frame "Outros" (aviso)
+        # "Others" Frame (Warning)
         self.frm_other_ant = ttk.Frame(frm3)
-        ttk.Label(self.frm_other_ant, text="Parâmetros para este padrão ainda não implementados na GUI.").grid(
+        ttk.Label(self.frm_other_ant, text="Parameters for this pattern not yet implemented in GUI.").grid(
             row=0, column=0, sticky="w")
 
-        # Configura o toggle de visibilidade
-        # Nota: trace_add deve ser feito na variável do State
+        # Configure visibility toggle
         self.state.get("v_ant_pattern").trace_add(
             "write", self._toggle_antenna)
         self._toggle_antenna()
 
-    # ---------------- Lógica de Interface ----------------
+    # ---------------- UI Logic ----------------
 
     def _toggle_antenna(self, *args):
-        """Alterna entre os parâmetros do S.672 e o frame genérico."""
+        """Toggles between S.672 parameters and the generic frame based on selection."""
         pattern = self.state.get("v_ant_pattern").get()
 
         if pattern == "ITU-R S.672":

@@ -11,11 +11,11 @@ import math
 import time
 import os
 
-# Imports do projeto
+# Project Imports
 from utils import lla_to_ecef, build_yaml_text
 from config import WGS84_A
 
-# ====== Imports Opcionais (Topologia / Shapefile) ======
+# ====== Optional Imports (Topology / Shapefile) ======
 HAS_TOPO = True
 try:
     from sharc.topology.topology_countries import TopologyCountries, ParametersCountries
@@ -33,24 +33,34 @@ except ImportError:
 
 
 class PreviewTab:
+    """
+    Manages the 'Preview' tab, providing 3D visualization of the simulation scenario
+    and a text preview of the generated YAML configuration.
+
+    This class handles two main visualization modes:
+    1. Global (Macro_countries): Renders the Earth, Satellite, and Earth Station in ECEF coordinates.
+    2. Local (Macro/Hotspot): Renders hexagonal cell sites and antenna sectors.
+    """
+
     def __init__(self, app, parent_frame):
         """
-        :param app: Instância da classe App (main.py).
-        :param parent_frame: O widget onde esta aba será desenhada.
+        Initializes the PreviewTab.
+
+        Args:
+            app: Instance of the main App class (main.py).
+            parent_frame: The widget where this tab will be drawn.
         """
         self.app = app
         self.frame = parent_frame
 
-        # Variáveis locais de controle de visualização (se não estiverem no app)
-        # Assumindo que show_borders estava no App original, usamos self.app.show_borders
-        # Se forem exclusivas da view, podem ser self.show_borders aqui.
-        # Vou usar self.app... assumindo que foram migradas, caso contrário, defina aqui:
+        # Ensure control variables exist
         if not hasattr(self.app, 'show_borders'):
             self.app.show_borders = tk.BooleanVar(value=True)
 
         self._build_ui()
 
     def _build_ui(self):
+        """Constructs the user interface layouts for the 3D canvas and side controls."""
         left = ttk.Frame(self.frame)
         right = ttk.Frame(self.frame)
         left.pack(side="left", fill="both", expand=True)
@@ -62,17 +72,17 @@ class PreviewTab:
         self.canvas3d = FigureCanvasTkAgg(self.fig3d, master=left)
         self.canvas3d.get_tk_widget().pack(fill="both", expand=True)
 
-        # ---- Controles (Lado Direito) ----
+        # ---- Controls (Right Side) ----
 
         # Colormap Toggle
         ttk.Checkbutton(
             right,
-            text="Mostrar mapa de ganho (S.672)",
+            text="Show Gain Map (S.672)",
             variable=self.app.var_show_gainmap,
             command=self._draw_preview_3d
         ).pack(fill="x", pady=(0, 8))
 
-        # Limites de Ganho
+        # Gain Limits
         frm_gain = ttk.Frame(right)
         frm_gain.pack(fill="x", pady=(0, 8))
         ttk.Label(frm_gain, text="vmin (dBi):").pack(side="left")
@@ -84,54 +94,61 @@ class PreviewTab:
             frm_gain, textvariable=self.app.var_gain_vmax, width=7)
         e_vmax.pack(side="left", padx=(4, 0))
 
-        # Checkbox Fronteiras
-        ttk.Checkbutton(right, text="Mostrar fronteiras dos países",
+        # Borders Checkbox
+        ttk.Checkbutton(right, text="Show Country Borders",
                         variable=self.app.show_borders).pack(anchor="w", pady=(4, 6))
 
-        # Botões de Ação
-        ttk.Button(right, text="Gerar preview 3D",
+        # Action Buttons
+        ttk.Button(right, text="Generate 3D Preview",
                    command=self._draw_preview_3d).pack(fill="x", pady=(4, 4))
         ttk.Button(right, text="Zoom +",
                    command=lambda: self._zoom_preview_3d(1/1.15)).pack(fill="x", pady=(0, 4))
         ttk.Button(right, text="Zoom -",
                    command=lambda: self._zoom_preview_3d(1.15)).pack(fill="x", pady=(0, 8))
-        ttk.Button(right, text="Salvar imagem...",
+        ttk.Button(right, text="Save Image...",
                    command=self._save_image_3d).pack(fill="x", pady=(4, 4))
 
         ttk.Separator(right, orient="horizontal").pack(fill="x", pady=8)
 
         # YAML Preview
-        ttk.Button(right, text="Atualizar YAML (preview)",
+        ttk.Button(right, text="Update YAML (Preview)",
                    command=self._update_yaml_preview).pack(fill="x", pady=(4, 4))
-        ttk.Button(right, text="Salvar YAML(s)...",
+        ttk.Button(right, text="Save YAML(s)...",
                    command=self.app.save_yaml_dialog_multicombos).pack(fill="x", pady=(4, 4))
 
-        ttk.Label(right, text="Prévia do YAML (sem expandir combinações):").pack(
+        ttk.Label(right, text="YAML Preview (Single instance):").pack(
             anchor="w", pady=(10, 2))
         self.txt_yaml = tk.Text(right, width=44, height=28, wrap="none")
         self.txt_yaml.pack(fill="both", expand=True)
 
-        # Bindings de Mouse para Zoom
+        # Mouse Bindings for Zoom
         w3d = self.canvas3d.get_tk_widget()
         w3d.bind("<MouseWheel>", self._on_scroll_3d)  # Windows/Mac
-        w3d.bind("<Button-4>", self._on_scroll_3d)   # Linux Up
-        w3d.bind("<Button-5>", self._on_scroll_3d)   # Linux Down
+        w3d.bind("<Button-4>", self._on_scroll_3d)    # Linux Up
+        w3d.bind("<Button-5>", self._on_scroll_3d)    # Linux Down
 
-        # Desenho inicial
+        # Initial Draw
         self._update_yaml_preview()
-        # self._draw_preview_3d() # Opcional: pode ser pesado para rodar na inicialização
 
-    # ---------------- Lógica de Desenho 3D ----------------
+    # ---------------- 3D Drawing Logic ----------------
 
     def _draw_preview_3d(self):
+        """
+        Main rendering logic. Clears the axis and draws either the Global/Earth scenario
+        or the Local/Cell scenario based on 'topo_type'.
+        """
         topo_type = (self.app.topo_type.get() or "").strip()
         self.ax3d.cla()
 
         # ==========================================
-        # CENÁRIO 1: Global / Countries (Esférico)
+        # SCENARIO 1: Global / Countries (Spherical)
         # ==========================================
         if topo_type == "Macro_countries":
-            # Terra – grid esférico
+            #
+            # This section converts Latitude/Longitude/Altitude to Earth-Centered, Earth-Fixed (ECEF)
+            # cartesian coordinates to plot them on a 3D globe.
+
+            # Earth - spherical grid
             a = WGS84_A * 0.98
             u = np.linspace(0, 2*np.pi, 720)
             v = np.linspace(0, np.pi, 360)
@@ -139,7 +156,7 @@ class PreviewTab:
             Y = a*np.outer(np.sin(u), np.sin(v))
             Z = a*np.outer(np.ones_like(u), np.cos(v))
 
-            # Posições
+            # Positions
             def _get(v): return float(v.get() if v.get() else 0.0)
 
             ss_alt = _get(self.app.v_alt)
@@ -155,15 +172,19 @@ class PreviewTab:
             show_map = bool(self.app.var_show_gainmap.get())
 
             if show_map and HAS_TOPO:
-                # --- Lógica de Heatmap de Ganho (LoS + S.672) ---
+                #
+                # We calculate the off-axis angle for every point on the globe relative to the
+                # boresight vector to determine the antenna gain based on the S.672 standard.
+
+                # --- Gain Heatmap Logic (LoS + S.672) ---
                 dotSP = X * sx + Y * sy + Z * sz
                 los_mask = dotSP > (a*a * (1.0 + 1e-12))
 
-                # Vetor Boresight (S -> ES)
+                # Boresight Vector (Spacecraft -> Earth Station)
                 b = np.array([ex - sx, ey - sy, ez - sz], dtype=float)
                 b /= np.linalg.norm(b)
 
-                # Vetor para cada ponto do grid
+                # Vector to each grid point
                 RX = X - sx
                 RY = Y - sy
                 RZ = Z - sz
@@ -172,21 +193,21 @@ class PreviewTab:
                 RY /= Rnorm
                 RZ /= Rnorm
 
-                # Ângulo off-axis
+                # Off-axis angle
                 cospsi = RX*b[0] + RY*b[1] + RZ*b[2]
                 cospsi = np.clip(cospsi, -1.0, 1.0)
                 psi_deg = np.degrees(np.arccos(cospsi))
 
-                # Calcula Ganho
+                # Calculate Gain
                 ant = self._make_s672_antenna()
                 gain = ant.calculate_gain(
                     off_axis_angle_vec=psi_deg.ravel()).reshape(psi_deg.shape)
 
-                # Mascara LoS
+                # Apply LoS Mask
                 gain = gain.astype(float, copy=True)
                 gain[~los_mask] = -np.inf
 
-                # Normalização de cores
+                # Color normalization
                 try:
                     vmin_txt = (self.app.var_gain_vmin.get()
                                 or "auto").strip().lower()
@@ -230,10 +251,10 @@ class PreviewTab:
                         pass
                 self._gain_cbar = self.fig3d.colorbar(
                     mappable, ax=self.ax3d, shrink=0.8, pad=0.02)
-                self._gain_cbar.set_label("Ganho (dBi)")
+                self._gain_cbar.set_label("Gain (dBi)")
 
             else:
-                # Terra simples
+                # Simple Blue Earth
                 self.ax3d.plot_surface(
                     X, Y, Z, rstride=6, cstride=6, color="#dbe7ff", alpha=1.0, edgecolor="none", zorder=1)
                 if hasattr(self, "_gain_cbar") and self._gain_cbar:
@@ -245,10 +266,10 @@ class PreviewTab:
 
             self._draw_country_borders()
 
-            # Desenha pontos (BS Countries, Satélite, ES)
+            # Draw points (Spacecraft, Earth Station)
             self._draw_global_markers(sx, sy, sz, ex, ey, ez)
 
-            # Limites
+            # Limits
             R = WGS84_A + 4.0e7/6.0
             self.ax3d.set_xlim([-R, R])
             self.ax3d.set_ylim([-R, R])
@@ -258,15 +279,16 @@ class PreviewTab:
             return
 
         # ==========================================
-        # CENÁRIO 2: Local (Macro/Hotspot/Single)
+        # SCENARIO 2: Local (Macro/Hotspot/Single)
         # ==========================================
+        #
+        # Local scenarios often use hexagonal grids to represent cell coverage areas.
+
         xs = ys = azs = None
         cell_radius = None
         bs_height = float(self.app.bs_height.get() or 18.0)
 
-        # Lógica para cada tipo (copiada e adaptada)
         if topo_type == "MACROCELL":
-            #
             try:
                 from sharc.topology.topology_macrocell import TopologyMacrocell
                 d = float(self.app.macro_intersite.get() or 1500.0)
@@ -276,7 +298,7 @@ class PreviewTab:
                 xs, ys, azs = np.asarray(topo.x), np.asarray(
                     topo.y), np.asarray(topo.azimuth)
 
-                # Desenha hexágonos
+                # Draw Hexagons
                 r = d / 3.0
                 for x, y, az in zip(xs, ys, azs):
                     se = [[x, y]]
@@ -290,14 +312,17 @@ class PreviewTab:
                     self._add_polyline3d(
                         self.ax3d, se, z=0.0, color="k", lw=1.0)
 
-                # Marcadores
+                # Markers
                 self.ax3d.scatter(xs, ys, np.zeros_like(
                     xs), color="k", s=18, depthshade=False)
             except ImportError:
                 self.ax3d.text2D(
-                    0.5, 0.5, "Biblioteca SHARC não encontrada", transform=self.ax3d.transAxes)
+                    0.5, 0.5, "SHARC library not found", transform=self.ax3d.transAxes)
 
         elif topo_type == "HOTSPOT":
+            #
+            # Hotspot topologies overlay small cells (hotspots) onto a macrocell grid to increase capacity.
+
             try:
                 from sharc.topology.topology_hotspot import TopologyHotspot
                 from sharc.parameters.imt.parameters_hotspot import ParametersHotspot
@@ -323,7 +348,7 @@ class PreviewTab:
                     topo.y), np.asarray(topo.azimuth)
                 cell_radius = float(p.max_dist_hotspot_ue)
 
-                # Macro Hexágonos de fundo
+                # Macro Hexagons Background
                 if hasattr(topo, "macrocell"):
                     mx, my, maz = np.asarray(topo.macrocell.x), np.asarray(
                         topo.macrocell.y), np.asarray(topo.macrocell.azimuth)
@@ -340,7 +365,7 @@ class PreviewTab:
                         self._add_polyline3d(
                             self.ax3d, se, z=0.0, color="0.25", lw=0.9)
 
-                # Pontos Hotspot
+                # Hotspot Points
                 self.ax3d.scatter(xs, ys, np.zeros_like(
                     xs), color="g", edgecolors="w", s=18, depthshade=False)
 
@@ -372,11 +397,14 @@ class PreviewTab:
             except ImportError:
                 pass
 
-        # Desenha Mastros (comum a todos locais)
+        # Draw Masts (Common to all local topologies)
         if xs is not None and len(xs) > 0:
             for x, y in zip(xs, ys):
                 self._draw_bs_post(self.ax3d, x, y, bs_height,
                                    color="tab:blue", lw=2.0)
+
+            #
+            # We visualize the sector coverage area to verify the azimuth orientation and cell radius.
 
             if cell_radius and topo_type in ("SINGLE_BS"):
                 for x, y, az in zip(xs, ys, azs):
@@ -385,7 +413,7 @@ class PreviewTab:
                     self._add_sector3d(
                         self.ax3d, poly_xy, z=0.0, face_alpha=0.10, edge_color="tab:green")
 
-            # Ajuste de Limites
+            # Adjust Limits
             self._set_equal_3d(self.ax3d, xs, ys, z_top=bs_height, margin=0.12)
 
         self.ax3d.set_xlabel("x [m]")
@@ -393,9 +421,10 @@ class PreviewTab:
         self.ax3d.set_zlabel("z [m]")
         self.canvas3d.draw_idle()
 
-    # ---------------- Helpers de Geometria ----------------
+    # ---------------- Geometry Helpers ----------------
 
     def _draw_country_borders(self):
+        """Reads the shapefile and draws borders on the 3D globe."""
         if not self.app.show_borders.get() or not HAS_PYSHP:
             return
         shp_path = self.app.path_shp.get()
@@ -423,13 +452,10 @@ class PreviewTab:
             pass
 
     def _draw_global_markers(self, sx, sy, sz, ex, ey, ez):
-        # Countries Preview (pontos vermelhos)
+        """Draws the Spacecraft and Earth Station markers and line of sight."""
         if HAS_TOPO and self.app.topo_type.get() == "Macro_countries":
             try:
-                # Recupera texto da aba IMT (atenção à referência cruzada)
-                # Assumindo que a aba IMT salvou o objeto de texto em self.app.tab_imt.txt_countries
-                # Ou que o self.app tem um método para pegar isso.
-                # Solução robusta: tentar pegar direto da aba se ela existir
+                # Attempt to retrieve text from the IMT tab if available
                 country_text = ""
                 if hasattr(self.app, 'tab_imt'):
                     country_text = self.app.tab_imt.txt_countries.get(
@@ -437,10 +463,7 @@ class PreviewTab:
 
                 countries = [c.strip()
                              for c in country_text.splitlines() if c.strip()]
-
-                # ... (Lógica de instanciar ParametersCountries e GeometryConverter) ...
-                # Para brevidade, omiti a re-instanciação complexa aqui, mas deve seguir o original
-                # se desejar visualizar os pontos das BSs nos países.
+                # Logic to instantiate ParametersCountries would go here to visualize BS points
             except Exception:
                 pass
 
@@ -453,6 +476,7 @@ class PreviewTab:
                        color="tab:purple", lw=1.6, alpha=0.9, zorder=6)
 
     def _make_s672_antenna(self):
+        """Instantiates an S.672 antenna object based on UI parameters."""
         if not HAS_TOPO:
             return None
         param = ParametersAntennaS672()
@@ -462,10 +486,10 @@ class PreviewTab:
         param.antenna_l_s = float(self.app.v_s672_ls.get())
         return AntennaS672(param)
 
-    # ---------------- YAML e Arquivos ----------------
+    # ---------------- YAML and Files ----------------
 
     def _update_yaml_preview(self):
-        # Chama o método centralizado no App
+        """Generates the YAML text and updates the preview text box."""
         if hasattr(self.app, 'current_yaml_dict'):
             root = self.app.current_yaml_dict()
             text = build_yaml_text(root)
@@ -473,20 +497,22 @@ class PreviewTab:
             self.txt_yaml.insert(tk.END, text)
 
     def _save_image_3d(self):
+        """Saves the current 3D plot to a PNG file."""
         suggested = f"topology3d_{time.strftime('%Y%m%d_%H%M%S')}.png"
         path = filedialog.asksaveasfilename(
-            title="Salvar imagem",
+            title="Save Image",
             defaultextension=".png",
             initialfile=suggested,
             filetypes=[("PNG", "*.png"), ("All files", "*.*")]
         )
         if path:
             self.fig3d.savefig(path, dpi=180, bbox_inches="tight")
-            messagebox.showinfo("OK", f"Imagem salva em:\n{path}")
+            messagebox.showinfo("OK", f"Image saved to:\n{path}")
 
-    # ---------------- Interação 3D ----------------
+    # ---------------- 3D Interaction ----------------
 
     def _on_scroll_3d(self, event):
+        """Handles mouse scroll events for zooming."""
         base = 1.12
         direction = 0
         if hasattr(event, "num") and event.num in (4, 5):  # Linux
@@ -497,11 +523,12 @@ class PreviewTab:
         self._zoom_preview_3d(factor)
 
     def _zoom_preview_3d(self, factor):
-        # Tenta usar .dist (versões antigas mpl)
+        """Applies zoom by scaling axis limits."""
+        # Try .dist (older mpl versions)
         if hasattr(self.ax3d, "dist"):
             self.ax3d.dist = max(1, float(self.ax3d.dist) * float(factor))
         else:
-            # Fallback limites
+            # Fallback for newer mpl
             for getter, setter in [(self.ax3d.get_xlim3d, self.ax3d.set_xlim3d),
                                    (self.ax3d.get_ylim3d, self.ax3d.set_ylim3d),
                                    (self.ax3d.get_zlim3d, self.ax3d.set_zlim3d)]:
@@ -511,12 +538,14 @@ class PreviewTab:
                 setter(c - half, c + half)
         self.canvas3d.draw_idle()
 
-    # ---------------- Primitivas Geométricas Locais ----------------
+    # ---------------- Local Geometric Primitives ----------------
 
     def _draw_bs_post(self, ax, x, y, h, color="tab:blue", lw=2.0):
+        """Draws a vertical line representing the Base Station mast."""
         ax.plot([x, x], [y, y], [0, h], color=color, lw=lw)
 
     def _add_polyline3d(self, ax, xy_points, z=0.0, color="k", lw=1.0):
+        """Adds a closed polyline to the 3D axis."""
         if not xy_points:
             return
         if xy_points[0] != xy_points[-1]:
@@ -528,6 +557,7 @@ class PreviewTab:
             segs, colors=[color], linewidths=lw))
 
     def _add_wedge_outline3d(self, ax, x, y, r, az_deg, half_bw_deg=60, n=64, color="green", lw=1.0):
+        """Adds a wedge outline (sector) at a specific azimuth."""
         th0 = np.radians(az_deg - half_bw_deg)
         th1 = np.radians(az_deg + half_bw_deg)
         ths = np.linspace(th0, th1, n)
@@ -544,6 +574,7 @@ class PreviewTab:
             segs, colors=[color], linewidths=lw))
 
     def _sector_polygon_xy(self, x, y, radius, az_deg, half_bw_deg=60, n=48):
+        """Calculates XY points for a sector polygon."""
         th0 = np.radians(az_deg - half_bw_deg)
         th1 = np.radians(az_deg + half_bw_deg)
         ths = np.linspace(th0, th1, n)
@@ -552,6 +583,7 @@ class PreviewTab:
         return [(x, y)] + list(zip(xs, ys)) + [(x, y)]
 
     def _add_sector3d(self, ax, poly_xy, z=0.0, face_alpha=0.12, edge_color="tab:green"):
+        """Adds a filled sector polygon to the 3D axis."""
         verts3d = [(px, py, z) for (px, py) in poly_xy]
         pcoll = Poly3DCollection(
             [verts3d], alpha=face_alpha, edgecolor=edge_color)
@@ -559,6 +591,7 @@ class PreviewTab:
         ax.add_collection3d(pcoll)
 
     def _set_equal_3d(self, ax, xs, ys, z_top, margin=0.10):
+        """Sets the aspect ratio of the 3D plot to be equal."""
         xmin, xmax = float(np.min(xs)), float(np.max(xs))
         ymin, ymax = float(np.min(ys)), float(np.max(ys))
         dx = max(1e-9, xmax - xmin)

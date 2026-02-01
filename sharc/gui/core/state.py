@@ -337,7 +337,7 @@ class AppState:
         self.ssh_use_tunnel = self._add(False, bool)
         self.ssh_use_password = self._add(True, bool)
         self.ssh_key_path = self._add("")
-        self.ssh_status = self._add("Desconectado")
+        self.ssh_status = self._add("Disconnected")
         self.var_git_branch = self._add("")
 
         self.tunnel_bastion_host = self._add(DEFAULTS["tunnel_bastion_host"])
@@ -347,4 +347,4 @@ class AppState:
         self.tunnel_internal_port = self._add(DEFAULTS["tunnel_internal_port"], int)
         self.tunnel_local_port = self._add(DEFAULTS["tunnel_local_port"], int)
         self.tunnel_key_path = self._add(DEFAULTS["tunnel_key_path"])
-        self.tunnel_status = self._add("🔴 Túnel Inativo")
+        self.tunnel_status = self._add("🔴 Inactive Tunnel")

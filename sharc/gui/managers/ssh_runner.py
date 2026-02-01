@@ -11,36 +11,51 @@ from core.state import get_sharc_root
 
 PROJECT_ROOT = get_sharc_root()
 
+
 class RunnerManager:
+    """
+    Backend manager for handling simulation execution.
+
+    This class abstracts the logic for:
+    1. Managing SSH connections and Bastion tunnels.
+    2. Spawning and monitoring local subprocesses.
+    3. orchestrating remote execution via SSH commands.
+    4. Parsing stdout streams to update UI progress bars.
+    """
+
     def __init__(self, log_callback, update_row_callback):
         """
-        :param log_callback: Função (thread-safe) para enviar strings ao log da UI.
-        :param update_row_callback: Função (thread-safe) para atualizar a Treeview.
-                                    Espera um dict: {iid, status, snap, pct, eta}
+        Initializes the RunnerManager.
+
+        Args:
+            log_callback (callable): Thread-safe function to append messages to the UI log.
+            update_row_callback (callable): Thread-safe function to update the Treeview.
+                                            Expects a dict: {iid, status, snap, pct, eta}.
         """
         self.log_callback = log_callback
         self.update_row_callback = update_row_callback
 
-        # Estado SSH
+        # SSH State
         self.ssh_client = None
         self.ssh_connected = False
 
-        # Estado Túnel
+        # Tunnel State
         self.tunnel_process = None
 
-        # Controle de Execução
+        # Execution Control
         self.running_procs_local = {}  # {iid: subprocess.Popen}
         self.active_threads = []
-        self.stop_flags = set()        # Conjunto de iids que devem parar
+        self.stop_flags = set()        # Set of iids that should stop
 
-        # Caminho base no servidor (pode ser tornado configurável)
+        # Remote base path (could be made configurable)
         self.remote_base_dir = "/home/achiles.mota/SHARC"
 
     # =========================================================================
-    # CONEXÃO SSH & TÚNEL
+    # SSH CONNECTION & TUNNELING
     # =========================================================================
 
     def connect_ssh_password(self, host, user, port, password):
+        """Establishes an SSH connection using a password."""
         try:
             cli = paramiko.SSHClient()
             cli.set_missing_host_key_policy(paramiko.AutoAddPolicy())
@@ -48,20 +63,19 @@ class RunnerManager:
                         password=password, timeout=10)
             self.ssh_client = cli
             self.ssh_connected = True
-            self.log_callback(f"[SSH] Conectado a {user}@{host} (Senha)")
+            self.log_callback(f"[SSH] Connected to {user}@{host} (Password)")
         except Exception as e:
             self.ssh_connected = False
             self.ssh_client = None
-            self.log_callback(f"[SSH] Erro na conexão: {e}")
+            self.log_callback(f"[SSH] Connection Error: {e}")
             raise e
 
     def connect_ssh_key(self, host, user, port, key_path):
+        """Establishes an SSH connection using a private key file."""
+        #
+        # SSH key authentication uses asymmetric cryptography. The private key remains
+        # on the client, and the public key is stored on the server.
         try:
-            # Tenta usar o comando ssh do sistema (mais robusto para configs de ~/.ssh/config)
-            # ou Paramiko se preferir. O código original usava subprocess para "chave/túnel" local.
-            # Aqui vamos tentar Paramiko com chave para manter consistência,
-            # mas se a chave tiver passphrase, precisaria de tratamento extra.
-
             k = paramiko.RSAKey.from_private_key_file(key_path)
             cli = paramiko.SSHClient()
             cli.set_missing_host_key_policy(paramiko.AutoAddPolicy())
@@ -70,19 +84,33 @@ class RunnerManager:
 
             self.ssh_client = cli
             self.ssh_connected = True
-            self.log_callback(f"[SSH] Conectado a {user}@{host} (Chave)")
+            self.log_callback(f"[SSH] Connected to {user}@{host} (Key)")
         except Exception as e:
             self.ssh_connected = False
-            self.log_callback(f"[SSH] Erro na conexão por chave: {e}")
+            self.log_callback(f"[SSH] Key Connection Error: {e}")
             raise e
 
     def disconnect_ssh(self):
+        """Closes the active SSH connection."""
         if self.ssh_client:
             self.ssh_client.close()
         self.ssh_connected = False
-        self.log_callback("[SSH] Desconectado.")
+        self.log_callback("[SSH] Disconnected.")
 
     def create_tunnel(self, bastion_host, bastion_user, bastion_port, int_ip, int_port, loc_port, key_path):
+        """
+        Creates a local port forwarding tunnel via a Bastion/Jump host using a subprocess.
+
+        Args:
+            bastion_host (str): Public IP of the jump host.
+            int_ip (str): Private IP of the target machine behind the bastion.
+            int_port (int): Port on the target machine.
+            loc_port (int): Local port to map to.
+            key_path (str): Path to the SSH private key.
+        """
+        #
+        # A bastion host acts as a gateway. We tunnel traffic from 'localhost:loc_port'
+        # through the bastion to 'int_ip:int_port'.
         try:
             cmd = [
                 "ssh", "-i", key_path, "-N",
@@ -90,46 +118,49 @@ class RunnerManager:
                 f"{bastion_user}@{bastion_host}",
                 "-p", str(bastion_port)
             ]
-            # No Windows, creationflags=subprocess.CREATE_NO_WINDOW esconde o cmd
+
+            # On Windows, creationflags=subprocess.CREATE_NO_WINDOW hides the cmd window
             flags = 0
             if os.name == 'nt':
                 flags = subprocess.CREATE_NO_WINDOW
 
             self.tunnel_process = subprocess.Popen(cmd, creationflags=flags)
-            self.log_callback(f"[TUNNEL] Iniciado na porta local {loc_port}")
+            self.log_callback(f"[TUNNEL] Started on local port {loc_port}")
         except Exception as e:
-            self.log_callback(f"[TUNNEL] Erro: {e}")
+            self.log_callback(f"[TUNNEL] Error: {e}")
 
     def close_tunnel(self):
+        """Terminates the SSH tunnel process."""
         if self.tunnel_process:
             self.tunnel_process.terminate()
             self.tunnel_process = None
-            self.log_callback("[TUNNEL] Fechado.")
+            self.log_callback("[TUNNEL] Closed.")
 
     # =========================================================================
-    # UTILITÁRIOS REMOTOS (GIT, HTOP, LS)
+    # REMOTE UTILITIES (GIT, HTOP, LS)
     # =========================================================================
 
     def exec_command_output(self, command):
-        """Executa comando simples e retorna stdout como string."""
+        """Executes a simple remote command and returns stdout as a string."""
         if not self.ssh_connected:
-            return "Não conectado."
+            return "Not connected."
         stdin, stdout, stderr = self.ssh_client.exec_command(command)
         return stdout.read().decode(errors="ignore")
 
     def list_remote_files(self, remote_dir):
+        """Lists .yaml/.yml files in a remote directory."""
         if not self.ssh_connected:
             return []
         try:
-            # Lista apenas arquivos .yaml/.yml
             cmd = f'find "{remote_dir}" -maxdepth 1 -name "*.yaml" -o -name "*.yml"'
             out = self.exec_command_output(cmd)
             return [line.strip() for line in out.splitlines() if line.strip()]
         except Exception as e:
-            self.log_callback(f"[SSH] Erro ao listar arquivos: {e}")
+            self.log_callback(f"[SSH] Error listing files: {e}")
             return []
 
     def get_git_branches(self):
+        """Fetches and lists available git branches from the remote repository."""
         if not self.ssh_connected:
             return []
         try:
@@ -151,6 +182,7 @@ class RunnerManager:
             return []
 
     def git_force_checkout(self, branch):
+        """Forces a git checkout to a specific branch on the remote server."""
         if not self.ssh_connected:
             return
         cmds = [
@@ -159,29 +191,36 @@ class RunnerManager:
             "git reset --hard",
             "git clean -fd",
             f"git checkout {branch}",
-            # Re-configurar ambiente se necessário
+            # Re-configure environment if necessary
             "if [ ! -d .sharc_env/ ]; then python3 -m venv .sharc_env; fi",
             "source .sharc_env/bin/activate && pip install -e ."
         ]
         full_cmd = " && ".join(cmds)
 
         def _thread_git():
-            self.log_callback(f"[GIT] Iniciando Checkout: {branch}...")
+            self.log_callback(f"[GIT] Starting Checkout: {branch}...")
             stdin, stdout, stderr = self.ssh_client.exec_command(full_cmd)
             exit_status = stdout.channel.recv_exit_status()
             if exit_status == 0:
-                self.log_callback("[GIT] Checkout concluído com sucesso.")
+                self.log_callback("[GIT] Checkout completed successfully.")
             else:
                 err = stderr.read().decode()
-                self.log_callback(f"[GIT] Erro ({exit_status}):\n{err}")
+                self.log_callback(f"[GIT] Error ({exit_status}):\n{err}")
 
         threading.Thread(target=_thread_git, daemon=True).start()
 
     # =========================================================================
-    # EXECUÇÃO LOCAL
+    # LOCAL EXECUTION
     # =========================================================================
 
     def run_local_parallel(self, file_paths, max_workers):
+        """
+        Starts local simulations in parallel using a thread pool.
+
+        Args:
+            file_paths (list): List of YAML file paths to execute.
+            max_workers (int): Maximum number of concurrent simulations.
+        """
         semaphore = threading.Semaphore(max_workers)
 
         for fpath in file_paths:
@@ -191,39 +230,45 @@ class RunnerManager:
             t.start()
 
     def _worker_local(self, ypath, semaphore):
+        """
+        Worker thread for a single local simulation.
+        Executes the CLI script and parses stdout for progress.
+        """
         with semaphore:
             self.update_row_callback(
-                {"iid": ypath, "status": "Iniciando...", "snap": None, "pct": None, "eta": None})
+                {"iid": ypath, "status": "Starting...", "snap": None, "pct": None, "eta": None})
 
-            # Tenta descobrir o main_cli.py
+            # Attempt to locate main_cli.py
             main_script = os.path.join(PROJECT_ROOT / "main_cli.py")
-            # Se não existir lá, tenta usar o sys.executable se estiver rodando como script
+
             if not os.path.exists(main_script):
                 self.log_callback(
-                    f"[LOCAL] main_cli.py não encontrado em {main_script}")
+                    f"[LOCAL] main_cli.py not found at {main_script}")
                 return
 
             cmd = [sys.executable, main_script, "-p", ypath]
 
             try:
+                #
+                # We use subprocess.PIPE to capture the standard output of the simulation script
+                # in real-time, allowing us to parse progress logs line by line.
                 proc = subprocess.Popen(
                     cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1)
                 self.running_procs_local[ypath] = proc
 
-                total_snaps = 1  # Valor padrão
+                total_snaps = 1  # Default value
                 current_snap = 0
                 t0 = time.time()
 
-                # Regex patterns
+                # Regex patterns for progress parsing
                 pat_xy = re.compile(
                     r"(?:snapshot|snap)\s*:?\s*(\d+)\s*/\s*(\d+)", re.IGNORECASE)
                 pat_hash = re.compile(r"Snapshot\s*#\s*(\d+)", re.IGNORECASE)
 
                 for line in proc.stdout:
                     line = line.strip()
-                    # self.log_callback(f"[LOCAL] {line}") # Verboso demais se habilitado
 
-                    # Parsing
+                    # Parsing Logic
                     m1 = pat_xy.search(line)
                     m2 = pat_hash.search(line)
 
@@ -232,7 +277,7 @@ class RunnerManager:
                         total_snaps = int(m1.group(2))
                     elif m2:
                         current_snap = int(m2.group(1))
-                        # Se achou snapshot X e não temos total, assumimos que total atualiza se soubermos ler o YAML
+                        # If we find Snapshot #X without a total, we assume total might update later
 
                     if current_snap > 0:
                         pct = (current_snap / max(total_snaps, 1)) * 100
@@ -243,7 +288,7 @@ class RunnerManager:
 
                         self.update_row_callback({
                             "iid": ypath,
-                            "status": "Rodando",
+                            "status": "Running",
                             "snap": f"{current_snap}/{total_snaps}",
                             "pct": f"{pct:.1f}",
                             "eta": eta_str
@@ -251,56 +296,52 @@ class RunnerManager:
 
                 proc.wait()
                 rc = proc.returncode
-                final_status = "Concluído" if rc == 0 else f"Erro {rc}"
+                final_status = "Completed" if rc == 0 else f"Error {rc}"
                 self.update_row_callback(
                     {"iid": ypath, "status": final_status, "pct": "100" if rc == 0 else "--", "eta": "--"})
 
             except Exception as e:
-                self.log_callback(f"[LOCAL] Erro ao executar {ypath}: {e}")
-                self.update_row_callback({"iid": ypath, "status": "Falha"})
+                self.log_callback(f"[LOCAL] Error executing {ypath}: {e}")
+                self.update_row_callback({"iid": ypath, "status": "Failed"})
             finally:
                 if ypath in self.running_procs_local:
                     del self.running_procs_local[ypath]
 
     # =========================================================================
-    # EXECUÇÃO REMOTA
+    # REMOTE EXECUTION
     # =========================================================================
 
     def run_remote_parallel(self, remote_files, max_workers):
+        """
+        Starts remote simulations. Assumes files are already accessible on the remote server
+        or copies them to a temporary directory before execution.
+        """
         if not self.ssh_connected:
-            self.log_callback("[REMOTE] Erro: Não conectado.")
+            self.log_callback("[REMOTE] Error: Not connected.")
             return
 
-        # 1. Cria pasta temporária
+        # 1. Create temporary remote folder
         ts = time.strftime("%Y%m%d_%H%M%S")
         remote_tmp = f"{self.remote_base_dir}/sharc/campaigns/remote_run_{ts}"
         try:
             self.ssh_client.exec_command(f"mkdir -p {remote_tmp}")
-            self.log_callback(f"[REMOTE] Pasta temporária: {remote_tmp}")
+            self.log_callback(f"[REMOTE] Temp folder: {remote_tmp}")
         except Exception as e:
-            self.log_callback(f"[REMOTE] Falha ao criar pasta: {e}")
+            self.log_callback(f"[REMOTE] Failed to create folder: {e}")
             return
 
-        # 2. Upload (Para simplificar, vamos assumir que os arquivos passados JÁ SÃO remotos
-        # Se fossem locais, usaríamos sftp.put. O código original tinha essa ambiguidade.
-        # Aqui, assumo que se o modo é SSH, os arquivos selecionados na Treeview são caminhos remotos.)
-
-        # Se quisermos upload de locais:
-        # sftp = self.ssh_client.open_sftp()
-        # for f in local_files: sftp.put(f, remote_tmp/basename(f))
-
-        # Vamos assumir lógica de "Copiar para temp e rodar"
+        # 2. Stage files (Assumption: copying from remote source to remote temp)
         target_files = []
         for f in remote_files:
             fname = os.path.basename(f)
             new_path = f"{remote_tmp}/{fname}"
-            # Copia arquivo original remoto para pasta temp remota
+            # Copy original remote file to temp remote folder
             self.ssh_client.exec_command(f"cp '{f}' '{new_path}'")
             target_files.append(new_path)
 
         semaphore = threading.Semaphore(max_workers)
         for rf in target_files:
-            # O ID na treeview é o caminho original, mas rodamos o da pasta temp
+            # Map temp path back to the original ID in the treeview
             original_id = [k for k in remote_files if os.path.basename(
                 k) == os.path.basename(rf)][0]
 
@@ -312,9 +353,10 @@ class RunnerManager:
             t.start()
 
     def _worker_remote(self, remote_path, tree_id, semaphore):
+        """Worker thread for a single remote simulation via SSH."""
         with semaphore:
             self.update_row_callback(
-                {"iid": tree_id, "status": "Iniciando Remoto...", "snap": "0/--"})
+                {"iid": tree_id, "status": "Starting Remote...", "snap": "0/--"})
 
             cmd = (
                 f"cd {self.remote_base_dir} && "
@@ -323,7 +365,7 @@ class RunnerManager:
             )
 
             try:
-                # exec_command retorna streams (não bloqueante imediato, mas readline bloqueia)
+                # exec_command returns streams
                 stdin, stdout, stderr = self.ssh_client.exec_command(
                     cmd, get_pty=True)
 
@@ -336,7 +378,6 @@ class RunnerManager:
 
                 for line in iter(stdout.readline, ""):
                     line = line.strip()
-                    # self.log_callback(f"[REMOTE] {line}")
 
                     m = pat_xy.search(line)
                     if m:
@@ -350,35 +391,35 @@ class RunnerManager:
 
                         self.update_row_callback({
                             "iid": tree_id,
-                            "status": "Rodando (SSH)",
+                            "status": "Running (SSH)",
                             "snap": f"{current_snap}/{total_snaps}",
                             "pct": f"{pct:.1f}",
                             "eta": str(timedelta(seconds=int(remain)))
                         })
 
                 exit_status = stdout.channel.recv_exit_status()
-                final = "Concluído" if exit_status == 0 else f"Erro Remoto {exit_status}"
+                final = "Completed" if exit_status == 0 else f"Remote Error {exit_status}"
                 self.update_row_callback(
                     {"iid": tree_id, "status": final, "pct": "100" if exit_status == 0 else "--"})
 
             except Exception as e:
-                self.log_callback(f"[REMOTE] Erro worker: {e}")
+                self.log_callback(f"[REMOTE] Worker error: {e}")
                 self.update_row_callback(
-                    {"iid": tree_id, "status": "Erro SSH"})
+                    {"iid": tree_id, "status": "SSH Error"})
 
     def stop_simulations(self, iid_list):
-        """Para simulações locais ou remotas."""
+        """Stops running simulations (local or remote)."""
         for iid in iid_list:
             # Local
             if iid in self.running_procs_local:
                 p = self.running_procs_local[iid]
                 p.terminate()
-                self.log_callback(f"Parando processo local: {iid}")
+                self.log_callback(f"Stopping local process: {iid}")
 
-            # Remoto (Complexo: precisa achar PID pelo nome do arquivo)
+            # Remote (Complex: requires finding PID by filename)
             if self.ssh_connected:
                 fname = os.path.basename(iid)
-                # Pkill pattern match no nome do arquivo yaml
+                # Pattern match pkill on the yaml filename
                 cmd = f"pkill -f 'python3.*{fname}'"
                 self.ssh_client.exec_command(cmd)
-                self.update_row_callback({"iid": iid, "status": "Cancelado"})
+                self.update_row_callback({"iid": iid, "status": "Cancelled"})

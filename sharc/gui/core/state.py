@@ -3,11 +3,11 @@ from pathlib import Path
 import sys
 from functools import lru_cache
 
-# --- Tenta importar DEFAULTS ---
+# --- Attempt to import DEFAULTS ---
 try:
     from config import DEFAULTS
 except ImportError:
-    # Fallback caso config.py não seja encontrado imediatamente
+    # Fallback if config.py is not immediately found
     DEFAULTS = {
         "seed": 42, "num_snapshots": 10, "output_dir": "outputs",
         "default_dir": "",
@@ -18,12 +18,16 @@ except ImportError:
         "tunnel_local_port": 8080, "tunnel_key_path": ""
     }
 
-# --- FUNÇÃO GLOBAL DE LOCALIZAÇÃO DO PROJETO ---
+# --- GLOBAL PROJECT LOCATION FUNCTION ---
+
 
 @lru_cache(maxsize=1)
 def get_sharc_root() -> Path:
     """
-    Localiza a raiz do projeto 'sharc' de forma global e determinística.
+    Locates the 'sharc' project root deterministically.
+
+    Checks current path and parents for the existence of specific folders (e.g., 'topology')
+    or the directory name 'sharc'.
     """
     try:
         current_path = Path(__file__).resolve()
@@ -36,24 +40,29 @@ def get_sharc_root() -> Path:
         if parent.name.lower() == 'sharc':
             return parent
 
-    print("AVISO: Raiz 'sharc' não encontrada automaticamente. Usando diretório do script.")
+    print("WARNING: 'sharc' root not found automatically. Using script directory.")
     return current_path.parent
 
 
 class AppState:
     """
-    Classe responsável apenas por inicializar e armazenar o estado (variáveis).
+    Class responsible solely for initializing and storing the application state (Tkinter variables).
+    Acts as a central data store for the UI.
     """
 
     def __init__(self):
         self.project_root = get_sharc_root()
-        print(f"Raiz do projeto definida em: {self.project_root}")
+        print(f"Project root defined at: {self.project_root}")
 
         self._create_vars()
 
     def _add(self, value, var_type=str):
         """
-        Helper para criar variáveis Tkinter tipadas.
+        Helper to create typed Tkinter variables.
+
+        Args:
+            value: Initial value.
+            var_type: Type class (int, float, bool, str).
         """
         if var_type == int:
             return tk.IntVar(value=value)
@@ -61,17 +70,21 @@ class AppState:
             return tk.DoubleVar(value=value)
         if var_type == bool:
             return tk.BooleanVar(value=value)
-        
-        # Padrão é StringVar
+
+        # Default is StringVar
         return tk.StringVar(value=str(value))
 
     def _create_vars(self):
-        # --- General ---
+        """Initializes all state variables grouped by functional area."""
+
+        # --- General Settings ---
+        #
+        # Variables like 'seed' and 'num_snapshots' control the statistical simulation engine.
         self.var_seed = self._add(DEFAULTS["seed"], int)
         self.var_snaps = self._add(DEFAULTS["num_snapshots"], int)
         self.var_overwrite = self._add(False, bool)
 
-        # Output Dir
+        # Output Directory
         default_out = Path(DEFAULTS["output_dir"])
         if not default_out.is_absolute():
             abs_out_dir = self.project_root / default_out
@@ -82,12 +95,14 @@ class AppState:
         self.var_yaml_dir = self._add(abs_out_dir.as_posix())
 
         self.var_prefix = self._add("output_mss_{long}")
-        self.var_system = self._add("SINGLE_SPACE_STATION") # Default inicial
+        self.var_system = self._add("SINGLE_SPACE_STATION")  # Initial Default
         self.var_imt_link = self._add("DOWNLINK")
         self.var_adj = self._add(False, bool)
         self.var_coch = self._add(True, bool)
 
-        # --- IMT (Gerais) ---
+        # --- IMT (International Mobile Telecommunications) ---
+        #
+        # Defines the operating parameters of the mobile network interferers.
         self.imt_min_sep = self._add("35")
         self.imt_interfered = self._add(False, bool)
         self.imt_freq = self._add("8150")
@@ -98,7 +113,9 @@ class AppState:
         self.imt_adj_ant_model = self._add("SINGLE_ELEMENT")
         self.imt_guard_ratio = self._add("0.1")
 
-        # --- Topologia ---
+        # --- Topology ---
+        #
+        # Controls the deployment layout (Macrocell vs Hotspot) and geographic center.
         self.topo_c_lat = self._add("-15.793889")
         self.topo_c_lon = self._add("-47.882778")
         self.topo_c_alt = self._add("0")
@@ -114,7 +131,9 @@ class AppState:
             "Bolivia", "Peru", "Ecuador", "Colombia", "Venezuela"
         ]))
 
-        # --- MAPAS ---
+        # --- Maps (GIS Data) ---
+        #
+        # Paths to Shapefiles (borders) and Raster files (population data) for simulation.
         path_shp_file = self.project_root / "topology/map/ne_110m_admin_0_countries.shp"
         path_raster_file = self.project_root / "topology/map/SEDAC_map2.tiff"
 
@@ -127,7 +146,7 @@ class AppState:
         self.sedac_max = self._add("1e4")
         self.pixel_area_method = self._add("spherical")
 
-        # Topologia (Específicos)
+        # Topology Specifics
         self.macro_intersite = self._add("600")
         self.macro_wrap = self._add(False, bool)
         self.macro_clusters = self._add("1")
@@ -144,10 +163,12 @@ class AppState:
         self.sbs_clusters = self._add("1")
         self.sbs_azimuth = self._add("120")
 
-        # --- BS ---
+        # --- Base Station (BS) ---
+        #
+        # Configures the active antenna system (AAS) parameters for the Base Stations.
         self.bs_load_prob = self._add("0.2")
         self.bs_power = self._add("22")
-        self.bs_height = self._add("18") # Mantido como string/float genérico
+        self.bs_height = self._add("18")
         self.bs_nf = self._add("6")
         self.bs_ohmic = self._add("0")
         self.bs_norm = self._add(False, bool)
@@ -171,7 +192,9 @@ class AppState:
         self.bs_sub_evspace = self._add("0.7")
         self.bs_sub_e_downtilt = self._add("3")
 
-        # --- UE ---
+        # --- User Equipment (UE) ---
+        #
+        # Defines parameters for the mobile devices, including distribution and power control.
         self.ue_k = self._add("3")
         self.ue_km = self._add("1")
         self.ue_indoor = self._add("70")
@@ -205,6 +228,7 @@ class AppState:
         self.ue_sub_evspace = self._add("1.0")
         self.ue_sub_e_downtilt = self._add("0.0")
 
+        # Link Budget / Channel
         self.ul_att = self._add("0.4")
         self.ul_sinr_min = self._add("-10")
         self.ul_sinr_max = self._add("22")
@@ -215,9 +239,13 @@ class AppState:
         self.shadowing = self._add(True, bool)
 
         # =========================================================
-        # --- SINGLE EARTH STATION (Victim) - Variáveis Novas ---
+        # --- SINGLE EARTH STATION (Victim) ---
         # =========================================================
-        # Parâmetros Básicos
+        #
+        # Detailed configuration for the victim receiver, including location,
+        # antenna pointing, and propagation models (ITU-R P.452).
+
+        # Basic Parameters
         self.se_frequency = self._add(3800.0, float)
         self.se_bandwidth = self._add(100.0, float)
         self.se_noise_temperature = self._add(290.0, float)
@@ -231,7 +259,7 @@ class AppState:
         self.se_height = self._add(10.0, float)
         self.se_polarization_loss = self._add(0.0, float)
 
-        # Localização
+        # Location
         self.se_loc_type = self._add("FIXED")
         self.se_loc_fixed_x = self._add(0.0, float)
         self.se_loc_fixed_y = self._add(0.0, float)
@@ -240,7 +268,7 @@ class AppState:
         self.se_loc_ud_min_dist_to_center = self._add(0.0, float)
         self.se_loc_ud_max_dist_to_center = self._add(1000.0, float)
 
-        # Azimute / Elevação
+        # Azimuth / Elevation
         self.se_az_type = self._add("FIXED")
         self.se_az_fixed = self._add(0.0, float)
         self.se_az_ud_min = self._add(0.0, float)
@@ -251,7 +279,7 @@ class AppState:
         self.se_el_ud_min = self._add(0.0, float)
         self.se_el_ud_max = self._add(90.0, float)
 
-        # Antena
+        # Antenna
         self.se_ant_pattern = self._add("ITU-R F.699")
         self.se_ant_gain = self._add(30.0, float)
         self.se_ant_diameter = self._add(1.2, float)
@@ -266,12 +294,14 @@ class AppState:
         self.se_channel_model = self._add("FSPL")
 
         # P452 Parameters
+        #
+        # Variables controlling the terrain diffraction and tropospheric scatter model.
         self.p452_atmospheric_pressure = self._add(1013.25, float)
         self.p452_air_temperature = self._add(293.15, float)
         self.p452_percentage_p = self._add(20.0, float)
         self.p452_N0 = self._add(315.0, float)
         self.p452_delta_N = self._add(45.0, float)
-        self.p452_polarization = self._add(0.0, float) # 0=Horiz, 1=Vert
+        self.p452_polarization = self._add(0.0, float)  # 0=Horiz, 1=Vert
         self.p452_Dct = self._add(500.0, float)
         self.p452_Dcr = self._add(500.0, float)
         self.p452_Hte = self._add(30.0, float)
@@ -285,6 +315,8 @@ class AppState:
         # =========================================================
 
         # --- Victim (Legacy / Space Station) ---
+        #
+        # Legacy parameters often used for Space Station (Satellite) victims.
         self.v_freq = self._add("8150")
         self.v_bw = self._add("40")
         self.v_txpsd = self._add("-200")
@@ -324,10 +356,12 @@ class AppState:
         self.var_run_mode = self._add("LOCAL")
         self.var_max_workers = self._add(2, int)
 
-        # Pasta de execução
+        # Execution Folder
         self.run_folder = self._add(abs_out_dir.as_posix())
 
         # --- SSH / Tunnel ---
+        #
+        # Variables for establishing secure connections to remote calculation servers.
         self.ssh_host = self._add(DEFAULTS["ssh_host"])
         self.ssh_user = self._add(DEFAULTS["ssh_user"])
         self.ssh_port = self._add(DEFAULTS["ssh_port"], int)
@@ -342,9 +376,11 @@ class AppState:
 
         self.tunnel_bastion_host = self._add(DEFAULTS["tunnel_bastion_host"])
         self.tunnel_bastion_user = self._add(DEFAULTS["tunnel_bastion_user"])
-        self.tunnel_bastion_port = self._add(DEFAULTS["tunnel_bastion_port"], int)
+        self.tunnel_bastion_port = self._add(
+            DEFAULTS["tunnel_bastion_port"], int)
         self.tunnel_internal_ip = self._add(DEFAULTS["tunnel_internal_ip"])
-        self.tunnel_internal_port = self._add(DEFAULTS["tunnel_internal_port"], int)
+        self.tunnel_internal_port = self._add(
+            DEFAULTS["tunnel_internal_port"], int)
         self.tunnel_local_port = self._add(DEFAULTS["tunnel_local_port"], int)
         self.tunnel_key_path = self._add(DEFAULTS["tunnel_key_path"])
         self.tunnel_status = self._add("🔴 Inactive Tunnel")

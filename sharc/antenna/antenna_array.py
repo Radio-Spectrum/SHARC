@@ -9,6 +9,7 @@ in a future release
 from sharc.antenna.antenna import Antenna
 from sharc.parameters.imt.parameters_antenna_imt import ParametersAntennaImt
 from sharc.support.geometry import RigidTransform
+from sharc.support.sharc_geom import polar_to_cartesian, cartesian_to_polar
 
 import numpy as np
 
@@ -19,10 +20,26 @@ class AntennaArray(Antenna):
     def __init__(
         self,
         par: ParametersAntennaImt,
-        # global2local_transform: RigidTransform
+        global2local_transform: RigidTransform = None,
     ):
         super().__init__()
         self.par = par
+        self.always_first_beam = False
+
+        self.global2local_transform = global2local_transform
+        if self.global2local_transform is not None:
+            if self.global2local_transform.N > 1:
+                raise ValueError(
+                    "global2local_transform is supposed to have a single"
+                    " transformation for the purposes of antenna calculations"
+                )
+
+    def set_always_first_beam(self):
+        """
+        In case this is called, then calculate_gains will sum all beams
+        contributions for each direction angle.
+        """
+        self.always_first_beam = True
 
     def calculate_gain(self, *args, **kwargs) -> np.array:
         """
@@ -35,7 +52,9 @@ class AntennaArray(Antenna):
             self.par.adjacent_antenna_model == "SINGLE_ELEMENT"
             and not co_channel
         )
-        if "beams_l" in kwargs.keys():
+        if self.always_first_beam:
+            beam_idxs = np.zeros(len(phi_vec), dtype=int)
+        elif "beams_l" in kwargs.keys():
             beam_idxs = np.asarray(kwargs["beams_l"], dtype=int)
         else:
             beam_idxs = np.arange(len(phi_vec))
@@ -74,29 +93,35 @@ class AntennaArray(Antenna):
         phi: np.ndarray, theta: np.ndarray,
         beam_idxs: np.ndarray
     ):
-        v_vec = self._super_position_vector(
-            phi, theta,
-            self.par.n_rows, self.par.n_columns,
-            self.par.element_vert_spacing,
-            self.par.element_horiz_spacing,
-        )
         if len(self.beams_list) == 0:
             beam_phi, beam_theta = phi, theta
         else:
             beam_phi, beam_theta = np.array(self.beams_list).T
+            beam_phi, beam_theta = self._to_local_coord(beam_phi, beam_theta)
 
         beam_etilt = beam_theta - 90.
-        beams_w_vec = self._weight_vector(
+        beams_w_vec_row, beams_w_vec_col = self._weight_vector(
             beam_phi, beam_etilt,
             self.par.n_rows, self.par.n_columns,
             self.par.element_vert_spacing,
             self.par.element_horiz_spacing,
         )
-        w_vec = beams_w_vec[beam_idxs]
+        w_vec_row, w_vec_col = beams_w_vec_row[beam_idxs], beams_w_vec_col[beam_idxs]
 
+        v_vec_row, v_vec_col = self._super_position_vector(
+            phi, theta,
+            self.par.n_rows, self.par.n_columns,
+            self.par.element_vert_spacing,
+            self.par.element_horiz_spacing,
+        )
+
+        # NOTE: this formula has the same result to the one presented on M.2101
+        # but it is optimized for computation
+        # considering W(m, n) = W(m)W(n) and V(m, n) = V(m)V(n)
         g = 10 * np.log10(
             abs(
-                np.sum(v_vec * w_vec, axis=(1, 2))
+                np.sum(v_vec_row * w_vec_row, axis=-1)
+                * np.sum(v_vec_col * w_vec_col, axis=-1)
             )**2
         )
 
@@ -120,29 +145,33 @@ class AntennaArray(Antenna):
 
         Returns
         -------
-            w_vec (np.array): weighting vector
+            w_vec (np.array, np.array):
+                weighting vectors, first for rows, second for columns
         """
         # shape (Na, 1, 1)
         r_phi = np.atleast_1d(
             np.deg2rad(phi_tilt)
-        )[:, np.newaxis, np.newaxis]
+        )[:, np.newaxis]
         r_theta = np.atleast_1d(
             np.deg2rad(theta_tilt)
-        )[:, np.newaxis, np.newaxis]
+        )[:, np.newaxis]
 
         # shape (1, Nr, 1)
-        n = np.arange(n_rows)[np.newaxis, :, np.newaxis] + 1
+        n = np.arange(n_rows)[np.newaxis, :] + 1
         # shape (1, 1, Nc)
-        m = np.arange(n_cols)[np.newaxis, np.newaxis, :] + 1
+        m = np.arange(n_cols)[np.newaxis, :] + 1
 
-        exp_arg = (n - 1) * dv * np.sin(r_theta) - \
-                  (m - 1) * dh * np.cos(r_theta) * np.sin(r_phi)
+        exp_arg_n = (n - 1) * dv * np.sin(r_theta)
+        exp_arg_m = (m - 1) * dh * np.cos(r_theta) * np.sin(r_phi)
 
-        w_vec = (1 / np.sqrt(n_rows * n_cols)) *\
-            np.exp(2 * np.pi * 1.0j * exp_arg)
+        w_vec_n = (1 / np.sqrt(n_rows * n_cols)) *\
+            np.exp(2 * np.pi * 1.0j * exp_arg_n)
+
+        w_vec_m = (1 / np.sqrt(n_rows * n_cols)) *\
+            np.exp(2 * np.pi * 1.0j * exp_arg_m)
 
         # shape (Na, Nr, Nc)
-        return w_vec
+        return (w_vec_n, w_vec_m)
 
     @staticmethod
     def _super_position_vector(
@@ -163,26 +192,27 @@ class AntennaArray(Antenna):
         -------
             v_vec (np.array): superposition vector
         """
-        # shape (Na, 1, 1)
-        r_phi = np.atleast_1d(
-            np.deg2rad(phi)
-        )[:, np.newaxis, np.newaxis]
-        r_theta = np.atleast_1d(
-            np.deg2rad(theta)
-        )[:, np.newaxis, np.newaxis]
+        phi = np.atleast_1d(phi)
+        theta = np.atleast_1d(theta)
 
-        # shape (1, Nr, 1)
-        n = np.arange(n_rows)[np.newaxis, :, np.newaxis] + 1
-        # shape (1, 1, Nc)
-        m = np.arange(n_cols)[np.newaxis, np.newaxis, :] + 1
+        # (Na,)
+        A = dv * np.cos(np.deg2rad(theta))
+        B = dh * np.sin(np.deg2rad(theta)) * np.sin(np.deg2rad(phi))
 
-        exp_arg = (n - 1) * dv * np.cos(r_theta) + \
-                  (m - 1) * dh * np.sin(r_theta) * np.sin(r_phi)
+        # indices
+        n = np.arange(n_rows)          # (Nr,)
+        m = np.arange(n_cols)          # (Nc,)
 
-        v_vec = np.exp(2 * np.pi * 1.0j * exp_arg)
+        # (Na, Nr)
+        row_phase = np.exp(
+            2j * np.pi * A[:, None] * n[None, :]
+        )
+        # (Na, Nc)
+        col_phase = np.exp(
+            2j * np.pi * B[:, None] * m[None, :]
+        )
 
-        # shape (Na, Nr, Nc)
-        return v_vec
+        return (row_phase, col_phase)
 
     @staticmethod
     def _element_gain_dispatch(par: ParametersAntennaImt, phi, theta):
@@ -212,7 +242,7 @@ class AntennaArray(Antenna):
             multiplication_factor * (phi / phi_3db)**2, am
         )
         g_vertical = -1.0 * np.minimum(
-            multiplication_factor * ((theta-90.) / theta_3db)**2, sla_v
+            multiplication_factor * ((theta - 90.) / theta_3db)**2, sla_v
         )
 
         att = -1.0 * (
@@ -223,7 +253,20 @@ class AntennaArray(Antenna):
         return g_max - np.minimum(att, am)
 
     def _to_local_coord(self, phi, theta):
-        return np.array(phi), np.array(theta)
+        if self.global2local_transform is None:
+            return np.array(phi), np.array(theta)
+
+        theta_from_plane = 90 - theta
+        vecs = np.stack(polar_to_cartesian(1, phi, theta_from_plane), axis=-1)
+        transformed_vecs = self.global2local_transform.apply_vectors(
+            vecs
+        )
+        x, y, z = transformed_vecs.T
+        _r, phi, elev_from_plane = cartesian_to_polar(x, y, z)
+
+        theta = 90 - elev_from_plane
+
+        return phi, theta
 
     def add_beam(self, phi_etilt: float, theta_etilt: float):
         """
@@ -236,10 +279,11 @@ class AntennaArray(Antenna):
             phi_etilt (float): azimuth electrical tilt angle [degrees]
             theta_etilt (float): elevation electrical tilt angle [degrees]
         """
-        # phi_etilt, theta_etilt = np.atleast_1d(phi_etilt), np.atleast_1d(theta_etilt)
-        phi, theta = self._to_local_coord(phi_etilt, theta_etilt)
+        phi_etilt, theta_etilt = np.atleast_1d(phi_etilt), np.atleast_1d(theta_etilt)
+
+    # def add_beam_in_local_coords(self):
         self.beams_list.append(
-            (np.ndarray.item(phi), np.ndarray.item(theta)),
+            (np.ndarray.item(phi_etilt), np.ndarray.item(theta_etilt)),
         )
 
 
@@ -262,6 +306,13 @@ if __name__ == "__main__":
     antenna_params.multiplication_factor = 12
 
     par = antenna_params.get_antenna_parameters()
+    # from sharc.support.geometry import ENUReferenceFrame
+    # ref_frame = ENUReferenceFrame(
+    #     lat=np.array([90.]),
+    #     lon=np.array([-90.]),
+    #     alt=np.array([0.]),
+    # )
+    # antenna = AntennaArray(par, ref_frame.from_ecef)
     antenna = AntennaArray(par)
 
     antenna.add_beam(np.array(0.), np.array(90.))
@@ -285,9 +336,9 @@ if __name__ == "__main__":
     ax1 = fig.add_subplot(121)
 
     ax1.plot(phi_scan, gain)
-    top_y_lim = np.ceil(np.max(gain) / 10) * 10
+    top_y_lim1 = np.ceil(np.max(gain) / 10) * 10
     ax1.set_xlim(-180, 180)
-    ax1.set_ylim(top_y_lim - 60, top_y_lim)
+    ax1.set_ylim(top_y_lim1 - 60, top_y_lim1)
     ax1.grid(True)
     ax1.set_xlabel(r"$\varphi$ [deg]")
     ax1.set_ylabel("Gain [dBi]")
@@ -308,9 +359,11 @@ if __name__ == "__main__":
     ax2 = fig.add_subplot(122, sharey=ax1)
 
     ax2.plot(theta_scan, gain)
-    top_y_lim = np.ceil(np.max(gain) / 10) * 10
+    top_y_lim2 = np.ceil(np.max(gain) / 10) * 10
+    top_y_lim2 = np.maximum(top_y_lim1, top_y_lim2)
+
     ax2.set_xlim(0, 180.)
-    ax2.set_ylim(top_y_lim - 60, top_y_lim)
+    ax2.set_ylim(top_y_lim2 - 60, top_y_lim2)
     ax2.grid(True)
     ax2.set_xlabel(r"$\vartheta$ [deg]")
     ax2.set_ylabel("Gain [dBi]")

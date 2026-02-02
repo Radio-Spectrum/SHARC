@@ -100,7 +100,7 @@ class AntennaArray(Antenna):
             beam_phi, beam_theta = self._to_local_coord(beam_phi, beam_theta)
 
         beam_etilt = beam_theta - 90.
-        beams_w_vec_row, beams_w_vec_col = self._weight_vector(
+        beams_w_vec_row, beams_w_vec_col = self._weight_vector_components(
             beam_phi, beam_etilt,
             self.par.n_rows, self.par.n_columns,
             self.par.element_vert_spacing,
@@ -108,7 +108,7 @@ class AntennaArray(Antenna):
         )
         w_vec_row, w_vec_col = beams_w_vec_row[beam_idxs], beams_w_vec_col[beam_idxs]
 
-        v_vec_row, v_vec_col = self._super_position_vector(
+        v_vec_row, v_vec_col = self._super_position_vector_components(
             phi, theta,
             self.par.n_rows, self.par.n_columns,
             self.par.element_vert_spacing,
@@ -128,7 +128,39 @@ class AntennaArray(Antenna):
         return g
 
     @staticmethod
+    def _super_position_vector(
+        phi_tilt: np.ndarray,
+        theta_tilt: np.ndarray,
+        n_rows: int, n_cols: int,
+        dv: float, dh: float,
+    ) -> np.array:
+        vn, vm = AntennaArray._super_position_vector_components(
+            phi_tilt,
+            theta_tilt,
+            n_rows, n_cols,
+            dv, dh,
+        )
+
+        return vn[:, :, None] * vm[:, None, :]
+
+    @staticmethod
     def _weight_vector(
+        phi_tilt: np.ndarray,
+        theta_tilt: np.ndarray,
+        n_rows: int, n_cols: int,
+        dv: float, dh: float,
+    ) -> np.array:
+        wn, wm = AntennaArray._weight_vector_components(
+            phi_tilt,
+            theta_tilt,
+            n_rows, n_cols,
+            dv, dh,
+        )
+
+        return wn[:, :, None] * wm[:, None, :]
+
+    @staticmethod
+    def _weight_vector_components(
         phi_tilt: np.ndarray,
         theta_tilt: np.ndarray,
         n_rows: int, n_cols: int,
@@ -162,19 +194,18 @@ class AntennaArray(Antenna):
         m = np.arange(n_cols)[np.newaxis, :] + 1
 
         exp_arg_n = (n - 1) * dv * np.sin(r_theta)
-        exp_arg_m = (m - 1) * dh * np.cos(r_theta) * np.sin(r_phi)
+        exp_arg_m = - (m - 1) * dh * np.cos(r_theta) * np.sin(r_phi)
 
         w_vec_n = (1 / np.sqrt(n_rows * n_cols)) *\
             np.exp(2 * np.pi * 1.0j * exp_arg_n)
 
-        w_vec_m = (1 / np.sqrt(n_rows * n_cols)) *\
-            np.exp(2 * np.pi * 1.0j * exp_arg_m)
+        w_vec_m = np.exp(2 * np.pi * 1.0j * exp_arg_m)
 
         # shape (Na, Nr, Nc)
         return (w_vec_n, w_vec_m)
 
     @staticmethod
-    def _super_position_vector(
+    def _super_position_vector_components(
         phi: float, theta: float,
         n_rows: int, n_cols: int,
         dv: float, dh: float,
@@ -199,18 +230,35 @@ class AntennaArray(Antenna):
         A = dv * np.cos(np.deg2rad(theta))
         B = dh * np.sin(np.deg2rad(theta)) * np.sin(np.deg2rad(phi))
 
-        # indices
-        n = np.arange(n_rows)          # (Nr,)
-        m = np.arange(n_cols)          # (Nc,)
+        # instead of calculating exp for every row, there is a recursive
+        # relation that speeds this up. Small n_rows means that floating
+        # point error should not accumulate
+        # The relationship is: V(n) = V(n-1)V(2) | n > 2
+        # V(1) = 1., V(2) = exp(...)
+        row_phase = np.empty((len(theta), n_rows), dtype=np.complex128)
+        row_phase[:, 0] = 1.
 
-        # (Na, Nr)
-        row_phase = np.exp(
-            2j * np.pi * A[:, None] * n[None, :]
+        row_phase_term = np.exp(
+            2j * np.pi * A
         )
-        # (Na, Nc)
-        col_phase = np.exp(
-            2j * np.pi * B[:, None] * m[None, :]
+        row_phase[:, 1:] = row_phase_term[:, None]
+        # recursive relationship by cumulative product
+        row_phase = np.cumprod(row_phase, axis=-1)
+
+        # instead of calculating exp for every col, there is a recursive
+        # relation that speeds this up. Small n_cols means that floating
+        # point error should not accumulate
+        # The relationship is: V(n) = V(n-1)V(2) | n > 2
+        # V(1) = 1., V(2) = exp(...)
+        col_phase = np.empty((len(theta), n_cols), dtype=np.complex128)
+        col_phase[:, 0] = 1.
+
+        col_phase_term = np.exp(
+            2j * np.pi * B
         )
+        col_phase[:, 1:] = col_phase_term[:, None]
+        # recursive relationship by cumulative product
+        col_phase = np.cumprod(col_phase, axis=-1)
 
         return (row_phase, col_phase)
 

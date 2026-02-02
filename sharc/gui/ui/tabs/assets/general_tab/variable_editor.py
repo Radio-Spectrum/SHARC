@@ -2,44 +2,73 @@ import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 from pathlib import Path
 import ast
+import csv
+import os
 
-# Import logic from the new utils file
 from ui.tabs.assets.general_tab.general_tools import parse_list_safe, generate_sequence, format_number
 
 
 class VariableEditor(tk.Toplevel):
     """
-    A dialog window to edit Tag <-> Value mappings for a simulation variable.
+    A dialog window to edit Tag <-> Value mappings.
+    Features:
+    - Toggle between 'Logical Value' and 'File Path' modes.
+    - Real-time validation (Red text for invalid numbers or missing files).
+    - CSV Import/Export.
     """
 
     def __init__(self, parent, var_key, tags_raw, vals_raw, on_save_callback):
         super().__init__(parent)
         self.title(f"Edit Variable: {var_key}")
-        self.geometry("700x600")
-        self.transient(parent)  # Keep on top of parent
+        self.geometry("800x650")  # Aumentei um pouco a largura
+        self.transient(parent)
 
         self.on_save = on_save_callback
-        self.rows = []  # Stores (Entry_Tag, Entry_Value) tuples
+        self.rows = []  # Stores (Entry_Tag, Entry_Value, Button_Browse) tuples
 
         # Initial Data
         self.tags_list = parse_list_safe(tags_raw, [])
         self.vals_list = parse_list_safe(vals_raw, [])
 
+        # Detect initial mode
+        initial_mode = "VALUE"
+        for v in self.vals_list:
+            if isinstance(v, str) and ("/" in v or "\\" in v):
+                initial_mode = "FILE"
+                break
+
+        self.var_mode = tk.StringVar(value=initial_mode)  # "VALUE" or "FILE"
+
         self._build_ui(var_key)
         self._populate_initial_rows()
+
+        # Apply initial visibility and validation
+        self._toggle_mode_ui()
 
     def _build_ui(self, var_key):
         # --- Header ---
         top = ttk.Frame(self)
         top.pack(fill="x", padx=10, pady=(10, 6))
 
-        ttk.Label(top, text="Variable Name:").pack(side="left")
-        self.e_var = ttk.Entry(top, width=24)
+        # Row 1: Name
+        r1 = ttk.Frame(top)
+        r1.pack(fill="x")
+        ttk.Label(r1, text="Variable Name:").pack(side="left")
+        self.e_var = ttk.Entry(r1, width=24)
         self.e_var.insert(0, str(var_key))
         self.e_var.pack(side="left", padx=(6, 0))
-
-        ttk.Label(top, text="(use {name} in paths)",
+        ttk.Label(r1, text="(use {name} in paths)",
                   foreground="gray").pack(side="left", padx=10)
+
+        # Row 2: Type Selection (Mode)
+        r2 = ttk.LabelFrame(top, text="Variable Type / Validation Mode")
+        r2.pack(fill="x", pady=(10, 0))
+
+        ttk.Radiobutton(r2, text="Logical Value (Numeric Check)", variable=self.var_mode,
+                        value="VALUE", command=self._toggle_mode_ui).pack(side="left", padx=10, pady=5)
+
+        ttk.Radiobutton(r2, text="File Path (Existence Check)", variable=self.var_mode,
+                        value="FILE", command=self._toggle_mode_ui).pack(side="left", padx=10, pady=5)
 
         # --- Scrollable List Area ---
         frm_list = ttk.LabelFrame(self, text="Mapping (Tag -> Value)")
@@ -59,25 +88,40 @@ class VariableEditor(tk.Toplevel):
 
         canvas.pack(side="left", fill="both", expand=True)
         scrollbar.pack(side="right", fill="y")
-
-        self.canvas = canvas  # Keep reference to update scrollregion
+        self.canvas = canvas
 
         # Column Headers
-        ttk.Label(self.scroll_frame, text="Tag (Filename)").grid(
-            row=0, column=0, sticky="w", padx=5)
-        ttk.Label(self.scroll_frame, text="Value (Number or Path)").grid(
-            row=0, column=1, sticky="w", padx=5)
+        self.lbl_col_tag = ttk.Label(self.scroll_frame, text="Tag (Key)")
+        self.lbl_col_tag.grid(row=0, column=0, sticky="w", padx=5)
+
+        self.lbl_col_val = ttk.Label(self.scroll_frame, text="Value")
+        self.lbl_col_val.grid(row=0, column=1, sticky="w", padx=5)
+
+        ttk.Label(self.scroll_frame, text="").grid(
+            row=0, column=2, sticky="w", padx=0)
 
         # --- Action Buttons ---
         actions = ttk.Frame(self)
         actions.pack(fill="x", padx=10, pady=(0, 6))
 
-        ttk.Button(actions, text="Add Row",
+        # Left side: Manipulation
+        ttk.Button(actions, text="+ Add Row",
                    command=lambda: self._add_row_ui("", "")).pack(side="left")
-        ttk.Button(actions, text="Remove Last",
+        ttk.Button(actions, text="- Remove Last",
                    command=self._remove_last_row).pack(side="left", padx=5)
-        ttk.Button(actions, text="Select Files...",
-                   command=self._pick_files).pack(side="left", padx=5)
+
+        ttk.Separator(actions, orient="vertical").pack(
+            side="left", fill="y", padx=10)
+
+        # Middle: Files & CSV
+        self.btn_bulk = ttk.Button(
+            actions, text="Import Files...", command=self._pick_files_bulk)
+        self.btn_bulk.pack(side="left", padx=2)
+
+        ttk.Button(actions, text="Import CSV",
+                   command=self._import_csv).pack(side="left", padx=2)
+        ttk.Button(actions, text="Export CSV",
+                   command=self._export_csv).pack(side="left", padx=2)
 
         # --- Auto-Generation Section ---
         self._build_auto_gen_ui()
@@ -88,6 +132,10 @@ class VariableEditor(tk.Toplevel):
         ttk.Button(btns, text="OK", command=self._on_ok).pack(side="left")
         ttk.Button(btns, text="Cancel", command=self.destroy).pack(
             side="left", padx=10)
+
+        # Legend for validation
+        ttk.Label(btns, text="* Red text indicates invalid value/path",
+                  foreground="red", font=("Arial", 8)).pack(side="right")
 
     def _build_auto_gen_ui(self):
         auto = ttk.LabelFrame(
@@ -127,49 +175,198 @@ class VariableEditor(tk.Toplevel):
         ttk.Button(auto, text="Generate and Replace",
                    command=self._generate_values).pack(anchor="e", padx=5, pady=2)
 
-    def _populate_initial_rows(self):
-        n = max(len(self.tags_list), len(self.vals_list), 1)
-        # Pad lists
-        t_list = self.tags_list + [""] * (n - len(self.tags_list))
-        v_list = self.vals_list + [""] * (n - len(self.vals_list))
+    # --- UI Logic Methods ---
 
-        for t, v in zip(t_list, v_list):
-            self._add_row_ui(t, v)
+    def _toggle_mode_ui(self):
+        """Updates the UI and re-validates all rows based on mode."""
+        mode = self.var_mode.get()
+
+        # Update Headers
+        if mode == "FILE":
+            self.lbl_col_val.config(text="File Path (Must exist)")
+        else:
+            self.lbl_col_val.config(text="Value (Numeric)")
+
+        # Update Rows visibility and Validation
+        for _, e_val, btn_browse in self.rows:
+            if mode == "FILE":
+                btn_browse.grid()
+            else:
+                btn_browse.grid_remove()
+
+            # Re-validate current value with new mode
+            self._validate_entry(e_val)
+
+        self.canvas.configure(scrollregion=self.canvas.bbox("all"))
 
     def _add_row_ui(self, t="", v=""):
         r = len(self.rows) + 1
-        e1 = ttk.Entry(self.scroll_frame, width=25)
+
+        e1 = ttk.Entry(self.scroll_frame, width=20)
         e1.insert(0, str(t))
+
         e2 = ttk.Entry(self.scroll_frame, width=55)
         e2.insert(0, str(v))
 
+        # Bind validation event (KeyRelease triggers on every keystroke)
+        e2.bind('<KeyRelease>', lambda event,
+                entry=e2: self._validate_entry(entry))
+
+        # Browse Button
+        btn_browse = ttk.Button(self.scroll_frame, text="...", width=3,
+                                command=lambda entry=e2: self._browse_single_file(entry))
+
+        # Grid Layout
         e1.grid(row=r, column=0, sticky="we", pady=2, padx=5)
         e2.grid(row=r, column=1, sticky="we", pady=2, padx=5)
-        self.rows.append((e1, e2))
+        btn_browse.grid(row=r, column=2, sticky="w", pady=2, padx=(0, 5))
 
-        # Force update scroll if needed
+        # Initial validation state
+        if self.var_mode.get() != "FILE":
+            btn_browse.grid_remove()
+
+        self.rows.append((e1, e2, btn_browse))
+        self._validate_entry(e2)  # Validate initial value
+
+        # Force update scroll
+        self.scroll_frame.update_idletasks()
         self.canvas.configure(scrollregion=self.canvas.bbox("all"))
+
+    # --- Validation Logic ---
+    def _validate_entry(self, entry_widget):
+        """Checks if value is valid based on mode. Changes text color."""
+        val = entry_widget.get().strip()
+        mode = self.var_mode.get()
+        is_valid = True
+
+        if not val:
+            entry_widget.config(foreground="black")
+            return
+
+        if mode == "VALUE":
+            try:
+                float(val)
+                is_valid = True
+            except ValueError:
+                is_valid = False
+
+        elif mode == "FILE":
+            if "{" in val and "}" in val:
+                is_valid = True
+            else:
+                is_valid = os.path.exists(
+                    val) or os.path.exists(val.strip('"'))
+
+        color = "black" if is_valid else "red"
+        entry_widget.config(foreground=color)
+
+    # --- CSV Import / Export ---
+
+    def _export_csv(self):
+        """Saves current rows to a CSV file."""
+        f_path = filedialog.asksaveasfilename(
+            defaultextension=".csv",
+            filetypes=[("CSV Files", "*.csv"), ("All Files", "*.*")],
+            title="Export to CSV",
+            parent=self
+        )
+        if not f_path:
+            return
+
+        try:
+            with open(f_path, mode='w', newline='', encoding='utf-8') as f:
+                writer = csv.writer(f)
+                writer.writerow(["Tag", "Value"])
+                for e1, e2, _ in self.rows:
+                    t = e1.get().strip()
+                    v = e2.get().strip()
+                    if t or v:
+                        writer.writerow([t, v])
+            messagebox.showinfo(
+                "Success", "CSV exported successfully.", parent=self)
+        except Exception as e:
+            messagebox.showerror(
+                "Error", f"Failed to export CSV:\n{e}", parent=self)
+
+    def _import_csv(self):
+        """Loads rows from a CSV file."""
+        f_path = filedialog.askopenfilename(
+            filetypes=[("CSV Files", "*.csv"),
+                       ("Excel CSV", "*.csv"), ("All Files", "*.*")],
+            title="Import CSV",
+            parent=self
+        )
+        if not f_path:
+            return
+
+        if messagebox.askyesno("Confirm Import", "This will replace current rows. Continue?", parent=self):
+            try:
+                with open(f_path, mode='r', newline='', encoding='utf-8') as f:
+                    sample = f.read(1024)
+                    f.seek(0)
+                    dialect = csv.Sniffer().sniff(sample)
+
+                    reader = csv.reader(f, dialect)
+                    data = list(reader)
+
+                self._clear_rows()
+
+                start_idx = 0
+                if data and len(data[0]) >= 2:
+                    if "tag" in data[0][0].lower() or "key" in data[0][0].lower():
+                        start_idx = 1
+
+                for row in data[start_idx:]:
+                    if len(row) >= 2:
+                        self._add_row_ui(row[0], row[1])
+                    elif len(row) == 1:
+                        self._add_row_ui(f"Import_{len(self.rows)}", row[0])
+
+            except Exception as e:
+                messagebox.showerror(
+                    "Error", f"Failed to import CSV:\n{e}", parent=self)
+
+    def _browse_single_file(self, entry_widget):
+        f = filedialog.askopenfilename(title="Select File", parent=self)
+        if f:
+            entry_widget.delete(0, tk.END)
+            entry_widget.insert(0, f)
+            self._validate_entry(entry_widget)
+
+    def _pick_files_bulk(self):
+        files = filedialog.askopenfilenames(
+            title="Select multiple files", parent=self)
+        if not files:
+            return
+
+        self.var_mode.set("FILE")
+        self._toggle_mode_ui()
+
+        self._clear_rows()
+        for f in files:
+            f_path = Path(f)
+            self._add_row_ui(f_path.stem, f_path.as_posix())
 
     def _remove_last_row(self):
         if not self.rows:
             return
-        e1, e2 = self.rows.pop()
+        e1, e2, btn = self.rows.pop()
         e1.destroy()
         e2.destroy()
+        btn.destroy()
         self.canvas.configure(scrollregion=self.canvas.bbox("all"))
 
     def _clear_rows(self):
         while self.rows:
             self._remove_last_row()
 
-    def _pick_files(self):
-        files = filedialog.askopenfilenames(title=f"Select files", parent=self)
-        if not files:
-            return
-        self._clear_rows()
-        for f in files:
-            f_path = Path(f)
-            self._add_row_ui(f_path.stem, f_path.as_posix())
+    def _populate_initial_rows(self):
+        n = max(len(self.tags_list), len(self.vals_list), 1)
+        t_list = self.tags_list + [""] * (n - len(self.tags_list))
+        v_list = self.vals_list + [""] * (n - len(self.vals_list))
+
+        for t, v in zip(t_list, v_list):
+            self._add_row_ui(t, v)
 
     def _update_gen_labels(self):
         self.lbl_param.config(
@@ -188,6 +385,9 @@ class VariableEditor(tk.Toplevel):
         vals = generate_sequence(s, e, p, self.gen_mode.get())
         tag_base = self.e_tagbase.get()
 
+        self.var_mode.set("VALUE")
+        self._toggle_mode_ui()
+
         self._clear_rows()
         for i, v in enumerate(vals, 1):
             self._add_row_ui(f"{tag_base}{i}", format_number(v))
@@ -195,20 +395,32 @@ class VariableEditor(tk.Toplevel):
     def _on_ok(self):
         tags_out = []
         vals_out = []
+        is_file_mode = (self.var_mode.get() == "FILE")
+        has_invalid = False
 
-        for e1, e2 in self.rows:
+        for e1, e2, _ in self.rows:
             t_val = e1.get().strip()
             v_val = e2.get().strip()
             if not t_val and not v_val:
                 continue
 
+            if e2.cget("foreground") == "red":
+                has_invalid = True
+
             tags_out.append(t_val)
-            # Try to store as number if possible
-            try:
-                num = ast.literal_eval(v_val)
-                vals_out.append(num)
-            except (ValueError, SyntaxError):
+
+            if is_file_mode:
                 vals_out.append(v_val)
+            else:
+                try:
+                    num = ast.literal_eval(v_val)
+                    vals_out.append(num)
+                except (ValueError, SyntaxError):
+                    vals_out.append(v_val)
+
+        if has_invalid:
+            if not messagebox.askyesno("Warning", "Some values appear invalid (marked in red). Save anyway?", parent=self):
+                return
 
         if not tags_out:
             messagebox.showwarning(
@@ -217,7 +429,7 @@ class VariableEditor(tk.Toplevel):
 
         if len(tags_out) != len(vals_out):
             messagebox.showwarning(
-                "Error", "Tags and Values must have the same length.", parent=self)
+                "Error", "Tags and Values length mismatch.", parent=self)
             return
 
         new_name = self.e_var.get().strip()
@@ -226,6 +438,5 @@ class VariableEditor(tk.Toplevel):
                 "Error", "Variable name is required.", parent=self)
             return
 
-        # Trigger the callback
         self.on_save(new_name, tags_out, vals_out)
         self.destroy()

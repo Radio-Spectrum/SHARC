@@ -98,6 +98,7 @@ class TopologySamplingFromSphericalGrid(Topology):
             ),
         )
         lat, lon, alt = chosen_llas
+        self.chosen_lat, self.chosen_lon, self.chosen_alt = lat, lon, alt
         # coords locais para determinar
         # transformação global <> local
         geom.set_local_reference_frame(
@@ -135,13 +136,13 @@ class TopologySamplingFromSphericalGrid(Topology):
         ue_geom = SimulatorGeometry(
             self.num_base_stations * ue_k,
             self.num_base_stations * ue_k,
-            self.global_cs,
+            self.bs_geometry.global_reference_frame,
         )
         ue_geom.set_local_reference_frame(
             ENUReferenceFrame(
-                lat=np.repeat(self.bs_geometry._local_lla_references[0], ue_k),
-                lon=np.repeat(self.bs_geometry._local_lla_references[1], ue_k),
-                alt=np.repeat(self.bs_geometry._local_lla_references[2], ue_k),
+                lat=np.repeat(self.chosen_lat, ue_k),
+                lon=np.repeat(self.chosen_lon, ue_k),
+                alt=np.repeat(self.chosen_alt, ue_k),
             )
         )
         return ue_geom

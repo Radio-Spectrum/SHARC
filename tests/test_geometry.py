@@ -1,8 +1,9 @@
 import unittest
 import numpy as np
 import numpy.testing as npt
+from sharc.support.sharc_utils import wrap2_180
 from sharc.support.geometry import (
-    SimulatorGeometry, ENUReferenceFrame, RigidTransform
+    SimulatorGeometry, DWNReferenceFrame, ENUReferenceFrame, RigidTransform
 )
 from sharc.satellite.ngso.constants import EARTH_RADIUS_M
 from copy import deepcopy
@@ -26,8 +27,10 @@ def random_rigid_transform(rng, N):
 
     return RigidTransform(Rotation.from_matrix(Q), t)
 
+
 def rot_identity(n=1):
     return Rotation.from_rotvec(np.zeros((n, 3)))
+
 
 def rot_z(angle_deg, n=1):
     return Rotation.from_rotvec(
@@ -35,11 +38,13 @@ def rot_z(angle_deg, n=1):
         degrees=True
     )
 
+
 def rot_x(angle_deg, n=1):
     return Rotation.from_rotvec(
         np.tile([angle_deg, 0.0, 0.0], (n, 1)),
         degrees=True
     )
+
 
 def rot_y(angle_deg, n=1):
     return Rotation.from_rotvec(
@@ -69,11 +74,11 @@ class TestRigidTransform(unittest.TestCase):
 
             if Nt > 1:
                 with self.assertRaises(ValueError):
-                    RigidTransform(rot_identity(N+1), t)
+                    RigidTransform(rot_identity(N + 1), t)
 
             if Nrot > 1:
                 with self.assertRaises(ValueError):
-                    RigidTransform(rot, np.zeros((N+1, 3)))
+                    RigidTransform(rot, np.zeros((N + 1, 3)))
 
             # should not throw:
             tr = RigidTransform(rot, t)
@@ -84,7 +89,7 @@ class TestRigidTransform(unittest.TestCase):
             for fn in [tr.apply_points, tr.apply_vectors]:
                 if N > 1:
                     with self.assertRaises(AssertionError):
-                        fn(np.zeros((N+1, 3)))
+                        fn(np.zeros((N + 1, 3)))
 
                 for in_shp in [(1, 3), (N, 3)]:
                     res = fn(np.zeros(in_shp))
@@ -94,7 +99,7 @@ class TestRigidTransform(unittest.TestCase):
 
             for fn, in_shp in product(
                 [tr.apply_points_permutation, tr.apply_vectors_permutation],
-                [(1, 3), (N, 3), (N+1, 3)]
+                [(1, 3), (N, 3), (N + 1, 3)]
             ):
                 Nin = in_shp[0]
                 res = fn(np.zeros(in_shp))
@@ -336,6 +341,53 @@ class TestRigidTransform(unittest.TestCase):
                     rtol=1e-12,
                     atol=1e-12,
                 )
+
+
+class TestDWNReferenceFrame(unittest.TestCase):
+    def setUp(self):
+        self.lat = np.array([0.0])
+        self.lon = np.array([0.0])
+        self.alt = np.array([0.0])
+
+        self.enu = ENUReferenceFrame(
+            lat=self.lat, lon=self.lon, alt=self.alt
+        )
+        self.dwn = DWNReferenceFrame(
+            lat=self.lat, lon=self.lon, alt=self.alt
+        )
+
+    def test_enu_to_dwn_basis(self):
+        # ENU basis vectors
+        e = np.array([1.0, 0.0, 0.0])  # East
+        n = np.array([0.0, 1.0, 0.0])  # North
+        u = np.array([0.0, 0.0, 1.0])  # Up
+
+        # Transform ENU -> ECEF -> DWN
+        e_dwn = self.dwn.from_ecef.apply_vectors(
+            self.enu.to_ecef.apply_vectors(e)
+        )[0]
+        n_dwn = self.dwn.from_ecef.apply_vectors(
+            self.enu.to_ecef.apply_vectors(n)
+        )[0]
+        u_dwn = self.dwn.from_ecef.apply_vectors(
+            self.enu.to_ecef.apply_vectors(u)
+        )[0]
+
+        npt.assert_allclose(e_dwn, np.array([0.0, -1.0, 0.0]), atol=1e-4)
+        npt.assert_allclose(n_dwn, np.array([0.0, 0.0, 1.0]), atol=1e-4)
+        npt.assert_allclose(u_dwn, np.array([-1.0, 0.0, 0.0]), atol=1e-4)
+        npt.assert_allclose(
+            np.linalg.norm(e_dwn),
+            np.linalg.norm(e),
+        )
+        npt.assert_allclose(
+            np.linalg.norm(n_dwn),
+            np.linalg.norm(n),
+        )
+        npt.assert_allclose(
+            np.linalg.norm(u_dwn),
+            np.linalg.norm(u),
+        )
 
 
 class TestGeometry(unittest.TestCase):

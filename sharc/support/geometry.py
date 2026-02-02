@@ -354,8 +354,8 @@ class RigidTransform:
         # array shape structure for functional broadcasting
         # and batch computing
         return RigidTransform(
-            rot=self.rot[idx:idx+1],
-            t=self.t[idx:idx+1],
+            rot=self.rot[idx:idx + 1],
+            t=self.t[idx:idx + 1],
         )
 
     def apply_points(self, x: np.ndarray) -> np.ndarray:
@@ -453,6 +453,9 @@ class ENUReferenceFrame(ReferenceFrame):
         self._alt.flags.writeable = False
 
     def _compute_to_local(self):
+        return self._compute_to_enu()
+
+    def _compute_to_enu(self):
         lat = self._lat
         lon = self._lon
         alt = self._alt
@@ -473,6 +476,31 @@ class ENUReferenceFrame(ReferenceFrame):
             ecef2local_rot, ecef2local_translation
         )
         return ecef2local
+
+
+class DWNReferenceFrame(ENUReferenceFrame):
+    """
+    Defines DWN reference frame. x=Down, y=West, z=North
+    DWN is a custom reference frame for simplification of satellite's ref frame
+    useful for antenna usage.
+    """
+    ENU2DWN_ROT = scipy.spatial.transform.Rotation.from_matrix(
+        np.array([[
+            [0,  0, -1],
+            [-1,  0,  0],
+            [0,  1,  0],
+        ]])
+    )
+
+    def _compute_to_local(self):
+        ecef2enu = self._compute_to_enu()
+        # basis change
+        # ENU <> x: east, y: north, z: up
+        # DWN <> x: down, y: west, z: north
+        # x2 = -z1, y2 = -x1, z2 = y
+        enu2dwn = RigidTransform(self.ENU2DWN_ROT, np.zeros((1, 3)))
+
+        return ecef2enu.and_then(enu2dwn)
 
 
 @readonly_properties(
@@ -501,7 +529,7 @@ class SimulatorGeometry(GlobalGeometry):
         self,
         num_geometries,
         uses_local_coords=False,
-        global_cs: tuple[float, float, float] = None,
+        global_cs: ReferenceFrame = None,
     ):
         """
         Initialize a geometry object with a global coordinate system
@@ -554,6 +582,10 @@ class SimulatorGeometry(GlobalGeometry):
         Sets local coord system references and prepares
         global<->local coordinate transformation
         """
+        if not self.uses_local_coords:
+            raise ValueError(
+                "Cannot set local reference frame when not using local coords"
+            )
         self._local_reference_frame = frame
 
         self._compute_global_local_transform()
@@ -926,14 +958,14 @@ if __name__ == "__main__":
     )
 
     bs_geom.set_local_reference_frame(
-        ENUReferenceFrame(
+        DWNReferenceFrame(
             lat=np.repeat(11, topology.num_base_stations),
             lon=np.repeat(-47, topology.num_base_stations),
             alt=np.repeat(1200, topology.num_base_stations),
         )
     )
     ue_geom.set_local_reference_frame(
-        ENUReferenceFrame(
+        DWNReferenceFrame(
             lat=np.repeat(11, num_ue * topology.num_base_stations),
             lon=np.repeat(-47, num_ue * topology.num_base_stations),
             alt=np.repeat(1200, num_ue * topology.num_base_stations),

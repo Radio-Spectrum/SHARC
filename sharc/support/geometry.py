@@ -318,6 +318,7 @@ class RigidTransform:
         if not isinstance(self.rot, scipy.spatial.transform.Rotation):
             raise ValueError("rot must be a scipy Rotation")
 
+        # NOTE: this throws if the rotation isn't defined as a batch rotation
         n_rot = len(self.rot)
         n_t = self.t.shape[0]
 
@@ -362,17 +363,63 @@ class RigidTransform:
         )
 
     def apply_points(self, x: np.ndarray) -> np.ndarray:
-        """Applies rotations and translations to the points"""
+        """Applies transform to the points.
+
+        Parameters
+        ----------
+        x : np.ndarray
+            Array of input points of shape (N, 3). Each row is a 3D point in
+            Cartesian coordinates.
+
+        Returns
+        -------
+        np.ndarray
+            Array of transformed points of shape (N, 3), where ``N`` is the
+            number of transforms represented by this ``RigidTransform``.
+        """
         return self.apply_vectors(x) + self.t
 
     def apply_points_permutation(self, x: np.ndarray) -> np.ndarray:
-        """Applies rotation and translation to the point"""
+        """Applies transform to points with permutation broadcasting.
+
+        Parameters
+        ----------
+        x : np.ndarray
+            Array of input points of shape (M, 3). Each row is a 3D point in
+            Cartesian coordinates.
+
+        Returns
+        -------
+        np.ndarray
+            Array of transformed points of shape (N, M, 3), where ``N`` is the
+            number of transforms represented by this ``RigidTransform``. The
+            slice ``result[n, :, :]`` contains all ``M`` input points
+            transformed by the ``n``-th rigid transform.
+        """
         t = self.t                     # (N,3)
 
         return self.apply_vectors_permutation(x) + t[:, None, :]
 
     def apply_vectors(self, v: np.ndarray) -> np.ndarray:
-        """Applies only rotations, considering the vectors as a pointing vec"""
+        """Applies transform rotation-only to the points.
+
+        Parameters
+        ----------
+        x : np.ndarray
+            Array of input points of shape (N, 3). Each row is a 3D point in
+            Cartesian coordinates.
+
+        Returns
+        -------
+        np.ndarray
+            Array of rotated points of shape (N, 3), where ``N`` is the
+            number of transforms represented by this ``RigidTransform``.
+
+        Note
+        ----
+        This only applies rotation, it ignores translation. It is useful for
+        transforming pointing vectors.
+        """
         v = np.atleast_2d(v)
         assert v.ndim == 2 and v.shape[1] == 3
         M = v.shape[0]
@@ -381,8 +428,27 @@ class RigidTransform:
         return self.rot.apply(v) + np.zeros_like(self.t)
 
     def apply_vectors_permutation(self, v: np.ndarray) -> np.ndarray:
-        """Applies rotation and translation to the point"""
-        # TODO: change impl
+        """Applies rotation-only to points with permutation broadcasting.
+
+        Parameters
+        ----------
+        x : np.ndarray
+            Array of input points of shape (M, 3). Each row is a 3D point in
+            Cartesian coordinates.
+
+        Returns
+        -------
+        np.ndarray
+            Array of transformed points of shape (N, M, 3), where ``N`` is the
+            number of transforms represented by this ``RigidTransform``. The
+            slice ``result[n, :, :]`` contains all ``M`` input points
+            transformed by the ``n``-th rigid transform rotation.
+
+        Note
+        ----
+        This only applies rotation, it ignores translation. It is useful for
+        transforming pointing vectors.
+        """
         v = np.atleast_2d(v)
         assert v.ndim == 2 and v.shape[1] == 3
 

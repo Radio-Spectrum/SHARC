@@ -425,9 +425,6 @@ class TestGeometry(unittest.TestCase):
             np.stack((expect_local["x"], expect_local["y"], expect_local["z"])),
             atol=0.001
         )
-        # npt.assert_allclose(geom.x_local, expect_local["x"], atol=0.001)
-        # npt.assert_allclose(geom.y_local, expect_local["y"], atol=0.001)
-        # npt.assert_allclose(geom.z_local, expect_local["z"], atol=0.001)
         npt.assert_allclose(geom.pointn_elev_local, expect_local["elev"], atol=0.001)
         if only_local_azim is None:
             npt.assert_allclose(geom.pointn_azim_local, expect_local["azim"], atol=0.001)
@@ -444,9 +441,6 @@ class TestGeometry(unittest.TestCase):
             np.stack((expect_global["x"], expect_global["y"], expect_global["z"])),
             atol=0.001
         )
-        # npt.assert_allclose(geom.x_global, expect_global["x"], atol=0.001)
-        # npt.assert_allclose(geom.y_global, expect_global["y"], atol=0.001)
-        # npt.assert_allclose(geom.z_global, expect_global["z"], atol=0.001)
         npt.assert_allclose(geom.pointn_elev_global, expect_global["elev"], atol=0.001)
         if only_global_azim is None:
             npt.assert_allclose(

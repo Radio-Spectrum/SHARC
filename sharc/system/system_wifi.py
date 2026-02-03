@@ -92,31 +92,14 @@ class SystemWifi:
         random_values = random_number_gen.rand(num_aps)
         wifi_aps.active = random_values < self.parameters.ap.load_probability
         wifi_aps.tx_power = self.parameters.ap.conducted_power * np.ones(num_aps)
-        wifi_aps.rx_power = dict(
-            [(ap, -500 * np.ones(self.parameters.sta.k)) for ap in range(num_aps)],
-        )
-        wifi_aps.rx_interference = dict(
-            [(ap, -500 * np.ones(self.parameters.sta.k)) for ap in range(num_aps)],
-        )
-        wifi_aps.ext_interference = dict(
-            [(ap, -500 * np.ones(self.parameters.sta.k)) for ap in range(num_aps)],
-        )
-        wifi_aps.total_interference = dict(
-            [(ap, -500 * np.ones(self.parameters.sta.k)) for ap in range(num_aps)],
-        )
-
-        wifi_aps.snr = dict(
-            [(ap, -500 * np.ones(self.parameters.sta.k)) for ap in range(num_aps)],
-        )
-        wifi_aps.sinr = dict(
-            [(ap, -500 * np.ones(self.parameters.sta.k)) for ap in range(num_aps)],
-        )
-        wifi_aps.sinr_ext = dict(
-            [(ap, -500 * np.ones(self.parameters.sta.k)) for ap in range(num_aps)],
-        )
-        wifi_aps.inr = dict(
-            [(ap, -500 * np.ones(self.parameters.sta.k)) for ap in range(num_aps)],
-        )
+        wifi_aps.rx_power = np.full((num_aps, self.parameters.sta.k), -500.0)
+        wifi_aps.rx_interference = np.full((num_aps, self.parameters.sta.k), -500.0)
+        wifi_aps.ext_interference = np.full((num_aps, self.parameters.sta.k), -500.0)
+        wifi_aps.total_interference = np.full((num_aps, self.parameters.sta.k), -500.0)
+        wifi_aps.snr = np.full((num_aps, self.parameters.sta.k), -500.0)
+        wifi_aps.sinr = np.full((num_aps, self.parameters.sta.k), -500.0)
+        wifi_aps.sinr_ext = np.full((num_aps, self.parameters.sta.k), -500.0)
+        wifi_aps.inr = np.full((num_aps, self.parameters.sta.k), -500.0)
 
         for i in range(num_aps):
             wifi_aps.antenna[i] = AntennaOmni()
@@ -153,7 +136,7 @@ class SystemWifi:
         azimuth = (azimuth_range[1] - azimuth_range[0]) * \
             random_number_gen.random_sample(self.num_sta) + azimuth_range[0]
         
-        wifi_sta.tx_power = self.parameters.sta.conducted_power
+        wifi_sta.tx_power = self.parameters.sta.conducted_power * np.ones(self.num_sta)
         
         elevation_range = (-90, 90)
         elevation = (elevation_range[1] - elevation_range[0]) * \

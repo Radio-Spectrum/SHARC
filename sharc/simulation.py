@@ -203,7 +203,7 @@ class Simulation(ABC, Observable):
         num_ue = num_bs * self.parameters.imt.ue.k * self.parameters.imt.ue.k_m
 
         # or antenna itself
-        if self.parameters.wifi.ap.antenna.pattern == "ARRAY":
+        '''if self.parameters.wifi.ap.antenna.pattern == "ARRAY":
             self.ap_power_gain = 10 * math.log10(
                 self.parameters.wifi.ap.antenna.array.n_rows *
                 self.parameters.wifi.ap.antenna.array.n_columns,
@@ -214,7 +214,7 @@ class Simulation(ABC, Observable):
             )
         else:
             self.ap_power_gain = 0
-            self.sta_power_gain = 0
+            self.sta_power_gain = 0'''
 
 
         self.wifi_ap_antenna_gain = list()

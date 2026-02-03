@@ -95,10 +95,10 @@ class SimulationDownlink(Simulation):
         if self.parameters.general.system == "WIFI":
             self.system.connect_wifi_sta_to_ap(self.parameters.wifi)
             self.system.run_csma_ca_scheduling(random_number_gen)
-            self.power_control_wifi()
+            #self.power_control_wifi()
 
             self.coupling_loss_wifi = self.calculate_intra_wifi_coupling_loss(
-                self.system.sta, self.system.ap)
+                self.system.ap, self.system.sta,)
             self.calculate_sinr_wifi()
             
             
@@ -1130,64 +1130,91 @@ class SimulationDownlink(Simulation):
     def calculate_sinr_wifi(self):
         """
         Calcula o SINR interno para o sistema WiFi (STAs e APs), 
-        garantindo a conversão de dicionários para arrays para evitar TypeErrors.
         """
         ap_active = np.where(self.system.ap.active)[0]
         sta_active = np.where(self.system.sta.active)[0]
 
-        # --- 1. FUNÇÃO AUXILIAR DE CONVERSÃO ---
-        def to_numpy_array(manager, attr_name):
-            val = getattr(manager, attr_name)
-            if isinstance(val, dict):
-                # Cria array preenchido com valor nulo (-500 dBm) e mapeia as chaves
-                arr = np.full(manager.num_stations, -500.0)
-                for k, v in val.items():
-                    # v pode ser uma lista [K] vinda do IMT, pegamos o primeiro elemento
-                    arr[k] = np.atleast_1d(v)[0]
-                return arr
-            return np.atleast_1d(val)
-
-        # --- 2. CÁLCULO DE POTÊNCIAS (DOWNLINK E UPLINK) ---
-        # (Loops de sinal desejado e interferência mantidos com proteção de chave)
+        #AP -> STA
         for ap in ap_active:
-            if ap in self.system.ap.tx_power:
-                stas = np.atleast_1d(self.system.link[ap])
-                tx_pwr_ap = np.atleast_1d(self.system.ap.tx_power[ap])[0]
-                self.system.sta.rx_power[stas] = tx_pwr_ap - self.coupling_loss_wifi[ap, stas]
+            linked_stas = self.system.link[ap]
+            self.system.sta.rx_power[linked_stas] = self.system.ap.tx_power[ap] - \
+                self.coupling_loss_wifi[ap, linked_stas]
 
-                # Acumulação de interferência intra-sistema
-                ap_interf = [a for a in ap_active if a != ap]
-                for ai in ap_interf:
-                    if ai in self.system.ap.tx_power:
-                        interference = np.atleast_1d(self.system.ap.tx_power[ai])[0] - \
-                                       self.coupling_loss_wifi[ai, stas]
-                        self.system.sta.rx_interference[stas] = 10 * np.log10(
-                            np.power(10, 0.1 * self.system.sta.rx_interference[stas]) +
-                            np.power(10, 0.1 * interference))
+            ap_interfer = [a for a in ap_active if a not in [ap]]
+            for ai in ap_interfer:
+                interference = self.system.ap.tx_power[ai] - \
+                               self.coupling_loss_wifi[ai, linked_stas]
 
-        # --- 3. CÁLCULO FINAL UNIFICADO (Onde ocorria o erro) ---
-        noise_floor_base = 10 * math.log10(BOLTZMANN_CONSTANT * self.parameters.wifi.noise_temperature * 1e3) + \
-                           10 * np.log10(self.param_system.bandwidth * 1e6)
+            self.system.sta.rx_interference[linked_stas] = 10 * np.log10(
+                np.power(10, 0.1 * self.system.sta.rx_interference[linked_stas]) +
+                np.power(10, 0.1 * interference)
+            )
+        #STA -> AP
+        coupling_loss_sta_ap = self.coupling_loss_wifi.T 
 
-        for manager in [self.system.sta, self.system.ap]:
-            # CONVERSÃO EXPLÍCITA: Transformamos dicts em arrays antes da conta
-            rx_power_arr = to_numpy_array(manager, 'rx_power')
-            rx_interf_arr = to_numpy_array(manager, 'rx_interference')
+        for ap in ap_active:
+            linked_stas = self.system.link[ap]
+            self.system.ap.rx_power[ap] = self.system.sta.tx_power[linked_stas] - \
+                                          coupling_loss_sta_ap[linked_stas, ap]
+
+            sta_interferers = [s for s in sta_active if s not in linked_stas]
             
-            # Cálculo do ruído térmico (kTB + Noise Figure)
-            manager.thermal_noise = noise_floor_base + manager.noise_figure
-            thermal_noise_arr = np.atleast_1d(manager.thermal_noise)
+            for si in sta_interferers:
+                # Potência da STA interferente menos a perda dela até o meu AP
+                interference = self.system.sta.tx_power[si] - \
+                               coupling_loss_sta_ap[si, ap]
 
-            # Cálculo da Interferência Total (Soma linear em mW)
-            # manager.total_interference agora recebe um array NumPy
-            total_interf_mw = np.power(10, 0.1 * rx_interf_arr) + \
-                              np.power(10, 0.1 * thermal_noise_arr)
-            manager.total_interference = 10 * np.log10(total_interf_mw)
+                self.system.ap.rx_interference[ap] = 10 * np.log10(
+                    np.power(10, 0.1 * self.system.ap.rx_interference[ap]) +
+                    np.power(10, 0.1 * interference)
+                )
+        #AP -> AP
+        coupling_loss_ap_ap = self.calculate_intra_wifi_coupling_loss(self.system.ap, self.system.ap)
+        for ap_victim in ap_active:
+            ap_interferers = [a for a in ap_active if a != ap_victim]
+            for ai in ap_interferers:
+                interference = self.system.ap.tx_power[ai] - \
+                               coupling_loss_ap_ap[ai, ap_victim]
+                
+                self.system.ap.rx_interference[ap_victim] = 10 * np.log10(
+                    np.power(10, 0.1 * self.system.ap.rx_interference[ap_victim]) +
+                    np.power(10, 0.1 * interference)
+                )
+        #STA -> STA
+        coupling_loss_sta_sta = self.calculate_intra_wifi_coupling_loss(self.system.sta, self.system.sta)
+        for sta_victim in sta_active:
+            sta_interferers = [s for s in sta_active if s != sta_victim]
+            for si in sta_interferers:
+                interference = self.system.sta.tx_power[si] - \
+                               coupling_loss_sta_sta[si, sta_victim]
 
-            # CÁLCULO DO SINR (Agora garantido: Array - Array)
-            # Isso resolve o TypeError: unsupported operand type(s) for -: 'dict' and 'float'
-            manager.sinr = rx_power_arr - manager.total_interference
-            manager.snr = rx_power_arr - thermal_noise_arr
+                self.system.sta.rx_interference[sta_victim] = 10 * np.log10(
+                    np.power(10, 0.1 * self.system.sta.rx_interference[sta_victim]) +
+                    np.power(10, 0.1 * interference)
+                )
+        
+        self.system.thermal_noise = \
+            10 * np.log10(BOLTZMANN_CONSTANT * self.param_system.noise_temperature * 1e3) + \
+            10 * np.log10(self.param_system.bandwidth * 1e6) 
+
+
+        self.system.ap.total_interference = 10 * np.log10(
+            10 ** (0.1 * self.system.ap.rx_interference) +
+            10 ** (0.1 * self.system.thermal_noise)
+        )
+        self.system.sta.total_interference = 10 * np.log10(
+            10 ** (0.1 * self.system.sta.rx_interference) +
+            10 ** (0.1 * self.system.thermal_noise)
+        )
+        self.system.ap.snr = self.system.ap.rx_power - self.system.ap.thermal_noise
+        self.system.sta.snr = self.system.sta.rx_power - self.system.sta.thermal_noise  
+        self.system.ap.sinr = self.system.ap.rx_power - self.system.ap.total_interference
+        self.system.sta.sinr = self.system.sta.rx_power - self.system.sta.total_interference
+
+        self.system.sinr = np.concatenate((self.system.ap.sinr.flatten(), self.system.sta.sinr.flatten()))
+        self.system.snr = np.concatenate((self.system.ap.snr.flatten(), self.system.sta.snr.flatten()))
+
+
     
     def collect_results_wifi(self, write_to_file: bool, snapshot_number: int):
         """

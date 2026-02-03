@@ -64,6 +64,19 @@ class SimulationLogger:
         csv_name: str,
         vals: list
     ):
+        """
+        Log a list of values to a CSV file.
+        Args:
+            csv_name (str): The name of the CSV file (without extension).
+            vals (list): A list of values to be logged to the CSV file.
+        Returns:
+            None
+        Notes:
+            - Creates a new CSV file if it doesn't exist.
+            - Appends values to the file if it already exists.
+            - Automatically writes a "samples" header row for new files.
+            - Each value is written as a separate row in a single column.
+        """
         p = cls._global_output_dir / f"{csv_name}.csv"
 
         write_header = not p.exists()

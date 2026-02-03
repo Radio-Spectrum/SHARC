@@ -11,7 +11,7 @@ import sys
 import math
 
 from sharc.support.geometry import (
-    DWNReferenceFrame, SimulatorGeometry, ENUReferenceFrame
+    DWNReferenceFrame, ENUReferenceFrame
 )
 from sharc.support.enumerations import StationType
 from sharc.parameters.parameters import Parameters

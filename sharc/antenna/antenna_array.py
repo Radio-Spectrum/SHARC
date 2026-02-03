@@ -57,8 +57,8 @@ class AntennaArray(Antenna):
     def set_always_first_beam(self):
         """Sets the antenna to always use the first beam.
 
-        In case this is called, then calculate_gains will sum all beams
-        contributions for each direction angle.
+        When this flag is set, :meth:`calculate_gain` ignores any ``beams_l``
+        argument and selects the first beam (index 0) for all direction angles.
         """
         self.always_first_beam = True
 
@@ -227,7 +227,7 @@ class AntennaArray(Antenna):
         dv: float, dh: float,
     ) -> typing.Tuple[np.ndarray, np.ndarray]:
         """
-        Calculates super position vector.
+        Calculates the complex weight vectors for beamforming.
         Angles are in the local coordinate system.
 
         Parameters

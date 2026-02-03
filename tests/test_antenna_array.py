@@ -64,7 +64,7 @@ class AntennaArrayTest(unittest.TestCase):
 
     def test_element_gain(self):
         """Testing element gain calculations"""
-        # self.antenna1._calculate_m2101_element_gain()
+
         """Test M.2101 horizontal pattern calculation for various phi values."""
         # phi = 0 results in zero gain
         phi = np.array([0., 120., 150.])
@@ -355,7 +355,4 @@ class AntennaArrayTest(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
-#
-#    suite = unittest.TestSuite()
-#    suite.addTest(AntennaArrayTest('test_calculate_gain'))
-#    unittest.TextTestRunner().run(suite)
+

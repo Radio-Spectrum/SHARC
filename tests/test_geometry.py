@@ -1,7 +1,7 @@
 import unittest
 import numpy as np
 import numpy.testing as npt
-from sharc.support.sharc_utils import wrap2_180
+
 from sharc.support.geometry import (
     SimulatorGeometry, DWNReferenceFrame, ENUReferenceFrame, RigidTransform
 )

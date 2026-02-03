@@ -44,7 +44,6 @@ from sharc.antenna.antenna_rs1861_9b import AntennaRS1861_9B
 from sharc.antenna.antenna_rs1861_9c import AntennaRS1861_9C
 from sharc.antenna.antenna_rs2043 import AntennaRS2043
 from sharc.antenna.antenna_s465 import AntennaS465
-from sharc.antenna.antenna_rra7_3 import AntennaReg_RR_A7_3
 from sharc.antenna.antenna_modified_s465 import AntennaModifiedS465
 from sharc.antenna.antenna_s580 import AntennaS580
 from sharc.antenna.antenna_s672 import AntennaS672
@@ -52,6 +51,7 @@ from sharc.antenna.antenna_s1528 import AntennaS1528
 from sharc.antenna.antenna_s1855 import AntennaS1855
 from sharc.antenna.antenna_s1528 import AntennaS1528, AntennaS1528Leo, AntennaS1528Taylor
 from sharc.antenna.antenna_beamforming_imt import AntennaBeamformingImt
+from sharc.antenna.antenna_system3_oob import AntennaSystem3Oob
 from sharc.topology.topology import Topology
 from sharc.topology.topology_ntn import TopologyNTN
 from sharc.topology.topology_macrocell import TopologyMacrocell
@@ -1873,15 +1873,15 @@ class StationFactory(object):
         # número de beams ativos
         SimulationLogger.log_to_csv("num_of_active_beams", [np.sum(mss_d2d.active)])
         # número de satélites, deduplicar posição
-        all_pos = np.stack((mss_d2d.geom.x_global, mss_d2d.geom.y_global, mss_d2d.geom.z_global), axis=-1)[mss_d2d.active]
-        uniq_pos, inv_idx = np.unique(
+        all_pos = np.stack((mss_d2d.geom.x_global, mss_d2d.geom.y_global, mss_d2d.geom.z_global), axis=-1)
+        _, sat_idx, num_of_beams_per_sat = np.unique(
             all_pos,
             axis=0,
-            return_inverse=True
+            return_index=True,
+            return_counts=True,
         )
-        SimulationLogger.log_to_csv("num_of_active_sat", [len(uniq_pos)])
-        beams_per_sat = np.bincount(inv_idx)
-        SimulationLogger.log_to_csv("num_of_active_beams_per_sat", beams_per_sat)
+        SimulationLogger.log_to_csv("num_of_sat", [len(num_of_beams_per_sat)])
+        SimulationLogger.log_to_csv("num_of_beams_per_sat", num_of_beams_per_sat)
 
         # Initialize satellites antennas
         # we need to initialize them after coordinates transformation because of
@@ -1896,12 +1896,41 @@ class StationFactory(object):
 
         # Initialize OOB antennas
         if params.use_oob_antenna and params.antenna.pattern != "ARRAY":
-            mss_d2d.oob_antenna = AntennaFactory.create_n_antennas(
-                params.oob_antenna,
-                mss_d2d.geom.pointn_azim_global,
-                mss_d2d.geom.pointn_elev_global,
-                mss_d2d.num_stations
-            )
+            # NOTE: Experimental feature for System3 unique OOBE Mask:
+            # The OOBE model is applied per satellite, considering all beams
+            # from the same satellite have the same OOBE mask.
+            # This is done by discounting the number of active beams per satellite (eta) and
+            # poiting all adjacent antennas to nadir.
+            beam_to_sat_idx = np.repeat(np.arange(len(num_of_beams_per_sat)), num_of_beams_per_sat[np.argsort(sat_idx)])
+            num_of_atcv_beams_per_sat = np.bincount(beam_to_sat_idx[mss_d2d.active])
+
+            if params.oob_antenna.pattern == "Antenna System3 OOB":
+                # We need the satelittes nadir vectors to make it work.
+                center_of_earth = StationManager(1)
+                center_of_earth.geom.set_global_coords(
+                    np.array([0.0]),
+                    np.array([0.0]),
+                    np.array([-coordinate_system.get_translation()]),
+                )
+                nadir_phi, nadir_theta = mss_d2d.geom.get_global_pointing_vector_to(center_of_earth.geom)
+                for a in range(mss_d2d.num_stations):
+                    if mss_d2d.active[a]:
+                        n_actv = num_of_atcv_beams_per_sat[beam_to_sat_idx[a]]
+                        n_total = num_of_beams_per_sat[np.argsort(sat_idx)][beam_to_sat_idx[a]]
+                        eta = 30 * np.log10(max(0.2, n_actv / n_total))
+                        gain = eta - 10 * np.log10(n_actv)  # the sum of all beam gains should be equal to the single beam case
+                        mss_d2d.oob_antenna[a] = AntennaSystem3Oob(
+                            gain=gain,
+                            azimuth_to_nadir=nadir_phi[a],
+                            elevation_to_nadir=nadir_theta[a],
+                        )
+            else:
+                mss_d2d.oob_antenna = AntennaFactory.create_n_antennas(
+                    params.oob_antenna,
+                    mss_d2d.geom.pointn_azim_global,
+                    mss_d2d.geom.pointn_elev_global,
+                    mss_d2d.num_stations
+                )
         else:
             mss_d2d.oob_antenna = mss_d2d.antenna
 

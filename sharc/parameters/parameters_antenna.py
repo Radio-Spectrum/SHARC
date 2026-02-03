@@ -29,7 +29,8 @@ class ParametersAntenna(ParametersBase):
         "ITU-R-S.1528-Taylor",
         "ITU-R-S.1528-Section1.2",
         "ITU-R-S.1528-LEO",
-        "Cosine Antenna"]
+        "Cosine Antenna",
+        "Antenna System3 OOB"]
 
     # chosen antenna radiation pattern
     pattern: typing.Literal["OMNI",
@@ -44,7 +45,8 @@ class ParametersAntenna(ParametersBase):
                             "ITU-R-S.1528-Taylor",
                             "ITU-R-S.1528-Section1.2",
                             "ITU-R-S.1528-LEO",
-                            "Cosine Antenna"] = None
+                            "Cosine Antenna",
+                            "Antenna System3 OOB"] = None
 
     # antenna gain [dBi]
     gain: float = None
@@ -198,6 +200,9 @@ class ParametersAntenna(ParametersBase):
                 self.itu_r_s_672.validate(f"{ctx}.itu_r_s_672")
             case "Cosine Antenna":
                 self.mss_adjacent.validate(f"{ctx}.mss_adjacent")
+            case "Antenna System3 OOB":
+                # FIXME: do validation here
+                pass
             case _:
                 raise NotImplementedError(
                     "ParametersAntenna.validate does not implement this antenna validation!", )

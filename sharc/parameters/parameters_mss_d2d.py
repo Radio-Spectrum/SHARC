@@ -213,10 +213,10 @@ class ParametersMssD2d(ParametersBase):
             bandwidth=self.bandwidth,
         )
         if self.use_oob_antenna:
-            if self.oob_antenna.pattern not in ["Cosine Antenna"]:  # only supported this pattern for now
+            if self.oob_antenna.pattern not in ["Cosine Antenna", "Antenna System3 OOB"]:  # only supported this pattern for now
                 raise ValueError(
                     f"ParametersMssD2d: Invalid out-of-band antenna pattern {
-                        self.oob_antenna.pattern}. Only 'Cosine Antenna' is supported.")
+                        self.oob_antenna.pattern}. Only 'Cosine Antenna' and 'Antenna System3 OOB' are supported.")
 
             self.oob_antenna.set_external_parameters(
                 frequency=self.frequency,

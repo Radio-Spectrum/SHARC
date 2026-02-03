@@ -1,4 +1,6 @@
 """
+Optimized implementation of M.2101 antenna array.
+
 This antenna was created after the already existing antenna_beamforming_imt
 since that implementation is too slow for use with a lot of stations.
 
@@ -12,16 +14,34 @@ from sharc.support.geometry import RigidTransform
 from sharc.support.sharc_geom import polar_to_cartesian, cartesian_to_polar
 
 import numpy as np
+import typing
 
 
 class AntennaArray(Antenna):
-    # par: ParametersAntennaImt
+    """Implements M.2101 antenna array."""
 
     def __init__(
         self,
         par: ParametersAntennaImt,
         global2local_transform: RigidTransform = None,
     ):
+        """Constructs antenna array.
+
+        Parameters
+        ----------
+        par: ParametersAntennaImt
+            Antenna parameters. Partial support only.
+        global2local_transform: RigidTransform, optional
+            Transformation from global to local coordinate system. If None,
+            no transformation is applied.
+
+        Notes
+        -----
+        By partial support, it is meant that not all parameters
+        from ParametersAntennaImt are used in this implementation.
+        For example, normalization and subarray support are not
+        implemented.
+        """
         super().__init__()
         self.par = par
         self.always_first_beam = False
@@ -35,15 +55,33 @@ class AntennaArray(Antenna):
                 )
 
     def set_always_first_beam(self):
-        """
+        """Sets the antenna to always use the first beam.
+
         In case this is called, then calculate_gains will sum all beams
         contributions for each direction angle.
         """
         self.always_first_beam = True
 
     def calculate_gain(self, *args, **kwargs) -> np.array:
-        """
-        Calculates the antenan gain.
+        """Calculates the antenna gain.
+
+        Parameters
+        ----------
+        phi_vec : np.ndarray
+            Azimuth angles [degrees] in global coordinate system.
+        theta_vec : np.ndarray
+            Elevation angles [degrees] in global coordinate system.
+        co_channel : bool, optional
+            If True, co-channel interference is considered (default is True).
+        beams_l : np.ndarray, optional
+            Indices of beams to consider for each angle. If not provided,
+            all beams are considered. Also, if always_first_beam is set,
+            this parameter is ignored.
+
+        Returns
+        -------
+        np.ndarray
+            Antenna gain [dBi] for each direction.
         """
         phi_vec = np.atleast_1d(kwargs["phi_vec"])
         theta_vec = np.atleast_1d(kwargs["theta_vec"])
@@ -84,6 +122,16 @@ class AntennaArray(Antenna):
     def _element_gain(
         self, phi: np.ndarray, theta: np.ndarray
     ):
+        """
+        Calculates the element gain for given angles.
+
+        Parameters
+        ----------
+        phi : np.ndarray
+            Azimuth angles [degrees] in local coordinate system.
+        theta : np.ndarray
+            Elevation angles [degrees] in local coordinate system.
+        """
         return self._element_gain_dispatch(
             self.par, phi, theta,
         )
@@ -93,6 +141,15 @@ class AntennaArray(Antenna):
         phi: np.ndarray, theta: np.ndarray,
         beam_idxs: np.ndarray
     ):
+        """Calculates the array gain for given angles and beam indices.
+
+        Notes
+        -----
+        The mathematical formulation is based on M.2101, but formulation
+        has been optimized for computational efficiency. It considers
+        separability of the array factor into row and column components,
+        allowing for reduced memory bandwidth and faster runtime.
+        """
         if len(self.beams_list) == 0:
             beam_phi, beam_theta = phi, theta
         else:
@@ -106,7 +163,10 @@ class AntennaArray(Antenna):
             self.par.element_vert_spacing,
             self.par.element_horiz_spacing,
         )
-        w_vec_row, w_vec_col = beams_w_vec_row[beam_idxs], beams_w_vec_col[beam_idxs]
+        w_vec_row, w_vec_col = (
+            beams_w_vec_row[beam_idxs],
+            beams_w_vec_col[beam_idxs]
+        )
 
         v_vec_row, v_vec_col = self._super_position_vector_components(
             phi, theta,
@@ -125,7 +185,7 @@ class AntennaArray(Antenna):
             )**2
         )
 
-        return g
+        return np.maximum(g, self.par.minimum_array_gain)
 
     @staticmethod
     def _super_position_vector(
@@ -165,19 +225,21 @@ class AntennaArray(Antenna):
         theta_tilt: np.ndarray,
         n_rows: int, n_cols: int,
         dv: float, dh: float,
-    ) -> np.array:
+    ) -> typing.Tuple[np.ndarray, np.ndarray]:
         """
         Calculates super position vector.
         Angles are in the local coordinate system.
 
         Parameters
         ----------
-            phi_tilt (float): electrical horizontal steering [degrees]
-            theta_tilt (float): electrical down-tilt steering [degrees]
+            phi_tilt: np.ndarray
+                electrical horizontal steering [degrees]
+            theta_tilt: np.ndarray
+                electrical down-tilt steering [degrees]
 
         Returns
         -------
-            w_vec (np.array, np.array):
+            w_vec: (np.ndarray, np.ndarray)
                 weighting vectors, first for rows, second for columns
         """
         # shape (Na, 1, 1)
@@ -201,7 +263,6 @@ class AntennaArray(Antenna):
 
         w_vec_m = np.exp(2 * np.pi * 1.0j * exp_arg_m)
 
-        # shape (Na, Nr, Nc)
         return (w_vec_n, w_vec_m)
 
     @staticmethod
@@ -209,19 +270,27 @@ class AntennaArray(Antenna):
         phi: float, theta: float,
         n_rows: int, n_cols: int,
         dv: float, dh: float,
-    ) -> np.array:
+    ) -> typing.Tuple[np.ndarray, np.ndarray]:
         """
         Calculates super position vector.
         Angles are in the local coordinate system.
 
         Parameters
         ----------
-            theta (float): elevation angle [degrees]
-            phi (float): azimuth angle [degrees]
+            theta: float
+                elevation angle [degrees]
+            phi: float
+                azimuth angle [degrees]
 
         Returns
         -------
-            v_vec (np.array): superposition vector
+        v_vec: typing.Tuple[np.ndarray, np.ndarray]:
+            superposition vector components, first for rows, second for columns
+
+        Notes
+        -----
+        This implementation is optimized for computational efficiency,
+        using recursive relationships to avoid redundant calculations.
         """
         phi = np.atleast_1d(phi)
         theta = np.atleast_1d(theta)
@@ -243,7 +312,7 @@ class AntennaArray(Antenna):
         )
         row_phase[:, 1:] = row_phase_term[:, None]
         # recursive relationship by cumulative product
-        row_phase = np.cumprod(row_phase, axis=-1)
+        np.cumprod(row_phase, axis=-1, out=row_phase)
 
         # instead of calculating exp for every col, there is a recursive
         # relation that speeds this up. Small n_cols means that floating
@@ -258,12 +327,24 @@ class AntennaArray(Antenna):
         )
         col_phase[:, 1:] = col_phase_term[:, None]
         # recursive relationship by cumulative product
-        col_phase = np.cumprod(col_phase, axis=-1)
+        np.cumprod(col_phase, axis=-1, out=col_phase)
 
         return (row_phase, col_phase)
 
     @staticmethod
     def _element_gain_dispatch(par: ParametersAntennaImt, phi, theta):
+        """
+        Dispatch to the correct element gain calculation method.
+
+        Parameters
+        ----------
+        par: ParametersAntennaImt
+            Antenna parameters.
+        phi: np.ndarray
+            Azimuth angles [degrees] in local coordinate system.
+        theta: np.ndarray
+            Elevation angles [degrees] in local coordinate system.
+        """
         if par.element_pattern == "M2101":
             return AntennaArray._calculate_m2101_element_gain(
                 phi, theta,
@@ -284,8 +365,7 @@ class AntennaArray(Antenna):
         g_max: np.ndarray, sla_v: np.ndarray, am: np.ndarray,
         multiplication_factor: np.ndarray = 12
     ):
-        """Calculates and returns element gain as described in M.2101
-        """
+        """Calculates and returns element gain as described in M.2101."""
         g_horizontal = -1.0 * np.minimum(
             multiplication_factor * (phi / phi_3db)**2, am
         )
@@ -301,6 +381,31 @@ class AntennaArray(Antenna):
         return g_max - np.minimum(att, am)
 
     def _to_local_coord(self, phi, theta):
+        """
+        Transform angles from global to local coordinate system.
+
+        Parameters
+        ----------
+        phi: np.ndarray
+            Azimuth angles [degrees] in global coordinate system.
+        theta: np.ndarray
+            Elevation angles [degrees] in global coordinate system.
+
+        Returns
+        -------
+        phi: np.ndarray
+            Azimuth angles [degrees] in local coordinate system.
+        theta: np.ndarray
+            Elevation angles [degrees] in local coordinate system.
+
+        Notes
+        -----
+        The transformation is done by converting to Cartesian coordinates,
+        applying the transformation defined on construction,
+        and converting back to spherical coordinates. It is assumed that
+        theta is defined with z axis as reference, and phi with x axis as reference
+        and increasing towards y axis.
+        """
         if self.global2local_transform is None:
             return np.array(phi), np.array(theta)
 
@@ -324,12 +429,13 @@ class AntennaArray(Antenna):
 
         Parameters
         ----------
-            phi_etilt (float): azimuth electrical tilt angle [degrees]
-            theta_etilt (float): elevation electrical tilt angle [degrees]
+            phi_etilt: float
+                azimuth electrical tilt angle [degrees]
+            theta_etilt: float
+                elevation electrical tilt angle [degrees]
         """
         phi_etilt, theta_etilt = np.atleast_1d(phi_etilt), np.atleast_1d(theta_etilt)
 
-    # def add_beam_in_local_coords(self):
         self.beams_list.append(
             (np.ndarray.item(phi_etilt), np.ndarray.item(theta_etilt)),
         )

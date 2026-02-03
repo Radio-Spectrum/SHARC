@@ -333,11 +333,13 @@ class RigidTransform:
 
     @property
     def N(self):
+        """Number of transforms represented"""
         n_rot = len(self.rot)
         n_t = self.t.shape[0]
         return max(n_rot, n_t)
 
     def inv(self) -> "RigidTransform":
+        """Returns the inverse transform"""
         rot_inv = self.rot.inv()
         t_inv = -rot_inv.apply(self.t)
         return RigidTransform(rot_inv, t_inv)
@@ -350,6 +352,7 @@ class RigidTransform:
         )
 
     def take(self, idx: int) -> "RigidTransform":
+        """Takes the idx-th transform from the batch"""
         # NOTE: we slice instead of taking indice to maintain
         # array shape structure for functional broadcasting
         # and batch computing
@@ -405,10 +408,12 @@ class ReferenceFrame(ABC):
 
     @property
     def from_ecef(self) -> RigidTransform:
+        """Returns the transform from ECEF to the local coordinate system."""
         return self._from_ecef
 
     @property
     def to_ecef(self) -> RigidTransform:
+        """Returns the transform from the local coordinate system to ECEF."""
         return self._to_ecef
 
 
@@ -486,9 +491,9 @@ class DWNReferenceFrame(ENUReferenceFrame):
     """
     ENU2DWN_ROT = scipy.spatial.transform.Rotation.from_matrix(
         np.array([[
-            [0,  0, -1],
-            [-1,  0,  0],
-            [0,  1,  0],
+            [0, 0, -1],
+            [-1, 0, 0],
+            [0, 1, 0],
         ]])
     )
 

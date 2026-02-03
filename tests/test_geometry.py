@@ -29,10 +29,12 @@ def random_rigid_transform(rng, N):
 
 
 def rot_identity(n=1):
+    """Returns identity rotation of batch size n."""
     return Rotation.from_rotvec(np.zeros((n, 3)))
 
 
 def rot_z(angle_deg, n=1):
+    """Returns rotation about Z axis by angle_deg degrees, batch size n."""
     return Rotation.from_rotvec(
         np.tile([0.0, 0.0, angle_deg], (n, 1)),
         degrees=True
@@ -40,6 +42,7 @@ def rot_z(angle_deg, n=1):
 
 
 def rot_x(angle_deg, n=1):
+    """Returns rotation about X axis by angle_deg degrees, batch size n."""
     return Rotation.from_rotvec(
         np.tile([angle_deg, 0.0, 0.0], (n, 1)),
         degrees=True
@@ -47,6 +50,7 @@ def rot_x(angle_deg, n=1):
 
 
 def rot_y(angle_deg, n=1):
+    """Returns rotation about Y axis by angle_deg degrees, batch size n."""
     return Rotation.from_rotvec(
         np.tile([0.0, angle_deg, 0.0], (n, 1)),
         degrees=True
@@ -54,10 +58,14 @@ def rot_y(angle_deg, n=1):
 
 
 class TestRigidTransform(unittest.TestCase):
+    """Unit tests for RigidTransform class."""
+
     def setUp(self):
+        """Set up test fixtures for RigidTransform tests."""
         pass
 
     def test_init_and_broadcasting(self):
+        """Test RigidTransform initialization and broadcasting behavior."""
         for rot_shp, t_shp in product(
             [(1, 3), (4, 3)],
             [(1, 3), (4, 3)],
@@ -108,6 +116,7 @@ class TestRigidTransform(unittest.TestCase):
                 )
 
     def test_simple_transformations(self):
+        """Test RigidTransform simple transformations and their combinations."""
         eps = 1e-4
 
         ux = np.array([1., 0., 0.])
@@ -250,6 +259,7 @@ class TestRigidTransform(unittest.TestCase):
         )
 
     def test_permutation_points_equivalence(self):
+        """Test equivalence of permutation and non-permutation point applications."""
         rng = np.random.default_rng(0)
 
         for n in range(1, 10):
@@ -268,6 +278,7 @@ class TestRigidTransform(unittest.TestCase):
             )
 
     def test_permutation_vectors_equivalence(self):
+        """Test equivalence of permutation and non-permutation vector applications."""
         rng = np.random.default_rng(0)
 
         for n in range(1, 10):
@@ -286,6 +297,7 @@ class TestRigidTransform(unittest.TestCase):
             )
 
     def test_take_commutes_with_apply_points(self):
+        """Test that 'take' method commutes with apply_points."""
         rng = np.random.default_rng(0)
 
         for n in range(1, 10):
@@ -303,6 +315,7 @@ class TestRigidTransform(unittest.TestCase):
                 )
 
     def test_take_matches_permutation_points(self):
+        """Test that 'take' method matches permutation point applications."""
         rng = np.random.default_rng(1)
 
         for n in [2, 5]:
@@ -323,6 +336,7 @@ class TestRigidTransform(unittest.TestCase):
                 )
 
     def test_take_matches_permutation_vectors(self):
+        """Test that 'take' method matches permutation vector applications."""
         rng = np.random.default_rng(1)
 
         for n in [2, 5]:
@@ -344,7 +358,10 @@ class TestRigidTransform(unittest.TestCase):
 
 
 class TestDWNReferenceFrame(unittest.TestCase):
+    """Unit tests for DWNReferenceFrame class."""
+
     def setUp(self):
+        """Set up test fixtures for DWNReferenceFrame tests."""
         self.lat = np.array([0.0])
         self.lon = np.array([0.0])
         self.alt = np.array([0.0])
@@ -357,6 +374,7 @@ class TestDWNReferenceFrame(unittest.TestCase):
         )
 
     def test_enu_to_dwn_basis(self):
+        """Test transformation of basis vectors from ENU to DWN."""
         # ENU basis vectors
         e = np.array([1.0, 0.0, 0.0])  # East
         n = np.array([0.0, 1.0, 0.0])  # North

@@ -315,9 +315,7 @@ b
         use_separated_beams = False
         if imt_station.station_type is StationType.IMT_UE:
             # define antenna gains
-            # shape: (n_sys, n_imt)
-            gain_sys_to_imt = self.calculate_gains(system_station, imt_station)
-            # shape: (n_sys, n_imt)
+            gain_sys_to_imt = self.calculate_gains(system_station, imt_station, system_inband)
             gain_imt_to_sys = np.transpose(
                 self.calculate_gains(
                     imt_station,

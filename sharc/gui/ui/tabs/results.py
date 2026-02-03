@@ -2,12 +2,12 @@ import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 import os
 import glob
-import time
 import stat
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+from matplotlib.ticker import LogFormatterMathtext
 from pathlib import Path
 import posixpath
 
@@ -18,7 +18,11 @@ except ImportError:
     paramiko = None
 
 # Import global configurations (assuming config.py exists)
-from config import RESULT_FIELDNAME_TO_PLOT_INFO
+try:
+    from config import RESULT_FIELDNAME_TO_PLOT_INFO
+except ImportError:
+    # Fallback if config is missing to allow the script to run
+    RESULT_FIELDNAME_TO_PLOT_INFO = {}
 
 
 class ResultsTab:
@@ -73,13 +77,31 @@ class ResultsTab:
                 "legend_suffix": ""
             })
 
-        # UI Control Variables (create if they don't exist in app)
+        # --- UI Control Variables (FIXED: Initialize all vars to avoid crashes) ---
         if not hasattr(self.app, "var_results_src"):
             self.app.var_results_src = tk.StringVar(value="LOCAL")
         if not hasattr(self.app, "var_remote_results_dir"):
             self.app.var_remote_results_dir = tk.StringVar(value="/home")
         if not hasattr(self.app, "var_plot_selected_only"):
             self.app.var_plot_selected_only = tk.BooleanVar(value=False)
+
+        # Grid vars
+        if not hasattr(self.app, "var_rows"):
+            self.app.var_rows = tk.IntVar(value=1)
+        if not hasattr(self.app, "var_cols"):
+            self.app.var_cols = tk.IntVar(value=1)
+
+        # Plot option vars
+        if not hasattr(self.app, "var_xlog"):
+            self.app.var_xlog = tk.BooleanVar(value=False)
+        if not hasattr(self.app, "var_auto_update"):
+            self.app.var_auto_update = tk.BooleanVar(value=False)
+        if not hasattr(self.app, "var_update_period_ms"):
+            self.app.var_update_period_ms = tk.StringVar(value="1000")
+
+        # Fallback for export dpi if not present
+        if not hasattr(self.app, "var_export_dpi"):
+            self.app.var_export_dpi = tk.IntVar(value=300)
 
         # Style Editing Variables
         self.var_style_label = tk.StringVar()
@@ -102,10 +124,6 @@ class ResultsTab:
         # 1. Results Source (Local vs Remote)
         frm_src = ttk.LabelFrame(left, text="Results Source")
         frm_src.pack(fill="x", pady=(0, 5))
-
-        #
-        # This section toggles between local file access and remote access via SSH.
-        # The image illustrates how the client connects to the remote server to retrieve data.
 
         ttk.Radiobutton(frm_src, text="Local", value="LOCAL", variable=self.app.var_results_src,
                         command=self._refresh_src_ui).pack(side="left", padx=5)
@@ -203,9 +221,6 @@ class ResultsTab:
         frm_glob = ttk.LabelFrame(left, text="Global Options")
         frm_glob.pack(fill="x", pady=(0, 5))
 
-        #
-        # This checkbox toggles the X-axis between linear and logarithmic scales,
-        # useful for visualizing data that spans multiple orders of magnitude.
         ttk.Checkbutton(frm_glob, text="Log X Axis", variable=self.app.var_xlog,
                         command=self._draw_results_plots).pack(anchor="w", padx=2)
 
@@ -217,7 +232,7 @@ class ResultsTab:
                   width=5).pack(side="left", padx=2)
         ttk.Label(frm_auto, text="ms").pack(side="left")
 
-        ttk.Button(frm_glob, text="Export Figure",
+        ttk.Button(frm_glob, text="Export Figure (1920x1080)",
                    command=self._export_results_fig).pack(fill="x", padx=2, pady=2)
 
         # ==================== PLOT (RIGHT) ====================
@@ -355,7 +370,9 @@ class ResultsTab:
                     self._draw_results_plots()
         else:
             # Local
-            init = str(Path(self.app.var_outdir.get() or Path.cwd()))
+            # Safer fallback if var_outdir isn't set on app
+            init = str(
+                Path(getattr(self.app.var_outdir, "get", lambda: Path.cwd())()))
             path = filedialog.askdirectory(
                 initialdir=init, title="Select Folder")
             if path:
@@ -367,11 +384,12 @@ class ResultsTab:
 
     def _add_current_outdir(self):
         """Adds the current output directory to the comparison list."""
-        path = str(Path(self.app.var_outdir.get()))
-        if path and path not in self.app.res_dirs:
-            self.app.res_dirs.append(path)
-            self._insert_tag_lb(path)
-            self._draw_results_plots()
+        if hasattr(self.app, "var_outdir"):
+            path = str(Path(self.app.var_outdir.get()))
+            if path and path not in self.app.res_dirs:
+                self.app.res_dirs.append(path)
+                self._insert_tag_lb(path)
+                self._draw_results_plots()
 
     def _remove_dir(self):
         """Removes the selected directories from the list."""
@@ -476,10 +494,6 @@ class ResultsTab:
 
         _refresh()
 
-        #
-        # This section defines criteria lines. For example, setting 'p' to 95
-        # draws a line indicating the value below which 95% of observations fall (95th percentile).
-
         # Inputs
         frm = ttk.Frame(win)
         frm.pack(fill="x", padx=5, pady=5)
@@ -498,11 +512,15 @@ class ResultsTab:
                      "black", "red", "blue", "green"], width=8).pack(side="left")
 
         def _add():
-            criteria_list.append({
-                "x": v_x.get(), "p": v_p.get(), "label": v_l.get(), "color": v_c.get(), "ls": ":", "lw": 1.0
-            })
-            _refresh()
-            self._draw_results_plots()
+            try:
+                criteria_list.append({
+                    "x": v_x.get(), "p": v_p.get(), "label": v_l.get(), "color": v_c.get(), "ls": ":", "lw": 1.0
+                })
+                _refresh()
+                self._draw_results_plots()
+            except tk.TclError:
+                messagebox.showerror(
+                    "Error", "Invalid number format for X or Prob.")
 
         def _del():
             sel = tv.selection()
@@ -663,7 +681,11 @@ class ResultsTab:
 
     def _remote_cache_base(self):
         """Returns the path for caching remote files locally."""
-        out = str(Path(self.app.var_outdir.get()))
+        if hasattr(self.app, "var_outdir"):
+            out = str(Path(self.app.var_outdir.get()))
+        else:
+            out = str(Path.cwd())
+
         base = os.path.join(out, "_remote_cache")
         os.makedirs(base, exist_ok=True)
         return base
@@ -743,7 +765,11 @@ class ResultsTab:
                     return data
 
             # Read CSV
-            df = pd.read_csv(target_file)
+            try:
+                df = pd.read_csv(target_file)
+            except pd.errors.EmptyDataError:
+                return None
+
             col_data = None
             if field in df.columns:
                 col_data = df[field].values
@@ -767,11 +793,10 @@ class ResultsTab:
 
     def _compute_ecdf(self, x, ccdf=False):
         """Computes the Empirical Cumulative Distribution Function."""
-        #
-        # ECDF sorts the data points and assigns a probability (y-axis) to each value (x-axis),
-        # creating a step function. CCDF is simply 1 - ECDF.
         x = np.sort(x)
         n = x.size
+        if n == 0:
+            return np.array([]), np.array([])
         y = np.arange(1, n + 1) / n
         if ccdf:
             y = 1.0 - y
@@ -803,9 +828,10 @@ class ResultsTab:
         else:
             tags_to_plot = list(all_tags)
             if not tags_to_plot:
-                cur = str(Path(self.app.var_outdir.get()))
-                if os.path.exists(cur):
-                    tags_to_plot = [cur]
+                if hasattr(self.app, "var_outdir"):
+                    cur = str(Path(self.app.var_outdir.get()))
+                    if os.path.exists(cur):
+                        tags_to_plot = [cur]
 
         for i in range(n_axes):
             ax = axes_flat[i]
@@ -844,8 +870,10 @@ class ResultsTab:
                 if ls != "Auto":
                     kwargs["linestyle"] = ls
 
-                # Clip for Log scale
+                # Clip for Log scale (avoid zero/negative)
                 if ysc == "Log":
+                    # For CCDF, ys is 1 down to 0. Clip bottom.
+                    # Standard clip to 1e-5
                     ys = np.clip(ys, 1e-5, 1.0)
 
                 ax.plot(xs, ys, **kwargs)
@@ -882,11 +910,14 @@ class ResultsTab:
 
             if ysc == "Log":
                 ax.set_yscale("log")
-                ax.set_ylim(bottom=1e-4)
+                # Use Mathtext formatter for Base 10 style (10^-2 instead of 0.01)
+                ax.yaxis.set_major_formatter(LogFormatterMathtext())
+                ax.set_ylim(bottom=1e-5)  # Match clip limit
 
             if self.app.var_xlog.get():
                 try:
                     ax.set_xscale("log")
+                    ax.xaxis.set_major_formatter(LogFormatterMathtext())
                 except:
                     pass
 
@@ -902,19 +933,28 @@ class ResultsTab:
         self.canvas_res.draw_idle()
 
         if self.app.var_auto_update.get():
-            ms = int(self.app.var_update_period_ms.get())
+            try:
+                ms = int(self.app.var_update_period_ms.get())
+            except ValueError:
+                ms = 1000
             self._plot_auto_job = self.app.after(
                 max(500, ms), self._draw_results_plots)
 
     def _export_results_fig(self):
-        """Exports the current figure to a file."""
+        """Exports the current figure to a file at 1920x1080 resolution."""
         path = filedialog.asksaveasfilename(defaultextension=".png", filetypes=[
                                             ("PNG", "*.png"), ("PDF", "*.pdf")])
         if path:
-            dpi = getattr(self.app, "var_export_dpi",
-                          tk.IntVar(value=300)).get()
-            self.fig_res.savefig(path, dpi=dpi)
-            messagebox.showinfo("Export", f"Saved: {path}")
+            # FIX: Force 1920x1080 resolution (19.2 x 10.8 inches @ 100 DPI)
+            original_size = self.fig_res.get_size_inches()
+            try:
+                self.fig_res.set_size_inches(19.2, 10.8)
+                self.fig_res.savefig(path, dpi=100)
+                messagebox.showinfo("Export", f"Saved: {path}")
+            finally:
+                # Restore original size for GUI display
+                self.fig_res.set_size_inches(original_size)
+                self.canvas_res.draw()
 
     def _schedule_auto_update(self):
         """Toggles the automatic update timer."""

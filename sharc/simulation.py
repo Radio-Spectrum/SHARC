@@ -766,7 +766,7 @@ class Simulation(ABC, Observable):
         else:
             sys_to_imt_antenna_gain = self.system_imt_antenna_gain
 
-        eirp_dBW_MHz = self.system.tx_power_density + 60 + \
+        eirp_dBW_MHz = self.system.tx_power_density[:, np.newaxis] + 60 + \
             sys_to_imt_antenna_gain
         dist_sys_to_imt = self.system.geom.get_3d_distance_to(imt_station.geom)
         self.system_imt_pfd = eirp_dBW_MHz - 10.992098640220963 - 20 * np.log10(dist_sys_to_imt)

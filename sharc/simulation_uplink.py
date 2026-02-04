@@ -158,12 +158,16 @@ class SimulationUplink(Simulation):
             ue_interf = np.where(bs_to_ue_path_mask[bs])[0]
             ue_interf = [ui for ui in ue_interf if ui not in ue]
 
-            # calculate intra system interference
-            interference_per_beam = self.ue.tx_power[ue_interf] - \
-                self.coupling_loss_imt[bs, ue_interf]
-            self.bs.rx_interference[bs] = 10 * np.log10(
-                np.power(10, 0.1 * interference_per_beam),
-            )
+            if len(ue_interf) != 0:
+                # calculate intra system interference
+                interference_per_beam = self.ue.tx_power[ue_interf] - \
+                    self.coupling_loss_imt[bs, ue_interf]
+                self.bs.rx_interference[bs] = 10 * np.log10(
+                    np.power(10, 0.1 * interference_per_beam),
+                )
+            else:
+                # No active interfering UEs
+                self.bs.rx_interference[bs] = -500. * np.ones_like(self.bs.rx_power[bs])
 
             # calculate N
             # thermal noise in dBm

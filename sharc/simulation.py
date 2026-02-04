@@ -693,6 +693,8 @@ class Simulation(ABC, Observable):
             ant_gain_ap_to_sta,
         )
 
+        if wifi_sta_station is wifi_ap_station:
+            np.fill_diagonal(path_loss, np.inf)
         # Collect Wi-Fi AP and STA antenna gain samples
         self.path_loss_wifi = np.transpose(path_loss)
         self.ap_antenna_gain = ant_gain_ap_to_sta

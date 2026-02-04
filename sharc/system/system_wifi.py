@@ -300,7 +300,7 @@ class SystemWifi:
             ]
             self.link[ap] = sta_list
 
-    def select_sta(self, random_number_gen: np.random.RandomState, parameters: ParametersWifiSystem):
+    def select_sta(self, random_number_gen: np.random.RandomState):
         """
         Select K STAs randomly from all the STAs linked to one AP as “chosen”
         STAs. These K “chosen” STAs will be scheduled during this snapshot.
@@ -323,7 +323,7 @@ class SystemWifi:
         for ap in ap_active:
             # Select K STA's among the ones that are connected to this AP
             random_number_gen.shuffle(self.link[ap])
-            K = parameters.sta.k
+            K = self.parameters.sta.k
             del self.link[ap][K:]
             
             # Activate the selected STA's and create beams if the AP is active

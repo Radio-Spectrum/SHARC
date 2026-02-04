@@ -95,10 +95,12 @@ class SimulationDownlink(Simulation):
         if self.parameters.general.system == "WIFI":
             self.system.connect_wifi_sta_to_ap(self.parameters.wifi)
             self.system.run_csma_ca_scheduling(random_number_gen)
+            self.system.select_sta(random_number_gen)
             #self.power_control_wifi()
 
             self.coupling_loss_wifi = self.calculate_intra_wifi_coupling_loss(
-                self.system.ap, self.system.sta,)
+                self.system.sta, self.system.ap,)
+            
             self.calculate_sinr_wifi()
             
             
@@ -1137,28 +1139,35 @@ class SimulationDownlink(Simulation):
         #AP -> STA
         for ap in ap_active:
             linked_stas = self.system.link[ap]
+            if len(linked_stas) == 0:
+                continue
             self.system.sta.rx_power[linked_stas] = self.system.ap.tx_power[ap] - \
                 self.coupling_loss_wifi[ap, linked_stas]
 
             ap_interfer = [a for a in ap_active if a not in [ap]]
+            if len(ap_interfer) == 0:
+                continue
             for ai in ap_interfer:
                 interference = self.system.ap.tx_power[ai] - \
                                self.coupling_loss_wifi[ai, linked_stas]
 
-            self.system.sta.rx_interference[linked_stas] = 10 * np.log10(
-                np.power(10, 0.1 * self.system.sta.rx_interference[linked_stas]) +
-                np.power(10, 0.1 * interference)
-            )
+                self.system.sta.rx_interference[linked_stas] = 10 * np.log10(
+                    np.power(10, 0.1 * self.system.sta.rx_interference[linked_stas]) +
+                    np.power(10, 0.1 * interference)
+                )
         #STA -> AP
         coupling_loss_sta_ap = self.coupling_loss_wifi.T 
 
         for ap in ap_active:
             linked_stas = self.system.link[ap]
+            if len(linked_stas) == 0:
+                continue
             self.system.ap.rx_power[ap] = self.system.sta.tx_power[linked_stas] - \
                                           coupling_loss_sta_ap[linked_stas, ap]
 
             sta_interferers = [s for s in sta_active if s not in linked_stas]
-            
+            if len(sta_interferers) == 0:
+                continue
             for si in sta_interferers:
                 # Potência da STA interferente menos a perda dela até o meu AP
                 interference = self.system.sta.tx_power[si] - \
@@ -1206,7 +1215,7 @@ class SimulationDownlink(Simulation):
             10 ** (0.1 * self.system.sta.rx_interference) +
             10 ** (0.1 * self.system.thermal_noise)
         )
-        self.system.ap.snr = self.system.ap.rx_power - self.system.ap.thermal_noise
+        self.system.ap.snr = self.system.ap.rx_power - self.system.ap.thermal_noise[:, np.newaxis]
         self.system.sta.snr = self.system.sta.rx_power - self.system.sta.thermal_noise  
         self.system.ap.sinr = self.system.ap.rx_power - self.system.ap.total_interference
         self.system.sta.sinr = self.system.sta.rx_power - self.system.sta.total_interference
@@ -1234,18 +1243,49 @@ class SimulationDownlink(Simulation):
 
         ap_active = np.where(self.system.ap.active)[0]
         sta_active = np.where(self.system.sta.active)[0]
+
+        offset_sta_start = self.system.ap.sinr.size
+        # Cria cópia para não alterar a simulação em andamento
+        global_sinr_clean = np.array(self.system.sinr, copy=True)
+        global_snr_clean  = np.array(self.system.snr, copy=True)
+
+        # Aplica Teto (Hardware Limit: 45 dB)
+        global_sinr_clean = np.clip(global_sinr_clean, a_min=None, a_max=45.0)
+        global_snr_clean  = np.clip(global_snr_clean,  a_min=None, a_max=45.0)
+
+        # Aplica Piso (Remover Mortos/Erros: -120 dB)
+        global_sinr_clean[global_sinr_clean < -120] = -120.0
+        global_snr_clean[global_snr_clean < -120]   = -120.0
+
         for ap in ap_active:
-            sta = self.system.link[ap]  
+            sta_indices = np.atleast_1d(self.system.link[ap]).astype(int)
+            sta = self.system.link[ap]
             # Coleta resultados básicos do WiFi
             self.results.wifi_path_loss.extend(self.path_loss_wifi[ap, sta])
             self.results.wifi_coupling_loss.extend(self.coupling_loss_wifi[ap, sta])
             self.results.wifi_ap_antenna_gain.extend(self.ap_antenna_gain[ap, sta])
             self.results.wifi_sta_antenna_gain.extend(self.sta_antenna_gain[ap, sta])
 
-            # Coleta resultados de potência e SINR do WiFi
-            #self.results.wifi_dl_tx_power.extend(self.system.ap.tx_power[ap].tolist())
-            self.results.wifi_dl_sinr.extend(self.system.sta.sinr[sta].tolist())
-            self.results.wifi_dl_snr.extend(self.system.sta.snr[sta].tolist())
+            val_ul_sinr = global_sinr_clean[ap]
+            val_ul_sinr = np.repeat(val_ul_sinr, len(sta_indices))
+            
+            val_ul_snr  = global_snr_clean[ap]
+            val_ul_snr  = np.repeat(val_ul_snr, len(sta_indices))
+
+            # 3. DOWNLINK (STA) - RECUPERAÇÃO COM OFFSET
+            # Agora funciona: array([0, 5]) + 100 = array([100, 105])
+            # IMPORTANTE: Use 'sta_indices' aqui, NÃO use 'sta'
+            val_dl_sinr = global_sinr_clean[offset_sta_start + sta_indices]
+            val_dl_snr  = global_snr_clean[offset_sta_start + sta_indices]
+
+            # 4. CONCATENAÇÃO
+            # Junta o que a STA ouviu com o que o AP ouviu
+            link_sinr = np.concatenate((val_dl_sinr, val_ul_sinr))
+            link_snr  = np.concatenate((val_dl_snr, val_ul_snr))
+
+            # 5. SALVA NOS RESULTADOS
+            self.results.wifi_dl_sinr.extend(link_sinr.tolist())
+            self.results.wifi_dl_snr.extend(link_snr.tolist())
         
             #Calculate throughput for wifi
             wifi_tput = self.calculate_imt_tput(

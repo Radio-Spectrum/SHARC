@@ -71,6 +71,8 @@ class PropagationUMi(Propagation):
         else:
             distance_2d = station_a.get_distance_to(station_b)
             distance_3d = station_a.get_3d_distance_to(station_b)
+            if station_a is station_b:
+                np.fill_diagonal(distance_3d, 1.0)
 
         loss = self.get_loss(
             distance_3d,

@@ -266,6 +266,78 @@ class PreviewTab:
 
             self._draw_country_borders()
 
+            # --- MERGED: TopologyCountries Visualization ---
+            if HAS_TOPO and TopologyCountries and ParametersCountries:
+                # Helper to safely get value from tk var
+                def _safe_get(var, default="0"):
+                    val = var.get()
+                    return val if val else default
+
+                # Determine population raster
+                pop_raster = ""
+                if hasattr(self.app, 'topo_raster_enc') and self.app.topo_raster_enc.get() == "Uniforme":
+                    pop_raster = ""
+                else:
+                    pop_raster = (self.app.path_raster.get().strip(
+                    ) if hasattr(self.app, 'path_raster') else "")
+
+                try:
+                    # Retrieve country list from text widget (assumes it exists in app or tab_imt)
+                    country_text = ""
+                    if hasattr(self.app, 'tab_imt') and hasattr(self.app.tab_imt, 'txt_countries'):
+                        country_text = self.app.tab_imt.txt_countries.get(
+                            "1.0", "end")
+                    elif hasattr(self.app, 'txt_countries'):
+                        country_text = self.app.txt_countries.get("1.0", "end")
+
+                    countries = [c.strip()
+                                 for c in country_text.splitlines() if c.strip()]
+
+                    # Instantiate ParametersCountries using app variables
+                    params = ParametersCountries(
+                        country_names=countries,
+                        num_bs_total=int(
+                            float(_safe_get(self.app.topo_num_bs))),
+                        rng_seed=int(float(_safe_get(self.app.topo_rng))),
+                        cell_radius=float(
+                            _safe_get(self.app.topo_cell_radius)),
+                        countries_shapefile=_safe_get(self.app.path_shp, ""),
+                        population_raster=pop_raster,
+                        raster_encoding=_safe_get(
+                            self.app.raster_encoding, ""),
+                        sedac_palette_mode=_safe_get(
+                            self.app.sedac_mode, "Linear"),
+                        sedac_min=float(_safe_get(self.app.sedac_min)),
+                        sedac_max=float(_safe_get(self.app.sedac_max)),
+                        pixel_area_method=_safe_get(
+                            self.app.pixel_area_method, "Seno"),
+                        dist_type=_safe_get(self.app.topo_dist_type),
+                        fixed_azimuth=None,
+                    )
+
+                    geoconv = GeometryConverter()
+                    geoconv.set_reference(
+                        float(_safe_get(self.app.topo_c_lat)),
+                        float(_safe_get(self.app.topo_c_lon)),
+                        float(_safe_get(self.app.topo_c_alt))
+                    )
+
+                    # Calculate topology coordinates
+                    topo = TopologyCountries(
+                        params, geoconv).calculate_coordinates()
+
+                    # Convert to ECEF for plotting (offset altitude slightly for visibility)
+                    x, y, z = lla_to_ecef(
+                        topo.lats, topo.lons, np.zeros_like(topo.lats) + 500)
+
+                    self.ax3d.scatter(x, y, z, c="tab:red", s=6,
+                                      depthshade=False, label="BS (countries)", zorder=10)
+
+                except Exception as e:
+                    # Fail silently or print to console to avoid spamming popups during preview adjustment
+                    print(
+                        f"Preview Warning: Failed to render COUNTRIES points: {e}")
+
             # Draw points (Spacecraft, Earth Station)
             self._draw_global_markers(sx, sy, sz, ex, ey, ez)
 
@@ -275,6 +347,7 @@ class PreviewTab:
             self.ax3d.set_ylim([-R, R])
             self.ax3d.set_zlim([-R, R])
             self.ax3d.set_box_aspect([1, 1, 1])
+            self.ax3d.legend(loc="upper right")
             self.canvas3d.draw_idle()
             return
 
@@ -453,20 +526,6 @@ class PreviewTab:
 
     def _draw_global_markers(self, sx, sy, sz, ex, ey, ez):
         """Draws the Spacecraft and Earth Station markers and line of sight."""
-        if HAS_TOPO and self.app.topo_type.get() == "Macro_countries":
-            try:
-                # Attempt to retrieve text from the IMT tab if available
-                country_text = ""
-                if hasattr(self.app, 'tab_imt'):
-                    country_text = self.app.tab_imt.txt_countries.get(
-                        "1.0", "end")
-
-                countries = [c.strip()
-                             for c in country_text.splitlines() if c.strip()]
-                # Logic to instantiate ParametersCountries would go here to visualize BS points
-            except Exception:
-                pass
-
         # Spacecraft & ES
         self.ax3d.scatter([sx], [sy], [sz], c="tab:purple", s=60,
                           marker="^", depthshade=False, label="Spacecraft", zorder=7)

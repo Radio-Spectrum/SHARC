@@ -718,6 +718,8 @@ class SimulationDownlink(Simulation):
         sta_active = np.where(self.system.sta.active)[0]
         rx_interference_linear_ap = np.zeros(self.system.ap.num_stations)
         rx_interference_linear_sta = np.zeros(self.system.sta.num_stations)
+        rx_interference_linear_ap[ap_active] = np.power(10, 0.1 * self.system.ap.rx_interference[ap_active].flatten())
+        rx_interference_linear_sta[sta_active] = np.power(10, 0.1 * self.system.sta.rx_interference[sta_active].flatten())
 
         for bs in bs_active:
             # Potência de TX por feixe do BS atual (Array, shape [K] onde K=self.parameters.imt.ue.k)
@@ -794,12 +796,11 @@ class SimulationDownlink(Simulation):
                     axis=0
                 )
 
-        rx_interference_linear_total = np.concatenate(
-            (rx_interference_linear_ap, rx_interference_linear_sta)
-        )
-        rx_interference_filtered = rx_interference_linear_total[rx_interference_linear_total > 0.0]   
+        self.system.ap.rx_interference = 10 * np.log10(np.maximum(rx_interference_linear_ap, 1e-20))
+        self.system.sta.rx_interference = 10 * np.log10(np.maximum(rx_interference_linear_sta, 1e-20))
+
         # Total received interference - dBW
-        self.system.rx_interference = 10 * np.log10(rx_interference_filtered)
+        self.system.rx_interference = np.concatenate((self.system.ap.rx_interference, self.system.sta.rx_interference))
 
         # calculate N
         self.system.thermal_noise = \

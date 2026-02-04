@@ -1,579 +1,450 @@
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 import os
-import glob
 import stat
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
-from matplotlib.ticker import LogFormatterMathtext
-from pathlib import Path
+import threading
+import io
+import webbrowser
 import posixpath
+import shutil
+from pathlib import Path
 
-# Attempt to import paramiko for SSH. If failed, SSH features will be disabled.
+# Image handling for Tkinter
+from PIL import Image, ImageTk
+
+# Plotly Imports
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
+
+# SSH Import (Paramiko)
 try:
     import paramiko
 except ImportError:
     paramiko = None
 
-# Import global configurations (assuming config.py exists)
+# Config Import
 try:
     from config import RESULT_FIELDNAME_TO_PLOT_INFO
 except ImportError:
-    # Fallback if config is missing to allow the script to run
     RESULT_FIELDNAME_TO_PLOT_INFO = {}
 
 
 class ResultsTab:
     """
-    Manages the 'Results' tab, responsible for aggregating, filtering, and plotting
-    simulation data (CDFs/CCDFs) from local or remote directories.
+    Results Tab with SSH Plotting & Caching.
+
+    Features:
+    - Plotly-based interactive plotting with static preview.
+    - SSH Support: Browses remote folders, caches CSVs locally for speed.
+    - Comparison: Plots multiple folders (Local vs Remote).
+    - Multi-select for remote folders.
+    - Default Protection Criteria: -12.2dB and -6dB (Toggleable).
+    - Style Editor: Customize legend, color, linestyle per folder.
+    - Filter: Option to plot only selected folders.
     """
 
     def __init__(self, app, parent_frame):
-        """
-        Initializes the ResultsTab.
-
-        Args:
-            app: Instance of the main App class.
-            parent_frame: The widget where this tab will be drawn.
-        """
         self.app = app
         self.frame = parent_frame
 
-        # --- Local Tab State ---
+        # --- State Management ---
         if not hasattr(self.app, "res_dirs"):
-            # List of full tags (local path or ssh://...)
+            # Stores full paths. Remote paths are prefixed with "ssh://"
             self.app.res_dirs = []
 
-        # Mapping for Listbox (Display Name <-> Full Tag)
-        self._lb_display_to_tag = {}
-        self._lb_tag_to_display = {}
+        # Store styles for folders. Key: folder_path, Value: dict of style props
+        if not hasattr(self.app, "res_styles"):
+            self.app.res_styles = {}
 
-        # Style by directory: tag -> {label, color, ls, lw}
-        self._dir_style = {}
+        # SSH Credentials (Safe Initialization)
+        self._init_ssh_vars()
 
-        # Performance Cache
-        self._series_cache = {}   # (folder, field) -> (key, data)
-        self._local_ls_cache = {}  # (folder, mtime) -> [csvs]
+        # Caches
+        # Key: (folder_path, field) -> Value: (mtime, numpy_array)
+        self._data_cache = {}
+        self._plot_preview_job = None
+        self._photo_image = None  # GC protection
+        self._max_axes = 9        # Max grid 3x3
+        self._disable_traces = False
 
-        self._plot_auto_job = None
-        self._max_axes = 9
-
-        # Subplot Configuration
+        # --- Default Configuration ---
         self.result_fields = sorted(list(RESULT_FIELDNAME_TO_PLOT_INFO.keys()))
-        default_field = self.result_fields[0] if self.result_fields else ""
+        if not self.result_fields:
+            self.result_fields = ["ExampleField"]
+
+        default_field = self.result_fields[0]
+
+        # Default Protection Criteria (Now with 'enabled' flag)
+        default_criteria = [
+            {"val": -12.2, "type": "Vertical (X)",
+                "label": "Prot -12.2dB", "color": "red", "enabled": True},
+            {"val": -6.0,  "type": "Vertical (X)",
+                "label": "Prot -6dB",    "color": "orange", "enabled": True}
+        ]
 
         self._axes_cfg = []
-        for _ in range(self._max_axes):
+        for i in range(self._max_axes):
             self._axes_cfg.append({
                 "field": default_field,
                 "mode": "CDF",
-                "yscale": "Linear",
-                "criteria": [],       # List of dicts {x, p, label...}
+                "title": "",
+                "x_label": "",
+                "y_label": "",
+                "x_log": False,
+                "y_log": False,
                 "x_shift": 0.0,
-                "x_label_override": "",
-                "legend_suffix": ""
+                "legend_suffix": "",
+                "criteria": [c.copy() for c in default_criteria]
             })
 
-        # --- UI Control Variables (FIXED: Initialize all vars to avoid crashes) ---
-        if not hasattr(self.app, "var_results_src"):
-            self.app.var_results_src = tk.StringVar(value="LOCAL")
-        if not hasattr(self.app, "var_remote_results_dir"):
-            self.app.var_remote_results_dir = tk.StringVar(value="/home")
-        if not hasattr(self.app, "var_plot_selected_only"):
-            self.app.var_plot_selected_only = tk.BooleanVar(value=False)
+        # --- Initialize UI Vars ---
+        self._init_ui_vars()
 
-        # Grid vars
-        if not hasattr(self.app, "var_rows"):
-            self.app.var_rows = tk.IntVar(value=1)
-        if not hasattr(self.app, "var_cols"):
-            self.app.var_cols = tk.IntVar(value=1)
+        # --- Build UI ---
+        self._build_ui()
 
-        # Plot option vars
-        if not hasattr(self.app, "var_xlog"):
-            self.app.var_xlog = tk.BooleanVar(value=False)
-        if not hasattr(self.app, "var_auto_update"):
-            self.app.var_auto_update = tk.BooleanVar(value=False)
-        if not hasattr(self.app, "var_update_period_ms"):
-            self.app.var_update_period_ms = tk.StringVar(value="1000")
+        # Initial Render
+        self._schedule_update()
 
-        # Fallback for export dpi if not present
-        if not hasattr(self.app, "var_export_dpi"):
-            self.app.var_export_dpi = tk.IntVar(value=300)
+    def _init_ssh_vars(self):
+        """Initialize SSH variables safely. Creates them if they don't exist."""
+        # Host
+        if hasattr(self.app, "ssh_host"):
+            self.var_ssh_host = self.app.ssh_host
+        else:
+            self.var_ssh_host = tk.StringVar(value="localhost")
+            self.app.ssh_host = self.var_ssh_host
 
-        # Style Editing Variables
+        # User
+        if hasattr(self.app, "ssh_user"):
+            self.var_ssh_user = self.app.ssh_user
+        else:
+            self.var_ssh_user = tk.StringVar(value="")
+            self.app.ssh_user = self.var_ssh_user
+
+        # Password
+        if hasattr(self.app, "ssh_password"):
+            self.var_ssh_pass = self.app.ssh_password
+        else:
+            self.var_ssh_pass = tk.StringVar(value="")
+            self.app.ssh_password = self.var_ssh_pass
+
+        # Port
+        if hasattr(self.app, "ssh_port"):
+            self.var_ssh_port = self.app.ssh_port
+        else:
+            self.var_ssh_port = tk.StringVar(value="22")
+            self.app.ssh_port = self.var_ssh_port
+
+    def _init_ui_vars(self):
+        # Grid
+        self.var_rows = tk.IntVar(value=1)
+        self.var_cols = tk.IntVar(value=1)
+
+        # Source Control
+        self.var_source_mode = tk.StringVar(value="LOCAL")
+        self.var_remote_base = tk.StringVar(value="/home")
+
+        # Active Subplot
+        self.var_current_subplot_idx = tk.IntVar(value=0)
+
+        # Edit Vars
+        self.var_edit_field = tk.StringVar()
+        self.var_edit_mode = tk.StringVar()
+        self.var_edit_title = tk.StringVar()
+        self.var_edit_xlabel = tk.StringVar()
+        self.var_edit_ylabel = tk.StringVar()
+        self.var_edit_xlog = tk.BooleanVar()
+        self.var_edit_ylog = tk.BooleanVar()
+        self.var_edit_leg_suffix = tk.StringVar()
+        self.var_edit_xshift = tk.DoubleVar(value=0.0)
+
+        # Filter Plot
+        if hasattr(self.app, "var_plot_selected_only"):
+            self.var_plot_selected_only = self.app.var_plot_selected_only
+        else:
+            self.var_plot_selected_only = tk.BooleanVar(value=False)
+            self.app.var_plot_selected_only = self.var_plot_selected_only
+
+        # Style Editor Vars
         self.var_style_label = tk.StringVar()
         self.var_style_color = tk.StringVar(value="Auto")
         self.var_style_ls = tk.StringVar(value="Auto")
-        self.var_style_lw = tk.DoubleVar(value=1.6)
+        self.var_style_lw = tk.DoubleVar(value=1.5)
 
-        self._build_ui()
-        self._schedule_auto_update()
+        # Traces for Auto-Refresh
+        self._trace_vars = [
+            self.var_edit_field, self.var_edit_mode, self.var_edit_title,
+            self.var_edit_xlabel, self.var_edit_ylabel, self.var_edit_xlog,
+            self.var_edit_ylog, self.var_edit_leg_suffix, self.var_rows, self.var_cols,
+            self.var_plot_selected_only  # Trigger update on filter change
+        ]
+        for v in self._trace_vars:
+            v.trace_add("write", self._on_config_change)
+
+        self.var_edit_xshift.trace_add("write", self._on_config_change)
+
+    # ---------------- UI Construction ----------------
 
     def _build_ui(self):
-        """Constructs the UI layout for controls and plotting."""
-        left = ttk.Frame(self.frame)
-        right = ttk.Frame(self.frame)
-        left.pack(side="left", fill="y", padx=5, pady=5)
-        right.pack(side="right", fill="both", expand=True)
+        paned = ttk.PanedWindow(self.frame, orient="horizontal")
+        paned.pack(fill="both", expand=True)
 
-        # ==================== CONTROLS (LEFT) ====================
+        left_frame = ttk.Frame(paned, width=450)
+        right_frame = ttk.Frame(paned)
 
-        # 1. Results Source (Local vs Remote)
-        frm_src = ttk.LabelFrame(left, text="Results Source")
-        frm_src.pack(fill="x", pady=(0, 5))
+        paned.add(left_frame, weight=0)
+        paned.add(right_frame, weight=1)
 
-        ttk.Radiobutton(frm_src, text="Local", value="LOCAL", variable=self.app.var_results_src,
-                        command=self._refresh_src_ui).pack(side="left", padx=5)
-        ttk.Radiobutton(frm_src, text="Remote (SSH)", value="REMOTE", variable=self.app.var_results_src,
-                        command=self._refresh_src_ui).pack(side="left", padx=5)
+        self._build_file_manager(left_frame)
+        self._build_layout_controls(left_frame)
+        self._build_subplot_config(left_frame)
+        self._build_plot_preview(right_frame)
+        self._load_subplot_config_to_ui()
 
-        self.frm_src_remote = ttk.Frame(left)
-        ttk.Label(self.frm_src_remote,
-                  text="Remote Folder (Base):").pack(anchor="w")
-        ttk.Entry(self.frm_src_remote,
-                  textvariable=self.app.var_remote_results_dir).pack(fill="x")
+    def _build_file_manager(self, parent):
+        frm = ttk.LabelFrame(parent, text="Result Folders")
+        frm.pack(fill="x", padx=5, pady=5)
 
-        # 2. Folder List
-        ttk.Label(left, text="Result Folders (Comparison):").pack(anchor="w")
-        frm_dirs = ttk.Frame(left)
-        frm_dirs.pack(fill="x")
+        # Source Toggle & SSH Config
+        src_frame = ttk.Frame(frm)
+        src_frame.pack(fill="x", padx=5, pady=2)
 
-        self.lb_dirs = tk.Listbox(frm_dirs, height=5, selectmode="extended")
+        ttk.Label(src_frame, text="Source:").pack(side="left")
+        ttk.Radiobutton(src_frame, text="Local", variable=self.var_source_mode,
+                        value="LOCAL").pack(side="left", padx=5)
+        ttk.Radiobutton(src_frame, text="Remote", variable=self.var_source_mode,
+                        value="REMOTE").pack(side="left", padx=5)
+
+        # SSH Config Button
+        ttk.Button(src_frame, text="Connection...",
+                   command=self._open_ssh_config, width=10).pack(side="right", padx=2)
+
+        # Listbox
+        list_frame = ttk.Frame(frm)
+        list_frame.pack(fill="x", padx=5, pady=5)
+
+        self.lb_dirs = tk.Listbox(list_frame, height=5, selectmode="extended")
         self.lb_dirs.pack(side="left", fill="both", expand=True)
-        sb = ttk.Scrollbar(frm_dirs, orient="vertical",
-                           command=self.lb_dirs.yview)
+        sb = ttk.Scrollbar(list_frame, command=self.lb_dirs.yview)
         sb.pack(side="right", fill="y")
         self.lb_dirs.config(yscrollcommand=sb.set)
 
-        # List Buttons
-        frm_btn = ttk.Frame(left)
-        frm_btn.pack(fill="x", pady=2)
-        ttk.Button(frm_btn, text="+ Folder", command=self._add_dir,
-                   width=8).pack(side="left", padx=(0, 2))
-        ttk.Button(frm_btn, text="+ Current", command=self._add_current_outdir,
-                   width=8).pack(side="left", padx=(0, 2))
-        ttk.Button(frm_btn, text="- Sel", command=self._remove_dir,
-                   width=6).pack(side="left")
-        ttk.Button(frm_btn, text="↓", width=3,
-                   command=lambda: self._move_selected_dirs(1)).pack(side="right")
-        ttk.Button(frm_btn, text="↑", width=3,
-                   command=lambda: self._move_selected_dirs(-1)).pack(side="right", padx=(2, 0))
+        # Bind selection to load styles
+        self.lb_dirs.bind("<<ListboxSelect>>", self._load_style_from_selection)
 
-        ttk.Checkbutton(left, text="Plot Selected Only",
-                        variable=self.app.var_plot_selected_only,
-                        command=self._draw_results_plots).pack(anchor="w", pady=(2, 5))
+        self._refresh_dir_listbox()
 
-        # 3. Style Editor
-        frm_style = ttk.LabelFrame(left, text="Style (Applies to Selection)")
-        frm_style.pack(fill="x", pady=(0, 5))
+        # Buttons
+        btn_frame = ttk.Frame(frm)
+        btn_frame.pack(fill="x", padx=5, pady=2)
+
+        ttk.Button(btn_frame, text="Add Folder...",
+                   command=self._add_dir_handler).pack(side="left", padx=2)
+        ttk.Button(btn_frame, text="Remove", command=self._remove_dir).pack(
+            side="left", padx=2)
+        ttk.Button(btn_frame, text="Clear", command=self._clear_all_dirs).pack(
+            side="right", padx=2)
+
+        # Plot Selected Only Checkbox
+        ttk.Checkbutton(frm, text="Plot Selected Only",
+                        variable=self.var_plot_selected_only).pack(anchor="w", padx=5, pady=(2, 5))
+
+        # Style Editor
+        self._build_style_editor(parent)
+
+    def _build_style_editor(self, parent):
+        frm_style = ttk.LabelFrame(parent, text="Style (Applies to Selection)")
+        frm_style.pack(fill="x", padx=5, pady=(0, 5))
 
         sf1 = ttk.Frame(frm_style)
-        sf1.pack(fill="x", padx=2, pady=2)
+        sf1.pack(fill="x", padx=5, pady=2)
         ttk.Label(sf1, text="Legend:").pack(side="left")
         ttk.Entry(sf1, textvariable=self.var_style_label).pack(
-            side="left", fill="x", expand=True, padx=2)
+            side="left", fill="x", expand=True, padx=5)
 
         sf2 = ttk.Frame(frm_style)
-        sf2.pack(fill="x", padx=2, pady=2)
+        sf2.pack(fill="x", padx=5, pady=2)
 
         # Color
-        cb_color = ttk.Combobox(sf2, textvariable=self.var_style_color, width=8, state="readonly",
-                                values=["Auto", "tab:blue", "tab:orange", "tab:green", "tab:red", "black"])
+        ttk.Label(sf2, text="Color:").pack(side="left")
+        cb_color = ttk.Combobox(sf2, textvariable=self.var_style_color, width=8,
+                                values=["Auto", "tab:blue", "tab:orange", "tab:green", "tab:red", "black", "grey"])
         cb_color.pack(side="left", padx=2)
 
         # Line Style
+        ttk.Label(sf2, text="Line:").pack(side="left", padx=(5, 0))
         cb_ls = ttk.Combobox(sf2, textvariable=self.var_style_ls, width=5, state="readonly",
                              values=["Auto", "-", "--", "-.", ":"])
         cb_ls.pack(side="left", padx=2)
 
         # Line Width
-        ttk.Spinbox(sf2, from_=0.5, to=5.0, increment=0.1,
+        ttk.Label(sf2, text="Wid:").pack(side="left", padx=(5, 0))
+        ttk.Spinbox(sf2, from_=0.5, to=5.0, increment=0.5,
                     textvariable=self.var_style_lw, width=4).pack(side="left", padx=2)
 
         ttk.Button(sf2, text="Apply", command=self._apply_style).pack(
             side="right", padx=2)
 
-        # Bind to load style on selection
-        self.lb_dirs.bind("<<ListboxSelect>>", self._load_style_from_selection)
-
-        # 4. Grid Layout
-        frm_grid = ttk.LabelFrame(left, text="Subplot Layout")
-        frm_grid.pack(fill="x", pady=(0, 5))
-        ttk.Label(frm_grid, text="R:").pack(side="left", padx=2)
-        ttk.Spinbox(frm_grid, from_=1, to=3, textvariable=self.app.var_rows, width=3,
-                    command=self._rebuild_cfg_rows_and_draw).pack(side="left")
-        ttk.Label(frm_grid, text="C:").pack(side="left", padx=2)
-        ttk.Spinbox(frm_grid, from_=1, to=3, textvariable=self.app.var_cols, width=3,
-                    command=self._rebuild_cfg_rows_and_draw).pack(side="left")
-
-        # 5. Configuration per Subplot
-        self.frm_cfg_container = ttk.LabelFrame(
-            left, text="Config per Subplot")
-        self.frm_cfg_container.pack(fill="x", pady=(0, 5))
-
-        self._subplot_widgets = []
-        self._build_subplot_cfg_rows()
-
-        # 6. Global Options & Export
-        frm_glob = ttk.LabelFrame(left, text="Global Options")
-        frm_glob.pack(fill="x", pady=(0, 5))
-
-        ttk.Checkbutton(frm_glob, text="Log X Axis", variable=self.app.var_xlog,
-                        command=self._draw_results_plots).pack(anchor="w", padx=2)
-
-        frm_auto = ttk.Frame(frm_glob)
-        frm_auto.pack(fill="x", padx=2, pady=2)
-        ttk.Checkbutton(frm_auto, text="Auto Update", variable=self.app.var_auto_update,
-                        command=self._schedule_auto_update).pack(side="left")
-        ttk.Entry(frm_auto, textvariable=self.app.var_update_period_ms,
-                  width=5).pack(side="left", padx=2)
-        ttk.Label(frm_auto, text="ms").pack(side="left")
-
-        ttk.Button(frm_glob, text="Export Figure (1920x1080)",
-                   command=self._export_results_fig).pack(fill="x", padx=2, pady=2)
-
-        # ==================== PLOT (RIGHT) ====================
-        self.fig_res = plt.figure(figsize=(7.8, 6.2))
-        self.canvas_res = FigureCanvasTkAgg(self.fig_res, master=right)
-        self.canvas_res.get_tk_widget().pack(fill="both", expand=True)
-
-        # Initialization
-        self._refresh_src_ui()
-        self._rebuild_lb_from_state()
-        self._rebuild_cfg_rows_and_draw()
-
-    # ---------------- UI Helpers ----------------
-
-    def _refresh_src_ui(self):
-        """Shows or hides the Remote Folder input based on selection."""
-        if self.app.var_results_src.get() == "REMOTE":
-            self.frm_src_remote.pack(fill="x", pady=(
-                2, 4), after=self.frm_src_remote.master.winfo_children()[0])
-        else:
-            self.frm_src_remote.pack_forget()
-
-    def _build_subplot_cfg_rows(self):
-        """Creates configuration rows for all possible subplots."""
-        for i in range(self._max_axes):
-            r = ttk.Frame(self.frm_cfg_container)
-
-            ttk.Label(r, text=f"{i+1:02d}").pack(side="left")
-
-            cb_field = ttk.Combobox(r, values=self.result_fields, width=15)
-            cb_field.set(self._axes_cfg[i]["field"])
-            cb_field.pack(side="left", padx=2)
-
-            cb_mode = ttk.Combobox(
-                r, values=["CDF", "CCDF"], width=5, state="readonly")
-            cb_mode.set(self._axes_cfg[i]["mode"])
-            cb_mode.pack(side="left", padx=2)
-
-            cb_scale = ttk.Combobox(
-                r, values=["Linear", "Log"], width=6, state="readonly")
-            cb_scale.set(self._axes_cfg[i]["yscale"])
-            cb_scale.pack(side="left", padx=2)
-
-            btn_crit = ttk.Button(
-                r, text="Crit.", width=4, command=lambda idx=i: self._open_criteria_popup(idx))
-            btn_crit.pack(side="left", padx=1)
-
-            btn_axis = ttk.Button(
-                r, text="Axis", width=4, command=lambda idx=i: self._open_axis_popup(idx))
-            btn_axis.pack(side="left", padx=1)
-
-            # Closure for bindings
-            def _mk_cb(idx, w_f, w_m, w_s):
-                def _upd(*_):
-                    self._axes_cfg[idx]["field"] = w_f.get()
-                    self._axes_cfg[idx]["mode"] = w_m.get()
-                    self._axes_cfg[idx]["yscale"] = w_s.get()
-                    self._draw_results_plots()
-                return _upd
-
-            cb_func = _mk_cb(i, cb_field, cb_mode, cb_scale)
-            cb_field.bind("<<ComboboxSelected>>", cb_func)
-            cb_mode.bind("<<ComboboxSelected>>", cb_func)
-            cb_scale.bind("<<ComboboxSelected>>", cb_func)
-
-            self._subplot_widgets.append(r)
-
-    def _rebuild_cfg_rows_and_draw(self):
-        """Updates the visibility of configuration rows based on grid size."""
-        rows = max(1, int(self.app.var_rows.get()))
-        cols = max(1, int(self.app.var_cols.get()))
-        n_needed = min(rows * cols, self._max_axes)
-
-        for i, widget_frame in enumerate(self._subplot_widgets):
-            if i < n_needed:
-                widget_frame.pack(fill="x", pady=1)
-            else:
-                widget_frame.pack_forget()
-
-        self._draw_results_plots()
-
-    # ---------------- Listbox & Folder Helpers ----------------
-
-    def _get_display_name(self, tag):
-        """Generates a short name for display in the Listbox."""
-        raw = tag
-        if raw.startswith("ssh://"):
-            raw = raw[6:]
-        base = os.path.basename(raw.rstrip("/\\")) or raw.rstrip("/\\")
-
-        # Simple Disambiguation
-        count = 0
-        disp = base
-        while disp in self._lb_display_to_tag and self._lb_display_to_tag[disp] != tag:
-            count += 1
-            disp = f"{base} ({count})"
-        return disp
-
-    def _insert_tag_lb(self, tag):
-        """Inserts a tag into the Listbox and internal mappings."""
-        disp = self._get_display_name(tag)
-        self._lb_display_to_tag[disp] = tag
-        self._lb_tag_to_display[tag] = disp
-        self.lb_dirs.insert("end", disp)
-
-    def _rebuild_lb_from_state(self):
-        """Rebuilds the Listbox from the app state."""
-        self.lb_dirs.delete(0, "end")
-        self._lb_display_to_tag.clear()
-        self._lb_tag_to_display.clear()
-
-        for tag in self.app.res_dirs:
-            self._insert_tag_lb(tag)
-
-    def _get_selected_tags(self):
-        """Returns the tags associated with the currently selected items."""
-        tags = []
-        for idx in self.lb_dirs.curselection():
-            disp = self.lb_dirs.get(idx)
-            tag = self._lb_display_to_tag.get(disp)
-            if tag:
-                tags.append(tag)
-        return tags
-
-    def _add_dir(self):
-        """Opens dialog (Local or Remote) to add a directory."""
-        if self.app.var_results_src.get() == "REMOTE":
-            chosen = self._remote_dir_picker(
-                initial=self.app.var_remote_results_dir.get())
-            if chosen:
-                tag = f"ssh://{chosen}"
-                if tag not in self.app.res_dirs:
-                    self.app.res_dirs.append(tag)
-                    self._insert_tag_lb(tag)
-                    self._draw_results_plots()
-        else:
-            # Local
-            # Safer fallback if var_outdir isn't set on app
-            init = str(
-                Path(getattr(self.app.var_outdir, "get", lambda: Path.cwd())()))
-            path = filedialog.askdirectory(
-                initialdir=init, title="Select Folder")
-            if path:
-                path = str(Path(path))  # Normalize
-                if path not in self.app.res_dirs:
-                    self.app.res_dirs.append(path)
-                    self._insert_tag_lb(path)
-                    self._draw_results_plots()
-
-    def _add_current_outdir(self):
-        """Adds the current output directory to the comparison list."""
-        if hasattr(self.app, "var_outdir"):
-            path = str(Path(self.app.var_outdir.get()))
-            if path and path not in self.app.res_dirs:
-                self.app.res_dirs.append(path)
-                self._insert_tag_lb(path)
-                self._draw_results_plots()
-
-    def _remove_dir(self):
-        """Removes the selected directories from the list."""
-        sel_idx = list(self.lb_dirs.curselection())[::-1]
-        for idx in sel_idx:
-            disp = self.lb_dirs.get(idx)
-            tag = self._lb_display_to_tag.get(disp)
-            if tag:
-                if tag in self.app.res_dirs:
-                    self.app.res_dirs.remove(tag)
-                del self._lb_display_to_tag[disp]
-                del self._lb_tag_to_display[tag]
-                self._dir_style.pop(tag, None)
-            self.lb_dirs.delete(idx)
-        self._draw_results_plots()
-
-    def _move_selected_dirs(self, delta):
-        """Reorders the selected directories up or down."""
-        sel_idx = list(self.lb_dirs.curselection())
-        if not sel_idx:
-            return
-
-        arr = self.app.res_dirs
-        n = len(arr)
-
-        current_selection_tags = [
-            self._lb_display_to_tag[self.lb_dirs.get(i)] for i in sel_idx]
-
-        idxs_to_move = sorted(sel_idx, reverse=(delta > 0))
-
-        for i in idxs_to_move:
-            if delta < 0 and i > 0:  # Up
-                arr[i], arr[i-1] = arr[i-1], arr[i]
-            elif delta > 0 and i < n - 1:  # Down
-                arr[i], arr[i+1] = arr[i+1], arr[i]
-
-        self._rebuild_lb_from_state()
-
-        # Restore selection
-        for i, tag in enumerate(self.app.res_dirs):
-            if tag in current_selection_tags:
-                self.lb_dirs.selection_set(i)
-
-        self._draw_results_plots()
-
-    # ---------------- Style Logic ----------------
-
-    def _load_style_from_selection(self, event=None):
-        """Loads style parameters into the editor for the selected directory."""
-        tags = self._get_selected_tags()
-        if not tags:
-            return
-        st = self._dir_style.get(tags[0], {})
-        self.var_style_label.set(st.get("label", ""))
-        self.var_style_color.set(st.get("color", "Auto"))
-        self.var_style_ls.set(st.get("ls", "Auto"))
-        self.var_style_lw.set(st.get("lw", 1.6))
-
-    def _apply_style(self):
-        """Applies style changes to all selected directories."""
-        tags = self._get_selected_tags()
-        if not tags:
-            return
-        for tag in tags:
-            st = self._dir_style.get(tag, {})
-            st["label"] = self.var_style_label.get()
-            st["color"] = self.var_style_color.get()
-            st["ls"] = self.var_style_ls.get()
-            st["lw"] = self.var_style_lw.get()
-            self._dir_style[tag] = st
-        self._draw_results_plots()
-
-    # ---------------- Popups (Criteria & Axis) ----------------
-
-    def _open_criteria_popup(self, idx):
-        """Opens the popup to manage statistical criteria (percentiles)."""
-        cfg = self._axes_cfg[idx]
-        criteria_list = cfg.get("criteria", [])
-
-        win = tk.Toplevel(self.frame)
-        win.title(f"Criteria - Subplot {idx+1}")
-        win.geometry("600x350")
-
-        # Treeview
-        cols = ("x", "p", "label", "color")
-        tv = ttk.Treeview(win, columns=cols, show="headings", height=8)
-        tv.heading("x", text="X")
-        tv.column("x", width=60)
-        tv.heading("p", text="Crit %")
-        tv.column("p", width=60)
-        tv.heading("label", text="Label")
-        tv.column("label", width=150)
-        tv.heading("color", text="Color")
-        tv.column("color", width=80)
-        tv.pack(fill="both", expand=True, padx=5, pady=5)
-
-        def _refresh():
-            tv.delete(*tv.get_children())
-            for i, c in enumerate(criteria_list):
-                tv.insert("", "end", iid=str(i), values=(
-                    c.get('x'), c.get('p'), c.get('label'), c.get('color')))
-
-        _refresh()
-
-        # Inputs
-        frm = ttk.Frame(win)
+    def _build_layout_controls(self, parent):
+        frm = ttk.LabelFrame(parent, text="Grid Layout")
         frm.pack(fill="x", padx=5, pady=5)
-        v_x = tk.DoubleVar()
-        v_p = tk.DoubleVar()
-        v_l = tk.StringVar()
-        v_c = tk.StringVar(value="black")
+        ttk.Label(frm, text="Rows:").pack(side="left", padx=5)
+        ttk.Spinbox(frm, from_=1, to=3, textvariable=self.var_rows,
+                    width=3).pack(side="left")
+        ttk.Label(frm, text="Cols:").pack(side="left", padx=5)
+        ttk.Spinbox(frm, from_=1, to=3, textvariable=self.var_cols,
+                    width=3).pack(side="left")
 
-        ttk.Label(frm, text="X:").pack(side="left")
-        ttk.Entry(frm, textvariable=v_x, width=8).pack(side="left", padx=2)
-        ttk.Label(frm, text="Prob(%):").pack(side="left")
-        ttk.Entry(frm, textvariable=v_p, width=8).pack(side="left", padx=2)
-        ttk.Label(frm, text="Label:").pack(side="left")
-        ttk.Entry(frm, textvariable=v_l, width=15).pack(side="left", padx=2)
-        ttk.Combobox(frm, textvariable=v_c, values=[
-                     "black", "red", "blue", "green"], width=8).pack(side="left")
+    def _build_subplot_config(self, parent):
+        frm = ttk.LabelFrame(parent, text="Active Subplot Settings")
+        frm.pack(fill="both", expand=True, padx=5, pady=5)
 
-        def _add():
-            try:
-                criteria_list.append({
-                    "x": v_x.get(), "p": v_p.get(), "label": v_l.get(), "color": v_c.get(), "ls": ":", "lw": 1.0
-                })
-                _refresh()
-                self._draw_results_plots()
-            except tk.TclError:
-                messagebox.showerror(
-                    "Error", "Invalid number format for X or Prob.")
+        # Selector
+        sel_frame = ttk.Frame(frm)
+        sel_frame.pack(fill="x", padx=5, pady=5)
+        ttk.Label(sel_frame, text="Editing Subplot:").pack(side="left")
+        self.cb_subplot_sel = ttk.Combobox(
+            sel_frame, state="readonly", width=5)
+        self.cb_subplot_sel['values'] = [
+            str(i+1) for i in range(self._max_axes)]
+        self.cb_subplot_sel.current(0)
+        self.cb_subplot_sel.pack(side="left", padx=5)
+        self.cb_subplot_sel.bind(
+            "<<ComboboxSelected>>", self._on_subplot_selection_change)
 
-        def _del():
-            sel = tv.selection()
-            if sel:
-                idx_del = int(sel[0])
-                if 0 <= idx_del < len(criteria_list):
-                    criteria_list.pop(idx_del)
-                    _refresh()
-                    self._draw_results_plots()
+        # Tabs
+        nb = ttk.Notebook(frm)
+        nb.pack(fill="both", expand=True, padx=5, pady=5)
 
-        ttk.Button(frm, text="Add", command=_add).pack(side="left", padx=5)
-        ttk.Button(frm, text="Remove", command=_del).pack(side="left")
+        # --- Tab 1: Data & Axis ---
+        tab_axis = ttk.Frame(nb)
+        nb.add(tab_axis, text="Data & Axis")
+        grid_opts = {'padx': 5, 'pady': 3, 'sticky': 'w'}
 
-    def _open_axis_popup(self, idx):
-        """Opens popup for configuring axis properties (shifts, labels)."""
-        cfg = self._axes_cfg[idx]
+        ttk.Label(tab_axis, text="CSV Field:").grid(
+            row=0, column=0, **grid_opts)
+        ttk.Combobox(tab_axis, textvariable=self.var_edit_field,
+                     values=self.result_fields).grid(row=0, column=1, sticky="ew")
+
+        ttk.Label(tab_axis, text="Mode:").grid(row=1, column=0, **grid_opts)
+        ttk.Combobox(tab_axis, textvariable=self.var_edit_mode, values=[
+                     "CDF", "CCDF"], state="readonly").grid(row=1, column=1, sticky="ew")
+
+        ttk.Separator(tab_axis, orient="horizontal").grid(
+            row=2, column=0, columnspan=2, sticky="ew", pady=5)
+
+        ttk.Label(tab_axis, text="Chart Title:").grid(
+            row=3, column=0, **grid_opts)
+        ttk.Entry(tab_axis, textvariable=self.var_edit_title).grid(
+            row=3, column=1, sticky="ew")
+
+        ttk.Label(tab_axis, text="X Label:").grid(row=4, column=0, **grid_opts)
+        ttk.Entry(tab_axis, textvariable=self.var_edit_xlabel).grid(
+            row=4, column=1, sticky="ew")
+
+        ttk.Label(tab_axis, text="Y Label:").grid(row=5, column=0, **grid_opts)
+        ttk.Entry(tab_axis, textvariable=self.var_edit_ylabel).grid(
+            row=5, column=1, sticky="ew")
+
+        ttk.Separator(tab_axis, orient="horizontal").grid(
+            row=6, column=0, columnspan=2, sticky="ew", pady=5)
+
+        chk_frame = ttk.Frame(tab_axis)
+        chk_frame.grid(row=7, column=0, columnspan=2, sticky="w", padx=5)
+        ttk.Checkbutton(chk_frame, text="Log X", variable=self.var_edit_xlog).pack(
+            side="left", padx=(0, 10))
+        ttk.Checkbutton(chk_frame, text="Log Y",
+                        variable=self.var_edit_ylog).pack(side="left")
+
+        shift_frame = ttk.Frame(tab_axis)
+        shift_frame.grid(row=8, column=0, columnspan=2, sticky="ew", pady=5)
+        ttk.Label(shift_frame, text="X Shift:").pack(side="left", padx=5)
+        ttk.Entry(shift_frame, textvariable=self.var_edit_xshift,
+                  width=6).pack(side="left")
+        ttk.Label(shift_frame, text="Legend Suffix:").pack(side="left", padx=5)
+        ttk.Entry(shift_frame, textvariable=self.var_edit_leg_suffix).pack(
+            side="left", fill="x", expand=True)
+
+        tab_axis.columnconfigure(1, weight=1)
+
+        # --- Tab 2: Protection Criteria ---
+        tab_crit = ttk.Frame(nb)
+        nb.add(tab_crit, text="Protection Criteria")
+
+        # Columns: Status (On/Off), Val, Type, Label
+        cols = ("enabled", "val", "type", "label")
+        self.tv_crit = ttk.Treeview(
+            tab_crit, columns=cols, show="headings", height=6)
+
+        self.tv_crit.heading("enabled", text="Status")
+        self.tv_crit.column("enabled", width=50, anchor="center")
+        self.tv_crit.heading("val", text="Val")
+        self.tv_crit.column("val", width=50, anchor="center")
+        self.tv_crit.heading("type", text="Type")
+        self.tv_crit.column("type", width=80)
+        self.tv_crit.heading("label", text="Label")
+        self.tv_crit.column("label", width=100)
+        self.tv_crit.pack(fill="both", expand=True, padx=5, pady=5)
+
+        # Double-click to toggle
+        self.tv_crit.bind("<Double-1>", self._toggle_criteria)
+
+        btn_crit = ttk.Frame(tab_crit)
+        btn_crit.pack(fill="x", padx=5, pady=5)
+
+        ttk.Button(btn_crit, text="Remove",
+                   command=self._remove_criteria).pack(side="right")
+        ttk.Button(btn_crit, text="Toggle", command=self._toggle_criteria).pack(
+            side="right", padx=5)
+        ttk.Button(btn_crit, text="Add...", command=self._add_criteria_dialog).pack(
+            side="right", padx=5)
+
+    def _build_plot_preview(self, parent):
+        toolbar = ttk.Frame(parent)
+        toolbar.pack(side="top", fill="x", padx=5, pady=5)
+
+        ttk.Button(toolbar, text="Refresh",
+                   command=self._update_plot_preview).pack(side="left")
+        ttk.Button(toolbar, text="Open Interactive (Browser)",
+                   command=self._open_browser).pack(side="right", padx=5)
+
+        self.preview_frame = ttk.Frame(parent, relief="sunken", borderwidth=1)
+        self.preview_frame.pack(fill="both", expand=True, padx=5, pady=5)
+
+        self.lbl_preview = ttk.Label(
+            self.preview_frame, text="Initializing...", anchor="center")
+        self.lbl_preview.pack(fill="both", expand=True)
+        self.preview_frame.bind("<Configure>", self._on_resize)
+
+    # ---------------- SSH Logic ----------------
+
+    def _open_ssh_config(self):
+        """Dialog to set SSH credentials if not managed by main app."""
         win = tk.Toplevel(self.frame)
-        win.title(f"Axis - Subplot {idx+1}")
-        win.geometry("400x200")
+        win.title("SSH Connection Settings")
+        win.geometry("300x200")
 
-        v_shift = tk.DoubleVar(value=cfg.get("x_shift", 0.0))
-        v_xlab = tk.StringVar(value=cfg.get("x_label_override", ""))
-        v_leg_suf = tk.StringVar(value=cfg.get("legend_suffix", ""))
+        ttk.Label(win, text="Host:").pack(pady=2)
+        ttk.Entry(win, textvariable=self.var_ssh_host).pack(fill="x", padx=10)
 
-        frm = ttk.Frame(win)
-        frm.pack(padx=10, pady=10, fill="both")
+        ttk.Label(win, text="User:").pack(pady=2)
+        ttk.Entry(win, textvariable=self.var_ssh_user).pack(fill="x", padx=10)
 
-        ttk.Label(frm, text="Shift X (offset):").grid(
-            row=0, column=0, sticky="w")
-        ttk.Entry(frm, textvariable=v_shift).grid(row=0, column=1, sticky="ew")
+        ttk.Label(win, text="Password:").pack(pady=2)
+        ttk.Entry(win, textvariable=self.var_ssh_pass,
+                  show="*").pack(fill="x", padx=10)
 
-        ttk.Label(frm, text="Label X Override:").grid(
-            row=1, column=0, sticky="w")
-        ttk.Entry(frm, textvariable=v_xlab).grid(row=1, column=1, sticky="ew")
+        ttk.Label(win, text="Port:").pack(pady=2)
+        ttk.Entry(win, textvariable=self.var_ssh_port).pack(fill="x", padx=10)
 
-        ttk.Label(frm, text="Legend Suffix:").grid(
-            row=2, column=0, sticky="w")
-        ttk.Entry(frm, textvariable=v_leg_suf).grid(
-            row=2, column=1, sticky="ew")
-
-        def _save():
-            cfg["x_shift"] = v_shift.get()
-            cfg["x_label_override"] = v_xlab.get()
-            cfg["legend_suffix"] = v_leg_suf.get()
-            self._draw_results_plots()
-            win.destroy()
-
-        ttk.Button(win, text="Save", command=_save).pack(pady=10)
-
-    # ---------------- SSH / Remote Logic ----------------
+        ttk.Button(win, text="Close", command=win.destroy).pack(pady=10)
 
     def _get_ssh_client(self):
-        """Retrieves an existing SSH client or creates a new one using Paramiko."""
+        """Creates/Returns SSH client using current credentials."""
+        # Reuse existing client if active
         cli = getattr(self.app, "ssh_client", None)
         if cli and getattr(cli, "get_transport", None) and cli.get_transport().is_active():
             return cli
@@ -582,15 +453,12 @@ class ResultsTab:
             return None
 
         try:
-            host = getattr(self.app, "ssh_host",
-                           tk.StringVar(value="localhost")).get()
-            user = getattr(self.app, "ssh_user", tk.StringVar(value="")).get()
-            pwd = getattr(self.app, "ssh_password",
-                          tk.StringVar(value="")).get()
-            port = int(getattr(self.app, "ssh_port",
-                       tk.IntVar(value=2222)).get())
+            host = self.var_ssh_host.get()
+            user = self.var_ssh_user.get()
+            pwd = self.var_ssh_pass.get()
+            port = int(self.var_ssh_port.get())
 
-            if not user:
+            if not host or not user:
                 return None
 
             client = paramiko.SSHClient()
@@ -599,15 +467,16 @@ class ResultsTab:
                            password=pwd or None, timeout=5)
             self.app.ssh_client = client
             return client
-        except:
+        except Exception as e:
+            print(f"SSH Error: {e}")
             return None
 
-    def _remote_dir_picker(self, initial=""):
-        """Opens a remote browser via SFTP to select a directory."""
+    def _remote_dir_picker(self):
+        """Mini Browser for Remote Directory Selection (Multi-select)."""
         cli = self._get_ssh_client()
         if not cli:
             messagebox.showerror(
-                "Error", "Could not connect via SSH or Paramiko is not installed.")
+                "SSH Error", "Could not connect.\nCheck 'Connection' settings.")
             return None
 
         try:
@@ -615,31 +484,30 @@ class ResultsTab:
         except:
             return None
 
-        # Mini Browser Modal
         win = tk.Toplevel(self.frame)
-        win.title("Remote Browser")
+        win.title("Select Remote Folder(s)")
         win.geometry("600x400")
 
-        cur_path = tk.StringVar(value=initial or ".")
+        cur_path = tk.StringVar(value=self.var_remote_base.get() or ".")
 
+        # Address Bar
         top = ttk.Frame(win)
         top.pack(fill="x")
         ttk.Entry(top, textvariable=cur_path).pack(
             side="left", fill="x", expand=True)
 
-        tv = ttk.Treeview(win, show="tree")
+        # Treeview with Extended Selection (supports Ctrl/Shift)
+        tv = ttk.Treeview(win, show="tree", selectmode="extended")
         tv.pack(fill="both", expand=True)
 
-        chosen = []
+        chosen_paths = []
 
         def _ls(p):
             tv.delete(*tv.get_children())
             try:
-                # Resolve path
                 if p == ".":
                     p = sftp.normalize(".")
                 cur_path.set(p)
-
                 for item in sorted(sftp.listdir_attr(p), key=lambda x: x.filename):
                     if stat.S_ISDIR(item.st_mode):
                         tv.insert("", "end", text=item.filename,
@@ -647,319 +515,527 @@ class ResultsTab:
             except Exception as e:
                 print(e)
 
-        def _dbl_click(_):
+        def _enter(_):
             sel = tv.selection()
             if not sel:
                 return
-            item = tv.item(sel[0])
-            name = item["text"]
-            new_p = posixpath.join(cur_path.get(), name)
-            _ls(new_p)
+            # On double click, just navigate into the first selected
+            name = tv.item(sel[0])["text"]
+            _ls(posixpath.join(cur_path.get(), name))
 
         def _up():
-            p = cur_path.get()
-            _ls(posixpath.dirname(p))
+            _ls(posixpath.dirname(cur_path.get()))
 
-        def _ok():
-            chosen.append(cur_path.get())
+        def _select():
+            # Gather all selected items
+            selection = tv.selection()
+            base_p = cur_path.get()
+
+            if not selection:
+                # If nothing selected, pick the current folder itself
+                chosen_paths.append(base_p)
+            else:
+                for item_id in selection:
+                    name = tv.item(item_id)["text"]
+                    chosen_paths.append(posixpath.join(base_p, name))
+
+            # Update base for next time
+            self.var_remote_base.set(base_p)
             win.destroy()
 
-        tv.bind("<Double-1>", _dbl_click)
-
+        tv.bind("<Double-1>", _enter)
         btn = ttk.Frame(win)
         btn.pack(fill="x")
-        ttk.Button(btn, text="Up", command=_up).pack(side="left")
-        ttk.Button(btn, text="Select Current Folder",
-                   command=_ok).pack(side="right")
+        ttk.Button(btn, text="Up Level", command=_up).pack(side="left")
+        ttk.Button(btn, text="Select Selected Folder(s)",
+                   command=_select).pack(side="right")
 
-        _ls(initial or ".")
+        _ls(cur_path.get())
         win.wait_window()
         sftp.close()
-        return chosen[0] if chosen else None
+        return chosen_paths if chosen_paths else None
 
-    # ---------------- Data & Caching Logic ----------------
-
-    def _remote_cache_base(self):
-        """Returns the path for caching remote files locally."""
-        if hasattr(self.app, "var_outdir"):
-            out = str(Path(self.app.var_outdir.get()))
-        else:
-            out = str(Path.cwd())
-
-        base = os.path.join(out, "_remote_cache")
-        os.makedirs(base, exist_ok=True)
-        return base
-
-    def _ensure_local_folder(self, tag):
-        """Returns the local folder path. Downloads if remote."""
-        if tag.startswith("ssh://"):
-            remote_path = tag[6:]
-            # Safe name for local cache
-            safe_name = remote_path.strip(
-                "/").replace("/", "__").replace(":", "_")
-            local_cache = os.path.join(self._remote_cache_base(), safe_name)
-            os.makedirs(local_cache, exist_ok=True)
-            return local_cache
-        else:
-            return tag  # Already local
+    # ---------------- Data Handling ----------------
 
     def _sync_remote_file(self, tag, field):
-        """Downloads specific CSV for the field if remote."""
+        """Downloads the specific CSV from SSH to local cache."""
         if not tag.startswith("ssh://"):
-            return
+            return tag
 
         remote_path = tag[6:]
-        local_dir = self._ensure_local_folder(tag)
         fname = f"{field}.csv"
+
+        # Cache Folder setup
+        base = getattr(self.app, "var_outdir", None)
+        base = base.get() if (base and hasattr(base, "get")) else os.getcwd()
+
+        safe_name = remote_path.strip("/").replace("/", "__").replace(":", "_")
+        local_dir = os.path.join(base, "_remote_cache", safe_name)
+        os.makedirs(local_dir, exist_ok=True)
+
         local_file = os.path.join(local_dir, fname)
-        remote_file = posixpath.join(remote_path, fname)
 
-        # Simple check: assume valid if exists and > 0 size
-        if os.path.exists(local_file) and os.path.getsize(local_file) > 0:
-            return
+        # Download if missing or empty
+        if not (os.path.exists(local_file) and os.path.getsize(local_file) > 0):
+            cli = self._get_ssh_client()
+            if cli:
+                try:
+                    sftp = cli.open_sftp()
+                    # POSIX path for remote file
+                    rem_file = posixpath.join(remote_path, fname)
+                    sftp.get(rem_file, local_file)
+                    sftp.close()
+                except Exception as e:
+                    print(f"Sync failed for {fname}: {e}")
 
-        # Download
-        cli = self._get_ssh_client()
-        if cli:
-            try:
-                sftp = cli.open_sftp()
-                sftp.get(remote_file, local_file)
-                sftp.close()
-            except:
-                pass  # File might not exist
+        return local_dir
 
-    def _get_series_data(self, tag, field):
-        """Retrieves data for a specific field, handling caching."""
-        # 1. Ensure local file
-        self._sync_remote_file(tag, field)
-        folder = self._ensure_local_folder(tag)
+    def _get_data(self, folder_tag, field):
+        # 1. Sync & Resolve
+        # This triggers download if SSH
+        local_folder = self._sync_remote_file(folder_tag, field)
+        fpath = os.path.join(local_folder, f"{field}.csv")
 
-        # 2. Check Memory Cache
-        cand = os.path.join(folder, f"{field}.csv")
-        target_file = None
-
-        if os.path.exists(cand):
-            target_file = cand
-        else:
-            # Glob cache optimization
-            mtime_dir = os.stat(folder).st_mtime
-            if (folder, mtime_dir) in self._local_ls_cache:
-                files = self._local_ls_cache[(folder, mtime_dir)]
-            else:
-                files = glob.glob(os.path.join(folder, "*.csv"))
-                self._local_ls_cache[(folder, mtime_dir)] = files
-            pass
-
-        if not target_file:
+        if not os.path.exists(fpath):
             return None
 
-        # 3. Check file modification time
+        # 2. Check Cache
         try:
-            stats = os.stat(target_file)
-            key = f"{stats.st_mtime}:{stats.st_size}"
-
-            cache_key = (tag, field)
-            if cache_key in self._series_cache:
-                stored_key, data = self._series_cache[cache_key]
-                if stored_key == key:
+            mtime = os.path.getmtime(fpath)
+            key = (local_folder, field)
+            if key in self._data_cache:
+                cm, data = self._data_cache[key]
+                if cm == mtime:
                     return data
 
-            # Read CSV
-            try:
-                df = pd.read_csv(target_file)
-            except pd.errors.EmptyDataError:
+            # 3. Read
+            df = pd.read_csv(fpath)
+            if df.empty:
                 return None
 
-            col_data = None
-            if field in df.columns:
-                col_data = df[field].values
-            elif "value" in df.columns:
-                col_data = df["value"].values
-            elif df.shape[1] == 1:
-                col_data = df.iloc[:, 0].values
+            target = [c for c in df.columns if field.lower() in c.lower()
+                      or "value" in c.lower()]
+            data = None
+            if target:
+                data = df[target[0]].dropna().values
+            elif df.shape[1] > 0:
+                data = df.iloc[:, 0].dropna().values
 
-            if col_data is not None:
-                col_data = col_data.astype(float)
-                col_data = col_data[np.isfinite(col_data)]
-                self._series_cache[cache_key] = (key, col_data)
-                return col_data
+            if data is not None:
+                self._data_cache[key] = (mtime, data)
+                return data
 
         except Exception as e:
-            print(f"Error reading {target_file}: {e}")
-
+            print(f"Read error: {e}")
         return None
 
-    # ---------------- Plot Logic ----------------
-
     def _compute_ecdf(self, x, ccdf=False):
-        """Computes the Empirical Cumulative Distribution Function."""
         x = np.sort(x)
         n = x.size
         if n == 0:
-            return np.array([]), np.array([])
-        y = np.arange(1, n + 1) / n
+            return [], []
+        y = np.arange(1, n+1)/n
         if ccdf:
             y = 1.0 - y
         return x, y
 
-    def _draw_results_plots(self):
-        """Main plotting routine. Clears canvas and draws requested subplots."""
-        if self._plot_auto_job:
-            self.app.after_cancel(self._plot_auto_job)
-            self._plot_auto_job = None
+    # ---------------- UI Events ----------------
 
-        rows = max(1, int(self.app.var_rows.get()))
-        cols = max(1, int(self.app.var_cols.get()))
-        n_axes = min(rows * cols, self._max_axes)
+    # Logic for Style Editor
+    def _load_style_from_selection(self, event=None):
+        """Loads style settings of the first selected item into the inputs."""
+        sel = self.lb_dirs.curselection()
+        if not sel:
+            return
 
-        self.fig_res.clf()
-        axes = self.fig_res.subplots(rows, cols)
-        if isinstance(axes, np.ndarray):
-            axes_flat = axes.ravel()
+        # Load logic from the first selected item
+        idx = sel[0]
+        if idx < len(self.app.res_dirs):
+            path = self.app.res_dirs[idx]
+            style = self.app.res_styles.get(path, {})
+
+            self.var_style_label.set(style.get("label", ""))
+            self.var_style_color.set(style.get("color", "Auto"))
+            self.var_style_ls.set(style.get("linestyle", "Auto"))
+            self.var_style_lw.set(style.get("linewidth", 1.5))
+
+    def _apply_style(self):
+        """Saves current style inputs to ALL selected items."""
+        sel = self.lb_dirs.curselection()
+        if not sel:
+            return
+
+        label = self.var_style_label.get().strip()
+        color = self.var_style_color.get()
+        ls = self.var_style_ls.get()
+        lw = self.var_style_lw.get()
+
+        for idx in sel:
+            if idx < len(self.app.res_dirs):
+                path = self.app.res_dirs[idx]
+                if path not in self.app.res_styles:
+                    self.app.res_styles[path] = {}
+
+                # Update dict
+                if label:
+                    self.app.res_styles[path]["label"] = label
+                self.app.res_styles[path]["color"] = color
+                self.app.res_styles[path]["linestyle"] = ls
+                self.app.res_styles[path]["linewidth"] = float(lw)
+
+        self._schedule_update()
+
+    def _on_subplot_selection_change(self, event=None):
+        try:
+            idx = int(self.cb_subplot_sel.get()) - 1
+        except:
+            idx = 0
+        self.var_current_subplot_idx.set(idx)
+        self._load_subplot_config_to_ui()
+
+    def _load_subplot_config_to_ui(self):
+        idx = self.var_current_subplot_idx.get()
+        cfg = self._axes_cfg[idx]
+        self._disable_traces = True
+
+        self.var_edit_field.set(cfg["field"])
+        self.var_edit_mode.set(cfg["mode"])
+        self.var_edit_title.set(cfg.get("title", ""))
+        self.var_edit_xlabel.set(cfg.get("x_label", ""))
+        self.var_edit_ylabel.set(cfg.get("y_label", ""))
+        self.var_edit_xlog.set(cfg.get("x_log", False))
+        self.var_edit_ylog.set(cfg.get("y_log", False))
+        self.var_edit_leg_suffix.set(cfg.get("legend_suffix", ""))
+        self.var_edit_xshift.set(cfg.get("x_shift", 0.0))
+        self._refresh_criteria_list(cfg.get("criteria", []))
+        self._disable_traces = False
+
+    def _on_config_change(self, *args):
+        if self._disable_traces:
+            return
+        idx = self.var_current_subplot_idx.get()
+        cfg = self._axes_cfg[idx]
+
+        cfg["field"] = self.var_edit_field.get()
+        cfg["mode"] = self.var_edit_mode.get()
+        cfg["title"] = self.var_edit_title.get()
+        cfg["x_label"] = self.var_edit_xlabel.get()
+        cfg["y_label"] = self.var_edit_ylabel.get()
+        cfg["x_log"] = self.var_edit_xlog.get()
+        cfg["y_log"] = self.var_edit_ylog.get()
+        cfg["legend_suffix"] = self.var_edit_leg_suffix.get()
+        try:
+            cfg["x_shift"] = self.var_edit_xshift.get()
+        except:
+            pass
+        self._schedule_update()
+
+    # ---------------- File List ----------------
+
+    def _refresh_dir_listbox(self):
+        self.lb_dirs.delete(0, "end")
+        for p in self.app.res_dirs:
+            display = p
+            if p.startswith("ssh://"):
+                display = f"[SSH] {os.path.basename(p)}"
+            else:
+                display = os.path.basename(os.path.normpath(p))
+            if not display:
+                display = p
+            self.lb_dirs.insert("end", display)
+
+    def _add_dir_handler(self):
+        if self.var_source_mode.get() == "REMOTE":
+            if paramiko is None:
+                messagebox.showerror("Error", "Paramiko library missing.")
+                return
+
+            # Now returns a list of paths
+            chosen_paths = self._remote_dir_picker()
+            if chosen_paths:
+                for p in chosen_paths:
+                    full_p = f"ssh://{p}"
+                    if full_p not in self.app.res_dirs:
+                        self.app.res_dirs.append(full_p)
         else:
-            axes_flat = [axes]
+            start = getattr(self, "_last_dir", os.getcwd())
+            path = filedialog.askdirectory(initialdir=start)
+            if path:
+                self._last_dir = path
+                if path not in self.app.res_dirs:
+                    self.app.res_dirs.append(path)
 
-        # Filter folders
-        all_tags = self.app.res_dirs
-        if self.app.var_plot_selected_only.get():
-            tags_to_plot = self._get_selected_tags()
-            # Keep original order
-            tags_to_plot = [t for t in all_tags if t in tags_to_plot]
-        else:
-            tags_to_plot = list(all_tags)
-            if not tags_to_plot:
-                if hasattr(self.app, "var_outdir"):
-                    cur = str(Path(self.app.var_outdir.get()))
-                    if os.path.exists(cur):
-                        tags_to_plot = [cur]
+        self._refresh_dir_listbox()
+        self._schedule_update()
 
-        for i in range(n_axes):
-            ax = axes_flat[i]
+    def _remove_dir(self):
+        sel = list(self.lb_dirs.curselection())
+        for i in reversed(sel):
+            del self.app.res_dirs[i]
+        self._refresh_dir_listbox()
+        self._schedule_update()
+
+    def _clear_all_dirs(self):
+        self.app.res_dirs.clear()
+        self.app.res_styles.clear()
+        self._refresh_dir_listbox()
+        self._schedule_update()
+
+    # ---------------- Criteria ----------------
+
+    def _refresh_criteria_list(self, criteria_list):
+        self.tv_crit.delete(*self.tv_crit.get_children())
+        for i, c in enumerate(criteria_list):
+            # Status display
+            status = "On" if c.get("enabled", True) else "Off"
+            self.tv_crit.insert("", "end", iid=str(i), values=(
+                status, c.get("val"), c.get("type"), c.get("label")))
+
+    def _add_criteria_dialog(self):
+        idx = self.var_current_subplot_idx.get()
+        cfg = self._axes_cfg[idx]
+
+        win = tk.Toplevel(self.frame)
+        win.title("Add Protection Criteria")
+        win.geometry("320x300")
+
+        v_val = tk.DoubleVar()
+        v_type = tk.StringVar(value="Vertical (X)")
+        v_label = tk.StringVar()
+        v_color = tk.StringVar(value="red")
+
+        ttk.Label(win, text="Value:").pack(pady=(5, 0))
+        ttk.Entry(win, textvariable=v_val).pack()
+        ttk.Label(win, text="Type:").pack(pady=(5, 0))
+        ttk.Combobox(win, textvariable=v_type, values=[
+                     "Vertical (X)", "Horizontal (Prob)"], state="readonly").pack()
+        ttk.Label(win, text="Label:").pack(pady=(5, 0))
+        ttk.Entry(win, textvariable=v_label).pack()
+        ttk.Label(win, text="Color:").pack(pady=(5, 0))
+        ttk.Combobox(win, textvariable=v_color, values=[
+                     "red", "green", "blue", "black", "orange"]).pack()
+
+        def _apply():
+            try:
+                cfg["criteria"].append({
+                    "val": v_val.get(), "type": v_type.get(),
+                    "label": v_label.get(), "color": v_color.get(), "enabled": True
+                })
+                self._refresh_criteria_list(cfg["criteria"])
+                self._schedule_update()
+            except:
+                messagebox.showerror("Error", "Invalid Number")
+
+        btn_frame = ttk.Frame(win)
+        btn_frame.pack(fill="x", padx=10, pady=15)
+
+        ttk.Button(btn_frame, text="Apply", command=_apply).pack(side="left")
+        ttk.Button(btn_frame, text="Close",
+                   command=win.destroy).pack(side="right")
+
+    def _toggle_criteria(self, event=None):
+        """Toggles the enabled/disabled state of the selected criterion."""
+        sel = self.tv_crit.selection()
+        if not sel:
+            return
+
+        idx_crit = int(sel[0])
+        idx_subplot = self.var_current_subplot_idx.get()
+        cfg = self._axes_cfg[idx_subplot]
+
+        # Toggle boolean
+        current_state = cfg["criteria"][idx_crit].get("enabled", True)
+        cfg["criteria"][idx_crit]["enabled"] = not current_state
+
+        self._refresh_criteria_list(cfg["criteria"])
+        self._schedule_update()
+
+    def _remove_criteria(self):
+        sel = self.tv_crit.selection()
+        if not sel:
+            return
+        idx = self.var_current_subplot_idx.get()
+        cfg = self._axes_cfg[idx]
+        cfg["criteria"].pop(int(sel[0]))
+        self._refresh_criteria_list(cfg["criteria"])
+        self._schedule_update()
+
+    # ---------------- Plotting ----------------
+
+    def _schedule_update(self):
+        if hasattr(self, "_update_timer") and self._update_timer:
+            self.app.after_cancel(self._update_timer)
+        self._update_timer = self.app.after(300, self._update_plot_preview)
+
+    def _on_resize(self, event):
+        if hasattr(self, "_resize_timer") and self._resize_timer:
+            self.app.after_cancel(self._resize_timer)
+        self._resize_timer = self.app.after(800, self._update_plot_preview)
+
+    def _create_plotly_fig(self):
+        rows = max(1, self.var_rows.get())
+        cols = max(1, self.var_cols.get())
+        n_plots = min(rows*cols, self._max_axes)
+
+        titles = []
+        for i in range(n_plots):
             cfg = self._axes_cfg[i]
-            field = cfg.get("field", "")
-            mode = cfg.get("mode", "CDF")
-            ccdf = (mode == "CCDF")
-            ysc = cfg.get("yscale", "Linear")
-            x_shift = float(cfg.get("x_shift", 0.0))
+            t = cfg.get("title")
+            if not t:
+                t = RESULT_FIELDNAME_TO_PLOT_INFO.get(
+                    cfg["field"], {}).get("title", cfg["field"])
+            titles.append(t)
 
-            ax.cla()
-            has_data = False
+        fig = make_subplots(rows=rows, cols=cols, subplot_titles=titles,
+                            vertical_spacing=0.12, horizontal_spacing=0.08)
 
-            # Plot Lines
-            for tag in tags_to_plot:
-                data = self._get_series_data(tag, field)
-                if data is None or data.size == 0:
+        # Style Mappings
+        dash_map = {
+            "-": "solid",
+            "--": "dash",
+            "-.": "dashdot",
+            ":": "dot",
+            "Auto": None
+        }
+
+        color_map = {
+            "tab:blue": "#1f77b4", "tab:orange": "#ff7f0e", "tab:green": "#2ca02c",
+            "tab:red": "#d62728", "tab:purple": "#9467bd", "tab:brown": "#8c564b",
+            "tab:pink": "#e377c2", "tab:gray": "#7f7f7f", "tab:olive": "#bcbd22", "tab:cyan": "#17becf"
+        }
+
+        # Check selection filter
+        selected_indices = self.lb_dirs.curselection()
+        plot_selected_only = self.var_plot_selected_only.get()
+
+        for i in range(n_plots):
+            cfg = self._axes_cfg[i]
+            r, c = (i // cols) + 1, (i % cols) + 1
+            field = cfg["field"]
+
+            for dir_idx, folder in enumerate(self.app.res_dirs):
+                # Filter: Skip if not selected and "Plot Selected Only" is On
+                if plot_selected_only and (dir_idx not in selected_indices):
                     continue
 
-                xs, ys = self._compute_ecdf(data, ccdf)
-                xs = xs + x_shift
+                data = self._get_data(folder, field)
+                if data is None or len(data) == 0:
+                    continue
 
-                # Apply Style
-                st = self._dir_style.get(tag, {})
-                lbl = st.get("label") or self._lb_tag_to_display.get(
-                    tag) or Path(tag).name
-                lbl += cfg.get("legend_suffix", "")
+                x, y = self._compute_ecdf(data, ccdf=(cfg["mode"] == "CCDF"))
+                x = x + cfg.get("x_shift", 0.0)
 
-                clr = st.get("color", "Auto")
-                ls = st.get("ls", "Auto")
-                lw = st.get("lw", 1.6)
+                if cfg["x_log"]:
+                    x, y = x[x > 0], y[x > 0]
+                if cfg["y_log"]:
+                    x, y = x[y > 0], y[y > 0]
 
-                kwargs = {"label": lbl, "linewidth": lw}
-                if clr != "Auto":
-                    kwargs["color"] = clr
-                if ls != "Auto":
-                    kwargs["linestyle"] = ls
+                if len(x) == 0:
+                    continue
 
-                # Clip for Log scale (avoid zero/negative)
-                if ysc == "Log":
-                    # For CCDF, ys is 1 down to 0. Clip bottom.
-                    # Standard clip to 1e-5
-                    ys = np.clip(ys, 1e-5, 1.0)
+                # --- Apply Custom Style ---
+                style = self.app.res_styles.get(folder, {})
 
-                ax.plot(xs, ys, **kwargs)
-                has_data = True
+                # 1. Legend
+                custom_label = style.get("label", "")
+                if custom_label:
+                    name = custom_label
+                else:
+                    name = os.path.basename(
+                        folder) if "ssh://" not in folder else f"[SSH] {os.path.basename(folder)}"
+                name += cfg.get('legend_suffix', '')
 
-            # Plot Criteria Lines
+                # 2. Line Props
+                line_props = dict(width=style.get("linewidth", 1.5))
+
+                # Dash
+                ls_val = style.get("linestyle", "Auto")
+                if ls_val in dash_map and dash_map[ls_val]:
+                    line_props["dash"] = dash_map[ls_val]
+
+                # Color
+                c_val = style.get("color", "Auto")
+                if c_val != "Auto":
+                    line_props["color"] = color_map.get(c_val, c_val)
+
+                # Use Scattergl for huge datasets
+                trace_type = go.Scattergl if len(x) > 10000 else go.Scatter
+                fig.add_trace(trace_type(
+                    x=x, y=y,
+                    mode='lines',
+                    name=name,
+                    line=line_props,
+                    legendgroup=folder,
+                    showlegend=(i == 0)
+                ), row=r, col=c)
+
+            # Draw Criteria
             for crit in cfg.get("criteria", []):
+                # Skip if disabled
+                if not crit.get("enabled", True):
+                    continue
+
                 try:
-                    cx = float(crit["x"]) + x_shift
-                    cp = float(crit["p"])
-                    if cp > 1.0:
-                        cp /= 100.0
-
-                    ccolor = crit.get("color", "black")
-                    clabel = crit.get("label", "")
-
-                    y_target = cp
-                    y_bottom = 1e-5 if ysc == "Log" else 0
-
-                    ax.vlines(cx, y_bottom, y_target, colors=ccolor,
-                              linestyles=":", label=clabel if clabel else "_nolegend_")
-                    ax.hlines(y_target, -1e9, cx,
-                              colors=ccolor, linestyles=":")
+                    val = float(crit["val"])
+                    color = crit.get("color", "red")
+                    if "Vertical" in crit["type"]:
+                        fig.add_vline(x=val, line_dash="dash", line_color=color,
+                                      annotation_text=crit.get("label"), row=r, col=c)
+                    else:
+                        fig.add_hline(y=val, line_dash="dash", line_color=color,
+                                      annotation_text=crit.get("label"), row=r, col=c)
                 except:
                     pass
 
-            # Axis Config
-            info = RESULT_FIELDNAME_TO_PLOT_INFO.get(field, {})
-            ax.set_title(info.get("title", field))
+            xlab = cfg.get("x_label") or field
+            ylab = cfg.get("y_label") or f"Prob ({cfg['mode']})"
+            fig.update_xaxes(
+                title_text=xlab, type="log" if cfg["x_log"] else "linear", showgrid=True, row=r, col=c)
+            fig.update_yaxes(
+                title_text=ylab, type="log" if cfg["y_log"] else "linear", showgrid=True, row=r, col=c)
 
-            x_label = cfg.get("x_label_override") or info.get("x_label", field)
-            ax.set_xlabel(x_label)
-            ax.set_ylabel(mode)
+        fig.update_layout(template="plotly_white", margin=dict(l=50, r=20, t=50, b=50),
+                          legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
+        return fig
 
-            if ysc == "Log":
-                ax.set_yscale("log")
-                # Use Mathtext formatter for Base 10 style (10^-2 instead of 0.01)
-                ax.yaxis.set_major_formatter(LogFormatterMathtext())
-                ax.set_ylim(bottom=1e-5)  # Match clip limit
+    def _update_plot_preview(self):
+        if self._plot_preview_job and self._plot_preview_job.is_alive():
+            return
+        w = max(400, min(self.lbl_preview.winfo_width(), 1920))
+        h = max(300, min(self.lbl_preview.winfo_height(), 1080))
+        self.lbl_preview.configure(text="Rendering...")
+        self._plot_preview_job = threading.Thread(
+            target=self._render_worker, args=(w, h))
+        self._plot_preview_job.daemon = True
+        self._plot_preview_job.start()
 
-            if self.app.var_xlog.get():
-                try:
-                    ax.set_xscale("log")
-                    ax.xaxis.set_major_formatter(LogFormatterMathtext())
-                except:
-                    pass
+    def _render_worker(self, w, h):
+        try:
+            fig = self._create_plotly_fig()
+            img_bytes = fig.to_image(format="png", width=w, height=h, scale=1)
+            self.app.after(0, self._display_image, img_bytes)
+        except ImportError:
+            self.app.after(0, self.lbl_preview.configure, {
+                           "text": "Install 'kaleido' for static preview.\nUse 'Open Interactive' for now."})
+        except Exception as e:
+            self.app.after(0, self.lbl_preview.configure, {
+                           "text": f"Render Error:\n{e}"})
 
-            ax.grid(True, which="both", alpha=0.3)
-            if has_data:
-                ax.legend(fontsize=8)
+    def _display_image(self, img_bytes):
+        try:
+            pil = Image.open(io.BytesIO(img_bytes))
+            self._photo_image = ImageTk.PhotoImage(pil)
+            self.lbl_preview.configure(image=self._photo_image, text="")
+        except:
+            pass
 
-        # Remove empty axes
-        for i in range(n_axes, len(axes_flat)):
-            self.fig_res.delaxes(axes_flat[i])
-
-        self.fig_res.tight_layout()
-        self.canvas_res.draw_idle()
-
-        if self.app.var_auto_update.get():
-            try:
-                ms = int(self.app.var_update_period_ms.get())
-            except ValueError:
-                ms = 1000
-            self._plot_auto_job = self.app.after(
-                max(500, ms), self._draw_results_plots)
-
-    def _export_results_fig(self):
-        """Exports the current figure to a file at 1920x1080 resolution."""
-        path = filedialog.asksaveasfilename(defaultextension=".png", filetypes=[
-                                            ("PNG", "*.png"), ("PDF", "*.pdf")])
-        if path:
-            # FIX: Force 1920x1080 resolution (19.2 x 10.8 inches @ 100 DPI)
-            original_size = self.fig_res.get_size_inches()
-            try:
-                self.fig_res.set_size_inches(19.2, 10.8)
-                self.fig_res.savefig(path, dpi=100)
-                messagebox.showinfo("Export", f"Saved: {path}")
-            finally:
-                # Restore original size for GUI display
-                self.fig_res.set_size_inches(original_size)
-                self.canvas_res.draw()
-
-    def _schedule_auto_update(self):
-        """Toggles the automatic update timer."""
-        if self.app.var_auto_update.get():
-            self._draw_results_plots()
-        elif self._plot_auto_job:
-            self.app.after_cancel(self._plot_auto_job)
-            self._plot_auto_job = None
+    def _open_browser(self):
+        try:
+            fig = self._create_plotly_fig()
+            import tempfile
+            fd, path = tempfile.mkstemp(suffix=".html")
+            with os.fdopen(fd, 'w') as tmp:
+                tmp.write(fig.to_html(include_plotlyjs='cdn'))
+            webbrowser.open(f"file://{path}")
+        except Exception as e:
+            messagebox.showerror("Error", str(e))

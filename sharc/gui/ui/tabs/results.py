@@ -51,22 +51,17 @@ class ResultsTab:
 
         # --- State Management ---
         if not hasattr(self.app, "res_dirs"):
-            # Stores full paths. Remote paths are prefixed with "ssh://"
             self.app.res_dirs = []
 
-        # Store styles for folders. Key: folder_path, Value: dict of style props
         if not hasattr(self.app, "res_styles"):
             self.app.res_styles = {}
 
-        # SSH Credentials (Safe Initialization)
         self._init_ssh_vars()
 
-        # Caches
-        # Key: (folder_path, field) -> Value: (mtime, numpy_array)
         self._data_cache = {}
         self._plot_preview_job = None
-        self._photo_image = None  # GC protection
-        self._max_axes = 9        # Max grid 3x3
+        self._photo_image = None
+        self._max_axes = 9
         self._disable_traces = False
 
         # --- Default Configuration ---
@@ -76,7 +71,6 @@ class ResultsTab:
 
         default_field = self.result_fields[0]
 
-        # Default Protection Criteria (Now with 'enabled' flag)
         default_criteria = [
             {"val": -12.2, "type": "Vertical (X)",
                 "label": "Prot -12.2dB", "color": "red", "enabled": True},
@@ -99,39 +93,29 @@ class ResultsTab:
                 "criteria": [c.copy() for c in default_criteria]
             })
 
-        # --- Initialize UI Vars ---
         self._init_ui_vars()
-
-        # --- Build UI ---
         self._build_ui()
-
-        # Initial Render
         self._schedule_update()
 
     def _init_ssh_vars(self):
-        """Initialize SSH variables safely. Creates them if they don't exist."""
-        # Host
         if hasattr(self.app, "ssh_host"):
             self.var_ssh_host = self.app.ssh_host
         else:
             self.var_ssh_host = tk.StringVar(value="localhost")
             self.app.ssh_host = self.var_ssh_host
 
-        # User
         if hasattr(self.app, "ssh_user"):
             self.var_ssh_user = self.app.ssh_user
         else:
             self.var_ssh_user = tk.StringVar(value="")
             self.app.ssh_user = self.var_ssh_user
 
-        # Password
         if hasattr(self.app, "ssh_password"):
             self.var_ssh_pass = self.app.ssh_password
         else:
             self.var_ssh_pass = tk.StringVar(value="")
             self.app.ssh_password = self.var_ssh_pass
 
-        # Port
         if hasattr(self.app, "ssh_port"):
             self.var_ssh_port = self.app.ssh_port
         else:
@@ -139,18 +123,11 @@ class ResultsTab:
             self.app.ssh_port = self.var_ssh_port
 
     def _init_ui_vars(self):
-        # Grid
         self.var_rows = tk.IntVar(value=1)
         self.var_cols = tk.IntVar(value=1)
-
-        # Source Control
         self.var_source_mode = tk.StringVar(value="LOCAL")
         self.var_remote_base = tk.StringVar(value="/home")
-
-        # Active Subplot
         self.var_current_subplot_idx = tk.IntVar(value=0)
-
-        # Edit Vars
         self.var_edit_field = tk.StringVar()
         self.var_edit_mode = tk.StringVar()
         self.var_edit_title = tk.StringVar()
@@ -161,25 +138,22 @@ class ResultsTab:
         self.var_edit_leg_suffix = tk.StringVar()
         self.var_edit_xshift = tk.DoubleVar(value=0.0)
 
-        # Filter Plot
         if hasattr(self.app, "var_plot_selected_only"):
             self.var_plot_selected_only = self.app.var_plot_selected_only
         else:
             self.var_plot_selected_only = tk.BooleanVar(value=False)
             self.app.var_plot_selected_only = self.var_plot_selected_only
 
-        # Style Editor Vars
         self.var_style_label = tk.StringVar()
         self.var_style_color = tk.StringVar(value="Auto")
         self.var_style_ls = tk.StringVar(value="Auto")
         self.var_style_lw = tk.DoubleVar(value=1.5)
 
-        # Traces for Auto-Refresh
         self._trace_vars = [
             self.var_edit_field, self.var_edit_mode, self.var_edit_title,
             self.var_edit_xlabel, self.var_edit_ylabel, self.var_edit_xlog,
             self.var_edit_ylog, self.var_edit_leg_suffix, self.var_rows, self.var_cols,
-            self.var_plot_selected_only  # Trigger update on filter change
+            self.var_plot_selected_only
         ]
         for v in self._trace_vars:
             v.trace_add("write", self._on_config_change)
@@ -208,7 +182,6 @@ class ResultsTab:
         frm = ttk.LabelFrame(parent, text="Result Folders")
         frm.pack(fill="x", padx=5, pady=5)
 
-        # Source Toggle & SSH Config
         src_frame = ttk.Frame(frm)
         src_frame.pack(fill="x", padx=5, pady=2)
 
@@ -218,11 +191,9 @@ class ResultsTab:
         ttk.Radiobutton(src_frame, text="Remote", variable=self.var_source_mode,
                         value="REMOTE").pack(side="left", padx=5)
 
-        # SSH Config Button
         ttk.Button(src_frame, text="Connection...",
                    command=self._open_ssh_config, width=10).pack(side="right", padx=2)
 
-        # Listbox
         list_frame = ttk.Frame(frm)
         list_frame.pack(fill="x", padx=5, pady=5)
 
@@ -232,12 +203,9 @@ class ResultsTab:
         sb.pack(side="right", fill="y")
         self.lb_dirs.config(yscrollcommand=sb.set)
 
-        # Bind selection to load styles
         self.lb_dirs.bind("<<ListboxSelect>>", self._load_style_from_selection)
-
         self._refresh_dir_listbox()
 
-        # Buttons
         btn_frame = ttk.Frame(frm)
         btn_frame.pack(fill="x", padx=5, pady=2)
 
@@ -248,11 +216,9 @@ class ResultsTab:
         ttk.Button(btn_frame, text="Clear", command=self._clear_all_dirs).pack(
             side="right", padx=2)
 
-        # Plot Selected Only Checkbox
         ttk.Checkbutton(frm, text="Plot Selected Only",
                         variable=self.var_plot_selected_only).pack(anchor="w", padx=5, pady=(2, 5))
 
-        # Style Editor
         self._build_style_editor(parent)
 
     def _build_style_editor(self, parent):
@@ -268,19 +234,16 @@ class ResultsTab:
         sf2 = ttk.Frame(frm_style)
         sf2.pack(fill="x", padx=5, pady=2)
 
-        # Color
         ttk.Label(sf2, text="Color:").pack(side="left")
         cb_color = ttk.Combobox(sf2, textvariable=self.var_style_color, width=8,
                                 values=["Auto", "tab:blue", "tab:orange", "tab:green", "tab:red", "black", "grey"])
         cb_color.pack(side="left", padx=2)
 
-        # Line Style
         ttk.Label(sf2, text="Line:").pack(side="left", padx=(5, 0))
         cb_ls = ttk.Combobox(sf2, textvariable=self.var_style_ls, width=5, state="readonly",
                              values=["Auto", "-", "--", "-.", ":"])
         cb_ls.pack(side="left", padx=2)
 
-        # Line Width
         ttk.Label(sf2, text="Wid:").pack(side="left", padx=(5, 0))
         ttk.Spinbox(sf2, from_=0.5, to=5.0, increment=0.5,
                     textvariable=self.var_style_lw, width=4).pack(side="left", padx=2)
@@ -302,7 +265,6 @@ class ResultsTab:
         frm = ttk.LabelFrame(parent, text="Active Subplot Settings")
         frm.pack(fill="both", expand=True, padx=5, pady=5)
 
-        # Selector
         sel_frame = ttk.Frame(frm)
         sel_frame.pack(fill="x", padx=5, pady=5)
         ttk.Label(sel_frame, text="Editing Subplot:").pack(side="left")
@@ -315,11 +277,9 @@ class ResultsTab:
         self.cb_subplot_sel.bind(
             "<<ComboboxSelected>>", self._on_subplot_selection_change)
 
-        # Tabs
         nb = ttk.Notebook(frm)
         nb.pack(fill="both", expand=True, padx=5, pady=5)
 
-        # --- Tab 1: Data & Axis ---
         tab_axis = ttk.Frame(nb)
         nb.add(tab_axis, text="Data & Axis")
         grid_opts = {'padx': 5, 'pady': 3, 'sticky': 'w'}
@@ -370,11 +330,9 @@ class ResultsTab:
 
         tab_axis.columnconfigure(1, weight=1)
 
-        # --- Tab 2: Protection Criteria ---
         tab_crit = ttk.Frame(nb)
         nb.add(tab_crit, text="Protection Criteria")
 
-        # Columns: Status (On/Off), Val, Type, Label
         cols = ("enabled", "val", "type", "label")
         self.tv_crit = ttk.Treeview(
             tab_crit, columns=cols, show="headings", height=6)
@@ -389,7 +347,6 @@ class ResultsTab:
         self.tv_crit.column("label", width=100)
         self.tv_crit.pack(fill="both", expand=True, padx=5, pady=5)
 
-        # Double-click to toggle
         self.tv_crit.bind("<Double-1>", self._toggle_criteria)
 
         btn_crit = ttk.Frame(tab_crit)
@@ -417,12 +374,16 @@ class ResultsTab:
         self.lbl_preview = ttk.Label(
             self.preview_frame, text="Initializing...", anchor="center")
         self.lbl_preview.pack(fill="both", expand=True)
+
+        # --- Loading Bar (Determinate for %) ---
+        self.pb_loading = ttk.Progressbar(
+            self.preview_frame, mode='determinate', length=200)
+
         self.preview_frame.bind("<Configure>", self._on_resize)
 
     # ---------------- SSH Logic ----------------
 
     def _open_ssh_config(self):
-        """Dialog to set SSH credentials if not managed by main app."""
         win = tk.Toplevel(self.frame)
         win.title("SSH Connection Settings")
         win.geometry("300x200")
@@ -443,8 +404,6 @@ class ResultsTab:
         ttk.Button(win, text="Close", command=win.destroy).pack(pady=10)
 
     def _get_ssh_client(self):
-        """Creates/Returns SSH client using current credentials."""
-        # Reuse existing client if active
         cli = getattr(self.app, "ssh_client", None)
         if cli and getattr(cli, "get_transport", None) and cli.get_transport().is_active():
             return cli
@@ -472,7 +431,6 @@ class ResultsTab:
             return None
 
     def _remote_dir_picker(self):
-        """Mini Browser for Remote Directory Selection (Multi-select)."""
         cli = self._get_ssh_client()
         if not cli:
             messagebox.showerror(
@@ -490,13 +448,11 @@ class ResultsTab:
 
         cur_path = tk.StringVar(value=self.var_remote_base.get() or ".")
 
-        # Address Bar
         top = ttk.Frame(win)
         top.pack(fill="x")
         ttk.Entry(top, textvariable=cur_path).pack(
             side="left", fill="x", expand=True)
 
-        # Treeview with Extended Selection (supports Ctrl/Shift)
         tv = ttk.Treeview(win, show="tree", selectmode="extended")
         tv.pack(fill="both", expand=True)
 
@@ -519,7 +475,6 @@ class ResultsTab:
             sel = tv.selection()
             if not sel:
                 return
-            # On double click, just navigate into the first selected
             name = tv.item(sel[0])["text"]
             _ls(posixpath.join(cur_path.get(), name))
 
@@ -527,19 +482,16 @@ class ResultsTab:
             _ls(posixpath.dirname(cur_path.get()))
 
         def _select():
-            # Gather all selected items
             selection = tv.selection()
             base_p = cur_path.get()
 
             if not selection:
-                # If nothing selected, pick the current folder itself
                 chosen_paths.append(base_p)
             else:
                 for item_id in selection:
                     name = tv.item(item_id)["text"]
                     chosen_paths.append(posixpath.join(base_p, name))
 
-            # Update base for next time
             self.var_remote_base.set(base_p)
             win.destroy()
 
@@ -558,14 +510,12 @@ class ResultsTab:
     # ---------------- Data Handling ----------------
 
     def _sync_remote_file(self, tag, field):
-        """Downloads the specific CSV from SSH to local cache."""
         if not tag.startswith("ssh://"):
             return tag
 
         remote_path = tag[6:]
         fname = f"{field}.csv"
 
-        # Cache Folder setup
         base = getattr(self.app, "var_outdir", None)
         base = base.get() if (base and hasattr(base, "get")) else os.getcwd()
 
@@ -575,13 +525,11 @@ class ResultsTab:
 
         local_file = os.path.join(local_dir, fname)
 
-        # Download if missing or empty
         if not (os.path.exists(local_file) and os.path.getsize(local_file) > 0):
             cli = self._get_ssh_client()
             if cli:
                 try:
                     sftp = cli.open_sftp()
-                    # POSIX path for remote file
                     rem_file = posixpath.join(remote_path, fname)
                     sftp.get(rem_file, local_file)
                     sftp.close()
@@ -591,15 +539,12 @@ class ResultsTab:
         return local_dir
 
     def _get_data(self, folder_tag, field):
-        # 1. Sync & Resolve
-        # This triggers download if SSH
         local_folder = self._sync_remote_file(folder_tag, field)
         fpath = os.path.join(local_folder, f"{field}.csv")
 
         if not os.path.exists(fpath):
             return None
 
-        # 2. Check Cache
         try:
             mtime = os.path.getmtime(fpath)
             key = (local_folder, field)
@@ -608,7 +553,6 @@ class ResultsTab:
                 if cm == mtime:
                     return data
 
-            # 3. Read
             df = pd.read_csv(fpath)
             if df.empty:
                 return None
@@ -641,14 +585,11 @@ class ResultsTab:
 
     # ---------------- UI Events ----------------
 
-    # Logic for Style Editor
     def _load_style_from_selection(self, event=None):
-        """Loads style settings of the first selected item into the inputs."""
         sel = self.lb_dirs.curselection()
         if not sel:
             return
 
-        # Load logic from the first selected item
         idx = sel[0]
         if idx < len(self.app.res_dirs):
             path = self.app.res_dirs[idx]
@@ -660,7 +601,6 @@ class ResultsTab:
             self.var_style_lw.set(style.get("linewidth", 1.5))
 
     def _apply_style(self):
-        """Saves current style inputs to ALL selected items."""
         sel = self.lb_dirs.curselection()
         if not sel:
             return
@@ -676,7 +616,6 @@ class ResultsTab:
                 if path not in self.app.res_styles:
                     self.app.res_styles[path] = {}
 
-                # Update dict
                 if label:
                     self.app.res_styles[path]["label"] = label
                 self.app.res_styles[path]["color"] = color
@@ -750,7 +689,6 @@ class ResultsTab:
                 messagebox.showerror("Error", "Paramiko library missing.")
                 return
 
-            # Now returns a list of paths
             chosen_paths = self._remote_dir_picker()
             if chosen_paths:
                 for p in chosen_paths:
@@ -786,7 +724,6 @@ class ResultsTab:
     def _refresh_criteria_list(self, criteria_list):
         self.tv_crit.delete(*self.tv_crit.get_children())
         for i, c in enumerate(criteria_list):
-            # Status display
             status = "On" if c.get("enabled", True) else "Off"
             self.tv_crit.insert("", "end", iid=str(i), values=(
                 status, c.get("val"), c.get("type"), c.get("label")))
@@ -834,7 +771,6 @@ class ResultsTab:
                    command=win.destroy).pack(side="right")
 
     def _toggle_criteria(self, event=None):
-        """Toggles the enabled/disabled state of the selected criterion."""
         sel = self.tv_crit.selection()
         if not sel:
             return
@@ -843,7 +779,6 @@ class ResultsTab:
         idx_subplot = self.var_current_subplot_idx.get()
         cfg = self._axes_cfg[idx_subplot]
 
-        # Toggle boolean
         current_state = cfg["criteria"][idx_crit].get("enabled", True)
         cfg["criteria"][idx_crit]["enabled"] = not current_state
 
@@ -872,10 +807,14 @@ class ResultsTab:
             self.app.after_cancel(self._resize_timer)
         self._resize_timer = self.app.after(800, self._update_plot_preview)
 
-    def _create_plotly_fig(self):
+    def _create_plotly_fig(self, progress_callback=None):
         rows = max(1, self.var_rows.get())
         cols = max(1, self.var_cols.get())
         n_plots = min(rows*cols, self._max_axes)
+
+        # Calculate Total Steps for Progress
+        total_steps = n_plots * max(1, len(self.app.res_dirs))
+        current_step = 0
 
         titles = []
         for i in range(n_plots):
@@ -889,7 +828,6 @@ class ResultsTab:
         fig = make_subplots(rows=rows, cols=cols, subplot_titles=titles,
                             vertical_spacing=0.12, horizontal_spacing=0.08)
 
-        # Style Mappings
         dash_map = {
             "-": "solid",
             "--": "dash",
@@ -904,7 +842,6 @@ class ResultsTab:
             "tab:pink": "#e377c2", "tab:gray": "#7f7f7f", "tab:olive": "#bcbd22", "tab:cyan": "#17becf"
         }
 
-        # Check selection filter
         selected_indices = self.lb_dirs.curselection()
         plot_selected_only = self.var_plot_selected_only.get()
 
@@ -914,7 +851,12 @@ class ResultsTab:
             field = cfg["field"]
 
             for dir_idx, folder in enumerate(self.app.res_dirs):
-                # Filter: Skip if not selected and "Plot Selected Only" is On
+                # -- Progress Update --
+                current_step += 1
+                if progress_callback and total_steps > 0:
+                    pct = (current_step / total_steps) * 90.0
+                    progress_callback(pct)
+
                 if plot_selected_only and (dir_idx not in selected_indices):
                     continue
 
@@ -933,10 +875,8 @@ class ResultsTab:
                 if len(x) == 0:
                     continue
 
-                # --- Apply Custom Style ---
                 style = self.app.res_styles.get(folder, {})
 
-                # 1. Legend
                 custom_label = style.get("label", "")
                 if custom_label:
                     name = custom_label
@@ -945,20 +885,16 @@ class ResultsTab:
                         folder) if "ssh://" not in folder else f"[SSH] {os.path.basename(folder)}"
                 name += cfg.get('legend_suffix', '')
 
-                # 2. Line Props
                 line_props = dict(width=style.get("linewidth", 1.5))
 
-                # Dash
                 ls_val = style.get("linestyle", "Auto")
                 if ls_val in dash_map and dash_map[ls_val]:
                     line_props["dash"] = dash_map[ls_val]
 
-                # Color
                 c_val = style.get("color", "Auto")
                 if c_val != "Auto":
                     line_props["color"] = color_map.get(c_val, c_val)
 
-                # Use Scattergl for huge datasets
                 trace_type = go.Scattergl if len(x) > 10000 else go.Scatter
                 fig.add_trace(trace_type(
                     x=x, y=y,
@@ -969,9 +905,7 @@ class ResultsTab:
                     showlegend=(i == 0)
                 ), row=r, col=c)
 
-            # Draw Criteria
             for crit in cfg.get("criteria", []):
-                # Skip if disabled
                 if not crit.get("enabled", True):
                     continue
 
@@ -1003,25 +937,57 @@ class ResultsTab:
             return
         w = max(400, min(self.lbl_preview.winfo_width(), 1920))
         h = max(300, min(self.lbl_preview.winfo_height(), 1080))
-        self.lbl_preview.configure(text="Rendering...")
+
+        # Start Loading UI
+        self.lbl_preview.configure(text="Initializing...")
+        self.pb_loading['value'] = 0  # Reset
+        self.pb_loading.place(relx=0.5, rely=0.5, anchor="center")
+
         self._plot_preview_job = threading.Thread(
             target=self._render_worker, args=(w, h))
         self._plot_preview_job.daemon = True
         self._plot_preview_job.start()
 
+    def _stop_loading_ui(self):
+        """Helper to stop the progress bar."""
+        self.pb_loading.stop()
+        self.pb_loading.place_forget()
+
+    def _on_render_error(self, msg):
+        """Helper to handle render errors on main thread."""
+        self._stop_loading_ui()
+        self.lbl_preview.configure(text=msg)
+
+    def _update_progress_ui(self, percent):
+        """Updates progress bar from thread."""
+        self.pb_loading['value'] = percent
+        self.lbl_preview.configure(
+            text=f"Generating Traces... {int(percent)}%")
+
     def _render_worker(self, w, h):
+        def _progress(p):
+            # Update progress bar on main thread
+            self.app.after(0, self._update_progress_ui, p)
+
         try:
-            fig = self._create_plotly_fig()
+            fig = self._create_plotly_fig(progress_callback=_progress)
+
+            # Indicate final phase
+            self.app.after(0, lambda: self.lbl_preview.configure(
+                text="Rasterizing... (may take a moment)"))
+            self.app.after(0, lambda: self.pb_loading.configure(value=95))
+
             img_bytes = fig.to_image(format="png", width=w, height=h, scale=1)
             self.app.after(0, self._display_image, img_bytes)
         except ImportError:
-            self.app.after(0, self.lbl_preview.configure, {
-                           "text": "Install 'kaleido' for static preview.\nUse 'Open Interactive' for now."})
+            self.app.after(0, self._on_render_error,
+                           "Install 'kaleido' for static preview.\nUse 'Open Interactive' for now.")
         except Exception as e:
-            self.app.after(0, self.lbl_preview.configure, {
-                           "text": f"Render Error:\n{e}"})
+            self.app.after(0, self._on_render_error,
+                           f"Render Error:\n{e}")
 
     def _display_image(self, img_bytes):
+        self._stop_loading_ui()
         try:
             pil = Image.open(io.BytesIO(img_bytes))
             self._photo_image = ImageTk.PhotoImage(pil)

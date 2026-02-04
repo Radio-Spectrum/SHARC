@@ -9,6 +9,7 @@ import io
 import webbrowser
 import posixpath
 import shutil
+import math  # Added for log calculation
 from pathlib import Path
 
 # Image handling for Tkinter
@@ -43,6 +44,7 @@ class ResultsTab:
     - Default Protection Criteria: -12.2dB and -6dB (Toggleable).
     - Style Editor: Customize legend, color, linestyle per folder.
     - Filter: Option to plot only selected folders.
+    - Axis Control: Adjust Limits and Ticks (Step) with Smart Formatting.
     """
 
     def __init__(self, app, parent_frame):
@@ -90,6 +92,8 @@ class ResultsTab:
                 "y_log": False,
                 "x_shift": 0.0,
                 "legend_suffix": "",
+                "x_min": "", "x_max": "", "x_step": "",
+                "y_min": "", "y_max": "", "y_step": "",
                 "criteria": [c.copy() for c in default_criteria]
             })
 
@@ -128,6 +132,8 @@ class ResultsTab:
         self.var_source_mode = tk.StringVar(value="LOCAL")
         self.var_remote_base = tk.StringVar(value="/home")
         self.var_current_subplot_idx = tk.IntVar(value=0)
+
+        # Plot Config Vars
         self.var_edit_field = tk.StringVar()
         self.var_edit_mode = tk.StringVar()
         self.var_edit_title = tk.StringVar()
@@ -137,6 +143,14 @@ class ResultsTab:
         self.var_edit_ylog = tk.BooleanVar()
         self.var_edit_leg_suffix = tk.StringVar()
         self.var_edit_xshift = tk.DoubleVar(value=0.0)
+
+        # Limits and Steps
+        self.var_edit_xmin = tk.StringVar()
+        self.var_edit_xmax = tk.StringVar()
+        self.var_edit_xstep = tk.StringVar()
+        self.var_edit_ymin = tk.StringVar()
+        self.var_edit_ymax = tk.StringVar()
+        self.var_edit_ystep = tk.StringVar()
 
         if hasattr(self.app, "var_plot_selected_only"):
             self.var_plot_selected_only = self.app.var_plot_selected_only
@@ -153,7 +167,9 @@ class ResultsTab:
             self.var_edit_field, self.var_edit_mode, self.var_edit_title,
             self.var_edit_xlabel, self.var_edit_ylabel, self.var_edit_xlog,
             self.var_edit_ylog, self.var_edit_leg_suffix, self.var_rows, self.var_cols,
-            self.var_plot_selected_only
+            self.var_plot_selected_only,
+            self.var_edit_xmin, self.var_edit_xmax, self.var_edit_xstep,
+            self.var_edit_ymin, self.var_edit_ymax, self.var_edit_ystep
         ]
         for v in self._trace_vars:
             v.trace_add("write", self._on_config_change)
@@ -280,56 +296,104 @@ class ResultsTab:
         nb = ttk.Notebook(frm)
         nb.pack(fill="both", expand=True, padx=5, pady=5)
 
+        # --- Data & Axis Tab ---
         tab_axis = ttk.Frame(nb)
         nb.add(tab_axis, text="Data & Axis")
-        grid_opts = {'padx': 5, 'pady': 3, 'sticky': 'w'}
 
+        # Grid Configuration Helper
+        r_idx = 0
+
+        def grid_next(pady=2):
+            nonlocal r_idx
+            r_idx += 1
+            return dict(row=r_idx, padx=5, pady=pady, sticky='w')
+
+        # CSV & Mode
         ttk.Label(tab_axis, text="CSV Field:").grid(
-            row=0, column=0, **grid_opts)
+            row=0, column=0, sticky='w', padx=5, pady=2)
         ttk.Combobox(tab_axis, textvariable=self.var_edit_field,
-                     values=self.result_fields).grid(row=0, column=1, sticky="ew")
+                     values=self.result_fields).grid(row=0, column=1, sticky="ew", padx=5)
 
-        ttk.Label(tab_axis, text="Mode:").grid(row=1, column=0, **grid_opts)
+        ttk.Label(tab_axis, text="Mode:").grid(
+            row=1, column=0, sticky='w', padx=5, pady=2)
         ttk.Combobox(tab_axis, textvariable=self.var_edit_mode, values=[
-                     "CDF", "CCDF"], state="readonly").grid(row=1, column=1, sticky="ew")
+                     "CDF", "CCDF"], state="readonly").grid(row=1, column=1, sticky="ew", padx=5)
 
         ttk.Separator(tab_axis, orient="horizontal").grid(
             row=2, column=0, columnspan=2, sticky="ew", pady=5)
 
+        # Titles & Labels
         ttk.Label(tab_axis, text="Chart Title:").grid(
-            row=3, column=0, **grid_opts)
+            row=3, column=0, sticky='w', padx=5, pady=2)
         ttk.Entry(tab_axis, textvariable=self.var_edit_title).grid(
-            row=3, column=1, sticky="ew")
+            row=3, column=1, sticky="ew", padx=5)
 
-        ttk.Label(tab_axis, text="X Label:").grid(row=4, column=0, **grid_opts)
+        ttk.Label(tab_axis, text="X Label:").grid(
+            row=4, column=0, sticky='w', padx=5, pady=2)
         ttk.Entry(tab_axis, textvariable=self.var_edit_xlabel).grid(
-            row=4, column=1, sticky="ew")
+            row=4, column=1, sticky="ew", padx=5)
 
-        ttk.Label(tab_axis, text="Y Label:").grid(row=5, column=0, **grid_opts)
+        ttk.Label(tab_axis, text="Y Label:").grid(
+            row=5, column=0, sticky='w', padx=5, pady=2)
         ttk.Entry(tab_axis, textvariable=self.var_edit_ylabel).grid(
-            row=5, column=1, sticky="ew")
+            row=5, column=1, sticky="ew", padx=5)
 
-        ttk.Separator(tab_axis, orient="horizontal").grid(
-            row=6, column=0, columnspan=2, sticky="ew", pady=5)
-
+        # Log Scales
         chk_frame = ttk.Frame(tab_axis)
-        chk_frame.grid(row=7, column=0, columnspan=2, sticky="w", padx=5)
+        chk_frame.grid(row=6, column=0, columnspan=2,
+                       sticky="w", padx=5, pady=2)
         ttk.Checkbutton(chk_frame, text="Log X", variable=self.var_edit_xlog).pack(
             side="left", padx=(0, 10))
         ttk.Checkbutton(chk_frame, text="Log Y",
                         variable=self.var_edit_ylog).pack(side="left")
 
+        # Shifts & Suffix
         shift_frame = ttk.Frame(tab_axis)
-        shift_frame.grid(row=8, column=0, columnspan=2, sticky="ew", pady=5)
+        shift_frame.grid(row=7, column=0, columnspan=2, sticky="ew", pady=2)
         ttk.Label(shift_frame, text="X Shift:").pack(side="left", padx=5)
         ttk.Entry(shift_frame, textvariable=self.var_edit_xshift,
                   width=6).pack(side="left")
         ttk.Label(shift_frame, text="Legend Suffix:").pack(side="left", padx=5)
         ttk.Entry(shift_frame, textvariable=self.var_edit_leg_suffix).pack(
-            side="left", fill="x", expand=True)
+            side="left", fill="x", expand=True, padx=5)
+
+        ttk.Separator(tab_axis, orient="horizontal").grid(
+            row=8, column=0, columnspan=2, sticky="ew", pady=5)
+
+        # --- Axis Limits & Steps ---
+        lim_frame = ttk.LabelFrame(
+            tab_axis, text="Limits & Steps (Empty = Auto)")
+        lim_frame.grid(row=9, column=0, columnspan=2,
+                       sticky="ew", padx=5, pady=5)
+
+        # Header
+        ttk.Label(lim_frame, text="Min").grid(row=0, column=1, padx=2)
+        ttk.Label(lim_frame, text="Max").grid(row=0, column=2, padx=2)
+        ttk.Label(lim_frame, text="Step").grid(row=0, column=3, padx=2)
+
+        # X Controls
+        ttk.Label(lim_frame, text="X Axis:").grid(
+            row=1, column=0, sticky="e", padx=2)
+        ttk.Entry(lim_frame, textvariable=self.var_edit_xmin,
+                  width=7).grid(row=1, column=1, padx=2)
+        ttk.Entry(lim_frame, textvariable=self.var_edit_xmax,
+                  width=7).grid(row=1, column=2, padx=2)
+        ttk.Entry(lim_frame, textvariable=self.var_edit_xstep,
+                  width=7).grid(row=1, column=3, padx=2)
+
+        # Y Controls
+        ttk.Label(lim_frame, text="Y Axis:").grid(
+            row=2, column=0, sticky="e", padx=2)
+        ttk.Entry(lim_frame, textvariable=self.var_edit_ymin,
+                  width=7).grid(row=2, column=1, padx=2, pady=2)
+        ttk.Entry(lim_frame, textvariable=self.var_edit_ymax,
+                  width=7).grid(row=2, column=2, padx=2, pady=2)
+        ttk.Entry(lim_frame, textvariable=self.var_edit_ystep,
+                  width=7).grid(row=2, column=3, padx=2, pady=2)
 
         tab_axis.columnconfigure(1, weight=1)
 
+        # --- Criteria Tab ---
         tab_crit = ttk.Frame(nb)
         nb.add(tab_crit, text="Protection Criteria")
 
@@ -646,6 +710,15 @@ class ResultsTab:
         self.var_edit_ylog.set(cfg.get("y_log", False))
         self.var_edit_leg_suffix.set(cfg.get("legend_suffix", ""))
         self.var_edit_xshift.set(cfg.get("x_shift", 0.0))
+
+        # Limits
+        self.var_edit_xmin.set(cfg.get("x_min", ""))
+        self.var_edit_xmax.set(cfg.get("x_max", ""))
+        self.var_edit_xstep.set(cfg.get("x_step", ""))
+        self.var_edit_ymin.set(cfg.get("y_min", ""))
+        self.var_edit_ymax.set(cfg.get("y_max", ""))
+        self.var_edit_ystep.set(cfg.get("y_step", ""))
+
         self._refresh_criteria_list(cfg.get("criteria", []))
         self._disable_traces = False
 
@@ -663,6 +736,14 @@ class ResultsTab:
         cfg["x_log"] = self.var_edit_xlog.get()
         cfg["y_log"] = self.var_edit_ylog.get()
         cfg["legend_suffix"] = self.var_edit_leg_suffix.get()
+
+        cfg["x_min"] = self.var_edit_xmin.get()
+        cfg["x_max"] = self.var_edit_xmax.get()
+        cfg["x_step"] = self.var_edit_xstep.get()
+        cfg["y_min"] = self.var_edit_ymin.get()
+        cfg["y_max"] = self.var_edit_ymax.get()
+        cfg["y_step"] = self.var_edit_ystep.get()
+
         try:
             cfg["x_shift"] = self.var_edit_xshift.get()
         except:
@@ -923,10 +1004,62 @@ class ResultsTab:
 
             xlab = cfg.get("x_label") or field
             ylab = cfg.get("y_label") or f"Prob ({cfg['mode']})"
-            fig.update_xaxes(
-                title_text=xlab, type="log" if cfg["x_log"] else "linear", showgrid=True, row=r, col=c)
-            fig.update_yaxes(
-                title_text=ylab, type="log" if cfg["y_log"] else "linear", showgrid=True, row=r, col=c)
+
+            # Prepare Axis Params
+            xaxis_params = dict(
+                title_text=xlab,
+                type="log" if cfg["x_log"] else "linear",
+                showgrid=True
+            )
+            yaxis_params = dict(
+                title_text=ylab,
+                type="log" if cfg["y_log"] else "linear",
+                showgrid=True
+            )
+
+            # Apply limits if valid floats
+            try:
+                xmin = float(cfg.get("x_min", ""))
+                xmax = float(cfg.get("x_max", ""))
+                xaxis_params["range"] = [xmin, xmax]
+            except ValueError:
+                pass  # Auto
+
+            try:
+                ymin = float(cfg.get("y_min", ""))
+                ymax = float(cfg.get("y_max", ""))
+                yaxis_params["range"] = [ymin, ymax]
+            except ValueError:
+                pass  # Auto
+
+            # Apply Steps (dtick) with Smart Scaling
+            try:
+                xstep = float(cfg.get("x_step", ""))
+                if xstep > 0:
+                    xaxis_params["dtick"] = xstep
+                    # If step is small and axis is linear, try percentage formatting
+                    if not cfg["x_log"] and xstep < 1.0:
+                        # Auto-detect precision: 0.01 -> 0 dec, 0.001 -> 1 dec
+                        decimals = max(
+                            0, int(math.ceil(-math.log10(xstep)) - 2))
+                        xaxis_params["tickformat"] = f".{decimals}%"
+            except ValueError:
+                pass
+
+            try:
+                ystep = float(cfg.get("y_step", ""))
+                if ystep > 0:
+                    yaxis_params["dtick"] = ystep
+                    # If step is small and axis is linear, try percentage formatting
+                    if not cfg["y_log"] and ystep < 1.0:
+                        decimals = max(
+                            0, int(math.ceil(-math.log10(ystep)) - 2))
+                        yaxis_params["tickformat"] = f".{decimals}%"
+            except ValueError:
+                pass
+
+            fig.update_xaxes(xaxis_params, row=r, col=c)
+            fig.update_yaxes(yaxis_params, row=r, col=c)
 
         fig.update_layout(template="plotly_white", margin=dict(l=50, r=20, t=50, b=50),
                           legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))

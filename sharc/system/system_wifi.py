@@ -93,8 +93,8 @@ class SystemWifi:
         wifi_aps.active = random_values < self.parameters.ap.load_probability
         wifi_aps.tx_power = self.parameters.ap.conducted_power * np.ones(num_aps)
         wifi_aps.rx_power = np.full((num_aps, self.parameters.sta.k), -500.0)
-        wifi_aps.rx_interference = np.full((num_aps, self.parameters.sta.k), -500.0)
-        wifi_aps.ext_interference = np.full((num_aps, self.parameters.sta.k), -500.0)
+        wifi_aps.rx_interference = np.full(num_aps, -500.0)
+        wifi_aps.ext_interference = np.full(num_aps, -500.0)
         wifi_aps.total_interference = np.full((num_aps, self.parameters.sta.k), -500.0)
         wifi_aps.snr = np.full((num_aps, self.parameters.sta.k), -500.0)
         wifi_aps.sinr = np.full((num_aps, self.parameters.sta.k), -500.0)
@@ -206,8 +206,8 @@ class SystemWifi:
         wifi_sta.indoor = random_number_gen.random_sample(
             self.num_sta,
         ) <= (self.parameters.sta.indoor_percent / 100)
-        wifi_sta.rx_interference = -500 * np.ones(self.num_sta)
-        wifi_sta.ext_interference = -500 * np.ones(self.num_sta)
+        wifi_sta.rx_interference = np.full(self.num_sta, -500.0)
+        wifi_sta.ext_interference = np.full(self.num_sta, -500.0)
 
         # TODO: this piece of code works only for uplink
         '''self.parameters_antenna.get_antenna_parameters()
@@ -254,6 +254,12 @@ class SystemWifi:
         # 2. Pegar os índices dos que 'querem' transmitir (Intent to transmit)
         ap_candidates = np.where(self.ap.active)[0]
         sta_candidates = np.where(self.sta.active)[0]
+        '''n_aps_before = np.sum(self.ap.active)
+        n_stas_before = np.sum(self.sta.active)
+        
+        print(f"\n[CSMA/CA] Tentativa de Transmissão (Load Probability):")
+        print(f"   -> APs: {n_aps_before} / {self.num_aps}")
+        print(f"   -> STAs: {n_stas_before} / {self.num_sta}")'''
         
         # Pool único de (Manager, Index)
         candidates = []
@@ -267,7 +273,7 @@ class SystemWifi:
         # 4. Embaralhar para garantir justiça no sorteio (Simula Backoff)
         random_gen.shuffle(candidates)
 
-        radius_km = self.parameters.max_dist_hotspot_ue
+        radius_km = self.parameters.max_dist_nodes_wifi
 
         # 5. Processo de Contenção (CSMA/CA)
         while candidates:
@@ -284,6 +290,13 @@ class SystemWifi:
                     remaining.append((mgr_target, idx_target))
             
             candidates = remaining
+        '''n_aps_after = np.sum(self.ap.active)
+        n_stas_after = np.sum(self.sta.active)
+        
+        print(f"[CSMA/CA] Transmissão Efetiva (Pós-Contenção):")
+        print(f"   -> APs: {n_aps_after} (Perda: {n_aps_before - n_aps_after})")
+        print(f"   -> STAs: {n_stas_after} (Perda: {n_stas_before - n_stas_after})")
+        print(f"   -> Total Transmitindo: {n_aps_after + n_stas_after}\n")'''
     
     def connect_wifi_sta_to_ap(self, parameters: ParametersWifiSystem):
         """

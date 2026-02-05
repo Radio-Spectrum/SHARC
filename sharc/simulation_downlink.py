@@ -516,8 +516,7 @@ class SimulationDownlink(Simulation):
                     # 1. Interferência linear proveniente dos APs (mW)
                     # Cálculo: PSD + 10log10(BW_afetada) + Ganho_Sobreposição - Perda_Acoplamento
                     interf_ap_lin = np.sum(10 ** (0.1 * (
-                        self.param_system.tx_power_density + 
-                        10 * np.log10(self.ue.bandwidth[ue, np.newaxis] * 1e6) + 
+                        self.system.ap.tx_power[active_ap] + 
                         10 * np.log10(weights)[:, np.newaxis] - 
                         self.coupling_loss_imt_system_ap[ue, :][:, active_ap]
                     )), axis=1)
@@ -525,8 +524,7 @@ class SimulationDownlink(Simulation):
                     # 2. Interferência linear proveniente das STAs (mW)
                     # Nota: Assume-se que a densidade de potência (tx_power_density) é aplicada às STAs
                     interf_sta_lin = np.sum(10 ** (0.1 * (
-                        self.param_system.tx_power_density + 
-                        10 * np.log10(self.ue.bandwidth[ue, np.newaxis] * 1e6) + 
+                        self.system.sta.tx_power[active_sta] +  
                         10 * np.log10(weights)[:, np.newaxis] - 
                         self.coupling_loss_imt_system_sta[ue, :][:, active_sta]
                     )), axis=1)
@@ -716,10 +714,6 @@ class SimulationDownlink(Simulation):
         
         ap_active = np.where(self.system.ap.active)[0]  # assuming all APs have same parameters
         sta_active = np.where(self.system.sta.active)[0]
-        rx_interference_linear_ap = np.zeros(self.system.ap.num_stations)
-        rx_interference_linear_sta = np.zeros(self.system.sta.num_stations)
-        rx_interference_linear_ap[ap_active] = np.power(10, 0.1 * self.system.ap.rx_interference[ap_active].flatten())
-        rx_interference_linear_sta[sta_active] = np.power(10, 0.1 * self.system.sta.rx_interference[sta_active].flatten())
 
         for bs in bs_active:
             # Potência de TX por feixe do BS atual (Array, shape [K] onde K=self.parameters.imt.ue.k)
@@ -737,11 +731,11 @@ class SimulationDownlink(Simulation):
             ]
 
             if self.co_channel:
-                rx_interference_linear_ap[ap_active] += np.sum(
+                self.system.ap.ext_interference[ap_active] += np.sum(
                     10 ** (0.1 * (pow_coch - self.coupling_loss_imt_wifi_ap[active_beams][:, ap_active])),
                     axis=0
                 )
-                rx_interference_linear_sta[sta_active] += np.sum(
+                self.system.sta.ext_interference[sta_active] += np.sum(
                     10 ** (0.1 * (pow_coch - self.coupling_loss_imt_wifi_sta[active_beams][:, sta_active])),
                     axis=0
                 )
@@ -796,11 +790,24 @@ class SimulationDownlink(Simulation):
                     axis=0
                 )
 
-        self.system.ap.rx_interference = 10 * np.log10(np.maximum(rx_interference_linear_ap, 1e-20))
-        self.system.sta.rx_interference = 10 * np.log10(np.maximum(rx_interference_linear_sta, 1e-20))
+
+        self.system.ap.ext_interference = 10 * np.log10(np.maximum(self.system.ap.ext_interference, 1e-20))
+        self.system.sta.ext_interference = 10 * np.log10(np.maximum(self.system.sta.ext_interference, 1e-20))
 
         # Total received interference - dBW
-        self.system.rx_interference = np.concatenate((self.system.ap.rx_interference, self.system.sta.rx_interference))
+        self.system.ext_interference = np.concatenate((self.system.ap.ext_interference.flatten(), self.system.sta.ext_interference.flatten()))
+        # 3. SOMA: Intra (mW) + Externa (mW)
+        # Só atualizamos os ativos, o resto continua o que era (geralmente -inf ou ruído)
+        total_ap_linear = self.system.ap.rx_interference
+        total_ap_linear[ap_active] += self.system.ap.ext_interference[ap_active]
+
+        total_sta_linear = self.system.sta.rx_interference
+        total_sta_linear[sta_active] += self.system.sta.ext_interference[sta_active]
+
+        self.system.rx_interference = np.concatenate((
+            total_ap_linear.flatten(), 
+            total_sta_linear.flatten()
+        ))
 
         # calculate N
         self.system.thermal_noise = \
@@ -1216,6 +1223,12 @@ class SimulationDownlink(Simulation):
             10 ** (0.1 * self.system.sta.rx_interference) +
             10 ** (0.1 * self.system.thermal_noise)
         )
+
+        self.system.intra_rx_interference = np.concatenate((
+            self.system.ap.rx_interference.flatten(),
+            self.system.sta.rx_interference.flatten()
+        ))
+        
         self.system.ap.snr = self.system.ap.rx_power - self.system.ap.thermal_noise[:, np.newaxis]
         self.system.sta.snr = self.system.sta.rx_power - self.system.sta.thermal_noise  
         self.system.ap.sinr = self.system.ap.rx_power - self.system.ap.total_interference
@@ -1236,6 +1249,12 @@ class SimulationDownlink(Simulation):
         """
         self.results.wifi_dl_inr.extend(self.system.inr.flatten())
         self.results.system_dl_interf_power.extend(
+            self.system.rx_interference.flatten(),
+        )
+        self.results.system_intra_dl_interf_power.extend(
+            self.system.intra_rx_interference.flatten(),
+        )
+        self.results.system_ext_dl_interf_power.extend(
             self.system.rx_interference.flatten(),
         )
         self.results.system_dl_interf_power_per_mhz.extend(
@@ -1267,7 +1286,7 @@ class SimulationDownlink(Simulation):
             self.results.wifi_ap_antenna_gain.extend(self.ap_antenna_gain[ap, sta])
             self.results.wifi_sta_antenna_gain.extend(self.sta_antenna_gain[ap, sta])
 
-            val_ul_sinr = global_sinr_clean[ap]
+            ''' val_ul_sinr = global_sinr_clean[ap]
             val_ul_sinr = np.repeat(val_ul_sinr, len(sta_indices))
             
             val_ul_snr  = global_snr_clean[ap]
@@ -1286,7 +1305,7 @@ class SimulationDownlink(Simulation):
 
             # 5. SALVA NOS RESULTADOS
             self.results.wifi_dl_sinr.extend(link_sinr.tolist())
-            self.results.wifi_dl_snr.extend(link_snr.tolist())
+            self.results.wifi_dl_snr.extend(link_snr.tolist())'''
         
             #Calculate throughput for wifi
             wifi_tput = self.calculate_imt_tput(

@@ -92,6 +92,8 @@ class Results(object):
 
         self.system_dl_coupling_loss = SampleList()
         self.system_dl_interf_power = SampleList()
+        self.system_intra_dl_interf_power = SampleList()
+        self.system_ext_dl_interf_power = SampleList()
         # Interference Power [dBm/MHz]
         # NOTE: this may not be what you want for a correct
         # protection criteria analysis since it is

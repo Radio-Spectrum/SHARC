@@ -12,6 +12,7 @@ from sharc.antenna.antenna_rra7_3 import AntennaReg_RR_A7_3
 from sharc.antenna.antenna_s580 import AntennaS580
 from sharc.antenna.antenna_s1528 import AntennaS1528
 from sharc.antenna.antenna_s1855 import AntennaS1855
+from sharc.antenna.antenna_f1245_fs import Antenna_f1245_fs
 from sharc.antenna.antenna_s1528 import AntennaS1528, AntennaS1528Leo, AntennaS1528Taylor
 from sharc.antenna.antenna_beamforming_imt import AntennaBeamformingImt
 
@@ -49,6 +50,8 @@ class AntennaFactory():
                 return AntennaS465(antenna_params.itu_r_s_465_modified)
             case "ITU-R S.1855":
                 return AntennaS1855(antenna_params.itu_r_s_1855)
+            case "ITU-R F.1245_fs":
+                return Antenna_f1245_fs(antenna_params.itu_r_f_1245_fs)
             case "ITU-R Reg. RR. Appendice 7 Annex 3":
                 return AntennaReg_RR_A7_3(antenna_params.itu_reg_rr_a7_3)
             case "MSS Adjacent":
@@ -59,6 +62,12 @@ class AntennaFactory():
                     antenna_params.array.get_antenna_parameters(),
                     azimuth,
                     elevation
+                )
+            case "Antenna System 4":
+                # Handled in station_factory.py since it requires two antennas
+                raise NotImplementedError(
+                    "Antenna System 4 requires two antenna instances and "
+                    "should be created in station_factory.py"
                 )
             case _:
                 raise ValueError(
@@ -88,6 +97,14 @@ class AntennaFactory():
                 antennas[i] = AntennaFactory.create_antenna(
                     antenna_params, azimuth[i], elevation[i],
                 )
+        elif antenna_params.pattern == "Antenna System 4":
+            antenna_pattern_high = AntennaS1528(antenna_params.antenna_system_4.antenna_parameters_high)
+            antenna_pattern_low = AntennaS1528(antenna_params.antenna_system_4.antenna_parameters_low)
+            for i in range(n_stations):
+                if antenna_params.antenna_system_4.beam_ground_elev_angles[i] >= 50:
+                    antennas[i] = antenna_pattern_high
+                else:
+                    antennas[i] = antenna_pattern_low
         else:
             # some antennas don't need azimuth and elevation at all
             # this makes it much faster

@@ -9,7 +9,7 @@
             "console": "integratedTerminal",
             "args": [
                 "-p",
-                "${workspaceFolder}/sharc/input/parameters.yaml"
+                "${workspaceFolder}/sharc/campaigns/ast_mss_d2d_to_imt_cpe/input/parameter_ast_mss_d2d_to_imt_cpe_30exclusion_45beam_elev_0.0power_backoff_20load_factor_P619prop_imt-ue_imt.upto-1GHz.single-bs.urban-macro-bs_system-4.698-960MHz-block2.690km-antenna-update.yaml"
             ]
         }
     ]

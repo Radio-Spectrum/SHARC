@@ -47,7 +47,7 @@ imt:
         # The load probability (or activity factor) models the statistical
         # variation of the network load by defining the number of fully loaded
         # base stations that are simultaneously transmitting
-        load_probability: 1.0
+        load_probability: 0.2
         ###########################################################################
         # Conducted power per antenna element [dBm/bandwidth]
         conducted_power: 28.0
@@ -251,7 +251,7 @@ wifi:
     spectral_mask: WIFI-2020
     ###########################################################################
     spurious_emissions: -27
-    max_dist_hotspot_ue: 200
+    max_dist_nodes_wifi: 20
     ###########################################################################
     adjacent_ch_selectivity: 20.0
     channel_model: UMi                                # Channel model: FSPL, CI, UMa, UMi, etc.

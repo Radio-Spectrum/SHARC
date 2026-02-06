@@ -20,7 +20,7 @@ from sharc.support.enumerations import StationType
 from sharc.parameters.constants import BOLTZMANN_CONSTANT
 import sys
 warn = warnings.warn
-
+warnings.filterwarnings("ignore")
 
 class SimulationDownlink(Simulation):
     """
@@ -516,8 +516,7 @@ class SimulationDownlink(Simulation):
                     # 1. Interferência linear proveniente dos APs (mW)
                     # Cálculo: PSD + 10log10(BW_afetada) + Ganho_Sobreposição - Perda_Acoplamento
                     interf_ap_lin = np.sum(10 ** (0.1 * (
-                        self.param_system.tx_power_density + 
-                        10 * np.log10(self.ue.bandwidth[ue, np.newaxis] * 1e6) + 
+                        self.system.ap.tx_power[active_ap] + 
                         10 * np.log10(weights)[:, np.newaxis] - 
                         self.coupling_loss_imt_system_ap[ue, :][:, active_ap]
                     )), axis=1)
@@ -525,8 +524,7 @@ class SimulationDownlink(Simulation):
                     # 2. Interferência linear proveniente das STAs (mW)
                     # Nota: Assume-se que a densidade de potência (tx_power_density) é aplicada às STAs
                     interf_sta_lin = np.sum(10 ** (0.1 * (
-                        self.param_system.tx_power_density + 
-                        10 * np.log10(self.ue.bandwidth[ue, np.newaxis] * 1e6) + 
+                        self.system.sta.tx_power[active_sta] + 
                         10 * np.log10(weights)[:, np.newaxis] - 
                         self.coupling_loss_imt_system_sta[ue, :][:, active_sta]
                     )), axis=1)
@@ -718,8 +716,8 @@ class SimulationDownlink(Simulation):
         sta_active = np.where(self.system.sta.active)[0]
         rx_interference_linear_ap = np.zeros(self.system.ap.num_stations)
         rx_interference_linear_sta = np.zeros(self.system.sta.num_stations)
-        rx_interference_linear_ap[ap_active] = np.power(10, 0.1 * self.system.ap.rx_interference[ap_active].flatten())
-        rx_interference_linear_sta[sta_active] = np.power(10, 0.1 * self.system.sta.rx_interference[sta_active].flatten())
+        #rx_interference_linear_ap[ap_active] = np.power(10, 0.1 * self.system.ap.rx_interference[ap_active].flatten())
+        #rx_interference_linear_sta[sta_active] = np.power(10, 0.1 * self.system.sta.rx_interference[sta_active].flatten())
 
         for bs in bs_active:
             # Potência de TX por feixe do BS atual (Array, shape [K] onde K=self.parameters.imt.ue.k)
@@ -796,11 +794,25 @@ class SimulationDownlink(Simulation):
                     axis=0
                 )
 
-        self.system.ap.rx_interference = 10 * np.log10(np.maximum(rx_interference_linear_ap, 1e-20))
-        self.system.sta.rx_interference = 10 * np.log10(np.maximum(rx_interference_linear_sta, 1e-20))
+        self.system.ap.ext_interference = 10 * np.log10(rx_interference_linear_ap)
+        self.system.sta.ext_interference = 10 * np.log10(rx_interference_linear_sta)
 
         # Total received interference - dBW
-        self.system.rx_interference = np.concatenate((self.system.ap.rx_interference, self.system.sta.rx_interference))
+        self.system.ext_interference = np.concatenate((self.system.ap.ext_interference.flatten(), self.system.sta.ext_interference.flatten()))
+
+        intra_ap_mw = np.power(10, 0.1 * self.system.ap.rx_interference).flatten()
+        intra_sta_mw = np.power(10, 0.1 * self.system.sta.rx_interference).flatten()
+        
+        total_interf_ap_mw = intra_ap_mw
+        total_interf_sta_mw = intra_sta_mw
+        
+        total_interf_ap_mw[ap_active] += rx_interference_linear_ap[ap_active]
+        total_interf_sta_mw[sta_active] += rx_interference_linear_sta[sta_active]
+        # Atualiza visão global concatenada
+        self.system.rx_interference = np.concatenate((
+            self.system.ap.rx_interference.flatten(), 
+            self.system.sta.rx_interference.flatten()
+        ))
 
         # calculate N
         self.system.thermal_noise = \
@@ -1203,6 +1215,12 @@ class SimulationDownlink(Simulation):
                     np.power(10, 0.1 * interference)
                 )
         
+
+        self.system.intra_interference = np.concatenate((
+            self.system.ap.rx_interference.flatten(),
+            self.system.sta.rx_interference.flatten()
+        ))
+
         self.system.thermal_noise = \
             10 * np.log10(BOLTZMANN_CONSTANT * self.param_system.noise_temperature * 1e3) + \
             10 * np.log10(self.param_system.bandwidth * 1e6) 
@@ -1237,6 +1255,12 @@ class SimulationDownlink(Simulation):
         self.results.wifi_dl_inr.extend(self.system.inr.flatten())
         self.results.system_dl_interf_power.extend(
             self.system.rx_interference.flatten(),
+        )
+        self.results.system_intra_dl_interf_power.extend(
+            self.system.intra_interference.flatten(),
+        )
+        self.results.system_ext_dl_interf_power.extend(
+            self.system.ext_interference.flatten(),
         )
         self.results.system_dl_interf_power_per_mhz.extend(
             self.system.rx_interference.flatten() - 10 * math.log10(self.system.bandwidth),

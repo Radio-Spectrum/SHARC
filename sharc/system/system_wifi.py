@@ -267,7 +267,7 @@ class SystemWifi:
         # 4. Embaralhar para garantir justiça no sorteio (Simula Backoff)
         random_gen.shuffle(candidates)
 
-        radius_km = self.parameters.max_dist_hotspot_ue
+        radius_km = self.parameters.max_dist_nodes_wifi
 
         # 5. Processo de Contenção (CSMA/CA)
         while candidates:

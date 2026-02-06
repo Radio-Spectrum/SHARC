@@ -34,6 +34,7 @@ class ParametersWifiSystem(ParametersBase):
     polarization_loss: float = 0.0
     adjacent_ch_selectivity: float = 20.0
     tx_power_density: float = -65
+    max_dist_nodes_wifi: float = 20.0
 
     # Adjacent channel emissions type
     # Possible values are "ACLR", "SPECTRAL_MASK" and "OFF"

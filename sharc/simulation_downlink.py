@@ -449,14 +449,6 @@ class SimulationDownlink(Simulation):
                 self.param_system.frequency,
             )
 
-            interference = self.bs.tx_power[frst_bs]
-            pow_coch = 10 * np.log10(
-                weights * np.power(
-                    10,
-                    0.1 * interference,
-                ),
-            )
-
         if self.adjacent_channel:
             # Calculate how much power is emitted in the adjacent channel:
             if self.parameters.imt.adjacent_ch_emissions == "SPECTRAL_MASK":
@@ -541,6 +533,12 @@ class SimulationDownlink(Simulation):
                 )
             ]
             if self.co_channel:
+                pow_coch = 10 * np.log10(
+                    weights * np.power(
+                        10,
+                        0.1 * self.bs.tx_power[bs],
+                    ),
+                )
                 rx_interference += np.sum(
                     10 ** (0.1 * (pow_coch - self.coupling_loss_imt_system[active_beams, system_interfering]))
                 )

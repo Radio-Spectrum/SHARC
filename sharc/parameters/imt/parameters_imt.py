@@ -42,7 +42,14 @@ class ParametersImt(ParametersBase):
     adjacent_ch_emissions: str = "OFF"
 
     # Spectral mask used for the IMT system when adjacent_ch_emissions is set to "SPECTRAL_MASK"
-    spectral_mask: str = "IMT-2020"
+    spectral_mask: typing.Literal[
+        "IMT-2020",
+        "3GPP E-UTRA",
+        "MSS",
+        "STEPPED"] = "IMT-2020"
+
+    # Spectral mask steps in dB for STEPPED mask
+    spectral_mask_steps: tuple[float | int, ...] = None
 
     @dataclass
     class ParametersBS(ParametersBase):
@@ -185,7 +192,7 @@ class ParametersImt(ParametersBase):
         """
         super().load_parameters_from_file(config_file)
 
-        if self.spectral_mask not in ["IMT-2020", "3GPP E-UTRA", "MSS"]:
+        if self.spectral_mask not in ["IMT-2020", "3GPP E-UTRA", "MSS", "STEPPED"]:
             raise ValueError(
                 f"""ParametersImt: Inavlid Spectral Mask Name {
                     self.spectral_mask}""", )

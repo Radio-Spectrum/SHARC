@@ -225,6 +225,12 @@ class StationFactory(object):
                 param.bandwidth,
                 param.spurious_emissions
             )
+        elif param.spectral_mask == "STEPPED":
+            imt_base_stations.spectral_mask = SpectralMaskStepped(
+                param.frequency,
+                param.bandwidth,
+                mask_steps_dBm_mhz=list(param.spectral_mask_steps)
+            )
         else:
             raise ValueError(
                 f"Invalid IMT-BS spectral mask {param.spectral_mask}")
@@ -550,6 +556,12 @@ class StationFactory(object):
                 param.bandwidth,
                 param.spurious_emissions,
             )
+        elif param.spectral_mask == "STEPPED":
+            imt_ue.spectral_mask = SpectralMaskStepped(
+                param.frequency,
+                param.bandwidth,
+                mask_steps_dBm_mhz=list(param.spectral_mask_steps)
+            )
         else:
             raise ValueError(f"Invalid spectral mask {param.spectral_mask}")
 
@@ -734,6 +746,12 @@ class StationFactory(object):
                 param.frequency,
                 param.bandwidth,
                 param.spurious_emissions,
+            )
+        elif param.spectral_mask == "STEPPED":
+            imt_ue.spectral_mask = SpectralMaskStepped(
+                param.frequency,
+                param.bandwidth,
+                mask_steps_dBm_mhz=list(param.spectral_mask_steps)
             )
 
         imt_ue.spectral_mask.set_mask()

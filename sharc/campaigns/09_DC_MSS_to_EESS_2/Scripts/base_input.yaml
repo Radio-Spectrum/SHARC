@@ -7,7 +7,7 @@ general:
   system: SINGLE_EARTH_STATION
   imt_link: DOWNLINK
   enable_adjacent_channel: true
-  enable_cochannel: true
+  enable_cochannel: false
 imt:
   minimum_separation_distance_bs_ue: 0
   interfered_with: false

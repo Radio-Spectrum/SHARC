@@ -38,18 +38,13 @@ def main():
     base_cfg, yaml_backend = load_yaml(BASE_YAML_PATH)
 
     for sistema in DCMSS_systems:
-
         for mascara in MASK:
-
             for type_sim in TYPE_SIMULATION:
-
                 for system_EESS in EESS_systems:
-
                     for lf in LOAD_FACTORS:
-
                         cfg = copy.deepcopy(base_cfg)
 
-                        # ===== MSS =====
+                        # ===== Sistema MSS =====
                         dc_mss = cfg["imt"]["topology"]["mss_dc"]
                         orbit = dc_mss["orbits"][0]
 

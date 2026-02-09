@@ -1,0 +1,166 @@
+general:
+  seed: 157 # Alterar no gerador
+  num_snapshots: 10000
+  overwrite_output: false
+  output_dir: campaigns/01_DC_MSS_to_FS/output/
+  output_dir_prefix: output_mss_d2d_to_fs_h_az_mo_lf #Alterar no gerador
+  system: SINGLE_EARTH_STATION
+  imt_link: DOWNLINK
+  enable_adjacent_channel: true
+  enable_cochannel: true
+imt:
+  minimum_separation_distance_bs_ue: 0
+  interfered_with: false
+  frequency: 197.5
+  bandwidth: 5
+  rb_bandwidth: 0.180 # atenção!
+  adjacent_ch_reception: 'OFF'
+  adjacent_ch_emissions: SPECTRAL_MASK
+  spectral_mask: STEPPED
+  spectral_mask_steps:
+  - 34.875334439154976
+  - 16.87533443915498
+  - 6.87533443915498
+  spurious_emissions: -13
+  guard_band_ratio: 0.1 # atenção! a combinação de rb_bandwidth e 0.1 dá 4.5MHz de banda para o UE
+  topology:
+    central_latitude: -15.33
+    central_longitude: -56.04
+    central_altitude: 165
+    type: MSS_DC
+    mss_dc:
+      orbits:
+      - n_planes: 48
+        inclination_deg: 53.0
+        perigee_alt_km: 340.0
+        apogee_alt_km: 340.0
+        sats_per_plane: 110
+        long_asc_deg: 0.0
+        phasing_deg: 1.636  # atenção - 1.5 para 525km - https://github.com/Radio-Spectrum/SHARC-campaigns/blob/feat/mss_system_4/from-docs/system/mss-dc/system-3.2110-2200MHz.525km.yaml
+      sat_is_active_if:
+        conditions:
+        - LAT_LONG_INSIDE_COUNTRY
+        - MINIMUM_ELEVATION_FROM_ES
+        minimum_elevation_from_es: 5
+        lat_long_inside_country:
+          country_names: [
+                "Brazil", "Argentina", "Bolivia", "Chile", "Peru", "Paraguay", "Uruguay"
+            ]
+          margin_from_border: 0
+      beam_positioning:
+        type: SERVICE_GRID
+        service_grid:
+          transform_grid_randomly: true
+          grid_in_zone:
+            type: FROM_COUNTRIES
+            from_countries:
+              country_names: [
+                    "Brazil", "Argentina", "Bolivia", "Chile", "Peru", "Paraguay", "Uruguay"
+                ]
+              margin_from_border: 0.0
+          eligible_sats_margin_from_border: -714  # se definido tem precedência sobre sat_is_active_if.lat_long_inside_country.margin_from_border
+      beam_radius: 25803
+  adjacent_antenna_model: SINGLE_ELEMENT
+  bs:
+    load_probability: 0.1
+    conducted_power: 42.8
+    height: 340000.0
+    noise_figure: 5.0
+    ohmic_loss: 0.0
+    antenna:
+      pattern: ITU-R-S.1528-Taylor
+      gain: 34.1
+      itu_r_s_1528:
+        slr: 20.0
+        n_side_lobes: 2
+        l_r: 1.6
+        l_t: 1.6
+        frequency: 2155
+      array:
+        normalization: false
+        element_pattern: M2101
+        element_max_g: 6.4
+        element_phi_3db: 90
+        element_theta_3db: 65
+        n_rows: 1
+        n_columns: 1
+        element_am: 30
+        element_sla_v: 30
+        multiplication_factor: 12
+    use_oob_antenna: true
+    # Out-of-band antenna pattern
+    oob_antenna:
+        gain: 0.0
+        pattern: Antenna System3 OOB
+  ue:
+    k: 1
+    k_m: 1
+    indoor_percent: 0.0
+    distribution_type: UNIFORM_IN_CELL
+    distribution_distance: RAYLEIGH
+    distribution_azimuth: UNIFORM
+    tx_power_control: false
+    p_o_pusch: -92.2
+    alpha: 0.8
+    p_cmax: 23
+    power_dynamic_range: 63
+    height: 1.5
+    noise_figure: 9
+    ohmic_loss: 0
+    body_loss: 4
+    antenna:
+      array:
+        element_pattern: FIXED
+        element_max_g: -3
+        n_rows: 1
+        n_columns: 1
+  uplink:
+    attenuation_factor: 0.4
+    sinr_min: -10
+    sinr_max: 22
+  downlink:
+    attenuation_factor: 0.8
+    sinr_min: -10
+    sinr_max: 30
+  channel_model: FSPL
+  noise_temperature: 290
+  imt_dl_intra_sinr_calculation_disabled: true
+
+single_earth_station:
+  frequency: 2202
+  bandwidth: 4
+  tx_power_density: -200
+  noise_temperature: 190
+  adjacent_ch_selectivity: 35
+  channel_model: P619
+  polarization_loss: 3
+  geometry:
+    height: 15 
+    azimuth:
+      type: UNIFORM_DIST
+      uniform_dist:
+        min: -180 
+        max: 180
+    elevation:
+      type: UNIFORM_DIST
+      uniform_dist:
+        min: 5 
+        max: 90
+    location:
+      type: FIXED
+      fixed:
+        x: 0
+        y: 0
+  antenna:
+    pattern: ITU-R S.465
+    gain: 45.8
+    itu_r_s_465:
+      antenna_gain: 45.8
+      diameter: 8.91
+  adjacent_ch_reception: ACS
+  season: SUMMER
+  param_p619:
+    earth_station_lat_deg: -15.33
+    earth_station_alt_m: 165
+    mean_clutter_height: low  # Alterar no gerador 
+    below_rooftop: 60 # Alterar no gerador

@@ -23,9 +23,15 @@ OUTPUT_DIR = CAMPAIGN_DIR / "output"
 
 
 # Sweep — service grid
+<<<<<<< HEAD
 MARGINS_KM = [0, 30, 60, 90]
 MIN_SERVICE_ANGLE_DEG = [40]
 LOAD_FACTORS = [0.1, 0.2, 0.5]
+=======
+MARGINS_KM = [0]
+MIN_SERVICE_ANGLE_DEG = [40]
+LOAD_FACTORS = [0.5]
+>>>>>>> 638cb0dfe20fd9832b837dbfa617302ec214764e
 
 # ------------------------------------------------------------
 # Perfis da estação vítima (Systems B e D)
@@ -37,8 +43,8 @@ LOAD_FACTORS = [0.1, 0.2, 0.5]
 #  - single_earth_station.geometry.elevation.uniform_dist.min
 # ------------------------------------------------------------
 VICTIM_STATIONS = {
-    "B": {"antenna_gain": 45.8, "height_m": 20, "min_elevation_deg": 5, "bandwidth": 4},
-    "D": {"antenna_gain": 39.0, "height_m": 40, "min_elevation_deg": 5, "bandwidth": 6},
+    "B": {"antenna_gain": 45.8, "height_m": 15, "min_elevation_deg": 5, "bandwidth": 4},
+    "D": {"antenna_gain": 39.0, "height_m": 15, "min_elevation_deg": 5, "bandwidth": 6},
 }
 
 # ------------------------------------------------------------
@@ -47,10 +53,47 @@ VICTIM_STATIONS = {
 # dentro de: imt.topology.mss_dc.power_control_zones.zones[*]
 # ------------------------------------------------------------
 COVERAGES = {
+<<<<<<< HEAD
     "BR": {
         "countries": ["Brazil", "Argentina"],
+=======
+    "BR_PB150": {
+        "countries": ["Brazil"],
+>>>>>>> 638cb0dfe20fd9832b837dbfa617302ec214764e
         "pb_margin_if_zero": 150,  # BR: você pediu 150 quando power_backoff_db=0
     },
+    "BR_PB100": {
+        "countries": ["Brazil"],
+        "pb_margin_if_zero": 100,  # BR: você pediu 150 quando power_backoff_db=0
+    },
+    "BR_PB50": {
+        "countries": ["Brazil"],
+        "pb_margin_if_zero": 50,  # BR: você pediu 150 quando power_backoff_db=0
+    },
+    "BR_AR_PB150": {
+        "countries": ["Brazil","Argentina"],
+        "pb_margin_if_zero": 150,  # BR: você pediu 150 quando power_backoff_db=0
+    },
+    "BR_AR_PB100": {
+        "countries": ["Brazil","Argentina"],
+        "pb_margin_if_zero": 100,  # BR: você pediu 150 quando power_backoff_db=0
+    },
+    "SA_PB50": {
+        "countries": ["Brazil","Argentina"],
+        "pb_margin_if_zero": 50,  # BR: você pediu 150 quando power_backoff_db=0
+    },  
+    "SA_PB150": {
+        "countries": ["Brazil", "Argentina", "Uruguay", "Paraguay", "Bolivia", "Chile", "Peru"],
+        "pb_margin_if_zero": 150,  # BR: você pediu 150 quando power_backoff_db=0
+    },
+    "SA_PB100": {
+        "countries": ["Brazil", "Argentina", "Uruguay", "Paraguay", "Bolivia", "Chile", "Peru"],
+        "pb_margin_if_zero": 100,  # BR: você pediu 150 quando power_backoff_db=0
+    },
+    "SA_PB50": {
+        "countries": ["Brazil", "Argentina", "Uruguay", "Paraguay", "Bolivia", "Chile", "Peru"],
+        "pb_margin_if_zero": 50,  # BR: você pediu 150 quando power_backoff_db=0
+    }, 
 }
 
 # ------------------------------------------------------------
@@ -119,6 +162,7 @@ def main():
                                 topo["central_longitude"] = st["lon"]
                                 topo["central_altitude"] = st["alt_m"]
                                 cfg["single_earth_station"]["param_p619"]["earth_station_lat_deg"] = st["lat"]
+                                cfg["single_earth_station"]["param_p619"]["earth_station_lat_deg"] = st["alt_m"]
 
                                 # -------------------------------
                                 # Ângulo mínimo de serviço

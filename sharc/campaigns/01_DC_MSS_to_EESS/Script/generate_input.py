@@ -24,7 +24,7 @@ OUTPUT_DIR = CAMPAIGN_DIR / "output"
 
 # Sweep — service grid
 MARGINS_KM = [0, 30, 60, 90]
-MIN_SERVICE_ANGLE_DEG = [30]
+MIN_SERVICE_ANGLE_DEG = [40]
 LOAD_FACTORS = [0.1, 0.2, 0.5]
 
 # ------------------------------------------------------------
@@ -48,7 +48,7 @@ VICTIM_STATIONS = {
 # ------------------------------------------------------------
 COVERAGES = {
     "BR": {
-        "countries": ["Brazil"],
+        "countries": ["Brazil", "Argentina"],
         "pb_margin_if_zero": 150,  # BR: você pediu 150 quando power_backoff_db=0
     },
 }

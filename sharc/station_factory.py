@@ -114,6 +114,22 @@ class StationFactory(object):
                 elev=topology.elevation
             )
             imt_base_stations.is_space_station = True
+            # NOTE: Experimental features for logging and analysis
+            # número de beams ativos
+            SimulationLogger.log_to_csv("num_of_active_beams", [np.sum(imt_base_stations.active)])
+            # número de satélites, deduplicar posição
+            all_pos = np.stack((imt_base_stations.geom.x_global,
+                                imt_base_stations.geom.y_global,
+                                imt_base_stations.geom.z_global),
+                               axis=-1)
+            _, sat_idx, num_of_beams_per_sat = np.unique(
+                all_pos,
+                axis=0,
+                return_index=True,
+                return_counts=True,
+            )
+            SimulationLogger.log_to_csv("num_of_sat", [len(num_of_beams_per_sat)])
+            SimulationLogger.log_to_csv("num_of_beams_per_sat", num_of_beams_per_sat)
         else:
             if topology.determines_local_geometry:
                 imt_base_stations.geom = topology.get_bs_geometry()
@@ -177,24 +193,40 @@ class StationFactory(object):
         # Create out-of-band antenna patterns if specified.
         # IMT Array antenna pattern has the oob model defined inside
         if param.bs.use_oob_antenna and param.bs.antenna.pattern != "ARRAY":
-            imt_base_stations.oob_antenna = AntennaFactory.create_n_antennas(
-                param.bs.oob_antenna,
-                imt_base_stations.geom.pointn_azim_global,
-                imt_base_stations.geom.pointn_elev_global,
-                num_bs,
-            )
-        else:
-            imt_base_stations.oob_antenna = imt_base_stations.antenna
-
-        # Create out-of-band antenna patterns if specified.
-        # IMT Array antenna pattern has the oob model defined inside
-        if param.bs.use_oob_antenna and param.bs.antenna.pattern != "ARRAY":
-            imt_base_stations.oob_antenna = AntennaFactory.create_n_antennas(
-                param.bs.oob_antenna,
-                imt_base_stations.geom.pointn_azim_global,
-                imt_base_stations.geom.pointn_elev_global,
-                num_bs,
-            )
+            # NOTE: Experimental feature for System3 unique OOBE Mask:
+            # The OOBE model is applied per satellite, considering all beams
+            # from the same satellite have the same OOBE mask.
+            # This is done by discounting the number of active beams per satellite (eta) and
+            # poiting all adjacent antennas to nadir.
+            if param.bs.oob_antenna.pattern == "Antenna System3 OOB" and param.topology.type == "MSS_DC":
+                beam_to_sat_idx = np.repeat(np.arange(len(num_of_beams_per_sat)), num_of_beams_per_sat[np.argsort(sat_idx)])
+                num_of_atcv_beams_per_sat = np.bincount(beam_to_sat_idx[imt_base_stations.active])
+                # We need the satelittes nadir vectors to make it work.
+                center_of_earth = StationManager(1)
+                center_of_earth.geom.set_global_coords(
+                    np.array([0.0]),
+                    np.array([0.0]),
+                    np.array([-topology.coordinate_system.get_translation()]),
+                )
+                nadir_phi, nadir_theta = imt_base_stations.geom.get_global_pointing_vector_to(center_of_earth.geom)
+                for a in range(imt_base_stations.num_stations):
+                    if imt_base_stations.active[a]:
+                        n_actv = num_of_atcv_beams_per_sat[beam_to_sat_idx[a]]
+                        n_total = num_of_beams_per_sat[np.argsort(sat_idx)][beam_to_sat_idx[a]]
+                        eta = 30 * np.log10(max(0.2, n_actv / n_total))
+                        gain = eta - 10 * np.log10(n_actv)  # the sum of all beam gains should be equal to the single beam case
+                        imt_base_stations.oob_antenna[a] = AntennaSystem3Oob(
+                            gain=gain,
+                            azimuth_to_nadir=nadir_phi[a],
+                            elevation_to_nadir=nadir_theta[a],
+                        )
+            else:
+                imt_base_stations.oob_antenna = AntennaFactory.create_n_antennas(
+                    param.bs.oob_antenna,
+                    imt_base_stations.geom.pointn_azim_global,
+                    imt_base_stations.geom.pointn_elev_global,
+                    num_bs,
+                )
         else:
             imt_base_stations.oob_antenna = imt_base_stations.antenna
 

@@ -28,7 +28,7 @@ LOAD_FACTORS = [0.2, 0.5]
 MASK = ["STEPPED", "DC_MSS"]
 TYPE_SIMULATION = ["Adj", "Spu"]
 EESS_systems = ["EESS_B", "EESS_D"]
-DCMSS_systems = ["System_340km", "System_525km"]
+DCMSS_systems = ["system_340km", "system_525km"]
 
 
 def main():

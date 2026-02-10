@@ -10,6 +10,9 @@ import numpy as np
 import sys
 import math
 
+from sharc.support.geometry import (
+    DWNReferenceFrame, ENUReferenceFrame
+)
 from sharc.support.enumerations import StationType
 from sharc.parameters.parameters import Parameters
 from sharc.parameters.imt.parameters_imt import ParametersImt
@@ -44,6 +47,7 @@ from sharc.antenna.antenna_rs1861_9b import AntennaRS1861_9B
 from sharc.antenna.antenna_rs1861_9c import AntennaRS1861_9C
 from sharc.antenna.antenna_rs2043 import AntennaRS2043
 from sharc.antenna.antenna_s465 import AntennaS465
+from sharc.antenna.antenna_array import AntennaArray
 from sharc.antenna.antenna_rra7_3 import AntennaReg_RR_A7_3
 from sharc.antenna.antenna_modified_s465 import AntennaModifiedS465
 from sharc.antenna.antenna_s580 import AntennaS580
@@ -1746,12 +1750,29 @@ class StationFactory(object):
                 1e6) + 30
         )
 
-       # Configure satellite positions in the StationManager
+        # Configure satellite positions in the StationManager
         x = mss_d2d_values["sat_x"]
         y = mss_d2d_values["sat_y"]
         z = mss_d2d_values["sat_z"]
         elev = mss_d2d_values["sat_antenna_elev"]
         azim = mss_d2d_values["sat_antenna_azim"]
+        global_ref = ENUReferenceFrame(
+            lat=coordinate_system.ref_lat,
+            lon=coordinate_system.ref_long,
+            alt=coordinate_system.ref_alt,
+        )
+        mss_d2d.geom.setup(
+            mss_d2d.num_stations, True,
+            global_ref,
+        )
+        mss_d2d.geom.set_local_reference_frame(
+            DWNReferenceFrame(
+                lat=mss_d2d_values["sat_lat"],
+                lon=mss_d2d_values["sat_lon"],
+                alt=mss_d2d_values["sat_alt"],
+            )
+        )
+
         mss_d2d.geom.set_global_coords(
             x, y, z,
             azim, elev,
@@ -1781,6 +1802,8 @@ class StationFactory(object):
             antenna_pattern = AntennaS1528(params.antenna.itu_r_s_1528)
         elif params.antenna.pattern == "ITU-R-S.1528-Taylor":
             antenna_pattern = AntennaS1528Taylor(params.antenna.itu_r_s_1528)
+        elif params.antenna.pattern == "ARRAY2":
+            pass
         elif params.antenna.pattern == "MSS Adjacent":
             antenna_pattern = AntennaMSSAdjacent(params.frequency)
         else:
@@ -1788,7 +1811,24 @@ class StationFactory(object):
                 f"generate_mss_ss: Invalid antenna type: {params.antenna.pattern}")
 
         for i in range(mss_d2d.num_stations):
+            if params.antenna.pattern == "ARRAY2":
+                antenna_pattern = AntennaArray(
+                    params.antenna.array,
+                    mss_d2d.geom.global2local.take(i)
+                )
+                antenna_pattern.add_beam(
+                    mss_d2d.geom.pointn_azim_global[i],
+                    90. - mss_d2d.geom.pointn_elev_global[i],
+                )
+                antenna_pattern.set_always_first_beam()
+
             mss_d2d.antenna[i] = antenna_pattern
+
+        if params.antenna.pattern == "ARRAY2":
+            mss_d2d.geom.set_local_coords(
+                azim=np.zeros_like(mss_d2d.geom.pointn_azim_global),
+                elev=np.zeros_like(mss_d2d.geom.pointn_elev_global),
+            )
 
         return mss_d2d  # Return the configured StationManager
 
@@ -1982,8 +2022,8 @@ if __name__ == '__main__':
     parameters.imt.topology.sampling_from_spherical_grid.grid.grid_in_zone.circle.center_lon = ref_long
     parameters.imt.topology.sampling_from_spherical_grid.grid.grid_in_zone.circle.radius_km = 30 * 111
 
-    parameters.imt.topology.type = "SAMPLING_FROM_SPHERICAL_GRID"
-    # parameters.imt.topology.type = "MSS_DC"
+    # parameters.imt.topology.type = "SAMPLING_FROM_SPHERICAL_GRID"
+    parameters.imt.topology.type = "MSS_DC"
     parameters.imt.validate("station_factory_imt")
     # print(
     #     "parameters.imt.topology.sampling_from_spherical_grid.grid.lon_lat_grid.shape",

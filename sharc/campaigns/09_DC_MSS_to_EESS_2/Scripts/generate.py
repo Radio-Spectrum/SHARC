@@ -25,9 +25,9 @@ OUTPUT_DIR = CAMPAIGN_DIR / "output"
 # Sweep — service grid
 
 LOAD_FACTORS = [0.2, 0.5]
-MASK = ["STEPPED", "DC_MSS"]
+MASK = ["STEP", "MSS"]
 TYPE_SIMULATION = ["Adj", "Spu"]
-EESS_systems = ["System_B", "System_D"]
+EESS_systems = ["EESS_B", "EESS_D"]
 DCMSS_systems = ["System_340km", "System_525km"]
 
 
@@ -71,8 +71,8 @@ def main():
                             cfg["imt"]["bs"]["height"] = 525000
 
                         # ===== Mask =====
-                        if mascara == "DC_MSS":
-                            cfg["imt"]["spectral_mask"] = "DC_MSS"
+                        if mascara == "MSS":
+                            cfg["imt"]["spectral_mask"] = "MSS"
                             cfg["imt"].pop("spectral_mask_steps", None)
                         else:
                             cfg["imt"]["spectral_mask"] = "STEPPED"
@@ -114,6 +114,7 @@ def main():
                         # ===== Output name =====
                         name = f"{sistema}_{system_EESS}_{mascara}_{type_sim}_lf_{lf}"
                         cfg["general"]["output_dir_prefix"] = name
+                        cfg["general"]["output_dir"] = str(OUTPUT_DIR)
 
                         output_file = INPUT_DIR / f"{name}.yaml"
 

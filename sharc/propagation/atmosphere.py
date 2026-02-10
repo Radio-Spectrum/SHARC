@@ -385,6 +385,9 @@ class ReferenceAtmosphere:
         """
 
         h_km = altitude / 1000
+        season = season.lower()
+        if season not in ['winter', 'summer']:
+            raise ValueError(f"Invalid season name {season}.")
 
         if latitude <= 22:
             # low latitude

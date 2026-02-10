@@ -1,7 +1,7 @@
 from sharc.topology.topology import Topology
 import numpy as np
 from sharc.support.sharc_geom import CoordinateSystem
-from sharc.support.geometry import SimulatorGeometry
+from sharc.support.geometry import SimulatorGeometry, ENUReferenceFrame
 from sharc.parameters.imt.parameters_grid import ParametersTerrestrialGrid
 # from sharc.satellite.utils.sat_utils import lla2ecef
 # import math
@@ -25,7 +25,7 @@ class TopologySamplingFromSphericalGrid(Topology):
         max_ue_distance: float,
         num_base_stations: int,
         global_sim_lla_reference: tuple[float, float, float],
-        grid: ParametersTerrestrialGrid,
+        grid: ParametersTerrestrialGrid | np.ndarray,
     ):
         """
         Initializes a spherical topology with specific network settings.
@@ -61,13 +61,16 @@ class TopologySamplingFromSphericalGrid(Topology):
         random_number_gen : np.random.RandomState, optional
             Random number generator (not used in this implementation).
         """
-        self.grid.reset_grid(
-            "calculate_coords",
-            random_number_gen,
-            True
-        )
+        if not isinstance(self.grid, np.ndarray):
+            self.grid.reset_grid(
+                "calculate_coords",
+                random_number_gen,
+                True
+            )
+            lla_grid_to_sample = self.grid.lon_lat_grid[::-1]
+        else:
+            lla_grid_to_sample = self.grid
 
-        lla_grid_to_sample = self.grid.lon_lat_grid[::-1]
         # print("self.grid.lon_lat_grid.shape", self.grid.lon_lat_grid.shape)
         # print("self.grid.lon_lat_grid.shape", self.grid.lon_lat_grid.shape)
         # print("self.num_base_stations", self.num_base_stations)
@@ -88,15 +91,22 @@ class TopologySamplingFromSphericalGrid(Topology):
         geom = SimulatorGeometry(
             self.num_base_stations,
             self.num_base_stations,
-            self.global_cs,
+            ENUReferenceFrame(
+                lat=self.global_cs[0],
+                lon=self.global_cs[1],
+                alt=self.global_cs[2],
+            ),
         )
         lat, lon, alt = chosen_llas
+        self.chosen_lat, self.chosen_lon, self.chosen_alt = lat, lon, alt
         # coords locais para determinar
         # transformação global <> local
-        geom.set_local_coord_sys(
-            lat,
-            lon,
-            alt,
+        geom.set_local_reference_frame(
+            ENUReferenceFrame(
+                lat=lat,
+                lon=lon,
+                alt=alt,
+            )
         )
         self.x = np.zeros(self.num_base_stations)
         self.y = np.zeros(self.num_base_stations)
@@ -126,12 +136,14 @@ class TopologySamplingFromSphericalGrid(Topology):
         ue_geom = SimulatorGeometry(
             self.num_base_stations * ue_k,
             self.num_base_stations * ue_k,
-            self.global_cs,
+            self.bs_geometry.global_reference_frame,
         )
-        ue_geom.set_local_coord_sys(
-            np.repeat(self.bs_geometry._local_lla_references[0], ue_k),
-            np.repeat(self.bs_geometry._local_lla_references[1], ue_k),
-            np.repeat(self.bs_geometry._local_lla_references[2], ue_k),
+        ue_geom.set_local_reference_frame(
+            ENUReferenceFrame(
+                lat=np.repeat(self.chosen_lat, ue_k),
+                lon=np.repeat(self.chosen_lon, ue_k),
+                alt=np.repeat(self.chosen_alt, ue_k),
+            )
         )
         return ue_geom
 

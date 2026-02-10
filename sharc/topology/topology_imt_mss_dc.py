@@ -76,117 +76,101 @@ class TopologyImtMssDc(Topology):
     ):
         """Compute the coordinates of the visible space stations."""
         orbit_params.sat_is_active_if.validate("orbit_params.sat_is_active_if")
-        # Calculate the total number of satellites across all orbits
-        total_satellites = sum(
-            orbit.n_planes *
-            orbit.sats_per_plane for orbit in orbit_params.orbits)
-        if any([
-            not hasattr(orbit_params, attr)
-            for attr in ["sat_is_active_if", "orbits", "beam_radius", "num_beams", "beam_positioning"]
-        ]):
-            raise ValueError(
-                "Parameter passed to TopologyImtMssDc needs to contain all of the attributes:\n"
-                '["sat_is_active_if", "orbits", "beam_radius", "num_beams", "beam_positioning"]')
-
-        idx_orbit = np.zeros(
-            total_satellites,
-            dtype=int)  # Add orbit index array
-
-        # List to store indices of active satellites
-        active_satellite_idxs = []
+        num_base_stations = 0
 
         MAX_ITER = 10000  # Maximum iterations to find at least one visible satellite
-        i = 0  # Iteration counter for ensuring satellite visibility
-        while len(active_satellite_idxs) == 0:
-            # Initialize arrays to store satellite positions, angles and
-            # distance from center of earth
-            all_positions = {
-                "R": [],
-                "lat": [],
-                "lon": [],
-                "sx": [],
-                "sy": [],
-                "sz": [],
-                "alt": []}
-            all_elevations = []  # Store satellite elevations
-            all_azimuths = []  # Store satellite azimuths
+        while num_base_stations == 0:
+            # Calculate the total number of satellites across all orbits
+            total_satellites = sum(
+                orbit.n_planes *
+                orbit.sats_per_plane for orbit in orbit_params.orbits)
+            if any([
+                not hasattr(orbit_params, attr)
+                for attr in ["sat_is_active_if", "orbits", "beam_radius", "num_beams", "beam_positioning"]
+            ]):
+                raise ValueError(
+                    "Parameter passed to TopologyImtMssDc needs to contain all of the attributes:\n"
+                    '["sat_is_active_if", "orbits", "beam_radius", "num_beams", "beam_positioning"]')
 
-            current_sat_idx = 0  # Index tracker for satellites across all orbits
+            idx_orbit = np.zeros(
+                total_satellites,
+                dtype=int)  # Add orbit index array
 
-            # Iterate through each orbit defined in the parameters
-            for orbit_idx, param in enumerate(orbit_params.orbits):
-                orbit = OrbitModel(
-                    Nsp=param.sats_per_plane,  # Satellites per plane
-                    Np=param.n_planes,  # Number of orbital planes
-                    phasing=param.phasing_deg,  # Phasing angle in degrees
-                    long_asc=param.long_asc_deg,  # Longitude of ascending node in degrees
-                    omega=param.omega_deg,  # Argument of perigee in degrees
-                    delta=param.inclination_deg,  # Orbital inclination in degrees
-                    hp=param.perigee_alt_km,  # Perigee altitude in kilometers
-                    ha=param.apogee_alt_km,  # Apogee altitude in kilometers
-                    Mo=param.initial_mean_anomaly,  # Initial mean anomaly in degrees
-                    # whether to use only time as random variable
-                    model_time_as_random_variable=param.model_time_as_random_variable,
-                    t_min=param.t_min,
-                    t_max=param.t_max,
-                )
-                # Generate random positions for satellites in this orbit
-                pos_vec = orbit.get_orbit_positions_random(
-                    rng=random_number_gen)
+            # List to store indices of active satellites
+            active_satellite_idxs = []
 
-                # Determine the number of satellites in this orbit
-                num_satellites = len(pos_vec["sx"])
+            i = 0  # Iteration counter for ensuring satellite visibility
+            while len(active_satellite_idxs) == 0:
+                # Initialize arrays to store satellite positions, angles and
+                # distance from center of earth
+                all_positions = {
+                    "R": [],
+                    "lat": [],
+                    "lon": [],
+                    "sx": [],
+                    "sy": [],
+                    "sz": [],
+                    "alt": []}
+                all_elevations = []  # Store satellite elevations
+                all_azimuths = []  # Store satellite azimuths
 
-                # Assign orbit index to satellites
-                idx_orbit[current_sat_idx:current_sat_idx +
-                          num_satellites] = orbit_idx
+                current_sat_idx = 0  # Index tracker for satellites across all orbits
 
-                # Extract satellite positions and calculate distances
-                sx, sy, sz = pos_vec['sx'], pos_vec['sy'], pos_vec['sz']
-                # Distance from Earth's center
-                r = np.sqrt(sx**2 + sy**2 + sz**2)
-
-                # When getting azimuth and elevation, we need to consider sx, sy and sz points
-                # from the center of earth to the satellite, and we need to point the satellite
-                # towards the center of earth
-                # Calculate elevation angles
-                elevations = np.degrees(np.arcsin(-sz / r))
-                # Calculate azimuth angles
-                azimuths = np.degrees(np.arctan2(-sy, -sx))
-
-                # Append satellite positions and angles to global lists
-                all_positions['lat'].extend(pos_vec['lat'])  # Latitudes
-                all_positions['lon'].extend(pos_vec['lon'])  # Longitudes
-                all_positions['sx'].extend(sx)  # X-coordinates
-                all_positions['sy'].extend(sy)  # Y-coordinates
-                all_positions['sz'].extend(sz)  # Z-coordinates
-                all_positions["R"].extend(r)
-                all_positions["alt"].extend(pos_vec['alt'])
-                all_elevations.extend(elevations)  # Elevation angles
-                all_azimuths.extend(azimuths)  # Azimuth angles
-
-                active_sats_mask = np.ones(len(pos_vec['lat']), dtype=bool)
-
-                if "MINIMUM_ELEVATION_FROM_ES" in orbit_params.sat_is_active_if.conditions:
-                    # Calculate satellite visibility from base stations
-                    elev_from_bs = calc_elevation(
-                        coordinate_system.ref_lat,  # Latitude of base station
-                        pos_vec['lat'],  # Latitude of satellites
-                        coordinate_system.ref_long,  # Longitude of base station
-                        pos_vec['lon'],  # Longitude of satellites
-                        # Perigee altitude in kilometers
-                        sat_height=pos_vec['alt'] * 1e3,
-                        es_height=coordinate_system.ref_alt,
+                # Iterate through each orbit defined in the parameters
+                for orbit_idx, param in enumerate(orbit_params.orbits):
+                    orbit = OrbitModel(
+                        Nsp=param.sats_per_plane,  # Satellites per plane
+                        Np=param.n_planes,  # Number of orbital planes
+                        phasing=param.phasing_deg,  # Phasing angle in degrees
+                        long_asc=param.long_asc_deg,  # Longitude of ascending node in degrees
+                        omega=param.omega_deg,  # Argument of perigee in degrees
+                        delta=param.inclination_deg,  # Orbital inclination in degrees
+                        hp=param.perigee_alt_km,  # Perigee altitude in kilometers
+                        ha=param.apogee_alt_km,  # Apogee altitude in kilometers
+                        Mo=param.initial_mean_anomaly,  # Initial mean anomaly in degrees
+                        # whether to use only time as random variable
+                        model_time_as_random_variable=param.model_time_as_random_variable,
+                        t_min=param.t_min,
+                        t_max=param.t_max,
                     )
+                    # Generate random positions for satellites in this orbit
+                    pos_vec = orbit.get_orbit_positions_random(
+                        rng=random_number_gen)
 
-                    # Determine visible satellites based on minimum elevation
-                    # angle
-                    active_sats_mask = active_sats_mask & (elev_from_bs.flatten(
-                    ) >= orbit_params.sat_is_active_if.minimum_elevation_from_es)
+                    # Determine the number of satellites in this orbit
+                    num_satellites = len(pos_vec["sx"])
 
-                if "MAXIMUM_ELEVATION_FROM_ES" in orbit_params.sat_is_active_if.conditions:
-                    # no need to recalculate if already calculated above
-                    if "MINIMUM_ELEVATION_FROM_ES" not in orbit_params.sat_is_active_if.conditions:
+                    # Assign orbit index to satellites
+                    idx_orbit[current_sat_idx:current_sat_idx +
+                              num_satellites] = orbit_idx
+
+                    # Extract satellite positions and calculate distances
+                    sx, sy, sz = pos_vec['sx'], pos_vec['sy'], pos_vec['sz']
+                    # Distance from Earth's center
+                    r = np.sqrt(sx**2 + sy**2 + sz**2)
+
+                    # When getting azimuth and elevation, we need to consider sx, sy and sz points
+                    # from the center of earth to the satellite, and we need to point the satellite
+                    # towards the center of earth
+                    # Calculate elevation angles
+                    elevations = np.degrees(np.arcsin(-sz / r))
+                    # Calculate azimuth angles
+                    azimuths = np.degrees(np.arctan2(-sy, -sx))
+
+                    # Append satellite positions and angles to global lists
+                    all_positions['lat'].extend(pos_vec['lat'])  # Latitudes
+                    all_positions['lon'].extend(pos_vec['lon'])  # Longitudes
+                    all_positions['sx'].extend(sx)  # X-coordinates
+                    all_positions['sy'].extend(sy)  # Y-coordinates
+                    all_positions['sz'].extend(sz)  # Z-coordinates
+                    all_positions["R"].extend(r)
+                    all_positions["alt"].extend(pos_vec['alt'])
+                    all_elevations.extend(elevations)  # Elevation angles
+                    all_azimuths.extend(azimuths)  # Azimuth angles
+
+                    active_sats_mask = np.ones(len(pos_vec['lat']), dtype=bool)
+
+                    if "MINIMUM_ELEVATION_FROM_ES" in orbit_params.sat_is_active_if.conditions:
                         # Calculate satellite visibility from base stations
                         elev_from_bs = calc_elevation(
                             coordinate_system.ref_lat,  # Latitude of base station
@@ -198,122 +182,141 @@ class TopologyImtMssDc(Topology):
                             es_height=coordinate_system.ref_alt,
                         )
 
-                    # Determine visible satellites based on minimum elevation
-                    # angle
-                    active_sats_mask = active_sats_mask & (elev_from_bs.flatten(
-                    ) <= orbit_params.sat_is_active_if.maximum_elevation_from_es)
+                        # Determine visible satellites based on minimum elevation
+                        # angle
+                        active_sats_mask = active_sats_mask & (elev_from_bs.flatten(
+                        ) >= orbit_params.sat_is_active_if.minimum_elevation_from_es)
 
-                if "LAT_LONG_INSIDE_COUNTRY" in orbit_params.sat_is_active_if.conditions:
-                    flat_active_lon = pos_vec["lon"].flatten()[
-                        active_sats_mask]
-                    flat_active_lat = pos_vec["lat"].flatten()[
-                        active_sats_mask]
+                    if "MAXIMUM_ELEVATION_FROM_ES" in orbit_params.sat_is_active_if.conditions:
+                        # no need to recalculate if already calculated above
+                        if "MINIMUM_ELEVATION_FROM_ES" not in orbit_params.sat_is_active_if.conditions:
+                            # Calculate satellite visibility from base stations
+                            elev_from_bs = calc_elevation(
+                                coordinate_system.ref_lat,  # Latitude of base station
+                                pos_vec['lat'],  # Latitude of satellites
+                                coordinate_system.ref_long,  # Longitude of base station
+                                pos_vec['lon'],  # Longitude of satellites
+                                # Perigee altitude in kilometers
+                                sat_height=pos_vec['alt'] * 1e3,
+                                es_height=coordinate_system.ref_alt,
+                            )
 
-                    # create points(lon, lat) to compare to country
-                    sats_points = gpd.points_from_xy(
-                        flat_active_lon, flat_active_lat, crs=EARTH_DEFAULT_CRS)
+                        # Determine visible satellites based on minimum elevation
+                        # angle
+                        active_sats_mask = active_sats_mask & (elev_from_bs.flatten(
+                        ) <= orbit_params.sat_is_active_if.maximum_elevation_from_es)
 
-                    # Check if the satellite is inside the country polygon
-                    polygon_mask = np.zeros_like(active_sats_mask)
-                    polygon_mask[active_sats_mask] = sats_points.within(
-                        orbit_params.sat_is_active_if.lat_long_inside_country.filter_polygon)
+                    if "LAT_LONG_INSIDE_COUNTRY" in orbit_params.sat_is_active_if.conditions:
+                        flat_active_lon = pos_vec["lon"].flatten()[
+                            active_sats_mask]
+                        flat_active_lat = pos_vec["lat"].flatten()[
+                            active_sats_mask]
 
-                    active_sats_mask = active_sats_mask & polygon_mask
+                        # create points(lon, lat) to compare to country
+                        sats_points = gpd.points_from_xy(
+                            flat_active_lon, flat_active_lat, crs=EARTH_DEFAULT_CRS)
 
-                visible_sat_idxs = np.arange(
-                    current_sat_idx, current_sat_idx + len(pos_vec['lat']), dtype=int
-                )[active_sats_mask]
-                active_satellite_idxs.extend(visible_sat_idxs)
+                        # Check if the satellite is inside the country polygon
+                        polygon_mask = np.zeros_like(active_sats_mask)
+                        polygon_mask[active_sats_mask] = sats_points.within(
+                            orbit_params.sat_is_active_if.lat_long_inside_country.filter_polygon)
 
-                # Update the index tracker for the next orbit
-                current_sat_idx += len(sx)
+                        active_sats_mask = active_sats_mask & polygon_mask
 
-            i += 1  # Increment iteration counter
-            if i >= MAX_ITER:  # Check if maximum iterations reached
-                raise RuntimeError(
-                    "Maximum iterations reached, and no satellite was selected within the minimum elevation criteria."
-                )
-        # We have the list of visible satellites, now create a Topolgy of this subset and move the coordinate system
-        # reference.
-        # Convert X-coordinates to meters
-        all_space_station_x = np.ravel(np.array(all_positions['sx'])) * 1e3
-        # Convert Y-coordinates to meters
-        all_space_station_y = np.ravel(np.array(all_positions['sy'])) * 1e3
-        # Convert Z-coordinates to meters
-        all_space_station_z = np.ravel(np.array(all_positions['sz'])) * 1e3
-        all_elevation = np.ravel(np.array(all_elevations))  # Elevation angles
-        all_azimuth = np.ravel(np.array(all_azimuths))  # Azimuth angles
-        all_lat = np.ravel(np.array(all_positions['lat']))
-        all_lon = np.ravel(np.array(all_positions['lon']))
-        all_sat_altitude = np.ravel(np.array(all_positions['alt'])) * 1e3
+                    visible_sat_idxs = np.arange(
+                        current_sat_idx, current_sat_idx + len(pos_vec['lat']), dtype=int
+                    )[active_sats_mask]
+                    active_satellite_idxs.extend(visible_sat_idxs)
 
-        total_active_satellites = len(active_satellite_idxs)
-        space_station_x = all_space_station_x[active_satellite_idxs]
-        space_station_y = all_space_station_y[active_satellite_idxs]
-        space_station_z = all_space_station_z[active_satellite_idxs]
-        elevation = all_elevation[active_satellite_idxs]
-        azimuth = all_azimuth[active_satellite_idxs]
-        lat = all_lat[active_satellite_idxs]
-        lon = all_lon[active_satellite_idxs]
-        sat_altitude = all_sat_altitude[active_satellite_idxs]
-        sat_altitude = all_sat_altitude[active_satellite_idxs]
+                    # Update the index tracker for the next orbit
+                    current_sat_idx += len(sx)
 
-        # Convert the ECEF coordinates to the transformed cartesian coordinates and set the Space Station positions
-        # used to generetate the IMT Base Stations
-        space_station_x, space_station_y, space_station_z = \
-            coordinate_system.ecef2enu(space_station_x, space_station_y, space_station_z)
+                i += 1  # Increment iteration counter
+                if i >= MAX_ITER:  # Check if maximum iterations reached
+                    raise RuntimeError(
+                        "Maximum iterations reached, and no satellite was selected within the minimum elevation criteria."
+                    )
+            # We have the list of visible satellites, now create a Topolgy of this subset and move the coordinate system
+            # reference.
+            # Convert X-coordinates to meters
+            all_space_station_x = np.ravel(np.array(all_positions['sx'])) * 1e3
+            # Convert Y-coordinates to meters
+            all_space_station_y = np.ravel(np.array(all_positions['sy'])) * 1e3
+            # Convert Z-coordinates to meters
+            all_space_station_z = np.ravel(np.array(all_positions['sz'])) * 1e3
+            all_elevation = np.ravel(np.array(all_elevations))  # Elevation angles
+            all_azimuth = np.ravel(np.array(all_azimuths))  # Azimuth angles
+            all_lat = np.ravel(np.array(all_positions['lat']))
+            all_lon = np.ravel(np.array(all_positions['lon']))
+            all_sat_altitude = np.ravel(np.array(all_positions['alt'])) * 1e3
 
-        # Rotate the azimuth and elevation angles off the center beam the new
-        # transformed cartesian coordinates
-        r = 1
-        # transform pointing vectors, without considering geodesical earth
-        # coord system
-        pointing_vec_x, pointing_vec_y, pointing_vec_z = polar_to_cartesian(
-            r, all_azimuth, all_elevation)
-        pointing_vec_x, pointing_vec_y, pointing_vec_z = \
-            coordinate_system.ecef2enu(
-                pointing_vec_x, pointing_vec_y, pointing_vec_z, translate=0)
-        _, all_azimuth, all_elevation = cartesian_to_polar(
-            pointing_vec_x, pointing_vec_y, pointing_vec_z)
+            total_active_satellites = len(active_satellite_idxs)
+            space_station_x = all_space_station_x[active_satellite_idxs]
+            space_station_y = all_space_station_y[active_satellite_idxs]
+            space_station_z = all_space_station_z[active_satellite_idxs]
+            elevation = all_elevation[active_satellite_idxs]
+            azimuth = all_azimuth[active_satellite_idxs]
+            lat = all_lat[active_satellite_idxs]
+            lon = all_lon[active_satellite_idxs]
+            sat_altitude = all_sat_altitude[active_satellite_idxs]
+            sat_altitude = all_sat_altitude[active_satellite_idxs]
 
-        beams_elev, beams_azim, sx, sy = TopologyImtMssDc.get_satellite_pointing(
-            random_number_gen,
-            coordinate_system,
-            orbit_params,
-            total_active_satellites,
-            all_space_station_x, all_space_station_y, all_space_station_z,
-            all_azimuth,
-            all_elevation,
-            all_lat, all_lon, all_sat_altitude,
-            active_satellite_idxs
-        )
+            # Convert the ECEF coordinates to the transformed cartesian coordinates and set the Space Station positions
+            # used to generetate the IMT Base Stations
+            space_station_x, space_station_y, space_station_z = \
+                coordinate_system.ecef2enu(space_station_x, space_station_y, space_station_z)
 
-        # In SHARC each sector is treated as a separate base station, so we need to repeat the satellite positions
-        # for each sector.
-        sat_ocurr = [len(x) for x in beams_elev]
+            # Rotate the azimuth and elevation angles off the center beam the new
+            # transformed cartesian coordinates
+            r = 1
+            # transform pointing vectors, without considering geodesical earth
+            # coord system
+            pointing_vec_x, pointing_vec_y, pointing_vec_z = polar_to_cartesian(
+                r, all_azimuth, all_elevation)
+            pointing_vec_x, pointing_vec_y, pointing_vec_z = \
+                coordinate_system.ecef2enu(
+                    pointing_vec_x, pointing_vec_y, pointing_vec_z, translate=0)
+            _, all_azimuth, all_elevation = cartesian_to_polar(
+                pointing_vec_x, pointing_vec_y, pointing_vec_z)
 
-        elevation = np.array(
-            functools.reduce(
-                lambda x,
-                y: list(x) +
-                list(y),
-                beams_elev))
-        azimuth = np.array(
-            functools.reduce(
-                lambda x,
-                y: list(x) +
-                list(y),
-                beams_azim))
+            beams_elev, beams_azim, sx, sy = TopologyImtMssDc.get_satellite_pointing(
+                random_number_gen,
+                coordinate_system,
+                orbit_params,
+                total_active_satellites,
+                all_space_station_x, all_space_station_y, all_space_station_z,
+                all_azimuth,
+                all_elevation,
+                all_lat, all_lon, all_sat_altitude,
+                active_satellite_idxs
+            )
 
-        space_station_x = np.repeat(space_station_x, sat_ocurr)
-        space_station_y = np.repeat(space_station_y, sat_ocurr)
-        space_station_z = np.repeat(space_station_z, sat_ocurr)
+            # In SHARC each sector is treated as a separate base station, so we need to repeat the satellite positions
+            # for each sector.
+            sat_ocurr = [len(x) for x in beams_elev]
 
-        num_base_stations = np.sum(sat_ocurr)
-        lat = np.repeat(lat, sat_ocurr)
-        lon = np.repeat(lon, sat_ocurr)
+            elevation = np.array(
+                functools.reduce(
+                    lambda x,
+                    y: list(x) +
+                    list(y),
+                    beams_elev))
+            azimuth = np.array(
+                functools.reduce(
+                    lambda x,
+                    y: list(x) +
+                    list(y),
+                    beams_azim))
 
-        altitudes = np.repeat(sat_altitude, sat_ocurr)
+            space_station_x = np.repeat(space_station_x, sat_ocurr)
+            space_station_y = np.repeat(space_station_y, sat_ocurr)
+            space_station_z = np.repeat(space_station_z, sat_ocurr)
+
+            num_base_stations = np.sum(sat_ocurr)
+            lat = np.repeat(lat, sat_ocurr)
+            lon = np.repeat(lon, sat_ocurr)
+
+            altitudes = np.repeat(sat_altitude, sat_ocurr)
 
         assert (space_station_x.shape == (num_base_stations,))
         assert (space_station_y.shape == (num_base_stations,))
@@ -410,7 +413,7 @@ class TopologyImtMssDc(Topology):
             eligible_sats_msk &= polygon_mask
             eligible_sats_idx = np.where(eligible_sats_msk)[0]
 
-            elev = calc_elevation(
+            all_elevations = calc_elevation(
                 grid_lat[:, np.newaxis],
                 all_sat_lat[eligible_sats_msk][np.newaxis, :],
                 grid_lon[:, np.newaxis],
@@ -419,7 +422,7 @@ class TopologyImtMssDc(Topology):
                 es_height=0,
             )
 
-            best_sats = elev.argmax(axis=-1)
+            best_sats = all_elevations.argmax(axis=-1)
 
             best_sats_true = eligible_sats_idx[best_sats]
 
@@ -452,8 +455,12 @@ class TopologyImtMssDc(Topology):
 
             sat_points_towards = defaultdict(list)
 
-            for i, sat in enumerate(best_sats_true):
-                sat_points_towards[sat].append(i)
+            min_service_angle = orbit_params.beam_positioning.service_grid.minimum_service_angle
+            for i, sat in enumerate(best_sats):
+                if all_elevations[i][sat] < min_service_angle:
+                    continue
+                actual_best_sat_idx = eligible_sats_idx[sat]
+                sat_points_towards[actual_best_sat_idx].append(i)
 
             # now only return the angles that
             # the caller asked with the active_sat_idxs parameter

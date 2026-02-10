@@ -511,10 +511,6 @@ class SimulationDownlink(Simulation):
                 # Inteferer transmit power in dBm over the overlapping band
                 # (MHz) with UEs.
                 if self.overlapping_bandwidth > 0:
-                    # in_band_interf_power = self.param_system.tx_power_density + \
-                    #     10 * np.log10(self.overlapping_bandwidth * 1e6) + 30
-                    # 1. Interferência linear proveniente dos APs (mW)
-                    # Cálculo: PSD + 10log10(BW_afetada) + Ganho_Sobreposição - Perda_Acoplamento
                     interf_ap_lin = np.sum(10 ** (0.1 * (
                         self.system.ap.tx_power[active_ap] + 
                         10 * np.log10(weights)[:, np.newaxis] - 
@@ -522,7 +518,6 @@ class SimulationDownlink(Simulation):
                     )), axis=1)
                     
                     # 2. Interferência linear proveniente das STAs (mW)
-                    # Nota: Assume-se que a densidade de potência (tx_power_density) é aplicada às STAs
                     interf_sta_lin = np.sum(10 ** (0.1 * (
                         self.system.sta.tx_power[active_sta] + 
                         10 * np.log10(weights)[:, np.newaxis] - 
@@ -797,7 +792,6 @@ class SimulationDownlink(Simulation):
         self.system.ap.ext_interference = 10 * np.log10(rx_interference_linear_ap)
         self.system.sta.ext_interference = 10 * np.log10(rx_interference_linear_sta)
 
-        # Total received interference - dBW
         self.system.ext_interference = np.concatenate((self.system.ap.ext_interference.flatten(), self.system.sta.ext_interference.flatten()))
 
         intra_ap_mw = np.power(10, 0.1 * self.system.ap.rx_interference).flatten()
@@ -810,8 +804,8 @@ class SimulationDownlink(Simulation):
         total_interf_sta_mw[sta_active] += rx_interference_linear_sta[sta_active]
         # Atualiza visão global concatenada
         self.system.rx_interference = np.concatenate((
-            self.system.ap.rx_interference.flatten(), 
-            self.system.sta.rx_interference.flatten()
+            10 * np.log10(total_interf_ap_mw), 
+            10 * np.log10(total_interf_sta_mw)
         ))
 
         # calculate N
@@ -1374,7 +1368,8 @@ class SimulationDownlink(Simulation):
                 self.results.imt_system_diffraction_loss.extend(
                     self.imt_system_diffraction_loss[:, bs],
                 )
-
+            
+            self.results.imt_dl_ext_interf_power.extend(self.ue.ext_interference[ue].tolist())
             self.results.imt_dl_tx_power.extend(self.bs.tx_power[bs].tolist())
             self.results.imt_dl_sinr.extend(self.ue.sinr[ue].tolist())
             self.results.imt_dl_snr.extend(self.ue.snr[ue].tolist())

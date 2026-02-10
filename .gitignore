@@ -2,8 +2,8 @@
 /sharc/output/*.csv
 /sharc/output/*.png
 /sharc/output_*/*
-
-
+/sharc/campaigns/*/output
+/sharc/campaigns/*/output_dl
 
 __pycache__
 .spyproject

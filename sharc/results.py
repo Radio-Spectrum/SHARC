@@ -83,6 +83,7 @@ class Results(object):
         self.imt_dl_tput = SampleList()
 
         self.imt_dl_ext_interf_power = SampleList()
+        self.imt_ul_ext_interf_power = SampleList()
 
         # PFD
         self.imt_dl_pfd_external = SampleList()
@@ -96,6 +97,9 @@ class Results(object):
         self.system_dl_interf_power = SampleList()
         self.system_intra_dl_interf_power = SampleList()
         self.system_ext_dl_interf_power = SampleList()
+        self.system_ul_interf_power = SampleList()
+        self.system_intra_ul_interf_power = SampleList()
+        self.system_ext_ul_interf_power = SampleList()
         # Interference Power [dBm/MHz]
         # NOTE: this may not be what you want for a correct
         # protection criteria analysis since it is

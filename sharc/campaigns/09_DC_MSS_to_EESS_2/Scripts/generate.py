@@ -54,7 +54,7 @@ def main():
                             orbit["apogee_alt_km"] = 340
                             orbit["sats_per_plane"] = 110
                             orbit["phasing_deg"] = 1.636
-                            dc_mss["beam_radius"] = 25803
+                            dc_mss["beam_radius"] = 26195
                             cfg["imt"]["bs"]["height"] = 340000
                         else:
                             orbit["n_planes"] = 28
@@ -62,13 +62,15 @@ def main():
                             orbit["apogee_alt_km"] = 525
                             orbit["sats_per_plane"] = 120
                             orbit["phasing_deg"] = 1.5
-                            dc_mss["beam_radius"] = 36712
+                            dc_mss["beam_radius"] = 40448
                             cfg["imt"]["bs"]["height"] = 525000
 
                         # ===== Mask =====
                         if mascara == "DC_MSS":
                             cfg["imt"]["spectral_mask"] = "MSS"
                             cfg["imt"].pop("spectral_mask_steps", None)
+                            cfg["imt"]["bs"]["use_oob_antenna"] = False
+                            cfg["imt"]["bs"].pop("oob_antenna", None)
                         else:
                             cfg["imt"]["spectral_mask"] = "STEPPED"
                             cfg["imt"]["spectral_mask_steps"] = [
@@ -79,6 +81,7 @@ def main():
 
                         # ===== Simulation type =====
                         cfg["imt"]["frequency"] = 2187.5 if type_sim == "Spu" else 2197.5
+                        cfg["imt"]["bs"]["antenna"]["itu_r_s_1528"]["frequency"] = 2187.5 if type_sim == "Spu" else 2197.5
 
                         # ===== EESS =====
                         earth = cfg["single_earth_station"]

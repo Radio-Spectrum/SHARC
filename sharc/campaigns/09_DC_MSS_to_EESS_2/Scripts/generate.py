@@ -25,10 +25,10 @@ OUTPUT_DIR = CAMPAIGN_DIR / "output"
 # Sweep — service grid
 
 LOAD_FACTORS = [0.2, 0.5]
-MASK = ["STEP", "MSS"]
-TYPE_SIMULATION = ["Adj", "Spu"]
-EESS_systems = ["EESS_B", "EESS_D"]
-DCMSS_systems = ["system_340km", "system_525km"]
+MASK = ["STEP", "MSS"] #["STEP", "MSS"]
+TYPE_SIMULATION = ["Adj", "Spu"] #["Adj", "Spu"]
+EESS_systems = ["EESS_B", "EESS_D"] #["EESS_B", "EESS_D"]
+DCMSS_systems = ["system_340km", "system_525km"] #["system_340km", "system_525km"]
 
 
 def main():

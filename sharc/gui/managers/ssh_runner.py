@@ -6,7 +6,7 @@ import os
 import re
 import sys
 import uuid
-import queue
+import shutil
 from datetime import timedelta
 from core.state import get_sharc_root
 
@@ -30,19 +30,52 @@ class RunnerManager:
         self.tunnel_process = None
 
         # Execution Control
-        self.running_procs_local = {}  # {iid: subprocess.Popen}
-        self.running_procs_remote = {}  # {iid: unique_run_uuid} for safe killing
+        self.running_procs_local = {}
+        self.running_procs_remote = {}
         self.active_threads = []
 
         # Remote base path (dynamically set on connect)
         self.remote_base_dir = "~/SHARC"
 
     # =========================================================================
+    # HELPERS
+    # =========================================================================
+
+    def _get_yaml_total_snapshots(self, path, is_remote=False):
+        """
+        Extracts 'num_snapshots: N' from the YAML file to provide accurate
+        progress bars even if the log output doesn't specify the total.
+        """
+        regex = re.compile(r"num_snapshots\s*:\s*(\d+)", re.IGNORECASE)
+        try:
+            content = ""
+            if is_remote:
+                # Use grep to fetch only the relevant line to save bandwidth
+                if not self.ssh_connected:
+                    return 0
+                cmd = f"grep -i 'num_snapshots' '{path}'"
+                stdin, stdout, stderr = self.ssh_client.exec_command(cmd)
+                content = stdout.read().decode().strip()
+            else:
+                if os.path.exists(path):
+                    with open(path, 'r', encoding='utf-8') as f:
+                        content = f.read()
+
+            match = regex.search(content)
+            if match:
+                return int(match.group(1))
+        except Exception as e:
+            # Don't fail the run if we can't parse the config; just log warning
+            self.log_callback(
+                f"[CONFIG] Could not parse num_snapshots from {path}: {e}")
+
+        return 0
+
+    # =========================================================================
     # SSH CONNECTION & TUNNELING
     # =========================================================================
 
     def _cleanup_connection(self):
-        """Ensures previous connections are closed before new ones."""
         if self.ssh_client:
             try:
                 self.ssh_client.close()
@@ -84,7 +117,6 @@ class RunnerManager:
             raise e
 
     def _detect_remote_home(self):
-        """Finds the actual home directory to avoid hardcoded users."""
         try:
             stdin, stdout, stderr = self.ssh_client.exec_command("echo $HOME")
             home = stdout.read().decode().strip()
@@ -100,7 +132,6 @@ class RunnerManager:
 
     def create_tunnel(self, bastion_host, bastion_user, bastion_port, int_ip, int_port, loc_port, key_path):
         try:
-            # Check if ssh is available in path, otherwise warn user
             if not shutil.which("ssh"):
                 self.log_callback(
                     "[TUNNEL] Error: 'ssh' executable not found in PATH.")
@@ -111,7 +142,7 @@ class RunnerManager:
                 "-L", f"{loc_port}:{int_ip}:{int_port}",
                 f"{bastion_user}@{bastion_host}",
                 "-p", str(bastion_port),
-                "-o", "StrictHostKeyChecking=no"  # Prevent interactive yes/no prompts
+                "-o", "StrictHostKeyChecking=no"
             ]
 
             flags = 0
@@ -143,7 +174,6 @@ class RunnerManager:
         if not self.ssh_connected:
             return []
         try:
-            # Use 'find' carefully or ls
             cmd = f'ls "{remote_dir}"/*.yaml "{remote_dir}"/*.yml 2>/dev/null'
             out = self.exec_command_output(cmd)
             return [line.strip() for line in out.splitlines() if line.strip()]
@@ -155,12 +185,11 @@ class RunnerManager:
         if not self.ssh_connected:
             return []
         try:
-            # FIX: Wait for fetch to complete before listing branches
             self.log_callback("[GIT] Fetching remote branches...")
             stdin, stdout, stderr = self.ssh_client.exec_command(
                 f"cd {self.remote_base_dir} && git fetch --all --prune"
             )
-            exit_status = stdout.channel.recv_exit_status()  # BLOCKING WAIT
+            exit_status = stdout.channel.recv_exit_status()
 
             if exit_status != 0:
                 self.log_callback(
@@ -168,9 +197,7 @@ class RunnerManager:
                 return []
 
             out = self.exec_command_output(
-                f"cd {self.remote_base_dir} && git branch -a"
-            )
-
+                f"cd {self.remote_base_dir} && git branch -a")
             branches = set()
             for line in out.splitlines():
                 line = line.strip().replace("*", "").strip()
@@ -188,8 +215,6 @@ class RunnerManager:
     def git_force_checkout(self, branch):
         if not self.ssh_connected:
             return
-
-        # Improved command chain
         cmds = [
             f"cd {self.remote_base_dir}",
             "git fetch --all --prune",
@@ -203,11 +228,9 @@ class RunnerManager:
 
         def _thread_git():
             self.log_callback(f"[GIT] Starting Checkout: {branch}...")
-            # Use get_pty=True to combine stdout/stderr often helps with git output
             stdin, stdout, stderr = self.ssh_client.exec_command(
                 full_cmd, get_pty=True)
             exit_status = stdout.channel.recv_exit_status()
-
             if exit_status == 0:
                 self.log_callback("[GIT] Checkout completed successfully.")
             else:
@@ -219,7 +242,6 @@ class RunnerManager:
     # =========================================================================
     # LOCAL EXECUTION
     # =========================================================================
-    # (Kept mostly same, added safe regex checks)
 
     def run_local_parallel(self, file_paths, max_workers):
         semaphore = threading.Semaphore(max_workers)
@@ -233,6 +255,13 @@ class RunnerManager:
         with semaphore:
             self.update_row_callback(
                 {"iid": ypath, "status": "Starting...", "snap": None})
+
+            # 1. Pre-fetch total snapshots from YAML
+            known_total = self._get_yaml_total_snapshots(
+                ypath, is_remote=False)
+            if known_total:
+                self.log_callback(
+                    f"[LOCAL] Config '{os.path.basename(ypath)}' has {known_total} snapshots.")
 
             main_script = os.path.join(PROJECT_ROOT / "main_cli.py")
             if not os.path.exists(main_script):
@@ -250,7 +279,9 @@ class RunnerManager:
                 )
                 self.running_procs_local[ypath] = proc
 
-                self._parse_progress(proc.stdout, ypath, is_local=True)
+                # Pass known_total to parser
+                self._parse_progress(proc.stdout, ypath,
+                                     known_total=known_total, is_local=True)
 
                 proc.wait()
                 rc = proc.returncode
@@ -269,56 +300,30 @@ class RunnerManager:
     # REMOTE EXECUTION
     # =========================================================================
 
-    def run_remote_parallel(self, local_file_paths, max_workers):
+    def run_remote_parallel(self, file_paths, max_workers):
         """
-        Args:
-            local_file_paths (list): List of LOCAL paths to yaml files. 
-                                     These must be uploaded first.
+        file_paths: List of file paths. 
+        If user selected remote files (SSH mode), these are REMOTE paths.
+        If user selected local files (Local mode), these are LOCAL paths.
         """
         if not self.ssh_connected:
             self.log_callback("[REMOTE] Error: Not connected.")
             return
 
-        ts = time.strftime("%Y%m%d_%H%M%S")
-        remote_tmp_dir = f"{self.remote_base_dir}/sharc/campaigns/remote_run_{ts}"
+        # Determine if we need to upload.
+        # Simple heuristic: If path exists locally, assume upload.
+        # If not, assume it's already on remote.
+        # (This is a simplified logic based on previous context conflicts)
 
-        # 1. Create Remote Dir
-        try:
-            self.ssh_client.exec_command(f"mkdir -p {remote_tmp_dir}")
-            self.log_callback(f"[REMOTE] Created temp dir: {remote_tmp_dir}")
-        except Exception as e:
-            self.log_callback(f"[REMOTE] Failed to create dir: {e}")
-            return
-
-        # 2. Upload Files via SFTP (FIXED from 'cp')
-        sftp = None
-        try:
-            sftp = self.ssh_client.open_sftp()
-        except Exception as e:
-            self.log_callback(f"[REMOTE] SFTP Failure: {e}")
-            return
-
-        tasks = []
-        for local_path in local_file_paths:
-            fname = os.path.basename(local_path)
-            remote_path = f"{remote_tmp_dir}/{fname}"
-
-            try:
-                # Upload local file to remote path
-                sftp.put(local_path, remote_path)
-                # Store tuple: (Remote Path, Original Tree ID/Local Path)
-                tasks.append((remote_path, local_path))
-            except Exception as e:
-                self.log_callback(f"[REMOTE] Upload failed for {fname}: {e}")
-
-        sftp.close()
-
-        # 3. Start Workers
         semaphore = threading.Semaphore(max_workers)
-        for r_path, original_id in tasks:
+
+        # In current runner.py, SSH mode passes remote paths (from list_remote_files).
+        # We will iterate and run them directly.
+
+        for fpath in file_paths:
             t = threading.Thread(
                 target=self._worker_remote,
-                args=(r_path, original_id, semaphore),
+                args=(fpath, fpath, semaphore),  # iid is same as path here
                 daemon=True
             )
             t.start()
@@ -328,12 +333,16 @@ class RunnerManager:
             self.update_row_callback(
                 {"iid": tree_id, "status": "Starting Remote...", "snap": "0/--"})
 
-            # Generate a unique ID for this specific run to safely kill it later if needed
+            # 1. Pre-fetch total snapshots from YAML (Remote grep)
+            known_total = self._get_yaml_total_snapshots(
+                remote_path, is_remote=True)
+            if known_total:
+                self.log_callback(
+                    f"[REMOTE] Config '{os.path.basename(remote_path)}' has {known_total} snapshots.")
+
             run_uuid = str(uuid.uuid4())
             self.running_procs_remote[tree_id] = run_uuid
 
-            # Pass UUID as env var SHARC_RUN_ID so we can pkill -f "SHARC_RUN_ID=<uuid>"
-            # checking pgrep availability might be good, but assuming standard linux here.
             cmd = (
                 f"export SHARC_RUN_ID={run_uuid} && "
                 f"cd {self.remote_base_dir} && "
@@ -345,8 +354,9 @@ class RunnerManager:
                 stdin, stdout, stderr = self.ssh_client.exec_command(
                     cmd, get_pty=True)
 
-                # Parse output
-                self._parse_progress(stdout, tree_id, is_local=False)
+                # Pass known_total to parser
+                self._parse_progress(
+                    stdout, tree_id, known_total=known_total, is_local=False)
 
                 exit_status = stdout.channel.recv_exit_status()
                 final = "Completed" if exit_status == 0 else f"Remote Error {exit_status}"
@@ -361,53 +371,72 @@ class RunnerManager:
                 if tree_id in self.running_procs_remote:
                     del self.running_procs_remote[tree_id]
 
-    def _parse_progress(self, stream, iid, is_local=True):
-        """Shared logic for parsing stdout from local or remote streams."""
-        total_snaps = 1
+    def _parse_progress(self, stream, iid, known_total=0, is_local=True):
+        """
+        Parses output stream.
+        known_total: If > 0, used as the total count if the log only says 'Step X'.
+        """
+        total_snaps = known_total
         current_snap = 0
-        t0 = time.time()
+        start_time = time.time()
 
-        pat_xy = re.compile(
-            r"(?:snapshot|snap)\s*:?\s*(\d+)\s*/\s*(\d+)", re.IGNORECASE)
-        pat_hash = re.compile(r"Snapshot\s*#\s*(\d+)", re.IGNORECASE)
+        pat_prog = re.compile(
+            r"(?:snapshot|step|snap).*?(\d+)\s*(?:/|of)\s*(\d+)", re.IGNORECASE)
+        pat_step = re.compile(
+            r"(?:snapshot|step|snap).*?#?(\d+)", re.IGNORECASE)
 
-        # iter(readline, "") handles both local file-like and paramiko channels well
         iterator = iter(stream.readline, "") if not is_local else stream
 
         for line in iterator:
             if not line:
                 break
-            line = line.strip()
+            clean_text = line.strip()
 
-            m1 = pat_xy.search(line)
-            m2 = pat_hash.search(line)
+            if clean_text:
+                prefix = "[LOCAL]" if is_local else "[SSH]"
+                self.log_callback(f"{prefix} {clean_text}")
 
-            if m1:
-                current_snap = int(m1.group(1))
-                total_snaps = int(m1.group(2))
-            elif m2:
-                current_snap = int(m2.group(1))
+            m_prog = pat_prog.search(clean_text)
+            m_step = pat_step.search(clean_text)
 
-            if current_snap > 0 and total_snaps > 0:
-                pct = (current_snap / total_snaps) * 100
-                elapsed = time.time() - t0
-                # Avoid ZeroDivision
-                rate = elapsed / current_snap
-                remain = (total_snaps - current_snap) * rate
+            if m_prog:
+                current_snap = int(m_prog.group(1))
+                # Log's explicit total overrides config file
+                total_snaps = int(m_prog.group(2))
+            elif m_step:
+                if not m_prog:
+                    current_snap = int(m_step.group(1))
 
-                status_str = "Running" if is_local else "Running (SSH)"
-
-                self.update_row_callback({
+            if current_snap > 0:
+                status_data = {
                     "iid": iid,
-                    "status": status_str,
-                    "snap": f"{current_snap}/{total_snaps}",
-                    "pct": f"{pct:.1f}",
-                    "eta": str(timedelta(seconds=int(remain)))
-                })
+                    "status": "Running" if is_local else "Running (SSH)",
+                }
+
+                if total_snaps > 0:
+                    pct = (current_snap / total_snaps) * 100
+                    status_data["snap"] = f"{current_snap}/{total_snaps}"
+                    status_data["pct"] = f"{pct:.1f}%"
+
+                    elapsed = time.time() - start_time
+                    if elapsed > 0:
+                        rate = elapsed / current_snap
+                        remaining = total_snaps - current_snap
+                        eta_seconds = remaining * rate
+                        status_data["eta"] = str(
+                            timedelta(seconds=int(eta_seconds)))
+                    else:
+                        status_data["eta"] = "Calc..."
+                else:
+                    # Fallback if config failed to read AND log is vague
+                    status_data["snap"] = f"{current_snap}/?"
+                    status_data["pct"] = "--"
+                    status_data["eta"] = "--"
+
+                self.update_row_callback(status_data)
 
     def stop_simulations(self, iid_list):
         for iid in iid_list:
-            # Local Stop
             if iid in self.running_procs_local:
                 try:
                     self.running_procs_local[iid].terminate()
@@ -416,14 +445,11 @@ class RunnerManager:
                 except:
                     pass
 
-            # Remote Stop (Safe UUID kill)
             if iid in self.running_procs_remote and self.ssh_connected:
                 run_uuid = self.running_procs_remote[iid]
                 self.log_callback(
                     f"[STOP] Sending kill signal to remote run {run_uuid}...")
 
-                # We grep for the UUID in the environment variable to find the PID
-                # This prevents killing other users' processes or identically named files.
                 kill_cmd = f"pkill -f 'SHARC_RUN_ID={run_uuid}'"
                 try:
                     self.ssh_client.exec_command(kill_cmd)

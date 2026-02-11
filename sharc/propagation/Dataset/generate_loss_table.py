@@ -10,7 +10,11 @@ import numpy as np
 from sharc.propagation.propagation_p619 import PropagationP619
 
 # Constants
+<<<<<<< HEAD
 frequency_MHz = 2197.5
+=======
+frequency_MHz = 2187.5
+>>>>>>> ff1b38ae5dfcbbaf428df348b5ffada652d79c4d
 earth_station_alt_m = 165
 earth_station_lat_deg = -15.33
 season = "SUMMER"
@@ -24,8 +28,13 @@ propagation = PropagationP619(
     earth_station_alt_m=earth_station_alt_m,
     earth_station_lat_deg=earth_station_lat_deg,
     season=season,
+<<<<<<< HEAD
     mean_clutter_height="low",
     below_rooftop=60
+=======
+    below_rooftop=60,
+    mean_clutter_height="low"
+>>>>>>> ff1b38ae5dfcbbaf428df348b5ffada652d79c4d
 )
 
 # Calculate the loss for each elevation angle

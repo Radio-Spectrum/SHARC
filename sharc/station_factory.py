@@ -212,7 +212,8 @@ class StationFactory(object):
                 for a in range(imt_base_stations.num_stations):
                     if imt_base_stations.active[a]:
                         n_actv = num_of_atcv_beams_per_sat[beam_to_sat_idx[a]]
-                        n_total = num_of_beams_per_sat[np.argsort(sat_idx)][beam_to_sat_idx[a]]
+                        #n_total = num_of_beams_per_sat[np.argsort(sat_idx)][beam_to_sat_idx[a]]
+                        n_total = np.max(num_of_beams_per_sat)
                         eta = 30 * np.log10(max(0.2, n_actv / n_total))
                         gain = eta - 10 * np.log10(n_actv)  # the sum of all beam gains should be equal to the single beam case
                         imt_base_stations.oob_antenna[a] = AntennaSystem3Oob(
@@ -1985,7 +1986,8 @@ class StationFactory(object):
                 for a in range(mss_d2d.num_stations):
                     if mss_d2d.active[a]:
                         n_actv = num_of_atcv_beams_per_sat[beam_to_sat_idx[a]]
-                        n_total = num_of_beams_per_sat[np.argsort(sat_idx)][beam_to_sat_idx[a]]
+                        #n_total = num_of_beams_per_sat[np.argsort(sat_idx)][beam_to_sat_idx[a]]
+                        n_total = np.max(num_of_beams_per_sat)
                         eta = 30 * np.log10(max(0.2, n_actv / n_total))
                         gain = eta - 10 * np.log10(n_actv)  # the sum of all beam gains should be equal to the single beam case
                         mss_d2d.oob_antenna[a] = AntennaSystem3Oob(

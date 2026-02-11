@@ -10,12 +10,12 @@ import numpy as np
 from sharc.propagation.propagation_p619 import PropagationP619
 
 # Constants
-frequency_MHz = 2680.0
-earth_station_alt_m = 1000.0
-earth_station_lat_deg = -15.7801
+frequency_MHz = 2187.5
+earth_station_alt_m = 165
+earth_station_lat_deg = -15.33
 season = "SUMMER"
 apparent_elevation = np.arange(0, 90)  # Elevation angles from 0 to 90 degrees
-city_name = "BRASILIA"
+city_name = "MS_1"
 
 # Initialize the propagation model
 random_number_gen = np.random.RandomState(101)
@@ -24,6 +24,8 @@ propagation = PropagationP619(
     earth_station_alt_m=earth_station_alt_m,
     earth_station_lat_deg=earth_station_lat_deg,
     season=season,
+    below_rooftop=60,
+    mean_clutter_height="low"
 )
 
 # Calculate the loss for each elevation angle

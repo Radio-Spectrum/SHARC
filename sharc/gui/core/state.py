@@ -12,7 +12,8 @@ except ImportError:
         "seed": 42, "num_snapshots": 10, "output_dir": "outputs",
         "default_dir": "",
         "ssh_host": "", "ssh_user": "", "ssh_port": 22,
-        "remote_base_dir": "", "tunnel_bastion_host": "",
+        "remote_base_dir": "~/SHARC",
+        "tunnel_bastion_host": "",
         "tunnel_bastion_user": "", "tunnel_bastion_port": 22,
         "tunnel_internal_ip": "", "tunnel_internal_port": 80,
         "tunnel_local_port": 8080, "tunnel_key_path": ""
@@ -25,15 +26,14 @@ except ImportError:
 def get_sharc_root() -> Path:
     """
     Locates the 'sharc' project root deterministically.
-
-    Checks current path and parents for the existence of specific folders (e.g., 'topology')
-    or the directory name 'sharc'.
+    Checks current path and parents for 'topology' folder or 'sharc' dir name.
     """
     try:
         current_path = Path(__file__).resolve()
     except NameError:
         current_path = Path.cwd()
 
+    # Search upwards
     for parent in [current_path] + list(current_path.parents):
         if (parent / "topology").exists() and (parent / "topology").is_dir():
             return parent
@@ -51,6 +51,13 @@ class AppState:
     """
 
     def __init__(self):
+        # Ensure a Tk instance exists before creating variables
+        try:
+            if not tk._default_root:
+                print("WARNING: Creating AppState before tk.Tk() root is initialized.")
+        except:
+            pass
+
         self.project_root = get_sharc_root()
         print(f"Project root defined at: {self.project_root}")
 
@@ -58,34 +65,52 @@ class AppState:
 
     def _add(self, value, var_type=str):
         """
-        Helper to create typed Tkinter variables.
-
-        Args:
-            value: Initial value.
-            var_type: Type class (int, float, bool, str).
+        Helper to create typed Tkinter variables with safe casting.
         """
-        if var_type == int:
-            return tk.IntVar(value=value)
-        if var_type == float:
-            return tk.DoubleVar(value=value)
-        if var_type == bool:
-            return tk.BooleanVar(value=value)
+        try:
+            if var_type == int:
+                # Handle strings like "10" safely
+                val = int(value) if value is not None and value != "" else 0
+                return tk.IntVar(value=val)
 
-        # Default is StringVar
-        return tk.StringVar(value=str(value))
+            elif var_type == float:
+                val = float(
+                    value) if value is not None and value != "" else 0.0
+                return tk.DoubleVar(value=val)
+
+            elif var_type == bool:
+                # Handle "True"/"False" strings and 1/0 integers
+                if isinstance(value, str):
+                    val = value.lower() in ('true', '1', 'yes', 'on')
+                else:
+                    val = bool(value)
+                return tk.BooleanVar(value=val)
+
+            else:
+                # Default StringVar
+                return tk.StringVar(value=str(value) if value is not None else "")
+
+        except (ValueError, TypeError) as e:
+            print(
+                f"ERROR: Failed to cast value '{value}' to {var_type}. Using default.")
+            if var_type == int:
+                return tk.IntVar(value=0)
+            if var_type == float:
+                return tk.DoubleVar(value=0.0)
+            if var_type == bool:
+                return tk.BooleanVar(value=False)
+            return tk.StringVar(value="")
 
     def _create_vars(self):
         """Initializes all state variables grouped by functional area."""
 
         # --- General Settings ---
-        #
-        # Variables like 'seed' and 'num_snapshots' control the statistical simulation engine.
-        self.var_seed = self._add(DEFAULTS["seed"], int)
-        self.var_snaps = self._add(DEFAULTS["num_snapshots"], int)
+        self.var_seed = self._add(DEFAULTS.get("seed", 42), int)
+        self.var_snaps = self._add(DEFAULTS.get("num_snapshots", 10), int)
         self.var_overwrite = self._add(False, bool)
 
         # Output Directory
-        default_out = Path(DEFAULTS["output_dir"])
+        default_out = Path(DEFAULTS.get("output_dir", "outputs"))
         if not default_out.is_absolute():
             abs_out_dir = self.project_root / default_out
         else:
@@ -95,14 +120,12 @@ class AppState:
         self.var_yaml_dir = self._add(abs_out_dir.as_posix())
 
         self.var_prefix = self._add("output_mss_{long}")
-        self.var_system = self._add("SINGLE_SPACE_STATION")  # Initial Default
+        self.var_system = self._add("SINGLE_SPACE_STATION")
         self.var_imt_link = self._add("DOWNLINK")
         self.var_adj = self._add(False, bool)
         self.var_coch = self._add(True, bool)
 
         # --- IMT (International Mobile Telecommunications) ---
-        #
-        # Defines the operating parameters of the mobile network interferers.
         self.imt_min_sep = self._add("35")
         self.imt_interfered = self._add(False, bool)
         self.imt_freq = self._add("8150")
@@ -114,14 +137,12 @@ class AppState:
         self.imt_guard_ratio = self._add("0.1")
 
         # --- Topology ---
-        #
-        # Controls the deployment layout (Macrocell vs Hotspot) and geographic center.
         self.topo_c_lat = self._add("-15.793889")
         self.topo_c_lon = self._add("-47.882778")
         self.topo_c_alt = self._add("0")
         self.topo_type = self._add("Macro_countries")
         self.topo_dist_type = self._add("Urban")
-        self.topo_num_bs = self._add("100")
+        self.topo_num_bs = self._add(DEFAULTS.get("topo_num_bs", "100"))
         self.topo_cell_radius = self._add("400")
         self.topo_rng = self._add("10")
         self.topo_raster_enc = self._add("Denspop")
@@ -132,8 +153,6 @@ class AppState:
         ]))
 
         # --- Maps (GIS Data) ---
-        #
-        # Paths to Shapefiles (borders) and Raster files (population data) for simulation.
         path_shp_file = self.project_root / "topology/map/ne_110m_admin_0_countries.shp"
         path_raster_file = self.project_root / "topology/map/SEDAC_map2.tiff"
 
@@ -164,8 +183,6 @@ class AppState:
         self.sbs_azimuth = self._add("120")
 
         # --- Base Station (BS) ---
-        #
-        # Configures the active antenna system (AAS) parameters for the Base Stations.
         self.bs_load_prob = self._add("0.2")
         self.bs_power = self._add("22")
         self.bs_height = self._add("18")
@@ -193,8 +210,6 @@ class AppState:
         self.bs_sub_e_downtilt = self._add("3")
 
         # --- User Equipment (UE) ---
-        #
-        # Defines parameters for the mobile devices, including distribution and power control.
         self.ue_k = self._add("3")
         self.ue_km = self._add("1")
         self.ue_indoor = self._add("70")
@@ -241,9 +256,6 @@ class AppState:
         # =========================================================
         # --- SINGLE EARTH STATION (Victim) ---
         # =========================================================
-        #
-        # Detailed configuration for the victim receiver, including location,
-        # antenna pointing, and propagation models (ITU-R P.452).
 
         # Basic Parameters
         self.se_frequency = self._add(3800.0, float)
@@ -294,8 +306,6 @@ class AppState:
         self.se_channel_model = self._add("FSPL")
 
         # P452 Parameters
-        #
-        # Variables controlling the terrain diffraction and tropospheric scatter model.
         self.p452_atmospheric_pressure = self._add(1013.25, float)
         self.p452_air_temperature = self._add(293.15, float)
         self.p452_percentage_p = self._add(20.0, float)
@@ -315,8 +325,6 @@ class AppState:
         # =========================================================
 
         # --- Victim (Legacy / Space Station) ---
-        #
-        # Legacy parameters often used for Space Station (Satellite) victims.
         self.v_freq = self._add("8150")
         self.v_bw = self._add("40")
         self.v_txpsd = self._add("-200")
@@ -360,13 +368,13 @@ class AppState:
         self.run_folder = self._add(abs_out_dir.as_posix())
 
         # --- SSH / Tunnel ---
-        #
-        # Variables for establishing secure connections to remote calculation servers.
-        self.ssh_host = self._add(DEFAULTS["ssh_host"])
-        self.ssh_user = self._add(DEFAULTS["ssh_user"])
-        self.ssh_port = self._add(DEFAULTS["ssh_port"], int)
+        self.ssh_host = self._add(DEFAULTS.get("ssh_host", ""))
+        self.ssh_user = self._add(DEFAULTS.get("ssh_user", ""))
+        self.ssh_port = self._add(DEFAULTS.get("ssh_port", 22), int)
 
-        self.ssh_remote_dir = self._add(self.project_root / "campaigns")
+        # FIX: Use string for remote path, not pathlib.Path (which breaks if Windows -> Linux)
+        self.ssh_remote_dir = self._add(DEFAULTS.get(
+            "remote_base_dir", "~/SHARC/campaigns"))
 
         self.ssh_use_tunnel = self._add(False, bool)
         self.ssh_use_password = self._add(True, bool)
@@ -374,13 +382,17 @@ class AppState:
         self.ssh_status = self._add("Disconnected")
         self.var_git_branch = self._add("")
 
-        self.tunnel_bastion_host = self._add(DEFAULTS["tunnel_bastion_host"])
-        self.tunnel_bastion_user = self._add(DEFAULTS["tunnel_bastion_user"])
+        self.tunnel_bastion_host = self._add(
+            DEFAULTS.get("tunnel_bastion_host", ""))
+        self.tunnel_bastion_user = self._add(
+            DEFAULTS.get("tunnel_bastion_user", ""))
         self.tunnel_bastion_port = self._add(
-            DEFAULTS["tunnel_bastion_port"], int)
-        self.tunnel_internal_ip = self._add(DEFAULTS["tunnel_internal_ip"])
+            DEFAULTS.get("tunnel_bastion_port", 22), int)
+        self.tunnel_internal_ip = self._add(
+            DEFAULTS.get("tunnel_internal_ip", ""))
         self.tunnel_internal_port = self._add(
-            DEFAULTS["tunnel_internal_port"], int)
-        self.tunnel_local_port = self._add(DEFAULTS["tunnel_local_port"], int)
-        self.tunnel_key_path = self._add(DEFAULTS["tunnel_key_path"])
+            DEFAULTS.get("tunnel_internal_port", 80), int)
+        self.tunnel_local_port = self._add(
+            DEFAULTS.get("tunnel_local_port", 8080), int)
+        self.tunnel_key_path = self._add(DEFAULTS.get("tunnel_key_path", ""))
         self.tunnel_status = self._add("🔴 Inactive Tunnel")

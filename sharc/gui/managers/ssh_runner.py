@@ -11,6 +11,8 @@ from datetime import timedelta
 from core.state import get_sharc_root
 
 PROJECT_ROOT = get_sharc_root()
+# This dictionary is now actively populated by RunnerManager
+SIMULATION_STATUS = dict()
 
 
 class RunnerManager:
@@ -36,6 +38,27 @@ class RunnerManager:
 
         # Remote base path (dynamically set on connect)
         self.remote_base_dir = "~/SHARC"
+
+    # =========================================================================
+    # STATE MANAGEMENT (FIXED)
+    # =========================================================================
+
+    def _emit_status(self, data):
+        """
+        Updates the global SIMULATION_STATUS dictionary and triggers the UI callback.
+        """
+        iid = data.get("iid")
+        if iid:
+            # Initialize dict for this IID if it doesn't exist
+            if iid not in SIMULATION_STATUS:
+                SIMULATION_STATUS[iid] = {}
+
+            # Update the global state registry
+            SIMULATION_STATUS[iid].update(data)
+        print(SIMULATION_STATUS)
+        # Pass data to main.py via the callback for UI row updates
+        if self.update_row_callback:
+            self.update_row_callback(data)
 
     # =========================================================================
     # HELPERS
@@ -253,7 +276,7 @@ class RunnerManager:
 
     def _worker_local(self, ypath, semaphore):
         with semaphore:
-            self.update_row_callback(
+            self._emit_status(
                 {"iid": ypath, "status": "Starting...", "snap": None})
 
             # 1. Pre-fetch total snapshots from YAML
@@ -267,7 +290,7 @@ class RunnerManager:
             if not os.path.exists(main_script):
                 self.log_callback(
                     f"[LOCAL] Error: main_cli.py missing at {main_script}")
-                self.update_row_callback(
+                self._emit_status(
                     {"iid": ypath, "status": "Missing Script"})
                 return
 
@@ -286,12 +309,12 @@ class RunnerManager:
                 proc.wait()
                 rc = proc.returncode
                 final = "Completed" if rc == 0 else f"Error {rc}"
-                self.update_row_callback(
+                self._emit_status(
                     {"iid": ypath, "status": final, "pct": "100" if rc == 0 else "--"})
 
             except Exception as e:
                 self.log_callback(f"[LOCAL] Exception: {e}")
-                self.update_row_callback({"iid": ypath, "status": "Failed"})
+                self._emit_status({"iid": ypath, "status": "Failed"})
             finally:
                 if ypath in self.running_procs_local:
                     del self.running_procs_local[ypath]
@@ -310,15 +333,7 @@ class RunnerManager:
             self.log_callback("[REMOTE] Error: Not connected.")
             return
 
-        # Determine if we need to upload.
-        # Simple heuristic: If path exists locally, assume upload.
-        # If not, assume it's already on remote.
-        # (This is a simplified logic based on previous context conflicts)
-
         semaphore = threading.Semaphore(max_workers)
-
-        # In current runner.py, SSH mode passes remote paths (from list_remote_files).
-        # We will iterate and run them directly.
 
         for fpath in file_paths:
             t = threading.Thread(
@@ -330,7 +345,7 @@ class RunnerManager:
 
     def _worker_remote(self, remote_path, tree_id, semaphore):
         with semaphore:
-            self.update_row_callback(
+            self._emit_status(
                 {"iid": tree_id, "status": "Starting Remote...", "snap": "0/--"})
 
             # 1. Pre-fetch total snapshots from YAML (Remote grep)
@@ -360,12 +375,12 @@ class RunnerManager:
 
                 exit_status = stdout.channel.recv_exit_status()
                 final = "Completed" if exit_status == 0 else f"Remote Error {exit_status}"
-                self.update_row_callback(
+                self._emit_status(
                     {"iid": tree_id, "status": final, "pct": "100" if exit_status == 0 else "--"})
 
             except Exception as e:
                 self.log_callback(f"[REMOTE] Worker error: {e}")
-                self.update_row_callback(
+                self._emit_status(
                     {"iid": tree_id, "status": "SSH Error"})
             finally:
                 if tree_id in self.running_procs_remote:
@@ -433,7 +448,7 @@ class RunnerManager:
                     status_data["pct"] = "--"
                     status_data["eta"] = "--"
 
-                self.update_row_callback(status_data)
+                self._emit_status(status_data)
 
     def stop_simulations(self, iid_list):
         for iid in iid_list:
@@ -453,7 +468,7 @@ class RunnerManager:
                 kill_cmd = f"pkill -f 'SHARC_RUN_ID={run_uuid}'"
                 try:
                     self.ssh_client.exec_command(kill_cmd)
-                    self.update_row_callback(
+                    self._emit_status(
                         {"iid": iid, "status": "Cancelled"})
                 except Exception as e:
                     self.log_callback(f"[STOP] Failed to kill remote: {e}")

@@ -1,8 +1,3 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Wed Apr 4 17:08:00 2018
-@author: Calil
-"""
 import matplotlib.pyplot as plt
 from sharc.antenna.antenna import Antenna
 from sharc.parameters.parameters_antenna_with_diameter import ParametersAntennaWithDiameter

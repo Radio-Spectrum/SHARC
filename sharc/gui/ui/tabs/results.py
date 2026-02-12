@@ -295,9 +295,6 @@ class ResultsTab:
         self.cb_field = ttk.Combobox(
             f_frame, textvariable=self.var_edit_field, values=self.result_fields)
         self.cb_field.pack(side="left", fill="x", expand=True, padx=5)
-        # FEATURE: Scan Columns Button
-        ttk.Button(f_frame, text="Scan Cols", width=8,
-                   command=self._scan_columns_handler).pack(side="right")
 
         ttk.Label(tab_axis, text="Mode:").grid(
             row=1, column=0, sticky='w', padx=5, pady=2)

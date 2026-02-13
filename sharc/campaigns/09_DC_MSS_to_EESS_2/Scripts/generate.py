@@ -25,10 +25,26 @@ OUTPUT_DIR = CAMPAIGN_DIR / "output"
 # Sweep — service grid
 
 LOAD_FACTORS = [0.2, 0.5]
-MASK = ["STEP", "MSS"] #["STEP", "MSS"]
-TYPE_SIMULATION = ["Adj", "Spu"] #["Adj", "Spu"]
+MASK = ["STEP", "MSS", "Spu"]   #["STEP", "MSS"]
 EESS_systems = ["EESS_B", "EESS_D"] #["EESS_B", "EESS_D"]
+EESS_pos = ['P'] # P - Paraguay; B - Bolivia; C - Colombia
+MARGIN = [0, 60]
 DCMSS_systems = ["system_340km", "system_525km"] #["system_340km", "system_525km"]
+COVERAGES = {
+    #"uBR": {
+    #    "countries": ["Brazil"],
+    #},
+    "BR_AR": {
+        "countries": ["Brazil", "Argentina"],
+    },
+    #"SA": {
+    #    "countries": [
+    #        "Argentina", "Bolivia", "Brazil", "Chile", "Colombia",
+    #        "Ecuador", "Paraguay", "Peru", "Uruguay",
+    #    ],
+    #},
+}
+
 
 
 def main():
@@ -39,84 +55,123 @@ def main():
 
     for sistema in DCMSS_systems:
         for mascara in MASK:
-            for type_sim in TYPE_SIMULATION:
                 for system_EESS in EESS_systems:
                     for lf in LOAD_FACTORS:
-                        cfg = copy.deepcopy(base_cfg)
+                        for margin in MARGIN:
+                            for cov_key, cov in COVERAGES.items():
+                                for es_pos in EESS_pos:
 
-                        # ===== Sistema MSS =====
-                        dc_mss = cfg["imt"]["topology"]["mss_dc"]
-                        orbit = dc_mss["orbits"][0]
+                                    cfg = copy.deepcopy(base_cfg)
 
-                        if sistema == "system_340km":
-                            orbit["n_planes"] = 48
-                            orbit["perigee_alt_km"] = 340
-                            orbit["apogee_alt_km"] = 340
-                            orbit["sats_per_plane"] = 110
-                            orbit["phasing_deg"] = 1.636
-                            dc_mss["beam_radius"] = 26195
-                            cfg["imt"]["bs"]["height"] = 340000
-                        else:
-                            orbit["n_planes"] = 28
-                            orbit["perigee_alt_km"] = 525
-                            orbit["apogee_alt_km"] = 525
-                            orbit["sats_per_plane"] = 120
-                            orbit["phasing_deg"] = 1.5
-                            dc_mss["beam_radius"] = 40448
-                            cfg["imt"]["bs"]["height"] = 525000
+                                    # ===== Sistema MSS =====
+                                    dc_mss = cfg["imt"]["topology"]["mss_dc"]
+                                    orbit = dc_mss["orbits"][0]
 
-                        # ===== Mask =====
-                        if mascara == "DC_MSS":
-                            cfg["imt"]["spectral_mask"] = "MSS"
-                            cfg["imt"].pop("spectral_mask_steps", None)
-                            cfg["imt"]["bs"]["use_oob_antenna"] = False
-                            cfg["imt"]["bs"].pop("oob_antenna", None)
-                        else:
-                            cfg["imt"]["spectral_mask"] = "STEPPED"
-                            cfg["imt"]["spectral_mask_steps"] = [
-                                34.875334439154976,
-                                16.87533443915498,
-                                6.87533443915498
-                            ]
+                                    if sistema == "system_340km":
+                                        orbit["n_planes"] = 48
+                                        orbit["perigee_alt_km"] = 340
+                                        orbit["apogee_alt_km"] = 340
+                                        orbit["sats_per_plane"] = 110
+                                        orbit["phasing_deg"] = 1.636
+                                        dc_mss["beam_radius"] = 26195
+                                        cfg["imt"]["bs"]["height"] = 340000
+                                    else:
+                                        orbit["n_planes"] = 28
+                                        orbit["perigee_alt_km"] = 525
+                                        orbit["apogee_alt_km"] = 525
+                                        orbit["sats_per_plane"] = 120
+                                        orbit["phasing_deg"] = 1.5
+                                        dc_mss["beam_radius"] = 40448
+                                        cfg["imt"]["bs"]["height"] = 525000
 
-                        # ===== Simulation type =====
-                        cfg["imt"]["frequency"] = 2187.5 if type_sim == "Spu" else 2197.5
-                        cfg["imt"]["bs"]["antenna"]["itu_r_s_1528"]["frequency"] = 2187.5 if type_sim == "Spu" else 2197.5
+                                    # ===== Mask =====
+                                    if mascara == "MSS":
+                                        cfg["imt"]["spectral_mask"] = "MSS"
+                                        cfg["imt"].pop("spectral_mask_steps", None)
+                                        cfg["imt"]["bs"]["use_oob_antenna"] = False
+                                        cfg["imt"]["bs"].pop("oob_antenna", None)
+                                        cfg["imt"]["frequency"] = 2197.5
+                                        cfg["imt"]["bs"]["antenna"]["itu_r_s_1528"]["frequency"] = 2197.5 
+                                    elif mascara == "Spu":
+                                        cfg["imt"]["spectral_mask"] = "MSS"
+                                        cfg["imt"].pop("spectral_mask_steps", None)
+                                        cfg["imt"]["bs"]["use_oob_antenna"] = False
+                                        cfg["imt"]["bs"].pop("oob_antenna", None)
+                                        cfg["imt"]["frequency"] = 2187.5 
+                                        cfg["imt"]["bs"]["antenna"]["itu_r_s_1528"]["frequency"] = 2187.5 
+                                    else:
+                                        cfg["imt"]["spectral_mask"] = "STEPPED"
+                                        cfg["imt"]["spectral_mask_steps"] = [
+                                            34.875334439154976,
+                                            16.87533443915498,
+                                            6.87533443915498
+                                        ]
+                                        cfg["imt"]["frequency"] = 2197.5
+                                        cfg["imt"]["bs"]["antenna"]["itu_r_s_1528"]["frequency"] = 2197.5 
 
-                        # ===== EESS =====
-                        earth = cfg["single_earth_station"]
+                                    # ===== EESS =====
+                                    earth = cfg["single_earth_station"]
 
-                        if system_EESS == "EESS_B":
-                            f = 2202
-                            earth["bandwidth"] = 4
-                            earth["noise_temperature"] = 190
-                            G_dBi = 45.8
-                        else:
-                            f = 2203
-                            earth["bandwidth"] = 6
-                            earth["noise_temperature"] = 120
-                            G_dBi = 39
+                                    if system_EESS == "EESS_B":
+                                        f = 2202
+                                        earth["bandwidth"] = 4
+                                        earth["noise_temperature"] = 190
+                                        G_dBi = 45.8
+                                    else:
+                                        f = 2203
+                                        earth["bandwidth"] = 6
+                                        earth["noise_temperature"] = 120
+                                        G_dBi = 39
 
-                        earth["frequency"] = f
-                        earth["antenna"]["gain"] = G_dBi
-                        earth["antenna"]["itu_r_s_465"]["antenna_gain"] = G_dBi
+                                    earth["frequency"] = f
+                                    earth["antenna"]["gain"] = G_dBi
+                                    earth["antenna"]["itu_r_s_465"]["antenna_gain"] = G_dBi
 
-                        G_linear = 10**(G_dBi / 10)
-                        lam = 2.998e8 / (f * 1e6)
-                        diam = float(np.round(lam * np.sqrt(G_linear / 0.9) / np.pi, 2))
-                        earth["antenna"]["itu_r_s_465"]["diameter"] = diam
+                                    G_linear = 10**(G_dBi / 10)
+                                    lam = 2.998e8 / (f * 1e6)
+                                    diam = float(np.round(lam * np.sqrt(G_linear / 0.9) / np.pi, 2))
+                                    earth["antenna"]["itu_r_s_465"]["diameter"] = diam
 
-                        # ===== Load factor =====
-                        cfg["imt"]["bs"]["load_probability"] = lf
+                                    # ===== Load factor =====
+                                    cfg["imt"]["bs"]["load_probability"] = lf
 
-                        # ===== Output name =====
-                        name = f"{sistema}_{system_EESS}_{mascara}_{type_sim}_lf_{lf}"
-                        cfg["general"]["output_dir_prefix"] = name
-                        cfg["general"]["output_dir"] = str(OUTPUT_DIR)
+                                    # ===== Margin type =====
+                                    dc_mss_from_con = dc_mss["beam_positioning"]["service_grid"]["grid_in_zone"]["from_countries"]
+                                    dc_mss_from_con["margin_from_border"] = margin
 
-                        output_file = INPUT_DIR / f"{name}.yaml"
+                                    # ===== Coverage =====
+                                    dc_mss["sat_is_active_if"]["lat_long_inside_country"]["country_names"] = list(cov["countries"])
+                                    dc_mss_from_con["country_names"] = list(cov["countries"])
 
-                        dump_yaml(cfg, output_file, yaml_backend)
+                                    # ===== ES position =====
+                                    if es_pos == "P":
+                                        cfg["imt"]["topology"]["central_latitude"] = -25.5549751
+                                        cfg["imt"]["topology"]["central_longitude"] = -54.5746686
+                                        cfg["imt"]["topology"]["central_altitude"] = 200
+                                        cfg["single_earth_station"]["param_p619"]["earth_station_lat_deg"] = -25.5549751
+                                        cfg["single_earth_station"]["param_p619"]["earth_station_alt_m"] = 200
+                                    elif es_pos == "C":
+                                        cfg["imt"]["topology"]["central_latitude"] = -4.214
+                                        cfg["imt"]["topology"]["central_longitude"] = -69.94
+                                        cfg["imt"]["topology"]["central_altitude"] = 88
+                                        cfg["single_earth_station"]["param_p619"]["earth_station_lat_deg"] = -4.214
+                                        cfg["single_earth_station"]["param_p619"]["earth_station_alt_m"] = 88
+                                    elif es_pos == "B":
+                                        cfg["imt"]["topology"]["central_latitude"] = -11.025
+                                        cfg["imt"]["topology"]["central_longitude"] = -68.765
+                                        cfg["imt"]["topology"]["central_altitude"] = 240
+                                        cfg["single_earth_station"]["param_p619"]["earth_station_lat_deg"] = -11.025
+                                        cfg["single_earth_station"]["param_p619"]["earth_station_alt_m"] = 240                                   
+
+
+                                    # ===== Output name =====
+                                    name = f"{sistema}_{system_EESS}_{cov_key}_{es_pos}_{mascara}_OM_{margin}_lf_{lf}"
+                                    cfg["general"]["output_dir_prefix"] = name
+                                    cfg["general"]["output_dir"] = str(OUTPUT_DIR)
+
+                                    output_file = INPUT_DIR / f"{name}.yaml"
+
+                                    dump_yaml(cfg, output_file, yaml_backend)
 
 
 def load_yaml(path: Path):

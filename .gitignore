@@ -4,6 +4,7 @@
 /sharc/output_*/*
 /sharc/campaigns/*/output
 /sharc/campaigns/*/output_dl
+/sharc/campaigns/*/input
 
 __pycache__
 .spyproject

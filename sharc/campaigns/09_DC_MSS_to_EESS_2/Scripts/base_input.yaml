@@ -46,7 +46,7 @@ imt:
           country_names: [
                 "Brazil", "Argentina", "Bolivia", "Chile", "Peru", "Paraguay", "Uruguay"
             ]
-          margin_from_border: 0
+          margin_from_border: -714
       beam_positioning:
         type: SERVICE_GRID
         service_grid:

@@ -206,6 +206,10 @@ class ParametersImtMssDc(ParametersBase):
     # Number of beams
     num_beams: int = 19
 
+    # The maximum number of beams per satellite.
+    # NOTE: This is used when implementing System3 OOBE model
+    max_num_of_beams: float = None
+
     # Beam radius in meters
     # The beam radius should be calculated based on the Antenna Pattern used
     # for IMT Space Stations

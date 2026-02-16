@@ -103,6 +103,10 @@ class ParametersMssD2d(ParametersBase):
             gain=0.0,
             mss_adjacent=ParametersAntennaWithFreq(frequency=None)))
 
+    # The maximum number of beams per satellite.
+    # NOTE: This is used when implementing System3 OOBE model
+    max_num_of_beams: float = None
+
     sat_is_active_if: ParametersSelectActiveSatellite = field(
         default_factory=ParametersSelectActiveSatellite)
 

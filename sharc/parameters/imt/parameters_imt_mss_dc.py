@@ -210,6 +210,7 @@ class ParametersImtMssDc(ParametersBase):
     # The beam radius should be calculated based on the Antenna Pattern used
     # for IMT Space Stations
     beam_radius: float = 36516.0
+    N_max_beam: int = 100
 
     sat_is_active_if: ParametersSelectActiveSatellite = field(
         default_factory=ParametersSelectActiveSatellite)

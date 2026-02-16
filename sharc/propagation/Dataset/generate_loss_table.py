@@ -10,12 +10,12 @@ import numpy as np
 from sharc.propagation.propagation_p619 import PropagationP619
 
 # Constants
-frequency_MHz = 2197.5
-earth_station_alt_m = 165
-earth_station_lat_deg = -15.33
+frequency_MHz = 2187.5
+earth_station_alt_m = 200
+earth_station_lat_deg = -25.5549751
 season = "SUMMER"
 apparent_elevation = np.arange(0, 90)  # Elevation angles from 0 to 90 degrees
-city_name = "MS_1"
+city_name = "FOZ"
 
 # Initialize the propagation model
 random_number_gen = np.random.RandomState(101)

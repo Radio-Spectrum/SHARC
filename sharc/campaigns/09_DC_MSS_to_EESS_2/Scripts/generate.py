@@ -73,6 +73,7 @@ def main():
                                         orbit["apogee_alt_km"] = 340
                                         orbit["sats_per_plane"] = 110
                                         orbit["phasing_deg"] = 1.636
+                                        dc_mss["N_max_beam"] = 105
                                         dc_mss["beam_radius"] = 26195
                                         cfg["imt"]["bs"]["height"] = 340000
                                     else:
@@ -82,6 +83,7 @@ def main():
                                         orbit["sats_per_plane"] = 120
                                         orbit["phasing_deg"] = 1.5
                                         dc_mss["beam_radius"] = 40448
+                                        dc_mss["N_max_beam"] = 90
                                         cfg["imt"]["bs"]["height"] = 525000
 
                                     # ===== Mask =====
@@ -99,6 +101,7 @@ def main():
                                         cfg["imt"]["bs"].pop("oob_antenna", None)
                                         cfg["imt"]["frequency"] = 2187.5 
                                         cfg["imt"]["bs"]["antenna"]["itu_r_s_1528"]["frequency"] = 2187.5 
+                                        
                                     else:
                                         cfg["imt"]["spectral_mask"] = "STEPPED"
                                         cfg["imt"]["spectral_mask_steps"] = [

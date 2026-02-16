@@ -57,6 +57,7 @@ class TopologyImtMssDc(Topology):
         # stations generator
         self.is_space_station = True
         self.num_sectors = params.num_beams
+        
 
         # Specific attributes
         self.coordinate_system = coordinate_system

@@ -1333,7 +1333,7 @@ class StationFactory(object):
         elif param.antenna_pattern == "ITU-R F.699":
             fs_station.antenna = np.array([AntennaF699(param)])
         elif param.antenna_pattern == "ITU-R F.1245_fs":
-            fs_station.antenna == np.array([Antenna_f1245_fs(param)])
+            fs_station.antenna = np.array([Antenna_f1245_fs(param)])
         else:
             sys.stderr.write(
                 "ERROR\nInvalid FS antenna pattern: " + param.antenna_pattern,

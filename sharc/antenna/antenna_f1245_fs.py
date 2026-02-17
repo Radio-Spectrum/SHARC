@@ -1,15 +1,6 @@
-
-# -*- coding: utf-8 -*-
-"""
-Created on Wed Apr 4 17:08:00 2018
-@author: Calil
-"""
 import matplotlib.pyplot as plt
 from sharc.antenna.antenna import Antenna
-from sharc.parameters.imt.parameters_imt import ParametersImt
-from sharc.parameters.imt.parameters_imt import ParametersImt
-from sharc.parameters.imt.parameters_antenna_imt import ParametersAntennaImt
-from sharc.parameters.parameters_antenna import ParametersAntenna
+from sharc.parameters.parameters_antenna_with_diameter import ParametersAntennaWithDiameter
 import numpy as np
 import math
 
@@ -18,7 +9,7 @@ class Antenna_f1245_fs(Antenna):
     """Class that implements the ITU-R F.1245 antenna pattern for fixed
     satellite service earth stations."""
 
-    def __init__(self, param: ParametersImt):
+    def __init__(self, param: ParametersAntennaWithDiameter):
         super().__init__()
         self.peak_gain = param.gain
         lmbda = 3e8 / (param.frequency * 1e6)
@@ -154,9 +145,8 @@ class Antenna_f1245_fs(Antenna):
 if __name__ == '__main__':
     off_axis_angle_vec = np.linspace(0.1, 180, num=1001)
     # initialize antenna parameters
-    param = ParametersAntenna()
+    param = ParametersAntennaWithDiameter()
     param.frequency = 2155
-    param_gt = ParametersAntennaImt()
     param.gain = 33.1
     param.diameter = 2
     antenna_gt = Antenna_f1245_fs(param)

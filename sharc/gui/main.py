@@ -72,7 +72,7 @@ class App(tb.Window if HAS_BOOTSTRAP else tk.Tk):
         self.pages_config = [
             ("general", "General", GeneralTab, "⚙"),
             ("imt", "IMT", IMTTab, "📡"),
-            ("victim", "Victim", VictimTab, "🛰"),            
+            ("victim", "Single Space Station", VictimTab, "🛰"),            
             ("station", "Single Earth Station", SingleEarthStationTab, "🛰"), 
             ("preview", "Preview", PreviewTab, "👁"),
             ("runner", "Execution Runner", RunnerTab, "🚀"),

@@ -22,6 +22,9 @@ from managers import RunnerManager
 from core.state import AppState, get_sharc_root
 from core.yaml_builder import build_yaml_structure
 
+# CRITICAL IMPORT: Import the module to access the live 'SIMULATION_STATUS' variable
+from managers import ssh_runner 
+
 # Import Tabs
 from ui.tabs import (
     GeneralTab, IMTTab, VictimTab,
@@ -46,7 +49,7 @@ class App(tb.Window if HAS_BOOTSTRAP else tk.Tk):
         self.state_model = AppState()
         self.__dict__.update(self.state_model.__dict__)
 
-        # Set default system if empty to prevent empty sidebar on startup
+        # Set default system if empty
         if not self.var_system.get():
             self.var_system.set("SINGLE_EARTH_STATION")
 
@@ -61,18 +64,16 @@ class App(tb.Window if HAS_BOOTSTRAP else tk.Tk):
         )
 
         # Page Control
-        self.current_key = None  # Tracks which tab key is currently open
+        self.current_key = None 
         self.current_frame = None
         self.frames = {}
         self.nav_buttons = {}
 
-        # Page Configuration: (key, label, Class, icon)
-        # We define this list here to maintain order and iterate easily
         self.pages_config = [
             ("general", "General", GeneralTab, "⚙"),
             ("imt", "IMT", IMTTab, "📡"),
-            ("victim", "Victim", VictimTab, "🛰"),            # Exclusive to SINGLE_SPACE_STATION
-            ("station", "Single Earth Station", SingleEarthStationTab, "🛰"), # Exclusive to SINGLE_EARTH_STATION
+            ("victim", "Victim", VictimTab, "🛰"),            
+            ("station", "Single Earth Station", SingleEarthStationTab, "🛰"), 
             ("preview", "Preview", PreviewTab, "👁"),
             ("runner", "Execution Runner", RunnerTab, "🚀"),
             ("results", "Results", ResultsTab, "📊"),
@@ -83,13 +84,16 @@ class App(tb.Window if HAS_BOOTSTRAP else tk.Tk):
         self._build_layout()
         self._init_pages()
 
-        # 5. Logic: Observe changes in System Type to update Sidebar
+        # 5. Logic: Observe changes in System Type
         self.var_system.trace_add("write", self._on_system_changed)
 
-        # 6. Start Loop
+        # 6. Start Loop for Logs
         self.after(100, self._drain_log_queue)
 
-        # Force initial sidebar refresh based on default value
+        # 7. Start Loop for Simulation Status (HUD)
+        self.monitor_simulation_status()
+
+        # Force initial sidebar refresh
         self._refresh_sidebar_items()
 
         # Select initial page
@@ -108,6 +112,10 @@ class App(tb.Window if HAS_BOOTSTRAP else tk.Tk):
         style.configure("Brand.TLabel", font=header_font, foreground="#2C3E50")
         style.configure("Nav.TButton", font=("Segoe UI", 11), anchor="w", padding=(20, 12))
         style.configure("Card.TFrame", background="#ffffff", relief="flat")
+        
+        # Specific styles for the HUD
+        style.configure("HudValue.TLabel", font=("Consolas", 10, "bold"), foreground="#2C3E50")
+        style.configure("HudLabel.TLabel", font=("Segoe UI", 8), foreground="#7F8C8D")
 
     def _build_layout(self):
         """Layout: Sidebar (Left) + Content (Right)."""
@@ -121,6 +129,8 @@ class App(tb.Window if HAS_BOOTSTRAP else tk.Tk):
 
         self.menu_frame = tb.Frame(self.sidebar, bootstyle="light")
         self.menu_frame.pack(fill="both", expand=True, pady=10)
+        
+        # Monitor/HUD at the bottom of the sidebar
         self._build_system_monitor()
 
         # --- B. Header Bar (Top Right) ---
@@ -152,24 +162,57 @@ class App(tb.Window if HAS_BOOTSTRAP else tk.Tk):
         tb.Separator(self.sidebar, bootstyle="secondary").pack(fill="x", padx=20, pady=15)
 
     def _build_system_monitor(self):
+        """Builds the Circular Meter and the Status HUD."""
         monitor_frame = tb.Frame(self.sidebar, bootstyle="light", padding=15)
         monitor_frame.pack(side="bottom", fill="x", pady=10)
 
+        # Title
         tb.Label(monitor_frame, text="Global Progress", foreground="#7F8C8D",
-                 font=("Segoe UI", 9, "bold"), bootstyle="inverse-light").pack(anchor="center", pady=5)
+                 font=("Segoe UI", 9, "bold"), bootstyle="inverse-light").pack(anchor="center", pady=(0, 10))
 
+        # 1. Circular Meter
+        # showtext=False hides the big integer text.
+        # We will use subtext to show the float percentage.
         self.sys_meter = Meter(
             monitor_frame,
             metersize=140,
             padding=5,
             amountused=0,
             metertype="full",
-            subtext="Idle",
+            subtext="0.0%",      # Initial text
+            textright="",        
+            showtext=False,      # Keep main integer hidden to avoid "0"
             interactive=False,
             bootstyle="primary",
             stripethickness=10
         )
-        self.sys_meter.pack(anchor="center")
+        self.sys_meter.pack(anchor="center", pady=(0, 15))
+
+        # 2. HUD Container (Snapshots and ETA)
+        hud_frame = tb.Frame(monitor_frame, bootstyle="light")
+        hud_frame.pack(fill="x", pady=5)
+
+        # -- HUD Grid --
+        hud_frame.columnconfigure(0, weight=1)
+        hud_frame.columnconfigure(1, weight=1)
+        hud_frame.columnconfigure(2, weight=1) 
+
+        # Snapshots Section
+        f_snaps = tb.Frame(hud_frame, bootstyle="light")
+        f_snaps.grid(row=0, column=0, sticky="ew")
+        tb.Label(f_snaps, text="SNAPSHOTS", style="HudLabel.TLabel", bootstyle="inverse-light").pack(anchor="center")
+        self.lbl_hud_snaps = tb.Label(f_snaps, text="0 / 0", style="HudValue.TLabel", bootstyle="inverse-light")
+        self.lbl_hud_snaps.pack(anchor="center")
+
+        # Vertical Separator
+        ttk.Separator(hud_frame, orient="vertical").grid(row=0, column=1, sticky="ns", padx=5)
+
+        # ETA Section
+        f_eta = tb.Frame(hud_frame, bootstyle="light")
+        f_eta.grid(row=0, column=2, sticky="ew")
+        tb.Label(f_eta, text="ETA", style="HudLabel.TLabel", bootstyle="inverse-light").pack(anchor="center")
+        self.lbl_hud_eta = tb.Label(f_eta, text="--:--:--", style="HudValue.TLabel", bootstyle="inverse-light")
+        self.lbl_hud_eta.pack(anchor="center")
 
     def _build_header_content(self):
         self.lbl_page_title = tb.Label(self.header, text="Dashboard",
@@ -201,11 +244,91 @@ class App(tb.Window if HAS_BOOTSTRAP else tk.Tk):
                                        bootstyle="inverse-primary")
         self.lbl_status_msg.pack(side="left", padx=20)
 
-    def _init_pages(self):
-        """Initializes pages logic and buttons, but does NOT pack them yet."""
+    # --- SIMULATION MONITOR (HUD & METER) ---
+    def monitor_simulation_status(self):
+        """
+        Calculates progress average, snapshot totals, and max ETA.
+        Updates the Meter ring and places the PERCENTAGE in the center.
+        """
+        try:
+            raw_data = getattr(ssh_runner, "SIMULATION_STATUS", {})
 
+            # Reset if empty
+            if not raw_data or not isinstance(raw_data, dict):
+                self.sys_meter.configure(amountused=0, subtext="0.0%")
+                self.lbl_hud_snaps.configure(text="0 / 0")
+                self.lbl_hud_eta.configure(text="--:--:--")
+                self.after(5000, self.monitor_simulation_status)
+                return
+
+            percentages = []
+            total_done_snaps = 0
+            total_max_snaps = 0
+            etas = []
+
+            # Process Data
+            for key, val in raw_data.items():
+                if isinstance(val, dict):
+                    # 1. Percentage
+                    pct_str = val.get('pct', '0%')
+                    try:
+                        clean_pct = float(pct_str.replace('%', '').strip())
+                        percentages.append(clean_pct)
+                    except:
+                        percentages.append(0.0)
+
+                    # 2. Snapshots (e.g., "50/100000")
+                    snap_str = val.get('snap', '0/0')
+                    if '/' in snap_str:
+                        try:
+                            done, total = snap_str.split('/')
+                            total_done_snaps += int(done)
+                            total_max_snaps += int(total)
+                        except:
+                            pass
+
+                    # 3. ETA (e.g., "12:52:02")
+                    eta_str = val.get('eta', '')
+                    if eta_str and ':' in eta_str:
+                        etas.append(eta_str)
+
+            # --- CALCULATIONS ---
+            avg_pct = sum(percentages) / len(percentages) if percentages else 0
+            
+            # Snapshots Text
+            if total_max_snaps > 0:
+                snaps_text = f"{total_done_snaps} / {total_max_snaps}"
+            else:
+                snaps_text = "0 / 0"
+
+            # Final ETA (Max time among all threads)
+            final_eta = max(etas) if etas else "--:--:--"
+
+            # --- VISUAL UPDATE ---
+            
+            # 1. Update Ring (Visual only)
+            visual_amount = int(avg_pct)
+            if avg_pct > 0 and visual_amount == 0:
+                visual_amount = 1 # Show a sliver of blue if started
+            
+            # 2. Update PERCENTAGE TEXT in the center (using subtext field)
+            # This puts "0.1%" right in the middle where "Idle" used to be.
+            pct_text = f"{avg_pct:.1f}%"
+            
+            self.sys_meter.configure(amountused=visual_amount, subtext=pct_text)
+            
+            # 3. Update HUD Bottom Labels
+            self.lbl_hud_snaps.configure(text=snaps_text)
+            self.lbl_hud_eta.configure(text=final_eta)
+
+        except Exception as e:
+            print(f"HUD Update Error: {e}")
+        
+        # Schedule next check (5 seconds)
+        self.after(5000, self.monitor_simulation_status)
+
+    def _init_pages(self):
         for key, label, Cls, icon in self.pages_config:
-            # 1. Create Menu Button (stored, but not packed)
             btn = tb.Button(
                 self.menu_frame,
                 text=f"  {icon}   {label}",
@@ -214,249 +337,148 @@ class App(tb.Window if HAS_BOOTSTRAP else tk.Tk):
                 command=lambda k=key, l=label: self._switch_page(k, l)
             )
             self.nav_buttons[key] = btn
-
-            # 2. Visual Container
             container = tb.Frame(self.content_area)
             self.frames[key] = container
-
-            # 3. Logic Instance
             instance = Cls(self, container)
             setattr(self, f"tab_{key}", instance)
 
-    # --- Dynamic Visibility Logic ---
-
     def _on_system_changed(self, *args):
-        """Callback triggered when var_system changes."""
         self._refresh_sidebar_items()
 
     def _refresh_sidebar_items(self):
-        """Reorganizes sidebar items based on the selected system mode."""
         sys_type = self.var_system.get()
-
-        # Unpack all buttons first
         for btn in self.nav_buttons.values():
             btn.pack_forget()
 
-        # Re-pack buttons based on logic
         for key, label, _, _ in self.pages_config:
             should_show = True
-
-            # Mutual exclusion logic (UPDATED MAPPING)
             if sys_type == "SINGLE_EARTH_STATION":
-                if key == "victim": should_show = False   # Hide Victim (Space Station)
-                if key == "station": should_show = True   # Show Station (Earth Station)
-
+                if key == "victim": should_show = False
+                if key == "station": should_show = True
             elif sys_type == "SINGLE_SPACE_STATION":
-                if key == "station": should_show = False  # Hide Station (Earth Station)
-                if key == "victim": should_show = True    # Show Victim (Space Station)
-
+                if key == "station": should_show = False
+                if key == "victim": should_show = True
             else:
-                # Fallback behavior if empty or invalid
-                if key == "victim": should_show = False   # Hide Victim by default
+                if key == "victim": should_show = False
 
             if should_show:
                 self.nav_buttons[key].pack(fill="x", pady=2, padx=10)
 
-        # Safety: If the user is on a tab that just got hidden, switch to General
-        if self.current_key:
-            # Check if the current page's button is mapped (visible)
-            if not self.nav_buttons[self.current_key].winfo_ismapped():
-                self._switch_page("general")
+        if self.current_key and not self.nav_buttons[self.current_key].winfo_ismapped():
+            self._switch_page("general")
 
     def _switch_page(self, key, label_text=None):
-        """Switches the visible page."""
-
-        # Sync IMT data (required for 3D visualization)
         if hasattr(self, 'tab_imt') and hasattr(self.tab_imt, 'txt_countries'):
             try:
                 raw_txt = self.tab_imt.txt_countries.get("1.0", "end").strip()
-                if raw_txt:
-                    self.topo_countries.set(raw_txt)
-            except Exception:
-                pass
+                if raw_txt: self.topo_countries.set(raw_txt)
+            except: pass
 
-        # Update Title
-        if label_text:
-            self.lbl_page_title.config(text=label_text)
-        elif key == "general":
-            self.lbl_page_title.config(text="General Settings")
+        if label_text: self.lbl_page_title.config(text=label_text)
+        elif key == "general": self.lbl_page_title.config(text="General Settings")
 
-        # Hide current container
-        if self.current_frame:
-            self.current_frame.pack_forget()
+        if self.current_frame: self.current_frame.pack_forget()
 
-        # Update button styles (Highlight active)
         for k, btn in self.nav_buttons.items():
-            if k == key:
-                btn.configure(bootstyle="primary")
-            else:
-                btn.configure(bootstyle="secondary-link")
+            btn.configure(bootstyle="primary" if k == key else "secondary-link")
 
-        # Show new container
         self.current_frame = self.frames[key]
         self.current_frame.pack(fill="both", expand=True)
         self.current_key = key
 
-        # Trigger Refresh (e.g., for Maps)
         if key == "preview":
-            logic_instance = getattr(self, f"tab_{key}", None)
-            if logic_instance:
-                if hasattr(logic_instance, "refresh"):
-                    logic_instance.refresh()
-                elif hasattr(logic_instance, "update_plot"):
-                    logic_instance.update_plot()
+            logic = getattr(self, f"tab_{key}", None)
+            if logic:
+                if hasattr(logic, "refresh"): logic.refresh()
+                elif hasattr(logic, "update_plot"): logic.update_plot()
 
     def _show_welcome_toast(self):
-        toast = ToastNotification(
-            title="SHARC",
-            message="System Ready.\nTheme: Cosmo Light",
-            duration=3000,
-            bootstyle="light",
-            position=(40, 60, "ne")
-        )
-        toast.show_toast()
+        ToastNotification(
+            title="SHARC", message="System Ready.\nTheme: Cosmo Light",
+            duration=3000, bootstyle="light", position=(40, 60, "ne")
+        ).show_toast()
 
     def _show_success_toast(self, msg):
-        toast = ToastNotification(
-            title="Success",
-            message=msg,
-            duration=3000,
-            bootstyle="success",
-            position=(40, 60, "ne")
-        )
-        toast.show_toast()
+        ToastNotification(
+            title="Success", message=msg, duration=3000,
+            bootstyle="success", position=(40, 60, "ne")
+        ).show_toast()
 
-    # --- Backend Logic & Logs ---
-
-    def _safe_log(self, msg):
-        self.line_q.put(("log", msg))
-
-    def _safe_update_row(self, data):
-        self.line_q.put(("row", data))
+    def _safe_log(self, msg): self.line_q.put(("log", msg))
+    def _safe_update_row(self, data): self.line_q.put(("row", data))
 
     def _drain_log_queue(self):
         try:
             for _ in range(50):
                 item = self.line_q.get_nowait()
-                msg_type, payload = item
-
-                if msg_type == "log":
-                    clean_msg = payload.strip()
-                    if clean_msg:
-                        self.lbl_status_msg.config(text=clean_msg[:120])
-
+                msg, payload = item
+                if msg == "log":
+                    clean = payload.strip()
+                    if clean: self.lbl_status_msg.config(text=clean[:120])
                     if hasattr(self.tab_runner, 'txt_log'):
                         w = self.tab_runner.txt_log
                         w.configure(state="normal")
-                        w.insert("end", payload +
-                                 ("\n" if not payload.endswith("\n") else ""))
+                        w.insert("end", payload + ("\n" if not payload.endswith("\n") else ""))
                         w.see("end")
                         w.configure(state="disabled")
-
-                elif msg_type == "row":
+                elif msg == "row":
                     if hasattr(self.tab_runner, 'tree'):
                         tree = self.tab_runner.tree
                         iid = payload.get("iid")
                         if iid and tree.exists(iid):
                             cur = list(tree.item(iid, "values"))
-                            if payload["status"] is not None:
-                                cur[1] = payload["status"]
-                            if payload["pct"] is not None:
-                                cur[3] = payload["pct"]
-                                try:
-                                    pct_float = float(
-                                        payload["pct"].strip('%'))
-                                    self.sys_meter.configure(
-                                        amountused=int(pct_float), subtext="Running")
-                                except:
-                                    pass
+                            if payload["status"] is not None: cur[1] = payload["status"]
+                            if payload["pct"] is not None: cur[3] = payload["pct"]
                             tree.item(iid, values=cur)
-        except queue.Empty:
-            pass
-        except Exception:
-            pass
-
+        except: pass
         self.after(100, self._drain_log_queue)
-
-    # --- YAML Generation ---
 
     def current_yaml_dict(self) -> dict:
         if hasattr(self, 'tab_imt') and hasattr(self.tab_imt, 'txt_countries'):
-            try:
-                txt = self.tab_imt.txt_countries.get("1.0", "end")
-                self.topo_countries.set(txt)
-            except:
-                pass
+            try: self.topo_countries.set(self.tab_imt.txt_countries.get("1.0", "end"))
+            except: pass
         return build_yaml_structure(self)
 
     def _deep_format(self, obj, combo):
-        if isinstance(obj, dict):
-            return {k: self._deep_format(v, combo) for k, v in obj.items()}
-        if isinstance(obj, list):
-            return [self._deep_format(v, combo) for v in obj]
+        if isinstance(obj, dict): return {k: self._deep_format(v, combo) for k, v in obj.items()}
+        if isinstance(obj, list): return [self._deep_format(v, combo) for v in obj]
         if isinstance(obj, str):
-            try:
-                return obj.format(**combo)
-            except:
-                return obj
+            try: return obj.format(**combo)
+            except: return obj
         return obj
 
-    def save_yaml_to_yamldir(self):
-        self._generate_and_save_yaml(self.var_yaml_dir.get())
+    def save_yaml_to_yamldir(self): self._generate_and_save_yaml(self.var_yaml_dir.get())
 
     def save_yaml_dialog_multicombos(self):
-        initdir = self.var_yaml_dir.get() or os.getcwd()
-        path = filedialog.asksaveasfilename(
-            title="Choose base filename",
-            defaultextension=".yaml",
-            initialdir=initdir,
-            initialfile=(self.var_prefix.get() or "scenario") + ".yaml"
-        )
+        init = self.var_yaml_dir.get() or os.getcwd()
+        path = filedialog.asksaveasfilename(title="Base filename", defaultextension=".yaml", initialdir=init, initialfile=(self.var_prefix.get() or "scenario") + ".yaml")
         if path:
-            outdir = os.path.dirname(path)
-            count = self._generate_and_save_yaml(outdir)
-            self.var_yaml_dir.set(outdir)
+            out = os.path.dirname(path)
+            if self._generate_and_save_yaml(out): self.var_yaml_dir.set(out)
 
     def _generate_and_save_yaml(self, outdir):
-        if not outdir:
-            return 0
+        if not outdir: return 0
         os.makedirs(outdir, exist_ok=True)
-
         tree = self.tab_general.var_table
         names, lists = [], []
         for iid in tree.get_children():
-            name, vals = tree.item(iid, "values")
+            n, v = tree.item(iid, "values")
             try:
-                vlist = ast.literal_eval(vals)
-                names.append(str(name))
-                lists.append(list(vlist))
+                names.append(str(n))
+                lists.append(list(ast.literal_eval(v)))
             except:
-                messagebox.showwarning(
-                    "Error", f"Invalid values for variable {name}")
+                messagebox.showwarning("Error", f"Invalid var {n}")
                 return 0
-
-        combos = [dict(zip(names, p))
-                  for p in itertools.product(*lists)] if names else [{}]
+        combos = [dict(zip(names, p)) for p in itertools.product(*lists)] if names else [{}]
         root = self.current_yaml_dict()
-        base_prefix = root["general"]["output_dir_prefix"] or "scenario"
-
-        count = 0
-        for combo in combos:
-            prefix = base_prefix
-            try:
-                prefix = prefix.format(**combo)
-            except:
-                pass
-
-            root_fmt = self._deep_format(root, combo)
-            text = build_yaml_text(root_fmt)
-            fname = os.path.join(outdir, f"{prefix}.yaml")
-            with open(fname, "w", encoding="utf-8") as f:
-                f.write(text)
-            count += 1
-
-        self._show_success_toast(f"{count} scenarios generated in:\n{outdir}")
-        return count
+        cnt = 0
+        for c in combos:
+            p = (root["general"]["output_dir_prefix"] or "scenario").format(**c)
+            with open(os.path.join(outdir, f"{p}.yaml"), "w", encoding="utf-8") as f:
+                f.write(build_yaml_text(self._deep_format(root, c)))
+            cnt += 1
+        self._show_success_toast(f"{cnt} scenarios in:\n{outdir}")
+        return cnt
 
 
 if __name__ == "__main__":

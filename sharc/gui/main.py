@@ -6,7 +6,7 @@ import os
 import itertools
 import ast
 
-# Tenta usar visual moderno
+# Try to use modern visual style
 try:
     import ttkbootstrap as tb
     from ttkbootstrap.constants import *
@@ -14,16 +14,15 @@ try:
     HAS_BOOTSTRAP = True
 except ImportError:
     HAS_BOOTSTRAP = False
-    print("ERRO CRÍTICO: Instale 'pip install ttkbootstrap' para ver o novo visual.")
+    print("CRITICAL ERROR: Install 'pip install ttkbootstrap' to see the modern visual style.")
 
-# --- Importações dos Módulos Locais e Core ---
-# Certifique-se que estes arquivos existem ou são mocks, conforme seu ambiente
+# --- Local and Core Imports ---
 from utils import build_yaml_text
 from managers import RunnerManager
 from core.state import AppState, get_sharc_root
 from core.yaml_builder import build_yaml_structure
 
-# Importa as abas existentes
+# Import Tabs
 from ui.tabs import (
     GeneralTab, IMTTab, VictimTab,
     PreviewTab, RunnerTab, ResultsTab, SingleEarthStationTab
@@ -33,7 +32,7 @@ PROJECT_ROOT = get_sharc_root()
 
 class App(tb.Window if HAS_BOOTSTRAP else tk.Tk):
     def __init__(self):
-        # 1. Configuração do Tema (Claro e Profissional)
+        # 1. Theme Configuration
         if HAS_BOOTSTRAP:
             super().__init__(themename="cosmo")
         else:
@@ -43,97 +42,98 @@ class App(tb.Window if HAS_BOOTSTRAP else tk.Tk):
         self.geometry("800x600")
         self.minsize(800, 600)
 
-        # 2. Inicializar Variáveis de Estado
+        # 2. Initialize State Variables
         self.state_model = AppState()
         self.__dict__.update(self.state_model.__dict__)
+
+        # Set default system if empty to prevent empty sidebar on startup
+        if not self.var_system.get():
+            self.var_system.set("SINGLE_EARTH_STATION")
 
         self.main_cli_path = tk.StringVar(
             value=os.path.join(PROJECT_ROOT / "main_cli.py"))
 
-        # 3. Backend e Filas
+        # 3. Backend and Queues
         self.line_q = queue.Queue()
         self.runner_manager = RunnerManager(
             log_callback=self._safe_log,
             update_row_callback=self._safe_update_row
         )
 
-        # Controle de Páginas
-        self.current_frame = None  # Armazena o container visual atual
-        self.frames = {}           # Armazena os containers visuais
-        self.nav_buttons = {}      # Armazena os botões do menu
+        # Page Control
+        self.current_key = None  # Tracks which tab key is currently open
+        self.current_frame = None
+        self.frames = {}
+        self.nav_buttons = {}
 
-        # 4. Construção da Interface
+        # Page Configuration: (key, label, Class, icon)
+        # We define this list here to maintain order and iterate easily
+        self.pages_config = [
+            ("general", "General", GeneralTab, "⚙"),
+            ("imt", "IMT", IMTTab, "📡"),
+            ("victim", "Victim", VictimTab, "🛰"),            # Exclusive to SINGLE_SPACE_STATION
+            ("station", "Single Earth Station", SingleEarthStationTab, "🛰"), # Exclusive to SINGLE_EARTH_STATION
+            ("preview", "Preview", PreviewTab, "👁"),
+            ("runner", "Execution Runner", RunnerTab, "🚀"),
+            ("results", "Results", ResultsTab, "📊"),
+        ]
+
+        # 4. Interface Construction
         self._setup_custom_styles()
         self._build_layout()
         self._init_pages()
 
-        # 5. Iniciar Loop
+        # 5. Logic: Observe changes in System Type to update Sidebar
+        self.var_system.trace_add("write", self._on_system_changed)
+
+        # 6. Start Loop
         self.after(100, self._drain_log_queue)
 
-        # Seleciona página inicial
+        # Force initial sidebar refresh based on default value
+        self._refresh_sidebar_items()
+
+        # Select initial page
         self._switch_page("general")
 
-        # Exibe Toast de boas-vindas
+        # Show welcome toast
         self.after(800, self._show_welcome_toast)
 
     def _setup_custom_styles(self):
-        """Define estilos para o tema CLARO."""
+        """Define styles for the theme."""
         style = tb.Style()
-
-        # Fontes limpas
         base_font = ("Segoe UI", 10)
-
-        # Verifica se tem fonte estilizada, senão usa padrão
-        available_fonts = set(tkfont.families())
-        header_font = ("Segoe UI", 22, "bold")  # Fonte profissional padrão
+        header_font = ("Segoe UI", 22, "bold")
 
         style.configure(".", font=base_font)
-
-        # Estilo do Título na Sidebar
-        style.configure("Brand.TLabel", font=header_font,
-                        foreground="#2C3E50")  # Azul escuro profissional
-
-        # Botões de Navegação
-        style.configure("Nav.TButton", font=("Segoe UI", 11),
-                        anchor="w", padding=(20, 12))
-
-        # Estilo dos Cards (Fundo branco com sombra leve seria ideal, aqui usamos flat)
+        style.configure("Brand.TLabel", font=header_font, foreground="#2C3E50")
+        style.configure("Nav.TButton", font=("Segoe UI", 11), anchor="w", padding=(20, 12))
         style.configure("Card.TFrame", background="#ffffff", relief="flat")
 
     def _build_layout(self):
-        """Layout: Sidebar Cinza (Esq) + Conteúdo Branco (Dir)."""
-
+        """Layout: Sidebar (Left) + Content (Right)."""
         self.grid_columnconfigure(1, weight=1)
         self.grid_rowconfigure(1, weight=1)
 
-        # --- A. Sidebar (Esquerda) ---
+        # --- A. Sidebar (Left) ---
         self.sidebar = tb.Frame(self, bootstyle="light")
         self.sidebar.grid(row=0, column=0, rowspan=3, sticky="nsew")
-
-        # Logo e Menu
         self._build_sidebar_header()
 
         self.menu_frame = tb.Frame(self.sidebar, bootstyle="light")
         self.menu_frame.pack(fill="both", expand=True, pady=10)
-
-        # Monitor de Sistema (Meter)
         self._build_system_monitor()
 
-        # --- B. Header Bar (Topo Direita) ---
+        # --- B. Header Bar (Top Right) ---
         self.header = tb.Frame(self, bootstyle="bg-white", height=70)
         self.header.grid(row=0, column=1, sticky="ew")
         self._build_header_content()
+        tb.Separator(self.header, orient="horizontal", bootstyle="secondary").pack(side="bottom", fill="x")
 
-        # Linha separadora sutil abaixo do header
-        sep = tb.Separator(self.header, orient="horizontal",
-                           bootstyle="secondary")
-        sep.pack(side="bottom", fill="x")
-
-        # --- C. Área de Conteúdo (Centro Direita) ---
+        # --- C. Content Area (Center Right) ---
         self.content_area = tb.Frame(self, padding=25)
         self.content_area.grid(row=1, column=1, sticky="nsew")
 
-        # --- D. Status Bar (Rodapé Direita) ---
+        # --- D. Status Bar (Bottom Right) ---
         self.status_bar = tb.Frame(self, bootstyle="primary")
         self.status_bar.grid(row=2, column=1, sticky="ew")
         self._build_footer_content()
@@ -142,18 +142,14 @@ class App(tb.Window if HAS_BOOTSTRAP else tk.Tk):
         frame = tb.Frame(self.sidebar, bootstyle="light")
         frame.pack(fill="x", pady=(30, 10), padx=20)
 
-        # Título
-        lbl = tb.Label(frame, text="SHARC", style="Brand.TLabel",
-                       bootstyle="inverse-light")
+        lbl = tb.Label(frame, text="SHARC", style="Brand.TLabel", bootstyle="inverse-light")
         lbl.pack(anchor="w")
 
         sub = tb.Label(frame, text="SIMULATION MANAGER", font=("Segoe UI", 9, "bold"),
                        foreground="#7F8C8D", bootstyle="inverse-light")
         sub.pack(anchor="w")
 
-        # Separador na sidebar
-        tb.Separator(self.sidebar, bootstyle="secondary").pack(
-            fill="x", padx=20, pady=15)
+        tb.Separator(self.sidebar, bootstyle="secondary").pack(fill="x", padx=20, pady=15)
 
     def _build_system_monitor(self):
         monitor_frame = tb.Frame(self.sidebar, bootstyle="light", padding=15)
@@ -170,23 +166,20 @@ class App(tb.Window if HAS_BOOTSTRAP else tk.Tk):
             metertype="full",
             subtext="Idle",
             interactive=False,
-            bootstyle="primary",  # Azul cosmo
+            bootstyle="primary",
             stripethickness=10
         )
         self.sys_meter.pack(anchor="center")
 
     def _build_header_content(self):
-        # Título da Página
         self.lbl_page_title = tb.Label(self.header, text="Dashboard",
                                        font=("Segoe UI", 18), foreground="#2C3E50")
         self.lbl_page_title.pack(side="left", padx=30, pady=20)
 
-        # Botão Salvar
-        btn_save = tb.Button(self.header, text="Save Configuration", bootstyle="success",  # Verde
+        btn_save = tb.Button(self.header, text="Save Configuration", bootstyle="success",
                              command=self.save_yaml_dialog_multicombos)
         btn_save.pack(side="right", padx=30)
-        ToolTip(
-            btn_save, text="Gera e salva os arquivos YAML com a configuração atual.")
+        ToolTip(btn_save, text="Generate and save YAML files with current configuration.")
 
     def _build_footer_content(self):
         # SSH Status
@@ -195,9 +188,7 @@ class App(tb.Window if HAS_BOOTSTRAP else tk.Tk):
         tb.Label(f_ssh, textvariable=self.ssh_status, font=("Consolas", 9, "bold"),
                  bootstyle="inverse-primary").pack()
 
-        # Separador vertical
-        tb.Label(self.status_bar, text="|",
-                 bootstyle="inverse-primary").pack(side="right")
+        tb.Label(self.status_bar, text="|", bootstyle="inverse-primary").pack(side="right")
 
         # Tunnel Status
         f_tun = tb.Frame(self.status_bar, bootstyle="primary", padding=(15, 5))
@@ -205,28 +196,16 @@ class App(tb.Window if HAS_BOOTSTRAP else tk.Tk):
         tb.Label(f_tun, textvariable=self.tunnel_status, font=("Consolas", 9),
                  bootstyle="inverse-primary").pack()
 
-        # Mensagem de Log (Esquerda)
+        # Log Message
         self.lbl_status_msg = tb.Label(self.status_bar, text="Ready.", font=("Segoe UI", 9),
                                        bootstyle="inverse-primary")
         self.lbl_status_msg.pack(side="left", padx=20)
 
     def _init_pages(self):
-        """Inicializa as páginas e cria a estrutura de navegação."""
+        """Initializes pages logic and buttons, but does NOT pack them yet."""
 
-        # --- [ALTERAÇÃO AQUI] ---
-        # Substituímos VictimTab por SingleEarthStationTab na lista
-        pages = [
-            ("general", "General", GeneralTab, "⚙"),
-            ("imt", "IMT", IMTTab, "📡"),
-            ("victim", "Victim", VictimTab, "🛰"),
-            ("station", "Single Earth Station", SingleEarthStationTab, "🛰"),
-            ("preview", "Preview", PreviewTab, "👁"),
-            ("runner", "Execution Runner", RunnerTab, "🚀"),
-            ("results", "Results", ResultsTab, "📊"),
-        ]
-
-        for key, label, Cls, icon in pages:
-            # 1. Cria Botão de Menu (Sidebar)
+        for key, label, Cls, icon in self.pages_config:
+            # 1. Create Menu Button (stored, but not packed)
             btn = tb.Button(
                 self.menu_frame,
                 text=f"  {icon}   {label}",
@@ -234,26 +213,60 @@ class App(tb.Window if HAS_BOOTSTRAP else tk.Tk):
                 bootstyle="secondary-link",
                 command=lambda k=key, l=label: self._switch_page(k, l)
             )
-            btn.pack(fill="x", pady=2, padx=10)
             self.nav_buttons[key] = btn
 
-            # 2. Container Visual (Onde os widgets da aba serão desenhados)
+            # 2. Visual Container
             container = tb.Frame(self.content_area)
+            self.frames[key] = container
 
-            # 3. Instância da Lógica (Controlador da Aba)
-            # Passamos 'container' como parent. A classe da aba desenha dentro dele.
-            # E passamos 'self' (App) para que a aba acesse as variáveis de estado.
+            # 3. Logic Instance
             instance = Cls(self, container)
-
-            # 4. Registra referências
-            self.frames[key] = container       # Para dar .pack() depois
-            # Para lógica (self.tab_general...)
             setattr(self, f"tab_{key}", instance)
 
-    def _switch_page(self, key, label_text=None):
-        """Troca a página visível e SINCRONIZA dados."""
+    # --- Dynamic Visibility Logic ---
 
-        # Sincroniza IMT Countries (necessário para a visualização 3D funcionar)
+    def _on_system_changed(self, *args):
+        """Callback triggered when var_system changes."""
+        self._refresh_sidebar_items()
+
+    def _refresh_sidebar_items(self):
+        """Reorganizes sidebar items based on the selected system mode."""
+        sys_type = self.var_system.get()
+
+        # Unpack all buttons first
+        for btn in self.nav_buttons.values():
+            btn.pack_forget()
+
+        # Re-pack buttons based on logic
+        for key, label, _, _ in self.pages_config:
+            should_show = True
+
+            # Mutual exclusion logic (UPDATED MAPPING)
+            if sys_type == "SINGLE_EARTH_STATION":
+                if key == "victim": should_show = False   # Hide Victim (Space Station)
+                if key == "station": should_show = True   # Show Station (Earth Station)
+
+            elif sys_type == "SINGLE_SPACE_STATION":
+                if key == "station": should_show = False  # Hide Station (Earth Station)
+                if key == "victim": should_show = True    # Show Victim (Space Station)
+
+            else:
+                # Fallback behavior if empty or invalid
+                if key == "victim": should_show = False   # Hide Victim by default
+
+            if should_show:
+                self.nav_buttons[key].pack(fill="x", pady=2, padx=10)
+
+        # Safety: If the user is on a tab that just got hidden, switch to General
+        if self.current_key:
+            # Check if the current page's button is mapped (visible)
+            if not self.nav_buttons[self.current_key].winfo_ismapped():
+                self._switch_page("general")
+
+    def _switch_page(self, key, label_text=None):
+        """Switches the visible page."""
+
+        # Sync IMT data (required for 3D visualization)
         if hasattr(self, 'tab_imt') and hasattr(self.tab_imt, 'txt_countries'):
             try:
                 raw_txt = self.tab_imt.txt_countries.get("1.0", "end").strip()
@@ -262,29 +275,29 @@ class App(tb.Window if HAS_BOOTSTRAP else tk.Tk):
             except Exception:
                 pass
 
-        # --- Troca Visual ---
+        # Update Title
         if label_text:
             self.lbl_page_title.config(text=label_text)
         elif key == "general":
             self.lbl_page_title.config(text="General Settings")
 
-        # Esconde container atual
+        # Hide current container
         if self.current_frame:
             self.current_frame.pack_forget()
 
-        # Atualiza estilo dos botões (Highlight no ativo)
+        # Update button styles (Highlight active)
         for k, btn in self.nav_buttons.items():
             if k == key:
                 btn.configure(bootstyle="primary")
             else:
                 btn.configure(bootstyle="secondary-link")
 
-        # Mostra container novo
+        # Show new container
         self.current_frame = self.frames[key]
         self.current_frame.pack(fill="both", expand=True)
+        self.current_key = key
 
-        # --- Trigger de Refresh ---
-        # Se for a aba Preview, força o redesenho do mapa
+        # Trigger Refresh (e.g., for Maps)
         if key == "preview":
             logic_instance = getattr(self, f"tab_{key}", None)
             if logic_instance:
@@ -313,7 +326,7 @@ class App(tb.Window if HAS_BOOTSTRAP else tk.Tk):
         )
         toast.show_toast()
 
-    # --- Lógica de Negócio e Logs (Backend) ---
+    # --- Backend Logic & Logs ---
 
     def _safe_log(self, msg):
         self.line_q.put(("log", msg))
@@ -357,7 +370,6 @@ class App(tb.Window if HAS_BOOTSTRAP else tk.Tk):
                                         amountused=int(pct_float), subtext="Running")
                                 except:
                                     pass
-
                             tree.item(iid, values=cur)
         except queue.Empty:
             pass
@@ -395,7 +407,7 @@ class App(tb.Window if HAS_BOOTSTRAP else tk.Tk):
     def save_yaml_dialog_multicombos(self):
         initdir = self.var_yaml_dir.get() or os.getcwd()
         path = filedialog.asksaveasfilename(
-            title="Escolha um nome base",
+            title="Choose base filename",
             defaultextension=".yaml",
             initialdir=initdir,
             initialfile=(self.var_prefix.get() or "scenario") + ".yaml"
@@ -420,7 +432,7 @@ class App(tb.Window if HAS_BOOTSTRAP else tk.Tk):
                 lists.append(list(vlist))
             except:
                 messagebox.showwarning(
-                    "Erro", f"Valores inválidos para variável {name}")
+                    "Error", f"Invalid values for variable {name}")
                 return 0
 
         combos = [dict(zip(names, p))

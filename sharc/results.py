@@ -82,6 +82,8 @@ class Results(object):
         # Throughput [bits/s/Hz]
         self.imt_dl_tput = SampleList()
 
+        self.imt_dl_interf_power = SampleList()
+        self.imt_dl_intra_interf_power = SampleList()
         self.imt_dl_ext_interf_power = SampleList()
         self.imt_ul_ext_interf_power = SampleList()
 

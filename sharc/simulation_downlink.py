@@ -499,12 +499,16 @@ class SimulationDownlink(Simulation):
 
             # Get the weight factor for the system overlaping bandwidth in each
             # UE band.
-            weights = self.calculate_bw_weights(
-                self.ue.bandwidth[ue],
-                self.ue.center_freq[ue],
-                float(self.param_system.bandwidth),
-                float(self.param_system.frequency),
-            )
+            ue_min_f = self.ue.center_freq[ue] - self.ue.bandwidth[ue] / 2
+            ue_max_f = self.ue.center_freq[ue] + self.ue.bandwidth[ue] / 2
+
+            sys_min_f = float(self.param_system.frequency) - float(self.param_system.bandwidth) / 2
+            sys_max_f = float(self.param_system.frequency) + float(self.param_system.bandwidth) / 2
+
+            overlap_bw = np.minimum(ue_max_f, sys_max_f) - np.maximum(ue_min_f, sys_min_f)
+
+            weights = np.clip(overlap_bw / float(self.param_system.bandwidth), 0.0, 1.0)
+
 
             in_band_interf_power = -500.
             if self.co_channel:
@@ -524,22 +528,25 @@ class SimulationDownlink(Simulation):
                         self.coupling_loss_imt_system_sta[ue, :][:, active_sta]
                     )), axis=1)
 
-                    # 3. Soma das potências (APs + STAs) e conversão para dBm
-                    total_interf_lin = interf_ap_lin + interf_sta_lin
-                    # Evita log de zero caso não haja interferência
+                    # 3. Soma das potências (APs + STAs) em mW
+                    in_band_interf_power = interf_ap_lin + interf_sta_lin
+                    '''# Evita log de zero caso não haja interferência
                     in_band_interf_power = np.full(len(ue), -500.0)
                     valid_idx = total_interf_lin > 0
-                    in_band_interf_power[valid_idx] = 10 * np.log10(total_interf_lin[valid_idx])
+                    in_band_interf_power[valid_idx] = 10 * np.log10(total_interf_lin[valid_idx])'''
 
-            oob_power = np.resize(-500., (len(ue), 1))
-            # Total external interference into the UE in dBm
-            ue_ext_int = 10 * np.log10(np.power(10,
-                                                0.1 * in_band_interf_power) + np.power(10,
-                                                                                       0.1 * oob_power))
+            oob_power = np.full(len(ue), -500.0)
+             
+            ue_ext_int = in_band_interf_power + np.power(10,0.1 * oob_power)
 
-            # Sum all the interferers for each UE
-            self.ue.ext_interference[ue] = 10 * \
-                np.log10(np.sum(np.power(10, 0.1 * ue_ext_int), axis=1)) + 30
+            self.ue.ext_interference[ue] = 10 * np.log10(ue_ext_int)
+
+            intra_ue_mw = np.power(10, 0.1 * self.ue.rx_interference).flatten()
+        
+            total_interf_ue_mw = intra_ue_mw + np.power(10, 0.1 * self.ue.ext_interference.flatten())
+
+            self.ue.interf_power_total = 10 * np.log10(total_interf_ue_mw)
+
 
             self.ue.sinr_ext[ue] = \
                 self.ue.rx_power[ue] - (10 * np.log10(np.power(10, 0.1 * self.ue.total_interference[ue]) +
@@ -622,7 +629,7 @@ class SimulationDownlink(Simulation):
         bs_active = np.where(self.bs.active)[0]
         # this implm assumes some parameters will be same for all interferring BS's
         first_bs = bs_active[0]
-
+        
         if self.co_channel:
             ue = self.link[first_bs]
             weights = self.calculate_bw_weights(
@@ -630,6 +637,7 @@ class SimulationDownlink(Simulation):
                 self.ue.center_freq[ue],
                 self.param_system.bandwidth,
                 self.param_system.frequency,
+                float(self.ue.bandwidth[ue][0]),
             )
 
             interference = self.bs.tx_power[first_bs]
@@ -1369,7 +1377,9 @@ class SimulationDownlink(Simulation):
                     self.imt_system_diffraction_loss[:, bs],
                 )
             
-            self.results.imt_dl_ext_interf_power.extend(self.ue.ext_interference[ue].tolist())
+            self.results.imt_dl_ext_interf_power.extend(self.ue.ext_interference[ue].tolist()) 
+            self.results.imt_dl_intra_interf_power.extend(self.ue.rx_interference[ue].tolist())
+            self.results.imt_dl_interf_power.extend(self.ue.interf_power_total[ue].tolist())
             self.results.imt_dl_tx_power.extend(self.bs.tx_power[bs].tolist())
             self.results.imt_dl_sinr.extend(self.ue.sinr[ue].tolist())
             self.results.imt_dl_snr.extend(self.ue.snr[ue].tolist())

@@ -39,45 +39,61 @@ class RunnerTab:
         """Constructs the user interface elements."""
 
         # =========================================================
+        # EXECUTION MODE
+        # =========================================================
+        self.frm_mode = ttk.LabelFrame(self.frame, text="Execution Mode")
+        self.frm_mode.pack(fill="x", pady=5, padx=5)
+
+        ttk.Radiobutton(self.frm_mode, text="Local", value="LOCAL",
+                        variable=self.app.var_run_mode, command=self._toggle_ssh_frame).pack(side="left", padx=10)
+        ttk.Radiobutton(self.frm_mode, text="Remote (SSH)", value="SSH",
+                        variable=self.app.var_run_mode, command=self._toggle_ssh_frame).pack(side="left", padx=10)
+
+        # =========================================================
         # SSH TUNNEL (BASTION)
         # =========================================================
-        frm_tunnel = ttk.LabelFrame(self.frame, text="SSH Tunnel (Bastion)")
-        frm_tunnel.pack(fill="x", pady=5, padx=5)
+        self.frm_tunnel = ttk.LabelFrame(
+            self.frame, text="SSH Tunnel (Bastion)")
+        # NOTA: pack() removido daqui. O _toggle_ssh_frame cuidará de exibir quando necessário.
 
         # Row 1: Bastion
-        ttk.Label(frm_tunnel, text="Bastion Host").grid(
+        ttk.Label(self.frm_tunnel, text="Bastion Host").grid(
             row=0, column=0, sticky="e")
-        ttk.Entry(frm_tunnel, textvariable=self.app.tunnel_bastion_host).grid(
+        ttk.Entry(self.frm_tunnel, textvariable=self.app.tunnel_bastion_host).grid(
             row=0, column=1, sticky="ew")
-        ttk.Label(frm_tunnel, text="User").grid(row=0, column=2, sticky="e")
-        ttk.Entry(frm_tunnel, textvariable=self.app.tunnel_bastion_user).grid(
+        ttk.Label(self.frm_tunnel, text="User").grid(
+            row=0, column=2, sticky="e")
+        ttk.Entry(self.frm_tunnel, textvariable=self.app.tunnel_bastion_user).grid(
             row=0, column=3, sticky="ew")
-        ttk.Label(frm_tunnel, text="Port").grid(row=0, column=4, sticky="e")
-        ttk.Entry(frm_tunnel, textvariable=self.app.tunnel_bastion_port,
+        ttk.Label(self.frm_tunnel, text="Port").grid(
+            row=0, column=4, sticky="e")
+        ttk.Entry(self.frm_tunnel, textvariable=self.app.tunnel_bastion_port,
                   width=6).grid(row=0, column=5, sticky="w")
 
         # Row 2: Internal Target
-        ttk.Label(frm_tunnel, text="Internal IP").grid(
+        ttk.Label(self.frm_tunnel, text="Internal IP").grid(
             row=1, column=0, sticky="e")
-        ttk.Entry(frm_tunnel, textvariable=self.app.tunnel_internal_ip).grid(
+        ttk.Entry(self.frm_tunnel, textvariable=self.app.tunnel_internal_ip).grid(
             row=1, column=1, sticky="ew")
-        ttk.Label(frm_tunnel, text="Int Port").grid(
+        ttk.Label(self.frm_tunnel, text="Int Port").grid(
             row=1, column=2, sticky="e")
-        ttk.Entry(frm_tunnel, textvariable=self.app.tunnel_internal_port,
+        ttk.Entry(self.frm_tunnel, textvariable=self.app.tunnel_internal_port,
                   width=6).grid(row=1, column=3, sticky="ew")
-        ttk.Label(frm_tunnel, text="Local Port").grid(
+        ttk.Label(self.frm_tunnel, text="Local Port").grid(
             row=1, column=4, sticky="e")
-        ttk.Entry(frm_tunnel, textvariable=self.app.tunnel_local_port,
+        ttk.Entry(self.frm_tunnel, textvariable=self.app.tunnel_local_port,
                   width=6).grid(row=1, column=5, sticky="w")
 
         # Row 3: Key and Actions
-        ttk.Label(frm_tunnel, text="Key").grid(row=2, column=0, sticky="e")
-        ent_key = ttk.Entry(frm_tunnel, textvariable=self.app.tunnel_key_path)
+        ttk.Label(self.frm_tunnel, text="Key").grid(
+            row=2, column=0, sticky="e")
+        ent_key = ttk.Entry(
+            self.frm_tunnel, textvariable=self.app.tunnel_key_path)
         ent_key.grid(row=2, column=1, columnspan=4, sticky="ew")
-        ttk.Button(frm_tunnel, text="Browse", command=lambda: self._pick_file(
+        ttk.Button(self.frm_tunnel, text="Browse", command=lambda: self._pick_file(
             self.app.tunnel_key_path)).grid(row=2, column=5)
 
-        btn_frm = ttk.Frame(frm_tunnel)
+        btn_frm = ttk.Frame(self.frm_tunnel)
         btn_frm.grid(row=3, column=0, columnspan=6, pady=5)
         ttk.Button(btn_frm, text="Create Tunnel",
                    command=self._create_tunnel_ui).pack(side="left", padx=5)
@@ -87,24 +103,13 @@ class RunnerTab:
             side="left", padx=10)
 
         for i in range(6):
-            frm_tunnel.columnconfigure(i, weight=1)
-
-        # =========================================================
-        # EXECUTION MODE
-        # =========================================================
-        frm_mode = ttk.LabelFrame(self.frame, text="Execution Mode")
-        frm_mode.pack(fill="x", pady=5, padx=5)
-
-        ttk.Radiobutton(frm_mode, text="Local", value="LOCAL",
-                        variable=self.app.var_run_mode, command=self._toggle_ssh_frame).pack(side="left", padx=10)
-        ttk.Radiobutton(frm_mode, text="Remote (SSH)", value="SSH",
-                        variable=self.app.var_run_mode, command=self._toggle_ssh_frame).pack(side="left", padx=10)
+            self.frm_tunnel.columnconfigure(i, weight=1)
 
         # =========================================================
         # SSH CONNECTION
         # =========================================================
         self.frm_ssh = ttk.LabelFrame(self.frame, text="SSH Connection")
-        # (Packed conditionally by _toggle_ssh_frame)
+        # NOTA: pack() removido daqui. O _toggle_ssh_frame cuidará de exibir quando necessário.
 
         ttk.Label(self.frm_ssh, text="Host").grid(row=0, column=0, sticky="e")
         ttk.Entry(self.frm_ssh, textvariable=self.app.ssh_host).grid(
@@ -276,14 +281,19 @@ class RunnerTab:
 
     def _toggle_ssh_frame(self, *_):
         if self.app.var_run_mode.get() == "SSH":
-            self.frm_ssh.pack(fill="x", pady=5, padx=5,
-                              after=self.frame.children.get("!labelframe"))
+            if hasattr(self, 'frm_tunnel') and hasattr(self, 'frm_mode'):
+                self.frm_tunnel.pack(
+                    fill="x", pady=5, padx=5, after=self.frm_mode)
+            if hasattr(self, 'frm_ssh') and hasattr(self, 'frm_tunnel'):
+                self.frm_ssh.pack(fill="x", pady=5, padx=5,
+                                  after=self.frm_tunnel)
         else:
-            self.frm_ssh.pack_forget()
+            if hasattr(self, 'frm_tunnel'):
+                self.frm_tunnel.pack_forget()
+            if hasattr(self, 'frm_ssh'):
+                self.frm_ssh.pack_forget()
 
     def _toggle_tunnel(self, *_):
-        # Tunnel options visibility is often tied to SSH connection logic,
-        # but here we just keep them available if needed.
         pass
 
     def _pick_file(self, tk_var):

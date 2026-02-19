@@ -1257,14 +1257,14 @@ class StationFactory(object):
                     [param.geometry.location.fixed.y],
                 )
             case "CELL":
-                x, y, _, _ = StationFactory.get_random_position(
+                x, y, _, _, _ = StationFactory.get_random_position(
                     1, topology, random_number_gen,
                     param.geometry.location.cell.min_dist_to_bs, True,
                 )
                 x = np.array(x)
                 y = np.array(y)
             case "NETWORK":
-                x, y, _, _ = StationFactory.get_random_position(
+                x, y, _, _, _ = StationFactory.get_random_position(
                     1, topology, random_number_gen,
                     param.geometry.location.network.min_dist_to_bs, False,
                 )

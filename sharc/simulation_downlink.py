@@ -393,11 +393,11 @@ class SimulationDownlink(Simulation):
                     if self.param_system.adjacent_ch_emissions != "OFF":
                         tx_oob = tx_oob[:] - self.coupling_loss_oob_tx_inband_rx[ue, :][system_interfering]
 
-                    rx_oob = rx_oob - self.coupling_loss_imt_system_adjacent[ue, system_interfering]
+                    rx_oob = rx_oob[:] - self.coupling_loss_imt_system_adjacent[ue, :][system_interfering]
 
                     # Out of band power
                     # sum linearly power leaked into band and power received in the
-                    # adjacent band
+                    # adjacent band (e.g. due to non-ideal filters on the receiver)
                     oob_power = 10 * np.log10(
                         10 ** (0.1 * tx_oob) + 10 ** (0.1 * rx_oob)
                     )

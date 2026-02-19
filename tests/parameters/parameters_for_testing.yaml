@@ -283,6 +283,15 @@ imt:
                     # if positive, makes border smaller by x km
                     # if negative, makes border bigger by x km
                     margin_from_border: 11.1241
+            power_control_zones:
+                zones:
+                - power_backoff_db: 0.0
+                  geometry:
+                      type: FROM_COUNTRIES
+                      from_countries:
+                        country_names:
+                        - Brazil
+                        margin_from_border: 150.0
             # Parameters for the orbits
             orbits:
               - n_planes: 20
@@ -1036,6 +1045,22 @@ mss_d2d:
     num_sectors: 19
     # Spectral mask steps for mask STEPPED
     spectral_mask_steps: !!python/tuple [-10., -15., -20.]
+    power_control_zones:
+        zones:
+        - geometry:
+            type: CIRCLE
+            circle:
+                center_lat: 0
+                center_lon: 0
+                radius_km: 10
+          power_backoff_db: 13.0
+        - geometry:
+            type: CIRCLE
+            circle:
+                center_lat: 0
+                center_lon: 0
+                radius_km: 15.5
+          power_backoff_db: 5.0
     beam_positioning:
         # type may be one of
         # "ANGLE_FROM_SUBSATELLITE", "ANGLE_AND_DISTANCE_FROM_SUBSATELLITE",

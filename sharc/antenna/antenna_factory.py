@@ -71,6 +71,12 @@ class AntennaFactory():
                     azimuth,
                     elevation
                 )
+            case "Antenna System 4":
+                # Handled in station_factory.py since it requires two antennas
+                raise NotImplementedError(
+                    "Antenna System 4 requires two antenna instances and "
+                    "should be created in station_factory.py"
+                )
             case _:
                 raise ValueError(
                     f"Antenna factory does not support pattern {
@@ -107,6 +113,14 @@ class AntennaFactory():
                 antennas[i] = AntennaFactory.create_antenna(
                     antenna_params, azimuth[i], elevation[i],
                 )
+        elif antenna_params.pattern == "Antenna System 4":
+            antenna_pattern_high = AntennaS1528(antenna_params.antenna_system_4.antenna_parameters_high)
+            antenna_pattern_low = AntennaS1528(antenna_params.antenna_system_4.antenna_parameters_low)
+            for i in range(n_stations):
+                if antenna_params.antenna_system_4.beam_ground_elev_angles[i] >= 50:
+                    antennas[i] = antenna_pattern_high
+                else:
+                    antennas[i] = antenna_pattern_low
         else:
             # some antennas don't need azimuth and elevation at all
             # this makes it much faster

@@ -56,6 +56,7 @@ from sharc.antenna.antenna_s1528 import AntennaS1528
 from sharc.antenna.antenna_s1855 import AntennaS1855
 from sharc.antenna.antenna_f1245_fs import Antenna_f1245_fs
 from sharc.antenna.antenna_s1528 import AntennaS1528, AntennaS1528Leo, AntennaS1528Taylor
+from sharc.antenna.antenna_f1245_fs import Antenna_f1245_fs
 from sharc.antenna.antenna_beamforming_imt import AntennaBeamformingImt
 from sharc.antenna.antenna_system3_oob import AntennaSystem3Oob
 from sharc.topology.topology import Topology
@@ -66,6 +67,7 @@ from sharc.mask.spectral_mask_3gpp import SpectralMask3Gpp
 from sharc.mask.spectral_mask_mss import SpectralMaskMSS
 from sharc.mask.spectral_mask_stepped import SpectralMaskStepped
 from sharc.support.sharc_geom import CoordinateSystem
+from sharc.support.geometry import SimulatorGeometry
 from sharc.support.sharc_utils import wrap2_180
 
 
@@ -103,6 +105,7 @@ class StationFactory(object):
         num_bs = topology.num_base_stations
         imt_base_stations = StationManager(num_bs)
         imt_base_stations.station_type = StationType.IMT_BS
+        power_backoff = 0.0
         if param.topology.type == "NTN":
             imt_base_stations.geom.set_global_coords(
                 topology.space_station_x * np.ones(num_bs),
@@ -135,6 +138,9 @@ class StationFactory(object):
             )
             SimulationLogger.log_to_csv("num_of_sat", [len(num_of_beams_per_sat)])
             SimulationLogger.log_to_csv("num_of_beams_per_sat", num_of_beams_per_sat)
+            power_backoff = topology.power_backoff
+            if param.bs.antenna.pattern == "Antenna System 4":
+                param.bs.antenna.antenna_system_4.beam_ground_elev_angles = topology.beam_ground_elev_angles
         else:
             if topology.determines_local_geometry:
                 imt_base_stations.geom = topology.get_bs_geometry()
@@ -155,7 +161,9 @@ class StationFactory(object):
         imt_base_stations.active = random_number_gen.rand(
             num_bs,
         ) < param.bs.load_probability
-        imt_base_stations.tx_power = param.bs.conducted_power * np.ones(num_bs)
+        # Conducted power per antenna element. Total power will depend on
+        # the number of antenna elements and it's configured in power control.
+        imt_base_stations.tx_power = param.bs.conducted_power * np.ones(num_bs) - power_backoff
         imt_base_stations.rx_power = dict(
             [(bs, -500 * np.ones(param.ue.k)) for bs in range(num_bs)],
         )
@@ -276,22 +284,6 @@ class StationFactory(object):
             imt_base_stations.geom.intersite_dist = param.topology.macrocell.intersite_distance
         elif param.topology.type == 'HOTSPOT':
             imt_base_stations.geom.intersite_dist = param.topology.hotspot.intersite_distance
-
-        # Log IMT MSS-DC statistics (only for MSS_DC topology with active beams)
-        if param.topology.type == "MSS_DC":
-            # número de beams ativos
-            SimulationLogger.log_to_csv("num_of_active_beams", [np.sum(imt_base_stations.active)])
-            # número de satélites únicos (deduplicar posição)
-            all_pos = np.stack((imt_base_stations.geom.x_global, imt_base_stations.geom.y_global, imt_base_stations.geom.z_global), axis=-1)[imt_base_stations.active]
-            if len(all_pos) > 0:
-                uniq_pos, inv_idx = np.unique(
-                    all_pos,
-                    axis=0,
-                    return_inverse=True
-                )
-                SimulationLogger.log_to_csv("num_of_active_sat", [len(uniq_pos)])
-                beams_per_sat = np.bincount(inv_idx)
-                SimulationLogger.log_to_csv("num_of_active_beams_per_sat", beams_per_sat)
 
         return imt_base_stations
 
@@ -977,10 +969,7 @@ class StationFactory(object):
         )
 
         space_station.active = np.array([True])
-        space_station.tx_power = np.array(
-            [param.tx_power_density + 10 *
-                math.log10(param.bandwidth * 1e6) + 30],
-        )
+        space_station.tx_power_density = param.tx_power_density * np.ones(space_station.num_stations)
         space_station.rx_interference = -500
 
         space_station.antenna = np.array([
@@ -1061,10 +1050,7 @@ class StationFactory(object):
         )
 
         fss_space_station.active = np.array([True])
-        fss_space_station.tx_power = np.array(
-            [param.tx_power_density + 10 *
-                math.log10(param.bandwidth * 1e6) + 30],
-        )
+        fss_space_station.tx_power_density = np.ones(fss_space_station.num_stations) * param.tx_power_density
         fss_space_station.rx_interference = np.array([-500])
 
         if param.antenna_pattern == "OMNI":
@@ -1199,10 +1185,7 @@ class StationFactory(object):
         )
 
         fss_earth_station.active = np.array([True])
-        fss_earth_station.tx_power = np.array(
-            [param.tx_power_density + 10 *
-                math.log10(param.bandwidth * 1e6) + 30],
-        )
+        fss_earth_station.tx_power_density = np.ones(fss_earth_station.num_stations) * param.tx_power_density
         fss_earth_station.rx_interference = np.array([-500])
 
         if param.antenna_pattern.upper() == "OMNI":
@@ -1394,10 +1377,8 @@ class StationFactory(object):
         single_earth_station.active = np.array([True])
         single_earth_station.bandwidth = np.array([param.bandwidth])
 
-        single_earth_station.tx_power = np.array(
-            [param.tx_power_density + 10 *
-                math.log10(param.bandwidth * 1e6) + 30],
-        )
+        single_earth_station.tx_power_density = np.ones(
+            single_earth_station.num_stations) * param.tx_power_density
 
         single_earth_station.noise_temperature = np.array(
             [param.noise_temperature])
@@ -1458,10 +1439,7 @@ class StationFactory(object):
         )
 
         fs_station.active = np.array([True])
-        fs_station.tx_power = np.array(
-            [param.tx_power_density + 10 *
-                math.log10(param.bandwidth * 1e6) + 30],
-        )
+        fs_station.tx_power_density = np.ones(fs_station.num_stations) * param.tx_power_density
         fs_station.rx_interference = -500
 
         if param.antenna_pattern == "OMNI":
@@ -1531,6 +1509,8 @@ class StationFactory(object):
         haps.active = np.ones(num_haps, dtype=bool)
 
         haps.antenna = np.empty(num_haps, dtype=Antenna)
+
+        haps.tx_power_density = np.ones(haps.num_stations) * param.tx_power_density
 
         if param.antenna_pattern == "OMNI":
             for i in range(num_haps):
@@ -1609,7 +1589,7 @@ class StationFactory(object):
 
         # TODO: Set the oob antenna pattern if needed
         rns.oob_antenna = rns.antenna
-
+        rns.tx_power_density = np.ones(rns.num_stations) * param.tx_power_density
         rns.bandwidth = np.array([param.bandwidth])
         rns.noise_temperature = param.noise_temperature
         rns.thermal_noise = -500
@@ -1721,6 +1701,8 @@ class StationFactory(object):
         space_station.active = np.array([True])
         space_station.rx_interference = np.array([-500])
 
+        space_station.tx_power_density = np.ones(space_station.num_stations) * param.tx_power_density
+
         if param.antenna_pattern == "OMNI":
             space_station.antenna = np.array([AntennaOmni(param.antenna_gain)])
         elif param.antenna_pattern == "ITU-R RS.1813":
@@ -1790,9 +1772,9 @@ class StationFactory(object):
 
         mss_ss.is_space_station = True
         mss_ss.active = np.ones(num_bs, dtype=int)
-        mss_ss.tx_power = np.ones(
-            num_bs, dtype=int) * param_mss.tx_power_density + 10 * np.log10(
-            param_mss.bandwidth * 10**6)
+        mss_ss.tx_power_density = np.ones(
+            num_bs, dtype=int) * param_mss.tx_power_density
+
         mss_ss.antenna = np.empty(num_bs, dtype=AntennaS1528Leo)
 
         mss_ss.antenna = AntennaFactory.create_n_antennas(
@@ -1879,6 +1861,14 @@ class StationFactory(object):
         mss_d2d = StationManager(n=total_satellites)
         mss_d2d.station_type = StationType.MSS_D2D  # Set the station type to MSS D2D
         mss_d2d.is_space_station = True  # Indicate that the station is in space
+        mss_d2d.geom = SimulatorGeometry(
+            mss_d2d.num_stations, True,
+            (
+                coordinate_system.ref_lat,
+                coordinate_system.ref_long,
+                coordinate_system.ref_alt,
+            )
+        )
 
         if params.spectral_mask == "IMT-2020":
             mss_d2d.spectral_mask = SpectralMaskImt(StationType.IMT_BS,
@@ -1903,13 +1893,6 @@ class StationFactory(object):
         else:
             raise ValueError(
                 f"Invalid or not implemented spectral mask - {params.spectral_mask}")
-        mss_d2d.spectral_mask.set_mask(
-            params.tx_power_density +
-            10 *
-            np.log10(
-                params.bandwidth *
-                1e6) + 30
-        )
 
         # Configure satellite positions in the StationManager
         x = mss_d2d_values["sat_x"]
@@ -1917,6 +1900,14 @@ class StationFactory(object):
         z = mss_d2d_values["sat_z"]
         elev = mss_d2d_values["sat_antenna_elev"]
         azim = mss_d2d_values["sat_antenna_azim"]
+        beams_ground_elev = mss_d2d_values["beams_ground_elev"]
+        power_backoff = mss_d2d_values["sat_power_backoff"]
+        mss_d2d.tx_power_density = params.tx_power_density * np.ones(
+            mss_d2d.num_stations,
+        ) - power_backoff
+        max_tx_power = params.tx_power_density + 10 * np.log10(params.bandwidth * 1e6)
+        mss_d2d.spectral_mask.set_mask(max_tx_power + 30)
+
         global_ref = ENUReferenceFrame(
             lat=coordinate_system.ref_lat,
             lon=coordinate_system.ref_long,
@@ -1978,6 +1969,8 @@ class StationFactory(object):
         # repeated state (elevation and azimuth) inside multiple transceiver
         # implementation.
         if params.antenna.pattern != "ARRAY2":
+            if params.antenna.pattern == "Antenna System 4":
+                params.antenna.antenna_system_4.beam_ground_elev_angles = beams_ground_elev
             mss_d2d.antenna = AntennaFactory.create_n_antennas(
                 params.antenna,
                 mss_d2d.geom.pointn_azim_global,
@@ -1988,29 +1981,28 @@ class StationFactory(object):
             # Special case when using Array in satellites:
             # Antenna Beams are pointed to the center of footprint cells.
             for i in range(mss_d2d.num_stations):
-                if params.antenna.pattern == "ARRAY2":
-                    antenna_pattern = AntennaArray(
-                        params.antenna.array,
-                        mss_d2d.geom.global2local.take(i)
-                    )
-                    antenna_pattern.add_beam(
-                        mss_d2d.geom.pointn_azim_global[i],
-                        90. - mss_d2d.geom.pointn_elev_global[i],
-                    )
-                    antenna_pattern.set_always_first_beam()
+                antenna_pattern = AntennaArray(
+                    params.antenna.array,
+                    mss_d2d.geom.global2local.take(i)
+                )
+                antenna_pattern.add_beam(
+                    mss_d2d.geom.pointn_azim_global[i],
+                    90. - mss_d2d.geom.pointn_elev_global[i],
+                )
+                antenna_pattern.set_always_first_beam()
 
         # Initialize OOB antennas
         if params.use_oob_antenna and (params.antenna.pattern != "ARRAY" or params.antenna.pattern != "ARRAY2"):
-            # NOTE: Experimental feature for System3 unique OOBE Mask:
-            # The OOBE model is applied per satellite, considering all beams
-            # from the same satellite have the same OOBE mask.
-            # This is done by discounting the number of active beams per satellite (eta) and
-            # poiting all adjacent antennas to nadir.
-            beam_to_sat_idx = np.repeat(np.arange(len(num_of_beams_per_sat)), num_of_beams_per_sat[np.argsort(sat_idx)])
-            num_of_atcv_beams_per_sat = np.bincount(beam_to_sat_idx[mss_d2d.active])
 
             if params.oob_antenna.pattern == "Antenna System3 OOB":
-                # We need the satelittes nadir vectors to make it work.
+                # NOTE: Experimental feature for System3 unique OOBE Mask:
+                # The OOBE model is applied per satellite, considering all beams
+                # from the same satellite have the same OOBE mask.
+                # This is done by discounting the number of active beams per satellite (eta) and
+                # poiting all adjacent antennas to nadir.
+                beam_to_sat_idx = np.repeat(np.arange(len(num_of_beams_per_sat)), num_of_beams_per_sat[np.argsort(sat_idx)])
+                num_of_atcv_beams_per_sat = np.bincount(beam_to_sat_idx[mss_d2d.active])
+                # All oob antennas are pointed to the nadir direction.
                 center_of_earth = StationManager(1)
                 center_of_earth.geom.set_global_coords(
                     np.array([0.0]),

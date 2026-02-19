@@ -3,7 +3,11 @@ import typing
 from dataclasses import dataclass, field, asdict
 from sharc.parameters.parameters_base import ParametersBase
 from sharc.parameters.parameters_orbit import ParametersOrbit
-from sharc.parameters.imt.parameters_imt_mss_dc import ParametersSelectActiveSatellite, ParametersSectorPositioning
+from sharc.parameters.imt.parameters_imt_mss_dc import (
+    ParametersSelectActiveSatellite,
+    ParametersSectorPositioning,
+    ParametersPowerControl
+)
 from sharc.parameters.parameters_p619 import ParametersP619
 from sharc.parameters.parameters_antenna import ParametersAntenna
 from sharc.parameters.antenna.parameters_antenna_s1528 import ParametersAntennaS1528
@@ -41,6 +45,9 @@ class ParametersMssD2d(ParametersBase):
     # that means that each beam has a probability of `beams_load_factor` to be
     # active
     beams_load_factor: float = 1.0
+
+    power_control_zones: ParametersPowerControl = field(
+        default_factory=ParametersPowerControl)
 
     # Central beam positioning
     beam_positioning: ParametersSectorPositioning = field(

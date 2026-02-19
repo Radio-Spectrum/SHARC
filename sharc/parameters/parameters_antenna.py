@@ -5,6 +5,7 @@ from sharc.parameters.antenna.parameters_antenna_s1528 import ParametersAntennaS
 from sharc.parameters.antenna.parameters_antenna_s672 import ParametersAntennaS672
 from sharc.parameters.antenna.parameters_antenna_with_freq import ParametersAntennaWithFreq
 from sharc.parameters.imt.parameters_antenna_imt import ParametersAntennaImt
+from sharc.parameters.antenna.parameters_antenna_system4 import ParametersAntennaSystem4
 
 from dataclasses import dataclass, field
 import typing
@@ -30,9 +31,10 @@ class ParametersAntenna(ParametersBase):
         "ITU-R-S.1528-Taylor",
         "ITU-R-S.1528-Section1.2",
         "ITU-R-S.1528-LEO",
+        "ITU-R F.1245_fs",
         "Cosine Antenna",
         "Antenna System3 OOB",
-        "ITU-R F.1245_fs"]
+        "Antenna System 4"]
 
     # chosen antenna radiation pattern
     pattern: typing.Literal["OMNI",
@@ -48,9 +50,10 @@ class ParametersAntenna(ParametersBase):
                             "ITU-R-S.1528-Taylor",
                             "ITU-R-S.1528-Section1.2",
                             "ITU-R-S.1528-LEO",
+                            "ITU-R F.1245_fs",
                             "Cosine Antenna",
                             "Antenna System3 OOB",
-                            "ITU-R F.1245_fs"] = None
+                            "Antenna System 4"] = None
 
     # antenna gain [dBi]
     gain: float = None
@@ -137,6 +140,10 @@ class ParametersAntenna(ParametersBase):
 
     itu_r_f_1245_fs: ParametersAntennaRF1245 = field(
         default_factory=ParametersAntennaRF1245,
+    )
+
+    antenna_system_4: ParametersAntennaSystem4 = field(
+        default_factory=ParametersAntennaSystem4,
     )
 
     def set_external_parameters(self, **kwargs):
@@ -243,11 +250,13 @@ class ParametersAntenna(ParametersBase):
                 self.itu_r_s_672.validate(f"{ctx}.itu_r_s_672")
             case "Cosine Antenna":
                 self.mss_adjacent.validate(f"{ctx}.mss_adjacent")
+            case "ITU-R F.1245_fs":
+                self.itu_r_f_1245_fs.validate(f"{ctx}.itu_r_f_1245_fs")
             case "Antenna System3 OOB":
                 # FIXME: do validation here
                 pass
-            case "ITU-R F.1245_fs":
-                self.itu_r_f_1245_fs.validate(f"{ctx}.itu_r_f_1245_fs")
+            case "Antenna System 4":
+                self.antenna_system_4.validate(f"{ctx}.antenna_system_4")
             case _:
                 raise NotImplementedError(
                     "ParametersAntenna.validate does not implement this antenna validation!", )

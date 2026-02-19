@@ -159,6 +159,10 @@ class PostProcessor:
             "title": "[IMT] UL throughput",
             "x_label": "Throughput [bits/s/Hz]",
         },
+        "imt_ul_interf_power": {
+            "title": "[IMT] UL interference power",
+            "x_label": "Interference Power [dB]",
+        },
         "imt_path_loss": {
             "title": "[IMT] path loss",
             "x_label": "Path loss [dB]",
@@ -227,6 +231,10 @@ class PostProcessor:
             "title": "[IMT] DL throughput",
             "x_label": "Throughput [bits/s/Hz]",
         },
+        "imt_dl_interf_power": {
+            "title": "[IMT] DL interference power",
+            "x_label": "Interference Power [dB]",
+        },
         "system_ul_interf_power": {
             "title": "[SYS] system interference power from IMT UL",
             "x_label": "Interference Power [dBm/BMHz]",
@@ -251,12 +259,12 @@ class PostProcessor:
             "x_label": "Transmit power [dBm]",
             "title": "[IMT] DL transmit power",
         },
-        "imt_dl_pfd_external": {
-            "title": "[IMT] DL external Power Flux Density (PFD) ",
+        "imt_dl_pfd": {
+            "title": "[IMT] DL Power Flux Density (PFD) ",
             "x_label": "PFD [dBW/m²/MHz]",
         },
-        "imt_dl_pfd_external_aggregated": {
-            "title": "[IMT] Aggregated DL external Power Flux Density (PFD)",
+        "imt_dl_aggregated_pfd": {
+            "title": "[IMT] DL Aggregated Power Flux Density (PFD) ",
             "x_label": "PFD [dBW/m²/MHz]",
         },
         # these ones were not plotted already, so will continue to not be

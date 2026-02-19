@@ -22,35 +22,35 @@ class StationManager(object):
     """
 
     def __init__(self, n):
-        self.num_stations = n
-        self.idx_orbit = np.empty(n)
-        self.indoor = np.zeros(n, dtype=bool)
-        self.active = np.ones(n, dtype=bool)
-        self.tx_power = np.empty(n)
-        self.rx_power = np.empty(n)
-        self.rx_interference = np.empty(n)  # Rx interferece in dBW
-        self.ext_interference = np.empty(n)  # External interferece in dBW
-        self.antenna = np.empty(n, dtype=Antenna)
+        self.num_stations = n  # Number of stations managed
+        self.idx_orbit = np.empty(n)  # Index of the orbit for space stations
+        self.indoor = np.zeros(n, dtype=bool)  # Whether the station is indoor
+        self.active = np.ones(n, dtype=bool)  # Whether the station is active in the simulation
+        self.tx_power = np.zeros(n)  # Station transmit power - dBm for IMT
+        self.tx_power_density = np.empty(n)  # Transmit power density in dB/Hz
+        self.rx_power = np.empty(n)  # Received power
+        self.rx_interference = np.empty(n)  # Rx interferece
+        self.ext_interference = np.empty(n)  # External interferece
+        self.antenna = np.empty(n, dtype=Antenna)  # antenna objects, one for each station
         self.oob_antenna = np.empty(n, dtype=Antenna)  # Out-of-band antenna pattern
         self.bandwidth = np.empty(n)  # Bandwidth in MHz
-        self.noise_figure = np.empty(n)
-        self.noise_temperature = np.empty(n)
-        self.thermal_noise = np.empty(n)
-        self.total_interference = np.empty(n)
-        self.pfd_external = np.empty(n)  # External PFD in dBW/m²/MHz
-        # Aggregated External PFD in dBW/m²/MHz
-        self.pfd_external_aggregated = np.empty(n)
-        self.snr = np.empty(n)
-        self.sinr = np.empty(n)
-        self.sinr_ext = np.empty(n)
-        self.inr = np.empty(n)  # INR in dBm/MHz
-        self.pfd = np.empty(n)  # Powerflux density in dBm/m^2
-        self.spectral_mask = np.empty(n, dtype=SpectralMask)
-        self.center_freq = np.empty(n)
-        self.station_type = StationType.NONE
-        self.is_space_station = False
-        self.geom = SimulatorGeometry(n)
-        self.max_earth_sta_interf_distance = np.inf
+
+        self.noise_figure = np.empty(n)  # Noise figure in dB
+        self.noise_temperature = np.empty(n)  # Noise temperature in K
+        self.thermal_noise = np.empty(n)  # Thermal noise in dBm/MHz
+        self.total_interference = np.empty(n)  # Total received interference
+        self.snr = np.empty(n)  # SNR in dB
+        self.sinr = np.empty(n)  # SINR in dB
+        self.sinr_ext = np.empty(n)  # Used to store IMT SINR with external interference in dB
+        self.inr = np.empty(n)  # INR in dB
+        self.pfd = np.empty(n)  # Power flux density in dBm/m^2/MHz
+        self.pfd_external_aggregated = np.empty(n)  # External aggregated PFD in dBm/m^2
+        self.spectral_mask = np.empty(n, dtype=SpectralMask)  # Spectral mask objects, one for each station
+        self.center_freq = np.empty(n)  # Center frequency in MHz
+        self.station_type = StationType.NONE  # Station type
+        self.is_space_station = False  # Whether the station is a space station - used for path loss calculations
+        self.geom = SimulatorGeometry(n)  # Geometry object to manage station coordinates
+        self.max_earth_sta_interf_distance = np.inf  # Max distance for earth station interference calculations
 
     def get_station_list(self, id=None) -> list:
         """Return a list of Station objects for the given indices.

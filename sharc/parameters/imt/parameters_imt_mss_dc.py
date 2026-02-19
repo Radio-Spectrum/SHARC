@@ -6,7 +6,11 @@ from pathlib import Path
 
 from sharc.parameters.parameters_base import ParametersBase
 from sharc.parameters.parameters_orbit import ParametersOrbit
-from sharc.parameters.imt.parameters_grid import ParametersSatelliteWithServiceGrid, ParametersSelectActiveSatellite
+from sharc.parameters.imt.parameters_grid import (
+    ParametersSatelliteWithServiceGrid,
+    ParametersSelectActiveSatellite,
+    ParametersZone,
+)
 
 SHARC_ROOT_DIR = (Path(__file__) / ".." / ".." / ".." / "..").resolve()
 
@@ -190,6 +194,30 @@ class ParametersSectorPositioning(ParametersBase):
 
 
 @dataclass
+class ParametersPowerControlZone(ParametersBase):
+    """Dataclass for a power control zone in the IMT MSS-DC topology."""
+    geometry: ParametersZone = field(default_factory=ParametersZone)
+    power_backoff_db: float = None
+
+
+@dataclass
+class ParametersPowerControl(ParametersBase):
+    """Dataclass for power control parameters in the IMT MSS-DC topology."""
+    zones: list[ParametersPowerControlZone] = field(
+        default_factory=lambda: [ParametersPowerControlZone()])
+
+    def validate(self, ctx):
+        """
+        Validate the power control parameters.
+        """
+        super().validate(ctx)
+        for i in range(len(self.zones)):
+            self.zones[i].geometry.validate(ctx + f"zones.{i}.geometry")
+            if not isinstance(self.zones[i].power_backoff_db, float):
+                self.zones[i].power_backoff_db = 0.0  # Default to 0 dB if not set - we make sure it's not applied later.
+
+
+@dataclass
 class ParametersImtMssDc(ParametersBase):
     """Dataclass for the IMT MSS-DC topology parameters."""
     section_name: str = "imt_mss_dc"
@@ -214,6 +242,9 @@ class ParametersImtMssDc(ParametersBase):
     # The beam radius should be calculated based on the Antenna Pattern used
     # for IMT Space Stations
     beam_radius: float = 36516.0
+
+    power_control_zones: ParametersPowerControl = field(
+        default_factory=ParametersPowerControl)
 
     sat_is_active_if: ParametersSelectActiveSatellite = field(
         default_factory=ParametersSelectActiveSatellite)

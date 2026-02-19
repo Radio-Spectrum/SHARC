@@ -23,7 +23,7 @@ from core.state import AppState, get_sharc_root
 from core.yaml_builder import build_yaml_structure
 
 # CRITICAL IMPORT: Import the module to access the live 'SIMULATION_STATUS' variable
-from managers import ssh_runner 
+from managers import ssh_runner
 
 # Import Tabs
 from ui.tabs import (
@@ -64,7 +64,7 @@ class App(tb.Window if HAS_BOOTSTRAP else tk.Tk):
         )
 
         # Page Control
-        self.current_key = None 
+        self.current_key = None
         self.current_frame = None
         self.frames = {}
         self.nav_buttons = {}
@@ -72,8 +72,8 @@ class App(tb.Window if HAS_BOOTSTRAP else tk.Tk):
         self.pages_config = [
             ("general", "General", GeneralTab, "⚙"),
             ("imt", "IMT", IMTTab, "📡"),
-            ("victim", "Single Space Station", VictimTab, "🛰"),            
-            ("station", "Single Earth Station", SingleEarthStationTab, "🛰"), 
+            ("victim", "Single Space Station", VictimTab, "🛰"),
+            ("station", "Single Earth Station", SingleEarthStationTab, "🛰"),
             ("preview", "Preview", PreviewTab, "👁"),
             ("runner", "Execution Runner", RunnerTab, "🚀"),
             ("results", "Results", ResultsTab, "📊"),
@@ -110,12 +110,15 @@ class App(tb.Window if HAS_BOOTSTRAP else tk.Tk):
 
         style.configure(".", font=base_font)
         style.configure("Brand.TLabel", font=header_font, foreground="#2C3E50")
-        style.configure("Nav.TButton", font=("Segoe UI", 11), anchor="w", padding=(20, 12))
+        style.configure("Nav.TButton", font=("Segoe UI", 11),
+                        anchor="w", padding=(20, 12))
         style.configure("Card.TFrame", background="#ffffff", relief="flat")
-        
+
         # Specific styles for the HUD
-        style.configure("HudValue.TLabel", font=("Consolas", 10, "bold"), foreground="#2C3E50")
-        style.configure("HudLabel.TLabel", font=("Segoe UI", 8), foreground="#7F8C8D")
+        style.configure("HudValue.TLabel", font=(
+            "Consolas", 10, "bold"), foreground="#2C3E50")
+        style.configure("HudLabel.TLabel", font=(
+            "Segoe UI", 8), foreground="#7F8C8D")
 
     def _build_layout(self):
         """Layout: Sidebar (Left) + Content (Right)."""
@@ -129,7 +132,7 @@ class App(tb.Window if HAS_BOOTSTRAP else tk.Tk):
 
         self.menu_frame = tb.Frame(self.sidebar, bootstyle="light")
         self.menu_frame.pack(fill="both", expand=True, pady=10)
-        
+
         # Monitor/HUD at the bottom of the sidebar
         self._build_system_monitor()
 
@@ -137,7 +140,8 @@ class App(tb.Window if HAS_BOOTSTRAP else tk.Tk):
         self.header = tb.Frame(self, bootstyle="bg-white", height=70)
         self.header.grid(row=0, column=1, sticky="ew")
         self._build_header_content()
-        tb.Separator(self.header, orient="horizontal", bootstyle="secondary").pack(side="bottom", fill="x")
+        tb.Separator(self.header, orient="horizontal",
+                     bootstyle="secondary").pack(side="bottom", fill="x")
 
         # --- C. Content Area (Center Right) ---
         self.content_area = tb.Frame(self, padding=25)
@@ -152,27 +156,41 @@ class App(tb.Window if HAS_BOOTSTRAP else tk.Tk):
         frame = tb.Frame(self.sidebar, bootstyle="light")
         frame.pack(fill="x", pady=(30, 10), padx=20)
 
-        lbl = tb.Label(frame, text="SHARC", style="Brand.TLabel", bootstyle="inverse-light")
+        lbl = tb.Label(frame, text="SHARC", style="Brand.TLabel",
+                       bootstyle="inverse-light")
         lbl.pack(anchor="w")
 
         sub = tb.Label(frame, text="SIMULATION MANAGER", font=("Segoe UI", 9, "bold"),
                        foreground="#7F8C8D", bootstyle="inverse-light")
         sub.pack(anchor="w")
 
-        tb.Separator(self.sidebar, bootstyle="secondary").pack(fill="x", padx=20, pady=15)
+        tb.Separator(self.sidebar, bootstyle="secondary").pack(
+            fill="x", padx=20, pady=15)
 
     def _build_system_monitor(self):
-        """Builds the Circular Meter and the Status HUD."""
+        """Builds the Circular Meter, the Status HUD, and the Retractable Tray."""
         monitor_frame = tb.Frame(self.sidebar, bootstyle="light", padding=15)
         monitor_frame.pack(side="bottom", fill="x", pady=10)
 
         # Title
         tb.Label(monitor_frame, text="Global Progress", foreground="#7F8C8D",
-                 font=("Segoe UI", 9, "bold"), bootstyle="inverse-light").pack(anchor="center", pady=(0, 10))
+                 font=("Segoe UI", 9, "bold"), bootstyle="inverse-light").pack(anchor="center", pady=(0, 5))
+
+        # --- Retractable Tray for Active Threads ---
+        self.tray_button = tb.Button(
+            monitor_frame,
+            text="▼ Active Simulations ▼",
+            bootstyle="secondary-link",
+            command=self._toggle_simulation_tray
+        )
+        self.tray_button.pack(anchor="center", pady=(0, 5))
+
+        # Tray container (starts hidden)
+        self.tray_frame = tb.Frame(monitor_frame, bootstyle="light")
+        self.tray_visible = False
+        self.thread_widgets = {}  # Dictionary to manage individual widgets
 
         # 1. Circular Meter
-        # showtext=False hides the big integer text.
-        # We will use subtext to show the float percentage.
         self.sys_meter = Meter(
             monitor_frame,
             metersize=140,
@@ -180,7 +198,7 @@ class App(tb.Window if HAS_BOOTSTRAP else tk.Tk):
             amountused=0,
             metertype="full",
             subtext="0.0%",      # Initial text
-            textright="",        
+            textright="",
             showtext=False,      # Keep main integer hidden to avoid "0"
             interactive=False,
             bootstyle="primary",
@@ -189,30 +207,47 @@ class App(tb.Window if HAS_BOOTSTRAP else tk.Tk):
         self.sys_meter.pack(anchor="center", pady=(0, 15))
 
         # 2. HUD Container (Snapshots and ETA)
-        hud_frame = tb.Frame(monitor_frame, bootstyle="light")
-        hud_frame.pack(fill="x", pady=5)
+        self.hud_frame = tb.Frame(monitor_frame, bootstyle="light")
+        self.hud_frame.pack(fill="x", pady=5)
 
         # -- HUD Grid --
-        hud_frame.columnconfigure(0, weight=1)
-        hud_frame.columnconfigure(1, weight=1)
-        hud_frame.columnconfigure(2, weight=1) 
+        self.hud_frame.columnconfigure(0, weight=1)
+        self.hud_frame.columnconfigure(1, weight=1)
+        self.hud_frame.columnconfigure(2, weight=1)
 
         # Snapshots Section
-        f_snaps = tb.Frame(hud_frame, bootstyle="light")
+        f_snaps = tb.Frame(self.hud_frame, bootstyle="light")
         f_snaps.grid(row=0, column=0, sticky="ew")
-        tb.Label(f_snaps, text="SNAPSHOTS", style="HudLabel.TLabel", bootstyle="inverse-light").pack(anchor="center")
-        self.lbl_hud_snaps = tb.Label(f_snaps, text="0 / 0", style="HudValue.TLabel", bootstyle="inverse-light")
+        tb.Label(f_snaps, text="SNAPSHOTS", style="HudLabel.TLabel",
+                 bootstyle="inverse-light").pack(anchor="center")
+        self.lbl_hud_snaps = tb.Label(
+            f_snaps, text="0 / 0", style="HudValue.TLabel", bootstyle="inverse-light")
         self.lbl_hud_snaps.pack(anchor="center")
 
         # Vertical Separator
-        ttk.Separator(hud_frame, orient="vertical").grid(row=0, column=1, sticky="ns", padx=5)
+        ttk.Separator(self.hud_frame, orient="vertical").grid(
+            row=0, column=1, sticky="ns", padx=5)
 
         # ETA Section
-        f_eta = tb.Frame(hud_frame, bootstyle="light")
+        f_eta = tb.Frame(self.hud_frame, bootstyle="light")
         f_eta.grid(row=0, column=2, sticky="ew")
-        tb.Label(f_eta, text="ETA", style="HudLabel.TLabel", bootstyle="inverse-light").pack(anchor="center")
-        self.lbl_hud_eta = tb.Label(f_eta, text="--:--:--", style="HudValue.TLabel", bootstyle="inverse-light")
+        tb.Label(f_eta, text="ETA", style="HudLabel.TLabel",
+                 bootstyle="inverse-light").pack(anchor="center")
+        self.lbl_hud_eta = tb.Label(
+            f_eta, text="--:--:--", style="HudValue.TLabel", bootstyle="inverse-light")
         self.lbl_hud_eta.pack(anchor="center")
+
+    def _toggle_simulation_tray(self):
+        """Shows or hides the ongoing simulations tray."""
+        if self.tray_visible:
+            self.tray_frame.pack_forget()
+            self.tray_button.configure(text="▼ Active Simulations ▼")
+            self.tray_visible = False
+        else:
+            # Positions the tray frame right before the global meter (sys_meter)
+            self.tray_frame.pack(before=self.sys_meter, fill="x", pady=(0, 10))
+            self.tray_button.configure(text="▲ Hide Simulations ▲")
+            self.tray_visible = True
 
     def _build_header_content(self):
         self.lbl_page_title = tb.Label(self.header, text="Dashboard",
@@ -222,7 +257,8 @@ class App(tb.Window if HAS_BOOTSTRAP else tk.Tk):
         btn_save = tb.Button(self.header, text="Save Configuration", bootstyle="success",
                              command=self.save_yaml_dialog_multicombos)
         btn_save.pack(side="right", padx=30)
-        ToolTip(btn_save, text="Generate and save YAML files with current configuration.")
+        ToolTip(
+            btn_save, text="Generate and save YAML files with current configuration.")
 
     def _build_footer_content(self):
         # SSH Status
@@ -231,7 +267,8 @@ class App(tb.Window if HAS_BOOTSTRAP else tk.Tk):
         tb.Label(f_ssh, textvariable=self.ssh_status, font=("Consolas", 9, "bold"),
                  bootstyle="inverse-primary").pack()
 
-        tb.Label(self.status_bar, text="|", bootstyle="inverse-primary").pack(side="right")
+        tb.Label(self.status_bar, text="|",
+                 bootstyle="inverse-primary").pack(side="right")
 
         # Tunnel Status
         f_tun = tb.Frame(self.status_bar, bootstyle="primary", padding=(15, 5))
@@ -248,7 +285,7 @@ class App(tb.Window if HAS_BOOTSTRAP else tk.Tk):
     def monitor_simulation_status(self):
         """
         Calculates progress average, snapshot totals, and max ETA.
-        Updates the Meter ring and places the PERCENTAGE in the center.
+        Updates the Meter ring, the general HUD, and the retractable individual Tray.
         """
         try:
             raw_data = getattr(ssh_runner, "SIMULATION_STATUS", {})
@@ -258,6 +295,12 @@ class App(tb.Window if HAS_BOOTSTRAP else tk.Tk):
                 self.sys_meter.configure(amountused=0, subtext="0.0%")
                 self.lbl_hud_snaps.configure(text="0 / 0")
                 self.lbl_hud_eta.configure(text="--:--:--")
+
+                # Clear the tray if there are no simulations running
+                for t, w in self.thread_widgets.items():
+                    w['row'].destroy()
+                self.thread_widgets.clear()
+
                 self.after(5000, self.monitor_simulation_status)
                 return
 
@@ -265,6 +308,15 @@ class App(tb.Window if HAS_BOOTSTRAP else tk.Tk):
             total_done_snaps = 0
             total_max_snaps = 0
             etas = []
+
+            # Identifies current threads vs existing threads registered in UI
+            current_threads = set(raw_data.keys())
+            existing_threads = set(self.thread_widgets.keys())
+
+            # 1. Remove widgets for threads that have finished
+            for t in existing_threads - current_threads:
+                self.thread_widgets[t]['row'].destroy()
+                del self.thread_widgets[t]
 
             # Process Data
             for key, val in raw_data.items():
@@ -275,6 +327,7 @@ class App(tb.Window if HAS_BOOTSTRAP else tk.Tk):
                         clean_pct = float(pct_str.replace('%', '').strip())
                         percentages.append(clean_pct)
                     except:
+                        clean_pct = 0.0
                         percentages.append(0.0)
 
                     # 2. Snapshots (e.g., "50/100000")
@@ -292,9 +345,48 @@ class App(tb.Window if HAS_BOOTSTRAP else tk.Tk):
                     if eta_str and ':' in eta_str:
                         etas.append(eta_str)
 
+                    # --- RETRACTABLE TRAY UPDATE ---
+                    if key not in self.thread_widgets:
+                        # Create a row for the new simulation
+                        row = tb.Frame(self.tray_frame, bootstyle="light")
+                        row.pack(fill="x", pady=4)
+
+                        header_frame = tb.Frame(row, bootstyle="light")
+                        header_frame.pack(fill="x")
+
+                        # Simulation Name/ID (MODIFIED HERE)
+                        short_name = str(key).split("/")[-1]
+                        lbl_name = tb.Label(header_frame, text=short_name[:20], font=(
+                            "Segoe UI", 8, "bold"), bootstyle="inverse-light")
+                        lbl_name.pack(side="left")
+
+                        # Individual ETA
+                        lbl_eta = tb.Label(header_frame, text=eta_str if eta_str else "--:--", font=(
+                            "Consolas", 8), bootstyle="inverse-light")
+                        lbl_eta.pack(side="right")
+
+                        # Progress Bar
+                        pb = tb.Progressbar(
+                            row, bootstyle="success-striped", maximum=100)
+                        pb.pack(fill="x", pady=(2, 0))
+
+                        self.thread_widgets[key] = {
+                            'row': row, 'lbl_eta': lbl_eta, 'pb': pb, 'lbl_name': lbl_name
+                        }
+                    else:
+                        # Update the values of the existing tray widgets
+                        widgets = self.thread_widgets[key]
+                        widgets['lbl_eta'].configure(
+                            text=eta_str if eta_str else "--:--")
+                        widgets['pb']['value'] = clean_pct
+
+                        # (Opcional) Atualiza o nome se a chave mudar, mas na prática a chave é fixa para o widget
+                        short_name = str(key).split("/")[-1]
+                        widgets['lbl_name'].configure(text=short_name[:20])
+
             # --- CALCULATIONS ---
             avg_pct = sum(percentages) / len(percentages) if percentages else 0
-            
+
             # Snapshots Text
             if total_max_snaps > 0:
                 snaps_text = f"{total_done_snaps} / {total_max_snaps}"
@@ -305,25 +397,24 @@ class App(tb.Window if HAS_BOOTSTRAP else tk.Tk):
             final_eta = max(etas) if etas else "--:--:--"
 
             # --- VISUAL UPDATE ---
-            
+
             # 1. Update Ring (Visual only)
             visual_amount = int(avg_pct)
             if avg_pct > 0 and visual_amount == 0:
-                visual_amount = 1 # Show a sliver of blue if started
-            
-            # 2. Update PERCENTAGE TEXT in the center (using subtext field)
-            # This puts "0.1%" right in the middle where "Idle" used to be.
+                visual_amount = 1  # Show a sliver of blue if started
+
+            # 2. Update PERCENTAGE TEXT in the center
             pct_text = f"{avg_pct:.1f}%"
-            
-            self.sys_meter.configure(amountused=visual_amount, subtext=pct_text)
-            
+            self.sys_meter.configure(
+                amountused=visual_amount, subtext=pct_text)
+
             # 3. Update HUD Bottom Labels
             self.lbl_hud_snaps.configure(text=snaps_text)
             self.lbl_hud_eta.configure(text=final_eta)
 
         except Exception as e:
             print(f"HUD Update Error: {e}")
-        
+
         # Schedule next check (5 seconds)
         self.after(5000, self.monitor_simulation_status)
 
@@ -353,13 +444,18 @@ class App(tb.Window if HAS_BOOTSTRAP else tk.Tk):
         for key, label, _, _ in self.pages_config:
             should_show = True
             if sys_type == "SINGLE_EARTH_STATION":
-                if key == "victim": should_show = False
-                if key == "station": should_show = True
+                if key == "victim":
+                    should_show = False
+                if key == "station":
+                    should_show = True
             elif sys_type == "SINGLE_SPACE_STATION":
-                if key == "station": should_show = False
-                if key == "victim": should_show = True
+                if key == "station":
+                    should_show = False
+                if key == "victim":
+                    should_show = True
             else:
-                if key == "victim": should_show = False
+                if key == "victim":
+                    should_show = False
 
             if should_show:
                 self.nav_buttons[key].pack(fill="x", pady=2, padx=10)
@@ -371,16 +467,22 @@ class App(tb.Window if HAS_BOOTSTRAP else tk.Tk):
         if hasattr(self, 'tab_imt') and hasattr(self.tab_imt, 'txt_countries'):
             try:
                 raw_txt = self.tab_imt.txt_countries.get("1.0", "end").strip()
-                if raw_txt: self.topo_countries.set(raw_txt)
-            except: pass
+                if raw_txt:
+                    self.topo_countries.set(raw_txt)
+            except:
+                pass
 
-        if label_text: self.lbl_page_title.config(text=label_text)
-        elif key == "general": self.lbl_page_title.config(text="General Settings")
+        if label_text:
+            self.lbl_page_title.config(text=label_text)
+        elif key == "general":
+            self.lbl_page_title.config(text="General Settings")
 
-        if self.current_frame: self.current_frame.pack_forget()
+        if self.current_frame:
+            self.current_frame.pack_forget()
 
         for k, btn in self.nav_buttons.items():
-            btn.configure(bootstyle="primary" if k == key else "secondary-link")
+            btn.configure(bootstyle="primary" if k ==
+                          key else "secondary-link")
 
         self.current_frame = self.frames[key]
         self.current_frame.pack(fill="both", expand=True)
@@ -389,8 +491,10 @@ class App(tb.Window if HAS_BOOTSTRAP else tk.Tk):
         if key == "preview":
             logic = getattr(self, f"tab_{key}", None)
             if logic:
-                if hasattr(logic, "refresh"): logic.refresh()
-                elif hasattr(logic, "update_plot"): logic.update_plot()
+                if hasattr(logic, "refresh"):
+                    logic.refresh()
+                elif hasattr(logic, "update_plot"):
+                    logic.update_plot()
 
     def _show_welcome_toast(self):
         ToastNotification(
@@ -414,11 +518,13 @@ class App(tb.Window if HAS_BOOTSTRAP else tk.Tk):
                 msg, payload = item
                 if msg == "log":
                     clean = payload.strip()
-                    if clean: self.lbl_status_msg.config(text=clean[:120])
+                    if clean:
+                        self.lbl_status_msg.config(text=clean[:120])
                     if hasattr(self.tab_runner, 'txt_log'):
                         w = self.tab_runner.txt_log
                         w.configure(state="normal")
-                        w.insert("end", payload + ("\n" if not payload.endswith("\n") else ""))
+                        w.insert("end", payload +
+                                 ("\n" if not payload.endswith("\n") else ""))
                         w.see("end")
                         w.configure(state="disabled")
                 elif msg == "row":
@@ -427,37 +533,51 @@ class App(tb.Window if HAS_BOOTSTRAP else tk.Tk):
                         iid = payload.get("iid")
                         if iid and tree.exists(iid):
                             cur = list(tree.item(iid, "values"))
-                            if payload["status"] is not None: cur[1] = payload["status"]
-                            if payload["pct"] is not None: cur[3] = payload["pct"]
+                            if payload["status"] is not None:
+                                cur[1] = payload["status"]
+                            if payload["pct"] is not None:
+                                cur[3] = payload["pct"]
                             tree.item(iid, values=cur)
-        except: pass
+        except:
+            pass
         self.after(100, self._drain_log_queue)
 
     def current_yaml_dict(self) -> dict:
         if hasattr(self, 'tab_imt') and hasattr(self.tab_imt, 'txt_countries'):
-            try: self.topo_countries.set(self.tab_imt.txt_countries.get("1.0", "end"))
-            except: pass
+            try:
+                self.topo_countries.set(
+                    self.tab_imt.txt_countries.get("1.0", "end"))
+            except:
+                pass
         return build_yaml_structure(self)
 
     def _deep_format(self, obj, combo):
-        if isinstance(obj, dict): return {k: self._deep_format(v, combo) for k, v in obj.items()}
-        if isinstance(obj, list): return [self._deep_format(v, combo) for v in obj]
+        if isinstance(obj, dict):
+            return {k: self._deep_format(v, combo) for k, v in obj.items()}
+        if isinstance(obj, list):
+            return [self._deep_format(v, combo) for v in obj]
         if isinstance(obj, str):
-            try: return obj.format(**combo)
-            except: return obj
+            try:
+                return obj.format(**combo)
+            except:
+                return obj
         return obj
 
-    def save_yaml_to_yamldir(self): self._generate_and_save_yaml(self.var_yaml_dir.get())
+    def save_yaml_to_yamldir(self): self._generate_and_save_yaml(
+        self.var_yaml_dir.get())
 
     def save_yaml_dialog_multicombos(self):
         init = self.var_yaml_dir.get() or os.getcwd()
-        path = filedialog.asksaveasfilename(title="Base filename", defaultextension=".yaml", initialdir=init, initialfile=(self.var_prefix.get() or "scenario") + ".yaml")
+        path = filedialog.asksaveasfilename(title="Base filename", defaultextension=".yaml", initialdir=init, initialfile=(
+            self.var_prefix.get() or "scenario") + ".yaml")
         if path:
             out = os.path.dirname(path)
-            if self._generate_and_save_yaml(out): self.var_yaml_dir.set(out)
+            if self._generate_and_save_yaml(out):
+                self.var_yaml_dir.set(out)
 
     def _generate_and_save_yaml(self, outdir):
-        if not outdir: return 0
+        if not outdir:
+            return 0
         os.makedirs(outdir, exist_ok=True)
         tree = self.tab_general.var_table
         names, lists = [], []
@@ -469,11 +589,13 @@ class App(tb.Window if HAS_BOOTSTRAP else tk.Tk):
             except:
                 messagebox.showwarning("Error", f"Invalid var {n}")
                 return 0
-        combos = [dict(zip(names, p)) for p in itertools.product(*lists)] if names else [{}]
+        combos = [dict(zip(names, p))
+                  for p in itertools.product(*lists)] if names else [{}]
         root = self.current_yaml_dict()
         cnt = 0
         for c in combos:
-            p = (root["general"]["output_dir_prefix"] or "scenario").format(**c)
+            p = (root["general"]["output_dir_prefix"]
+                 or "scenario").format(**c)
             with open(os.path.join(outdir, f"{p}.yaml"), "w", encoding="utf-8") as f:
                 f.write(build_yaml_text(self._deep_format(root, c)))
             cnt += 1

@@ -107,6 +107,7 @@ class Simulation(ABC, Observable):
         self.system_imt_antenna_gain = list()
         self.imt_system_antenna_gain = list()
         self.imt_system_antenna_gain_adjacent = list()
+        self.system_imt_antenna_gain_adjacent = list()
         self.imt_system_path_loss = list()
         self.imt_system_build_entry_loss = list()
         self.imt_system_diffraction_loss = list()

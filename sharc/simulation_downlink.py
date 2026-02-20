@@ -20,7 +20,7 @@ from sharc.support.enumerations import StationType
 from sharc.parameters.constants import BOLTZMANN_CONSTANT
 import sys
 warn = warnings.warn
-
+warnings.filterwarnings("ignore")
 
 class SimulationDownlink(Simulation):
     """
@@ -499,22 +499,22 @@ class SimulationDownlink(Simulation):
 
             # Get the weight factor for the system overlaping bandwidth in each
             # UE band.
-            weights = self.calculate_bw_weights(
-                self.ue.bandwidth[ue],
-                self.ue.center_freq[ue],
-                float(self.param_system.bandwidth),
-                float(self.param_system.frequency),
-            )
+            ue_min_f = self.ue.center_freq[ue] - self.ue.bandwidth[ue] / 2
+            ue_max_f = self.ue.center_freq[ue] + self.ue.bandwidth[ue] / 2
+
+            sys_min_f = float(self.param_system.frequency) - float(self.param_system.bandwidth) / 2
+            sys_max_f = float(self.param_system.frequency) + float(self.param_system.bandwidth) / 2
+
+            overlap_bw = np.minimum(ue_max_f, sys_max_f) - np.maximum(ue_min_f, sys_min_f)
+
+            weights = np.clip(overlap_bw / float(self.param_system.bandwidth), 0.0, 1.0)
+
 
             in_band_interf_power = -500.
             if self.co_channel:
                 # Inteferer transmit power in dBm over the overlapping band
                 # (MHz) with UEs.
                 if self.overlapping_bandwidth > 0:
-                    # in_band_interf_power = self.param_system.tx_power_density + \
-                    #     10 * np.log10(self.overlapping_bandwidth * 1e6) + 30
-                    # 1. Interferência linear proveniente dos APs (mW)
-                    # Cálculo: PSD + 10log10(BW_afetada) + Ganho_Sobreposição - Perda_Acoplamento
                     interf_ap_lin = np.sum(10 ** (0.1 * (
                         self.system.ap.tx_power[active_ap] + 
                         10 * np.log10(weights)[:, np.newaxis] - 
@@ -522,29 +522,31 @@ class SimulationDownlink(Simulation):
                     )), axis=1)
                     
                     # 2. Interferência linear proveniente das STAs (mW)
-                    # Nota: Assume-se que a densidade de potência (tx_power_density) é aplicada às STAs
                     interf_sta_lin = np.sum(10 ** (0.1 * (
-                        self.system.sta.tx_power[active_sta] +  
+                        self.system.sta.tx_power[active_sta] + 
                         10 * np.log10(weights)[:, np.newaxis] - 
                         self.coupling_loss_imt_system_sta[ue, :][:, active_sta]
                     )), axis=1)
 
-                    # 3. Soma das potências (APs + STAs) e conversão para dBm
-                    total_interf_lin = interf_ap_lin + interf_sta_lin
-                    # Evita log de zero caso não haja interferência
+                    # 3. Soma das potências (APs + STAs) em mW
+                    in_band_interf_power = interf_ap_lin + interf_sta_lin
+                    '''# Evita log de zero caso não haja interferência
                     in_band_interf_power = np.full(len(ue), -500.0)
                     valid_idx = total_interf_lin > 0
-                    in_band_interf_power[valid_idx] = 10 * np.log10(total_interf_lin[valid_idx])
+                    in_band_interf_power[valid_idx] = 10 * np.log10(total_interf_lin[valid_idx])'''
 
-            oob_power = np.resize(-500., (len(ue), 1))
-            # Total external interference into the UE in dBm
-            ue_ext_int = 10 * np.log10(np.power(10,
-                                                0.1 * in_band_interf_power) + np.power(10,
-                                                                                       0.1 * oob_power))
+            oob_power = np.full(len(ue), -500.0)
+             
+            ue_ext_int = in_band_interf_power + np.power(10,0.1 * oob_power)
 
-            # Sum all the interferers for each UE
-            self.ue.ext_interference[ue] = 10 * \
-                np.log10(np.sum(np.power(10, 0.1 * ue_ext_int), axis=1)) + 30
+            self.ue.ext_interference[ue] = 10 * np.log10(ue_ext_int)
+
+            intra_ue_mw = np.power(10, 0.1 * self.ue.rx_interference).flatten()
+        
+            total_interf_ue_mw = intra_ue_mw + np.power(10, 0.1 * self.ue.ext_interference.flatten())
+
+            self.ue.interf_power_total = 10 * np.log10(total_interf_ue_mw)
+
 
             self.ue.sinr_ext[ue] = \
                 self.ue.rx_power[ue] - (10 * np.log10(np.power(10, 0.1 * self.ue.total_interference[ue]) +
@@ -627,7 +629,7 @@ class SimulationDownlink(Simulation):
         bs_active = np.where(self.bs.active)[0]
         # this implm assumes some parameters will be same for all interferring BS's
         first_bs = bs_active[0]
-
+        
         if self.co_channel:
             ue = self.link[first_bs]
             weights = self.calculate_bw_weights(
@@ -635,6 +637,7 @@ class SimulationDownlink(Simulation):
                 self.ue.center_freq[ue],
                 self.param_system.bandwidth,
                 self.param_system.frequency,
+                float(self.ue.bandwidth[ue][0]),
             )
 
             interference = self.bs.tx_power[first_bs]
@@ -714,6 +717,10 @@ class SimulationDownlink(Simulation):
         
         ap_active = np.where(self.system.ap.active)[0]  # assuming all APs have same parameters
         sta_active = np.where(self.system.sta.active)[0]
+        rx_interference_linear_ap = np.zeros(self.system.ap.num_stations)
+        rx_interference_linear_sta = np.zeros(self.system.sta.num_stations)
+        #rx_interference_linear_ap[ap_active] = np.power(10, 0.1 * self.system.ap.rx_interference[ap_active].flatten())
+        #rx_interference_linear_sta[sta_active] = np.power(10, 0.1 * self.system.sta.rx_interference[sta_active].flatten())
 
         for bs in bs_active:
             # Potência de TX por feixe do BS atual (Array, shape [K] onde K=self.parameters.imt.ue.k)
@@ -790,23 +797,23 @@ class SimulationDownlink(Simulation):
                     axis=0
                 )
 
+        self.system.ap.ext_interference = 10 * np.log10(rx_interference_linear_ap)
+        self.system.sta.ext_interference = 10 * np.log10(rx_interference_linear_sta)
 
-        self.system.ap.ext_interference = 10 * np.log10(np.maximum(self.system.ap.ext_interference, 1e-20))
-        self.system.sta.ext_interference = 10 * np.log10(np.maximum(self.system.sta.ext_interference, 1e-20))
-
-        # Total received interference - dBW
         self.system.ext_interference = np.concatenate((self.system.ap.ext_interference.flatten(), self.system.sta.ext_interference.flatten()))
-        # 3. SOMA: Intra (mW) + Externa (mW)
-        # Só atualizamos os ativos, o resto continua o que era (geralmente -inf ou ruído)
-        total_ap_linear = self.system.ap.rx_interference
-        total_ap_linear[ap_active] += self.system.ap.ext_interference[ap_active]
 
-        total_sta_linear = self.system.sta.rx_interference
-        total_sta_linear[sta_active] += self.system.sta.ext_interference[sta_active]
-
+        intra_ap_mw = np.power(10, 0.1 * self.system.ap.rx_interference).flatten()
+        intra_sta_mw = np.power(10, 0.1 * self.system.sta.rx_interference).flatten()
+        
+        total_interf_ap_mw = intra_ap_mw
+        total_interf_sta_mw = intra_sta_mw
+        
+        total_interf_ap_mw[ap_active] += rx_interference_linear_ap[ap_active]
+        total_interf_sta_mw[sta_active] += rx_interference_linear_sta[sta_active]
+        # Atualiza visão global concatenada
         self.system.rx_interference = np.concatenate((
-            total_ap_linear.flatten(), 
-            total_sta_linear.flatten()
+            10 * np.log10(total_interf_ap_mw), 
+            10 * np.log10(total_interf_sta_mw)
         ))
 
         # calculate N
@@ -1210,6 +1217,12 @@ class SimulationDownlink(Simulation):
                     np.power(10, 0.1 * interference)
                 )
         
+
+        self.system.intra_interference = np.concatenate((
+            self.system.ap.rx_interference.flatten(),
+            self.system.sta.rx_interference.flatten()
+        ))
+
         self.system.thermal_noise = \
             10 * np.log10(BOLTZMANN_CONSTANT * self.param_system.noise_temperature * 1e3) + \
             10 * np.log10(self.param_system.bandwidth * 1e6) 
@@ -1252,10 +1265,10 @@ class SimulationDownlink(Simulation):
             self.system.rx_interference.flatten(),
         )
         self.results.system_intra_dl_interf_power.extend(
-            self.system.intra_rx_interference.flatten(),
+            self.system.intra_interference.flatten(),
         )
         self.results.system_ext_dl_interf_power.extend(
-            self.system.rx_interference.flatten(),
+            self.system.ext_interference.flatten(),
         )
         self.results.system_dl_interf_power_per_mhz.extend(
             self.system.rx_interference.flatten() - 10 * math.log10(self.system.bandwidth),
@@ -1369,7 +1382,10 @@ class SimulationDownlink(Simulation):
                 self.results.imt_system_diffraction_loss.extend(
                     self.imt_system_diffraction_loss[:, bs],
                 )
-
+            
+            self.results.imt_dl_ext_interf_power.extend(self.ue.ext_interference[ue].tolist()) 
+            self.results.imt_dl_intra_interf_power.extend(self.ue.rx_interference[ue].tolist())
+            self.results.imt_dl_interf_power.extend(self.ue.interf_power_total[ue].tolist())
             self.results.imt_dl_tx_power.extend(self.bs.tx_power[bs].tolist())
             self.results.imt_dl_sinr.extend(self.ue.sinr[ue].tolist())
             self.results.imt_dl_snr.extend(self.ue.snr[ue].tolist())

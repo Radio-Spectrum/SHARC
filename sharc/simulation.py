@@ -915,7 +915,8 @@ class Simulation(ABC, Observable):
             bw_ue: np.array,
             fc_ue: np.array,
             bw_sys: float,
-            fc_sys: float) -> np.array:
+            fc_sys: float,
+            bw_agressor: float) -> np.array:
         """
         Calculates the weight that each resource block group of IMT base stations
         will have when estimating the interference to other systems based on
@@ -938,11 +939,11 @@ class Simulation(ABC, Observable):
         sys_min_f = fc_sys - bw_sys / 2
         sys_max_f = fc_sys + bw_sys / 2
 
+        overlap_bw = np.minimum(ue_max_f, sys_max_f) - np.maximum(ue_min_f, sys_min_f)
+
         # NOTE: using clip is necessary to prevent
         # floating point error to impact the expected result range [0, 1]
-        overlap = np.clip((
-            np.minimum(ue_max_f, sys_max_f) - np.maximum(ue_min_f, sys_min_f)
-        ) / bw_ue, 0.0, 1.0)
+        overlap = np.clip(overlap_bw / bw_agressor, 0.0, 1.0)
 
         return overlap
 

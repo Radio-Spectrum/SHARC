@@ -260,6 +260,7 @@ wifi:
     ###########################################################################
     max_dist_nodes_wifi: 20
     adjacent_ch_selectivity: 20.0
+    max_dist_nodes_wifi: 20.0
     channel_model: UMi                                # Channel model: FSPL, CI, UMa, UMi, etc.
     shadowing: TRUE
     polarization_loss: 0

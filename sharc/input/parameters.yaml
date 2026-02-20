@@ -258,6 +258,7 @@ wifi:
     spectral_mask: WIFI-2020
     ###########################################################################
     spurious_emissions: -27
+    max_dist_nodes_wifi: 20
     ###########################################################################
     adjacent_ch_selectivity: 20.0
     channel_model: UMi                                # Channel model: FSPL, CI, UMa, UMi, etc.

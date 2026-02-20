@@ -170,7 +170,7 @@ imt:
         height: 1.5
         noise_figure: 13
         ohmic_loss: 0
-        body_loss: 4
+        body_loss: 0
         antenna:
             array:
                 ###########################################################################
@@ -308,8 +308,9 @@ wifi:
         noise_figure: 10.1
         ###########################################################################
         # Base station array ohmic loss  [dB]
-        ohmic_loss: 3.1
-        # Base Station Antenna parameters:
+        ohmic_loss: 0
+
+        body_loss: 0
         antenna:
             array:
                 ###########################################################################
@@ -459,10 +460,10 @@ wifi:
         noise_figure: 10
         ###########################################################################
         # User equipment feed loss [dB]
-        ohmic_loss: 3
+        ohmic_loss: 0
         ###########################################################################
         # User equipment body loss [dB]
-        body_loss: 4
+        body_loss: 0
         antenna:
             array:
                 ###########################################################################

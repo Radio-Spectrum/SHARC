@@ -15,6 +15,9 @@ from sharc.antenna.antenna_s1855 import AntennaS1855
 from sharc.antenna.antenna_f1245_fs import Antenna_f1245_fs
 from sharc.antenna.antenna_s1528 import AntennaS1528, AntennaS1528Leo, AntennaS1528Taylor
 from sharc.antenna.antenna_beamforming_imt import AntennaBeamformingImt
+from sharc.antenna.antenna_array import AntennaArray
+from sharc.support.geometry import SimulatorGeometry, RigidTransform
+from sharc.antenna.system_4_constants import taper_fn as sys4_taper_fn
 
 import numpy as np
 
@@ -27,6 +30,8 @@ class AntennaFactory():
         antenna_params: ParametersAntenna,
         azimuth: float,
         elevation: float,
+        *,
+        global2local_ref_frame: RigidTransform = None
     ):
         """Create and return an antenna instance based on the provided parameters, azimuth, and elevation.
 
@@ -71,6 +76,22 @@ class AntennaFactory():
                     azimuth,
                     elevation
                 )
+            case "ARRAY Satellite" | "ARRAY System 4":
+                taper_fn = None
+                if antenna_params.pattern == "ARRAY System 4":
+                    taper_fn = sys4_taper_fn
+
+                arr = AntennaArray(
+                    antenna_params.array.get_antenna_parameters(),
+                    global2local_ref_frame,
+                    per_element_taper_fn=taper_fn
+                )
+                arr.add_beam(
+                    azimuth,
+                    90. - elevation,
+                )
+                arr.set_always_first_beam()
+                return arr
             case "Antenna System 4":
                 # Handled in station_factory.py since it requires two antennas
                 raise NotImplementedError(
@@ -88,6 +109,8 @@ class AntennaFactory():
         azimuth: np.ndarray | float,
         elevation: np.ndarray | float,
         n_stations: int,
+        *,
+        geom: SimulatorGeometry = None
     ):
         """
         Create many antennas based on passed parameters.
@@ -108,11 +131,24 @@ class AntennaFactory():
         assert n_stations == len(azimuth)
         assert n_stations == len(elevation)
 
-        if antenna_params.pattern == "ARRAY":
+        if antenna_params.pattern in [
+            "ARRAY", "ARRAY Satellite", "ARRAY System 4"
+        ]:
             for i in range(n_stations):
+                global2local_reference_frame = None
+                if hasattr(geom, "global2local") and geom.global2local is not None:
+                    global2local_reference_frame = geom.global2local.take(i)
                 antennas[i] = AntennaFactory.create_antenna(
                     antenna_params, azimuth[i], elevation[i],
+                    global2local_ref_frame=global2local_reference_frame
                 )
+
+            if antenna_params.pattern in ["ARRAY Satellite", "ARRAY System 4"]:
+                geom.set_local_coords(
+                    azim=np.zeros_like(geom.pointn_azim_global),
+                    elev=np.zeros_like(geom.pointn_elev_global),
+                )
+
         elif antenna_params.pattern == "Antenna System 4":
             antenna_pattern_high = AntennaS1528(antenna_params.antenna_system_4.antenna_parameters_high)
             antenna_pattern_low = AntennaS1528(antenna_params.antenna_system_4.antenna_parameters_low)

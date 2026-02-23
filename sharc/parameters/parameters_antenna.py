@@ -27,7 +27,8 @@ class ParametersAntenna(ParametersBase):
         "ITU-R S.1855",
         "ITU-R Reg. RR. Appendice 7 Annex 3",
         "ARRAY",
-        "ARRAY2",
+        "ARRAY Satellite",
+        "ARRAY System 4",
         "ITU-R-S.1528-Taylor",
         "ITU-R-S.1528-Section1.2",
         "ITU-R-S.1528-LEO",
@@ -46,7 +47,8 @@ class ParametersAntenna(ParametersBase):
                             "ITU-R S.1855",
                             "ITU-R Reg. RR. Appendice 7 Annex 3",
                             "ARRAY",
-                            "ARRAY2",
+                            "ARRAY Satellite",
+                            "ARRAY System 4",
                             "ITU-R-S.1528-Taylor",
                             "ITU-R-S.1528-Section1.2",
                             "ITU-R-S.1528-LEO",
@@ -202,7 +204,9 @@ class ParametersAntenna(ParametersBase):
                 f"{ctx}.pattern should be set. It is None instead",
             )
 
-        if self.pattern != "ARRAY" and self.pattern != "ARRAY2" and self.gain is None:
+        if self.pattern not in [
+            "ARRAY", "ARRAY System 4", "ARRAY Satellite"
+        ] and self.gain is None:
             raise ValueError(
                 f"{ctx}.gain should be set if not using array antenna.",
             )
@@ -234,7 +238,7 @@ class ParametersAntenna(ParametersBase):
                     # just hijacking validation since diameter is optional
                     self.itu_reg_rr_a7_3.diameter = 0
                 self.itu_reg_rr_a7_3.validate(f"{ctx}.itu_reg_rr_a7_3")
-            case "ARRAY" | "ARRAY2":
+            case "ARRAY" | "ARRAY Satellite" | "ARRAY System 4":
                 # TODO: validate here and make array non imt specific
                 # self.array.validate(
                 #     f"{ctx}.array",

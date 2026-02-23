@@ -109,15 +109,34 @@ class StationFactory(object):
                 topology.space_station_x * np.ones(num_bs),
                 topology.space_station_y * np.ones(num_bs),
                 topology.space_station_z * np.ones(num_bs),
-                elev=topology.elevation
+                elev=topology.elevation,
+                azim=wrap2_180(topology.azimuth)
             )
             imt_base_stations.is_space_station = True
         elif param.topology.type == "MSS_DC":
+            global_ref = ENUReferenceFrame(
+                lat=coordinate_system.ref_lat,
+                lon=coordinate_system.ref_long,
+                alt=coordinate_system.ref_alt,
+            )
+            imt_base_stations.geom.setup(
+                imt_base_stations.num_stations, True,
+                global_ref,
+            )
+            imt_base_stations.geom.set_local_reference_frame(
+                DWNReferenceFrame(
+                    lat=topology.lat,
+                    lon=topology.lon,
+                    alt=topology.height,
+                )
+            )
+
             imt_base_stations.geom.set_global_coords(
                 topology.space_station_x * np.ones(num_bs),
                 topology.space_station_y * np.ones(num_bs),
                 topology.space_station_z * np.ones(num_bs),
-                elev=topology.elevation
+                elev=topology.elevation,
+                azim=topology.azimuth,
             )
             imt_base_stations.is_space_station = True
             # NOTE: Experimental features for logging and analysis
@@ -147,15 +166,13 @@ class StationFactory(object):
                 topology.x * np.ones(num_bs),
                 topology.y * np.ones(num_bs),
                 param.bs.height * np.ones(num_bs),
-                elev=-param_ant.downtilt * np.ones(num_bs)
+                elev=-param_ant.downtilt * np.ones(num_bs),
+                azim=wrap2_180(topology.azimuth),
             )
             if param.topology.type == 'INDOOR':
                 imt_base_stations.geom.set_local_coords(
                     z=topology.height
                 )
-        imt_base_stations.geom.set_local_coords(
-            azim=wrap2_180(topology.azimuth)
-        )
         imt_base_stations.active = random_number_gen.rand(
             num_bs,
         ) < param.bs.load_probability
@@ -1957,28 +1974,15 @@ class StationFactory(object):
         # we need to initialize them after coordinates transformation because of
         # repeated state (elevation and azimuth) inside multiple transceiver
         # implementation.
-        if params.antenna.pattern != "ARRAY2":
-            if params.antenna.pattern == "Antenna System 4":
-                params.antenna.antenna_system_4.beam_ground_elev_angles = beams_ground_elev
-            mss_d2d.antenna = AntennaFactory.create_n_antennas(
-                params.antenna,
-                mss_d2d.geom.pointn_azim_global,
-                mss_d2d.geom.pointn_elev_global,
-                mss_d2d.num_stations
-            )
-        else:
-            # Special case when using Array in satellites:
-            # Antenna Beams are pointed to the center of footprint cells.
-            for i in range(mss_d2d.num_stations):
-                antenna_pattern = AntennaArray(
-                    params.antenna.array,
-                    mss_d2d.geom.global2local.take(i)
-                )
-                antenna_pattern.add_beam(
-                    mss_d2d.geom.pointn_azim_global[i],
-                    90. - mss_d2d.geom.pointn_elev_global[i],
-                )
-                antenna_pattern.set_always_first_beam()
+        if params.antenna.pattern == "Antenna System 4":
+            params.antenna.antenna_system_4.beam_ground_elev_angles = beams_ground_elev
+        mss_d2d.antenna = AntennaFactory.create_n_antennas(
+            params.antenna,
+            mss_d2d.geom.pointn_azim_global,
+            mss_d2d.geom.pointn_elev_global,
+            mss_d2d.num_stations,
+            geom=mss_d2d.geom
+        )
 
         # Initialize OOB antennas
         if params.use_oob_antenna and (params.antenna.pattern != "ARRAY" or params.antenna.pattern != "ARRAY2"):
@@ -2018,12 +2022,6 @@ class StationFactory(object):
                 )
         else:
             mss_d2d.oob_antenna = mss_d2d.antenna
-
-        if params.antenna.pattern == "ARRAY2":
-            mss_d2d.geom.set_local_coords(
-                azim=np.zeros_like(mss_d2d.geom.pointn_azim_global),
-                elev=np.zeros_like(mss_d2d.geom.pointn_elev_global),
-            )
 
         return mss_d2d  # Return the configured StationManager
 

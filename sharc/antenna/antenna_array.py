@@ -24,6 +24,8 @@ class AntennaArray(Antenna):
         self,
         par: ParametersAntennaImt,
         global2local_transform: RigidTransform = None,
+        *,
+        per_element_taper_fn: typing.Callable = None
     ):
         """Constructs antenna array.
 
@@ -45,6 +47,7 @@ class AntennaArray(Antenna):
         super().__init__()
         self.par = par
         self.always_first_beam = False
+        self.taper_fn = per_element_taper_fn
 
         self.global2local_transform = global2local_transform
         if self.global2local_transform is not None:
@@ -95,6 +98,10 @@ class AntennaArray(Antenna):
         elif "beams_l" in kwargs.keys():
             beam_idxs = np.asarray(kwargs["beams_l"], dtype=int)
         else:
+            if len(self.beams_list):
+                raise ValueError(
+                    "If you added beams you must use them explicitly"
+                )
             beam_idxs = np.arange(len(phi_vec))
 
         assert phi_vec.shape == (len(phi_vec),)
@@ -178,12 +185,35 @@ class AntennaArray(Antenna):
         # NOTE: this formula has the same result to the one presented on M.2101
         # but it is optimized for computation
         # considering W(m, n) = W(m)W(n) and V(m, n) = V(m)V(n)
-        g = 10 * np.log10(
-            abs(
-                np.sum(v_vec_row * w_vec_row, axis=-1)
-                * np.sum(v_vec_col * w_vec_col, axis=-1)
-            )**2
-        )
+        if self.taper_fn is None:
+            g = 10 * np.log10(
+                abs(
+                    np.sum(v_vec_row * w_vec_row, axis=-1)
+                    * np.sum(v_vec_col * w_vec_col, axis=-1)
+                )**2
+            )
+        else:
+            taper = self.taper_fn(
+                beam_phi, beam_etilt,
+            )
+            # shape (..., N_rows)
+            a = v_vec_row * w_vec_row
+            # shape (..., N_cols)
+            b = v_vec_col * w_vec_col
+            # shape (N_rows, N_cols)
+            T = taper.reshape((self.par.n_columns, self.par.n_rows)).T
+
+            # guarantee that the end sum of weights gives physically consistent
+            # gain results = self.par.n_columns * self.par.n_rows at max_g
+            T = T * np.sqrt(
+                self.par.n_columns * self.par.n_rows
+                / np.sum(np.abs(T)**2, axis=(-1, -2))
+            )
+
+            tmp = T @ b.T
+            AF = np.sum(a.T * tmp, axis=0)
+
+            g = 20 * np.log10(np.abs(AF))
 
         return np.maximum(g, self.par.minimum_array_gain)
 
@@ -352,6 +382,8 @@ class AntennaArray(Antenna):
                 par.element_max_g, par.element_sla_v, par.element_am,
                 par.multiplication_factor,
             )
+        elif par.element_pattern == "FIXED":
+            return np.full_like(phi, par.element_max_g)
         else:
             raise NotImplementedError(
                 "No implementation done for element_pattern"

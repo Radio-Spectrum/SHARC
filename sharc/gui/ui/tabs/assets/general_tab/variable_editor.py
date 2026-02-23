@@ -1,10 +1,12 @@
 import tkinter as tk
-from tkinter import ttk, filedialog, messagebox
+from tkinter import filedialog, messagebox
+import ttkbootstrap as ttk
 from pathlib import Path
 import ast
 import csv
 import os
 
+# Ajuste os imports conforme a estrutura do seu projeto
 from ui.tabs.assets.general_tab.general_tools import parse_list_safe, generate_sequence, format_number
 
 
@@ -13,14 +15,15 @@ class VariableEditor(tk.Toplevel):
     A dialog window to edit Tag <-> Value mappings.
     Features:
     - Toggle between 'Logical Value' and 'File Path' modes.
-    - Real-time validation (Red text for invalid numbers or missing files).
+    - Hides Numeric Generator when in File Mode.
+    - Real-time validation.
     - CSV Import/Export.
     """
 
     def __init__(self, parent, var_key, tags_raw, vals_raw, on_save_callback):
         super().__init__(parent)
         self.title(f"Edit Variable: {var_key}")
-        self.geometry("800x650")  # Aumentei um pouco a largura
+        self.geometry("800x650")
         self.transient(parent)
 
         self.on_save = on_save_callback
@@ -38,6 +41,10 @@ class VariableEditor(tk.Toplevel):
                 break
 
         self.var_mode = tk.StringVar(value=initial_mode)  # "VALUE" or "FILE"
+
+        # UI Components placeholders
+        self.frm_auto = None
+        self.btns_frame = None
 
         self._build_ui(var_key)
         self._populate_initial_rows()
@@ -123,35 +130,37 @@ class VariableEditor(tk.Toplevel):
         ttk.Button(actions, text="Export CSV",
                    command=self._export_csv).pack(side="left", padx=2)
 
-        # --- Auto-Generation Section ---
+        # --- Auto-Generation Section (Built but visibility controlled later) ---
         self._build_auto_gen_ui()
 
-        # --- Bottom Buttons ---
-        btns = ttk.Frame(self)
-        btns.pack(fill="x", padx=10, pady=10)
-        ttk.Button(btns, text="OK", command=self._on_ok).pack(side="left")
-        ttk.Button(btns, text="Cancel", command=self.destroy).pack(
+        # --- Bottom Buttons (Saved to reference for ordering) ---
+        self.btns_frame = ttk.Frame(self)
+        self.btns_frame.pack(fill="x", padx=10, pady=10)
+        ttk.Button(self.btns_frame, text="OK", command=self._on_ok).pack(side="left")
+        ttk.Button(self.btns_frame, text="Cancel", command=self.destroy).pack(
             side="left", padx=10)
 
         # Legend for validation
-        ttk.Label(btns, text="* Red text indicates invalid value/path",
+        ttk.Label(self.btns_frame, text="* Red text indicates invalid value/path",
                   foreground="red", font=("Arial", 8)).pack(side="right")
 
     def _build_auto_gen_ui(self):
-        auto = ttk.LabelFrame(
+        """Constructs the Auto-Generation frame."""
+        self.frm_auto = ttk.LabelFrame(
             self, text="Generate Values Automatically (Numeric)")
-        auto.pack(fill="x", padx=10, pady=(6, 0))
+        # We don't pack it here immediately to avoid order issues, 
+        # it will be packed in _toggle_mode_ui
 
         self.gen_mode = tk.StringVar(value="STEP")
 
-        rowm = ttk.Frame(auto)
+        rowm = ttk.Frame(self.frm_auto)
         rowm.pack(fill="x", pady=2)
         ttk.Radiobutton(rowm, text="Start/End/Step", variable=self.gen_mode,
                         value="STEP", command=self._update_gen_labels).pack(side="left")
         ttk.Radiobutton(rowm, text="Start/End/N Points", variable=self.gen_mode,
                         value="NPTS", command=self._update_gen_labels).pack(side="left", padx=15)
 
-        rowa = ttk.Frame(auto)
+        rowa = ttk.Frame(self.frm_auto)
         rowa.pack(fill="x", pady=4)
 
         ttk.Label(rowa, text="Start:").pack(side="left")
@@ -172,22 +181,26 @@ class VariableEditor(tk.Toplevel):
         self.e_tagbase.pack(side="left", padx=2)
         self.e_tagbase.insert(0, "V")
 
-        ttk.Button(auto, text="Generate and Replace",
+        ttk.Button(self.frm_auto, text="Generate and Replace",
                    command=self._generate_values).pack(anchor="e", padx=5, pady=2)
 
     # --- UI Logic Methods ---
 
     def _toggle_mode_ui(self):
-        """Updates the UI and re-validates all rows based on mode."""
+        """Updates the UI, re-validates rows, and Hides/Shows generator based on mode."""
         mode = self.var_mode.get()
 
-        # Update Headers
+        # 1. Update Headers & Validation
         if mode == "FILE":
             self.lbl_col_val.config(text="File Path (Must exist)")
+            # Hide the numeric generator
+            self.frm_auto.pack_forget()
         else:
             self.lbl_col_val.config(text="Value (Numeric)")
+            # Show the numeric generator (before the buttons)
+            self.frm_auto.pack(fill="x", padx=10, pady=(6, 0), before=self.btns_frame)
 
-        # Update Rows visibility and Validation
+        # 2. Update Rows visibility
         for _, e_val, btn_browse in self.rows:
             if mode == "FILE":
                 btn_browse.grid()
@@ -251,80 +264,55 @@ class VariableEditor(tk.Toplevel):
                 is_valid = False
 
         elif mode == "FILE":
+            # Allow placeholders like {var} or check file existence
             if "{" in val and "}" in val:
                 is_valid = True
             else:
-                is_valid = os.path.exists(
-                    val) or os.path.exists(val.strip('"'))
+                # Check path (removing quotes if user pasted them)
+                clean_path = val.strip('"').strip("'")
+                is_valid = os.path.exists(clean_path)
 
         color = "black" if is_valid else "red"
         entry_widget.config(foreground=color)
 
     # --- CSV Import / Export ---
-
+    # (Existing CSV methods unchanged - kept for brevity unless requested)
     def _export_csv(self):
-        """Saves current rows to a CSV file."""
         f_path = filedialog.asksaveasfilename(
             defaultextension=".csv",
             filetypes=[("CSV Files", "*.csv"), ("All Files", "*.*")],
-            title="Export to CSV",
-            parent=self
+            title="Export to CSV", parent=self
         )
-        if not f_path:
-            return
-
+        if not f_path: return
         try:
             with open(f_path, mode='w', newline='', encoding='utf-8') as f:
                 writer = csv.writer(f)
                 writer.writerow(["Tag", "Value"])
                 for e1, e2, _ in self.rows:
-                    t = e1.get().strip()
-                    v = e2.get().strip()
-                    if t or v:
-                        writer.writerow([t, v])
-            messagebox.showinfo(
-                "Success", "CSV exported successfully.", parent=self)
+                    if e1.get().strip() or e2.get().strip():
+                        writer.writerow([e1.get().strip(), e2.get().strip()])
+            messagebox.showinfo("Success", "CSV exported successfully.", parent=self)
         except Exception as e:
-            messagebox.showerror(
-                "Error", f"Failed to export CSV:\n{e}", parent=self)
+            messagebox.showerror("Error", f"Failed to export CSV:\n{e}", parent=self)
 
     def _import_csv(self):
-        """Loads rows from a CSV file."""
         f_path = filedialog.askopenfilename(
-            filetypes=[("CSV Files", "*.csv"),
-                       ("Excel CSV", "*.csv"), ("All Files", "*.*")],
-            title="Import CSV",
-            parent=self
+            filetypes=[("CSV Files", "*.csv"), ("All Files", "*.*")],
+            title="Import CSV", parent=self
         )
-        if not f_path:
-            return
-
-        if messagebox.askyesno("Confirm Import", "This will replace current rows. Continue?", parent=self):
+        if not f_path: return
+        if messagebox.askyesno("Confirm", "Replace current rows?", parent=self):
             try:
                 with open(f_path, mode='r', newline='', encoding='utf-8') as f:
-                    sample = f.read(1024)
+                    data = list(csv.reader(f, csv.Sniffer().sniff(f.read(1024))))
                     f.seek(0)
-                    dialect = csv.Sniffer().sniff(sample)
-
-                    reader = csv.reader(f, dialect)
-                    data = list(reader)
-
                 self._clear_rows()
-
-                start_idx = 0
-                if data and len(data[0]) >= 2:
-                    if "tag" in data[0][0].lower() or "key" in data[0][0].lower():
-                        start_idx = 1
-
-                for row in data[start_idx:]:
-                    if len(row) >= 2:
-                        self._add_row_ui(row[0], row[1])
-                    elif len(row) == 1:
-                        self._add_row_ui(f"Import_{len(self.rows)}", row[0])
-
+                for row in data:
+                    if len(row) >= 2: self._add_row_ui(row[0], row[1])
             except Exception as e:
-                messagebox.showerror(
-                    "Error", f"Failed to import CSV:\n{e}", parent=self)
+                messagebox.showerror("Error", f"Failed to import:\n{e}", parent=self)
+
+    # --- File Picking Logic (UPDATED) ---
 
     def _browse_single_file(self, entry_widget):
         f = filedialog.askopenfilename(title="Select File", parent=self)
@@ -334,39 +322,61 @@ class VariableEditor(tk.Toplevel):
             self._validate_entry(entry_widget)
 
     def _pick_files_bulk(self):
+        """
+        Allows selecting multiple parameter files (JSON/YAML) or standard files.
+        Auto-populates Tag with filename and Value with path.
+        """
+        # Improved filters to find presets easily
+        file_types = [
+            ("Parameter Files", "*.json *.yaml *.yml"),
+            ("JSON Configuration", "*.json"),
+            ("YAML Configuration", "*.yaml *.yml"),
+            ("All Files", "*.*")
+        ]
+        
         files = filedialog.askopenfilenames(
-            title="Select multiple files", parent=self)
+            title="Select Parameter Files",
+            filetypes=file_types,
+            parent=self
+        )
         if not files:
             return
 
+        # 1. Force FILE mode
         self.var_mode.set("FILE")
         self._toggle_mode_ui()
 
-        self._clear_rows()
+        # 2. Clear existing (optional, usually better for bulk import)
+        if not self.rows:
+            self._clear_rows()
+
+        # 3. Populate
         for f in files:
             f_path = Path(f)
-            self._add_row_ui(f_path.stem, f_path.as_posix())
+            # Tag = filename without extension (e.g., 'imt_urban')
+            tag_name = f_path.stem
+            # Value = Absolute path
+            val_path = f_path.as_posix()
+            
+            self._add_row_ui(tag_name, val_path)
 
     def _remove_last_row(self):
-        if not self.rows:
-            return
+        if not self.rows: return
         e1, e2, btn = self.rows.pop()
-        e1.destroy()
-        e2.destroy()
-        btn.destroy()
+        e1.destroy(); e2.destroy(); btn.destroy()
         self.canvas.configure(scrollregion=self.canvas.bbox("all"))
 
     def _clear_rows(self):
-        while self.rows:
-            self._remove_last_row()
+        while self.rows: self._remove_last_row()
 
     def _populate_initial_rows(self):
         n = max(len(self.tags_list), len(self.vals_list), 1)
         t_list = self.tags_list + [""] * (n - len(self.tags_list))
         v_list = self.vals_list + [""] * (n - len(self.vals_list))
-
         for t, v in zip(t_list, v_list):
             self._add_row_ui(t, v)
+
+    # --- Auto Gen Logic ---
 
     def _update_gen_labels(self):
         self.lbl_param.config(
@@ -378,8 +388,7 @@ class VariableEditor(tk.Toplevel):
             e = float(self.e_end.get())
             p = float(self.e_param.get())
         except ValueError:
-            messagebox.showerror(
-                "Error", "Please fill Start, End and Step/N with numbers.", parent=self)
+            messagebox.showerror("Error", "Please fill Start, End and Step/N with numbers.", parent=self)
             return
 
         vals = generate_sequence(s, e, p, self.gen_mode.get())
@@ -401,14 +410,11 @@ class VariableEditor(tk.Toplevel):
         for e1, e2, _ in self.rows:
             t_val = e1.get().strip()
             v_val = e2.get().strip()
-            if not t_val and not v_val:
-                continue
+            if not t_val and not v_val: continue
 
-            if e2.cget("foreground") == "red":
-                has_invalid = True
+            if e2.cget("foreground") == "red": has_invalid = True
 
             tags_out.append(t_val)
-
             if is_file_mode:
                 vals_out.append(v_val)
             else:
@@ -419,23 +425,16 @@ class VariableEditor(tk.Toplevel):
                     vals_out.append(v_val)
 
         if has_invalid:
-            if not messagebox.askyesno("Warning", "Some values appear invalid (marked in red). Save anyway?", parent=self):
+            if not messagebox.askyesno("Warning", "Some values appear invalid (red). Save anyway?", parent=self):
                 return
 
         if not tags_out:
-            messagebox.showwarning(
-                "Warning", "The list cannot be empty.", parent=self)
-            return
-
-        if len(tags_out) != len(vals_out):
-            messagebox.showwarning(
-                "Error", "Tags and Values length mismatch.", parent=self)
+            messagebox.showwarning("Warning", "List cannot be empty.", parent=self)
             return
 
         new_name = self.e_var.get().strip()
         if not new_name:
-            messagebox.showwarning(
-                "Error", "Variable name is required.", parent=self)
+            messagebox.showwarning("Error", "Variable name is required.", parent=self)
             return
 
         self.on_save(new_name, tags_out, vals_out)

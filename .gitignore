@@ -3,6 +3,8 @@
 /sharc/output/*.png
 /sharc/output_*/*
 /sharc/campaigns/*/output/
+/sharc/campaigns/*/input/
+/sharc/campaigns/*/output_dl/
 
 
 __pycache__

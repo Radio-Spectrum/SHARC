@@ -1,128 +1,89 @@
+import os
+import random
 import numpy as np
 import requests
-import random
-import time
-import threading
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from scipy.signal import find_peaks, savgol_filter
-import scipy.stats as st
+import rasterio
 import matplotlib.pyplot as plt
-import cartopy.crs as ccrs
-import cartopy.feature as cfeature
-import cartopy.io.shapereader as shpreader
-from shapely.geometry import Point
-from shapely.ops import unary_union
-from geopy import Point as GeoPoint
+
+from tqdm import tqdm
+from scipy.signal import find_peaks, savgol_filter
+from geopy import Point
+import gzip
 from geopy.distance import distance
+
+from rasterio.warp import transform, transform_bounds
+from scipy import stats
 
 # =============================
 # CONFIG
 # =============================
-N_PATHS = 48
+N_PATHS = 2
 PATH_LENGTH_KM = 300
 N_SAMPLES = 300
-N_WORKERS = 4           # cuidado: API rate-limit; pode reduzir se der erro
-LAND_THRESHOLD = 0.9
-HIST_BINS = 210
 
-# smoothing / peaks
-SAVGOL_WINDOW = 11       # deve ser ímpar
-SAVGOL_POLY = 3
-PEAK_PROMINENCE = 20
-PEAK_MIN_DISTANCE = 5
+TILE_DIR = "terrain_tests/op90_tiles"
+BASE_URL = "https://s3.amazonaws.com/elevation-tiles-prod/skadi/"
 
-# API
-API_URL = "https://api.open-elevation.com/api/v1/lookup"
-API_TIMEOUT = 25
-API_RETRIES = 4
-API_THROTTLE = 0.25      # segundos
-API_JITTER = 0.15        # aleatório adicional para espalhar requests
+os.makedirs(TILE_DIR, exist_ok=True)
 
 # =============================
-# CCDF
+# TILE NAME (COP90)
 # =============================
-def plot_ccdf_log(data, label):
-    data = np.asarray(data)
-    data = data[np.isfinite(data)]
-    data = data[data > 0]
+def tile_name(lat, lon):
+    lat_deg = int(np.floor(lat))
+    lon_deg = int(np.floor(lon))
 
-    if len(data) < 3:
-        print(f"[WARN] Not enough data for CCDF: {label}")
-        return
+    ns = "N" if lat_deg >= 0 else "S"
+    ew = "E" if lon_deg >= 0 else "W"
 
-    x = np.sort(data)
-    ccdf = 1.0 - np.arange(1, len(x) + 1) / len(x)
+    # pasta
+    folder = f"{ns}{abs(lat_deg):02d}"
 
-    # evita log(0): corta no menor valor > 0
-    mask = ccdf > 0
-    x = x[mask]
-    ccdf = ccdf[mask]
+    # arquivo
+    file = f"{ns}{abs(lat_deg):02d}{ew}{abs(lon_deg):03d}.hgt.gz"
 
-    plt.figure()
-    plt.semilogy(x, ccdf, ".", markersize=4, label="empirical")
-    plt.xlabel(label)
-    plt.ylabel("CCDF (log scale)")
-    plt.title(f"CCDF (log) for {label}")
-    plt.grid(True, which="both", ls="--", alpha=0.4)
-    plt.legend()
-
-def plot_ccdf_with_fit(data, dist_name, params, xlabel="distance (km)"):
-
-    data = np.asarray(data)
-    data = data[data > 0]
-
-    if len(data) < 3:
-        print("[WARN] Not enough data for CCDF with fit.")
-        return
-
-    # mapping correto
-    dist_map = {
-        "normal": st.norm,
-        "lognormal": st.lognorm,
-        "gamma": st.gamma,
-        "weibull": st.weibull_min,
-        "tstudent": st.t
-    }
-
-    dist = dist_map[dist_name]
-
-    x = np.sort(data)
-    ccdf = 1.0 - np.arange(1, len(x) + 1) / len(x)
-
-    x_fit = np.linspace(np.min(x), np.max(x), 500)
-    ccdf_fit = dist.sf(x_fit, *params)
-
-    mask = ccdf > 0
-    plt.figure()
-    plt.semilogy(x[mask], ccdf[mask], ".", label="empirical")
-    plt.semilogy(x_fit, ccdf_fit, "r-", lw=2, label=f"{dist_name} fit")
-    plt.xlabel(xlabel)
-    plt.ylabel("CCDF (log)")
-    plt.title("CCDF with fit")
-    plt.grid(True, which="both")
-    plt.legend()
+    return folder, file
 
 # =============================
-# LAND MASK
+# DOWNLOAD TILE
 # =============================
-land_shp = shpreader.natural_earth("50m", "physical", "land")
-land_geom = unary_union(list(shpreader.Reader(land_shp).geometries()))
+def download_tile(folder, file):
+    path_gz = os.path.join(TILE_DIR, file)
+    path = path_gz.replace(".gz", "")
 
-def is_land(lat, lon):
-    return land_geom.contains(Point(lon, lat))
+    if os.path.exists(path):
+        return path
 
-def random_land_point():
-    while True:
-        lat = random.uniform(-80, 80)
-        lon = random.uniform(-180, 180)
-        if is_land(lat, lon):
-            return lat, lon
+    url = BASE_URL + f"{folder}/{file}"
+
+    try:
+        r = requests.get(url, timeout=120)
+        if r.status_code == 200:
+            with open(path_gz, "wb") as f:
+                f.write(r.content)
+
+            # unzip
+            with gzip.open(path_gz, "rb") as f_in:
+                with open(path, "wb") as f_out:
+                    f_out.write(f_in.read())
+
+            return path
+        else:
+            print("404:", url)
+
+    except Exception as e:
+        print("download error:", e)
+
+    return None
 
 # =============================
-# DESTINATION / PATH
+# PATH UTILS
 # =============================
+def random_point():
+    return random.uniform(-60, 60), random.uniform(-180, 180)
+
 def destination_point(lat, lon, distance_km, bearing):
-    origin = GeoPoint(lat, lon)
+    origin = Point(lat, lon)
     dest = distance(kilometers=distance_km).destination(origin, bearing)
     return dest.latitude, dest.longitude
 
@@ -131,239 +92,423 @@ def interpolate_path(start, end, n):
     lons = np.linspace(start[1], end[1], n)
     return list(zip(lats, lons))
 
-def path_on_land(path):
-    count = sum(is_land(lat, lon) for lat, lon in path)
-    return (count / len(path)) >= LAND_THRESHOLD
+# =============================
+# PREP TILE METADATA (bounds in EPSG:4326)
+# =============================
+def bounds_lonlat(ds):
+    # transforma bounds do CRS do raster para EPSG:4326
+    return transform_bounds(ds.crs, "EPSG:4326", *ds.bounds, densify_pts=21)
 
 # =============================
-# CACHE + THREAD SAFETY
+# SAMPLE ELEVATION (robusto)
 # =============================
-elev_cache = {}
-cache_lock = threading.Lock()
+def sample_elevation(path_latlon, tiles_ds):
+    elev = np.full(len(path_latlon), np.nan, dtype=float)
 
-# Uma Session compartilhada pode dar dor de cabeça em multi-thread.
-# Vamos criar session por thread usando thread-local:
-thread_local = threading.local()
+    for i, (lat, lon) in enumerate(path_latlon):
+        folder, file = tile_name(lat, lon)
+        ds = tiles_ds.get(file, None)
 
-def get_session():
-    if not hasattr(thread_local, "session"):
-        thread_local.session = requests.Session()
-    return thread_local.session
+        if ds is None:
+            continue
 
-# =============================
-# ELEVATION
-# =============================
-def get_elevation(points):
-    """
-    Busca elevação com cache + retry.
-    Cache key: lat/lon arredondado.
-    """
-    out = [None] * len(points)
-    batch = []
-    batch_positions = []
+        x, y = lon, lat
 
-    # 1) tenta cache
-    for i, p in enumerate(points):
-        key = (round(p[0], 4), round(p[1], 4))
-        with cache_lock:
-            val = elev_cache.get(key, None)
-        if val is not None:
-            out[i] = val
-        else:
-            batch.append({"latitude": float(p[0]), "longitude": float(p[1])})
-            batch_positions.append(i)
+        if ds.crs and str(ds.crs).upper() != "EPSG:4326":
+            x, y = transform("EPSG:4326", ds.crs, [x], [y])
+            x, y = x[0], y[0]
 
-    # 2) consulta API só pros misses
-    if batch:
-        sess = get_session()
-        for attempt in range(API_RETRIES):
-            try:
-                res = sess.post(API_URL, json={"locations": batch}, timeout=API_TIMEOUT)
-                res.raise_for_status()
-                data = res.json()["results"]
+        v = list(ds.sample([(x, y)]))[0][0]
 
-                # sanity check
-                if len(data) != len(batch):
-                    raise RuntimeError("API returned unexpected number of results.")
+        if ds.nodata is not None and v == ds.nodata:
+            continue
 
-                for k, dct in enumerate(data):
-                    val = float(dct["elevation"])
-                    i = batch_positions[k]
-                    out[i] = val
+        elev[i] = float(v)
 
-                    key = (round(batch[k]["latitude"], 4), round(batch[k]["longitude"], 4))
-                    with cache_lock:
-                        elev_cache[key] = val
-                break
-
-            except Exception as e:
-                if attempt == API_RETRIES - 1:
-                    print(f"[WARN] Elevation API failed after retries: {e}")
-                    # fallback: preenche faltantes com 0 (ou np.nan)
-                    for i in batch_positions:
-                        if out[i] is None:
-                            out[i] = 0.0
-                else:
-                    time.sleep(1.0 + 0.5 * attempt)
-
-        # throttle para não “martelar” API
-        time.sleep(API_THROTTLE + random.uniform(0, API_JITTER))
-
-    return np.asarray(out, dtype=float)
+    return elev
 
 # =============================
-# WORKER
+# FIT DISTRIBUTIONS (AIC + KS)
 # =============================
-def worker(_):
-    # encontra um path majoritariamente em terra
-    while True:
-        start = random_land_point()
-        bearing = random.uniform(0, 360)
-        end = destination_point(*start, PATH_LENGTH_KM, bearing)
-        path = interpolate_path(start, end, N_SAMPLES)
-        if path_on_land(path):
-            break
+def fit_best_distribution(x):
+    x = np.asarray(x, dtype=float)
+    x = x[np.isfinite(x)]
+    x = x[x > 0]  # distâncias/alturas devem ser positivas
 
-    elev = get_elevation(path)
-
-    # smoothing
-    if SAVGOL_WINDOW >= 5 and SAVGOL_WINDOW % 2 == 1 and len(elev) >= SAVGOL_WINDOW:
-        elev = savgol_filter(elev, SAVGOL_WINDOW, SAVGOL_POLY)
-
-    peaks, _ = find_peaks(elev, prominence=PEAK_PROMINENCE, distance=PEAK_MIN_DISTANCE)
-    valleys, _ = find_peaks(-elev, prominence=PEAK_PROMINENCE, distance=PEAK_MIN_DISTANCE)
-    extrema = np.sort(np.concatenate([peaks, valleys]))
-
-    dist = []
-    h = []
-
-    if len(extrema) >= 2:
-        step_km = PATH_LENGTH_KM / N_SAMPLES
-        for i in range(len(extrema) - 1):
-            d = step_km * (extrema[i + 1] - extrema[i])
-            dh = abs(elev[extrema[i + 1]] - elev[extrema[i]])
-            # filtros opcionais (evitar degenerados)
-            if d > 0:
-                dist.append(d)
-            if dh > 0:
-                h.append(dh)
-
-    return path, dist, h
-
-# =============================
-# FIT
-# =============================
-def fit_and_compare(data, label):
-    data = np.asarray(data)
-    data = data[np.isfinite(data)]
-    data = data[data > 0]
-
-    if len(data) < 10:
-        print(f"[WARN] Not enough data to fit {label}.")
+    if len(x) < 50:
         return None
 
-    # nota: weibull_min é a Weibull (shape, loc, scale)
-    fit_specs = {
-        "normal":   (st.norm,       dict()),
-        "lognormal":(st.lognorm,    dict(floc=0)),
-        "gamma":    (st.gamma,      dict(floc=0)),
-        "weibull":  (st.weibull_min,dict(floc=0)),
-        "tstudent": (st.t,          dict()),
+    candidates = {
+        "expon": stats.expon,
+        "lognorm": stats.lognorm,
+        "norm": stats.norm,
+        "gamma": stats.gamma,
+        "weibull_min": stats.weibull_min,
+        "t": stats.t,
     }
 
     results = []
-    for name, (dist, kwargs) in fit_specs.items():
+    for name, dist in candidates.items():
         try:
-            params = dist.fit(data, **kwargs)
-            loglik = np.sum(dist.logpdf(data, *params))
+            # para variáveis estritamente positivas, ajuda forçar loc=0 (quando faz sentido)
+            if name in ["expon", "gamma", "weibull_min", "lognorm"]:
+                params = dist.fit(x, floc=0)
+            else:
+                params = dist.fit(x)
+
+            ll = np.sum(dist.logpdf(x, *params))
             k = len(params)
-            aic = 2 * k - 2 * loglik
-            results.append((name, dist, params, aic))
-        except Exception as e:
-            print(f"[WARN] Fit failed for {name} on {label}: {e}")
+            aic = 2 * k - 2 * ll
+
+            # KS
+            D, p = stats.kstest(x, name, args=params)
+
+            results.append((aic, name, params, D, p))
+        except Exception:
+            continue
 
     if not results:
-        print(f"[WARN] No fits succeeded for {label}.")
         return None
 
-    results.sort(key=lambda x: x[3])
-    best_name, best_dist, best_params, best_aic = results[0]
+    results.sort(key=lambda t: t[0])  # menor AIC
+    best = results[0]
+    return best, results
 
-    print(f"\nBest fit for {label}: {best_name} (AIC={best_aic:.2f})")
-    print("Params:", best_params)
+def plot_fit_on_hist(x, best_tuple, title):
+    aic, name, params, D, p = best_tuple
+    dist = getattr(stats, name)
 
-    # PDF plot
-    x = np.linspace(np.min(data), np.max(data), 500)
-    pdf = best_dist.pdf(x, *best_params)
+    x = np.asarray(x, dtype=float)
+    x = x[np.isfinite(x)]
+    x = x[x > 0]
 
     plt.figure()
-    plt.hist(data, bins=HIST_BINS, density=True, alpha=0.5, label="data")
-    plt.plot(x, pdf, "r-", lw=2, label=f"best {best_name}")
-    plt.title(f"Fit for {label}")
-    plt.legend()
+    plt.hist(x, bins=120, density=True, alpha=0.6)
+    plt.title(f"{title}\nBest fit: {name} | AIC={aic:.1f} | KS D={D:.3f}, p={p:.3g}")
 
-    return best_name, best_dist, best_params
-
-# =============================
-# MAP SETUP
-# =============================
-plt.ion()
-fig = plt.figure(figsize=(12, 6))
-ax = plt.axes(projection=ccrs.PlateCarree())
-ax.set_global()
-ax.add_feature(cfeature.COASTLINE)
-ax.add_feature(cfeature.BORDERS, alpha=0.3)
-ax.set_title("Terrain cuts (land-only, parallel)")
+    xs = np.linspace(np.min(x), np.percentile(x, 99.5), 800)
+    ys = dist.pdf(xs, *params)
+    plt.plot(xs, ys, linewidth=2)
+    plt.xlabel(title)
+    plt.ylabel("PDF")
 
 # =============================
-# MAIN (parallel)
+# GENERATE PATHS
 # =============================
-all_d = []
-all_h = []
+print("\nGenerating paths...")
+paths = []
+tiles = set()
 
-with ThreadPoolExecutor(max_workers=N_WORKERS) as ex:
-    futures = [ex.submit(worker, i) for i in range(N_PATHS)]
+for _ in tqdm(range(N_PATHS), desc="Paths"):
+    start = random_point()
+    end = destination_point(*start, PATH_LENGTH_KM, random.uniform(0, 360))
+    path = interpolate_path(start, end, N_SAMPLES)
+    paths.append(path)
 
-    for f in as_completed(futures):
-        path, dist, h = f.result()
-
-        all_d.extend(dist)
-        all_h.extend(h)
-
-        if len(path) >= 2:
-            lats, lons = zip(*path)
-            ax.plot(lons, lats, color="red", transform=ccrs.PlateCarree(), alpha=0.7)
-
-        plt.pause(0.01)
-
-plt.ioff()
-
+    for lat, lon in path:
+        folder, file = tile_name(lat, lon)
+        tiles.add((folder, file))
 # =============================
-# HISTOGRAMS
+# DOWNLOAD / OPEN TILES
 # =============================
-plt.figure()
-plt.hist(all_d, bins=HIST_BINS)
-plt.title("Peak-Valley Distance (km)")
+print(f"\nDownloading tiles ({len(tiles)} needed)...")
+tiles_ds = {}
+tiles_bounds4326 = {}
 
-plt.figure()
-plt.hist(all_h, bins=HIST_BINS)
-plt.title("Peak-Valley Height (m)")
+for folder, file in tqdm(list(tiles), desc="Tiles"):
+    p = download_tile(folder, file)
+    if p:
+        tiles_ds[file] = rasterio.open(p)
 
 # =============================
-# FIT RESULTS
+# PROFILING
 # =============================
-best_d = fit_and_compare(all_d, "distance")
-best_h = fit_and_compare(all_h, "height")
+print("\nProcessing terrain profiles...")
+all_d, all_h = [], []
+
+# também guardo os perfis pra depurar/visualizar se quiser
+debug_profiles = 0
+
+for path in tqdm(paths, desc="Profiles"):
+    elev = sample_elevation(path, tiles_ds)
+
+    # remove NaNs (mas mantém alinhamento via mask)
+    valid = np.isfinite(elev)
+    if valid.sum() < max(50, N_SAMPLES // 4):
+        continue
+
+    e = elev.copy()
+
+    # interpola buracos pequenos
+    idx = np.arange(len(e))
+    e[~valid] = np.interp(idx[~valid], idx[valid], e[valid])
+
+    # suavização com janela adaptativa (sempre ímpar e <= len)
+    win = min(51, len(e) // 2 * 2 - 1)
+    win = max(win, 11)
+    if win >= len(e):
+        win = len(e) - 1 if (len(e) % 2 == 0) else len(e)
+    if win < 7:
+        continue
+
+    e_s = savgol_filter(e, win, 3)
+
+    # picos/vales com proeminência adaptativa
+    relief = np.nanpercentile(e_s, 95) - np.nanpercentile(e_s, 5)
+    prom = max(5.0, 0.05 * relief)   # pelo menos 5 m ou 5% do relevo típico
+    dist_min = max(3, int(0.02 * N_SAMPLES))  # 2% do comprimento amostrado
+
+    peaks, _ = find_peaks(e_s, prominence=prom, distance=dist_min)
+    valleys, _ = find_peaks(-e_s, prominence=prom, distance=dist_min)
+    extrema = np.sort(np.concatenate([peaks, valleys]))
+
+    if len(extrema) < 2:
+        # se o terreno for muito “liso”, relaxa um pouco
+        peaks, _ = find_peaks(e_s, prominence=max(2.0, 0.02 * relief), distance=max(2, dist_min // 2))
+        valleys, _ = find_peaks(-e_s, prominence=max(2.0, 0.02 * relief), distance=max(2, dist_min // 2))
+        extrema = np.sort(np.concatenate([peaks, valleys]))
+
+    if len(extrema) < 2:
+        continue
+
+    step_km = PATH_LENGTH_KM / (N_SAMPLES - 1)
+
+    for i in range(len(extrema) - 1):
+        i0, i1 = extrema[i], extrema[i + 1]
+        d = step_km * (i1 - i0)
+        h = abs(e_s[i1] - e_s[i0])
+        if np.isfinite(d) and np.isfinite(h) and d > 0 and h > 0:
+            all_d.append(d)
+            all_h.append(h)
 
 # =============================
-# CCDF (log) for distances
+# REPORT + PLOTS
 # =============================
-plot_ccdf_log(all_d, "Peak-Valley distance (km)")
+all_d = np.array(all_d, dtype=float)
+all_h = np.array(all_h, dtype=float)
 
-# CCDF with best fit (distance), se disponível
-if best_d is not None:
-    best_name, best_dist, best_params = best_d
-    # best_name já é "weibull" etc; usamos a survival function do scipy.stats dist
-    plot_ccdf_with_fit(all_d, "weibull" if best_name == "weibull" else best_name, best_params)
+print("\n=== RESULTS ===")
+print(f"Segments (distance): {len(all_d)}")
+print(f"Segments (height):   {len(all_h)}")
+
+if len(all_d) == 0 or len(all_h) == 0:
+    print("\nNada foi extraído. Normalmente é CRS/tiles fora do ponto, ou thresholds muito altos.")
+    print("Com as correções acima, isso costuma resolver; se ainda der zero, a URL/tiles pode não corresponder ao nome.")
+else:
+    def basic_stats(x):
+        return {
+            "N": len(x),
+            "mean": float(np.mean(x)),
+            "median": float(np.median(x)),
+            "std": float(np.std(x)),
+            "p95": float(np.percentile(x, 95)),
+            "p99": float(np.percentile(x, 99)),
+            "min": float(np.min(x)),
+            "max": float(np.max(x)),
+        }
+
+    print("\nDistance stats (km):", basic_stats(all_d))
+    print("Height stats (m):   ", basic_stats(all_h))
+
+    # Hist
+    plt.figure()
+    plt.hist(all_d, bins=120)
+    plt.title("Peak-Valley distance (km)")
+    plt.xlabel("Distance (km)")
+    plt.ylabel("Count")
+
+    plt.figure()
+    plt.hist(all_h, bins=120)
+    plt.title("Peak-Valley height (m)")
+    plt.xlabel("Height (m)")
+    plt.ylabel("Count")
+
+    # Fits
+    fit_d = fit_best_distribution(all_d)
+    fit_h = fit_best_distribution(all_h)
+
+    if fit_d:
+        best_d, all_res_d = fit_d
+        print("\nBest fit for distance by AIC:", best_d[1], "| AIC=", round(best_d[0], 2), "| KS p=", best_d[4])
+        plot_fit_on_hist(all_d, best_d, "Peak-Valley distance (km)")
+    else:
+        print("\nNot enough data to fit distance distributions.")
+
+    if fit_h:
+        best_h, all_res_h = fit_h
+        print("Best fit for height by AIC:", best_h[1], "| AIC=", round(best_h[0], 2), "| KS p=", best_h[4])
+        plot_fit_on_hist(all_h, best_h, "Peak-Valley height (m)")
+    else:
+        print("Not enough data to fit height distributions.")
+
+# =============================
+# MAP WITH RANDOM CUTS + COUNTRIES
+# =============================
+import geopandas as gpd
+
+# carregar shapefile global Natural Earth
+world = gpd.read_file(
+    "https://naturalearth.s3.amazonaws.com/110m_cultural/ne_110m_admin_0_countries.zip"
+)
+fig, ax = plt.subplots(figsize=(10,6))
+
+# ⭐ contornos dos países
+world.boundary.plot(ax=ax, color="black", linewidth=0.5)
+
+# ⭐ opcional: preencher países
+# world.plot(ax=ax, color="lightgray", edgecolor="white")
+
+# ⭐ paths
+for path in paths:
+    lats = [p[0] for p in path]
+    lons = [p[1] for p in path]
+    ax.plot(lons, lats, linewidth=1, alpha=0.8)
+
+ax.set_title("Random terrain cuts over countries")
+ax.set_xlabel("Longitude (deg)")
+ax.set_ylabel("Latitude (deg)")
+ax.grid(True, alpha=0.3)
+
+
+
+# ============================================================
+# ======================= P452 ANALYSIS ======================
+# ============================================================
+
+print("\n==============================================")
+print("Running P.452 comparison (DEM vs flat)")
+print("==============================================")
+
+from sharc.propagation.propagation_clear_air_452 import PropagationClearAir
+from sharc.parameters.parameters_p452 import ParametersP452
+
+# ------------------------------------------------------------
+# Setup P452
+# ------------------------------------------------------------
+rng = np.random.RandomState(1234)
+params_p452 = ParametersP452()
+prop452 = PropagationClearAir(rng, params_p452)
+
+DISTANCES_TEST = [50, 100, 150, 200, 250]
+
+loss_real = {d: [] for d in DISTANCES_TEST}
+loss_flat = {}
+
+# ------------------------------------------------------------
+# Helper function
+# ------------------------------------------------------------
+def compute_p452_loss(D_km, d_prof, h_prof):
+
+    distance = np.array([[D_km]])
+    freq = np.array([[6.0]])       # ajuste frequência se quiser
+    indoor = np.array([[False]])
+    elev = np.array([[0]])
+    txg = np.array([[0]])
+    rxg = np.array([[0]])
+
+    # ---------- com terreno ----------
+    params_p452.terrain_d = d_prof
+    params_p452.terrain_h = h_prof
+    loss_r = prop452.get_loss(distance, freq, indoor, elev, txg, rxg)[0, 0]
+
+    # ---------- sem terreno ----------
+    params_p452.terrain_d = None
+    params_p452.terrain_h = None
+    loss_f = prop452.get_loss(distance, freq, indoor, elev, txg, rxg)[0, 0]
+
+    return float(loss_r), float(loss_f)
+
+# ------------------------------------------------------------
+# Loop sobre perfis DEM
+# ------------------------------------------------------------
+print("\nProcessing DEM profiles with P.452...")
+
+for path in tqdm(paths, desc="P452 DEM profiles"):
+
+    # -------- extrair perfil DEM --------
+    elev = sample_elevation(path, tiles_ds)
+
+    valid = np.isfinite(elev)
+    if valid.sum() < 30:
+        continue
+
+    e = elev.copy()
+    idx = np.arange(len(e))
+    e[~valid] = np.interp(idx[~valid], idx[valid], e[valid])
+
+    # suavização leve
+    e_s = savgol_filter(e, 11, 3)
+
+    # -------- construir perfil d/h --------
+    d_profile = np.linspace(0, PATH_LENGTH_KM, len(e_s))
+    h_profile = e_s.copy()
+
+    # -------- truncar para distâncias alvo --------
+    for D in DISTANCES_TEST:
+
+        mask = d_profile <= D
+        if mask.sum() < 5:
+            continue
+
+        d_sub = d_profile[mask]
+        h_sub = h_profile[mask]
+
+        # garantir último ponto exatamente D
+        d_sub[-1] = D
+
+        lr, lf = compute_p452_loss(D, d_sub, h_sub)
+
+        loss_real[D].append(lr)
+        loss_flat[D] = lf
+
+# ------------------------------------------------------------
+# Plot results
+# ------------------------------------------------------------
+print("\nPlotting P.452 distributions...")
+
+fig, axs = plt.subplots(1, len(DISTANCES_TEST), figsize=(18,4), sharey=True)
+
+for i, D in enumerate(DISTANCES_TEST):
+
+    if len(loss_real[D]) == 0:
+        continue
+
+    axs[i].hist(loss_real[D], bins=25, density=True, alpha=0.7)
+    axs[i].axvline(loss_flat[D], color='r', lw=2)
+    axs[i].set_title(f"{D} km")
+
+axs[0].set_ylabel("PDF")
+plt.tight_layout()
+plt.show()
+
+# ------------------------------------------------------------
+# Envelope statistics
+# ------------------------------------------------------------
+print("\nP.452 statistics (DEM terrain):")
+
+for D in DISTANCES_TEST:
+    if len(loss_real[D]) == 0:
+        continue
+
+    arr = np.array(loss_real[D])
+    print(
+        f"{D} km -> "
+        f"mean={arr.mean():.2f}, "
+        f"p10={np.percentile(arr,10):.2f}, "
+        f"p50={np.percentile(arr,50):.2f}, "
+        f"p90={np.percentile(arr,90):.2f}"
+    )
+
+print("\nDone.")
+
 
 plt.show()
+
+# =============================
+# CLEANUP
+# =============================
+for ds in tiles_ds.values():
+    try:
+        ds.close()
+    except Exception:
+        pass

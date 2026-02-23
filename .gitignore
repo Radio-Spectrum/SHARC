@@ -5,6 +5,8 @@
 /sharc/campaigns/*/output/
 /sharc/campaigns/*/input/
 /sharc/campaigns/*/output_dl/
+/cop_tiles
+/cop90_tiles
 
 
 __pycache__

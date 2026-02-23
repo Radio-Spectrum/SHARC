@@ -1627,7 +1627,35 @@ class PropagationClearAir(Propagation):
 
         # Modify the path according to Section 4.5.4, Step 1  and compute clutter losses
         # consider no obstacles profile
-        if self.model_params.is_terrain:
+
+        terrain_d = getattr(self.model_params, "terrain_d", None)
+        terrain_h = getattr(self.model_params, "terrain_h", None)
+
+        use_profile = (
+            terrain_d is not None
+            and terrain_h is not None
+            and len(terrain_d) > 1
+            and len(terrain_h) == len(terrain_d)
+        )
+
+        if use_profile:
+            profile_d = terrain_d.copy()
+            profile_h = terrain_h.copy()
+
+            num_links = distance.shape[1]
+            profile_length = profile_d.size
+
+            # ⭐ orientação correta
+            d = np.zeros((num_links, profile_length), dtype=float)
+            h = np.zeros((num_links, profile_length), dtype=float)
+
+            for ii in range(num_links):
+                scale = distance[0, ii] / profile_d[-1]
+                d[ii,:] = profile_d * scale
+                h[ii,:] = profile_h
+
+            num_dists = distance.shape[1]
+        elif self.model_params.is_terrain:
             # --- RNG and distribution parameters ---------------------------------
             rng = np.random.default_rng()
 

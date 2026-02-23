@@ -1282,7 +1282,7 @@ class StationFactory(object):
                 x = np.array(x)
                 y = np.array(y)
             case "NETWORK":
-                x, y, _, _, _ = StationFactory.get_random_position(
+                x, y, *_ = StationFactory.get_random_position(
                     1, topology, random_number_gen,
                     param.geometry.location.network.min_dist_to_bs, False,
                 )

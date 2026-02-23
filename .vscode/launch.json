@@ -9,8 +9,8 @@
             "console": "integratedTerminal",
             "args": [
                 "-p",
-                "${workspaceFolder}/sharc/input/parameters.yaml"
-            ]
+            //    "${workspaceFolder}/sharc/input/parameters.yaml"
+                "/home/daniel/opt/SharcSimulator/SHARC-campaigns/campaigns/mss_d2d_to_mss_cochannel_study/input/parameter_mss_d2d_to_mss_cochannel_study_0.1load_es_mss.2100MHz.7.1.4-forward-R_mss_d2d_imt.2300-2690MHz.mss-dc.system3-340km.yaml" ]
         }
     ]
 }

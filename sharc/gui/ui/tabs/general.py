@@ -10,10 +10,30 @@ import copy
 import itertools
 
 # --- Project Imports ---
-# Ensure these exist in your project
 from utils import add_row_three
 from ui.tabs.assets.general_tab.variable_editor import VariableEditor
 from ui.tabs.assets.general_tab.general_tools import parse_list_safe
+
+
+# --- Helper Functions ---
+def _num_or_str(s):
+    """Robust converter for strings to float/int to ensure YAML types are correct."""
+    if s is None:
+        return None
+    if isinstance(s, (int, float)):
+        return s
+    s_str = str(s).strip()
+    if not s_str:
+        return None
+    if '.' not in s_str and 'e' not in s_str.lower():
+        try:
+            return int(s_str)
+        except:
+            pass
+    try:
+        return float(s_str)
+    except:
+        return s_str
 
 
 def load_param_file(filepath):
@@ -44,8 +64,13 @@ def deep_merge(base_dict, new_dict):
 
 class GeneralTab:
     """
-    Manages the 'General' tab and orchestrates the generation of complex YAML configuration files.
-    Includes builders to translate 'flat' UI variables into hierarchical Simulator structures.
+    Manages the 'General' tab for simulation parameters.
+    
+    Features:
+    - Master/Slave configuration generation.
+    - Live Data Collection (generates YAML from current UI state).
+    - File Injection (detects and loads JSON/YAML files from the variable table).
+    - Batch Generation with full hierarchy building for SES and SSS.
     """
 
     def __init__(self, app, parent_frame):
@@ -55,11 +80,21 @@ class GeneralTab:
         # Local State
         self.var_use_random_seed = tk.BooleanVar(value=False)
         self.path_entries = {}
+        
+        # List of functions to call to get current data from other tabs
+        self.data_collectors = []
 
-        # Build Interface
         self._build_top_toolbar()
         self._build_main_form()
         self._setup_traces()
+
+    # =========================================================================
+    # CONFIGURATION & REGISTRY
+    # =========================================================================
+    
+    def register_data_collector(self, collector_func):
+        """Registers a function that returns a dictionary of 'flat' parameters."""
+        self.data_collectors.append(collector_func)
 
     # =========================================================================
     # UI CONSTRUCTION
@@ -70,10 +105,7 @@ class GeneralTab:
         toolbar_frame.pack(side="top", fill="x", padx=5, pady=(10, 10))
 
         self.btn_files = ttk.Menubutton(
-            toolbar_frame,
-            text="📁 File Operations (Presets)",
-            bootstyle="primary",
-            width=25
+            toolbar_frame, text="📁 File Operations (Presets)", bootstyle="primary", width=25
         )
         self.btn_files.pack(side="left")
 
@@ -92,24 +124,16 @@ class GeneralTab:
 
         # --- Row 1: Seed & Snapshots ---
         f_seed_cont = ttk.Frame(frm)
-        self.e_seed = ttk.Entry(
-            f_seed_cont, textvariable=self.app.var_seed,
-            width=8, validate='key', validatecommand=vcmd
-        )
+        self.e_seed = ttk.Entry(f_seed_cont, textvariable=self.app.var_seed, width=8, validate='key', validatecommand=vcmd)
         self.e_seed.pack(side="left")
 
         cb_rnd = ttk.Checkbutton(
-            f_seed_cont, text="Random",
-            variable=self.var_use_random_seed,
-            command=self._toggle_random_seed,
-            bootstyle="round-toggle"
+            f_seed_cont, text="Random", variable=self.var_use_random_seed,
+            command=self._toggle_random_seed, bootstyle="round-toggle"
         )
         cb_rnd.pack(side="left", padx=(10, 0))
 
-        e_snaps = ttk.Entry(
-            frm, textvariable=self.app.var_snaps,
-            width=12, validate='key', validatecommand=vcmd
-        )
+        e_snaps = ttk.Entry(frm, textvariable=self.app.var_snaps, width=12, validate='key', validatecommand=vcmd)
 
         cb_sys = ttk.Combobox(
             frm, textvariable=self.app.var_system,
@@ -117,11 +141,7 @@ class GeneralTab:
             state="readonly", width=26
         )
 
-        add_row_three(frm, 0, [
-            ("Seed", f_seed_cont),
-            ("Num Snapshots", e_snaps),
-            ("System Type", cb_sys)
-        ])
+        add_row_three(frm, 0, [("Seed", f_seed_cont), ("Num Snapshots", e_snaps), ("System Type", cb_sys)])
 
         # --- Row 2 & 3: Paths ---
         self._build_path_row(frm, 1, "Output Dir", self.app.var_outdir, self._pick_outdir)
@@ -130,36 +150,23 @@ class GeneralTab:
         # --- Row 4: Config & Overwrite ---
         e_prefix = ttk.Entry(frm, textvariable=self.app.var_prefix)
         cb_link = ttk.Combobox(
-            frm, textvariable=self.app.var_imt_link,
-            values=["DOWNLINK", "UPLINK"], state="readonly", width=18
+            frm, textvariable=self.app.var_imt_link, values=["DOWNLINK", "UPLINK"], state="readonly", width=18
         )
         cb_overwrite = ttk.Checkbutton(
-            frm, variable=self.app.var_overwrite,
-            text="Overwrite", bootstyle="round-toggle"
+            frm, variable=self.app.var_overwrite, text="Overwrite", bootstyle="round-toggle"
         )
 
-        add_row_three(frm, 3, [
-            ("Filename Prefix", e_prefix),
-            ("IMT Link Direction", cb_link),
-            ("Output Options", cb_overwrite)
-        ])
+        add_row_three(frm, 3, [("Filename Prefix", e_prefix), ("IMT Link Direction", cb_link), ("Output Options", cb_overwrite)])
 
-        # --- Preview Label ---
-        self.lbl_preview = ttk.Label(
-            frm, text="Preview: ...", foreground="gray", font=("Segoe UI", 8, "italic"))
+        self.lbl_preview = ttk.Label(frm, text="Preview: ...", foreground="gray", font=("Segoe UI", 8, "italic"))
         self.lbl_preview.grid(row=4, column=0, columnspan=6, sticky="w", padx=5, pady=(0, 5))
 
         # --- Row 5: Interference Flags ---
         cb_adj = ttk.Checkbutton(frm, variable=self.app.var_adj, text="Active", bootstyle="square-toggle")
         cb_coch = ttk.Checkbutton(frm, variable=self.app.var_coch, text="Active", bootstyle="square-toggle")
 
-        add_row_three(frm, 5, [
-            ("Enable Adj Channel", cb_adj),
-            ("Enable Co-Channel", cb_coch),
-            ("", ttk.Label(frm, text=""))
-        ])
+        add_row_three(frm, 5, [("Enable Adj Channel", cb_adj), ("Enable Co-Channel", cb_coch), ("", ttk.Label(frm, text=""))])
 
-        # --- Variable Table ---
         self._build_var_table_ui()
 
     def _build_path_row(self, parent, row_idx, label_text, var, cmd):
@@ -187,374 +194,380 @@ class GeneralTab:
         self.var_table.heading("var", text="Variable Name")
         self.var_table.heading("tags", text="Replacement Tags")
         self.var_table.heading("values", text="Values List")
-        self.var_table.column("var", width=150)
-        self.var_table.column("tags", width=250)
-        self.var_table.column("values", width=450)
+        self.var_table.column("var", width=150); self.var_table.column("tags", width=250); self.var_table.column("values", width=450)
         self.var_table.pack(fill="both", expand=True, pady=(4, 6))
         self.var_table.bind("<Double-1>", lambda e: self._var_edit())
 
-        # Generate Button
         row_gen = ttk.Frame(self.frame)
         row_gen.pack(fill="x", pady=(15, 0))
-        ttk.Button(
-            row_gen, text="⚡ GENERATE YAML FILES",
-            command=self.save_yaml_to_yamldir,
-            bootstyle="success", width=25
-        ).pack(side="left")
+
+        self.btn_actions = ttk.Menubutton(
+            row_gen, text="⚡ ACTIONS / GENERATION", bootstyle="success", width=30
+        )
+        self.btn_actions.pack(side="left")
+
+        self.menu_actions = tk.Menu(self.btn_actions, tearoff=0)
+        self.btn_actions.configure(menu=self.menu_actions)
+
+        self.menu_actions.add_command(
+            label="🚀 Batch Generate (from Table Variables)", 
+            command=self.save_yaml_to_yamldir
+        )
 
     # =========================================================================
-    # CORE GENERATION LOGIC (UPDATED WITH BUILDERS)
+    # CORE GENERATION LOGIC
     # =========================================================================
+
+    def _collect_app_globals(self):
+        """Fallback: Scans self.app for Tkinter variables."""
+        data = {}
+        for key in dir(self.app):
+            if key.startswith('_'): continue
+            val = getattr(self.app, key)
+            if isinstance(val, (tk.StringVar, tk.DoubleVar, tk.IntVar, tk.BooleanVar)):
+                try: data[key] = val.get()
+                except: pass
+        return data
 
     def save_yaml_to_yamldir(self):
-        """
-        Generates YAML files using a structured builder pattern.
-        Converts flat UI variables into nested dictionary structures.
-        """
-        
-        # 1. Identify System Type and Key
-        sys_type = self.app.var_system.get()
-        # Ensure correct mapping: SINGLE_SPACE_STATION -> single_space_station
-        sys_key = sys_type.lower() 
+        self._internal_save_logic(use_combinations=True)
 
-        # 2. Base Configuration (The 'general' block)
-        general_conf = {
-            "seed": int(self.app.var_seed.get()) if not self.var_use_random_seed.get() else "RANDOM",
-            "num_snapshots": int(self.app.var_snaps.get()),
-            "overwrite_output": self.app.var_overwrite.get(),
-            "output_dir": self.app.var_outdir.get(),
-            "output_dir_prefix": self.app.var_prefix.get(),
-            "system": sys_type,
-            "imt_link": self.app.var_imt_link.get(),
-            "enable_adjacent_channel": self.app.var_adj.get(),
-            "enable_cochannel": self.app.var_coch.get()
-        }
-
-        # 3. Prepare Combinations
-        vars_processed = []
-        for child in self.var_table.get_children():
-            row = self.var_table.item(child)["values"]
-            tags = parse_list_safe(row[1], [])
-            vals = parse_list_safe(row[2], [])
-            
-            if len(tags) == len(vals):
-                vars_processed.append([(row[0], t, v) for t, v in zip(tags, vals)])
-            else:
-                messagebox.showerror("Error", f"Length mismatch in variable '{row[0]}'")
+    def _internal_save_logic(self, use_combinations=True):
+        if use_combinations:
+            table_children = self.var_table.get_children()
+            if not table_children:
+                messagebox.showwarning("Generation Aborted", "The variable table is empty.")
                 return
+
+        sys_type = self.app.var_system.get()
+        sys_key = sys_type.lower()
+
+        # Base Configuration (General)
+        general_conf = {
+            "seed": _num_or_str(self.app.var_seed.get()) if not self.var_use_random_seed.get() else "RANDOM",
+            "num_snapshots": int(_num_or_str(self.app.var_snaps.get()) or 0),
+            "overwrite_output": bool(self.app.var_overwrite.get()),
+            "output_dir": str(self.app.var_outdir.get()),
+            "output_dir_prefix": str(self.app.var_prefix.get()),
+            "system": sys_type,
+            "imt_link": str(self.app.var_imt_link.get()),
+            "enable_adjacent_channel": bool(self.app.var_adj.get()),
+            "enable_cochannel": bool(self.app.var_coch.get())
+        }
         
-        combinations = list(itertools.product(*vars_processed)) if vars_processed else [[]]
+        live_imt = {}
+        live_sys = {}
+        
+        # Collect LIVE DATA
+        for collector in self.data_collectors:
+            try:
+                flat_data = collector()
+                if not flat_data: continue
+                if self._is_imt_data(flat_data):
+                    deep_merge(live_imt, self._build_imt_hierarchy(flat_data))
+                elif self._is_system_data(flat_data):
+                    deep_merge(live_sys, self._build_system_hierarchy(flat_data, sys_type))
+            except Exception as e:
+                print(f"Warning: Collector error: {e}")
+
+        # Fallback for app globals (SES variables usually reside in app)
+        app_globals = self._collect_app_globals()
+        deep_merge(live_sys, self._build_system_hierarchy(app_globals, sys_type))
+        deep_merge(live_imt, self._build_imt_hierarchy(app_globals))
+
+        combinations = [[]]
+        if use_combinations:
+            vars_processed = []
+            for child in self.var_table.get_children():
+                row = self.var_table.item(child)["values"]
+                tags = parse_list_safe(row[1], [])
+                vals = parse_list_safe(row[2], [])
+                if len(tags) == len(vals) and len(tags) > 0:
+                    vars_processed.append([(row[0], t, v) for t, v in zip(tags, vals)])
+            if vars_processed:
+                combinations = list(itertools.product(*vars_processed))
         
         save_dir = Path(self.app.var_yaml_dir.get())
         if not save_dir.exists():
-            try:
-                save_dir.mkdir(parents=True, exist_ok=True)
-            except Exception as e:
-                messagebox.showerror("Error", f"Could not create directory: {e}")
-                return
+            save_dir.mkdir(parents=True, exist_ok=True)
 
         count = 0
         prefix_tmpl = self.app.var_prefix.get()
 
-        # 4. Loop through combinations
+        # Generation Loop
         for combo in combinations:
-            # Initialize Strict Structure
             final_structure = {
                 "general": copy.deepcopy(general_conf),
-                "imt": {},
-                sys_key: {}
+                "imt": copy.deepcopy(live_imt),
+                sys_key: copy.deepcopy(live_sys)
             }
             
             fname_vars = {}
 
+            # Apply Variable Overrides (Detect Files)
             for var_name, var_tag, var_val in combo:
                 fname_vars[var_name] = var_tag
                 
-                # Check if value is a file path to load
-                is_file = False
-                if isinstance(var_val, str):
-                    clean_val = var_val.strip()
-                    if clean_val.lower().endswith(('.json', '.yaml', '.yml')) and Path(clean_val).exists():
-                        is_file = True
-                
-                if is_file:
-                    flat_data = load_param_file(var_val)
-                    
-                    # --- BUILDER LOGIC ---
-                    # 1. Check if it's IMT data (flat)
-                    if self._is_imt_data(flat_data):
-                        structured_imt = self._build_imt_hierarchy(flat_data)
-                        deep_merge(final_structure["imt"], structured_imt)
-                    
-                    # 2. Check if it's System data (flat or partial)
-                    elif self._is_system_data(flat_data):
-                        structured_sys = self._build_system_hierarchy(flat_data, sys_type)
-                        deep_merge(final_structure[sys_key], structured_sys)
-                    
-                    # 3. Fallback: Maybe it's already a structured YAML fragment?
+                # Check for File Injection (Original feature you requested)
+                if isinstance(var_val, str) and var_val.lower().endswith(('.json', '.yaml', '.yml')) and Path(var_val).exists():
+                    external_data = load_param_file(var_val)
+                    if self._is_imt_data(external_data):
+                        deep_merge(final_structure["imt"], self._build_imt_hierarchy(external_data))
+                    elif self._is_system_data(external_data):
+                        deep_merge(final_structure[sys_key], self._build_system_hierarchy(external_data, sys_type))
                     else:
-                        # Try to merge into root if keys match root keys, else default to general?
-                        # For safety, we merge to root
-                        deep_merge(final_structure, flat_data)
-                
+                        deep_merge(final_structure, external_data)
                 else:
-                    # Simple variable (not file)
-                    # We can assume it might be used for prefix, or we could add to general
-                    # final_structure["general"][var_name] = var_val
-                    pass
+                    # Logic for simple variable replacement in General or IMT
+                    if var_name in final_structure["general"]:
+                        final_structure["general"][var_name] = _num_or_str(var_val)
 
-            # 5. Finalize Filename
+            # Filename Logic
             try:
-                fname = prefix_tmpl.format(**fname_vars)
+                fname = prefix_tmpl.format(**fname_vars) if use_combinations and fname_vars else prefix_tmpl.replace("{","").replace("}","")
+                if not use_combinations: fname += "_snapshot"
                 final_structure["general"]["output_dir_prefix"] = fname
                 if not fname.endswith('.yaml'): fname += ".yaml"
             except KeyError as e:
-                messagebox.showerror("Error", f"Prefix requires variable {e} which is missing.")
+                messagebox.showerror("Error", f"Prefix requires variable {e}")
                 return
 
-            # Handle Random Seed
             if final_structure["general"]["seed"] == "RANDOM":
                 final_structure["general"]["seed"] = random.randint(1, 999999)
 
-            # 6. Save
             out_path = save_dir / fname
-            try:
-                with open(out_path, 'w', encoding='utf-8') as f:
-                    yaml.dump(final_structure, f, default_flow_style=False, sort_keys=False)
-                count += 1
-            except Exception as e:
-                print(f"Error saving {fname}: {e}")
-
-        messagebox.showinfo("Success", f"Generated {count} configuration files in:\n{save_dir}")
+            with open(out_path, 'w', encoding='utf-8') as f:
+                yaml.dump(final_structure, f, default_flow_style=False, sort_keys=False)
+            count += 1
+        
+        messagebox.showinfo("Success", f"Generated {count} configuration files in {save_dir}")
 
     # =========================================================================
-    # HIERARCHY BUILDERS (TRANSLATORS)
+    # HIERARCHY BUILDERS (MATCHING SES.YAML AND SSS.YAML)
     # =========================================================================
 
     def _is_imt_data(self, data):
-        """Heuristic to detect if flat data belongs to IMT tab."""
-        # Look for unique keys defined in IMT tab
-        markers = ["bs_power", "ue_height", "topo_type", "imt_freq", "ue_indoor", "macro_intersite"]
+        markers = ["imt_freq", "bs_power", "ue_height", "topo_type"]
         return any(k in data for k in markers)
 
     def _is_system_data(self, data):
-        """Heuristic to detect if flat data belongs to System tab."""
-        # Look for unique keys defined in SES/SSS tab
-        markers = ["tx_power_density", "noise_temperature", "p452", "geometry", "es_lat_deg"]
+        markers = ["v_freq", "se_frequency", "v_txpsd", "v_alt", "se_height"]
         return any(k in data for k in markers)
 
     def _build_imt_hierarchy(self, flat):
-        """
-        Translates flat IMT variables into the nested YAML structure.
-        """
+        n = _num_or_str
         def g(k, d=None): return flat.get(k, d)
         
-        imt = {}
+        imt = {
+            "minimum_separation_distance_bs_ue": n(g("imt_min_sep", 10.0)),
+            "interfered_with": bool(g("imt_interfered", False)),
+            "frequency": n(g("imt_freq", 3500.0)),
+            "bandwidth": n(g("imt_bw", 100.0)),
+            "rb_bandwidth": n(g("imt_rb_bw", 0.18)),
+            "spectral_mask": str(g("imt_spec_mask", "IMT-2020")),
+            "spurious_emissions": n(g("imt_spurious", -13.0)),
+            "adjacent_antenna_model": str(g("imt_adj_ant_model", "ITU-R F.1336")),
+            "guard_band_ratio": n(g("imt_guard_ratio", 0.0))
+        }
 
-        # 1. Global IMT Parameters
-        if "imt_min_sep" in flat: imt["minimum_separation_distance_bs_ue"] = g("imt_min_sep")
-        if "imt_interfered" in flat: imt["interfered_with"] = g("imt_interfered")
-        if "imt_freq" in flat: imt["frequency"] = g("imt_freq")
-        if "imt_bw" in flat: imt["bandwidth"] = g("imt_bw")
-        if "imt_rb_bw" in flat: imt["rb_bandwidth"] = g("imt_rb_bw")
-        if "imt_spec_mask" in flat: imt["spectral_mask"] = g("imt_spec_mask")
-        if "imt_spurious" in flat: imt["spurious_emissions"] = g("imt_spurious")
-        if "imt_adj_ant_model" in flat: imt["adjacent_antenna_model"] = g("imt_adj_ant_model")
-        if "imt_guard_ratio" in flat: imt["guard_band_ratio"] = g("imt_guard_ratio")
+        topo_type = str(g("topo_type", "HOTSPOT"))
+        imt["topology"] = {
+            "central_latitude": n(g("topo_c_lat", -15.79)),
+            "central_longitude": n(g("topo_c_lon", -47.88)),
+            "central_altitude": n(g("topo_c_alt", 1000.0)),
+            "type": topo_type
+        }
 
-        # 2. Topology
-        if "topo_type" in flat:
-            imt["topology"] = {
-                "central_latitude": g("topo_c_lat"),
-                "central_longitude": g("topo_c_lon"),
-                "central_altitude": g("topo_c_alt"),
-                "type": g("topo_type")
+        if topo_type == "HOTSPOT":
+            imt["topology"]["hotspot"] = {
+                "intersite_distance": n(g("hotspot_intersite", 500.0)),
+                "wrap_around": bool(g("hotspot_wrap", False)),
+                "num_clusters": int(n(g("hotspot_clusters", 1))),
+                "num_hotspots_per_cell": int(n(g("hotspot_num_per_cell", 3))),
+                "max_dist_hotspot_ue": n(g("hotspot_max_dist_ue", 100.0)),
+                "min_dist_bs_hotspot": n(g("hotspot_min_dist_bs", 50.0))
             }
-            if g("topo_type") == "MACROCELL":
-                imt["topology"]["macrocell"] = {
-                    "intersite_distance": g("macro_intersite"),
-                    "wrap_around": g("macro_wrap"),
-                    "num_clusters": int(g("macro_clusters", 1))
+        elif topo_type == "MACROCELL":
+            imt["topology"]["macrocell"] = {
+                "intersite_distance": n(g("macro_intersite", 500.0)),
+                "wrap_around": bool(g("macro_wrap", False)),
+                "num_clusters": int(n(g("macro_clusters", 1)))
+            }
+
+        imt["bs"] = {
+            "load_probability": n(g("bs_load_prob", 1.0)),
+            "conducted_power": n(g("bs_power", 46.0)),
+            "height": n(g("bs_height", 30.0)),
+            "noise_figure": n(g("bs_nf", 5.0)),
+            "ohmic_loss": n(g("bs_ohmic", 2.0)),
+            "antenna": {"array": {
+                "normalization": bool(g("bs_norm", False)),
+                "element_pattern": str(g("bs_elem_pat", "M2101")),
+                "minimum_array_gain": n(g("bs_min_arr_gain", 0.0)),
+                "horizontal_beamsteering_range": [n(g("bs_h_steer_min", -60.0)), n(g("bs_h_steer_max", 60.0))],
+                "vertical_beamsteering_range": [n(g("bs_v_steer_min", -15.0)), n(g("bs_v_steer_max", 15.0))],
+                "downtilt": n(g("bs_downtilt", 0.0)),
+                "element_max_g": n(g("bs_elem_max_g", 5.0)),
+                "element_phi_3db": n(g("bs_phi3", 65.0)),
+                "element_theta_3db": n(g("bs_theta3", 65.0)),
+                "n_rows": n(g("bs_rows", 8.0)),
+                "n_columns": n(g("bs_cols", 8.0)),
+                "element_horiz_spacing": n(g("bs_elem_hs", 0.5)),
+                "element_vert_spacing": n(g("bs_elem_vs", 0.5)),
+                "element_am": n(g("bs_elem_am", 30.0)),
+                "element_sla_v": n(g("bs_elem_sla_v", 30.0)),
+                "multiplication_factor": n(g("bs_mult", 1.0)),
+                "subarray": {
+                    "is_enabled": bool(g("bs_sub_enabled", False)),
+                    "n_rows": n(g("bs_sub_rows", 2.0)),
+                    "element_vert_spacing": n(g("bs_sub_evspace", 0.8)),
+                    "eletrical_downtilt": n(g("bs_sub_e_downtilt", 0.0))
                 }
-            # Add other topology types (HOTSPOT/SBS) if needed using similar logic
+            }}
+        }
 
-        # 3. Base Station (BS)
-        if "bs_power" in flat:
-            imt["bs"] = {
-                "load_probability": g("bs_load_prob"),
-                "conducted_power": g("bs_power"),
-                "height": g("bs_height"),
-                "noise_figure": g("bs_nf"),
-                "ohmic_loss": g("bs_ohmic"),
-                "antenna": {
-                    "array": {
-                        "normalization": g("bs_norm"),
-                        "element_pattern": g("bs_elem_pat"),
-                        "minimum_array_gain": g("bs_min_arr_gain"),
-                        "horizontal_beamsteering_range": [g("bs_h_steer_min"), g("bs_h_steer_max")],
-                        "vertical_beamsteering_range": [g("bs_v_steer_min"), g("bs_v_steer_max")],
-                        "downtilt": g("bs_downtilt"),
-                        "element_max_g": g("bs_elem_max_g"),
-                        "element_phi_3db": g("bs_phi3"),
-                        "element_theta_3db": g("bs_theta3"),
-                        "n_rows": g("bs_rows"),
-                        "n_columns": g("bs_cols"),
-                        "element_horiz_spacing": g("bs_elem_hs"),
-                        "element_vert_spacing": g("bs_elem_vs"),
-                        "element_am": g("bs_elem_am"),
-                        "element_sla_v": g("bs_elem_sla_v"),
-                        "multiplication_factor": g("bs_mult"),
-                        "subarray": {
-                            "is_enabled": g("bs_sub_enabled"),
-                            "n_rows": g("bs_sub_rows"),
-                            "element_vert_spacing": g("bs_sub_evspace"),
-                            "eletrical_downtilt": g("bs_sub_e_downtilt")
-                        }
-                    }
-                }
-            }
+        imt["ue"] = {
+            "k": int(n(g("ue_k", 1))),
+            "k_m": int(n(g("ue_km", 1))),
+            "indoor_percent": n(g("ue_indoor", 80.0)),
+            "distribution_type": str(g("ue_dist_type", "UNIFORM")),
+            "tx_power_control": bool(g("ue_tx_power_ctrl", True)),
+            "p_o_pusch": n(g("ue_p_o_pusch", -90.0)),
+            "alpha": n(g("ue_alpha", 0.8)),
+            "p_cmax": n(g("ue_p_cmax", 23.0)),
+            "power_dynamic_range": n(g("ue_p_dyn", 20.0)),
+            "height": n(g("ue_height", 1.5)),
+            "noise_figure": n(g("ue_nf", 9.0)),
+            "ohmic_loss": n(g("ue_ohmic", 0.0)),
+            "body_loss": n(g("ue_body_loss", 0.0)),
+            "antenna": {"array": {
+                "normalization": bool(g("ue_norm", False)),
+                "element_pattern": str(g("ue_elem_pat", "FIXED")),
+                "minimum_array_gain": n(g("ue_min_arr_gain", -10.0)),
+                "element_max_g": n(g("ue_elem_max_g", 0.0)),
+                "element_phi_3db": n(g("ue_phi3", 90.0)),
+                "element_theta_3db": n(g("ue_theta3", 90.0)),
+                "n_rows": n(g("ue_rows", 1.0)),
+                "n_columns": n(g("ue_cols", 1.0)),
+                "element_am": n(g("ue_elem_am", 20.0)),
+                "element_sla_v": n(g("ue_elem_sla_v", 20.0)),
+                "multiplication_factor": n(g("ue_mult", 1.0))
+            }}
+        }
 
-        # 4. UE
-        if "ue_height" in flat:
-            imt["ue"] = {
-                "k": int(g("ue_k", 1)),
-                "k_m": int(g("ue_km", 1)),
-                "indoor_percent": g("ue_indoor"),
-                "distribution_type": g("ue_dist_type"),
-                "tx_power_control": g("ue_tx_power_ctrl"),
-                "p_o_pusch": g("ue_p_o_pusch"),
-                "alpha": g("ue_alpha"),
-                "p_cmax": g("ue_p_cmax"),
-                "power_dynamic_range": g("ue_p_dyn"),
-                "height": g("ue_height"),
-                "noise_figure": g("ue_nf"),
-                "ohmic_loss": g("ue_ohmic"),
-                "body_loss": g("ue_body_loss"),
-                "antenna": {
-                    "array": {
-                        "normalization": g("ue_norm"),
-                        "element_pattern": g("ue_elem_pat"),
-                        "minimum_array_gain": g("ue_min_arr_gain"),
-                        "element_max_g": g("ue_elem_max_g"),
-                        "element_phi_3db": g("ue_phi3"),
-                        "element_theta_3db": g("ue_theta3"),
-                        "n_rows": g("ue_rows"),
-                        "n_columns": g("ue_cols"),
-                        "element_am": g("ue_elem_am"),
-                        "element_sla_v": g("ue_elem_sla_v"),
-                        "multiplication_factor": g("ue_mult")
-                    }
-                }
-            }
-
-        # 5. Link & Channel
-        if "ul_sinr_min" in flat:
-            imt["uplink"] = {
-                "attenuation_factor": g("ul_att"),
-                "sinr_min": g("ul_sinr_min"),
-                "sinr_max": g("ul_sinr_max")
-            }
-        if "dl_sinr_min" in flat:
-            imt["downlink"] = {
-                "attenuation_factor": g("dl_att"),
-                "sinr_min": g("dl_sinr_min"),
-                "sinr_max": g("dl_sinr_max")
-            }
-        if "ch_model" in flat: imt["channel_model"] = g("ch_model")
-        if "shadowing" in flat: imt["shadowing"] = g("shadowing")
-
+        imt["uplink"] = {"attenuation_factor": n(g("ul_att", 0.0)), "sinr_min": n(g("ul_sinr_min", -10.0)), "sinr_max": n(g("ul_sinr_max", 30.0))}
+        imt["downlink"] = {"attenuation_factor": n(g("dl_att", 0.0)), "sinr_min": n(g("dl_sinr_min", -10.0)), "sinr_max": n(g("dl_sinr_max", 30.0))}
+        imt["channel_model"] = str(g("ch_model", "Uma"))
+        imt["shadowing"] = bool(g("shadowing", True))
         return imt
 
     def _build_system_hierarchy(self, flat, sys_type):
-        """
-        Translates flat System variables into the nested YAML structure.
-        """
+        n = _num_or_str
         def g(k, d=None): return flat.get(k, d)
         
-        sys = {}
-        
-        # Standard Params
-        if "frequency" in flat: sys["frequency"] = g("frequency")
-        if "bandwidth" in flat: sys["bandwidth"] = g("bandwidth")
-        if "tx_power_density" in flat: sys["tx_power_density"] = g("tx_power_density")
-        if "noise_temperature" in flat: sys["noise_temperature"] = g("noise_temperature")
-        if "channel_model" in flat: sys["channel_model"] = g("channel_model")
-        if "polarization_loss" in flat: sys["polarization_loss"] = g("polarization_loss")
+        if sys_type == "SINGLE_SPACE_STATION":
+            sys = {
+                "frequency": n(g("v_freq", 3500.0)),
+                "bandwidth": n(g("v_bw", 100.0)),
+                "tx_power_density": n(g("v_txpsd", -30.0)),
+                "polarization_loss": n(g("v_pol_loss", 3.0)),
+                "noise_temperature": n(g("v_tnoise", 290.0)),
+                "channel_model": str(g("v_ch_model", "FSPL")),
+                "is_global_coordinate_system": bool(g("ss_is_global_cs", False)),
+                "season": str(g("v_season", "SUMMER")),
+                "param_p619": {
+                    "mean_clutter_height": str(g("v_p619_clutter", "Mid")),
+                    "below_rooftop": n(g("v_p619_below_rooftop", 0.0)),
+                },
+                "geometry": {
+                    "altitude": n(g("v_alt", 35786000.0)),
+                    "location": {
+                        "type": "FIXED",
+                        "fixed": {"lat_deg": n(g("v_fix_lat", 0.0)), "long_deg": n(g("v_fix_lon", -47.0))}
+                    },
+                    "es_altitude": n(g("v_es_alt", 0.0)),
+                    "es_lat_deg": n(g("v_es_lat", -15.79)),
+                    "es_long_deg": n(g("v_es_lon", -47.88)),
+                    "azimuth": {"type": str(g("v_az_type", "POINTING_AT_IMT"))},
+                    "elevation": {"type": str(g("v_el_type", "POINTING_AT_IMT"))},
+                },
+                "antenna": {
+                    "pattern": str(g("v_ant_pattern", "ITU-R S.672")),
+                    "gain": n(g("v_ant_gain", 30.0)),
+                }
+            }
+            if g("v_ant_pattern") == "ITU-R S.672":
+                sys["antenna"]["itu_r_s_672"] = {
+                    "antenna_3_dB": n(g("v_s672_3db", 2.0)),
+                    "antenna_l_s": n(g("v_s672_ls", -20.0)),
+                }
+            return sys
 
-        # Complex Blocks (Usually saved as dicts in the JSON by SES/SSS tabs)
-        if "geometry" in flat: sys["geometry"] = flat["geometry"]
-        if "antenna" in flat: sys["antenna"] = flat["antenna"]
-        if "param_p619" in flat: sys["param_p619"] = flat["param_p619"]
-        
-        # P452 Handling
-        # If the key 'p452' exists at the top level of the JSON, ensure it goes into the system block
-        if "p452" in flat: sys["p452"] = flat["p452"]
-
-        return sys
+        elif sys_type == "SINGLE_EARTH_STATION":
+            sys = {
+                "frequency": n(g("se_frequency", 3800.0)),
+                "bandwidth": n(g("se_bandwidth", 100.0)),
+                "noise_temperature": n(g("se_noise_temperature", 290.0)),
+                "adjacent_ch_reception": str(g("se_adjacent_ch_reception", "OFF")),
+                "adjacent_ch_selectivity": n(g("se_adjacent_ch_selectivity", 0.0)),
+                "adjacent_ch_emissions": str(g("se_adjacent_ch_emissions", "OFF")),
+                "adjacent_ch_leak_ratio": n(g("se_adjacent_ch_leak_ratio", 0.0)),
+                "spectral_mask": str(g("se_spectral_mask", "")),
+                "spurious_emissions": n(g("se_spurious_emissions", -60.0)),
+                "tx_power_density": n(g("se_tx_power_density", -50.0)),
+                "height": n(g("se_height", 10.0)),
+                "geometry": {
+                    "location": {
+                        "type": str(g("se_loc_type", "FIXED")),
+                        "fixed": {"x": n(g("se_loc_fixed_x", 0.0)), "y": n(g("se_loc_fixed_y", 0.0))},
+                        "cell": {"min_dist_to_bs": n(g("se_loc_cell_min_dist_to_bs", 100.0))},
+                        "network": {"min_dist_to_bs": n(g("se_loc_network_min_dist_to_bs", 500.0))},
+                        "uniform_dist": {
+                            "min_dist_to_center": n(g("se_loc_ud_min_dist_to_center", 0.0)),
+                            "max_dist_to_center": n(g("se_loc_ud_max_dist_to_center", 1000.0))
+                        },
+                    },
+                    "azimuth": {
+                        "type": str(g("se_az_type", "FIXED")),
+                        "fixed": n(g("se_az_fixed", 0.0)),
+                        "uniform_dist": {"min": n(g("se_az_ud_min", 0.0)), "max": n(g("se_az_ud_max", 360.0))},
+                    },
+                    "elevation": {
+                        "type": str(g("se_el_type", "FIXED")),
+                        "fixed": n(g("se_el_fixed", 0.0)),
+                        "uniform_dist": {"min": n(g("se_el_ud_min", 0.0)), "max": n(g("se_el_ud_max", 90.0))},
+                    },
+                },
+                "antenna": {
+                    "pattern": str(g("se_ant_pattern", "ITU-R F.699")),
+                    "gain": n(g("se_ant_gain", 30.0)),
+                    "diameter": n(g("se_ant_diameter", 1.2)),
+                    "envelope_gain": n(g("se_ant_envelope_gain", 0.0)),
+                },
+                "channel_model": str(g("se_channel_model", "FSPL")),
+                "p452": {
+                    "atmospheric_pressure": n(g("p452_atmospheric_pressure", 1013.25)),
+                    "air_temperature": n(g("p452_air_temperature", 293.15)),
+                    "N0": n(g("p452_N0", 315.0)),
+                    "delta_N": n(g("p452_delta_N", 45.0)),
+                    "percentage_p": n(g("p452_percentage_p", 20.0)),
+                    "Dct": n(g("p452_Dct", 500.0)),
+                    "Dcr": n(g("p452_Dcr", 500.0)),
+                    "Hte": n(g("p452_Hte", 18.0)),
+                    "tx_lat": n(g("p452_tx_lat", 45.0)),
+                    "rx_lat": n(g("p452_rx_lat", 45.0)),
+                    "polarization": n(g("p452_polarization", 0.0)),
+                    "clutter_loss": bool(g("p452_clutter_loss", False)),
+                    "clutter_type": str(g("p452_clutter_type", "one_end")),
+                    "is_terrain": bool(g("p452_is_terrain", False)),
+                },
+            }
+            return sys
+        return {}
 
     # =========================================================================
-    # PRESET LOGIC
+    # UI LOGIC & EVENTS
     # =========================================================================
-
-    def save_config(self):
-        table_data = []
-        for child in self.var_table.get_children():
-            table_data.append(self.var_table.item(child)["values"])
-
-        data = {
-            "seed": self.app.var_seed.get(),
-            "use_random_seed": self.var_use_random_seed.get(),
-            "snaps": self.app.var_snaps.get(),
-            "system": self.app.var_system.get(),
-            "output_dir": self.app.var_outdir.get(),
-            "yaml_dir": self.app.var_yaml_dir.get(),
-            "prefix": self.app.var_prefix.get(),
-            "imt_link": self.app.var_imt_link.get(),
-            "overwrite": self.app.var_overwrite.get(),
-            "adj_channel": self.app.var_adj.get(),
-            "co_channel": self.app.var_coch.get(),
-            "variables_table": table_data
-        }
-        fpath = filedialog.asksaveasfilename(
-            defaultextension=".json", filetypes=[("JSON Configuration", "*.json")], title="Save Configuration Preset"
-        )
-        if fpath:
-            try:
-                with open(fpath, "w", encoding="utf-8") as f:
-                    json.dump(data, f, indent=4)
-                messagebox.showinfo("Success", f"Preset saved to:\n{Path(fpath).name}")
-            except Exception as e:
-                messagebox.showerror("Error", f"Failed to save preset:\n{e}")
-
-    def load_config(self):
-        fpath = filedialog.askopenfilename(filetypes=[("JSON Configuration", "*.json")], title="Load Configuration Preset")
-        if not fpath: return
-        try:
-            with open(fpath, "r", encoding="utf-8") as f:
-                data = json.load(f)
-
-            self.app.var_seed.set(data.get("seed", "123"))
-            self.var_use_random_seed.set(data.get("use_random_seed", False))
-            self._toggle_random_seed()
-            self.app.var_snaps.set(data.get("snaps", "100"))
-            self.app.var_system.set(data.get("system", ""))
-            self.app.var_outdir.set(data.get("output_dir", ""))
-            self.app.var_yaml_dir.set(data.get("yaml_dir", ""))
-            self.app.var_prefix.set(data.get("prefix", "sim_{var}"))
-            self.app.var_imt_link.set(data.get("imt_link", "DOWNLINK"))
-            self.app.var_overwrite.set(data.get("overwrite", False))
-            self.app.var_adj.set(data.get("adj_channel", False))
-            self.app.var_coch.set(data.get("co_channel", False))
-
-            for item in self.var_table.get_children(): self.var_table.delete(item)
-            for row in data.get("variables_table", []): self.var_table.insert("", "end", values=row)
-
-            self._check_path(self.app.var_outdir)
-            self._check_path(self.app.var_yaml_dir)
-            self._update_preview()
-            messagebox.showinfo("Success", "Configuration loaded successfully!")
-        except Exception as e:
-            messagebox.showerror("Error", f"Failed to load preset:\n{e}")
 
     def _toggle_random_seed(self):
         if self.var_use_random_seed.get():
@@ -573,16 +586,13 @@ class GeneralTab:
 
     def _validate_int(self, P):
         if P == "" or P == "-": return True
-        return P.isdigit() or (P.startswith("-") and P[1:].isdigit())
+        return P.isdigit()
 
     def _check_path(self, var):
         entry = self.path_entries.get(str(var))
         if not entry: return
         path = var.get()
-        if path and Path(path).is_dir():
-            entry.configure(foreground="black")
-        else:
-            entry.configure(foreground="red")
+        entry.configure(foreground="black" if path and Path(path).is_dir() else "red")
 
     def _update_preview(self, *args):
         text = self.app.var_prefix.get()
@@ -596,36 +606,58 @@ class GeneralTab:
             tags_list = parse_list_safe(tags_str, [])
             first_tag = tags_list[0] if tags_list else "?"
             simulated = text.replace(f"{{{name}}}", str(first_tag))
-            suffix = " (varying others...)" if len(children) > 1 else ""
-            self.lbl_preview.config(text=f"Example: {simulated}{suffix}")
-        except Exception:
+            self.lbl_preview.config(text=f"Example: {simulated}")
+        except:
             self.lbl_preview.config(text="Error generating preview")
 
     def _pick_outdir(self):
-        cur = self.app.var_outdir.get()
-        path = self._ask_directory(cur, "Select Output Directory")
+        path = filedialog.askdirectory(title="Select Output Directory")
         if path: self.app.var_outdir.set(path)
 
     def _pick_yamldir(self):
-        cur = self.app.var_yaml_dir.get()
-        path = self._ask_directory(cur, "Select YAML Save Folder")
+        path = filedialog.askdirectory(title="Select YAML Save Folder")
         if path: self.app.var_yaml_dir.set(path)
 
-    def _ask_directory(self, start_path, title):
-        start = start_path if start_path and Path(start_path).is_dir() else Path.cwd()
-        path = filedialog.askdirectory(initialdir=start, title=title)
-        if path: return Path(path).as_posix()
-        return None
+    def save_config(self):
+        table_data = [self.var_table.item(child)["values"] for child in self.var_table.get_children()]
+        data = {
+            "seed": self.app.var_seed.get(), "use_random_seed": self.var_use_random_seed.get(),
+            "snaps": self.app.var_snaps.get(), "system": self.app.var_system.get(),
+            "output_dir": self.app.var_outdir.get(), "yaml_dir": self.app.var_yaml_dir.get(),
+            "prefix": self.app.var_prefix.get(), "imt_link": self.app.var_imt_link.get(),
+            "overwrite": self.app.var_overwrite.get(), "adj_channel": self.app.var_adj.get(),
+            "co_channel": self.app.var_coch.get(), "variables_table": table_data
+        }
+        fpath = filedialog.asksaveasfilename(defaultextension=".json", filetypes=[("JSON", "*.json")])
+        if fpath:
+            with open(fpath, "w", encoding="utf-8") as f: json.dump(data, f, indent=4)
+
+    def load_config(self):
+        fpath = filedialog.askopenfilename(filetypes=[("JSON", "*.json")])
+        if not fpath: return
+        with open(fpath, "r", encoding="utf-8") as f: data = json.load(f)
+        self.app.var_seed.set(data.get("seed", "123"))
+        self.var_use_random_seed.set(data.get("use_random_seed", False))
+        self._toggle_random_seed()
+        self.app.var_snaps.set(data.get("snaps", "100"))
+        self.app.var_system.set(data.get("system", "SINGLE_EARTH_STATION"))
+        self.app.var_outdir.set(data.get("output_dir", ""))
+        self.app.var_yaml_dir.set(data.get("yaml_dir", ""))
+        self.app.var_prefix.set(data.get("prefix", "sim_{var}"))
+        self.app.var_imt_link.set(data.get("imt_link", "DOWNLINK"))
+        self.app.var_overwrite.set(data.get("overwrite", False))
+        self.app.var_adj.set(data.get("adj_channel", False))
+        self.app.var_coch.set(data.get("co_channel", False))
+        for item in self.var_table.get_children(): self.var_table.delete(item)
+        for row in data.get("variables_table", []): self.var_table.insert("", "end", values=row)
 
     def _var_add(self):
         iid = self.var_table.insert("", "end", values=("new_var", "[]", "[]"))
-        self.var_table.selection_set(iid)
         self._open_editor_for_item(iid)
 
     def _var_edit(self):
         sel = self.var_table.selection()
-        if not sel: return
-        self._open_editor_for_item(sel[0])
+        if sel: self._open_editor_for_item(sel[0])
 
     def _var_remove(self):
         for iid in self.var_table.selection(): self.var_table.delete(iid)

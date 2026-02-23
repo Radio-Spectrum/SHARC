@@ -5,6 +5,7 @@ import queue
 import os
 import itertools
 import ast
+import yaml 
 
 # Try to use modern visual style
 try:
@@ -20,6 +21,8 @@ except ImportError:
 from utils import build_yaml_text
 from managers import RunnerManager
 from core.state import AppState, get_sharc_root
+
+# IMPORTE DO BOM E VELHO BUILDER
 from core.yaml_builder import build_yaml_structure
 
 # CRITICAL IMPORT: Import the module to access the live 'SIMULATION_STATUS' variable
@@ -47,6 +50,7 @@ class App(tb.Window if HAS_BOOTSTRAP else tk.Tk):
 
         # 2. Initialize State Variables
         self.state_model = AppState()
+        # Inject state model attributes into App (self) so SES tab can access app.var_x
         self.__dict__.update(self.state_model.__dict__)
 
         # Set default system if empty
@@ -82,6 +86,8 @@ class App(tb.Window if HAS_BOOTSTRAP else tk.Tk):
         # 4. Interface Construction
         self._setup_custom_styles()
         self._build_layout()
+        
+        # Initialize pages and establish Data Connections (Crucial for General Tab)
         self._init_pages()
 
         # 5. Logic: Observe changes in System Type
@@ -197,9 +203,9 @@ class App(tb.Window if HAS_BOOTSTRAP else tk.Tk):
             padding=5,
             amountused=0,
             metertype="full",
-            subtext="0.0%",      # Initial text
+            subtext="0.0%",
             textright="",
-            showtext=False,      # Keep main integer hidden to avoid "0"
+            showtext=False,
             interactive=False,
             bootstyle="primary",
             stripethickness=10
@@ -244,21 +250,43 @@ class App(tb.Window if HAS_BOOTSTRAP else tk.Tk):
             self.tray_button.configure(text="▼ Active Simulations ▼")
             self.tray_visible = False
         else:
-            # Positions the tray frame right before the global meter (sys_meter)
             self.tray_frame.pack(before=self.sys_meter, fill="x", pady=(0, 10))
             self.tray_button.configure(text="▲ Hide Simulations ▲")
             self.tray_visible = True
 
     def _build_header_content(self):
+        """Header with Title and Global Save/Generate Button (Cascade)."""
         self.lbl_page_title = tb.Label(self.header, text="Dashboard",
                                        font=("Segoe UI", 18), foreground="#2C3E50")
         self.lbl_page_title.pack(side="left", padx=30, pady=20)
 
-        btn_save = tb.Button(self.header, text="Save Configuration", bootstyle="success",
-                             command=self.save_yaml_dialog_multicombos)
-        btn_save.pack(side="right", padx=30)
-        ToolTip(
-            btn_save, text="Generate and save YAML files with current configuration.")
+        # Global Generate Button (Cascade Style)
+        # Substitui o botão único antigo por um Menubutton
+        self.btn_gen_main = tb.Menubutton(
+            self.header, 
+            text="⚡ GENERATE", 
+            bootstyle="success",
+            width=20
+        )
+        self.btn_gen_main.pack(side="right", padx=30)
+
+        self.menu_gen_main = tk.Menu(self.btn_gen_main, tearoff=0)
+        self.btn_gen_main.configure(menu=self.menu_gen_main)
+
+        # Opção 1: Geração em Lote (Proxy para General Tab - Nova lógica robusta)
+        self.menu_gen_main.add_command(
+            label="🚀 Batch Generate (from Table)", 
+            command=self._proxy_batch_generate
+        )
+        self.menu_gen_main.add_separator()
+        
+        # Opção 2: Snapshot Único (Usa o BOM E VELHO BUILDER)
+        self.menu_gen_main.add_command(
+            label="💾 Save Current State (Snapshot)", 
+            command=self.save_yaml_dialog_multicombos
+        )
+
+        ToolTip(self.btn_gen_main, text="Generate YAML configuration files (Batch or Single Snapshot).")
 
     def _build_footer_content(self):
         # SSH Status
@@ -281,26 +309,19 @@ class App(tb.Window if HAS_BOOTSTRAP else tk.Tk):
                                        bootstyle="inverse-primary")
         self.lbl_status_msg.pack(side="left", padx=20)
 
-    # --- SIMULATION MONITOR (HUD & METER) ---
+    # --- MONITOR ---
     def monitor_simulation_status(self):
-        """
-        Calculates progress average, snapshot totals, and max ETA.
-        Updates the Meter ring, the general HUD, and the retractable individual Tray.
-        """
+        """Monitors global simulation progress via ssh_runner module."""
         try:
             raw_data = getattr(ssh_runner, "SIMULATION_STATUS", {})
 
-            # Reset if empty
             if not raw_data or not isinstance(raw_data, dict):
                 self.sys_meter.configure(amountused=0, subtext="0.0%")
                 self.lbl_hud_snaps.configure(text="0 / 0")
                 self.lbl_hud_eta.configure(text="--:--:--")
-
-                # Clear the tray if there are no simulations running
                 for t, w in self.thread_widgets.items():
                     w['row'].destroy()
                 self.thread_widgets.clear()
-
                 self.after(5000, self.monitor_simulation_status)
                 return
 
@@ -308,117 +329,68 @@ class App(tb.Window if HAS_BOOTSTRAP else tk.Tk):
             total_done_snaps = 0
             total_max_snaps = 0
             etas = []
-
-            # Identifies current threads vs existing threads registered in UI
             current_threads = set(raw_data.keys())
             existing_threads = set(self.thread_widgets.keys())
 
-            # 1. Remove widgets for threads that have finished
             for t in existing_threads - current_threads:
                 self.thread_widgets[t]['row'].destroy()
                 del self.thread_widgets[t]
 
-            # Process Data
             for key, val in raw_data.items():
                 if isinstance(val, dict):
-                    # 1. Percentage
                     pct_str = val.get('pct', '0%')
-                    try:
-                        clean_pct = float(pct_str.replace('%', '').strip())
-                        percentages.append(clean_pct)
-                    except:
-                        clean_pct = 0.0
-                        percentages.append(0.0)
+                    try: clean_pct = float(pct_str.replace('%', '').strip())
+                    except: clean_pct = 0.0
+                    percentages.append(clean_pct)
 
-                    # 2. Snapshots (e.g., "50/100000")
                     snap_str = val.get('snap', '0/0')
                     if '/' in snap_str:
                         try:
                             done, total = snap_str.split('/')
                             total_done_snaps += int(done)
                             total_max_snaps += int(total)
-                        except:
-                            pass
+                        except: pass
 
-                    # 3. ETA (e.g., "12:52:02")
                     eta_str = val.get('eta', '')
-                    if eta_str and ':' in eta_str:
-                        etas.append(eta_str)
+                    if eta_str and ':' in eta_str: etas.append(eta_str)
 
-                    # --- RETRACTABLE TRAY UPDATE ---
                     if key not in self.thread_widgets:
-                        # Create a row for the new simulation
                         row = tb.Frame(self.tray_frame, bootstyle="light")
                         row.pack(fill="x", pady=4)
-
                         header_frame = tb.Frame(row, bootstyle="light")
                         header_frame.pack(fill="x")
-
-                        # Simulation Name/ID (MODIFIED HERE)
+                        
                         short_name = str(key).split("/")[-1]
-                        lbl_name = tb.Label(header_frame, text=short_name[:20], font=(
-                            "Segoe UI", 8, "bold"), bootstyle="inverse-light")
+                        lbl_name = tb.Label(header_frame, text=short_name[:20], font=("Segoe UI", 8, "bold"), bootstyle="inverse-light")
                         lbl_name.pack(side="left")
-
-                        # Individual ETA
-                        lbl_eta = tb.Label(header_frame, text=eta_str if eta_str else "--:--", font=(
-                            "Consolas", 8), bootstyle="inverse-light")
+                        
+                        lbl_eta = tb.Label(header_frame, text=eta_str or "--:--", font=("Consolas", 8), bootstyle="inverse-light")
                         lbl_eta.pack(side="right")
-
-                        # Progress Bar
-                        pb = tb.Progressbar(
-                            row, bootstyle="success-striped", maximum=100)
+                        
+                        pb = tb.Progressbar(row, bootstyle="success-striped", maximum=100)
                         pb.pack(fill="x", pady=(2, 0))
-
-                        self.thread_widgets[key] = {
-                            'row': row, 'lbl_eta': lbl_eta, 'pb': pb, 'lbl_name': lbl_name
-                        }
+                        
+                        self.thread_widgets[key] = {'row': row, 'lbl_eta': lbl_eta, 'pb': pb, 'lbl_name': lbl_name}
                     else:
-                        # Update the values of the existing tray widgets
-                        widgets = self.thread_widgets[key]
-                        widgets['lbl_eta'].configure(
-                            text=eta_str if eta_str else "--:--")
-                        widgets['pb']['value'] = clean_pct
+                        w = self.thread_widgets[key]
+                        w['lbl_eta'].configure(text=eta_str or "--:--")
+                        w['pb']['value'] = clean_pct
 
-                        # (Opcional) Atualiza o nome se a chave mudar, mas na prática a chave é fixa para o widget
-                        short_name = str(key).split("/")[-1]
-                        widgets['lbl_name'].configure(text=short_name[:20])
-
-            # --- CALCULATIONS ---
             avg_pct = sum(percentages) / len(percentages) if percentages else 0
-
-            # Snapshots Text
-            if total_max_snaps > 0:
-                snaps_text = f"{total_done_snaps} / {total_max_snaps}"
-            else:
-                snaps_text = "0 / 0"
-
-            # Final ETA (Max time among all threads)
+            snaps_text = f"{total_done_snaps} / {total_max_snaps}" if total_max_snaps > 0 else "0 / 0"
             final_eta = max(etas) if etas else "--:--:--"
 
-            # --- VISUAL UPDATE ---
-
-            # 1. Update Ring (Visual only)
-            visual_amount = int(avg_pct)
-            if avg_pct > 0 and visual_amount == 0:
-                visual_amount = 1  # Show a sliver of blue if started
-
-            # 2. Update PERCENTAGE TEXT in the center
-            pct_text = f"{avg_pct:.1f}%"
-            self.sys_meter.configure(
-                amountused=visual_amount, subtext=pct_text)
-
-            # 3. Update HUD Bottom Labels
+            self.sys_meter.configure(amountused=int(avg_pct) if avg_pct > 0 else 0, subtext=f"{avg_pct:.1f}%")
             self.lbl_hud_snaps.configure(text=snaps_text)
             self.lbl_hud_eta.configure(text=final_eta)
 
         except Exception as e:
             print(f"HUD Update Error: {e}")
 
-        # Schedule next check (5 seconds)
         self.after(5000, self.monitor_simulation_status)
 
     def _init_pages(self):
+        """Initializes all tabs and establishes data connections."""
         for key, label, Cls, icon in self.pages_config:
             btn = tb.Button(
                 self.menu_frame,
@@ -433,6 +405,86 @@ class App(tb.Window if HAS_BOOTSTRAP else tk.Tk):
             instance = Cls(self, container)
             setattr(self, f"tab_{key}", instance)
 
+        # =====================================================================
+        # [NEW] DATA CONNECTION BRIDGE (ROBUST UNIVERSAL VERSION)
+        # =====================================================================
+        if hasattr(self, 'tab_general'):
+            
+            # 1. IMT Data Collector (Specific to IMT logic)
+            def get_imt_live_data():
+                data = {}
+                if hasattr(self, 'tab_imt'):
+                    # Vars from state manager
+                    if hasattr(self.tab_imt, 'state') and hasattr(self.tab_imt.state, 'vars'):
+                        for k, v in self.tab_imt.state.vars.items():
+                            try: data[k] = v.get()
+                            except: pass
+                    # Topology text
+                    if hasattr(self.tab_imt, 'topo_section') and self.tab_imt.topo_section:
+                        if hasattr(self.tab_imt.topo_section, 'get_countries_text'):
+                            data['countries_text'] = self.tab_imt.topo_section.get_countries_text()
+                return data
+
+            # 2. System (SES/Victim) Universal Data Collector
+            # This function scans BOTH the App (self) and the active Tab for variables.
+            # It ensures variables are caught whether they are global (SES) or local (SSS).
+            def get_system_live_data():
+                data = {}
+                sys_mode = self.var_system.get()
+
+                # Define list of objects to scan (The Vacuum Cleaner Approach)
+                # We ALWAYS scan 'self' because global vars (like SES vars) might be there.
+                objs_to_scan = [self]
+
+                # Add specific tab based on mode
+                if sys_mode == "SINGLE_SPACE_STATION":
+                    if hasattr(self, 'tab_victim'):
+                        objs_to_scan.append(self.tab_victim)
+                elif sys_mode == "SINGLE_EARTH_STATION":
+                    if hasattr(self, 'tab_station'):
+                        objs_to_scan.append(self.tab_station)
+
+                # Iterate through all targets (Self + Tab)
+                for target_obj in objs_to_scan:
+                    if not target_obj: continue
+
+                    # A. Explicit Dictionaries (for organized tabs)
+                    sources = [
+                        getattr(target_obj, 'vars', {}),
+                        getattr(getattr(target_obj, 'state', None), 'vars', {})
+                    ]
+                    for src in sources:
+                        if isinstance(src, dict):
+                            for k, v in src.items():
+                                try: data[k] = v.get()
+                                except: data[k] = v
+
+                    # B. Attribute Scanning (The catch-all)
+                    # Scans for loose variables (Tkinter vars or simple types)
+                    for attr_name in dir(target_obj):
+                        if attr_name.startswith("_"): continue # Skip private attrs
+                        
+                        try:
+                            val = getattr(target_obj, attr_name)
+                            
+                            # 1. Tkinter Variables
+                            if isinstance(val, (tk.StringVar, tk.DoubleVar, tk.IntVar, tk.BooleanVar)):
+                                data[attr_name] = val.get()
+                            
+                            # 2. Simple Types (Configs/Lists/Dicts)
+                            elif isinstance(val, (list, dict, int, float, str, bool)):
+                                # Filter out methods/callables to avoid noise
+                                if not callable(val):
+                                    data[attr_name] = val
+                        except:
+                            pass
+
+                return data
+
+            # Register Data Collectors
+            self.tab_general.register_data_collector(get_imt_live_data)
+            self.tab_general.register_data_collector(get_system_live_data)
+
     def _on_system_changed(self, *args):
         self._refresh_sidebar_items()
 
@@ -444,18 +496,13 @@ class App(tb.Window if HAS_BOOTSTRAP else tk.Tk):
         for key, label, _, _ in self.pages_config:
             should_show = True
             if sys_type == "SINGLE_EARTH_STATION":
-                if key == "victim":
-                    should_show = False
-                if key == "station":
-                    should_show = True
+                if key == "victim": should_show = False
+                if key == "station": should_show = True
             elif sys_type == "SINGLE_SPACE_STATION":
-                if key == "station":
-                    should_show = False
-                if key == "victim":
-                    should_show = True
+                if key == "station": should_show = False
+                if key == "victim": should_show = True
             else:
-                if key == "victim":
-                    should_show = False
+                if key == "victim": should_show = False
 
             if should_show:
                 self.nav_buttons[key].pack(fill="x", pady=2, padx=10)
@@ -464,10 +511,11 @@ class App(tb.Window if HAS_BOOTSTRAP else tk.Tk):
             self._switch_page("general")
 
     def _switch_page(self, key, label_text=None):
+        # Auto-save countries text if switching away from IMT (Optional sync)
         if hasattr(self, 'tab_imt') and hasattr(self.tab_imt, 'txt_countries'):
             try:
                 raw_txt = self.tab_imt.txt_countries.get("1.0", "end").strip()
-                if raw_txt:
+                if raw_txt and hasattr(self, 'topo_countries'):
                     self.topo_countries.set(raw_txt)
             except:
                 pass
@@ -542,65 +590,70 @@ class App(tb.Window if HAS_BOOTSTRAP else tk.Tk):
             pass
         self.after(100, self._drain_log_queue)
 
+    # =========================================================================
+    # COMPATIBILITY METHODS & PROXIES (LINKING MAIN BUTTON TO GENERAL TAB)
+    # =========================================================================
+
     def current_yaml_dict(self) -> dict:
+        """
+        Generates the current configuration dictionary (Snapshot).
+        Required by PreviewTab to display the YAML.
+        
+        USES THE GOOD OLD BUILDER: build_yaml_structure
+        """
         if hasattr(self, 'tab_imt') and hasattr(self.tab_imt, 'txt_countries'):
             try:
                 self.topo_countries.set(
                     self.tab_imt.txt_countries.get("1.0", "end"))
             except:
                 pass
+        
+        # Aqui usamos o builder robusto diretamente
         return build_yaml_structure(self)
 
+    def _proxy_batch_generate(self):
+        """Calls batch generation (from variable table) on GeneralTab."""
+        if hasattr(self, 'tab_general'):
+            self.tab_general.save_yaml_to_yamldir()
+        else:
+            messagebox.showerror("Error", "General Tab not available.")
+
+    def save_yaml_dialog_multicombos(self):
+        """
+        SNAPSHOT: Uses build_yaml_structure (old robust method) to save single state.
+        """
+        init = self.var_yaml_dir.get() or os.getcwd()
+        path = filedialog.asksaveasfilename(
+            title="Save Snapshot", 
+            defaultextension=".yaml", 
+            initialdir=init, 
+            initialfile=(self.var_prefix.get() or "snapshot") + ".yaml"
+        )
+        if path:
+            try:
+                # 1. Generate Data using the Good Old Builder
+                data = build_yaml_structure(self)
+                
+                # 2. Save File
+                with open(path, 'w', encoding='utf-8') as f:
+                    yaml.dump(data, f, default_flow_style=False, sort_keys=False)
+                
+                self.var_yaml_dir.set(os.path.dirname(path))
+                messagebox.showinfo("Success", f"Snapshot saved to:\n{path}")
+                
+            except Exception as e:
+                messagebox.showerror("Error", f"Failed to save snapshot:\n{e}")
+
     def _deep_format(self, obj, combo):
+        """Helper for string formatting, kept for compatibility."""
         if isinstance(obj, dict):
             return {k: self._deep_format(v, combo) for k, v in obj.items()}
         if isinstance(obj, list):
             return [self._deep_format(v, combo) for v in obj]
         if isinstance(obj, str):
-            try:
-                return obj.format(**combo)
-            except:
-                return obj
+            try: return obj.format(**combo)
+            except: return obj
         return obj
-
-    def save_yaml_to_yamldir(self): self._generate_and_save_yaml(
-        self.var_yaml_dir.get())
-
-    def save_yaml_dialog_multicombos(self):
-        init = self.var_yaml_dir.get() or os.getcwd()
-        path = filedialog.asksaveasfilename(title="Base filename", defaultextension=".yaml", initialdir=init, initialfile=(
-            self.var_prefix.get() or "scenario") + ".yaml")
-        if path:
-            out = os.path.dirname(path)
-            if self._generate_and_save_yaml(out):
-                self.var_yaml_dir.set(out)
-
-    def _generate_and_save_yaml(self, outdir):
-        if not outdir:
-            return 0
-        os.makedirs(outdir, exist_ok=True)
-        tree = self.tab_general.var_table
-        names, lists = [], []
-        for iid in tree.get_children():
-            n, v = tree.item(iid, "values")
-            try:
-                names.append(str(n))
-                lists.append(list(ast.literal_eval(v)))
-            except:
-                messagebox.showwarning("Error", f"Invalid var {n}")
-                return 0
-        combos = [dict(zip(names, p))
-                  for p in itertools.product(*lists)] if names else [{}]
-        root = self.current_yaml_dict()
-        cnt = 0
-        for c in combos:
-            p = (root["general"]["output_dir_prefix"]
-                 or "scenario").format(**c)
-            with open(os.path.join(outdir, f"{p}.yaml"), "w", encoding="utf-8") as f:
-                f.write(build_yaml_text(self._deep_format(root, c)))
-            cnt += 1
-        self._show_success_toast(f"{cnt} scenarios in:\n{outdir}")
-        return cnt
 
 
 if __name__ == "__main__":

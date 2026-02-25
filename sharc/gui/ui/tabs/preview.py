@@ -49,9 +49,11 @@ try:
 except Exception:
     HAS_GEOPANDAS = False
 
+# Try imports from local project structure
 try:
     from utils import lla_to_ecef, build_yaml_text
-except Exception:  # fallback minimal if user runs standalone
+except Exception:
+    # Fallback if running standalone
     def lla_to_ecef(lat, lon, alt):
         lat = np.asarray(lat, dtype=float)
         lon = np.asarray(lon, dtype=float)
@@ -60,9 +62,9 @@ except Exception:  # fallback minimal if user runs standalone
         latr = np.radians(lat)
         lonr = np.radians(lon)
         r = a + alt
-        x = r*np.cos(latr)*np.cos(lonr)
-        y = r*np.cos(latr)*np.sin(lonr)
-        z = r*np.sin(latr)
+        x = r * np.cos(latr) * np.cos(lonr)
+        y = r * np.cos(latr) * np.sin(lonr)
+        z = r * np.sin(latr)
         return x, y, z
 
     def build_yaml_text(d):
@@ -74,6 +76,7 @@ try:
 except Exception:
     WGS84_A = 6378137.0
 
+# SHARC Core Imports
 HAS_SHARC_CORE = True
 try:
     from sharc.topology.topology_macrocell import TopologyMacrocell
@@ -81,40 +84,43 @@ try:
     from sharc.topology.topology_single_base_station import TopologySingleBaseStation
     from sharc.topology.topology_ntn import TopologyNTN
     from sharc.topology.topology_indoor import TopologyIndoor
-    # UE-only / countries topologies are optional depending on your SHARC
-    try:
-        from sharc.topology.topology_ue_only import TopologyUEOnly  # type: ignore
-    except Exception:
-        TopologyUEOnly = None  # type: ignore
 
-    # Station factory — in your repo it is in project root, and imports sharc.*
-    # You provided station_factory.py in the conversation.
     try:
-        from sharc.station_factory import StationFactory
+        from sharc.topology.topology_ue_only import TopologyUEOnly
     except Exception:
-        StationFactory = None  # type: ignore
+        TopologyUEOnly = None
+
+    # StationFactory location varies across SHARC layouts
+    try:
+        from sharc.station_factory import StationFactory  # type: ignore
+    except Exception:
+        try:
+            from station_factory import StationFactory  # type: ignore
+        except Exception:
+            StationFactory = None
 
     from sharc.parameters.parameters_single_space_station import ParametersSingleSpaceStation
     from sharc.parameters.parameters_single_earth_station import ParametersSingleEarthStation
 
-    # Minimal param objects needed for TopologyHotspot/Indoor in some SHARC variants
     try:
         from sharc.parameters.imt.parameters_hotspot import ParametersHotspot
     except Exception:
-        ParametersHotspot = None  # type: ignore
+        ParametersHotspot = None
     try:
         from sharc.parameters.imt.parameters_indoor import ParametersIndoor
     except Exception:
-        ParametersIndoor = None  # type: ignore
+        ParametersIndoor = None
 
 except Exception as e:
     HAS_SHARC_CORE = False
-    TopologyMacrocell = TopologyHotspot = TopologySingleBaseStation = TopologyNTN = TopologyIndoor = None  # type: ignore
-    ParametersSingleSpaceStation = ParametersSingleEarthStation = None  # type: ignore
-    ParametersHotspot = ParametersIndoor = None  # type: ignore
-    StationFactory = None  # type: ignore
+    TopologyMacrocell = TopologyHotspot = TopologySingleBaseStation = TopologyNTN = TopologyIndoor = None
+    ParametersSingleSpaceStation = ParametersSingleEarthStation = None
+    ParametersHotspot = ParametersIndoor = None
+    StationFactory = None
     print(f"[PreviewTab] SHARC imports not available: {e}")
 
+
+# ---------------- Helpers ----------------
 
 def _safe_float(x: Any, default: float = 0.0) -> float:
     try:
@@ -146,14 +152,57 @@ def _safe_int(x: Any, default: int = 0) -> int:
         return default
 
 
-def _wrap180(deg: np.ndarray) -> np.ndarray:
-    """Wrap degrees to [-180,180]."""
-    return (deg + 180.0) % 360.0 - 180.0
+def _yaml_get(d: Dict[str, Any], path: str, default: Any = None) -> Any:
+    """Safely get nested value from dict using dotted path (e.g., 'imt.topology.type')."""
+    cur: Any = d
+    for key in path.split("."):
+        if not isinstance(cur, dict) or key not in cur:
+            return default
+        cur = cur[key]
+    return cur
+
+
+def _yaml_first(data: Dict[str, Any], paths: Tuple[str, ...], default: Any = None) -> Any:
+    """Return first non-empty value found in any of the dotted paths."""
+    for p in paths:
+        v = _yaml_get(data, p, None)
+        if v is not None and v != "":
+            return v
+    return default
+
+
+def _as_value(x: Any) -> Any:
+    """If x is a Tk variable, return x.get(); else return x."""
+    try:
+        if hasattr(x, "get") and callable(x.get):
+            return x.get()
+    except Exception:
+        pass
+    return x
+
+
+def _coerce_float(x: Any, default: float) -> float:
+    return _safe_float(_as_value(x), default)
+
+
+def _coerce_int(x: Any, default: int) -> int:
+    return _safe_int(_as_value(x), default)
+
+
+def _coerce_str(x: Any, default: str) -> str:
+    try:
+        v = _as_value(x)
+        if v is None:
+            return default
+        s = str(v).strip()
+        return s if s else default
+    except Exception:
+        return default
 
 
 def _unit(v: np.ndarray) -> np.ndarray:
     n = np.linalg.norm(v)
-    if n <= 0:
+    if n <= 1e-9:
         return v
     return v / n
 
@@ -166,64 +215,55 @@ def _angle_between(u: np.ndarray, v: np.ndarray) -> float:
 
 
 def _guess_antenna_beamwidth_deg(antenna: Any, fallback: float = 5.0) -> float:
-    """
-    Try to read beamwidth from antenna object.
-    Works with many antenna implementations by checking common attribute names.
-    """
+    """Attempt to retrieve beamwidth from an antenna object via duck-typing."""
     if antenna is None:
         return fallback
-    for attr in ("beamwidth", "beamwidth_deg", "hp_bw_deg", "half_power_beamwidth_deg",
-                 "theta_3db", "theta_3dB", "bw_3db", "bw_3dB"):
+
+    # Check common attributes
+    candidates = ["beamwidth", "beamwidth_deg", "hp_bw_deg", "half_power_beamwidth_deg",
+                  "theta_3db", "theta_3dB", "bw_3db", "bw_3dB"]
+
+    for attr in candidates:
         try:
-            v = getattr(antenna, attr)
-            if callable(v):
-                v = v()
-            v = float(v)
-            if 0.1 <= v <= 180:
-                return v
+            val = getattr(antenna, attr, None)
+            if val is None:
+                continue
+            if callable(val):
+                val = val()
+            f_val = float(val)
+            if 0.1 <= f_val <= 360.0:
+                return f_val
         except Exception:
             pass
+
     return fallback
 
 
 def _antenna_gain_db(antenna: Any, off_axis_deg: float, phi_deg: float = 0.0) -> float:
     """
-    Compute antenna gain from the antenna object using duck-typing.
-    Supports patterns that accept:
-      - get_gain(theta, phi)
-      - get_gain(theta)
-      - gain(theta, phi)
-      - gain(theta)
-    If nothing works, returns NaN.
+    Compute antenna gain using duck-typing for various SHARC antenna implementations.
     """
     if antenna is None:
         return float("nan")
 
-    # try get_gain(theta, phi)
-    for name in ("get_gain", "gain", "G"):
-        fn = getattr(antenna, name, None)
-        if fn is None or not callable(fn):
-            continue
-        # 2-arg
-        try:
-            return float(fn(off_axis_deg, phi_deg))
-        except Exception:
-            pass
-        # 1-arg
-        try:
-            return float(fn(off_axis_deg))
-        except Exception:
-            pass
+    if isinstance(antenna, (list, tuple, np.ndarray)) and len(antenna) > 0:
+        return _antenna_gain_db(antenna[0], off_axis_deg, phi_deg)
 
-    # some antennas store pattern object
-    for inner in ("pattern", "pat", "antenna_pattern"):
-        try:
-            pat = getattr(antenna, inner)
-            if pat is None:
-                continue
-            return _antenna_gain_db(pat, off_axis_deg, phi_deg)
-        except Exception:
-            pass
+    for method_name in ["get_gain", "gain", "G"]:
+        func = getattr(antenna, method_name, None)
+        if func and callable(func):
+            try:
+                return float(func(off_axis_deg, phi_deg))
+            except:
+                try:
+                    return float(func(off_axis_deg))
+                except:
+                    pass
+
+    for pat_attr in ["pattern", "pat", "antenna_pattern"]:
+        sub_pat = getattr(antenna, pat_attr, None)
+        if sub_pat:
+            return _antenna_gain_db(sub_pat, off_axis_deg, phi_deg)
 
     return float("nan")
 
@@ -231,7 +271,6 @@ def _antenna_gain_db(antenna: Any, off_axis_deg: float, phi_deg: float = 0.0) ->
 class PlotlyEmbed(ttk.Frame):
     """
     Embeds Plotly figure HTML in Tk via tkhtmlview if available.
-    If unavailable, provides a note + button to open in browser.
     """
 
     def __init__(self, parent: tk.Widget):
@@ -240,7 +279,8 @@ class PlotlyEmbed(ttk.Frame):
         self._last_html_path = None
 
         if HAS_TKHTMLVIEW:
-            self._html_label = HTMLLabel(self, html="<b>Plotly preview</b>")
+            self._html_label = HTMLLabel(
+                self, html="<b>Plotly preview area</b>")
             self._html_label.pack(fill="both", expand=True)
         else:
             ttk.Label(self, text="Plotly embed requires 'tkhtmlview'.\n"
@@ -254,7 +294,6 @@ class PlotlyEmbed(ttk.Frame):
 
         html = fig.to_html(include_plotlyjs="cdn", full_html=True)
 
-        # write to temp file so user can open it externally
         fd, path = tempfile.mkstemp(prefix="sharc_preview_", suffix=".html")
         os.close(fd)
         with open(path, "w", encoding="utf-8") as f:
@@ -265,7 +304,6 @@ class PlotlyEmbed(ttk.Frame):
             try:
                 self._html_label.set_html(html)
             except Exception:
-                # fallback: load from file link
                 self._html_label.set_html(
                     f"<b>Plot generated.</b><br>Saved to: {path}")
 
@@ -279,28 +317,18 @@ class PlotlyEmbed(ttk.Frame):
 
 class PreviewTab:
     """
-    Tkinter/ttkbootstrap PreviewTab.
-
-    Requirements met:
-    - Matplotlib engine embedded
-    - Plotly engine embedded (HTML, optional) + open in browser
-    - Show borders (shp or geopandas fallback)
-    - Show gain map (global)
-    - Beamwidth auto (toggle)
-    - YAML preview + Update YAML button
-    - Zoom + mouse wheel zoom
+    Main Preview Tab Logic.
+    Supports Matplotlib (Canvas3D) and Plotly (HTML/Browser).
     """
 
     def __init__(self, app: Any, parent_frame: tk.Widget):
         self.app = app
         self.frame = parent_frame
 
-        # Defaults for new features while preserving existing behavior
         if not hasattr(self.app, "show_borders"):
             self.app.show_borders = tk.BooleanVar(value=True)
         if not hasattr(self.app, "plot_engine"):
-            self.app.plot_engine = tk.StringVar(
-                value="matplotlib")  # "matplotlib" | "plotly"
+            self.app.plot_engine = tk.StringVar(value="matplotlib")
         if not hasattr(self.app, "show_beamwidth"):
             self.app.show_beamwidth = tk.BooleanVar(value=True)
         if not hasattr(self.app, "var_auto_beamwidth"):
@@ -309,6 +337,13 @@ class PreviewTab:
             self.app.var_beamwidth_deg = tk.StringVar(value="2.0")
         if not hasattr(self.app, "open_plotly_external"):
             self.app.open_plotly_external = tk.BooleanVar(value=False)
+
+        if not hasattr(self.app, "var_show_gainmap"):
+            self.app.var_show_gainmap = tk.BooleanVar(value=False)
+        if not hasattr(self.app, "var_gain_vmin"):
+            self.app.var_gain_vmin = tk.StringVar(value="-10")
+        if not hasattr(self.app, "var_gain_vmax"):
+            self.app.var_gain_vmax = tk.StringVar(value="50")
 
         self._plotly_embed: Optional[PlotlyEmbed] = None
         self._plotly_last_fig: Optional["go.Figure"] = None
@@ -319,88 +354,84 @@ class PreviewTab:
         left = ttk.Frame(self.frame)
         right = ttk.Frame(self.frame)
         left.pack(side="left", fill="both", expand=True)
-        right.pack(side="right", fill="y")
+        right.pack(side="right", fill="y", padx=5, pady=5)
 
-        # Matplotlib canvas (always created; plotly can switch view)
-        self.fig3d = plt.figure(figsize=(6.6, 6.6))
+        self.fig3d = plt.figure(figsize=(6, 6))
         self.ax3d = self.fig3d.add_subplot(111, projection="3d")
         self.canvas3d = FigureCanvasTkAgg(self.fig3d, master=left)
         self.canvas3d.get_tk_widget().pack(fill="both", expand=True)
 
-        # Plotly embed frame (hidden by default)
         self._plotly_embed = PlotlyEmbed(left)
         self._plotly_embed.pack_forget()
 
-        # ---------------- Controls ----------------
         ttk.Label(right, text="Engine:", font=(
             "Segoe UI", 9, "bold")).pack(anchor="w")
+
         frm_engine = ttk.Frame(right)
         frm_engine.pack(fill="x", pady=(2, 10))
         ttk.Radiobutton(frm_engine, text="Matplotlib", variable=self.app.plot_engine,
                         value="matplotlib", command=self._draw_preview).pack(anchor="w")
         ttk.Radiobutton(frm_engine, text="Plotly", variable=self.app.plot_engine,
                         value="plotly", command=self._draw_preview).pack(anchor="w")
-        ttk.Checkbutton(frm_engine, text="Open Plotly in browser",
-                        variable=self.app.open_plotly_external).pack(anchor="w", pady=(4, 0))
+        ttk.Checkbutton(frm_engine, text="Auto-open Browser",
+                        variable=self.app.open_plotly_external).pack(anchor="w", padx=15)
 
-        # Gain map controls (keep your previous widgets)
-        if not hasattr(self.app, "var_show_gainmap"):
-            self.app.var_show_gainmap = tk.BooleanVar(value=False)
-        if not hasattr(self.app, "var_gain_vmin"):
-            self.app.var_gain_vmin = tk.StringVar(value="-10")
-        if not hasattr(self.app, "var_gain_vmax"):
-            self.app.var_gain_vmax = tk.StringVar(value="50")
-
-        ttk.Checkbutton(right, text="Show Gain Map (Global Only)",
-                        variable=self.app.var_show_gainmap,
-                        command=self._draw_preview).pack(fill="x", pady=(0, 8))
-
-        frm_gain = ttk.Frame(right)
-        frm_gain.pack(fill="x", pady=(0, 8))
-        ttk.Label(frm_gain, text="vmin:").pack(side="left")
-        ttk.Entry(frm_gain, textvariable=self.app.var_gain_vmin,
-                  width=7).pack(side="left", padx=(4, 8))
-        ttk.Label(frm_gain, text="vmax:").pack(side="left")
-        ttk.Entry(frm_gain, textvariable=self.app.var_gain_vmax,
-                  width=7).pack(side="left", padx=(4, 0))
+        ttk.Separator(right, orient="horizontal").pack(fill="x", pady=5)
+        ttk.Label(right, text="Visualization:", font=(
+            "Segoe UI", 9, "bold")).pack(anchor="w")
 
         ttk.Checkbutton(right, text="Show Borders", variable=self.app.show_borders,
-                        command=self._draw_preview).pack(anchor="w", pady=(4, 2))
-        frm_beam = ttk.Labelframe(right, text="Beam / Footprint", padding=6)
-        frm_beam.pack(fill="x", pady=(0, 8))
-        ttk.Checkbutton(frm_beam, text="Show footprint", variable=self.app.show_beamwidth,
                         command=self._draw_preview).pack(anchor="w")
-        ttk.Checkbutton(frm_beam, text="Auto beamwidth", variable=self.app.var_auto_beamwidth,
-                        command=self._draw_preview).pack(anchor="w", pady=(2, 0))
-        frm_bw = ttk.Frame(frm_beam)
-        frm_bw.pack(fill="x", pady=(2, 0))
-        ttk.Label(frm_bw, text="Beamwidth (deg):").pack(side="left")
-        ttk.Entry(frm_bw, textvariable=self.app.var_beamwidth_deg,
-                  width=7).pack(side="left", padx=(6, 0))
 
-        ttk.Button(right, text="Generate Preview",
-                   command=self._draw_preview).pack(fill="x", pady=(4, 4))
+        frm_glob = ttk.Labelframe(right, text="Global / Satellite", padding=5)
+        frm_glob.pack(fill="x", pady=5)
+
+        ttk.Checkbutton(frm_glob, text="Show Footprint", variable=self.app.show_beamwidth,
+                        command=self._draw_preview).pack(anchor="w")
+
+        f_bw = ttk.Frame(frm_glob)
+        f_bw.pack(fill="x")
+        ttk.Checkbutton(f_bw, text="Auto BW", variable=self.app.var_auto_beamwidth,
+                        command=self._draw_preview).pack(side="left")
+        ttk.Label(f_bw, text=" or ").pack(side="left")
+        ttk.Entry(f_bw, textvariable=self.app.var_beamwidth_deg,
+                  width=5).pack(side="left")
+        ttk.Label(f_bw, text="°").pack(side="left")
+
+        ttk.Checkbutton(frm_glob, text="Show Gain Map", variable=self.app.var_show_gainmap,
+                        command=self._draw_preview).pack(anchor="w", pady=(5, 0))
+
+        f_clim = ttk.Frame(frm_glob)
+        f_clim.pack(fill="x")
+        ttk.Label(f_clim, text="vMin:").pack(side="left")
+        ttk.Entry(f_clim, textvariable=self.app.var_gain_vmin,
+                  width=4).pack(side="left", padx=2)
+        ttk.Label(f_clim, text="vMax:").pack(side="left")
+        ttk.Entry(f_clim, textvariable=self.app.var_gain_vmax,
+                  width=4).pack(side="left", padx=2)
+
+        ttk.Separator(right, orient="horizontal").pack(fill="x", pady=10)
+        ttk.Button(right, text="Refresh Preview",
+                   command=self._draw_preview).pack(fill="x", pady=2)
 
         frm_zoom = ttk.Frame(right)
-        frm_zoom.pack(fill="x", pady=(0, 4))
-        ttk.Button(frm_zoom, text="Zoom +", width=10,
+        frm_zoom.pack(fill="x", pady=2)
+        ttk.Button(frm_zoom, text="Zoom +", width=8,
                    command=lambda: self._zoom_preview_3d(1/1.15)).pack(side="left", padx=(0, 2))
-        ttk.Button(frm_zoom, text="Zoom -", width=10,
-                   command=lambda: self._zoom_preview_3d(1.15)).pack(side="left", padx=(2, 0))
+        ttk.Button(frm_zoom, text="Zoom -", width=8,
+                   command=lambda: self._zoom_preview_3d(1.15)).pack(side="left")
 
         ttk.Button(right, text="Save Image...",
-                   command=self._save_image).pack(fill="x", pady=(4, 4))
-        ttk.Button(right, text="Open Plotly in Browser",
-                   command=self._open_plotly).pack(fill="x", pady=(0, 4))
+                   command=self._save_image).pack(fill="x", pady=2)
+        ttk.Button(right, text="Open Plotly Browser",
+                   command=self._open_plotly).pack(fill="x", pady=2)
 
-        ttk.Button(right, text="Update YAML", command=self._update_yaml_preview).pack(
-            fill="x", pady=(4, 4))
-
-        ttk.Label(right, text="YAML Preview:", font=(
-            "Segoe UI", 9, "bold")).pack(anchor="w", pady=(10, 2))
+        ttk.Separator(right, orient="horizontal").pack(fill="x", pady=10)
+        ttk.Button(right, text="Update YAML Text",
+                   command=self._update_yaml_preview).pack(fill="x")
         self.txt_yaml = tk.Text(
-            right, width=44, height=28, wrap="none", font=("Consolas", 9))
-        self.txt_yaml.pack(fill="both", expand=True)
+            right, width=40, height=15, wrap="none", font=("Consolas", 8))
+        self.txt_yaml.pack(fill="both", expand=True, pady=5)
 
         w3d = self.canvas3d.get_tk_widget()
         w3d.bind("<MouseWheel>", self._on_scroll_3d)
@@ -421,36 +452,46 @@ class PreviewTab:
         return {}
 
     def _detect_topology_type(self, data: Dict[str, Any]) -> str:
-        topo_type = ""
-        try:
-            if 'topology' in data and isinstance(data['topology'], dict) and 'type' in data['topology']:
-                topo_type = str(data['topology']['type']).strip()
-            elif 'imt' in data and isinstance(data['imt'], dict) and 'topology' in data['imt'] and 'type' in data['imt']['topology']:
-                topo_type = str(data['imt']['topology']['type']).strip()
-            elif 'general' in data and isinstance(data['general'], dict) and 'system' in data['general']:
-                topo_type = str(data['general']['system']).strip()
-            elif 'single_earth_station' in data:
-                topo_type = "SINGLE_EARTH_STATION"
-        except Exception:
-            pass
+        """Detect topology/system type from YAML and/or app vars, with a few aliases."""
+        topo_type = _coerce_str(
+            _yaml_first(
+                data,
+                (
+                    "topology.type",
+                    "imt.topology.type",
+                    "imt.topology",          # sometimes stored as string
+                    "general.system",
+                ),
+                default=""
+            ),
+            ""
+        )
+
+        if not topo_type and "single_earth_station" in data:
+            topo_type = "SINGLE_EARTH_STATION"
 
         if not topo_type and hasattr(self.app, "topo_type"):
-            topo_type = (getattr(self.app.topo_type, "get",
-                         lambda: "")() or "").strip()
+            topo_type = _coerce_str(getattr(self.app, "topo_type", ""), "")
 
-        if topo_type != "Macro_countries":
-            topo_type = topo_type.upper()
+        t = (topo_type or "").strip()
 
-        return topo_type or "MACROCELL"
+        # normalize common legacy value
+        if t in ("Macro_countries", "Macro_Countries", "macro_countries"):
+            return "MACRO_COUNTRIES"
+
+        t_up = t.upper()
+        if t_up in ("MACRO_COUNTRY", "MACROCOUNTRIES"):
+            return "MACRO_COUNTRIES"
+
+        return t_up if t_up else "MACROCELL"
 
     def _draw_preview(self):
         data = self._current_yaml()
         topo_type = self._detect_topology_type(data)
+        engine = self.app.plot_engine.get()
 
-        engine = getattr(self.app.plot_engine, "get", lambda: "matplotlib")()
-        print(f"[PreviewTab] draw: topo='{topo_type}', engine='{engine}'")
+        print(f"[PreviewTab] Drawing {topo_type} using {engine}")
 
-        # Show appropriate view
         if engine == "plotly" and HAS_PLOTLY:
             self.canvas3d.get_tk_widget().pack_forget()
             self._plotly_embed.pack(fill="both", expand=True)
@@ -463,11 +504,9 @@ class PreviewTab:
     def _draw_preview_matplotlib(self, topo_type: str, data: Dict[str, Any]):
         self.ax3d.cla()
 
-        is_global = topo_type in ["MACRO_COUNTRIES", "MACRO_COUNTRIES".upper(
-        ), "Macro_countries", "SINGLE_SPACE_STATION", "MSS_DC", "EESS_SS", "METSAT_SS"]
-        # Also treat single space station from general.system or station presence
-        if topo_type in ["Macro_countries", "MACRO_COUNTRIES"]:
-            is_global = True
+        global_types = ["MACRO_COUNTRIES", "SINGLE_SPACE_STATION",
+                        "MSS_DC", "EESS_SS", "METSAT_SS"]
+        is_global = topo_type in global_types
 
         try:
             if is_global:
@@ -477,543 +516,128 @@ class PreviewTab:
         except Exception as e:
             traceback.print_exc()
             self.ax3d.text2D(
-                0.02, 0.98, f"Preview error: {e}", transform=self.ax3d.transAxes, color="red")
-            # draw fallback marker
-            self.ax3d.scatter([0], [0], [0], c="red", s=50)
+                0.05, 0.95, f"Error: {e}", transform=self.ax3d.transAxes, color="red")
 
         self.ax3d.set_xlabel("x")
         self.ax3d.set_ylabel("y")
         self.ax3d.set_zlabel("z")
+
+        # Add legend
+        self.ax3d.legend(loc='upper right', fontsize='small')
+
         self.canvas3d.draw_idle()
 
-    # ---- Local scenarios (IMT + SES) ----
-
     def _draw_local_matplotlib(self, topo_type: str, data: Dict[str, Any]):
-        bs_height = _safe_float(getattr(self.app, "bs_height", None), 30.0)
+        bs_height = _coerce_float(_yaml_first(data, ("imt.base_station.height_m",
+                                  "imt.bs.height_m", "imt.bs_height", "bs_height", "general.bs_height"), None), 30.0)
+        if hasattr(self.app, "bs_height"):
+            bs_height = _safe_float(
+                getattr(self.app, "bs_height", None), bs_height)
 
-        xs: List[float] = []
-        ys: List[float] = []
-        azs: List[float] = []
+        xs, ys, azs, hex_centers, hex_radius, draw_hex = self._compute_local_geometry(
+            topo_type, data)
 
-        hex_radius = 0.0
-        draw_hex = False
-        hex_centers: List[Tuple[float, float]] = []
-        marker_color = "blue"
-        marker_style = "^"
+        if not xs:
+            xs, ys = [0.0], [0.0]
 
-        # If SES, we ALSO draw IMT grid (from IMT settings) if available
-        is_ses = (topo_type == "SINGLE_EARTH_STATION")
-
-        if HAS_SHARC_CORE:
-            try:
-                if topo_type == "SINGLE_EARTH_STATION":
-                    # SES: station at origin (local), az from UI; IMT deployment around it (macro/hotspot) if configured
-                    xs = [0.0]
-                    ys = [0.0]
-                    az_val = _safe_float(
-                        getattr(self.app, "sbs_azimuth", None), 0.0)
-                    azs = [az_val]
-                    marker_style = "D"
-                    marker_color = "tab:red"
-
-                    # Draw IMT deployment around SES if IMT tab exists
-                    imt_topo = ""
-                    try:
-                        imt_topo = str(data.get("imt", {}).get(
-                            "topology", {}).get("type", "")).upper()
-                    except Exception:
-                        imt_topo = ""
-                    if not imt_topo and hasattr(self.app, "imt_topo_type"):
-                        imt_topo = (getattr(self.app.imt_topo_type,
-                                    "get", lambda: "")() or "").upper()
-
-                    if imt_topo in ("MACROCELL", "HOTSPOT", "SINGLE_BS"):
-                        # Use same logic as those topologies, but centered at origin
-                        imt_xs, imt_ys, imt_azs, imt_hex_centers, imt_hex_radius, imt_draw_hex = self._compute_imt_local_geometry(
-                            imt_topo)
-                        # Merge as "interferers"
-                        # We'll draw IMT separately (mastros, hexes, wedges)
-                        self._render_imt_local(
-                            imt_topo, imt_xs, imt_ys, imt_azs, imt_hex_centers, imt_hex_radius, imt_draw_hex, bs_height)
-                elif topo_type == "MACROCELL":
-                    d = _safe_float(
-                        getattr(self.app, "macro_intersite", None), 1500.0)
-                    nc = _safe_int(
-                        getattr(self.app, "macro_clusters", None), 1)
-                    topo = TopologyMacrocell(
-                        intersite_distance=d, num_clusters=nc)
-                    topo.calculate_coordinates()
-                    xs = list(map(float, topo.x))
-                    ys = list(map(float, topo.y))
-                    azs = list(map(float, topo.azimuth))
-                    hex_radius = d / math.sqrt(3)
-                    draw_hex = True
-                    hex_centers = list(set(zip(xs, ys)))
-                    marker_color = "black"
-                elif topo_type == "HOTSPOT":
-                    d = _safe_float(
-                        getattr(self.app, "hotspot_intersite", None), 1500.0)
-                    nc = _safe_int(
-                        getattr(self.app, "hotspot_clusters", None), 1)
-
-                    if ParametersHotspot is not None:
-                        p_hot = ParametersHotspot()
-                        p_hot.num_hotspots_per_cell = _safe_int(
-                            getattr(self.app, "hotspot_num_per_cell", None), 3)
-                        p_hot.max_dist_hotspot_ue = _safe_float(
-                            getattr(self.app, "hotspot_max_dist_ue", None), 50.0)
-                        p_hot.min_dist_bs_hotspot = _safe_float(
-                            getattr(self.app, "hotspot_min_dist_bs", None), 10.0)
-                    else:
-                        p_hot = None
-
-                    topo = TopologyHotspot(
-                        param=p_hot, intersite_distance=d, num_clusters=nc)
-                    topo.calculate_coordinates()
-                    xs = list(map(float, topo.x))
-                    ys = list(map(float, topo.y))
-                    azs = list(map(float, topo.azimuth))
-
-                    if hasattr(topo, "macrocell"):
-                        hex_radius = d / math.sqrt(3)
-                        mx, my = topo.macrocell.x, topo.macrocell.y
-                        hex_centers = list(
-                            set(zip(map(float, mx), map(float, my))))
-                        draw_hex = True
-
-                    marker_color = "green"
-                    marker_style = "o"
-                elif topo_type in ("SINGLE_BS", "SINGLE_BASE_STATION"):
-                    cr = _safe_float(
-                        getattr(self.app, "sbs_cell_radius", None), 100.0)
-                    nc = _safe_int(getattr(self.app, "sbs_clusters", None), 1)
-                    topo = TopologySingleBaseStation(
-                        cell_radius=cr, num_clusters=nc, azimuth=None)
-                    topo.calculate_coordinates()
-                    xs = list(map(float, topo.x))
-                    ys = list(map(float, topo.y))
-                    azs = list(map(float, topo.azimuth))
-                    marker_color = "green"
-                elif topo_type == "NTN":
-                    d = 50000.0
-                    cr = 20000.0
-                    topo = TopologyNTN(d, cr, 500000, 0, 90, 7)
-                    topo.calculate_coordinates()
-                    xs = list(map(float, topo.x))
-                    ys = list(map(float, topo.y))
-                    azs = list(map(float, topo.azimuth))
-                    hex_radius = cr
-                    hex_centers = list(zip(xs, ys))
-                    draw_hex = True
-                    marker_color = "purple"
-                elif topo_type == "INDOOR":
-                    if ParametersIndoor is not None:
-                        p_in = ParametersIndoor()
-                        p_in.n_rows = 3
-                        p_in.n_colums = 3
-                    else:
-                        p_in = None
-                    topo = TopologyIndoor(p_in)
-                    topo.calculate_coordinates()
-                    xs = list(map(float, topo.x))
-                    ys = list(map(float, topo.y))
-                    azs = [0.0] * len(xs)
-                    marker_color = "orange"
-                    marker_style = "s"
-                elif topo_type == "UE_ONLY" and TopologyUEOnly is not None:
-                    topo = TopologyUEOnly()
-                    topo.calculate_coordinates()
-                    xs = list(map(float, topo.x))
-                    ys = list(map(float, topo.y))
-                    azs = [0.0] * len(xs)
-                    marker_color = "tab:blue"
-                    marker_style = "."
-            except Exception as e:
-                print(f"[PreviewTab] Local topology compute error: {e}")
-                traceback.print_exc()
-                if len(xs) == 0:
-                    xs, ys, azs = [0.0], [0.0], [0.0]
-
-        # RENDER local core
-        if len(xs) > 0:
-            if draw_hex and len(hex_centers) > 0:
-                for cx, cy in hex_centers:
-                    self._draw_hexagon_shape(
-                        cx, cy, hex_radius, color="gray", lw=1.0, alpha=0.15)
-                    self.ax3d.plot([cx, cx], [cy, cy], [
-                                   0, bs_height], color="gray", lw=1.0)
-
-            self.ax3d.scatter(xs, ys, [
-                              bs_height]*len(xs), c=marker_color, marker=marker_style, s=40, label=topo_type)
-
-            # posts
-            if (not draw_hex) or topo_type == "HOTSPOT" or topo_type == "SINGLE_EARTH_STATION":
-                for x, y in zip(xs, ys):
-                    self._draw_bs_post(
-                        self.ax3d, x, y, bs_height, color="tab:blue", lw=2.0)
-
-            # wedges (sectors)
-            radius_sector = 0.0
-            if topo_type in ["MACROCELL", "SINGLE_BS", "SINGLE_BASE_STATION"]:
-                radius_sector = hex_radius * \
-                    0.9 if hex_radius > 0 else _safe_float(
-                        getattr(self.app, "sbs_cell_radius", None), 100.0)
-            elif topo_type == "HOTSPOT":
-                radius_sector = _safe_float(
-                    getattr(self.app, "hotspot_max_dist_ue", None), 50.0)
-            elif topo_type == "SINGLE_EARTH_STATION":
-                # show a sector for pointing (optional)
-                radius_sector = _safe_float(
-                    getattr(self.app, "ses_sector_radius", None), 200.0)
-
-            if radius_sector > 0 and topo_type != "SINGLE_EARTH_STATION":
-                for x, y, az in zip(xs, ys, azs):
-                    self._add_wedge_outline3d(
-                        self.ax3d, x, y, radius_sector, az, color=marker_color, z_plane=bs_height)
-
-            # SES pointing vector + optional wedge + optional footprint ring
-            if topo_type == "SINGLE_EARTH_STATION":
-                az_val = _safe_float(
-                    getattr(self.app, "sbs_azimuth", None), 0.0)
-                el_val = _safe_float(
-                    getattr(self.app, "sbs_elevation", None), 45.0)
-                length = _safe_float(
-                    getattr(self.app, "ses_vector_len", None), 200.0)
-
-                az_rad = np.radians(az_val)
-                el_rad = np.radians(el_val)
-                vx = length*np.cos(el_rad)*np.cos(az_rad)
-                vy = length*np.cos(el_rad)*np.sin(az_rad)
-                vz = length*np.sin(el_rad)
-                self.ax3d.quiver(0, 0, bs_height, vx, vy, vz,
-                                 color="red", length=1.0, label="Pointing")
-
-                # draw a wedge outline around az direction (IMT-style)
-                self._add_wedge_outline3d(
-                    self.ax3d, 0, 0, length*0.9, az_val, half_bw_deg=60, color="red", lw=1.5, z_plane=bs_height)
-
-            self._set_equal_3d(self.ax3d, xs, ys,
-                               z_top=bs_height*2, margin=0.2)
-
-        # ensure something visible
-        if len(xs) == 0:
-            self.ax3d.scatter([0], [0], [0], c="red", s=50)
-            self.ax3d.text(0, 0, 0, "No geometry", color="red")
-
-    def _compute_imt_local_geometry(self, topo_type: str):
-        """Return (xs,ys,azs, hex_centers, hex_radius, draw_hex) for IMT local layouts."""
-        bs_height = _safe_float(getattr(self.app, "bs_height", None), 30.0)
-        xs = []
-        ys = []
-        azs = []
-        hex_radius = 0.0
-        draw_hex = False
-        hex_centers = []
-        if topo_type == "MACROCELL":
-            d = _safe_float(getattr(self.app, "macro_intersite", None), 1500.0)
-            nc = _safe_int(getattr(self.app, "macro_clusters", None), 1)
-            topo = TopologyMacrocell(intersite_distance=d, num_clusters=nc)
-            topo.calculate_coordinates()
-            xs = list(map(float, topo.x))
-            ys = list(map(float, topo.y))
-            azs = list(map(float, topo.azimuth))
-            hex_radius = d/math.sqrt(3)
-            draw_hex = True
-            hex_centers = list(set(zip(xs, ys)))
-        elif topo_type == "HOTSPOT":
-            d = _safe_float(
-                getattr(self.app, "hotspot_intersite", None), 1500.0)
-            nc = _safe_int(getattr(self.app, "hotspot_clusters", None), 1)
-            if ParametersHotspot is not None:
-                p_hot = ParametersHotspot()
-                p_hot.num_hotspots_per_cell = _safe_int(
-                    getattr(self.app, "hotspot_num_per_cell", None), 3)
-                p_hot.max_dist_hotspot_ue = _safe_float(
-                    getattr(self.app, "hotspot_max_dist_ue", None), 50.0)
-                p_hot.min_dist_bs_hotspot = _safe_float(
-                    getattr(self.app, "hotspot_min_dist_bs", None), 10.0)
-            else:
-                p_hot = None
-            topo = TopologyHotspot(
-                param=p_hot, intersite_distance=d, num_clusters=nc)
-            topo.calculate_coordinates()
-            xs = list(map(float, topo.x))
-            ys = list(map(float, topo.y))
-            azs = list(map(float, topo.azimuth))
-            if hasattr(topo, "macrocell"):
-                hex_radius = d/math.sqrt(3)
-                draw_hex = True
-                mx, my = topo.macrocell.x, topo.macrocell.y
-                hex_centers = list(set(zip(map(float, mx), map(float, my))))
-        elif topo_type == "SINGLE_BS":
-            cr = _safe_float(getattr(self.app, "sbs_cell_radius", None), 100.0)
-            nc = _safe_int(getattr(self.app, "sbs_clusters", None), 1)
-            topo = TopologySingleBaseStation(
-                cell_radius=cr, num_clusters=nc, azimuth=None)
-            topo.calculate_coordinates()
-            xs = list(map(float, topo.x))
-            ys = list(map(float, topo.y))
-            azs = list(map(float, topo.azimuth))
-        return xs, ys, azs, hex_centers, hex_radius, draw_hex
-
-    def _render_imt_local(self, topo_type: str, xs, ys, azs, hex_centers, hex_radius, draw_hex, bs_height):
-        """Render IMT deployment around SES (interferers)."""
-        # hexes
-        if draw_hex and len(hex_centers) > 0:
+        # Hexagon Grid (Honeycomb)
+        if draw_hex and hex_centers:
+            # Draw one hex with label for legend, rest without
+            first = True
             for cx, cy in hex_centers:
-                self._draw_hexagon_shape(
-                    cx, cy, hex_radius, color="gray", lw=1.0, alpha=0.15)
-                self.ax3d.plot([cx, cx], [cy, cy], [
-                               0, bs_height], color="gray", lw=1.0)
+                label = "Cell Grid" if first else None
+                self._draw_hexagon_shape_mpl(cx, cy, hex_radius, rotation_deg=30,
+                                             color="gray", lw=1.0, alpha=0.15, label=label)
+                self.ax3d.plot([cx, cx], [cy, cy], [0, bs_height],
+                               color="gray", lw=0.5, alpha=0.5)
+                first = False
 
-        # markers
-        self.ax3d.scatter(xs, ys, [bs_height]*len(xs), c="black",
-                          marker="^", s=22, label=f"IMT {topo_type}")
+        marker = "o" if topo_type == "HOTSPOT" else "^"
+        color = "tab:blue"
+        label_bs = f"{topo_type.replace('_', ' ').title()} BS"
 
-        # mastros
+        self.ax3d.scatter(xs, ys, [bs_height]*len(xs), c=color, marker=marker, s=40,
+                          depthshade=False, label=label_bs)
+
         for x, y in zip(xs, ys):
-            self._draw_bs_post(self.ax3d, x, y, bs_height,
-                               color="gray", lw=1.5)
+            self.ax3d.plot([x, x], [y, y], [0, bs_height], color=color, lw=1.5)
 
-        # sectors
-        radius_sector = hex_radius * \
-            0.9 if hex_radius > 0 else _safe_float(
-                getattr(self.app, "sbs_cell_radius", None), 100.0)
-        if radius_sector > 0 and len(azs) == len(xs):
+        radius = hex_radius * 0.85 if hex_radius > 0 else 50.0
+        if topo_type == "HOTSPOT":
+            radius = 20.0
+
+        if topo_type != "SINGLE_EARTH_STATION":
+            first_sector = True
             for x, y, az in zip(xs, ys, azs):
-                self._add_wedge_outline3d(
-                    self.ax3d, x, y, radius_sector, az, color="black", lw=0.8, z_plane=bs_height)
+                lbl = "Sector" if first_sector else None
+                self._add_wedge_outline3d_mpl(
+                    self.ax3d, x, y, radius, az, z_plane=bs_height, color=color, label=lbl)
+                first_sector = False
 
-    # ---- Global scenarios ----
+        if topo_type == "SINGLE_EARTH_STATION":
+            az = _coerce_float(_yaml_first(data, ("single_base_station.antenna.azimuth_deg",
+                               "imt.single_base_station.antenna.azimuth_deg", "sbs_azimuth_deg", "sbs_azimuth"), None), 0.0)
+            if hasattr(self.app, "sbs_azimuth"):
+                az = _safe_float(getattr(self.app, "sbs_azimuth", None), az)
+            el = _safe_float(getattr(self.app, "sbs_elevation", None), 45.0)
+            vec_len = 200.0
+
+            rad_az, rad_el = np.radians(az), np.radians(el)
+            vx = vec_len * np.cos(rad_el) * np.cos(rad_az)
+            vy = vec_len * np.cos(rad_el) * np.sin(rad_az)
+            vz = vec_len * np.sin(rad_el)
+            self.ax3d.quiver(0, 0, bs_height, vx, vy, vz,
+                             color="red", length=1.0, label="Pointing Vector")
+
+            self._add_wedge_outline3d_mpl(
+                self.ax3d, 0, 0, vec_len*0.8, az, z_plane=bs_height, color="red", label="Antenna Sector")
+
+        self._set_equal_3d_mpl(self.ax3d, xs, ys, bs_height*2)
 
     def _draw_global_matplotlib(self, topo_type: str, data: Dict[str, Any]):
-        # Positions (lat/lon/alt) from UI
-        ss_lat = _safe_float(getattr(self.app, "v_fix_lat", None), 0.0)
-        ss_lon = _safe_float(getattr(self.app, "v_fix_lon", None), 0.0)
-        ss_alt = _safe_float(
-            getattr(self.app, "v_alt", None), 35786e3)  # default GEO
+        a = WGS84_A
+        # More segments for smoother sphere
+        u = np.linspace(0, 2 * np.pi, 60)
+        v = np.linspace(0, np.pi, 30)
+        X = a * np.outer(np.cos(u), np.sin(v))
+        Y = a * np.outer(np.sin(u), np.sin(v))
+        Z = a * np.outer(np.ones_like(u), np.cos(v))
 
-        es_lat = _safe_float(getattr(self.app, "v_es_lat", None), 0.0)
-        es_lon = _safe_float(getattr(self.app, "v_es_lon", None), 0.0)
-        es_alt = _safe_float(getattr(self.app, "v_es_alt", None), 0.0)
+        self.ax3d.plot_surface(X, Y, Z, color="#e6f2ff",
+                               alpha=0.3, edgecolor="#b0c4de", lw=0.1)
 
-        # Try StationFactory for real position if available, else use lla_to_ecef
-        sx = sy = sz = None
-        sat_obj = None
-        try:
-            if HAS_SHARC_CORE and StationFactory is not None and ParametersSingleSpaceStation is not None:
-                p_ss = ParametersSingleSpaceStation()
-                # geometry fields vary across versions; use guarded sets
-                try:
-                    p_ss.geometry.altitude = ss_alt
-                except Exception:
-                    pass
-                try:
-                    p_ss.geometry.location.fixed.lat_deg = ss_lat
-                    p_ss.geometry.location.fixed.long_deg = ss_lon
-                except Exception:
-                    try:
-                        p_ss.geometry.location.lat_deg = ss_lat
-                        p_ss.geometry.location.long_deg = ss_lon
-                    except Exception:
-                        pass
-                try:
-                    p_ss.is_global_coordinate_system = True
-                except Exception:
-                    pass
+        if self.app.show_borders.get():
+            self._draw_borders_mpl()
 
-                # Dummy RF fields to avoid crashes in some SHARC versions
-                try:
-                    p_ss.antenna.pattern = getattr(
-                        getattr(self.app, "sat_pattern", None), "get", lambda: "ITU-R S.672")()
-                except Exception:
-                    pass
-                for fld, val in (("bandwidth", 10.0), ("tx_power_density", -50.0)):
-                    try:
-                        setattr(p_ss, fld, getattr(
-                            getattr(self.app, f"sat_{fld}", None), "get", lambda: val)())
-                    except Exception:
-                        pass
+        sx, sy, sz, ex, ey, ez, sat_obj = self._get_global_positions(data)
 
-                ss_man = StationFactory.generate_single_space_station(
-                    p_ss)  # type: ignore
-                sat_obj = ss_man
-                sx, sy, sz = float(ss_man.x[0]), float(
-                    ss_man.y[0]), float(ss_man.z[0])
-        except Exception:
-            sx = sy = sz = None
+        self.ax3d.scatter([sx], [sy], [sz], c="purple", s=80,
+                          marker="^", label="Satellite", zorder=10)
+        self.ax3d.scatter([ex], [ey], [ez], c="blue", s=50,
+                          marker="o", label="Earth Station", zorder=10)
+        self.ax3d.plot([sx, ex], [sy, ey], [sz, ez], color="purple",
+                       linestyle="--", alpha=0.6, label="Link")
 
-        if sx is None:
-            sx, sy, sz = lla_to_ecef(ss_lat, ss_lon, ss_alt)
+        if self.app.show_beamwidth.get():
+            bw = self._determine_beamwidth(sat_obj)
+            self._draw_footprint_mpl(sx, sy, sz, bw)
 
-        ex, ey, ez = lla_to_ecef(es_lat, es_lon, es_alt)
-
-        # Draw Earth sphere
-        a = WGS84_A * 0.98
-        u = np.linspace(0, 2*np.pi, 50)
-        v = np.linspace(0, np.pi, 25)
-        X = a*np.outer(np.cos(u), np.sin(v))
-        Y = a*np.outer(np.sin(u), np.sin(v))
-        Z = a*np.outer(np.ones_like(u), np.cos(v))
-        self.ax3d.plot_surface(X, Y, Z, color="#dbe7ff",
-                               alpha=0.25, edgecolor="#b0c4de", lw=0.1)
-
-        # Borders
-        self._draw_country_borders_matplotlib()
-
-        # Satellite / Earth station / link
-        self.ax3d.scatter([sx], [sy], [sz], c="purple", s=70,
-                          marker="^", label="Space station")
-        self.ax3d.scatter([ex], [ey], [ez], c="blue", s=45,
-                          marker="o", label="Earth station")
-        self.ax3d.plot([sx, ex], [sy, ey], [sz, ez],
-                       color="purple", lw=1.5, alpha=0.8, linestyle="--")
-
-        # Optional beam footprint (beamwidth auto/manual)
-        show_bw = getattr(getattr(self.app, "show_beamwidth",
-                          None), "get", lambda: True)()
-        if show_bw:
-            auto_bw = getattr(
-                getattr(self.app, "var_auto_beamwidth", None), "get", lambda: True)()
-            manual_bw = _safe_float(
-                getattr(self.app, "var_beamwidth_deg", None), 5.0)
-            bw_deg = manual_bw
-            if auto_bw and sat_obj is not None:
-                try:
-                    antenna = getattr(sat_obj, "antenna", None)
-                    if isinstance(antenna, (list, np.ndarray)) and len(antenna) > 0:
-                        antenna = antenna[0]
-                    bw_deg = _guess_antenna_beamwidth_deg(
-                        antenna, fallback=manual_bw)
-                except Exception:
-                    bw_deg = manual_bw
-            self._draw_footprint_circle_ecef(sx, sy, sz, bw_deg)
-
-        R_lim = WGS84_A + 20e6
-        self.ax3d.set_xlim([-R_lim, R_lim])
-        self.ax3d.set_ylim([-R_lim, R_lim])
-        self.ax3d.set_zlim([-R_lim, R_lim])
+        limit = WGS84_A * 2.5
+        self.ax3d.set_xlim(-limit, limit)
+        self.ax3d.set_ylim(-limit, limit)
+        self.ax3d.set_zlim(-limit, limit)
+        # Ensure it looks spherical, not squashed
         self.ax3d.set_box_aspect([1, 1, 1])
-
-    def _draw_country_borders_matplotlib(self):
-        if not getattr(self.app.show_borders, "get", lambda: True)():
-            return
-
-        # Prefer user-provided shapefile (pyshp)
-        shp_path = None
-        if hasattr(self.app, "path_shp"):
-            try:
-                shp_path = self.app.path_shp.get()
-            except Exception:
-                shp_path = None
-
-        if shp_path and HAS_PYSHP:
-            try:
-                r = pyshp.Reader(shp_path)
-                for sr in r.shapeRecords():
-                    pts = sr.shape.points
-                    if not pts:
-                        continue
-                    lons, lats = zip(*pts)
-                    x, y, z = lla_to_ecef(np.array(lats), np.array(lons), 0.0)
-                    self.ax3d.plot(x, y, z, lw=0.4, color="k",
-                                   alpha=0.5, zorder=5)
-                return
-            except Exception:
-                pass
-
-        # Fallback: geopandas Natural Earth
-        if HAS_GEOPANDAS:
-            try:
-                world = gpd.read_file(
-                    gpd.datasets.get_path("naturalearth_lowres"))
-                for _, row in world.iterrows():
-                    geom = row.geometry
-                    if geom is None:
-                        continue
-                    # handle Polygon & MultiPolygon
-                    geoms = [geom] if geom.geom_type == "Polygon" else list(
-                        getattr(geom, "geoms", []))
-                    for g in geoms:
-                        coords = np.array(g.exterior.coords)
-                        lon = coords[:, 0]
-                        lat = coords[:, 1]
-                        x, y, z = lla_to_ecef(lat, lon, 0.0)
-                        self.ax3d.plot(x, y, z, lw=0.35,
-                                       color="k", alpha=0.45, zorder=5)
-            except Exception:
-                pass
-
-    def _draw_footprint_circle_ecef(self, sx, sy, sz, beamwidth_deg: float):
-        """
-        Approximate beam footprint on Earth's surface for a nadir-pointing beam.
-        We compute half-angle alpha = beamwidth/2 and then ground central angle gamma
-        from geometry of a cone intersecting a sphere.
-
-        Assumes satellite points to Earth's center (nadir).
-        """
-        # Earth radius
-        Re = WGS84_A
-        rs = float(np.linalg.norm([sx, sy, sz]))
-        if rs <= Re:
-            return
-        alpha = math.radians(max(0.1, min(179.0, beamwidth_deg)) / 2.0)
-
-        # central angle gamma between sub-satellite point and edge of footprint
-        # cone half-angle alpha from satellite; sphere radius Re.
-        # Derivation: consider triangle OS (center->sat) length rs, OP=Re, angle at S equals alpha.
-        # Solve for angle at O (gamma) using law of sines:
-        # sin(alpha)/Re = sin(pi - (alpha+beta))/rs ... but simplest numeric:
-        # Use ray-sphere intersection in plane; compute edge point direction at cone boundary.
-        # We'll compute in satellite-centered frame:
-        # boresight points to center: u = -S/|S|
-        u = _unit(-np.array([sx, sy, sz], dtype=float))
-        # choose an arbitrary perpendicular basis
-        tmp = np.array([0.0, 0.0, 1.0])
-        if abs(np.dot(tmp, u)) > 0.9:
-            tmp = np.array([0.0, 1.0, 0.0])
-        e1 = _unit(np.cross(u, tmp))
-        e2 = _unit(np.cross(u, e1))
-
-        # generate boundary rays
-        phis = np.linspace(0, 2*np.pi, 128)
-        pts = []
-        S = np.array([sx, sy, sz], dtype=float)
-        for phi in phis:
-            dir_vec = math.cos(alpha)*u + math.sin(alpha) * \
-                (math.cos(phi)*e1 + math.sin(phi)*e2)
-            # ray: S + t*dir, find intersection with sphere |P|=Re
-            # solve |S + t d|^2 = Re^2
-            d = dir_vec
-            A = float(np.dot(d, d))
-            B = 2.0*float(np.dot(S, d))
-            C = float(np.dot(S, S) - Re*Re)
-            disc = B*B - 4*A*C
-            if disc <= 0:
-                continue
-            t = (-B - math.sqrt(disc)) / (2*A)  # nearest intersection
-            P = S + t*d
-            pts.append(P)
-
-        if len(pts) < 3:
-            return
-        pts = np.array(pts)
-        self.ax3d.plot(pts[:, 0], pts[:, 1], pts[:, 2], color="magenta",
-                       lw=1.0, alpha=0.7, label="Footprint (approx)")
 
     def _draw_preview_plotly(self, topo_type: str, data: Dict[str, Any]):
         if not HAS_PLOTLY:
-            messagebox.showerror("Plotly not available",
-                                 "Install plotly to use this engine.")
             return
 
         fig = go.Figure()
 
-        is_global = topo_type in ["Macro_countries", "MACRO_COUNTRIES",
-                                  "SINGLE_SPACE_STATION", "MSS_DC", "EESS_SS", "METSAT_SS"]
-        if topo_type == "SINGLE_EARTH_STATION":
-            # for SES, plotly can still be 3D local; we render local in a simple 3D scatter
-            is_global = False
+        global_types = ["MACRO_COUNTRIES", "SINGLE_SPACE_STATION",
+                        "MSS_DC", "EESS_SS", "METSAT_SS"]
+        is_global = topo_type in global_types
 
         try:
             if is_global:
@@ -1022,254 +646,497 @@ class PreviewTab:
                 self._draw_local_plotly(fig, topo_type, data)
         except Exception as e:
             traceback.print_exc()
-            fig.add_annotation(
-                text=f"Preview error: {e}", x=0.01, y=0.99, xref="paper", yref="paper", showarrow=False)
+            fig.add_annotation(text=f"Error: {e}", showarrow=False)
+
+        # Ensure legend is visible
+        fig.update_layout(showlegend=True, legend=dict(x=0, y=1))
 
         self._plotly_last_fig = fig
-        self._plotly_embed.set_figure(fig, open_external=getattr(
-            self.app.open_plotly_external, "get", lambda: False)())
+        self._plotly_embed.set_figure(
+            fig, open_external=self.app.open_plotly_external.get())
+
+    def _draw_local_plotly(self, fig: "go.Figure", topo_type: str, data: Dict[str, Any]):
+        bs_height = _coerce_float(_yaml_first(data, ("imt.base_station.height_m",
+                                  "imt.bs.height_m", "imt.bs_height", "bs_height", "general.bs_height"), None), 30.0)
+        if hasattr(self.app, "bs_height"):
+            bs_height = _safe_float(
+                getattr(self.app, "bs_height", None), bs_height)
+        xs, ys, azs, hex_centers, hex_radius, draw_hex = self._compute_local_geometry(
+            topo_type, data)
+
+        if draw_hex and hex_centers:
+            hex_x, hex_y, hex_z = [], [], []
+            for cx, cy in hex_centers:
+                # 30 deg rotation makes it pointy-topped to match cluster layout
+                pts = self._hexagon_points(cx, cy, hex_radius, rotation_deg=30)
+                pts = np.vstack([pts, pts[0]])
+                hex_x.extend(pts[:, 0])
+                hex_x.append(None)
+                hex_y.extend(pts[:, 1])
+                hex_y.append(None)
+                hex_z.extend([0]*len(pts))
+                hex_z.append(None)
+
+            fig.add_trace(go.Scatter3d(
+                x=hex_x, y=hex_y, z=hex_z,
+                mode="lines", line=dict(color="lightgray", width=2),
+                name="Grid / Cells"
+            ))
+
+        color = "blue"
+        if topo_type == "HOTSPOT":
+            color = "green"
+        elif topo_type == "SINGLE_EARTH_STATION":
+            color = "red"
+
+        fig.add_trace(go.Scatter3d(
+            x=xs, y=ys, z=[bs_height]*len(xs),
+            mode="markers", marker=dict(size=5, color=color),
+            name=f"{topo_type.replace('_', ' ').title()} BS"
+        ))
+
+        post_x, post_y, post_z = [], [], []
+        for x, y in zip(xs, ys):
+            post_x.extend([x, x, None])
+            post_y.extend([y, y, None])
+            post_z.extend([0, bs_height, None])
+
+        fig.add_trace(go.Scatter3d(
+            x=post_x, y=post_y, z=post_z,
+            mode="lines", line=dict(color=color, width=3),
+            showlegend=False
+        ))
+
+        sec_radius = hex_radius * 0.8 if hex_radius > 0 else 50.0
+        if topo_type != "SINGLE_EARTH_STATION":
+            for x, y, az in zip(xs, ys, azs):
+                self._add_wedge_plotly(
+                    fig, x, y, sec_radius, az, bs_height, color)
+
+        if topo_type == "SINGLE_EARTH_STATION":
+            az = _coerce_float(_yaml_first(data, ("single_base_station.antenna.azimuth_deg",
+                               "imt.single_base_station.antenna.azimuth_deg", "sbs_azimuth_deg", "sbs_azimuth"), None), 0.0)
+            if hasattr(self.app, "sbs_azimuth"):
+                az = _safe_float(getattr(self.app, "sbs_azimuth", None), az)
+            el = _safe_float(getattr(self.app, "sbs_elevation", None), 45.0)
+            length = 200.0
+            vx = length * np.cos(np.radians(el)) * np.cos(np.radians(az))
+            vy = length * np.cos(np.radians(el)) * np.sin(np.radians(az))
+            vz = length * np.sin(np.radians(el))
+
+            fig.add_trace(go.Scatter3d(
+                x=[0, vx], y=[0, vy], z=[bs_height, bs_height+vz],
+                mode="lines", line=dict(color="red", width=5), name="Pointing Vector"
+            ))
+
+        fig.update_layout(scene=dict(aspectmode="data"))
 
     def _draw_global_plotly(self, fig: "go.Figure", topo_type: str, data: Dict[str, Any]):
-        # Earth sphere
+        sx, sy, sz, ex, ey, ez, sat_obj = self._get_global_positions(data)
+
         Re = WGS84_A
-        u = np.linspace(0, 2*np.pi, 80)
-        v = np.linspace(0, np.pi, 40)
-        X = Re*np.outer(np.cos(u), np.sin(v))
-        Y = Re*np.outer(np.sin(u), np.sin(v))
-        Z = Re*np.outer(np.ones_like(u), np.cos(v))
+        # Higher resolution for better sphere
+        N_phi, N_theta = 80, 40
+        u = np.linspace(0, 2*np.pi, N_phi)
+        v = np.linspace(0, np.pi, N_theta)
+        X = Re * np.outer(np.cos(u), np.sin(v))
+        Y = Re * np.outer(np.sin(u), np.sin(v))
+        Z = Re * np.outer(np.ones_like(u), np.cos(v))
 
-        fig.add_surface(x=X, y=Y, z=Z, opacity=0.25, showscale=False)
+        surface_color = None
+        cmin, cmax = None, None
 
-        # Borders
-        if getattr(self.app.show_borders, "get", lambda: True)():
-            self._draw_country_borders_plotly(fig)
+        show_gain = self.app.var_show_gainmap.get()
+        if show_gain and sat_obj:
+            ant = getattr(sat_obj, "antenna", None)
+            if ant:
+                vmin = float(self.app.var_gain_vmin.get())
+                vmax = float(self.app.var_gain_vmax.get())
+                surface_color = self._compute_gain_surface(
+                    sx, sy, sz, ant, X, Y, Z, vmin, vmax)
+                cmin, cmax = vmin, vmax
 
-        # Positions from UI
-        ss_lat = _safe_float(getattr(self.app, "v_fix_lat", None), 0.0)
-        ss_lon = _safe_float(getattr(self.app, "v_fix_lon", None), 0.0)
-        ss_alt = _safe_float(getattr(self.app, "v_alt", None), 35786e3)
+        fig.add_trace(go.Surface(
+            x=X, y=Y, z=Z,
+            surfacecolor=surface_color if surface_color is not None else np.zeros_like(
+                Z),
+            colorscale="Turbo" if surface_color is not None else [
+                [0, "lightblue"], [1, "lightblue"]],
+            cmin=cmin, cmax=cmax,
+            opacity=0.7 if surface_color is not None else 0.3,
+            showscale=bool(surface_color is not None),
+            name="Earth Surface"
+        ))
 
-        es_lat = _safe_float(getattr(self.app, "v_es_lat", None), 0.0)
-        es_lon = _safe_float(getattr(self.app, "v_es_lon", None), 0.0)
-        es_alt = _safe_float(getattr(self.app, "v_es_alt", None), 0.0)
+        if self.app.show_borders.get():
+            self._draw_borders_plotly(fig)
 
-        sx = sy = sz = None
-        sat_ant = None
+        fig.add_trace(go.Scatter3d(
+            x=[sx], y=[sy], z=[sz], mode="markers",
+            marker=dict(size=6, color="purple"), name="Satellite"
+        ))
+        fig.add_trace(go.Scatter3d(
+            x=[ex], y=[ey], z=[ez], mode="markers",
+            marker=dict(size=5, color="blue"), name="Earth Station"
+        ))
+        fig.add_trace(go.Scatter3d(
+            x=[sx, ex], y=[sy, ey], z=[sz, ez], mode="lines",
+            line=dict(color="purple", dash="dash", width=2), name="Link Path"
+        ))
 
-        # Try StationFactory -> real antenna object
+        if self.app.show_beamwidth.get():
+            bw = self._determine_beamwidth(sat_obj)
+            fp_pts = self._compute_footprint_boundary(sx, sy, sz, bw)
+            if fp_pts is not None:
+                fig.add_trace(go.Scatter3d(
+                    x=fp_pts[:, 0], y=fp_pts[:, 1], z=fp_pts[:, 2],
+                    mode="lines", line=dict(color="magenta", width=4),
+                    name=f"Footprint ({bw:.1f}°)"
+                ))
+
+        # IMPORTANT: Force aspectmode='data' so Earth is a sphere, not an ellipsoid
+        fig.update_layout(scene=dict(aspectmode="data"))
+
+    def _compute_local_geometry(self, topo_type: str, data: Dict[str, Any]):
+        xs, ys, azs = [], [], []
+        hex_centers, hex_radius, draw_hex = [], 0.0, False
+
+        if not HAS_SHARC_CORE:
+            return ([0], [0], [0], [], 0, False)
+
         try:
-            if HAS_SHARC_CORE and StationFactory is not None and ParametersSingleSpaceStation is not None:
+            if topo_type == "SINGLE_EARTH_STATION":
+                xs, ys, azs = [0.0], [0.0], [0.0]
+
+            elif topo_type == "MACROCELL":
+                d = _coerce_float(_yaml_first(data, ("imt.topology.intersite_distance", "topology.intersite_distance",
+                                  "macrocell.intersite_distance", "macro.intersite_distance", "macro_intersite"), None), 1500.0)
+                if hasattr(self.app, "macro_intersite"):
+                    d = _safe_float(
+                        getattr(self.app, "macro_intersite", None), d)
+                nc = _coerce_int(_yaml_first(data, ("imt.topology.num_clusters",
+                                 "topology.num_clusters", "macrocell.num_clusters", "macro_clusters"), None), 1)
+                if hasattr(self.app, "macro_clusters"):
+                    nc = _safe_int(
+                        getattr(self.app, "macro_clusters", None), nc)
+                topo = TopologyMacrocell(intersite_distance=d, num_clusters=nc)
+                topo.calculate_coordinates()
+                xs, ys, azs = list(topo.x), list(topo.y), list(topo.azimuth)
+                # Correct hexagon size for honeycomb packing:
+                # If intersite distance is d, hex radius (center to corner) is d / sqrt(3)
+                hex_radius = d / math.sqrt(3)
+                draw_hex = True
+                hex_centers = list(set(zip(xs, ys)))
+
+            elif topo_type == "HOTSPOT":
+                d = _coerce_float(_yaml_first(data, ("imt.hotspot.intersite_distance", "hotspot.intersite_distance",
+                                  "imt.topology.intersite_distance", "hotspot_intersite"), None), 1500.0)
+                if hasattr(self.app, "hotspot_intersite"):
+                    d = _safe_float(
+                        getattr(self.app, "hotspot_intersite", None), d)
+                nc = _coerce_int(_yaml_first(
+                    data, ("imt.hotspot.num_clusters", "hotspot.num_clusters", "hotspot_clusters"), None), 1)
+                if hasattr(self.app, "hotspot_clusters"):
+                    nc = _safe_int(
+                        getattr(self.app, "hotspot_clusters", None), nc)
+                p_hot = ParametersHotspot() if ParametersHotspot else None
+                if p_hot:
+                    p_hot.num_hotspots_per_cell = _coerce_int(_yaml_first(
+                        data, ("imt.hotspot.num_hotspots_per_cell", "hotspot.num_hotspots_per_cell", "hotspot_num_per_cell"), None), 3)
+                    if hasattr(self.app, "hotspot_num_per_cell"):
+                        p_hot.num_hotspots_per_cell = _safe_int(
+                            getattr(self.app, "hotspot_num_per_cell", None), p_hot.num_hotspots_per_cell)
+                topo = TopologyHotspot(
+                    param=p_hot, intersite_distance=d, num_clusters=nc)
+                topo.calculate_coordinates()
+                xs, ys, azs = list(topo.x), list(topo.y), list(topo.azimuth)
+                if hasattr(topo, "macrocell"):
+                    hex_radius = d / math.sqrt(3)
+                    draw_hex = True
+                    hex_centers = list(
+                        set(zip(topo.macrocell.x, topo.macrocell.y)))
+
+            elif topo_type in ("SINGLE_BS", "SINGLE_BASE_STATION"):
+                cr = _safe_float(
+                    getattr(self.app, "sbs_cell_radius", None), 100.0)
+                topo = TopologySingleBaseStation(
+                    cell_radius=cr, num_clusters=1)
+                topo.calculate_coordinates()
+                xs, ys, azs = list(topo.x), list(topo.y), list(topo.azimuth)
+
+        except Exception as e:
+            print(f"Topology calc error: {e}")
+            xs, ys, azs = [0], [0], [0]
+
+        return xs, ys, azs, hex_centers, hex_radius, draw_hex
+
+    def _get_global_positions(self, data: Optional[Dict[str, Any]] = None):
+        if data is None:
+            data = {}
+        ss_lat = _coerce_float(_yaml_first(data, ("single_space_station.geometry.location.fixed.lat_deg",
+                               "space_station.geometry.location.fixed.lat_deg", "satellite.lat_deg", "general.satellite.lat_deg"), None), 0.0)
+        ss_lon = _coerce_float(_yaml_first(data, ("single_space_station.geometry.location.fixed.long_deg",
+                               "space_station.geometry.location.fixed.long_deg", "satellite.lon_deg", "general.satellite.lon_deg"), None), 0.0)
+        ss_alt = _coerce_float(_yaml_first(data, ("single_space_station.geometry.altitude",
+                               "space_station.geometry.altitude", "satellite.altitude_m", "general.satellite.altitude_m"), None), 35786e3)
+        es_lat = _coerce_float(_yaml_first(data, ("single_earth_station.geometry.location.fixed.lat_deg",
+                               "earth_station.geometry.location.fixed.lat_deg", "earth_station.lat_deg", "general.earth_station.lat_deg"), None), 0.0)
+        es_lon = _coerce_float(_yaml_first(data, ("single_earth_station.geometry.location.fixed.long_deg",
+                               "earth_station.geometry.location.fixed.long_deg", "earth_station.lon_deg", "general.earth_station.lon_deg"), None), 0.0)
+        es_alt = _coerce_float(_yaml_first(data, ("single_earth_station.geometry.altitude", "earth_station.geometry.altitude",
+                               "earth_station.altitude_m", "general.earth_station.altitude_m"), None), 0.0)
+
+        # App fallbacks (older GUI vars)
+        if hasattr(self.app, "v_fix_lat"):
+            ss_lat = _safe_float(getattr(self.app, "v_fix_lat", None), ss_lat)
+        if hasattr(self.app, "v_fix_lon"):
+            ss_lon = _safe_float(getattr(self.app, "v_fix_lon", None), ss_lon)
+        if hasattr(self.app, "v_alt"):
+            ss_alt = _safe_float(getattr(self.app, "v_alt", None), ss_alt)
+        if hasattr(self.app, "v_es_lat"):
+            es_lat = _safe_float(getattr(self.app, "v_es_lat", None), es_lat)
+        if hasattr(self.app, "v_es_lon"):
+            es_lon = _safe_float(getattr(self.app, "v_es_lon", None), es_lon)
+        if hasattr(self.app, "v_es_alt"):
+            es_alt = _safe_float(getattr(self.app, "v_es_alt", None), es_alt)
+
+        ex, ey, ez = lla_to_ecef(es_lat, es_lon, es_alt)
+
+        sat_obj = None
+        sx, sy, sz = None, None, None
+
+        if HAS_SHARC_CORE and StationFactory and ParametersSingleSpaceStation:
+            try:
                 p_ss = ParametersSingleSpaceStation()
                 try:
                     p_ss.geometry.altitude = ss_alt
+                except:
+                    pass
+                try:
                     p_ss.geometry.location.fixed.lat_deg = ss_lat
                     p_ss.geometry.location.fixed.long_deg = ss_lon
-                except Exception:
-                    pass
-                try:
-                    p_ss.is_global_coordinate_system = True
-                except Exception:
-                    pass
-                # dummy RF
-                try:
-                    p_ss.antenna.pattern = "ITU-R S.672"
-                except Exception:
-                    pass
-                try:
-                    p_ss.bandwidth = 10.0
-                    p_ss.tx_power_density = -50.0
-                except Exception:
+                except:
                     pass
 
-                ss_man = StationFactory.generate_single_space_station(
-                    p_ss)  # type: ignore
-                sx, sy, sz = float(ss_man.x[0]), float(
-                    ss_man.y[0]), float(ss_man.z[0])
+                pat_name = _coerce_str(_yaml_first(data, ("single_space_station.antenna.pattern",
+                                       "space_station.antenna.pattern", "satellite.antenna.pattern"), None), "ITU-R S.672")
+                if hasattr(self.app, "sat_pattern"):
+                    pat_name = _coerce_str(
+                        getattr(self.app, "sat_pattern", pat_name), pat_name)
                 try:
-                    ant = getattr(ss_man, "antenna", None)
-                    if isinstance(ant, (list, np.ndarray)) and len(ant) > 0:
-                        sat_ant = ant[0]
-                    else:
-                        sat_ant = ant
-                except Exception:
-                    sat_ant = None
-        except Exception:
-            sx = sy = sz = None
+                    p_ss.antenna.pattern = pat_name
+                except:
+                    pass
+
+                sat_obj = StationFactory.generate_single_space_station(p_ss)
+                sx, sy, sz = float(sat_obj.x[0]), float(
+                    sat_obj.y[0]), float(sat_obj.z[0])
+            except Exception:
+                pass
 
         if sx is None:
             sx, sy, sz = lla_to_ecef(ss_lat, ss_lon, ss_alt)
 
-        ex, ey, ez = lla_to_ecef(es_lat, es_lon, es_alt)
+        return sx, sy, sz, ex, ey, ez, sat_obj
 
-        fig.add_scatter3d(x=[sx], y=[sy], z=[sz], mode="markers",
-                          marker=dict(size=5), name="Space station")
-        fig.add_scatter3d(x=[ex], y=[ey], z=[ez], mode="markers",
-                          marker=dict(size=4), name="Earth station")
+    def _determine_beamwidth(self, sat_obj):
+        if self.app.var_auto_beamwidth.get():
+            if sat_obj:
+                ant = getattr(sat_obj, "antenna", None)
+                if isinstance(ant, list) and ant:
+                    ant = ant[0]
+                return _guess_antenna_beamwidth_deg(ant, fallback=float(self.app.var_beamwidth_deg.get()))
+        return float(self.app.var_beamwidth_deg.get())
 
-        fig.add_scatter3d(x=[sx, ex], y=[sy, ey], z=[sz, ez], mode="lines", line=dict(width=3, dash="dash"),
-                          name="Link")
-
-        # Beam footprint + gain map
-        use_beam = getattr(self.app.show_beamwidth, "get", lambda: True)()
-        show_gain = getattr(self.app.var_show_gainmap, "get", lambda: False)()
-        vmin = _safe_float(getattr(self.app, "var_gain_vmin", None), -10.0)
-        vmax = _safe_float(getattr(self.app, "var_gain_vmax", None), 50.0)
-
-        if use_beam:
-            auto_bw = getattr(
-                getattr(self.app, "var_auto_beamwidth", None), "get", lambda: True)()
-            manual_bw = _safe_float(
-                getattr(self.app, "var_beamwidth_deg", None), 5.0)
-            bw_deg = manual_bw
-            if auto_bw and sat_ant is not None:
-                try:
-                    bw_deg = _guess_antenna_beamwidth_deg(
-                        sat_ant, fallback=manual_bw)
-                except Exception:
-                    bw_deg = manual_bw
-            fp = self._compute_footprint_boundary(sx, sy, sz, bw_deg, n=256)
-            if fp is not None:
-                fig.add_scatter3d(x=fp[:, 0], y=fp[:, 1], z=fp[:, 2], mode="lines",
-                                  line=dict(width=3), name="Footprint")
-        if show_gain and sat_ant is not None:
-            # Real gain map computed as a surfacecolor on Earth sphere for directions from satellite to surface points.
-            # Compute gain at each sphere mesh vertex using off-axis w.r.t. boresight (nadir).
-            surface_gain = self._compute_gain_surfacecolor(
-                sx, sy, sz, sat_ant, X, Y, Z, vmin=vmin, vmax=vmax)
-            if surface_gain is not None:
-                fig.add_surface(x=X, y=Y, z=Z, surfacecolor=surface_gain, colorscale="Turbo",
-                                cmin=vmin, cmax=vmax, opacity=0.65, colorbar=dict(title="Gain (dBi)"))
-
-        fig.update_layout(scene=dict(aspectmode="data"))
-
-    def _draw_country_borders_plotly(self, fig: "go.Figure"):
-        # Prefer user shp path
-        shp_path = None
-        if hasattr(self.app, "path_shp"):
-            try:
-                shp_path = self.app.path_shp.get()
-            except Exception:
-                shp_path = None
-
-        if shp_path and HAS_PYSHP:
-            try:
-                r = pyshp.Reader(shp_path)
-                for sr in r.shapeRecords():
-                    pts = sr.shape.points
-                    if not pts:
-                        continue
-                    lons, lats = zip(*pts)
-                    x, y, z = lla_to_ecef(np.array(lats), np.array(lons), 0.0)
-                    fig.add_scatter3d(x=x, y=y, z=z, mode="lines", line=dict(width=1, color="black"),
-                                      showlegend=False)
-                return
-            except Exception:
-                pass
-
-        if HAS_GEOPANDAS:
-            try:
-                world = gpd.read_file(
-                    gpd.datasets.get_path("naturalearth_lowres"))
-                for _, row in world.iterrows():
-                    geom = row.geometry
-                    if geom is None:
-                        continue
-                    geoms = [geom] if geom.geom_type == "Polygon" else list(
-                        getattr(geom, "geoms", []))
-                    for g in geoms:
-                        coords = np.array(g.exterior.coords)
-                        lon = coords[:, 0]
-                        lat = coords[:, 1]
-                        x, y, z = lla_to_ecef(lat, lon, 0.0)
-                        fig.add_scatter3d(x=x, y=y, z=z, mode="lines", line=dict(width=1, color="black"),
-                                          showlegend=False)
-            except Exception:
-                pass
-
-    def _compute_footprint_boundary(self, sx, sy, sz, beamwidth_deg: float, n: int = 256) -> Optional[np.ndarray]:
+    def _compute_footprint_boundary(self, sx, sy, sz, bw_deg, n=128):
         Re = WGS84_A
         S = np.array([sx, sy, sz], dtype=float)
         rs = float(np.linalg.norm(S))
         if rs <= Re:
             return None
 
-        alpha = math.radians(max(0.1, min(179.0, beamwidth_deg)) / 2.0)
-        u = _unit(-S)  # nadir boresight
-        tmp = np.array([0.0, 0.0, 1.0])
+        alpha = math.radians(max(0.1, min(179.0, bw_deg)) / 2.0)
+
+        u = -S / rs
+
+        tmp = np.array([0, 0, 1.0])
         if abs(np.dot(tmp, u)) > 0.9:
-            tmp = np.array([0.0, 1.0, 0.0])
+            tmp = np.array([0, 1.0, 0])
         e1 = _unit(np.cross(u, tmp))
         e2 = _unit(np.cross(u, e1))
 
-        phis = np.linspace(0, 2*np.pi, n)
         pts = []
-        for phi in phis:
+        for phi in np.linspace(0, 2*np.pi, n):
             d = math.cos(alpha)*u + math.sin(alpha) * \
                 (math.cos(phi)*e1 + math.sin(phi)*e2)
-            A = float(np.dot(d, d))
-            B = 2.0*float(np.dot(S, d))
-            C = float(np.dot(S, S) - Re*Re)
-            disc = B*B - 4*A*C
-            if disc <= 0:
-                continue
-            t = (-B - math.sqrt(disc)) / (2*A)
-            P = S + t*d
-            pts.append(P)
-        if len(pts) < 3:
+
+            B = 2.0 * np.dot(S, d)
+            C = rs*rs - Re*Re
+
+            disc = B*B - 4*C
+            if disc >= 0:
+                t = (-B - math.sqrt(disc)) / 2.0
+                pts.append(S + t*d)
+
+        if not pts:
             return None
         return np.array(pts)
 
-    def _compute_gain_surfacecolor(self, sx, sy, sz, antenna, X, Y, Z, vmin: float, vmax: float):
-        # boresight is nadir
-        S = np.array([sx, sy, sz], dtype=float)
-        u_bore = _unit(-S)
+    def _compute_gain_surface(self, sx, sy, sz, antenna, X, Y, Z, vmin, vmax):
+        S = np.array([sx, sy, sz])
+        u_bore = _unit(-S)  # Nadir
 
-        # mesh arrays
-        gains = np.empty_like(X, dtype=float)
-        # Compute off-axis angle for each surface point: angle between boresight and direction from satellite to point
-        # To keep performance reasonable, subsample if mesh is huge
-        for i in range(X.shape[0]):
-            for j in range(X.shape[1]):
-                P = np.array([X[i, j], Y[i, j], Z[i, j]], dtype=float)
-                d = _unit(P - S)
-                off = _angle_between(u_bore, d)
-                g = _antenna_gain_db(antenna, off, phi_deg=0.0)
-                gains[i, j] = g
+        orig_shape = X.shape
+        Xf, Yf, Zf = X.ravel(), Y.ravel(), Z.ravel()
 
-        # Replace NaNs with vmin so the color map stays stable
-        gains = np.where(np.isfinite(gains), gains, vmin)
-        return np.clip(gains, vmin, vmax)
+        P = np.column_stack((Xf, Yf, Zf))
 
-    def _draw_local_plotly(self, fig: "go.Figure", topo_type: str, data: Dict[str, Any]):
-        # Simple 3D local layout in Plotly (useful for SES or local IMT)
-        bs_height = _safe_float(getattr(self.app, "bs_height", None), 30.0)
+        D = P - S
 
-        # Use same geometry as MPL
-        xs, ys, azs, hex_centers, hex_radius, draw_hex = [], [], [], [], 0.0, False
-        if topo_type == "SINGLE_EARTH_STATION":
-            xs, ys, azs = [0.0], [0.0], [_safe_float(
-                getattr(self.app, "sbs_azimuth", None), 0.0)]
-        else:
-            if topo_type in ("MACROCELL", "HOTSPOT", "SINGLE_BS"):
-                xs, ys, azs, hex_centers, hex_radius, draw_hex = self._compute_imt_local_geometry(
-                    topo_type)
+        d_norms = np.linalg.norm(D, axis=1)
+        d_norms[d_norms == 0] = 1.0
+        D_unit = D / d_norms[:, np.newaxis]
 
-        # points
-        fig.add_scatter3d(x=xs, y=ys, z=[bs_height]*len(xs), mode="markers",
-                          marker=dict(size=4), name=topo_type)
+        dots = np.dot(D_unit, u_bore)
+        dots = np.clip(dots, -1.0, 1.0)
+        angles_deg = np.degrees(np.arccos(dots))
 
-        # hexes
-        if draw_hex and hex_centers and hex_radius > 0:
-            for cx, cy in hex_centers:
-                ring = self._hexagon_points(cx, cy, hex_radius)
-                fig.add_scatter3d(x=ring[:, 0], y=ring[:, 1], z=np.zeros(len(ring)), mode="lines",
-                                  line=dict(width=2), showlegend=False)
+        gains = np.zeros_like(angles_deg)
 
-        fig.update_layout(scene=dict(aspectmode="data"))
+        for i, ang in enumerate(angles_deg):
+            gains[i] = _antenna_gain_db(antenna, ang)
 
-    # ----------------------------
-    # YAML preview, save, zoom
-    # ----------------------------
+        gains = np.nan_to_num(gains, nan=vmin)
+        gains = np.clip(gains, vmin, vmax)
+
+        return gains.reshape(orig_shape)
+
+    def _draw_hexagon_shape_mpl(self, x, y, r, rotation_deg=0, label=None, **kwargs):
+        pts = self._hexagon_points(x, y, r, rotation_deg=rotation_deg)
+        pts = np.vstack([pts, pts[0]])
+        line = self.ax3d.plot(pts[:, 0], pts[:, 1], [0]*len(pts), **kwargs)
+        if label:
+            line[0].set_label(label)
+
+    def _add_wedge_outline3d_mpl(self, ax, x, y, r, az_deg, half_bw=30, z_plane=0, color="k", label=None):
+        th0 = np.radians(az_deg - half_bw)
+        th1 = np.radians(az_deg + half_bw)
+        ths = np.linspace(th0, th1, 12)
+
+        pts = [(x, y)] + [(x + r*math.cos(t), y + r*math.sin(t))
+                          for t in ths] + [(x, y)]
+        xs = [p[0] for p in pts]
+        ys = [p[1] for p in pts]
+        ax.plot(xs, ys, [z_plane]*len(xs), color=color, lw=1, label=label)
+
+    def _set_equal_3d_mpl(self, ax, xs, ys, z_top):
+        xs = np.array(xs)
+        ys = np.array(ys)
+        span = max(xs.max()-xs.min(), ys.max()-ys.min(), 100)
+        cx = (xs.max()+xs.min())/2
+        cy = (ys.max()+ys.min())/2
+        ax.set_xlim(cx - span/2, cx + span/2)
+        ax.set_ylim(cy - span/2, cy + span/2)
+        ax.set_zlim(0, max(z_top, span/4))
+
+    def _draw_borders_mpl(self):
+        if not (HAS_PYSHP or HAS_GEOPANDAS):
+            return
+
+        coords = []
+        if HAS_PYSHP and hasattr(self.app, "path_shp"):
+            try:
+                r = pyshp.Reader(self.app.path_shp.get())
+                for sr in r.shapeRecords():
+                    if sr.shape.points:
+                        lons, lats = zip(*sr.shape.points)
+                        coords.append((lats, lons))
+            except:
+                pass
+        elif HAS_GEOPANDAS:
+            try:
+                gdf = gpd.read_file(
+                    gpd.datasets.get_path("naturalearth_lowres"))
+                for geom in gdf.geometry:
+                    if geom.geom_type == 'Polygon':
+                        lons, lats = geom.exterior.coords.xy
+                        coords.append((lats, lons))
+                    elif geom.geom_type == 'MultiPolygon':
+                        for poly in geom.geoms:
+                            lons, lats = poly.exterior.coords.xy
+                            coords.append((lats, lons))
+            except:
+                pass
+
+        for lat, lon in coords:
+            x, y, z = lla_to_ecef(lat, lon, 0)
+            self.ax3d.plot(x, y, z, color="k", lw=0.3, alpha=0.5)
+
+    def _draw_footprint_mpl(self, sx, sy, sz, bw):
+        fp = self._compute_footprint_boundary(sx, sy, sz, bw)
+        if fp is not None:
+            self.ax3d.plot(fp[:, 0], fp[:, 1], fp[:, 2],
+                           color="magenta", lw=1.5, label="Footprint")
+
+    def _draw_borders_plotly(self, fig):
+        coords = []
+        if HAS_PYSHP and hasattr(self.app, "path_shp"):
+            try:
+                r = pyshp.Reader(self.app.path_shp.get())
+                for sr in r.shapeRecords():
+                    if sr.shape.points:
+                        lons, lats = zip(*sr.shape.points)
+                        coords.append((np.array(lats), np.array(lons)))
+            except:
+                pass
+        elif HAS_GEOPANDAS:
+            try:
+                gdf = gpd.read_file(
+                    gpd.datasets.get_path("naturalearth_lowres"))
+                for geom in gdf.geometry:
+                    if geom.geom_type == 'Polygon':
+                        lons, lats = geom.exterior.coords.xy
+                        coords.append((np.array(lats), np.array(lons)))
+                    elif geom.geom_type == 'MultiPolygon':
+                        for poly in geom.geoms:
+                            lons, lats = poly.exterior.coords.xy
+                            coords.append((np.array(lats), np.array(lons)))
+            except:
+                pass
+
+        for lat, lon in coords:
+            # Offset borders slightly (1.001*R) to avoid z-fighting with sphere surface
+            x, y, z = lla_to_ecef(lat, lon, 0.0)
+            # Basic scaling to push them out a tiny bit
+            norm = np.sqrt(x*x + y*y + z*z)
+            scale = (WGS84_A * 1.001) / norm
+            fig.add_trace(go.Scatter3d(
+                x=x*scale, y=y*scale, z=z*scale,
+                mode="lines", line=dict(color="black", width=2), showlegend=False
+            ))
+
+    def _add_wedge_plotly(self, fig, x, y, r, az, z, color):
+        th0 = np.radians(az - 30)
+        th1 = np.radians(az + 30)
+        ths = np.linspace(th0, th1, 10)
+
+        px = [x] + [x + r*math.cos(t) for t in ths] + [x]
+        py = [y] + [y + r*math.sin(t) for t in ths] + [y]
+        pz = [z] * len(px)
+
+        fig.add_trace(go.Scatter3d(
+            x=px, y=py, z=pz, mode="lines",
+            line=dict(color=color, width=2), showlegend=False
+        ))
+
+    def _hexagon_points(self, x, y, r, rotation_deg=0):
+        # Generate 6 points
+        angles = np.linspace(np.radians(rotation_deg),
+                             np.radians(rotation_deg+360), 7)[:-1]
+        return np.column_stack([
+            x + r * np.cos(angles),
+            y + r * np.sin(angles)
+        ])
 
     def _update_yaml_preview(self):
         data = self._current_yaml()
@@ -1277,14 +1144,30 @@ class PreviewTab:
         self.txt_yaml.insert(tk.END, build_yaml_text(data))
 
     def _save_image(self):
-        path = filedialog.asksaveasfilename(
-            defaultextension=".png", filetypes=[("PNG", "*.png")])
+        """Save the current Matplotlib preview to an image file."""
+        if self.app.plot_engine.get() == "plotly":
+            messagebox.showinfo("Save Image",
+                                "For Plotly, please use the 'camera' icon in the plot toolbar \n"
+                                "or open in browser and save from there.")
+            return
+
+        path = filedialog.asksaveasfilename(defaultextension=".png",
+                                            filetypes=[("PNG Image", "*.png"), ("All Files", "*.*")])
         if path:
-            self.fig3d.savefig(path, dpi=180, bbox_inches="tight")
-            messagebox.showinfo("OK", f"Image saved: {path}")
+            try:
+                self.fig3d.savefig(path, dpi=200, bbox_inches='tight')
+                messagebox.showinfo(
+                    "Saved", f"Image saved successfully to:\n{path}")
+            except Exception as e:
+                messagebox.showerror("Error", f"Failed to save image:\n{e}")
 
     def _open_plotly(self):
-        if self._plotly_last_fig is not None:
+        """Opens the current plotly figure in the browser."""
+        if not HAS_PLOTLY:
+            messagebox.showerror("Error", "Plotly is not installed.")
+            return
+
+        if self._plotly_last_fig:
             self._plotly_embed.set_figure(
                 self._plotly_last_fig, open_external=True)
         else:
@@ -1299,67 +1182,6 @@ class PreviewTab:
     def _zoom_preview_3d(self, factor: float):
         try:
             self.ax3d.dist = max(1, float(self.ax3d.dist) * float(factor))
-        except Exception:
-            pass
-        self.canvas3d.draw_idle()
-
-    def _hexagon_points(self, x: float, y: float, r: float) -> np.ndarray:
-        pts = []
-        angle_deg = 30.0
-        for _ in range(7):
-            rad = math.radians(angle_deg)
-            pts.append([x + r*math.cos(rad), y + r*math.sin(rad)])
-            angle_deg += 60.0
-        return np.array(pts, dtype=float)
-
-    def _draw_hexagon_shape(self, x, y, r, color="k", lw=1.0, alpha=1.0):
-        points = self._hexagon_points(x, y, r)
-        self._add_polyline3d(self.ax3d, points.tolist(),
-                             color=color, lw=lw, alpha=alpha)
-
-    def _draw_bs_post(self, ax, x, y, h, color="tab:blue", lw=2.0):
-        ax.plot([x, x], [y, y], [0, h], color=color, lw=lw)
-
-    def _add_polyline3d(self, ax, xy_points, z=0.0, color="k", lw=1.0, alpha=1.0):
-        segs = [((p1[0], p1[1], z), (p2[0], p2[1], z))
-                for p1, p2 in zip(xy_points[:-1], xy_points[1:])]
-        ax.add_collection3d(Line3DCollection(
-            segs, colors=[color], linewidths=lw, alpha=alpha))
-
-    def _add_wedge_outline3d(self, ax, x, y, r, az_deg, half_bw_deg=60, color="green", lw=1.0, z_plane=0.0):
-        """Desenha o contorno do setor (fatia de pizza) no plano z=z_plane."""
-        th0, th1 = np.radians(
-            az_deg - half_bw_deg), np.radians(az_deg + half_bw_deg)
-        ths = np.linspace(th0, th1, 24)
-        pts = [(x, y)] + [(x + r*np.cos(t), y + r*np.sin(t))
-                          for t in ths] + [(x, y)]
-        self._add_polyline3d(ax, pts, z=float(z_plane), color=color, lw=lw)
-
-    def _set_equal_3d(self, ax, xs, ys, z_top, margin=0.15):
-        """Enquadra XY e mantém Z legível (evita Z enorme que 'some' com mastros)."""
-        xs = np.atleast_1d(xs).astype(float)
-        ys = np.atleast_1d(ys).astype(float)
-        xmin, xmax = float(np.min(xs)), float(np.max(xs))
-        ymin, ymax = float(np.min(ys)), float(np.max(ys))
-        if xmin == xmax:
-            xmin -= 50
-            xmax += 50
-        if ymin == ymax:
-            ymin -= 50
-            ymax += 50
-        xspan = (xmax - xmin)
-        yspan = (ymax - ymin)
-        span_xy = max(xspan, yspan)
-        if span_xy <= 0:
-            span_xy = 100.0
-        span_xy *= (1.0 + float(margin))
-        cx, cy = (xmin + xmax)/2.0, (ymin + ymax)/2.0
-        ax.set_xlim(cx - span_xy/2.0, cx + span_xy/2.0)
-        ax.set_ylim(cy - span_xy/2.0, cy + span_xy/2.0)
-        # Z: proporcional ao cenário vertical (mastros / alturas)
-        zmax = max(float(z_top)*3.0, float(z_top), 10.0)
-        ax.set_zlim(0.0, zmax)
-        try:
-            ax.set_box_aspect((1.0, 1.0, 0.35))
+            self.canvas3d.draw_idle()
         except Exception:
             pass

@@ -1,5 +1,6 @@
 import json
 from tkinter import filedialog, messagebox
+from pathlib import Path
 
 
 class SESPersistence:
@@ -124,11 +125,22 @@ class SESPersistence:
     def save_to_file(app):
         try:
             fpath = filedialog.asksaveasfilename(
-                title="Save Earth Station Config", defaultextension=".json", filetypes=[("JSON", "*.json")]
+                title="Save Earth Station Config",
+                defaultextension=".json",
+                filetypes=[("JSON", "*.json")]
             )
             if fpath:
+                # 1. Coleta a configuração original
+                config_data = SESPersistence.collect_config(app)
+
+                # 2. Cria o cabeçalho e mescla com os dados
+                # Desta forma, "config_type" fica no topo do arquivo JSON
+                final_data = {"config_type": "SES"}
+                final_data.update(config_data)
+
                 with open(fpath, "w", encoding="utf-8") as f:
-                    json.dump(SESPersistence.collect_config(app), f, indent=2)
+                    json.dump(final_data, f, indent=2)
+
                 messagebox.showinfo("Config", f"Saved to:\n{fpath}")
         except Exception as e:
             messagebox.showerror("Error", str(e))

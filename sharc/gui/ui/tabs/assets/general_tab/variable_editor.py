@@ -68,7 +68,7 @@ class VariableEditor(tk.Toplevel):
                   foreground="gray").pack(side="left", padx=10)
 
         # Row 2: Type Selection (Mode)
-        r2 = ttk.LabelFrame(top, text="Variable Type / Validation Mode")
+        r2 = ttk.Labelframe(top, text="Variable Type / Validation Mode")
         r2.pack(fill="x", pady=(10, 0))
 
         ttk.Radiobutton(r2, text="Logical Value (Numeric Check)", variable=self.var_mode,
@@ -78,7 +78,7 @@ class VariableEditor(tk.Toplevel):
                         value="FILE", command=self._toggle_mode_ui).pack(side="left", padx=10, pady=5)
 
         # --- Scrollable List Area ---
-        frm_list = ttk.LabelFrame(self, text="Mapping (Tag -> Value)")
+        frm_list = ttk.Labelframe(self, text="Mapping (Tag -> Value)")
         frm_list.pack(fill="both", expand=True, padx=10, pady=6)
 
         canvas = tk.Canvas(frm_list)
@@ -136,7 +136,8 @@ class VariableEditor(tk.Toplevel):
         # --- Bottom Buttons (Saved to reference for ordering) ---
         self.btns_frame = ttk.Frame(self)
         self.btns_frame.pack(fill="x", padx=10, pady=10)
-        ttk.Button(self.btns_frame, text="OK", command=self._on_ok).pack(side="left")
+        ttk.Button(self.btns_frame, text="OK",
+                   command=self._on_ok).pack(side="left")
         ttk.Button(self.btns_frame, text="Cancel", command=self.destroy).pack(
             side="left", padx=10)
 
@@ -146,9 +147,9 @@ class VariableEditor(tk.Toplevel):
 
     def _build_auto_gen_ui(self):
         """Constructs the Auto-Generation frame."""
-        self.frm_auto = ttk.LabelFrame(
+        self.frm_auto = ttk.Labelframe(
             self, text="Generate Values Automatically (Numeric)")
-        # We don't pack it here immediately to avoid order issues, 
+        # We don't pack it here immediately to avoid order issues,
         # it will be packed in _toggle_mode_ui
 
         self.gen_mode = tk.StringVar(value="STEP")
@@ -198,7 +199,8 @@ class VariableEditor(tk.Toplevel):
         else:
             self.lbl_col_val.config(text="Value (Numeric)")
             # Show the numeric generator (before the buttons)
-            self.frm_auto.pack(fill="x", padx=10, pady=(6, 0), before=self.btns_frame)
+            self.frm_auto.pack(fill="x", padx=10, pady=(
+                6, 0), before=self.btns_frame)
 
         # 2. Update Rows visibility
         for _, e_val, btn_browse in self.rows:
@@ -283,7 +285,8 @@ class VariableEditor(tk.Toplevel):
             filetypes=[("CSV Files", "*.csv"), ("All Files", "*.*")],
             title="Export to CSV", parent=self
         )
-        if not f_path: return
+        if not f_path:
+            return
         try:
             with open(f_path, mode='w', newline='', encoding='utf-8') as f:
                 writer = csv.writer(f)
@@ -291,26 +294,32 @@ class VariableEditor(tk.Toplevel):
                 for e1, e2, _ in self.rows:
                     if e1.get().strip() or e2.get().strip():
                         writer.writerow([e1.get().strip(), e2.get().strip()])
-            messagebox.showinfo("Success", "CSV exported successfully.", parent=self)
+            messagebox.showinfo(
+                "Success", "CSV exported successfully.", parent=self)
         except Exception as e:
-            messagebox.showerror("Error", f"Failed to export CSV:\n{e}", parent=self)
+            messagebox.showerror(
+                "Error", f"Failed to export CSV:\n{e}", parent=self)
 
     def _import_csv(self):
         f_path = filedialog.askopenfilename(
             filetypes=[("CSV Files", "*.csv"), ("All Files", "*.*")],
             title="Import CSV", parent=self
         )
-        if not f_path: return
+        if not f_path:
+            return
         if messagebox.askyesno("Confirm", "Replace current rows?", parent=self):
             try:
                 with open(f_path, mode='r', newline='', encoding='utf-8') as f:
-                    data = list(csv.reader(f, csv.Sniffer().sniff(f.read(1024))))
+                    data = list(csv.reader(
+                        f, csv.Sniffer().sniff(f.read(1024))))
                     f.seek(0)
                 self._clear_rows()
                 for row in data:
-                    if len(row) >= 2: self._add_row_ui(row[0], row[1])
+                    if len(row) >= 2:
+                        self._add_row_ui(row[0], row[1])
             except Exception as e:
-                messagebox.showerror("Error", f"Failed to import:\n{e}", parent=self)
+                messagebox.showerror(
+                    "Error", f"Failed to import:\n{e}", parent=self)
 
     # --- File Picking Logic (UPDATED) ---
 
@@ -333,7 +342,7 @@ class VariableEditor(tk.Toplevel):
             ("YAML Configuration", "*.yaml *.yml"),
             ("All Files", "*.*")
         ]
-        
+
         files = filedialog.askopenfilenames(
             title="Select Parameter Files",
             filetypes=file_types,
@@ -357,17 +366,21 @@ class VariableEditor(tk.Toplevel):
             tag_name = f_path.stem
             # Value = Absolute path
             val_path = f_path.as_posix()
-            
+
             self._add_row_ui(tag_name, val_path)
 
     def _remove_last_row(self):
-        if not self.rows: return
+        if not self.rows:
+            return
         e1, e2, btn = self.rows.pop()
-        e1.destroy(); e2.destroy(); btn.destroy()
+        e1.destroy()
+        e2.destroy()
+        btn.destroy()
         self.canvas.configure(scrollregion=self.canvas.bbox("all"))
 
     def _clear_rows(self):
-        while self.rows: self._remove_last_row()
+        while self.rows:
+            self._remove_last_row()
 
     def _populate_initial_rows(self):
         n = max(len(self.tags_list), len(self.vals_list), 1)
@@ -388,7 +401,8 @@ class VariableEditor(tk.Toplevel):
             e = float(self.e_end.get())
             p = float(self.e_param.get())
         except ValueError:
-            messagebox.showerror("Error", "Please fill Start, End and Step/N with numbers.", parent=self)
+            messagebox.showerror(
+                "Error", "Please fill Start, End and Step/N with numbers.", parent=self)
             return
 
         vals = generate_sequence(s, e, p, self.gen_mode.get())
@@ -410,9 +424,11 @@ class VariableEditor(tk.Toplevel):
         for e1, e2, _ in self.rows:
             t_val = e1.get().strip()
             v_val = e2.get().strip()
-            if not t_val and not v_val: continue
+            if not t_val and not v_val:
+                continue
 
-            if e2.cget("foreground") == "red": has_invalid = True
+            if e2.cget("foreground") == "red":
+                has_invalid = True
 
             tags_out.append(t_val)
             if is_file_mode:
@@ -429,12 +445,14 @@ class VariableEditor(tk.Toplevel):
                 return
 
         if not tags_out:
-            messagebox.showwarning("Warning", "List cannot be empty.", parent=self)
+            messagebox.showwarning(
+                "Warning", "List cannot be empty.", parent=self)
             return
 
         new_name = self.e_var.get().strip()
         if not new_name:
-            messagebox.showwarning("Error", "Variable name is required.", parent=self)
+            messagebox.showwarning(
+                "Error", "Variable name is required.", parent=self)
             return
 
         self.on_save(new_name, tags_out, vals_out)

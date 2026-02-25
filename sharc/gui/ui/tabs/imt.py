@@ -36,6 +36,26 @@ class IMTTab:
         # State Manager: Holds the Tkinter variables for this tab
         self.state = IMTStateManager()
 
+        # =====================================================================
+        # [CRITICAL FIX] CONVERSÃO DE VARIÁVEIS PARA SUPORTAR TAGS {var}
+        # =====================================================================
+        # O IMTStateManager original cria DoubleVar/IntVar que impedem texto.
+        # Aqui convertemos tudo para StringVar para aceitar "{teste}".
+        if hasattr(self.state, 'vars'):
+            new_vars = {}
+            for k, v in self.state.vars.items():
+                # Se for variável numérica estrita, converte para StringVar
+                if isinstance(v, (tk.DoubleVar, tk.IntVar)):
+                    val = v.get()
+                    # Recria como string mantendo o valor atual
+                    new_vars[k] = tk.StringVar(value=str(val))
+                else:
+                    new_vars[k] = v
+
+            # Substitui o dicionário de variáveis pelo novo convertido
+            self.state.vars = new_vars
+        # =====================================================================
+
         # Component references
         self.topo_section = None
         self.inner_frame = None
@@ -156,7 +176,7 @@ class IMTTab:
         Collects all UI states (variables + text fields) and saves them to a JSON file.
         Includes error handling.
         """
-        data = {}
+        data = {"config_type": "IMT"}
 
         # 1. Collect Variables from State Manager
         # Iterates over the 'vars' dictionary in the state manager.

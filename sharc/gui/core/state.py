@@ -7,7 +7,6 @@ from functools import lru_cache
 try:
     from config import DEFAULTS
 except ImportError:
-    # Fallback if config.py is not immediately found
     DEFAULTS = {
         "seed": 42, "num_snapshots": 10, "output_dir": "outputs",
         "default_dir": "",
@@ -24,16 +23,11 @@ except ImportError:
 
 @lru_cache(maxsize=1)
 def get_sharc_root() -> Path:
-    """
-    Locates the 'sharc' project root deterministically.
-    Checks current path and parents for 'topology' folder or 'sharc' dir name.
-    """
     try:
         current_path = Path(__file__).resolve()
     except NameError:
         current_path = Path.cwd()
 
-    # Search upwards
     for parent in [current_path] + list(current_path.parents):
         if (parent / "topology").exists() and (parent / "topology").is_dir():
             return parent
@@ -47,11 +41,9 @@ def get_sharc_root() -> Path:
 class AppState:
     """
     Class responsible solely for initializing and storing the application state (Tkinter variables).
-    Acts as a central data store for the UI.
     """
 
     def __init__(self):
-        # Ensure a Tk instance exists before creating variables
         try:
             if not tk._default_root:
                 print("WARNING: Creating AppState before tk.Tk() root is initialized.")
@@ -65,20 +57,12 @@ class AppState:
 
     def _add(self, value, var_type=str):
         """
-        Helper to create typed Tkinter variables with safe casting.
+        Helper to create variables.
+        CRITICAL CHANGE: int and float are now created as StringVar to allow 
+        variable injection (e.g., "{frequency}") in the UI.
         """
         try:
-            if var_type == int:
-                # Handle strings like "10" safely
-                val = int(value) if value is not None and value != "" else 0
-                return tk.IntVar(value=val)
-
-            elif var_type == float:
-                val = float(
-                    value) if value is not None and value != "" else 0.0
-                return tk.DoubleVar(value=val)
-
-            elif var_type == bool:
+            if var_type == bool:
                 # Handle "True"/"False" strings and 1/0 integers
                 if isinstance(value, str):
                     val = value.lower() in ('true', '1', 'yes', 'on')
@@ -87,18 +71,14 @@ class AppState:
                 return tk.BooleanVar(value=val)
 
             else:
-                # Default StringVar
+                # EVERYTHING else (int, float, str) becomes StringVar.
+                # This allows the user to type "{my_var}" into a numeric field.
+                # Conversion to number happens only during YAML generation.
                 return tk.StringVar(value=str(value) if value is not None else "")
 
         except (ValueError, TypeError) as e:
             print(
-                f"ERROR: Failed to cast value '{value}' to {var_type}. Using default.")
-            if var_type == int:
-                return tk.IntVar(value=0)
-            if var_type == float:
-                return tk.DoubleVar(value=0.0)
-            if var_type == bool:
-                return tk.BooleanVar(value=False)
+                f"ERROR: Failed to cast value '{value}'. Using empty string.")
             return tk.StringVar(value="")
 
     def _create_vars(self):
@@ -257,7 +237,8 @@ class AppState:
         # --- SINGLE EARTH STATION (Victim) ---
         # =========================================================
 
-        # Basic Parameters
+        # NOTE: All floats now use _add(val, float) which returns StringVar internally
+
         self.se_frequency = self._add(3800.0, float)
         self.se_bandwidth = self._add(100.0, float)
         self.se_noise_temperature = self._add(290.0, float)
@@ -311,7 +292,7 @@ class AppState:
         self.p452_percentage_p = self._add(20.0, float)
         self.p452_N0 = self._add(315.0, float)
         self.p452_delta_N = self._add(45.0, float)
-        self.p452_polarization = self._add(0.0, float)  # 0=Horiz, 1=Vert
+        self.p452_polarization = self._add(0.0, float)
         self.p452_Dct = self._add(500.0, float)
         self.p452_Dcr = self._add(500.0, float)
         self.p452_Hte = self._add(30.0, float)
@@ -372,7 +353,6 @@ class AppState:
         self.ssh_user = self._add(DEFAULTS.get("ssh_user", ""))
         self.ssh_port = self._add(DEFAULTS.get("ssh_port", 22), int)
 
-        # FIX: Use string for remote path, not pathlib.Path (which breaks if Windows -> Linux)
         self.ssh_remote_dir = self._add(DEFAULTS.get(
             "remote_base_dir", "~/SHARC/campaigns"))
 

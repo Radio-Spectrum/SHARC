@@ -36,6 +36,22 @@ class VictimTab:
         self.frame = parent_frame
 
         self.state = VictimStateManager()
+
+        # =====================================================================
+        # [CRITICAL FIX] CONVERSÃO DE VARIÁVEIS PARA SUPORTAR TAGS {var}
+        # =====================================================================
+        # Permite que campos numéricos aceitem strings como "{teste}"
+        if hasattr(self.state, 'vars'):
+            new_vars = {}
+            for k, v in self.state.vars.items():
+                if isinstance(v, (tk.DoubleVar, tk.IntVar)):
+                    val = v.get()
+                    new_vars[k] = tk.StringVar(value=str(val))
+                else:
+                    new_vars[k] = v
+            self.state.vars = new_vars
+        # =====================================================================
+
         self.ant_section = None  # Reference needed for callbacks
         self.scrollable_frame = None
 
@@ -71,11 +87,11 @@ class VictimTab:
         self.btn_files.configure(menu=self.menu_files)
 
         self.menu_files.add_command(
-            label="💾 Save Victim Preset (.json)",
+            label="💾 Save SSS Preset (.json)",
             command=self.save_config
         )
         self.menu_files.add_command(
-            label="📂 Load Victim Preset (.json)",
+            label="📂 Load SSS Preset (.json)",
             command=self.load_config
         )
 
@@ -151,7 +167,7 @@ class VictimTab:
         Collects all UI states and saves them to a JSON file.
         Iterates over the VictimStateManager variables.
         """
-        data = {}
+        data = {"config_type": "SSS"}
 
         # 1. Collect Variables
         if hasattr(self.state, 'vars') and isinstance(self.state.vars, dict):
@@ -164,8 +180,8 @@ class VictimTab:
         # 2. Write to File
         fpath = filedialog.asksaveasfilename(
             defaultextension=".json",
-            filetypes=[("Victim Configuration", "*.json")],
-            title="Save Victim Preset"
+            filetypes=[("SSS Configuration", "*.json")],
+            title="Save SSS Preset"
         )
         if fpath:
             try:
@@ -181,8 +197,8 @@ class VictimTab:
         Loads a JSON file, updates State Manager, and triggers UI refresh.
         """
         fpath = filedialog.askopenfilename(
-            filetypes=[("Victim Configuration", "*.json")],
-            title="Load Victim Preset"
+            filetypes=[("SSS Configuration", "*.json")],
+            title="Load SSS Preset"
         )
         if not fpath:
             return

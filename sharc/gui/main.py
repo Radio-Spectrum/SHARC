@@ -5,7 +5,7 @@ import queue
 import os
 import itertools
 import ast
-import yaml 
+import yaml
 
 # Try to use modern visual style
 try:
@@ -86,7 +86,7 @@ class App(tb.Window if HAS_BOOTSTRAP else tk.Tk):
         # 4. Interface Construction
         self._setup_custom_styles()
         self._build_layout()
-        
+
         # Initialize pages and establish Data Connections (Crucial for General Tab)
         self._init_pages()
 
@@ -107,6 +107,10 @@ class App(tb.Window if HAS_BOOTSTRAP else tk.Tk):
 
         # Show welcome toast
         self.after(800, self._show_welcome_toast)
+
+        # === [CRITICAL FIX] ===
+        # Executa o desbloqueio global de campos 1 segundo após o boot.
+        self.after(1000, self._disable_strict_validation)
 
     def _setup_custom_styles(self):
         """Define styles for the theme."""
@@ -263,8 +267,8 @@ class App(tb.Window if HAS_BOOTSTRAP else tk.Tk):
         # Global Generate Button (Cascade Style)
         # Substitui o botão único antigo por um Menubutton
         self.btn_gen_main = tb.Menubutton(
-            self.header, 
-            text="⚡ GENERATE", 
+            self.header,
+            text="⚡ GENERATE",
             bootstyle="success",
             width=20
         )
@@ -275,18 +279,19 @@ class App(tb.Window if HAS_BOOTSTRAP else tk.Tk):
 
         # Opção 1: Geração em Lote (Proxy para General Tab - Nova lógica robusta)
         self.menu_gen_main.add_command(
-            label="🚀 Batch Generate (from Table)", 
+            label="🚀 Batch Generate (from Table)",
             command=self._proxy_batch_generate
         )
         self.menu_gen_main.add_separator()
-        
+
         # Opção 2: Snapshot Único (Usa o BOM E VELHO BUILDER)
         self.menu_gen_main.add_command(
-            label="💾 Save Current State (Snapshot)", 
+            label="💾 Save Current State (Snapshot)",
             command=self.save_yaml_dialog_multicombos
         )
 
-        ToolTip(self.btn_gen_main, text="Generate YAML configuration files (Batch or Single Snapshot).")
+        ToolTip(self.btn_gen_main,
+                text="Generate YAML configuration files (Batch or Single Snapshot).")
 
     def _build_footer_content(self):
         # SSH Status
@@ -339,8 +344,10 @@ class App(tb.Window if HAS_BOOTSTRAP else tk.Tk):
             for key, val in raw_data.items():
                 if isinstance(val, dict):
                     pct_str = val.get('pct', '0%')
-                    try: clean_pct = float(pct_str.replace('%', '').strip())
-                    except: clean_pct = 0.0
+                    try:
+                        clean_pct = float(pct_str.replace('%', '').strip())
+                    except:
+                        clean_pct = 0.0
                     percentages.append(clean_pct)
 
                     snap_str = val.get('snap', '0/0')
@@ -349,28 +356,34 @@ class App(tb.Window if HAS_BOOTSTRAP else tk.Tk):
                             done, total = snap_str.split('/')
                             total_done_snaps += int(done)
                             total_max_snaps += int(total)
-                        except: pass
+                        except:
+                            pass
 
                     eta_str = val.get('eta', '')
-                    if eta_str and ':' in eta_str: etas.append(eta_str)
+                    if eta_str and ':' in eta_str:
+                        etas.append(eta_str)
 
                     if key not in self.thread_widgets:
                         row = tb.Frame(self.tray_frame, bootstyle="light")
                         row.pack(fill="x", pady=4)
                         header_frame = tb.Frame(row, bootstyle="light")
                         header_frame.pack(fill="x")
-                        
+
                         short_name = str(key).split("/")[-1]
-                        lbl_name = tb.Label(header_frame, text=short_name[:20], font=("Segoe UI", 8, "bold"), bootstyle="inverse-light")
+                        lbl_name = tb.Label(header_frame, text=short_name[:20], font=(
+                            "Segoe UI", 8, "bold"), bootstyle="inverse-light")
                         lbl_name.pack(side="left")
-                        
-                        lbl_eta = tb.Label(header_frame, text=eta_str or "--:--", font=("Consolas", 8), bootstyle="inverse-light")
+
+                        lbl_eta = tb.Label(
+                            header_frame, text=eta_str or "--:--", font=("Consolas", 8), bootstyle="inverse-light")
                         lbl_eta.pack(side="right")
-                        
-                        pb = tb.Progressbar(row, bootstyle="success-striped", maximum=100)
+
+                        pb = tb.Progressbar(
+                            row, bootstyle="success-striped", maximum=100)
                         pb.pack(fill="x", pady=(2, 0))
-                        
-                        self.thread_widgets[key] = {'row': row, 'lbl_eta': lbl_eta, 'pb': pb, 'lbl_name': lbl_name}
+
+                        self.thread_widgets[key] = {
+                            'row': row, 'lbl_eta': lbl_eta, 'pb': pb, 'lbl_name': lbl_name}
                     else:
                         w = self.thread_widgets[key]
                         w['lbl_eta'].configure(text=eta_str or "--:--")
@@ -380,7 +393,8 @@ class App(tb.Window if HAS_BOOTSTRAP else tk.Tk):
             snaps_text = f"{total_done_snaps} / {total_max_snaps}" if total_max_snaps > 0 else "0 / 0"
             final_eta = max(etas) if etas else "--:--:--"
 
-            self.sys_meter.configure(amountused=int(avg_pct) if avg_pct > 0 else 0, subtext=f"{avg_pct:.1f}%")
+            self.sys_meter.configure(amountused=int(
+                avg_pct) if avg_pct > 0 else 0, subtext=f"{avg_pct:.1f}%")
             self.lbl_hud_snaps.configure(text=snaps_text)
             self.lbl_hud_eta.configure(text=final_eta)
 
@@ -409,7 +423,7 @@ class App(tb.Window if HAS_BOOTSTRAP else tk.Tk):
         # [NEW] DATA CONNECTION BRIDGE (ROBUST UNIVERSAL VERSION)
         # =====================================================================
         if hasattr(self, 'tab_general'):
-            
+
             # 1. IMT Data Collector (Specific to IMT logic)
             def get_imt_live_data():
                 data = {}
@@ -417,23 +431,22 @@ class App(tb.Window if HAS_BOOTSTRAP else tk.Tk):
                     # Vars from state manager
                     if hasattr(self.tab_imt, 'state') and hasattr(self.tab_imt.state, 'vars'):
                         for k, v in self.tab_imt.state.vars.items():
-                            try: data[k] = v.get()
-                            except: pass
+                            try:
+                                data[k] = v.get()
+                            except:
+                                pass
                     # Topology text
                     if hasattr(self.tab_imt, 'topo_section') and self.tab_imt.topo_section:
                         if hasattr(self.tab_imt.topo_section, 'get_countries_text'):
-                            data['countries_text'] = self.tab_imt.topo_section.get_countries_text()
+                            data['countries_text'] = self.tab_imt.topo_section.get_countries_text(
+                            )
                 return data
 
             # 2. System (SES/Victim) Universal Data Collector
-            # This function scans BOTH the App (self) and the active Tab for variables.
-            # It ensures variables are caught whether they are global (SES) or local (SSS).
+            # [CORREÇÃO] Filtro para impedir que o Sistema sobrescreva dados do IMT
             def get_system_live_data():
                 data = {}
                 sys_mode = self.var_system.get()
-
-                # Define list of objects to scan (The Vacuum Cleaner Approach)
-                # We ALWAYS scan 'self' because global vars (like SES vars) might be there.
                 objs_to_scan = [self]
 
                 # Add specific tab based on mode
@@ -446,9 +459,10 @@ class App(tb.Window if HAS_BOOTSTRAP else tk.Tk):
 
                 # Iterate through all targets (Self + Tab)
                 for target_obj in objs_to_scan:
-                    if not target_obj: continue
+                    if not target_obj:
+                        continue
 
-                    # A. Explicit Dictionaries (for organized tabs)
+                    # A. Explicit Dictionaries
                     sources = [
                         getattr(target_obj, 'vars', {}),
                         getattr(getattr(target_obj, 'state', None), 'vars', {})
@@ -456,24 +470,26 @@ class App(tb.Window if HAS_BOOTSTRAP else tk.Tk):
                     for src in sources:
                         if isinstance(src, dict):
                             for k, v in src.items():
-                                try: data[k] = v.get()
-                                except: data[k] = v
+                                try:
+                                    data[k] = v.get()
+                                except:
+                                    data[k] = v
 
-                    # B. Attribute Scanning (The catch-all)
-                    # Scans for loose variables (Tkinter vars or simple types)
+                    # B. Attribute Scanning
                     for attr_name in dir(target_obj):
-                        if attr_name.startswith("_"): continue # Skip private attrs
-                        
+                        if attr_name.startswith("_"):
+                            continue
+
+                        # [FILTRO DE SEGURANÇA]
+                        # Impede que o coletor do sistema pegue variáveis do IMT
+                        if attr_name.startswith(("imt_", "topo_", "bs_", "ue_", "ul_", "dl_", "ch_", "shadowing")):
+                            continue
+
                         try:
                             val = getattr(target_obj, attr_name)
-                            
-                            # 1. Tkinter Variables
                             if isinstance(val, (tk.StringVar, tk.DoubleVar, tk.IntVar, tk.BooleanVar)):
                                 data[attr_name] = val.get()
-                            
-                            # 2. Simple Types (Configs/Lists/Dicts)
                             elif isinstance(val, (list, dict, int, float, str, bool)):
-                                # Filter out methods/callables to avoid noise
                                 if not callable(val):
                                     data[attr_name] = val
                         except:
@@ -496,13 +512,18 @@ class App(tb.Window if HAS_BOOTSTRAP else tk.Tk):
         for key, label, _, _ in self.pages_config:
             should_show = True
             if sys_type == "SINGLE_EARTH_STATION":
-                if key == "victim": should_show = False
-                if key == "station": should_show = True
+                if key == "victim":
+                    should_show = False
+                if key == "station":
+                    should_show = True
             elif sys_type == "SINGLE_SPACE_STATION":
-                if key == "station": should_show = False
-                if key == "victim": should_show = True
+                if key == "station":
+                    should_show = False
+                if key == "victim":
+                    should_show = True
             else:
-                if key == "victim": should_show = False
+                if key == "victim":
+                    should_show = False
 
             if should_show:
                 self.nav_buttons[key].pack(fill="x", pady=2, padx=10)
@@ -598,7 +619,7 @@ class App(tb.Window if HAS_BOOTSTRAP else tk.Tk):
         """
         Generates the current configuration dictionary (Snapshot).
         Required by PreviewTab to display the YAML.
-        
+
         USES THE GOOD OLD BUILDER: build_yaml_structure
         """
         if hasattr(self, 'tab_imt') and hasattr(self.tab_imt, 'txt_countries'):
@@ -607,7 +628,7 @@ class App(tb.Window if HAS_BOOTSTRAP else tk.Tk):
                     self.tab_imt.txt_countries.get("1.0", "end"))
             except:
                 pass
-        
+
         # Aqui usamos o builder robusto diretamente
         return build_yaml_structure(self)
 
@@ -624,23 +645,24 @@ class App(tb.Window if HAS_BOOTSTRAP else tk.Tk):
         """
         init = self.var_yaml_dir.get() or os.getcwd()
         path = filedialog.asksaveasfilename(
-            title="Save Snapshot", 
-            defaultextension=".yaml", 
-            initialdir=init, 
+            title="Save Snapshot",
+            defaultextension=".yaml",
+            initialdir=init,
             initialfile=(self.var_prefix.get() or "snapshot") + ".yaml"
         )
         if path:
             try:
                 # 1. Generate Data using the Good Old Builder
                 data = build_yaml_structure(self)
-                
+
                 # 2. Save File
                 with open(path, 'w', encoding='utf-8') as f:
-                    yaml.dump(data, f, default_flow_style=False, sort_keys=False)
-                
+                    yaml.dump(data, f, default_flow_style=False,
+                              sort_keys=False)
+
                 self.var_yaml_dir.set(os.path.dirname(path))
                 messagebox.showinfo("Success", f"Snapshot saved to:\n{path}")
-                
+
             except Exception as e:
                 messagebox.showerror("Error", f"Failed to save snapshot:\n{e}")
 
@@ -651,9 +673,41 @@ class App(tb.Window if HAS_BOOTSTRAP else tk.Tk):
         if isinstance(obj, list):
             return [self._deep_format(v, combo) for v in obj]
         if isinstance(obj, str):
-            try: return obj.format(**combo)
-            except: return obj
+            try:
+                return obj.format(**combo)
+            except:
+                return obj
         return obj
+
+    # =========================================================================
+    # UI UNLOCKER (HACK FOR VARIABLE INJECTION)
+    # =========================================================================
+
+    def _disable_strict_validation(self):
+        """
+        Percorre recursivamente todos os widgets da aplicação.
+        Se encontrar um campo de entrada (Entry), remove a validação (validate='none').
+
+        Isso permite que campos que eram 'apenas números' aceitem strings como '{teste}'.
+        """
+        def _recursive_clean(widget):
+            try:
+                # Verifica se o widget é um Entry (nativo ou ttk/bootstrap)
+                if isinstance(widget, (tk.Entry, ttk.Entry)):
+                    # Desativa a validação
+                    widget.configure(validate="none")
+            except Exception:
+                # Alguns widgets podem não suportar configure(validate), ignoramos
+                pass
+
+            # Chama recursivamente para todos os filhos deste widget
+            for child in widget.winfo_children():
+                _recursive_clean(child)
+
+        # Inicia a limpeza a partir da janela principal (self)
+        _recursive_clean(self)
+        print(
+            ">> UI Ready: SHARC ready!")
 
 
 if __name__ == "__main__":

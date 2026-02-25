@@ -49,19 +49,19 @@ PATH_LENGTH_KM = 300.0
 STEP_KM = 1.0
 N_SAMPLES = int(PATH_LENGTH_KM / STEP_KM) + 1  # 301
 
-REGION = "Europe"  #"America", "Europe", "Asia", "Africa", "Oceania", "World"
+REGION = "World"  #"America", "Europe", "Asia", "Africa", "Oceania", "World"
 
 N_WORKERS = 10
-TARGET_PATHS = 5000
+TARGET_PATHS = 50000
 INFLIGHT = 4 * N_WORKERS
-UPDATE_EVERY = 100
+UPDATE_EVERY = 5000
 
 SG_WIN = 11
 SG_POLY = 3
 MIN_EXTREMA = 2
 
 # Fig2 will create one subplot per distance here
-DISTANCES_TEST = [50, 100, 150, 300]
+DISTANCES_TEST = [100, 200, 300]
 FREQ_GHZ = 8.0
 
 # Histogram bins (counts stored). Density computed at plot time.
@@ -111,6 +111,90 @@ def get_region_bbox(region: str):
     return bboxes[region]
 
 LAT_MIN, LAT_MAX, LON_MIN, LON_MAX = get_region_bbox(REGION)
+
+def load_cities_over_pop(min_pop=100_000):
+    """
+    Load GeoNames cities500 (>500 inhabitants globally) and filter by population.
+
+    Returns
+    -------
+    GeoDataFrame with columns:
+        lat, lon, pop, geometry (EPSG:4326)
+    """
+
+    import pandas as pd
+    import geopandas as gpd
+
+    url = "https://download.geonames.org/export/dump/cities500.zip"
+
+    # GeoNames column schema (subset used)
+    cols = [
+        "geonameid", "name", "asciiname", "alt_names",
+        "lat", "lon", "feature_class", "feature_code",
+        "country_code", "cc2", "admin1", "admin2", "admin3", "admin4",
+        "population", "elevation", "dem", "timezone", "mod_date"
+    ]
+
+    df = pd.read_csv(
+        url,
+        sep="\t",
+        header=None,
+        names=cols,
+        usecols=["lat", "lon", "population"]
+    )
+
+    # filter by population
+    df = df[df["population"] >= min_pop].copy()
+
+    df.rename(columns={"population": "pop"}, inplace=True)
+
+    # convert to GeoDataFrame
+    gdf = gpd.GeoDataFrame(
+        df,
+        geometry=gpd.points_from_xy(df.lon.astype(float), df.lat.astype(float)),
+        crs="EPSG:4326"
+    )
+
+    return gdf
+
+
+def filter_cities_by_bbox_and_tiles(cities_gdf, tiles_set):
+    """
+    Keep only cities inside the region bbox AND inside available tiles (1°x1° floor check).
+    """
+    m = (
+        (cities_gdf["lat"] >= LAT_MIN) & (cities_gdf["lat"] <= LAT_MAX) &
+        (cities_gdf["lon"] >= LON_MIN) & (cities_gdf["lon"] <= LON_MAX)
+    )
+    cities = cities_gdf[m].copy()
+
+    # optional: enforce land (usually ok, but keep to be safe)
+    # (this is a bit slow but done once in main, so OK)
+    mask_land = [is_land(lat, lon) for lat, lon in zip(cities["lat"].values, cities["lon"].values)]
+    cities = cities[np.array(mask_land, dtype=bool)].copy()
+
+    # enforce tile coverage: city must fall in a tile you have
+    lat0 = np.floor(cities["lat"].values).astype(int)
+    lon0 = np.floor(cities["lon"].values).astype(int)
+    in_tiles = np.array([(la, lo) in tiles_set for la, lo in zip(lat0, lon0)], dtype=bool)
+    cities = cities[in_tiles].copy()
+
+    if len(cities) == 0:
+        raise RuntimeError("No cities left after bbox/land/tile filtering. Check REGION bbox and tile coverage.")
+
+    # build arrays for workers
+    lats = cities["lat"].values.astype(float)
+    lons = cities["lon"].values.astype(float)
+    w = cities["pop"].values.astype(float)
+    w = w / np.sum(w)
+
+    return lats, lons, w
+
+
+def random_city_origin_weighted(city_lats, city_lons, city_weights, rng):
+    idx = rng.choice(len(city_lats), p=city_weights)
+    return float(city_lats[idx]), float(city_lons[idx])
+
 # ============================================================
 # Tile naming + availability scan
 # ============================================================
@@ -264,10 +348,11 @@ def sample_elevation_from_tiles(path_latlon: np.ndarray, cache: TileCache):
 # P.452: terrain profile vs "no-terrain"
 # ============================================================
 def compute_p452_losses(d_profile, h_profile, distances_test, freq_ghz):
-    rng = np.random.RandomState(1234)
+    rng = np.random.RandomState()
     params_p452 = ParametersP452()
     prop452 = PropagationClearAir(rng, params_p452)
     params_p452.clutter_loss = False
+    params_p452.percentage_p = 'RANDOM'
 
     def loss_for(D_km, d_prof, h_prof, terrain_mode="real"):
         distance = np.array([[float(D_km)]], dtype=float)
@@ -475,6 +560,7 @@ def overlay_gmm2_cdf_twin(ax_density, gmm_params, bins, color=FIT_COLOR):
 # ============================================================
 def worker_one(seed: int,
                available_tiles_list,
+               city_lats, city_lons, city_w,
                d_bins, h_bins, loss_bins,
                distances_test, freq_ghz):
 
@@ -486,13 +572,17 @@ def worker_one(seed: int,
 
     try:
         while True:
-            s_lat, s_lon = pick_random_available_land_point(rng, tiles_list)
+            # ---- origin = big city (>100k), already bbox/tile filtered
+            s_lat, s_lon = random_city_origin_weighted(city_lats, city_lons, city_w, rng)
 
             bearing = float(rng.uniform(0, 360))
             e_lat, e_lon = destination_point(s_lat, s_lon, PATH_LENGTH_KM, bearing)
             e_lon = wrap_lon(e_lon)
 
+            # keep endpoint inside bbox (region)
             if not (LAT_MIN <= e_lat <= LAT_MAX):
+                continue
+            if not (LON_MIN <= e_lon <= LON_MAX):
                 continue
 
             path = interpolate_path((s_lat, s_lon), (e_lat, e_lon), N_SAMPLES)
@@ -685,12 +775,16 @@ def update_plots(fig1_pack, fig2_pack,
 
         ax.plot(centers_l, cdf_real, lw=2, label="terrain CDF")
 
-        # ===== NO-TERRAIN vertical line =====
-        counts_none = loss_counts_none[D]
-        if counts_none.sum() > 0:
-            idx = np.argmax(counts_none)
-            x_none = centers_l[idx]
-            ax.axvline(x_none, color="red", lw=2, label="no-terrain")
+       # ===== TERRAIN CDF no terrain=====
+        counts_real = loss_counts_none[D].astype(float)
+        cdf_real = np.cumsum(counts_real)
+        if cdf_real[-1] > 0:
+            cdf_real /= cdf_real[-1]
+
+        # evitar zeros para log-scale
+        cdf_real = np.clip(cdf_real, 1e-6, 1.0)
+
+        ax.plot(centers_l, cdf_real, lw=2, color='Red', label="No Terrain")
 
         # ===== LOG SCALE =====
         ax.set_yscale("log")
@@ -744,6 +838,7 @@ def update_plots(fig1_pack, fig2_pack,
 # MAIN
 # ============================================================
 def main():
+    
     if not os.path.isdir(TILES_250_DIR):
         raise RuntimeError(f"TILES_250_DIR not found: {TILES_250_DIR}")
 
@@ -752,6 +847,12 @@ def main():
         raise RuntimeError("No tiles found (check directory and naming convention).")
 
     available_tiles_list = list(available_tiles)
+    cities_gdf = load_cities_over_pop(min_pop=10_000)
+    tiles_set = set(available_tiles_list)
+
+    city_lats, city_lons, city_w = filter_cities_by_bbox_and_tiles(cities_gdf, tiles_set)
+
+    print(f"Cities used (>100k, filtered): {len(city_lats)}")
     print(f"Tiles available: {len(available_tiles_list)}")
     print(f"Workers: {N_WORKERS} | Target paths: {TARGET_PATHS} | Update every: {UPDATE_EVERY}")
     print(f"Fig2 subplots = {len(DISTANCES_TEST)} distances: {DISTANCES_TEST}")
@@ -786,6 +887,7 @@ def main():
             worker_one,
             seed,
             available_tiles_list,
+            city_lats, city_lons, city_w,
             D_BINS, H_BINS, LOSS_BINS,
             DISTANCES_TEST, FREQ_GHZ
         )

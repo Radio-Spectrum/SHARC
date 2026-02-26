@@ -215,7 +215,8 @@ class StationFactory(object):
             param.bs.antenna,
             imt_base_stations.geom.pointn_azim_global,
             imt_base_stations.geom.pointn_elev_global,
-            num_bs
+            num_bs,
+            geom=imt_base_stations.geom
         )
 
         # Create out-of-band antenna patterns if specified.

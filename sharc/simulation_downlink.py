@@ -168,7 +168,8 @@ class SimulationDownlink(Simulation):
         if self.adjacent_channel:
             # FIXME: assumes all BS have same total power
             max_tx_power = self.parameters.imt.bs.conducted_power + self.bs_power_gain
-            self.bs.spectral_mask.set_mask(p_tx=max_tx_power)
+            if self.parameters.imt.adjacent_ch_emissions == "SPECTRAL_MASK":
+                self.bs.spectral_mask.set_mask(p_tx=max_tx_power)
 
     def calculate_sinr(self):
         """

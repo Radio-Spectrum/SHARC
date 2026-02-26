@@ -1,3 +1,6 @@
+from ui.tabs.assets.general_tab.general_tools import parse_list_safe
+from ui.tabs.assets.general_tab.variable_editor import VariableEditor
+from utils import add_row_three
 import tkinter as tk
 from tkinter import filedialog, messagebox
 import ttkbootstrap as ttk
@@ -9,10 +12,58 @@ import yaml  # Requires: pip install PyYAML
 import copy
 import itertools
 
+
+def _sanitize_for_yaml(obj):
+    """Recursively sanitize objects for yaml.safe_dump (no python-specific tags)."""
+    # Convert tuples -> lists, Path -> str, and sanitize nested containers.
+    if isinstance(obj, tuple):
+        return [_sanitize_for_yaml(x) for x in obj]
+    if isinstance(obj, list):
+        return [_sanitize_for_yaml(x) for x in obj]
+    if isinstance(obj, dict):
+        return {k: _sanitize_for_yaml(v) for k, v in obj.items()}
+    if isinstance(obj, Path):
+        return str(obj)
+    return obj
+
+
+def _normalize_topology_type(raw):
+    s = str(raw or "").strip()
+    if not s:
+        return "HOTSPOT"
+    s_up = s.upper().replace(" ", "_")
+    # Accept historical/legacy values
+    if s_up in {"MACROCELL", "MACRO_CELL"}:
+        return "MACROCELL"
+    if s_up in {"HOTSPOT", "HOT_SPOT"}:
+        return "HOTSPOT"
+    if s_up in {"SINGLE_BS", "SINGLEBS", "SINGLE_BASE_STATION"}:
+        return "SINGLE_BS"
+    if s_up in {"MACRO_COUNTRIES", "MACROCOUNTRIES", "MACRO_COUNTRY", "MACRO_COUNTRY"} or s_up.startswith("MACRO_COUNTR"):
+        return "Macro_countries"
+    # Keep unknown as-is (schema might support more)
+    return s
+
+
+def _consolidate_param_p452_in_sys(sys_dict):
+    """Ensure only param_p452 exists (merge/remove p452/param_452 duplicates)."""
+    if not isinstance(sys_dict, dict):
+        return sys_dict
+    # Pull candidates
+    p452 = sys_dict.pop("p452", None)
+    p452_alt = sys_dict.pop("param_452", None)
+    param = sys_dict.get("param_p452")
+    # Merge order: legacy sources first, then existing param_p452 wins on conflicts.
+    merged = {}
+    for src in (p452, p452_alt, param):
+        if isinstance(src, dict):
+            merged.update(src)
+    if merged:
+        sys_dict["param_p452"] = merged
+    return sys_dict
+
+
 # --- Project Imports ---
-from utils import add_row_three
-from ui.tabs.assets.general_tab.variable_editor import VariableEditor
-from ui.tabs.assets.general_tab.general_tools import parse_list_safe
 
 
 # --- Helper Functions (Updated to match yaml_builder robustness) ---
@@ -390,6 +441,18 @@ class GeneralTab:
                 if isinstance(var_val, str) and var_val.lower().endswith(('.json', '.yaml', '.yml')) and Path(var_val).exists():
                     external_data = load_param_file(var_val)
 
+                    # Normalize possible duplicates for P.452 naming
+                    if isinstance(external_data, dict):
+                        # If system block is provided as hierarchical dict, consolidate within it.
+                        _consolidate_param_p452_in_sys(external_data)
+                        # Also consolidate if external provides nested system blocks
+                        if "single_earth_station" in external_data and isinstance(external_data["single_earth_station"], dict):
+                            _consolidate_param_p452_in_sys(
+                                external_data["single_earth_station"])
+                        if "single_space_station" in external_data and isinstance(external_data["single_space_station"], dict):
+                            _consolidate_param_p452_in_sys(
+                                external_data["single_space_station"])
+
                     # --- CONFIG TYPE DETECTION (PRIORITY) ---
                     config_type = external_data.get("config_type", "").upper()
                     if "config_type" in external_data:
@@ -454,9 +517,23 @@ class GeneralTab:
                 pass
 
             out_path = save_dir / fname
+            # Consolidate potential duplicates (e.g., p452 vs param_p452) and sanitize for safe YAML
+            try:
+                if isinstance(final_structure.get(sys_key), dict):
+                    _consolidate_param_p452_in_sys(final_structure[sys_key])
+            except Exception:
+                pass
+
+            sanitized = _sanitize_for_yaml(final_structure)
+
             with open(out_path, 'w', encoding='utf-8') as f:
-                yaml.dump(final_structure, f,
-                          default_flow_style=False, sort_keys=False)
+                yaml.safe_dump(
+                    sanitized,
+                    f,
+                    default_flow_style=False,
+                    sort_keys=False,
+                    allow_unicode=True,
+                )
             count += 1
 
         messagebox.showinfo(
@@ -475,7 +552,7 @@ class GeneralTab:
         return any(k in data for k in markers)
 
     def _is_hierarchical_sys_data(self, data):
-        unique_sys_keys = ["p452", "param_p619",
+        unique_sys_keys = ["param_p452", "p452", "param_452", "param_p619",
                            "itu_r_s_672", "itu_r_f_1245_fs"]
         if any(k in data for k in unique_sys_keys):
             return True
@@ -489,13 +566,18 @@ class GeneralTab:
         def g(k, d=None): return flat.get(k, d)
 
         # --- Topology ---
-        topo_type = str(g("topo_type", "HOTSPOT"))
-        topology = {
-            "central_latitude": n(g("topo_c_lat", -15.79)),
-            "central_longitude": n(g("topo_c_lon", -47.88)),
-            "central_altitude": n(g("topo_c_alt", 1000.0)),
-            "type": topo_type
-        }
+        topo_type = _normalize_topology_type(g("topo_type", "HOTSPOT"))
+        # Base topology structure: for most scenarios we keep a central reference point.
+        # For Macro_countries the geometry is driven by country shapes/population, so we omit central_* fields.
+        if topo_type == "Macro_countries":
+            topology = {"type": topo_type}
+        else:
+            topology = {
+                "central_latitude": n(g("topo_c_lat", -15.79)),
+                "central_longitude": n(g("topo_c_lon", -47.88)),
+                "central_altitude": n(g("topo_c_alt", 1000.0)),
+                "type": topo_type,
+            }
 
         if topo_type == "Macro_countries":
             raw_txt = str(g("topo_countries", ""))
@@ -697,6 +779,12 @@ class GeneralTab:
             return sys
 
         elif sys_type == "SINGLE_EARTH_STATION":
+
+            def gp452(field, default=None):
+                # Accept multiple historical prefixes from tabs/old presets.
+                return flat.get(f"param_p452_{field}",
+                                flat.get(f"p452_{field}",
+                                         flat.get(f"param_452_{field}", default)))
             sys = {
                 "frequency": n(g("se_frequency", 3800.0)),
                 "bandwidth": n(g("se_bandwidth", 100.0)),
@@ -738,21 +826,21 @@ class GeneralTab:
                     "envelope_gain": n(g("se_ant_envelope_gain", 0.0)),
                 },
                 "channel_model": str(g("se_channel_model", "FSPL")),
-                "p452": {
-                    "atmospheric_pressure": n(g("p452_atmospheric_pressure", 1013.25)),
-                    "air_temperature": n(g("p452_air_temperature", 293.15)),
-                    "N0": n(g("p452_N0", 315.0)),
-                    "delta_N": n(g("p452_delta_N", 45.0)),
-                    "percentage_p": n(g("p452_percentage_p", 20.0)),
-                    "Dct": n(g("p452_Dct", 500.0)),
-                    "Dcr": n(g("p452_Dcr", 500.0)),
-                    "Hte": n(g("p452_Hte", 18.0)),
-                    "tx_lat": n(g("p452_tx_lat", 45.0)),
-                    "rx_lat": n(g("p452_rx_lat", 45.0)),
-                    "polarization": n(g("p452_polarization", 0.0)),
-                    "clutter_loss": bool(g("p452_clutter_loss", False)),
-                    "clutter_type": str(g("p452_clutter_type", "one_end")),
-                    "is_terrain": bool(g("p452_is_terrain", False)),
+                "param_p452": {
+                    "atmospheric_pressure": n(gp452("atmospheric_pressure", 1013.25)),
+                    "air_temperature": n(gp452("air_temperature", 293.15)),
+                    "N0": n(gp452("N0", 315.0)),
+                    "delta_N": n(gp452("delta_N", 45.0)),
+                    "percentage_p": n(gp452("percentage_p", 20.0)),
+                    "Dct": n(gp452("Dct", 500.0)),
+                    "Dcr": n(gp452("Dcr", 500.0)),
+                    "Hte": n(gp452("Hte", 18.0)),
+                    "tx_lat": n(gp452("tx_lat", 45.0)),
+                    "rx_lat": n(gp452("rx_lat", 45.0)),
+                    "polarization": n(gp452("polarization", 0.0)),
+                    "clutter_loss": bool(gp452("clutter_loss", False)),
+                    "clutter_type": str(gp452("clutter_type", "one_end")),
+                    "is_terrain": bool(gp452("is_terrain", False)),
                 },
             }
 

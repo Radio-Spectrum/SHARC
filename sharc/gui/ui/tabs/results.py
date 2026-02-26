@@ -13,20 +13,26 @@ import math
 import time
 from pathlib import Path
 
-# Image handling for Tkinter
+try:
+    from ui.tabs.assets.results_tab.alt_plot_engine import MatplotlibPlotter
+    HAS_MATPLOTLIB = True
+except ImportError:
+    HAS_MATPLOTLIB = False
+
+# --- Image handling for Tkinter ---
 from PIL import Image, ImageTk
 
-# Plotly Imports
+# --- Plotly Imports ---
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
-# SSH Import (Paramiko)
+# --- SSH Import (Paramiko) ---
 try:
     import paramiko
 except ImportError:
     paramiko = None
 
-# Config Import
+# --- Config Import ---
 try:
     from config import RESULT_FIELDNAME_TO_PLOT_INFO
 except ImportError:
@@ -36,7 +42,8 @@ except ImportError:
 class ResultsTab:
     """
     Results Tab - Advanced Edition
-    Features: Smart Column Scan, float32 Optimization, Auto-Cache Clearing.
+    Features: Smart Column Scan, float32 Optimization, Auto-Cache Clearing, 
+    and Dual Plotting Engine (Plotly/Matplotlib).
     """
 
     def __init__(self, app, parent_frame):
@@ -62,6 +69,10 @@ class ResultsTab:
         self._photo_image = None
         self._max_axes = 9
         self._disable_traces = False
+        
+        # Matplotlib Widget References
+        self._mpl_canvas = None
+        self._mpl_toolbar = None
 
         # --- Default Configuration ---
         self.result_fields = sorted(list(RESULT_FIELDNAME_TO_PLOT_INFO.keys()))
@@ -157,6 +168,10 @@ class ResultsTab:
         self.var_style_ls = tk.StringVar(value="Auto")
         self.var_style_lw = tk.DoubleVar(value=1.5)
 
+        # --- Plot Engine Selection ---
+        self.var_plot_engine = tk.StringVar(value="PLOTLY")
+        self.var_plot_engine.trace_add("write", lambda *args: self._manual_refresh())
+
         self._trace_vars = [
             self.var_edit_field, self.var_edit_mode, self.var_edit_title,
             self.var_edit_xlabel, self.var_edit_ylabel, self.var_edit_xlog,
@@ -221,7 +236,7 @@ class ResultsTab:
         ttk.Button(btn_frame, text="Clear", command=self._clear_all_dirs).pack(
             side="right", padx=2)
 
-        # Bulk Selection Tools (NEW)
+        # Bulk Selection Tools
         sel_tool_frame = ttk.Frame(frm)
         sel_tool_frame.pack(fill="x", padx=5, pady=2)
         ttk.Checkbutton(sel_tool_frame, text="Plot Selected Only",
@@ -383,17 +398,36 @@ class ResultsTab:
     def _build_plot_preview(self, parent):
         toolbar = ttk.Frame(parent)
         toolbar.pack(side="top", fill="x", padx=5, pady=5)
+
+        # --- Engine Selector ---
+        if HAS_MATPLOTLIB:
+            lbl_eng = ttk.Label(toolbar, text="Engine:")
+            lbl_eng.pack(side="left", padx=(0, 5))
+            
+            rb_pl = ttk.Radiobutton(toolbar, text="Plotly", variable=self.var_plot_engine, value="PLOTLY")
+            rb_pl.pack(side="left")
+            
+            rb_mpl = ttk.Radiobutton(toolbar, text="Matplotlib", variable=self.var_plot_engine, value="MATPLOTLIB")
+            rb_mpl.pack(side="left", padx=5)
+            
+            ttk.Separator(toolbar, orient="vertical").pack(side="left", fill="y", padx=5)
+        # -----------------------------
+
         ttk.Button(toolbar, text="Refresh",
                    command=self._manual_refresh).pack(side="left")
         ttk.Button(toolbar, text="Open Interactive (Browser)",
                    command=self._open_browser).pack(side="right", padx=5)
+        
         self.preview_frame = ttk.Frame(parent, relief="sunken", borderwidth=1)
         self.preview_frame.pack(fill="both", expand=True, padx=5, pady=5)
+        
         self.lbl_preview = ttk.Label(
             self.preview_frame, text="Waiting for data...", anchor="center")
         self.lbl_preview.pack(fill="both", expand=True)
+        
         self.pb_loading = ttk.Progressbar(
             self.preview_frame, mode='determinate', length=200)
+        
         self.preview_frame.bind("<Configure>", self._on_resize)
 
     # ---------------- SSH Logic ----------------
@@ -859,8 +893,6 @@ class ResultsTab:
         self._refresh_criteria_list(cfg["criteria"])
         self._schedule_update()
 
-    # ---------------- Plotting (OPTIMIZED) ----------------
-
     def _manual_refresh(self):
         self._schedule_update(force_refresh=True)
 
@@ -954,7 +986,6 @@ class ResultsTab:
                 if c_val != "Auto":
                     line_props["color"] = color_map.get(c_val, c_val)
 
-                # OPTIMIZATION: Use simple Scatter for preview (lighter)
                 if is_preview:
                     trace_type = go.Scatter
                 else:
@@ -1026,13 +1057,80 @@ class ResultsTab:
     def _update_plot_preview(self, force_refresh=False):
         if self._render_lock.locked():
             return
-        w = max(400, min(self.lbl_preview.winfo_width(), 1920))
-        h = max(300, min(self.lbl_preview.winfo_height(), 1080))
-        self.lbl_preview.configure(text="Preparing Plot...")
-        self.pb_loading['value'] = 0
-        self.pb_loading.place(relx=0.5, rely=0.5, anchor="center")
-        threading.Thread(target=self._render_worker, args=(
-            w, h, force_refresh), daemon=True).start()
+        
+        if HAS_MATPLOTLIB:
+            from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
+
+        engine = self.var_plot_engine.get()
+
+        if self._mpl_canvas:
+            self._mpl_canvas.get_tk_widget().destroy()
+            self._mpl_canvas = None
+        if self._mpl_toolbar:
+            self._mpl_toolbar.destroy()
+            self._mpl_toolbar = None
+
+        # 2. Logic Switch
+        if engine == "MATPLOTLIB" and HAS_MATPLOTLIB:
+            # --- Matplotlib Mode ---
+            try:
+                # Hide Plotly UI elements
+                self.lbl_preview.pack_forget()
+                self.pb_loading.place_forget()
+
+                # Instantiate the Plotter class
+                plotter = MatplotlibPlotter(
+                    self._axes_cfg, 
+                    self.app.res_dirs, 
+                    self.app.res_styles, 
+                    self.var_rows.get(), 
+                    self.var_cols.get(), 
+                    self._max_axes
+                )
+
+                # Data Provider Callback (reuses existing logic)
+                def data_provider(folder, field):
+                    return self._get_data(folder, field, force_refresh=force_refresh)
+
+                sel_indices = self.lb_dirs.curselection()
+                
+                # Create the Figure
+                fig = plotter.create_figure(
+                    data_provider, 
+                    plot_selected_only=self.var_plot_selected_only.get(),
+                    selected_indices=sel_indices
+                )
+
+                # Embed in Tkinter
+                self._mpl_canvas = FigureCanvasTkAgg(fig, master=self.preview_frame)
+                self._mpl_canvas.draw()
+                
+                # Navigation Toolbar (Zoom, Pan, Save)
+                self._mpl_toolbar = NavigationToolbar2Tk(self._mpl_canvas, self.preview_frame, pack_toolbar=False)
+                self._mpl_toolbar.update()
+                self._mpl_toolbar.pack(side="bottom", fill="x")
+
+                widget = self._mpl_canvas.get_tk_widget()
+                widget.pack(side="top", fill="both", expand=True)
+                
+            except Exception as e:
+                # Fallback in case of MPL error
+                self.lbl_preview.pack(fill="both", expand=True)
+                self.lbl_preview.configure(text=f"Matplotlib Error: {e}")
+                print(f"Matplotlib Exception: {e}")
+
+        else:
+            self.lbl_preview.pack(fill="both", expand=True)
+            
+            w = max(400, min(self.lbl_preview.winfo_width(), 1920))
+            h = max(300, min(self.lbl_preview.winfo_height(), 1080))
+            
+            self.lbl_preview.configure(text="Preparing Plot...")
+            self.pb_loading['value'] = 0
+            self.pb_loading.place(relx=0.5, rely=0.5, anchor="center")
+            
+            threading.Thread(target=self._render_worker, args=(
+                w, h, force_refresh), daemon=True).start()
 
     def _stop_loading_ui(self):
         self.pb_loading.stop()

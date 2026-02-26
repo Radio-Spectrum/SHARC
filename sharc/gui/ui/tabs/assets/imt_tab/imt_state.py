@@ -49,7 +49,7 @@ class IMTStateManager:
         self.vars[key] = var
 
     def save_to_file(self, extra_data=None):
-        data = {}
+        data = {"config_type": "IMT"}
         for key, var in self.vars.items():
             data[key] = var.get()
 

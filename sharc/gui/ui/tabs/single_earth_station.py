@@ -34,6 +34,22 @@ class SingleEarthStationTab:
         self.app = app
         self.frame = parent_frame
 
+        # =====================================================================
+        # [CRITICAL FIX] GARANTIR VARIÁVEIS STRING PARA SES (Global State)
+        # =====================================================================
+        # Como o SES usa variáveis globais (self.app), varremos o app procurando
+        # variáveis de prefixo 'se_' ou 'p452_' e convertemos para StringVar
+        # caso ainda sejam numéricas estritas.
+        for attr_name in dir(self.app):
+            if attr_name.startswith(("se_", "p452_")):
+                val = getattr(self.app, attr_name)
+                if isinstance(val, (tk.DoubleVar, tk.IntVar)):
+                    current_val = val.get()
+                    # Substitui a variável no AppState por uma StringVar
+                    setattr(self.app, attr_name, tk.StringVar(
+                        value=str(current_val)))
+        # =====================================================================
+
         # Section Controllers
         self.geom_section = None
         self.ant_section = None
@@ -166,19 +182,21 @@ class SingleEarthStationTab:
         """
         def _sync(*_):
             # Sync Earth Station Height
-            self.app.p452_Hre.set(self.app.se_height.get())
+            if hasattr(self.app, 'p452_Hre') and hasattr(self.app, 'se_height'):
+                self.app.p452_Hre.set(self.app.se_height.get())
 
             # Sync Tx Height based on Link Direction (Downlink vs Uplink)
-            if hasattr(self.app, 'bs_height') and hasattr(self.app, 'ue_height') and hasattr(self.app, 'var_imt_link'):
+            if hasattr(self.app, 'bs_height') and hasattr(self.app, 'ue_height') and hasattr(self.app, 'var_imt_link') and hasattr(self.app, 'p452_Hte'):
                 if self.app.var_imt_link.get() == "DOWNLINK":
                     self.app.p452_Hte.set(self.app.bs_height.get())
                 else:
                     self.app.p452_Hte.set(self.app.ue_height.get())
 
         # Trace the earth station height variable
-        self.app.se_height.trace_add("write", _sync)
-        # Trigger immediately
-        _sync()
+        if hasattr(self.app, 'se_height'):
+            self.app.se_height.trace_add("write", _sync)
+            # Trigger immediately
+            _sync()
 
     # =========================================================================
     # PRESET LOGIC (SAVE / LOAD)
@@ -204,7 +222,8 @@ class SingleEarthStationTab:
             def on_load_complete():
                 self._refresh_sections()
                 # Optional: Re-trigger sync logic
-                self.app.se_height.set(self.app.se_height.get())
+                if hasattr(self.app, 'se_height'):
+                    self.app.se_height.set(self.app.se_height.get())
 
             SESPersistence.load_from_file(
                 self.app, refresh_callback=on_load_complete)

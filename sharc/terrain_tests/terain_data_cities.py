@@ -61,7 +61,7 @@ SG_POLY = 3
 MIN_EXTREMA = 2
 
 # Fig2 will create one subplot per distance here
-DISTANCES_TEST = [100, 200, 300]
+DISTANCES_TEST = [25,50,100, 200, 300]
 FREQ_GHZ = 8.0
 
 # Histogram bins (counts stored). Density computed at plot time.

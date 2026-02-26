@@ -706,11 +706,13 @@ if __name__ == "__main__":
 
     # Population raster (set to None to sample uniformly by area)
     population_raster_path = Path.cwd() / "sharc" / "topology" / "map" / "SEDAC_map2.tiff"
+    population_raster_path = Path.cwd() / "sharc" / "topology" / "map" / "gpw_v4_population_density_rev11_2020_2pt5_min.tif"
+
     # Raster type:
     #   "density" = people per km² (e.g., GPWv4 density GeoTIFF)
     #   "count"   = people per pixel
     #   "indexed" = 0..255 palette indices (NEO-like) -> mapped via log/linear bins
-    raster_encoding = "indexed"  # change to "density" if your GeoTIFF is ppl/km²
+    raster_encoding = "density"  # change to "density" if your GeoTIFF is ppl/km²
 
     # For "indexed" rasters only
     sedac_palette_mode = "log"   # "log" or "linear"
@@ -725,9 +727,10 @@ if __name__ == "__main__":
     # Countries (Americas example)
     countries_americas = [
         # South America
-        "Brazil"
+        "Brazil", "Uruguay","Argentina", "Paraguay", "Chile", "Peru","Bolivia", "Ecuador",
+        "Colombia", "Venezuela", "Suriname", "Guyana"
     ]
-    # countries_americas = [
+    #countries_americas = [
     #    # Europe
     #    "Albania", "Austria", "Belgium", "Bosnia and Herzegovina",
     #    "Bulgaria", "Croatia", "Cyprus", "Czechia", "Denmark", "Estonia",
@@ -737,7 +740,7 @@ if __name__ == "__main__":
     #    "North Macedonia", "Norway", "Poland", "Portugal", "Romania",
     #    "Slovakia", "Slovenia", "Spain", "Sweden",
     #    "Switzerland", "Ukraine", "United Kingdom",
-    
+    # ]
     #    # Africa
     #    "Algeria", "Angola", "Benin", "Botswana", "Burkina Faso", "Burundi",
     #    "Cameroon", "Central African Republic", "Chad",
@@ -820,7 +823,7 @@ if __name__ == "__main__":
         subset.boundary.plot(ax=ax_map, linewidth=0.8, color="black")
 
     # Scatter all BS
-    ax_map.scatter(topo.lons, topo.lats, s=6, c="red", alpha=0.35, label="Base stations", zorder=2)
+    ax_map.scatter(topo.lons, topo.lats, s=6, c="blue", alpha=0.35, label="Base stations", zorder=2)
 
     # “Pizza” azimuth wedges for a subset (to avoid clutter)
     max_wedges = 1500
@@ -845,6 +848,49 @@ if __name__ == "__main__":
                      f"({'pop-weighted' if population_raster_path else 'uniform'}; "
                      f"encoding={raster_encoding}; {band_txt})")
     ax_map.legend(loc="upper right", frameon=True)
+
+    import rasterio
+    from rasterio.mask import mask
+    from matplotlib.colors import LogNorm
+
+    if subset is not None and not subset.empty and population_raster_path:
+        apply_log = True
+        if raster_encoding == "indexed" and sedac_palette_mode == "log":
+            apply_log = False
+
+        from shapely.ops import unary_union
+        country_geom = unary_union(subset.geometry.values)
+
+        with rasterio.open(population_raster_path) as src:
+            out_img, out_transform = mask(src, [country_geom], crop=True, filled=False)
+
+        pop = out_img[0]
+        pop = np.where(pop.mask, np.nan, pop.data)
+
+        # evitar zeros (log não aceita)
+        pop[pop <= 0] = np.nan
+
+        # ===== extent =====
+        left = out_transform.c
+        top = out_transform.f
+        right = left + out_transform.a * pop.shape[1]
+        bottom = top + out_transform.e * pop.shape[0]
+
+        im = ax_map.imshow(
+            pop,
+            extent=[left, right, bottom, top],
+            origin="upper",
+            cmap="gray",  # 👈 agora jet
+            alpha=0.8,
+            norm=LogNorm(
+                vmin=1,  # 👈 10^0
+                vmax=np.nanpercentile(pop, 99)
+            ),
+            zorder=0
+        )
+
+        cbar = plt.colorbar(im, ax=ax_map, fraction=0.03, pad=0.02)
+        cbar.set_label("Population density [people/km²]")
 
     # Histogram / bar chart: number of BS per country
     from collections import Counter

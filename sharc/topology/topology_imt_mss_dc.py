@@ -448,6 +448,12 @@ class TopologyImtMssDc(Topology):
             )
 
             eligible_sats_msk &= polygon_mask
+
+            if (eligible_sats_msk == False).all():
+                raise RuntimeError(
+                    "No satellite is within the eligibility polygon defined in the service grid. Please check the configuration of the service grid and the satellite orbits."
+                )
+
             eligible_sats_idx = np.where(eligible_sats_msk)[0]
 
             # NOTE: Experimental features for logging and analysis

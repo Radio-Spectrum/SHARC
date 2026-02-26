@@ -115,9 +115,9 @@ class StationFactory(object):
             imt_base_stations.is_space_station = True
         elif param.topology.type == "MSS_DC":
             global_ref = ENUReferenceFrame(
-                lat=coordinate_system.ref_lat,
-                lon=coordinate_system.ref_long,
-                alt=coordinate_system.ref_alt,
+                lat=topology.coordinate_system.ref_lat,
+                lon=topology.coordinate_system.ref_long,
+                alt=topology.coordinate_system.ref_alt,
             )
             imt_base_stations.geom.setup(
                 imt_base_stations.num_stations, True,

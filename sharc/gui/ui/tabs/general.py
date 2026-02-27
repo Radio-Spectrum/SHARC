@@ -13,6 +13,8 @@ import itertools
 from utils import add_row_three
 from ui.tabs.assets.general_tab.variable_editor import VariableEditor
 from ui.tabs.assets.general_tab.general_tools import parse_list_safe
+from ui.tabs.assets.ses_tab.ses_persistence import SESPersistence
+from sharc.gui.ui.tabs.imt import IMTTab
 
 
 # --- Helper Functions (Updated to match yaml_builder robustness) ---
@@ -396,16 +398,17 @@ class GeneralTab:
                         del external_data["config_type"]
 
                     if config_type == "IMT":
-                        deep_merge(
-                            final_structure["imt"], self._build_imt_hierarchy(external_data))
+                        self._apply_flat_to_app(external_data)
+                        app_globals = self._collect_app_globals()
+                        combined_flat_data = app_globals.copy()
+                        final_structure["imt"] = self._build_imt_hierarchy(combined_flat_data)
 
                     elif config_type in ["SSS", "SES", "SYSTEM", "SINGLE_EARTH_STATION", "SINGLE_SPACE_STATION"]:
-                        # If external data is flat, rebuild hierarchy, else merge
-                        if self._is_hierarchical_sys_data(external_data):
-                            deep_merge(final_structure[sys_key], external_data)
-                        else:
-                            deep_merge(final_structure[sys_key], self._build_system_hierarchy(
-                                external_data, sys_type))
+                        SESPersistence.apply_config(self.app, external_data)
+                        app_globals = self._collect_app_globals()
+                        combined_flat_data = app_globals.copy()
+                        final_structure[sys_key] = self._build_system_hierarchy(
+                            combined_flat_data, sys_type)
 
                     else:
                         # Fallback Heuristics
@@ -465,7 +468,15 @@ class GeneralTab:
     # =========================================================================
     # HIERARCHY BUILDERS (Synced with yaml_builder.py)
     # =========================================================================
+    def _apply_flat_to_app(self, data):
+        for k, v in data.items():
+            if hasattr(self.app, k):
+                var = getattr(self.app, k)
 
+                if hasattr(var, "set"):
+                    var.set(v)
+                else:
+                    setattr(self.app, k, v)
     def _is_imt_data(self, data):
         markers = ["imt_freq", "bs_power", "ue_height", "topo_type"]
         return any(k in data for k in markers)
@@ -654,11 +665,17 @@ class GeneralTab:
         return imt
 
     def _build_system_hierarchy(self, flat, sys_type):
-        """Constructs System block (SES/SSS) using structure from yaml_builder."""
+
         n = _num_or_str
         def g(k, d=None): return flat.get(k, d)
 
+        # =====================================================
+        # SINGLE SPACE STATION
+        # =====================================================
         if sys_type == "SINGLE_SPACE_STATION":
+
+            pat = str(g("v_ant_pattern", "")).strip()
+
             sys = {
                 "frequency": n(g("v_freq", 3500.0)),
                 "bandwidth": n(g("v_bw", 100.0)),
@@ -668,15 +685,20 @@ class GeneralTab:
                 "channel_model": str(g("v_ch_model", "FSPL")),
                 "is_global_coordinate_system": bool(g("ss_is_global_cs", False)),
                 "season": str(g("v_season", "SUMMER")),
+
                 "param_p619": {
                     "mean_clutter_height": str(g("v_p619_clutter", "Mid")),
                     "below_rooftop": n(g("v_p619_below_rooftop", 0.0)),
                 },
+
                 "geometry": {
                     "altitude": n(g("v_alt", 35786000.0)),
                     "location": {
                         "type": "FIXED",
-                        "fixed": {"lat_deg": n(g("v_fix_lat", 0.0)), "long_deg": n(g("v_fix_lon", -47.0))}
+                        "fixed": {
+                            "lat_deg": n(g("v_fix_lat", 0.0)),
+                            "long_deg": n(g("v_fix_lon", -47.0))
+                        }
                     },
                     "es_altitude": n(g("v_es_alt", 0.0)),
                     "es_lat_deg": n(g("v_es_lat", -15.79)),
@@ -684,20 +706,120 @@ class GeneralTab:
                     "azimuth": {"type": str(g("v_az_type", "POINTING_AT_IMT"))},
                     "elevation": {"type": str(g("v_el_type", "POINTING_AT_IMT"))},
                 },
+
                 "antenna": {
-                    "pattern": str(g("v_ant_pattern", "ITU-R S.672")),
+                    "pattern": pat,
                     "gain": n(g("v_ant_gain", 30.0)),
                 }
             }
-            if str(g("v_ant_pattern", "")) == "ITU-R S.672":
+
+            # conditional antenna
+            if pat == "ITU-R S.672":
                 sys["antenna"]["itu_r_s_672"] = {
                     "antenna_3_dB": n(g("v_s672_3db", 2.0)),
                     "antenna_l_s": n(g("v_s672_ls", -20.0)),
                 }
+
             return sys
 
+        # =====================================================
+        # SINGLE EARTH STATION
+        # =====================================================
         elif sys_type == "SINGLE_EARTH_STATION":
-            sys = {
+
+            pat = str(g("se_ant_pattern", "")).strip()
+            ch_model = str(g("se_channel_model", "FSPL")).strip()
+
+            # ---------- ANTENNA ----------
+            ant = {
+                "pattern": pat,
+                "gain": n(g("se_ant_gain", 30.0)),
+            }
+
+            if pat in {
+                "ITU-R F.699",
+                "ITU-R S.465",
+                "ITU-R S.580",
+                "ITU-R S.1855",
+                "ITU-R Reg. RR. Appendice 7 Annex 3",
+            }:
+                key_map = {
+                    "ITU-R F.699": "itu_r_f_699",
+                    "ITU-R S.465": "itu_r_s_465",
+                    "ITU-R S.580": "itu_r_s_580",
+                    "ITU-R S.1855": "itu_r_s_1855",
+                    "ITU-R Reg. RR. Appendice 7 Annex 3": "itu_reg_rr_a7_3",
+                }
+                ant[key_map[pat]] = {
+                    "diameter": n(g("se_ant_diameter", 1.2)),
+                }
+
+            elif pat == "MODIFIED ITU-R S.465":
+                ant["itu_r_s_465_modified"] = {
+                    "envelope_gain": n(g("se_ant_envelope_gain", 0.0)),
+                }
+
+            elif pat == "ITU-R S.672":
+                ant["itu_r_s_672"] = {
+                    "antenna_3_dB": n(g("se_ant_3db", 2.0)),
+                    "antenna_l_s": n(g("se_ant_l_s", -20.0)),
+                }
+
+            elif pat == "ITU-R F.1245_fs":
+                ant["itu_r_f_1245_fs"] = {
+                    "gain": n(g("se_ant_f1245_gain", 30.0)),
+                    "diameter": n(g("se_ant_f1245_diameter", 1.2)),
+                    "frequency": n(g("se_ant_f1245_frequency", 3.8)),
+                }
+
+            # ---------- GEOMETRY ----------
+            geo = {
+                "height": n(g("se_height", 10.0)),
+                "location": {"type": str(g("se_loc_type", "FIXED")).strip()},
+                "azimuth": {"type": str(g("se_az_type", "FIXED")).strip()},
+                "elevation": {"type": str(g("se_el_type", "FIXED")).strip()},
+            }
+
+            loc_t = geo["location"]["type"]
+            if loc_t == "FIXED":
+                geo["location"]["fixed"] = {
+                    "x": n(g("se_loc_fixed_x", 0.0)),
+                    "y": n(g("se_loc_fixed_y", 0.0)),
+                }
+            elif loc_t == "CELL":
+                geo["location"]["cell"] = {
+                    "min_dist_to_bs": n(g("se_loc_cell_min_dist_to_bs", 100.0)),
+                }
+            elif loc_t == "NETWORK":
+                geo["location"]["network"] = {
+                    "min_dist_to_bs": n(g("se_loc_network_min_dist_to_bs", 500.0)),
+                }
+            elif loc_t == "UNIFORM_DIST":
+                geo["location"]["uniform_dist"] = {
+                    "min_dist_to_center": n(g("se_loc_ud_min_dist_to_center", 0.0)),
+                    "max_dist_to_center": n(g("se_loc_ud_max_dist_to_center", 1000.0)),
+                }
+
+            az_t = geo["azimuth"]["type"]
+            if az_t == "FIXED":
+                geo["azimuth"]["fixed"] = n(g("se_az_fixed", 0.0))
+            elif az_t == "UNIFORM_DIST":
+                geo["azimuth"]["uniform_dist"] = {
+                    "min": n(g("se_az_ud_min", 0.0)),
+                    "max": n(g("se_az_ud_max", 360.0)),
+                }
+
+            el_t = geo["elevation"]["type"]
+            if el_t == "FIXED":
+                geo["elevation"]["fixed"] = n(g("se_el_fixed", 0.0))
+            elif el_t == "UNIFORM_DIST":
+                geo["elevation"]["uniform_dist"] = {
+                    "min": n(g("se_el_ud_min", 0.0)),
+                    "max": n(g("se_el_ud_max", 90.0)),
+                }
+
+            # ---------- SYSTEM ----------
+            se = {
                 "frequency": n(g("se_frequency", 3800.0)),
                 "bandwidth": n(g("se_bandwidth", 100.0)),
                 "noise_temperature": n(g("se_noise_temperature", 290.0)),
@@ -708,68 +830,42 @@ class GeneralTab:
                 "spectral_mask": str(g("se_spectral_mask", "")),
                 "spurious_emissions": n(g("se_spurious_emissions", -60.0)),
                 "tx_power_density": n(g("se_tx_power_density", -50.0)),
-                "height": n(g("se_height", 10.0)),
-                "geometry": {
-                    "location": {
-                        "type": str(g("se_loc_type", "FIXED")),
-                        "fixed": {"x": n(g("se_loc_fixed_x", 0.0)), "y": n(g("se_loc_fixed_y", 0.0))},
-                        "cell": {"min_dist_to_bs": n(g("se_loc_cell_min_dist_to_bs", 100.0))},
-                        "network": {"min_dist_to_bs": n(g("se_loc_network_min_dist_to_bs", 500.0))},
-                        "uniform_dist": {
-                            "min_dist_to_center": n(g("se_loc_ud_min_dist_to_center", 0.0)),
-                            "max_dist_to_center": n(g("se_loc_ud_max_dist_to_center", 1000.0))
-                        },
-                    },
-                    "azimuth": {
-                        "type": str(g("se_az_type", "FIXED")),
-                        "fixed": n(g("se_az_fixed", 0.0)),
-                        "uniform_dist": {"min": n(g("se_az_ud_min", 0.0)), "max": n(g("se_az_ud_max", 360.0))},
-                    },
-                    "elevation": {
-                        "type": str(g("se_el_type", "FIXED")),
-                        "fixed": n(g("se_el_fixed", 0.0)),
-                        "uniform_dist": {"min": n(g("se_el_ud_min", 0.0)), "max": n(g("se_el_ud_max", 90.0))},
-                    },
-                },
-                "antenna": {
-                    "pattern": str(g("se_ant_pattern", "ITU-R F.699")),
-                    "gain": n(g("se_ant_gain", 30.0)),
-                    "diameter": n(g("se_ant_diameter", 1.2)),
-                    "envelope_gain": n(g("se_ant_envelope_gain", 0.0)),
-                },
-                "channel_model": str(g("se_channel_model", "FSPL")),
-                "p452": {
+                "polarization_loss": n(g("se_polarization_loss", "")),
+                "channel_model": ch_model,
+                "geometry": geo,
+                "antenna": ant,
+            }
+
+            # remove optional empty polarization_loss
+            if se["polarization_loss"] in ("", None):
+                del se["polarization_loss"]
+
+            # ---------- P452 ----------
+            if ch_model == "P452":
+                p452 = {
                     "atmospheric_pressure": n(g("p452_atmospheric_pressure", 1013.25)),
                     "air_temperature": n(g("p452_air_temperature", 293.15)),
+                    "percentage_p": n(g("p452_percentage_p", 20.0)),
                     "N0": n(g("p452_N0", 315.0)),
                     "delta_N": n(g("p452_delta_N", 45.0)),
-                    "percentage_p": n(g("p452_percentage_p", 20.0)),
+                    "polarization": str(g("p452_polarization", "")),
                     "Dct": n(g("p452_Dct", 500.0)),
                     "Dcr": n(g("p452_Dcr", 500.0)),
                     "Hte": n(g("p452_Hte", 18.0)),
+                    "Hre": n(g("p452_Hre", 10.0)),
+                    "clutter_loss": bool(g("p452_clutter_loss", False)),
                     "tx_lat": n(g("p452_tx_lat", 45.0)),
                     "rx_lat": n(g("p452_rx_lat", 45.0)),
-                    "polarization": n(g("p452_polarization", 0.0)),
-                    "clutter_loss": bool(g("p452_clutter_loss", False)),
-                    "clutter_type": str(g("p452_clutter_type", "one_end")),
                     "is_terrain": bool(g("p452_is_terrain", False)),
-                },
-            }
-
-            ant_pattern = str(g("se_ant_pattern", ""))
-            if ant_pattern == "ITU-R S.672":
-                sys["antenna"]["itu_r_s_672"] = {
-                    "antenna_3_dB": n(g("se_ant_3db", 2.0)),
-                    "antenna_l_s": n(g("se_ant_l_s", -20.0)),
-                }
-            elif ant_pattern == "ITU-R F.1245_fs":
-                sys["antenna"]["itu_r_f_1245_fs"] = {
-                    "gain": n(g("se_ant_f1245_gain", 30.0)),
-                    "diameter": n(g("se_ant_f1245_diameter", 1.2)),
-                    "frequency": n(g("se_ant_f1245_frequency", 3.8))
                 }
 
-            return sys
+                if p452["clutter_loss"]:
+                    p452["clutter_type"] = str(g("p452_clutter_type", "one_end"))
+
+                se["param_p452"] = p452
+
+            return se
+
         return {}
 
     def _validate_int(self, P):

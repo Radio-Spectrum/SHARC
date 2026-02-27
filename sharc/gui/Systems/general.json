@@ -1,0 +1,30 @@
+{
+    "seed": "4037",
+    "use_random_seed": true,
+    "snaps": "10000",
+    "system": "SINGLE_EARTH_STATION",
+    "output_dir": "C:/Achiles/SHARC/sharc/campaigns/00_test2/Output",
+    "yaml_dir": "C:/Achiles/SHARC/sharc/campaigns/00_test2/Input",
+    "prefix": "test_{dist}",
+    "imt_link": "DOWNLINK",
+    "overwrite": false,
+    "adj_channel": false,
+    "co_channel": true,
+    "variables_table": [
+        [
+            "dist",
+            "['V5']",
+            "[5000]"
+        ],
+        [
+            "new_var",
+            "['FS']",
+            "['C:/Achiles/SHARC/sharc/gui/Systems/FS/FS_20m_TerOFF_Clutter_both.json']"
+        ],
+        [
+            "IMT",
+            "['Macro']",
+            "['C:/Achiles/SHARC/sharc/gui/Systems/IMT/Macro_Urb.json']"
+        ]
+    ]
+}

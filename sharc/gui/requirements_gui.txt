@@ -1,0 +1,12 @@
+numpy
+pandas
+plotly
+kaleido
+matplotlib
+pillow
+paramiko
+geopandas
+shapely
+rasterio
+pyyaml
+ruamel.yaml

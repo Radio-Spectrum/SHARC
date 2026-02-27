@@ -1,0 +1,14 @@
+{
+    "seed": "157",
+    "use_random_seed": false,
+    "snaps": "10000",
+    "system": "SINGLE_SPACE_STATION",
+    "output_dir": "C:/Achiles/SHARC/sharc/campaigns/00_test2/Output",
+    "yaml_dir": "C:/Achiles/SHARC/sharc/campaigns/00_test2/Input",
+    "prefix": "MAcro_countries",
+    "imt_link": "DOWNLINK",
+    "overwrite": false,
+    "adj_channel": false,
+    "co_channel": true,
+    "variables_table": []
+}

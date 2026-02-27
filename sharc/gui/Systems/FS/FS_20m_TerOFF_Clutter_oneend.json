@@ -1,0 +1,77 @@
+{
+  "config_type": "SES",
+  "frequency": "8000",
+  "bandwidth": "40",
+  "noise_temperature": "5133",
+  "adjacent_ch_reception": "OFF",
+  "adjacent_ch_selectivity": "0.0",
+  "adjacent_ch_emissions": "OFF",
+  "adjacent_ch_leak_ratio": "0.0",
+  "spectral_mask": "",
+  "spurious_emissions": "-60.0",
+  "tx_power_density": "-50.0",
+  "height": "20",
+  "geometry": {
+    "location": {
+      "type": "FIXED",
+      "fixed": {
+        "x": "{dist}",
+        "y": "0.0"
+      },
+      "cell": {
+        "min_dist_to_bs": "100.0"
+      },
+      "network": {
+        "min_dist_to_bs": "500.0"
+      },
+      "uniform_dist": {
+        "min_dist_to_center": "0.0",
+        "max_dist_to_center": "1000.0"
+      }
+    },
+    "azimuth": {
+      "type": "POINTING_AT_IMT_CENTER",
+      "fixed": "0.0",
+      "uniform_dist": {
+        "min": "0.0",
+        "max": "360.0"
+      }
+    },
+    "elevation": {
+      "type": "FIXED",
+      "fixed": "0.0",
+      "uniform_dist": {
+        "min": "0.0",
+        "max": "90.0"
+      }
+    }
+  },
+  "antenna": {
+    "pattern": "ITU-R F.1245_fs",
+    "gain": "36",
+    "diameter": "1.2",
+    "envelope_gain": "0.0",
+    "antenna_3db": "0.0",
+    "antenna_l_s": "0.0",
+    "f1245_gain": "36",
+    "f1245_diameter": "3",
+    "f1245_frequency": "8000"
+  },
+  "channel_model": "P452",
+  "p452": {
+    "atmospheric_pressure": "1017",
+    "air_temperature": "293.15",
+    "N0": "352.58",
+    "delta_N": "60",
+    "percentage_p": "RANDOM",
+    "Dct": "101",
+    "Dcr": "100",
+    "Hte": "18",
+    "tx_lat": "-15",
+    "rx_lat": "-15.1",
+    "polarization": "horizontal",
+    "clutter_loss": true,
+    "clutter_type": "one_end",
+    "is_terrain": false
+  }
+}

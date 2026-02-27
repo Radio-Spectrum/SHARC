@@ -218,7 +218,7 @@ class ResultsTab:
         # Listbox
         list_frame = ttk.Frame(frm)
         list_frame.pack(fill="x", padx=5, pady=5)
-        self.lb_dirs = tk.Listbox(list_frame, height=5, selectmode="extended")
+        self.lb_dirs = tk.Listbox(list_frame, height=5, selectmode="extended",exportselection=False)
         self.lb_dirs.pack(side="left", fill="both", expand=True)
         sb = ttk.Scrollbar(list_frame, command=self.lb_dirs.yview)
         sb.pack(side="right", fill="y")

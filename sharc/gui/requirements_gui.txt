@@ -1,12 +1,29 @@
 numpy
+scipy
 pandas
-plotly
-kaleido
 matplotlib
-pillow
-paramiko
-geopandas
-shapely
-rasterio
+plotly
 pyyaml
-ruamel.yaml
+requests
+tqdm
+networkx
+numba
+
+# GUI / visual
+tkhtmlview
+
+# geodata / mapas
+shapely
+geopandas
+fiona
+pyproj
+rtree
+
+# terrain
+rasterio
+
+# shapefile fallback
+pyshp
+
+# util
+scikit-learn

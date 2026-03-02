@@ -160,7 +160,7 @@ class AntennaArray(Antenna):
         if len(self.beams_list) == 0:
             beam_phi, beam_theta = phi, theta
         else:
-            beam_phi, beam_theta = np.array(self.beams_list)[beam_idxs].T
+            beam_phi, beam_theta = np.array(self.beams_list).T
             beam_phi, beam_theta = self._to_local_coord(beam_phi, beam_theta)
 
         beam_etilt = beam_theta - 90.
@@ -466,6 +466,9 @@ class AntennaArray(Antenna):
             theta_etilt: float
                 elevation electrical tilt angle [degrees]
         """
+        if self.always_first_beam and len(self.beams_list):
+            return
+
         phi_etilt, theta_etilt = np.atleast_1d(phi_etilt), np.atleast_1d(theta_etilt)
 
         self.beams_list.append(

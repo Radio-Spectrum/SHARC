@@ -5,6 +5,8 @@
 /sharc/campaigns/*/output
 /sharc/campaigns/*/input
 /sharc/campaigns/*/output_dl
+/sharc/terrain_tests
+/sharc/gui
 
 
 __pycache__

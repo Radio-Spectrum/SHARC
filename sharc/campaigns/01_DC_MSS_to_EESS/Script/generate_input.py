@@ -24,7 +24,7 @@ OUTPUT_DIR = CAMPAIGN_DIR / "output"
 
 # Sweep — service grid
 MARGINS_KM = [0]
-MIN_SERVICE_ANGLE_DEG = [40]
+MIN_SERVICE_ANGLE_DEG = [32]
 LOAD_FACTORS = [0.2, 0.5]
 
 # ------------------------------------------------------------
@@ -67,10 +67,14 @@ COVERAGES = {
         "countries": ["Brazil","Argentina"],
         "pb_margin_if_zero": 100,  # BR: você pediu 150 quando power_backoff_db=0
     },
-    "SA_PB50": {
+    "BR_AR_PB50": {
         "countries": ["Brazil","Argentina"],
         "pb_margin_if_zero": 50,  # BR: você pediu 150 quando power_backoff_db=0
-    },  
+    },
+    "SA_PB50": {
+        "countries": ["Brazil", "Argentina", "Uruguay", "Paraguay", "Bolivia", "Chile", "Peru"],
+        "pb_margin_if_zero": 50,  # BR: você pediu 150 quando power_backoff_db=0
+    },
     "SA_PB150": {
         "countries": ["Brazil", "Argentina", "Uruguay", "Paraguay", "Bolivia", "Chile", "Peru"],
         "pb_margin_if_zero": 150,  # BR: você pediu 150 quando power_backoff_db=0
@@ -86,8 +90,8 @@ COVERAGES = {
 # ------------------------------------------------------------
 STATIONS = {
     "PA": None,  # lido do Base.yaml
-    #"BO": {"lat": -11.025, "lon": -68.765, "alt_m": 240},
-    #"CO": {"lat": -4.214, "lon": -69.94,  "alt_m": 88},
+    "BO": {"lat": -11.025, "lon": -68.765, "alt_m": 240},
+    "CO": {"lat": -4.214, "lon": -69.94,  "alt_m": 88},
 }
 
 # ============================================================

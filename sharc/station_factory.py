@@ -1291,26 +1291,26 @@ class StationFactory(object):
             case "UNIFORM_DIST":
                 # ES is randomly (uniform) created inside a circle of radius
                 # equal to param.max_dist_to_bs
-                if param.geometry.location.uniform_dist.min_dist_to_bs < 0:
+                if param.geometry.location.uniform_dist.min_dist_to_center < 0:
                     sys.stderr.write(
                         "ERROR\nInvalid minimum distance from Single ES to BS: {}".format(
-                            param.geometry.location.uniform_dist.min_dist_to_bs, ), )
+                            param.geometry.location.uniform_dist.min_dist_to_center, ), )
                     sys.exit(1)
                 while (True):
                     dist_x = random_number_gen.uniform(
-                        -param.geometry.location.uniform_dist.max_dist_to_bs,
-                        param.geometry.location.uniform_dist.max_dist_to_bs,
+                        -param.geometry.location.uniform_dist.max_dist_to_center,
+                        param.geometry.location.uniform_dist.max_dist_to_center,
                     )
                     dist_y = random_number_gen.uniform(
-                        -param.geometry.location.uniform_dist.max_dist_to_bs,
-                        param.geometry.location.uniform_dist.max_dist_to_bs,
+                        -param.geometry.location.uniform_dist.max_dist_to_center,
+                        param.geometry.location.uniform_dist.max_dist_to_center,
                     )
                     radius = np.sqrt(dist_x**2 + dist_y**2)
-                    if (radius > param.geometry.location.uniform_dist.min_dist_to_bs) & (
-                            radius < param.geometry.location.uniform_dist.max_dist_to_bs):
+                    if (radius > param.geometry.location.uniform_dist.min_dist_to_center) & (
+                            radius < param.geometry.location.uniform_dist.max_dist_to_center):
                         break
-                x = np.array(dist_x)
-                y = np.array(dist_y)
+                x = np.array([dist_x])
+                y = np.array([dist_y])
             case _:
                 sys.stderr.write(
                     "ERROR\nSingle-ES location type {} not supported".format(

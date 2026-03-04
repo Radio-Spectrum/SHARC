@@ -88,11 +88,6 @@ class ParametersMssD2d(ParametersBase):
     # Number of beams per satellite
     num_sectors: int = 19
 
-    # Satellite antenna pattern
-    # Antenna pattern from ITU-R S.1528
-    # Possible values: "ITU-R-S.1528-Taylor", "ITU-R-S.1528-LEO"
-    antenna_pattern: str = "ITU-R-S.1528-Taylor"
-
     # Parameters for the antenna patterns
     antenna: ParametersAntenna = field(
         default_factory=lambda: ParametersAntenna(

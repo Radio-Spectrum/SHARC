@@ -505,7 +505,7 @@ class PreviewTab:
         self.ax3d.cla()
 
         global_types = ["MACRO_COUNTRIES", "SINGLE_SPACE_STATION",
-                        "MSS_DC", "EESS_SS", "METSAT_SS"]
+                        "MSS_DC", "EESS_SS", "METSAT_SS", "SINGLE_EARTH_STATION"]
         is_global = topo_type in global_types
 
         try:
@@ -574,25 +574,168 @@ class PreviewTab:
                     self.ax3d, x, y, radius, az, z_plane=bs_height, color=color, label=lbl)
                 first_sector = False
 
-        if topo_type == "SINGLE_EARTH_STATION":
-            az = _coerce_float(_yaml_first(data, ("single_base_station.antenna.azimuth_deg",
-                               "imt.single_base_station.antenna.azimuth_deg", "sbs_azimuth_deg", "sbs_azimuth"), None), 0.0)
-            if hasattr(self.app, "sbs_azimuth"):
-                az = _safe_float(getattr(self.app, "sbs_azimuth", None), az)
-            el = _safe_float(getattr(self.app, "sbs_elevation", None), 45.0)
-            vec_len = 200.0
+        if self.app.var_system.get() == "SINGLE_EARTH_STATION":
+            def set_equal_3d(ax):
+                xlim = ax.get_xlim3d()
+                ylim = ax.get_ylim3d()
+                zlim = ax.get_zlim3d()
 
-            rad_az, rad_el = np.radians(az), np.radians(el)
-            vx = vec_len * np.cos(rad_el) * np.cos(rad_az)
-            vy = vec_len * np.cos(rad_el) * np.sin(rad_az)
-            vz = vec_len * np.sin(rad_el)
-            self.ax3d.quiver(0, 0, bs_height, vx, vy, vz,
-                             color="red", length=1.0, label="Pointing Vector")
+                xmid = 0.5 * (xlim[0] + xlim[1])
+                ymid = 0.5 * (ylim[0] + ylim[1])
+                zmid = 0.5 * (zlim[0] + zlim[1])
 
-            self._add_wedge_outline3d_mpl(
-                self.ax3d, 0, 0, vec_len*0.8, az, z_plane=bs_height, color="red", label="Antenna Sector")
+                radius = 0.5 * max(
+                    xlim[1] - xlim[0],
+                    ylim[1] - ylim[0],
+                    zlim[1] - zlim[0]
+                )
 
-        self._set_equal_3d_mpl(self.ax3d, xs, ys, bs_height*2)
+                ax.set_xlim3d([xmid - radius, xmid + radius])
+                ax.set_ylim3d([ymid - radius, ymid + radius])
+                ax.set_zlim3d([zmid - radius, zmid + radius])   
+           
+            mode = getattr(self.app, "se_loc_type", None)
+            mode = mode.get() if hasattr(mode, "get") else "FIXED"
+
+            # ---------------- FIXED ----------------
+            if mode == "FIXED":
+                x0 = _safe_float(getattr(self.app, "se_loc_fixed_x", 0.0))
+                y0 = _safe_float(getattr(self.app, "se_loc_fixed_y", 0.0))
+
+                self.ax3d.scatter(
+                    [x0], [y0], [bs_height],
+                    c="red", s=40,
+                    depthshade=False,
+                    label="Single Earth Station"
+                )
+
+            # ---------------- UNIFORM ----------------
+            elif mode == "UNIFORM_DIST":
+
+                rmin = _safe_float(self.app.se_loc_ud_min_dist_to_center)
+                rmax = _safe_float(self.app.se_loc_ud_max_dist_to_center)
+
+                # posição exemplo
+                ang = np.random.uniform(0, 2*np.pi)
+                r = np.random.uniform(rmin, rmax)
+
+                x0 = r*np.cos(ang)
+                y0 = r*np.sin(ang)
+
+                # ponto
+                self.ax3d.scatter(
+                    [x0], [y0], [bs_height],
+                    c="red", s=40,
+                    depthshade=False,
+                    label="Single Earth Station"
+                )
+
+                # anel
+                th = np.linspace(0, 2*np.pi, 120)
+
+                self.ax3d.plot(
+                    rmin*np.cos(th),
+                    rmin*np.sin(th),
+                    [bs_height]*len(th),
+                    color="red",
+                    linestyle="dotted",
+                    label="min radius"
+                )
+
+                self.ax3d.plot(
+                    rmax*np.cos(th),
+                    rmax*np.sin(th),
+                    [bs_height]*len(th),
+                    color="red",
+                    linestyle="dotted",
+                    label="max radius"
+                )
+
+            # ---------------- POINTING VECTOR ----------------
+            if self.app.se_az_type.get() == "UNIFORM_DIST" or self.app.se_el_type.get() == "UNIFORM_DIST":
+                # --------- AZ VALS ----------
+                if self.app.se_az_type.get() == "UNIFORM_DIST":
+                    az_min = _safe_float(self.app.se_az_ud_min)
+                    az_max = _safe_float(self.app.se_az_ud_max)
+                else:
+                    az0 = _safe_float(self.app.se_az_fixed)
+                    az_min, az_max = az0-1, az0+1   # pequena largura para visual
+
+                # --------- EL VALS ----------
+                if self.app.se_el_type.get() == "UNIFORM_DIST":
+                    el_min = _safe_float(self.app.se_el_ud_min)
+                    el_max = _safe_float(self.app.se_el_ud_max)
+                else:
+                    el0 = _safe_float(self.app.se_el_fixed)
+                    el_min, el_max = el0-1, el0+1
+
+                # --------- GRID ----------
+                az_vals = np.linspace(az_min, az_max, 30)
+                el_vals = np.linspace(el_min, el_max, 30)
+                AZ, EL = np.meshgrid(az_vals, el_vals)
+
+                # --------- RADIUS ----------
+                R = max(np.sqrt(x0**2 + y0**2)/4, 100)
+
+                # --------- SPHERICAL PATCH ----------
+                X = x0 + R*np.cos(np.radians(EL))*np.cos(np.radians(AZ))
+                Y = y0 + R*np.cos(np.radians(EL))*np.sin(np.radians(AZ))
+                Z = bs_height + R*np.sin(np.radians(EL))
+
+                surf = self.ax3d.plot_surface(
+                    X, Y, Z,
+                    color="blue",
+                    alpha=0.35,
+                    linewidth=0,
+                    antialiased=True
+                )
+                # --------- CENTRO ANGULAR ----------
+                az_c = 0.5*(az_min + az_max)
+                el_c = 0.5*(el_min + el_max)
+
+                # --------- VETOR DIREÇÃO ----------
+                vx = R*np.cos(np.radians(el_c))*np.cos(np.radians(az_c))
+                vy = R*np.cos(np.radians(el_c))*np.sin(np.radians(az_c))
+                vz = R*np.sin(np.radians(el_c))
+
+                # --------- SETA ----------
+                self.ax3d.quiver(
+                    x0, y0, bs_height,
+                    vx, vy, vz,
+                    color="red",
+                    arrow_length_ratio=0.2,
+                    linewidth=2,
+                    label="Pointing center"
+                )
+                # --------- LEGEND ----------
+                from matplotlib.patches import Patch
+                self.ax3d.legend(handles=[
+                    Patch(facecolor="blue", alpha=0.35, label="Pointing angular range")
+                ])
+            else:
+                length = np.sqrt(x0**2 + y0**2)/3
+                target = np.array([0, 0, 0])
+                origin = np.array([x0, y0, bs_height])
+                v = target - origin
+                v = v/np.linalg.norm(v)
+                vx, vy, vz = v*length
+                el = _safe_float(self.app.se_el_fixed)
+                az = _safe_float(self.app.se_az_fixed)
+                vx2 = length * np.cos(np.radians(el)) * np.cos(np.radians(az))
+                vy2 = length * np.cos(np.radians(el)) * np.sin(np.radians(az))
+                vz2 = length * np.sin(np.radians(el))
+                if self.app.se_az_type.get() == "FIXED" and self.app.se_el_type.get() == "FIXED":
+                    vx = vx2
+                    vy = vy2
+                    vz = vz2
+                if self.app.se_az_type.get() == "FIXED" and self.app.se_el_type.get() == "POINTING_AT_IMT_CENTER":
+                    vx = vx2
+                    vy = vy2
+                if self.app.se_el_type.get() == "FIXED" and self.app.se_az_type.get() == "POINTING_AT_IMT_CENTER":
+                    vz = vz2
+
+                self.ax3d.quiver(x0, y0, bs_height, vx, vy, vz, color="red")
+            set_equal_3d(self.ax3d)
 
     def _draw_global_matplotlib(self, topo_type: str, data: Dict[str, Any]):
         a = WGS84_A
@@ -713,22 +856,62 @@ class PreviewTab:
                 self._add_wedge_plotly(
                     fig, x, y, sec_radius, az, bs_height, color)
 
-        if topo_type == "SINGLE_EARTH_STATION":
-            az = _coerce_float(_yaml_first(data, ("single_base_station.antenna.azimuth_deg",
-                               "imt.single_base_station.antenna.azimuth_deg", "sbs_azimuth_deg", "sbs_azimuth"), None), 0.0)
-            if hasattr(self.app, "sbs_azimuth"):
-                az = _safe_float(getattr(self.app, "sbs_azimuth", None), az)
-            el = _safe_float(getattr(self.app, "sbs_elevation", None), 45.0)
-            length = 200.0
-            vx = length * np.cos(np.radians(el)) * np.cos(np.radians(az))
-            vy = length * np.cos(np.radians(el)) * np.sin(np.radians(az))
-            vz = length * np.sin(np.radians(el))
+        if self.app.var_system == "SINGLE_EARTH_STATION":
+            mode = getattr(self.app, "se_loc_mode", None)
+            mode = mode.get() if hasattr(mode, "get") else "FIXED"
 
-            fig.add_trace(go.Scatter3d(
-                x=[0, vx], y=[0, vy], z=[bs_height, bs_height+vz],
-                mode="lines", line=dict(color="red", width=5), name="Pointing Vector"
-            ))
+            # ---------------- FIXED ----------------
+            if mode == "FIXED":
+                x0 = _safe_float(getattr(self.app, "se_loc_fixed_x", 0.0))
+                y0 = _safe_float(getattr(self.app, "se_loc_fixed_y", 0.0))
 
+                fig.add_trace(go.Scatter3d(
+                    x=[x0], y=[y0], z=[bs_height],
+                    mode="markers",
+                    marker=dict(size=6, color="red"),
+                    name="Single Earth Station"
+                ))
+# ---------------- UNIFORM ----------------
+            elif mode == "UNIFORM_DIST":
+
+                rmin = _safe_float(getattr(self.app, "se_loc_ud_min_dist_to_center", 10))
+                rmax = _safe_float(getattr(self.app, "se_loc_ud_max_dist_to_center", 100))
+
+                # posição exemplo (uma realização)
+                ang = np.random.uniform(0, 2*np.pi)
+                r = np.random.uniform(rmin, rmax)
+
+                x0 = r*np.cos(ang)
+                y0 = r*np.sin(ang)
+
+                # ponto
+                fig.add_trace(go.Scatter3d(
+                    x=[x0], y=[y0], z=[bs_height],
+                    mode="markers",
+                    marker=dict(size=6, color="red"),
+                    name="Single Earth Station"
+                ))
+
+                # anel
+                th = np.linspace(0, 2*np.pi, 100)
+
+                fig.add_trace(go.Scatter3d(
+                    x=rmin*np.cos(th),
+                    y=rmin*np.sin(th),
+                    z=[bs_height]*len(th),
+                    mode="lines",
+                    line=dict(color="red", dash="dot"),
+                    name="min radius"
+                ))
+
+                fig.add_trace(go.Scatter3d(
+                    x=rmax*np.cos(th),
+                    y=rmax*np.sin(th),
+                    z=[bs_height]*len(th),
+                    mode="lines",
+                    line=dict(color="red", dash="dot"),
+                    name="max radius"
+                ))
         fig.update_layout(scene=dict(aspectmode="data"))
 
     def _draw_global_plotly(self, fig: "go.Figure", topo_type: str, data: Dict[str, Any]):
@@ -1185,3 +1368,4 @@ class PreviewTab:
             self.canvas3d.draw_idle()
         except Exception:
             pass
+    

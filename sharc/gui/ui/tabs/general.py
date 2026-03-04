@@ -11,6 +11,8 @@ import json
 import yaml  # Requires: pip install PyYAML
 import copy
 import itertools
+from ui.tabs.assets.ses_tab.ses_persistence import SESPersistence
+from sharc.gui.ui.tabs.imt import IMTTab
 
 
 def _sanitize_for_yaml(obj):

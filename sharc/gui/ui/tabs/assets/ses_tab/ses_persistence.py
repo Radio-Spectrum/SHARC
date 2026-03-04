@@ -37,8 +37,19 @@ class SESPersistence:
                 },
             },
             "antenna": {
-                "pattern": g(app.se_ant_pattern), "gain": g(app.se_ant_gain),
-                "diameter": g(app.se_ant_diameter), "envelope_gain": g(app.se_ant_envelope_gain),
+                "pattern": g(app.se_ant_pattern),
+                "gain": g(app.se_ant_gain),
+                "diameter": g(app.se_ant_diameter),
+                "envelope_gain": g(app.se_ant_envelope_gain),
+
+                # S.672
+                "antenna_3db": g(app.se_ant_3db),
+                "antenna_l_s": g(app.se_ant_l_s),
+
+                # F1245
+                "f1245_gain": g(app.se_ant_f1245_gain),
+                "f1245_diameter": g(app.se_ant_f1245_diameter),
+                "f1245_frequency": g(app.se_ant_f1245_frequency),
             },
             "channel_model": g(app.se_channel_model),
             "p452": {
@@ -102,7 +113,13 @@ class SESPersistence:
         s(app.se_ant_gain, ant.get("gain"))
         s(app.se_ant_diameter, ant.get("diameter"))
         s(app.se_ant_envelope_gain, ant.get("envelope_gain"))
+        # NEW
+        s(app.se_ant_3db, ant.get("antenna_3db"))
+        s(app.se_ant_l_s, ant.get("antenna_l_s"))
 
+        s(app.se_ant_f1245_gain, ant.get("f1245_gain"))
+        s(app.se_ant_f1245_diameter, ant.get("f1245_diameter"))
+        s(app.se_ant_f1245_frequency, ant.get("f1245_frequency"))
         # Channel
         s(app.se_channel_model, cfg.get("channel_model"))
         p = cfg.get("p452", {})

@@ -123,6 +123,10 @@ class ParametersMssD2d(ParametersBase):
     # Polarization loss
     polarization_loss: float | None = None
 
+    @property
+    def antenna_pattern(self):
+        return self.antenna.pattern
+
     def load_parameters_from_file(self, config_file: str):
         """
         Load the parameters from a file and run a sanity check.

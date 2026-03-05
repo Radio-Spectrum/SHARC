@@ -3,6 +3,7 @@ from tkinter import ttk, filedialog, messagebox
 import os
 import threading
 from datetime import datetime
+import shlex
 
 
 class RunnerTab:
@@ -12,7 +13,8 @@ class RunnerTab:
     # =========================================================
     def __init__(self, app, parent_frame):
         self.app = app
-        self.frame = parent_frame
+        self.host_frame = parent_frame
+        self.frame = parent_frame  # will be replaced by scrollable content frame
 
         self.manager = getattr(app, "runner_manager", None)
 
@@ -32,9 +34,77 @@ class RunnerTab:
         self.frame.after(500, self._scan_yaml_files)
 
     # =========================================================
+    # Scroll container
+    # =========================================================
+
+    def _make_scrollable_container(self, parent: tk.Widget):
+        """Cria um container com scroll vertical (para não precisar 'ver tudo' de uma vez)."""
+        outer = ttk.Frame(parent)
+        outer.pack(fill="both", expand=True)
+
+        canvas = tk.Canvas(outer, highlightthickness=0)
+        vsb = ttk.Scrollbar(outer, orient="vertical", command=canvas.yview)
+        canvas.configure(yscrollcommand=vsb.set)
+
+        vsb.pack(side="right", fill="y")
+        canvas.pack(side="left", fill="both", expand=True)
+
+        inner = ttk.Frame(canvas)
+        win_id = canvas.create_window((0, 0), window=inner, anchor="nw")
+
+        def _on_inner_configure(event=None):
+            canvas.configure(scrollregion=canvas.bbox("all"))
+
+        def _on_canvas_configure(event):
+            # mantém largura do inner = largura do canvas
+            canvas.itemconfigure(win_id, width=event.width)
+
+        inner.bind("<Configure>", _on_inner_configure, add="+")
+        canvas.bind("<Configure>", _on_canvas_configure, add="+")
+
+        # mousewheel (Windows/macOS) + Linux
+        def _on_mousewheel(event):
+            # Windows/macOS: event.delta (+/- 120)
+            if getattr(event, "delta", 0):
+                canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+            return "break"
+
+        def _on_linux_scroll_up(event):
+            canvas.yview_scroll(-1, "units")
+            return "break"
+
+        def _on_linux_scroll_down(event):
+            canvas.yview_scroll(1, "units")
+            return "break"
+
+        # ativa scroll quando mouse está sobre o canvas/inner
+        def _bind_wheel(_e=None):
+            canvas.bind_all("<MouseWheel>", _on_mousewheel)
+            canvas.bind_all("<Button-4>", _on_linux_scroll_up)
+            canvas.bind_all("<Button-5>", _on_linux_scroll_down)
+
+        def _unbind_wheel(_e=None):
+            canvas.unbind_all("<MouseWheel>")
+            canvas.unbind_all("<Button-4>")
+            canvas.unbind_all("<Button-5>")
+
+        canvas.bind("<Enter>", _bind_wheel, add="+")
+        canvas.bind("<Leave>", _unbind_wheel, add="+")
+        inner.bind("<Enter>", _bind_wheel, add="+")
+        inner.bind("<Leave>", _unbind_wheel, add="+")
+
+        return outer, canvas, inner
+
+# =========================================================
     # UI
     # =========================================================
     def _build_ui(self):
+        # Container com scroll vertical (a aba Runner é longa)
+        self._scroll_outer, self._scroll_canvas, self._scroll_inner = self._make_scrollable_container(
+            self.host_frame)
+        # A partir daqui, todos os widgets serão criados dentro do frame "scrollável"
+        self.frame = self._scroll_inner
+
         # =========================================================
         # EXECUTION MODE
         # =========================================================
@@ -96,8 +166,15 @@ class RunnerTab:
 
         ttk.Button(row, text="Checkout", command=self._on_force_checkout_clicked).pack(
             side="left", padx=(0, 8))
-        ttk.Button(row, text="HTOP", command=self._open_htop_window).pack(
-            side="left", padx=(0, 8))
+        # Monitor menu (top/htop)
+        self.btn_monitor = ttk.Menubutton(row, text="Monitor")
+        self._monitor_menu = tk.Menu(self.btn_monitor, tearoff=False)
+        self._monitor_menu.add_command(
+            label="top (snapshot)", command=self._open_top_window)
+        self._monitor_menu.add_command(
+            label="htop (snapshot)", command=self._open_htop_window)
+        self.btn_monitor.configure(menu=self._monitor_menu)
+        self.btn_monitor.pack(side="left", padx=(0, 8))
         ttk.Button(row, text="Refresh branches",
                    command=self._refresh_branches).pack(side="left")
 
@@ -112,26 +189,133 @@ class RunnerTab:
         ttk.Button(row2, text="List Remote YAMLs", command=self._scan_yaml_files).pack(
             side="left", padx=(0, 6))
 
-        
+        ttk.Button(row2, text="Upload Local YAMLs", command=self._upload_local_yaml_files).pack(
+            side="left", padx=(0, 6))
+        ttk.Button(row2, text="Upload YAML Folder", command=self._upload_yaml_folder).pack(
+            side="left", padx=(0, 6))
+
+        # =========================================================
+        # REMOTE PATHS (Project dir + main_cli) - somente SSH
+        # =========================================================
+        self.frm_remote_paths = ttk.LabelFrame(
+            self.frm_remote, text="Remote Paths")
+        self.frm_remote_paths.pack(fill="x", expand=False, padx=8, pady=(0, 8))
+
+        rp = ttk.Frame(self.frm_remote_paths)
+        rp.pack(fill="x", padx=6, pady=(6, 6))
+
+        self.var_remote_project_dir = tk.StringVar(value=getattr(
+            self.manager, "remote_base_dir", "") if self.manager else "")
+        self.var_remote_main_cli = tk.StringVar(value=getattr(
+            self.manager, "remote_main_cli_rel", "sharc/main_cli.py") if self.manager else "sharc/main_cli.py")
+
+        ttk.Label(rp, text="Project Dir:", font=("Segoe UI", 9, "bold")).grid(
+            row=0, column=0, sticky="w")
+        ttk.Entry(rp, textvariable=self.var_remote_project_dir).grid(
+            row=0, column=1, sticky="ew", padx=(6, 6))
+        ttk.Button(rp, text="Apply", command=self._apply_remote_paths).grid(
+            row=0, column=2, padx=(0, 6))
+
+        ttk.Label(rp, text="main_cli:", font=("Segoe UI", 9, "bold")
+                  ).grid(row=1, column=0, sticky="w", pady=(6, 0))
+        ttk.Entry(rp, textvariable=self.var_remote_main_cli).grid(
+            row=1, column=1, sticky="ew", padx=(6, 6), pady=(6, 0))
+        ttk.Button(rp, text="Apply", command=self._apply_remote_paths).grid(
+            row=1, column=2, padx=(0, 6), pady=(6, 0))
+        ttk.Button(rp, text="Auto-detect",
+                   command=self._auto_detect_remote_paths).grid(row=1, column=3, pady=(6, 0))
+
+        rp.columnconfigure(1, weight=1)
+
+        # =========================================================
+        # REMOTE FILE BROWSER (somente SSH)
+        # =========================================================
+        self.frm_browser = ttk.LabelFrame(
+            self.frm_remote, text="Remote File Browser")
+        self.frm_browser.pack(fill="both", expand=False, padx=8, pady=(0, 8))
+
+        br_top = ttk.Frame(self.frm_browser)
+        br_top.pack(fill="x", padx=6, pady=(6, 4))
+
+        self.var_remote_browse_dir = tk.StringVar(
+            value=self.app.ssh_remote_dir.get().strip() or "~")
+
+        ttk.Label(br_top, text="Path:", font=(
+            "Segoe UI", 9, "bold")).pack(side="left")
+        ttk.Entry(br_top, textvariable=self.var_remote_browse_dir).pack(
+            side="left", fill="x", expand=True, padx=(6, 6))
+        ttk.Button(br_top, text="Up", command=self._remote_browse_up).pack(
+            side="left", padx=(0, 6))
+        ttk.Button(br_top, text="Refresh", command=self._remote_browse_refresh).pack(
+            side="left", padx=(0, 6))
+        ttk.Button(br_top, text="Set YAML Dir",
+                   command=self._remote_browse_set_as_yaml_dir).pack(side="left")
+
+        br_mid = ttk.Frame(self.frm_browser)
+        br_mid.pack(fill="both", expand=True, padx=6, pady=(0, 6))
+
+        bcols = ("name", "type", "size", "mtime")
+        self.tree_remote = ttk.Treeview(
+            br_mid, columns=bcols, show="headings", height=10)
+        self.tree_remote.heading("name", text="Name")
+        self.tree_remote.heading("type", text="Type")
+        self.tree_remote.heading("size", text="Size")
+        self.tree_remote.heading("mtime", text="Modified")
+        self.tree_remote.column("name", width=360)
+        self.tree_remote.column("type", width=90, anchor="center")
+        self.tree_remote.column("size", width=110, anchor="e")
+        self.tree_remote.column("mtime", width=160, anchor="center")
+
+        sb_br = ttk.Scrollbar(br_mid, orient="vertical",
+                              command=self.tree_remote.yview)
+        self.tree_remote.configure(yscroll=sb_br.set)
+        self.tree_remote.pack(side="left", fill="both", expand=True)
+        sb_br.pack(side="right", fill="y")
+
+        self.tree_remote.bind(
+            "<Double-1>", self._remote_browse_on_double_click, add="+")
+
+        self._remote_menu = tk.Menu(self.frame, tearoff=False)
+        self._remote_menu.add_command(
+            label="Copy remote path", command=self._remote_browse_copy_path)
+        self._remote_menu.add_command(
+            label="Set as Remote YAML Dir", command=self._remote_browse_set_as_yaml_dir)
+        self._remote_menu.add_command(
+            label="Set as Remote Project Dir", command=self._remote_browse_set_as_project_dir)
+        self._remote_menu.add_command(
+            label="Set as Remote main_cli (this file)", command=self._remote_browse_set_as_main_cli)
+        self._remote_menu.add_separator()
+        self._remote_menu.add_command(
+            label="Preview (head)", command=lambda: self._remote_browse_preview(mode="head"))
+        self._remote_menu.add_command(
+            label="Preview (tail)", command=lambda: self._remote_browse_preview(mode="tail"))
+        self.tree_remote.bind(
+            "<Button-3>", self._remote_browse_right_click, add="+")
 
         # =========================================================
         # PROTECTED REMOTE RUNS (tmux resume)
         # =========================================================
-        self.frm_runs = ttk.LabelFrame(self.frm_remote, text="Protected Runs (tmux)")
+        self.frm_runs = ttk.LabelFrame(
+            self.frm_remote, text="Protected Runs (tmux)")
         self.frm_runs.pack(fill="x", padx=8, pady=(0, 8))
 
         rr = ttk.Frame(self.frm_runs)
         rr.pack(fill="x", padx=6, pady=6)
 
-        ttk.Button(rr, text="List Runs", command=self._list_remote_runs).pack(side="left", padx=(0, 8))
+        ttk.Button(rr, text="List Runs", command=self._list_remote_runs).pack(
+            side="left", padx=(0, 8))
 
-        ttk.Label(rr, text="Run:", font=("Segoe UI", 9, "bold")).pack(side="left")
+        ttk.Label(rr, text="Run:", font=(
+            "Segoe UI", 9, "bold")).pack(side="left")
         self._run_pick = tk.StringVar(value="")
-        self.cmb_runs = ttk.Combobox(rr, textvariable=self._run_pick, state="readonly", width=38)
+        self.cmb_runs = ttk.Combobox(
+            rr, textvariable=self._run_pick, state="readonly", width=38)
         self.cmb_runs.pack(side="left", padx=(6, 8), fill="x", expand=True)
 
-        ttk.Button(rr, text="Resume", command=self._resume_selected_run).pack(side="left", padx=(0, 8))
-        ttk.Button(rr, text="Open tmux attach hint", command=self._tmux_attach_hint).pack(side="left")
+        ttk.Button(rr, text="Resume", command=self._resume_selected_run).pack(
+            side="left", padx=(0, 8))
+        ttk.Button(rr, text="Open tmux attach hint",
+                   command=self._tmux_attach_hint).pack(side="left")
 
 # =========================================================
         # EXECUTION CONTROLS (vale para os dois modos)
@@ -224,6 +408,10 @@ class RunnerTab:
             self.frm_remote.pack(fill="x", pady=5, padx=5, after=self.frm_mode)
             self._refresh_remote_summary()
             self._refresh_branches(auto=True)
+            try:
+                self._remote_browse_refresh()
+            except Exception:
+                pass
         else:
             try:
                 self.frm_remote.pack_forget()
@@ -383,7 +571,25 @@ class RunnerTab:
 
         def _thread():
             try:
-                branches = self.manager.get_git_branches()
+                if hasattr(self.manager, "get_git_branches"):
+                    branches = self.manager.get_git_branches()
+                else:
+                    # Backward compatible: older RunnerManager may not have get_git_branches
+                    base = getattr(self.manager, "remote_base_dir", "").strip()
+                    if hasattr(self.manager, "exec_command_output") and base:
+                        out = self.manager.exec_command_output(
+                            f"cd {shlex.quote(base)} && git branch -a")
+                        bset = set()
+                        for line in out.splitlines():
+                            line = line.strip().replace("*", "").strip()
+                            if not line or "->" in line:
+                                continue
+                            if line.startswith("remotes/origin/"):
+                                line = line.replace("remotes/origin/", "")
+                            bset.add(line)
+                        branches = sorted(bset)
+                    else:
+                        branches = []
             except Exception as e:
                 self._append_log(f"[SSH] Error getting branches: {e}")
                 branches = []
@@ -575,7 +781,8 @@ class RunnerTab:
         List persisted tmux-backed runs on remote and populate the combobox.
         """
         if not self.manager or not getattr(self.manager, "ssh_connected", False):
-            messagebox.showinfo("SSH", "Not connected. Connect via SSH tab first.")
+            messagebox.showinfo(
+                "SSH", "Not connected. Connect via SSH tab first.")
             return
 
         def _thread():
@@ -603,7 +810,8 @@ class RunnerTab:
                     self.cmb_runs["values"] = items
                     if items:
                         self.cmb_runs.current(0)
-                    self._append_log(f"[REMOTE] Found {len(items)} persisted run(s).")
+                    self._append_log(
+                        f"[REMOTE] Found {len(items)} persisted run(s).")
                 except Exception:
                     pass
 
@@ -616,7 +824,8 @@ class RunnerTab:
         Resume a selected tmux run by tailing its remote log and updating the job row.
         """
         if not self.manager or not getattr(self.manager, "ssh_connected", False):
-            messagebox.showinfo("SSH", "Not connected. Connect via SSH tab first.")
+            messagebox.showinfo(
+                "SSH", "Not connected. Connect via SSH tab first.")
             return
 
         disp = self._run_pick.get().strip()
@@ -628,13 +837,15 @@ class RunnerTab:
         run_uuid = meta.get("run_uuid")
         remote_path = meta.get("remote_path", "")
         if not run_uuid:
-            messagebox.showerror("Resume", "Invalid run metadata (missing run_uuid).")
+            messagebox.showerror(
+                "Resume", "Invalid run metadata (missing run_uuid).")
             return
 
         # Ensure a row exists for this resumed run (use run_uuid as iid)
         iid = f"run:{run_uuid}"
         if not self.tree.exists(iid):
-            yaml_name = os.path.basename(remote_path) if remote_path else f"run_{run_uuid[:8]}.yaml"
+            yaml_name = os.path.basename(
+                remote_path) if remote_path else f"run_{run_uuid[:8]}.yaml"
             self._insert_job_row(
                 iid=iid,
                 yaml_name=yaml_name,
@@ -652,7 +863,8 @@ class RunnerTab:
             except Exception:
                 pass
 
-        self._append_log(f"[REMOTE] Resuming run_uuid={run_uuid} (iid={iid})...")
+        self._append_log(
+            f"[REMOTE] Resuming run_uuid={run_uuid} (iid={iid})...")
 
         def _thread():
             try:
@@ -676,7 +888,8 @@ class RunnerTab:
             return
         # Session is sharc_<8> in ssh_runner
         sess = meta.get("session") or f"sharc_{run_uuid[:8]}"
-        self._append_log(f"[TMUX] Manual attach on remote: tmux attach -t {sess}")
+        self._append_log(
+            f"[TMUX] Manual attach on remote: tmux attach -t {sess}")
 
     # =========================================================
     def _on_force_checkout_clicked(self):
@@ -698,15 +911,33 @@ class RunnerTab:
                 self._append_log(f"[GIT] Force checkout -> {branch}")
             except Exception as e:
                 self._append_log(f"[GIT] Error: {e}")
+    # =========================================================
+    # Monitor (top/htop snapshots)
+    # =========================================================
 
-    def _open_htop_window(self):
+    def _open_top_window(self):
+        """Open a snapshot window running `top` on the remote host."""
         if not self.manager or not getattr(self.manager, "ssh_connected", False):
             messagebox.showerror(
                 "Error", "SSH Not Connected (connect via SSH tab).")
             return
+        self._open_monitor_snapshot(
+            cmd="top -b -n 1", title="Remote TOP Snapshot")
 
+    def _open_htop_window(self):
+        """Open a snapshot window running `htop` (fallback to top) on the remote host."""
+        if not self.manager or not getattr(self.manager, "ssh_connected", False):
+            messagebox.showerror(
+                "Error", "SSH Not Connected (connect via SSH tab).")
+            return
+        self._open_monitor_snapshot(
+            cmd="(htop -b -n 1 2>/dev/null || top -b -n 1)",
+            title="Remote HTOP Snapshot",
+        )
+
+    def _open_monitor_snapshot(self, cmd: str, title: str):
         win = tk.Toplevel(self.frame)
-        win.title("Remote TOP Snapshot")
+        win.title(title)
         win.geometry("900x600")
 
         txt = tk.Text(win, bg="black", fg="#00FF00", font=("Consolas", 9))
@@ -716,18 +947,301 @@ class RunnerTab:
             if not win.winfo_exists():
                 return
             try:
-                out = self.manager.exec_command_output("top -b -n 1")
+                out = self.manager.exec_command_output(cmd)
             except Exception as e:
                 out = f"Error: {e}"
 
             txt.configure(state="normal")
             txt.delete("1.0", "end")
-            txt.insert("end", out)
+            txt.insert("end", out or "")
             txt.configure(state="disabled")
-
             win.after(3000, _refresh)
 
         _refresh()
+
+    # =========================================================
+    # Remote Paths apply / autodetect
+    # =========================================================
+    def _apply_remote_paths(self):
+        if not self.manager:
+            return
+        base_dir = (self.var_remote_project_dir.get() or "").strip()
+        main_cli = (self.var_remote_main_cli.get() or "").strip()
+        runs_dir = getattr(self.manager, "remote_runs_dir", None)
+        try:
+            if hasattr(self.manager, "set_remote_paths"):
+                self.manager.set_remote_paths(
+                    base_dir=base_dir or None,
+                    main_cli=main_cli or None,
+                    runs_dir=runs_dir,
+                )
+            else:
+                if base_dir:
+                    self.manager.remote_base_dir = base_dir
+                if main_cli:
+                    self.manager.remote_main_cli_rel = main_cli
+
+            self._append_log(
+                f"[REMOTE] Paths updated: base='{getattr(self.manager, 'remote_base_dir', '')}', "
+                f"main_cli='{getattr(self.manager, 'remote_main_cli_rel', '')}'"
+            )
+        except Exception as e:
+            self._append_log(f"[REMOTE] Failed to apply paths: {e}")
+
+    def _auto_detect_remote_paths(self):
+        if not self.manager or not getattr(self.manager, "ssh_connected", False):
+            messagebox.showerror(
+                "Error", "SSH Not Connected (connect via SSH tab).")
+            return
+
+        def _thread():
+            try:
+                info = (
+                    self.manager.detect_remote_sharc_paths()
+                    if hasattr(self.manager, "detect_remote_sharc_paths")
+                    else {}
+                )
+            except Exception as e:
+                info = {"error": str(e)}
+
+            def _apply():
+                if "error" in info:
+                    self._append_log(
+                        f"[REMOTE] Auto-detect error: {info['error']}")
+                    return
+                bd = info.get("remote_base_dir")
+                mc = info.get("remote_main_cli_rel")
+                if bd:
+                    self.var_remote_project_dir.set(bd)
+                if mc:
+                    self.var_remote_main_cli.set(mc)
+                self._apply_remote_paths()
+
+            self.frame.after(0, _apply)
+
+        threading.Thread(target=_thread, daemon=True).start()
+
+    # =========================================================
+    # Remote File Browser helpers
+    # =========================================================
+    def _remote_browse_refresh(self):
+        if not self.manager or not getattr(self.manager, "ssh_connected", False):
+            return
+
+        path = (self.var_remote_browse_dir.get() or "~").strip() or "~"
+
+        def _thread():
+            try:
+                if hasattr(self.manager, "list_remote_dir"):
+                    items = self.manager.list_remote_dir(path)
+                else:
+                    out = self.manager.exec_command_output(
+                        f"ls -A1p {self._sh_quote(path)}"
+                    )
+                    items = []
+                    for line in (out or "").splitlines():
+                        line = line.strip()
+                        if not line:
+                            continue
+                        is_dir = line.endswith("/")
+                        name = line[:-1] if is_dir else line
+                        fullp = (
+                            path.rstrip("/") + "/" + name
+                            if path not in ("~", "")
+                            else name
+                        )
+                        items.append(
+                            {
+                                "name": name,
+                                "is_dir": is_dir,
+                                "full_path": fullp,
+                                "size": "",
+                                "mtime": "",
+                            }
+                        )
+            except Exception as e:
+                items = []
+                self._append_log(f"[BROWSE] Error: {e}")
+
+            def _apply():
+                try:
+                    self.tree_remote.delete(*self.tree_remote.get_children())
+                except Exception:
+                    return
+
+                items_sorted = sorted(
+                    items,
+                    key=lambda x: (
+                        not bool(x.get("is_dir")),
+                        (x.get("name") or "").lower(),
+                    ),
+                )
+                for it in items_sorted:
+                    name = it.get("name", "")
+                    is_dir = bool(it.get("is_dir"))
+                    typ = "dir" if is_dir else "file"
+                    size = it.get("size", "")
+                    mtime = it.get("mtime", "")
+                    full_path = it.get("full_path") or (
+                        path.rstrip("/") + "/" + name
+                    )
+                    iid = f"rb:{full_path}"
+                    try:
+                        self.tree_remote.insert(
+                            "", "end", iid=iid, values=(name, typ, size, mtime)
+                        )
+                    except Exception:
+                        self.tree_remote.insert(
+                            "", "end", values=(name, typ, size, mtime)
+                        )
+
+            self.frame.after(0, _apply)
+
+        threading.Thread(target=_thread, daemon=True).start()
+
+    def _remote_browse_up(self):
+        p = (self.var_remote_browse_dir.get() or "~").strip().rstrip("/")
+        if p in ("", "~", "/"):
+            self.var_remote_browse_dir.set("~")
+        else:
+            parent = os.path.dirname(p)
+            self.var_remote_browse_dir.set(parent if parent else "~")
+        self._remote_browse_refresh()
+
+    def _remote_browse_on_double_click(self, _event=None):
+        sel = self.tree_remote.selection()
+        if not sel:
+            return
+        iid = sel[0]
+        full_path = iid[3:] if iid.startswith("rb:") else ""
+        if not full_path:
+            return
+        try:
+            typ = self.tree_remote.set(iid, "type")
+        except Exception:
+            typ = ""
+
+        if typ == "dir":
+            self.var_remote_browse_dir.set(full_path)
+            self._remote_browse_refresh()
+        else:
+            self._remote_browse_preview(mode="head")
+
+    def _remote_browse_right_click(self, event):
+        try:
+            iid = self.tree_remote.identify_row(event.y)
+            if iid:
+                self.tree_remote.selection_set(iid)
+                self._remote_menu.tk_popup(event.x_root, event.y_root)
+        finally:
+            try:
+                self._remote_menu.grab_release()
+            except Exception:
+                pass
+
+    def _remote_browse_copy_path(self):
+        sel = self.tree_remote.selection()
+        if not sel:
+            return
+        iid = sel[0]
+        full_path = iid[3:] if iid.startswith("rb:") else ""
+        if not full_path:
+            return
+        try:
+            self.frame.clipboard_clear()
+            self.frame.clipboard_append(full_path)
+            self._append_log(f"[CLIP] Copied remote: {full_path}")
+        except Exception:
+            pass
+
+    def _remote_browse_set_as_yaml_dir(self):
+        p = (self.var_remote_browse_dir.get() or "~").strip() or "~"
+        self.app.ssh_remote_dir.set(p)
+        self._append_log(f"[BROWSE] Remote YAML Dir set to: {p}")
+
+    def _remote_browse_set_as_project_dir(self):
+        sel = self.tree_remote.selection()
+        if not sel:
+            return
+        iid = sel[0]
+        full_path = iid[3:] if iid.startswith("rb:") else ""
+        if not full_path:
+            return
+        try:
+            typ = self.tree_remote.set(iid, "type")
+        except Exception:
+            typ = ""
+        base_dir = full_path if typ == "dir" else os.path.dirname(full_path)
+        self.var_remote_project_dir.set(base_dir)
+        self._apply_remote_paths()
+
+    def _remote_browse_set_as_main_cli(self):
+        sel = self.tree_remote.selection()
+        if not sel:
+            return
+        iid = sel[0]
+        full_path = iid[3:] if iid.startswith("rb:") else ""
+        if not full_path:
+            return
+        try:
+            typ = self.tree_remote.set(iid, "type")
+        except Exception:
+            typ = ""
+        if typ == "dir":
+            return
+
+        base_dir = (self.var_remote_project_dir.get() or "").strip()
+        rel = full_path
+        if base_dir and full_path.startswith(base_dir.rstrip("/") + "/"):
+            rel = full_path[len(base_dir.rstrip("/")) + 1:]
+        self.var_remote_main_cli.set(rel)
+        self._apply_remote_paths()
+
+    def _remote_browse_preview(self, mode="head"):
+        if not self.manager or not getattr(self.manager, "ssh_connected", False):
+            return
+        sel = self.tree_remote.selection()
+        if not sel:
+            return
+        iid = sel[0]
+        full_path = iid[3:] if iid.startswith("rb:") else ""
+        if not full_path:
+            return
+        try:
+            typ = self.tree_remote.set(iid, "type")
+            if typ == "dir":
+                return
+        except Exception:
+            pass
+
+        cmd = (
+            f"head -n 80 {self._sh_quote(full_path)}"
+            if mode == "head"
+            else f"tail -n 120 {self._sh_quote(full_path)}"
+        )
+
+        def _thread():
+            try:
+                out = self.manager.exec_command_output(cmd)
+            except Exception as e:
+                out = f"[PREVIEW] Error: {e}"
+
+            def _apply():
+                win = tk.Toplevel(self.frame)
+                win.title(
+                    f"Remote Preview ({mode}) - {os.path.basename(full_path)}")
+                win.geometry("980x650")
+                txt = tk.Text(win, font=("Consolas", 9))
+                txt.pack(fill="both", expand=True)
+                txt.insert("end", out or "")
+                txt.configure(state="disabled")
+
+            self.frame.after(0, _apply)
+
+        threading.Thread(target=_thread, daemon=True).start()
+
+    def _sh_quote(self, s: str) -> str:
+        return shlex.quote(s or "")
 
     # =========================================================
     # Tree context menu
@@ -770,3 +1284,98 @@ class RunnerTab:
                 os.startfile(folder)  # Windows
         except Exception as e:
             messagebox.showerror("Open folder", str(e))
+
+    def _upload_local_yaml_files(self):
+        """Select one or more local YAML files and upload them to the remote YAML directory."""
+        if self.app.var_run_mode.get() != "SSH":
+            messagebox.showinfo(
+                "Upload YAMLs", "Switch to Remote (SSH) mode first.")
+            return
+        if not self.manager or not getattr(self.manager, "ssh_connected", False):
+            messagebox.showinfo(
+                "Upload YAMLs", "SSH not connected. Connect via SSH tab first.")
+            return
+
+        remote_dir = (self.app.ssh_remote_dir.get() or "").strip()
+        if not remote_dir:
+            messagebox.showerror("Upload YAMLs", "Remote YAML Dir is empty.")
+            return
+
+        paths = filedialog.askopenfilenames(
+            title="Select YAML files to upload",
+            filetypes=[("YAML files", "*.yaml *.yml"), ("All files", "*.*")]
+        )
+        if not paths:
+            return
+
+        def _thread():
+            try:
+                if not hasattr(self.manager, "upload_yaml_files"):
+                    raise AttributeError(
+                        "RunnerManager has no upload_yaml_files()")
+                uploaded = self.manager.upload_yaml_files(
+                    list(paths), remote_dir, overwrite=True)
+                self._append_log(
+                    f"[SFTP] Uploaded {len(uploaded)} file(s) to {remote_dir}")
+                # Refresh remote listing
+                self._scan_yaml_files()
+            except Exception as e:
+                self._append_log(f"[SFTP] Upload failed: {e}")
+                messagebox.showerror("Upload YAMLs", str(e))
+
+        threading.Thread(target=_thread, daemon=True).start()
+
+    def _upload_yaml_folder(self):
+        """Upload all .yaml/.yml files from the local YAML folder (run_folder) to remote YAML dir."""
+        if self.app.var_run_mode.get() != "SSH":
+            messagebox.showinfo("Upload YAML Folder",
+                                "Switch to Remote (SSH) mode first.")
+            return
+        if not self.manager or not getattr(self.manager, "ssh_connected", False):
+            messagebox.showinfo("Upload YAML Folder",
+                                "SSH not connected. Connect via SSH tab first.")
+            return
+
+        local_dir = (self.app.run_folder.get() or "").strip()
+        if not local_dir or not os.path.isdir(local_dir):
+            messagebox.showerror("Upload YAML Folder",
+                                 "Local YAML Folder is invalid.")
+            return
+
+        remote_dir = (self.app.ssh_remote_dir.get() or "").strip()
+        if not remote_dir:
+            messagebox.showerror("Upload YAML Folder",
+                                 "Remote YAML Dir is empty.")
+            return
+
+        # collect yaml files
+        local_paths = []
+        try:
+            for name in os.listdir(local_dir):
+                low = name.lower()
+                if low.endswith(".yaml") or low.endswith(".yml"):
+                    local_paths.append(os.path.join(local_dir, name))
+        except Exception as e:
+            messagebox.showerror("Upload YAML Folder", str(e))
+            return
+
+        if not local_paths:
+            messagebox.showinfo(
+                "Upload YAML Folder", "No .yaml/.yml files found in the selected folder.")
+            return
+
+        def _thread():
+            try:
+                if not hasattr(self.manager, "upload_yaml_files"):
+                    raise AttributeError(
+                        "RunnerManager has no upload_yaml_files()")
+                uploaded = self.manager.upload_yaml_files(
+                    local_paths, remote_dir, overwrite=True)
+                self._append_log(
+                    f"[SFTP] Uploaded {len(uploaded)} file(s) to {remote_dir}")
+                self._scan_yaml_files()
+            except Exception as e:
+                self._append_log(f"[SFTP] Upload failed: {e}")
+                messagebox.showerror("Upload YAML Folder", str(e))
+
+        threading.Thread(target=_thread, daemon=True).start()

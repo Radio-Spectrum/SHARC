@@ -39,6 +39,8 @@ class RunnerManager:
 
         # Remote base path (dynamically set on connect)
         self.remote_base_dir = "~/SHARC"
+        # Remote entrypoint (relative to remote_base_dir, or absolute)
+        self.remote_main_cli_rel = "sharc/main_cli.py"
 
         # Persistent remote runs directory (set after connect with real $HOME)
         self.remote_runs_dir = "~/.sharc_gui_runs"
@@ -322,6 +324,185 @@ class RunnerManager:
             self.log_callback(f"[SSH] Error listing files: {e}")
             return []
 
+    def upload_yaml_files(self, local_paths, remote_dir, overwrite=True):
+        """
+        Upload one or more local YAML files (.yaml/.yml) to a directory on the remote server.
+        Keeps existing RunnerManager behavior intact; adds only a convenience API for RunnerTab.
+
+        Args:
+            local_paths (list[str]): local file paths
+            remote_dir (str): remote directory to place files (created if missing)
+            overwrite (bool): if True, overwrite remote files with same name
+        Returns:
+            list[str]: list of remote file paths successfully uploaded
+        """
+        if not self.ssh_connected:
+            raise RuntimeError("Not connected")
+
+        if not local_paths:
+            return []
+
+        # Expand ~ on remote side and ensure directory exists
+        remote_dir_q = remote_dir.strip() if remote_dir else ""
+        if not remote_dir_q:
+            raise ValueError("remote_dir is empty")
+
+        # Ensure remote dir exists
+        self.exec_command_output(f"mkdir -p {shlex.quote(remote_dir_q)}")
+
+        # Open SFTP
+        sftp = None
+        uploaded = []
+        try:
+            sftp = self.ssh_client.open_sftp()
+
+            # Normalize remote_dir absolute path (resolve ~)
+            try:
+                # paramiko doesn't expand ~; ask remote shell for it
+                resolved = self.exec_command_output(
+                    f"python3 -c 'import os; print(os.path.expanduser({json.dumps(remote_dir_q)}))'"
+                ).strip()
+                remote_dir_resolved = resolved if resolved else remote_dir_q
+            except Exception:
+                remote_dir_resolved = remote_dir_q
+
+            for lp in local_paths:
+                if not lp:
+                    continue
+                lp = os.path.abspath(lp)
+                if not os.path.isfile(lp):
+                    continue
+                base = os.path.basename(lp)
+                if not (base.lower().endswith(".yaml") or base.lower().endswith(".yml")):
+                    continue
+                rp = remote_dir_resolved.rstrip("/") + "/" + base
+
+                if not overwrite:
+                    try:
+                        sftp.stat(rp)
+                        # exists
+                        continue
+                    except Exception:
+                        pass
+
+                self.log_callback(f"[SFTP] Upload: {lp} -> {rp}")
+                sftp.put(lp, rp)
+                uploaded.append(rp)
+
+            if uploaded:
+                self.log_callback(f"[SFTP] Uploaded {len(uploaded)} file(s) to {remote_dir_resolved}")
+            else:
+                self.log_callback("[SFTP] Nothing uploaded (no valid .yaml/.yml files selected).")
+            return uploaded
+        finally:
+            try:
+                if sftp is not None:
+                    sftp.close()
+            except Exception:
+                pass
+
+
+
+
+    def set_remote_paths(self, base_dir=None, main_cli=None, runs_dir=None):
+        # Update remote paths without breaking existing behavior.
+        if base_dir:
+            self.remote_base_dir = base_dir
+        if main_cli:
+            self.remote_main_cli_rel = main_cli
+        if runs_dir:
+            self.remote_runs_dir = runs_dir
+
+    def detect_remote_sharc_paths(self):
+        # Best-effort detection of repo base and main_cli on the remote.
+        if not self.ssh_connected:
+            raise RuntimeError("Not connected")
+
+        candidates = [
+            self.remote_base_dir,
+            "~/SHARC",
+            "~/sharc",
+            "~",
+        ]
+        main_candidates = [
+            "sharc/main_cli.py",
+            "main_cli.py",
+            "sharc/cli/main_cli.py",
+        ]
+
+        for base in candidates:
+            ok_git = self.exec_command_output(f"test -d {shlex.quote(base)}/.git && echo OK || true").strip() == "OK"
+            if not ok_git:
+                continue
+            for mc in main_candidates:
+                ok = self.exec_command_output(f"test -f {shlex.quote(base)}/{shlex.quote(mc)} && echo OK || true").strip() == "OK"
+                if ok:
+                    self.remote_base_dir = base
+                    self.remote_main_cli_rel = mc
+                    return {"remote_base_dir": base, "remote_main_cli_rel": mc}
+
+        # fallback: find main_cli.py near home (limited depth)
+        out = self.exec_command_output("find ~ -maxdepth 5 -type f -name main_cli.py 2>/dev/null | head -n 5 || true")
+        first = (out.splitlines() or [""])[0].strip()
+        if first:
+            p = first.replace("\\", "/")
+            if "/sharc/" in p:
+                base = p.split("/sharc/")[0]
+                rel = "sharc/" + p.split("/sharc/")[1]
+            else:
+                base = os.path.dirname(p)
+                rel = os.path.basename(p)
+            if base:
+                self.remote_base_dir = base
+            if rel:
+                self.remote_main_cli_rel = rel
+            return {"remote_base_dir": self.remote_base_dir, "remote_main_cli_rel": self.remote_main_cli_rel}
+
+        return {"remote_base_dir": self.remote_base_dir, "remote_main_cli_rel": self.remote_main_cli_rel}
+
+    def list_remote_dir(self, path: str):
+        # Structured listing for remote browser (python3 on remote; falls back to ls).
+        if not self.ssh_connected:
+            return []
+        p = (path or "~").strip() or "~"
+        py = r'''
+import os, json, time
+p = os.path.expanduser(%(p)s)
+items = []
+try:
+    for name in os.listdir(p):
+        fp = os.path.join(p, name)
+        try:
+            st = os.stat(fp)
+            items.append({
+                "name": name,
+                "full_path": fp,
+                "is_dir": os.path.isdir(fp),
+                "size": st.st_size,
+                "mtime": time.strftime("%%Y-%%m-%%d %%H:%%M:%%S", time.localtime(st.st_mtime)),
+            })
+        except Exception:
+            items.append({"name": name, "full_path": fp, "is_dir": os.path.isdir(fp), "size": "", "mtime": ""})
+except Exception:
+    pass
+print(json.dumps(items))
+'''
+        cmd = "python3 - <<'PY'\n" + (py % {"p": repr(p)}) + "\nPY"
+        out = self.exec_command_output(cmd)
+        try:
+            return json.loads(out or "[]")
+        except Exception:
+            out2 = self.exec_command_output(f"ls -A1p {shlex.quote(p)} 2>/dev/null || true")
+            items = []
+            for line in (out2 or "").splitlines():
+                line = line.strip()
+                if not line:
+                    continue
+                is_dir = line.endswith("/")
+                name = line[:-1] if is_dir else line
+                fp = p.rstrip("/") + "/" + name if p not in ("~", "") else name
+                items.append({"name": name, "full_path": fp, "is_dir": is_dir, "size": "", "mtime": ""})
+            return items
     def get_git_branches(self):
         if not self.ssh_connected:
             return []
@@ -509,7 +690,8 @@ class RunnerManager:
                     f"export SHARC_RUN_ID={run_uuid} && "
                     f"cd {self.remote_base_dir} && "
                     f"source .sharc_env/bin/activate && "
-                    f"python3 sharc/main_cli.py -p {shlex.quote(remote_path)}"
+                    f"export PYTHONPATH=\"$PWD\":$PYTHONPATH && "
+                    f"python3 -m sharc.main_cli -p {shlex.quote(remote_path)}"
                 )
 
                 stdin, stdout, stderr = self.ssh_client.exec_command(
@@ -559,7 +741,8 @@ class RunnerManager:
             f"export SHARC_RUN_ID={shlex.quote(run_uuid)}; "
             f"cd {shlex.quote(self.remote_base_dir)}; "
             f"source .sharc_env/bin/activate; "
-            f"python3 sharc/main_cli.py -p {shlex.quote(remote_path)} "
+            f"export PYTHONPATH=\"$PWD\":$PYTHONPATH; "
+            f"python3 -m sharc.main_cli -p {shlex.quote(remote_path)} "
             f"2>&1 | tee -a {shlex.quote(log_file)}; "
             f"echo '__SHARC_DONE__:$?' | tee -a {shlex.quote(log_file)}"
         )

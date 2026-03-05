@@ -16,6 +16,7 @@ from sharc.antenna.antenna_f1245_fs import Antenna_f1245_fs
 from sharc.antenna.antenna_s1528 import AntennaS1528, AntennaS1528Leo, AntennaS1528Taylor
 from sharc.antenna.antenna_beamforming_imt import AntennaBeamformingImt
 from sharc.antenna.antenna_array import AntennaArray
+from sharc.antenna.antenna_cosecant_squared import AntennaCosecantSquared
 from sharc.antenna.antenna_array_pool import AntennaArrayPool
 from sharc.support.geometry import SimulatorGeometry, RigidTransform
 from sharc.antenna.system_4_constants import taper_fn as sys4_taper_fn
@@ -71,6 +72,10 @@ class AntennaFactory():
                 return AntennaReg_RR_A7_3(antenna_params.itu_reg_rr_a7_3)
             case "Cosine Antenna":
                 return AntennaElementCosine()
+            case "CSC^2":
+                return AntennaCosecantSquared(
+                    antenna_params.csc_2, azimuth, elevation
+                )
             case "ARRAY":
                 return AntennaBeamformingImt(
                     antenna_params.array.get_antenna_parameters(),
@@ -133,7 +138,7 @@ class AntennaFactory():
         assert n_stations == len(elevation)
 
         if antenna_params.pattern in [
-            "ARRAY",
+            "ARRAY", "CSC^2"
         ]:
             for i in range(n_stations):
                 global2local_reference_frame = None

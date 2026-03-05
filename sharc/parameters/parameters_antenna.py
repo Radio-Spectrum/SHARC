@@ -1,4 +1,5 @@
 from sharc.parameters.parameters_base import ParametersBase
+from sharc.parameters.antenna.parameters_antenna_cosecant_squared import ParametersAntennaCosecantSquared
 from sharc.parameters.parameters_antenna_with_diameter import ParametersAntennaWithDiameter
 from sharc.parameters.parameters_antenna_with_envelope_gain import ParametersAntennaWithEnvelopeGain
 from sharc.parameters.antenna.parameters_antenna_s1528 import ParametersAntennaS1528
@@ -33,6 +34,7 @@ class ParametersAntenna(ParametersBase):
         "ITU-R-S.1528-Section1.2",
         "ITU-R-S.1528-LEO",
         "ITU-R F.1245_fs",
+        "CSC^2",
         "Cosine Antenna",
         "Antenna System3 OOB",
         "Antenna System 4"]
@@ -53,6 +55,7 @@ class ParametersAntenna(ParametersBase):
                             "ITU-R-S.1528-Section1.2",
                             "ITU-R-S.1528-LEO",
                             "ITU-R F.1245_fs",
+                            "CSC^2",
                             "Cosine Antenna",
                             "Antenna System3 OOB",
                             "Antenna System 4"] = None
@@ -103,6 +106,10 @@ class ParametersAntenna(ParametersBase):
 
     itu_r_s_672: ParametersAntennaS672 = field(
         default_factory=ParametersAntennaS672,
+    )
+
+    csc_2: ParametersAntennaCosecantSquared = field(
+        default_factory=ParametersAntennaCosecantSquared,
     )
 
     @dataclass
@@ -252,6 +259,8 @@ class ParametersAntenna(ParametersBase):
                 self.itu_r_s_1528.validate(f"{ctx}.itu_r_s_1528")
             case "ITU-R-S.672":
                 self.itu_r_s_672.validate(f"{ctx}.itu_r_s_672")
+            case "CSC^2":
+                self.csc_2.validate(f"{ctx}.csc_2")
             case "Cosine Antenna":
                 self.mss_adjacent.validate(f"{ctx}.mss_adjacent")
             case "ITU-R F.1245_fs":

@@ -38,6 +38,9 @@ from ui.tabs import (
     PreviewTab, RunnerTab, ResultsTab, SingleEarthStationTab
 )
 
+# NEW: SSH/Tunnel tab
+from ui.tabs.ssh_config import SSHTunnelTab
+
 PROJECT_ROOT = get_sharc_root()
 
 
@@ -71,7 +74,8 @@ class App(tb.Window if HAS_BOOTSTRAP else tk.Tk):
         if not self.var_system.get():
             self.var_system.set("SINGLE_EARTH_STATION")
 
-        self.main_cli_path = tk.StringVar(value=os.path.join(PROJECT_ROOT / "main_cli.py"))
+        self.main_cli_path = tk.StringVar(
+            value=os.path.join(PROJECT_ROOT / "main_cli.py"))
 
         # 3. Backend and Queues
         self.line_q = queue.Queue()
@@ -92,6 +96,7 @@ class App(tb.Window if HAS_BOOTSTRAP else tk.Tk):
             ("victim", "Single Space Station", VictimTab, "🛰"),
             ("station", "Single Earth Station", SingleEarthStationTab, "🛰"),
             ("preview", "Preview", PreviewTab, "👁"),
+            ("ssh", "SSH Connection", SSHTunnelTab, "🔐"),
             ("runner", "Execution Runner", RunnerTab, "🚀"),
             ("results", "Results", ResultsTab, "📊"),
         ]
@@ -163,12 +168,14 @@ class App(tb.Window if HAS_BOOTSTRAP else tk.Tk):
         )
         # Softer hover (optional)
         try:
-            style.map("Nav.TButton", background=[("active", "#e9ecef"), ("pressed", "#dee2de")])
+            style.map("Nav.TButton", background=[
+                      ("active", "#e9ecef"), ("pressed", "#dee2de")])
         except Exception:
             pass
 
         # HUD Card: consistent background to avoid "white boxes" feeling
-        style.configure("HudCard.TFrame", background=self._card_bg, relief="flat")
+        style.configure("HudCard.TFrame",
+                        background=self._card_bg, relief="flat")
         style.configure(
             "HudTitle.TLabel",
             font=("Segoe UI", 9, "bold"),
@@ -190,7 +197,8 @@ class App(tb.Window if HAS_BOOTSTRAP else tk.Tk):
 
         # Toolbar (header quick actions)
         style.configure("Toolbar.TFrame", background=colors.bg)
-        style.configure("Toolbar.TButton", padding=(10, 6), font=("Segoe UI", 10))
+        style.configure("Toolbar.TButton", padding=(
+            10, 6), font=("Segoe UI", 10))
 
     # ==========================================================
     # MENUBAR (macOS-safe) + Settings
@@ -204,9 +212,11 @@ class App(tb.Window if HAS_BOOTSTRAP else tk.Tk):
             if self.tk.call("tk", "windowingsystem") == "aqua":
                 appmenu = tk.Menu(menubar, name="apple", tearoff=0)
                 menubar.add_cascade(menu=appmenu)
-                appmenu.add_command(label="About SHARC", command=self._about_dialog)
+                appmenu.add_command(label="About SHARC",
+                                    command=self._about_dialog)
                 appmenu.add_separator()
-                appmenu.add_command(label="Quit SHARC", command=self.destroy, accelerator="⌘Q")
+                appmenu.add_command(label="Quit SHARC",
+                                    command=self.destroy, accelerator="⌘Q")
                 try:
                     self.createcommand("tk::mac::Quit", self.destroy)
                 except Exception:
@@ -217,31 +227,42 @@ class App(tb.Window if HAS_BOOTSTRAP else tk.Tk):
 
         # File
         m_file = tk.Menu(menubar, tearoff=0)
-        m_file.add_command(label="Save Snapshot (Current State)...", command=self.save_yaml_dialog_multicombos)
-        m_file.add_command(label="Batch Generate (from Table)", command=self._proxy_batch_generate)
+        m_file.add_command(label="Save Snapshot (Current State)...",
+                           command=self.save_yaml_dialog_multicombos)
+        m_file.add_command(label="Batch Generate (from Table)",
+                           command=self._proxy_batch_generate)
         m_file.add_separator()
-        m_file.add_command(label="Export Current YAML As...", command=self._export_current_yaml_as)
-        m_file.add_command(label="Copy Current YAML to Clipboard", command=self._copy_current_yaml_to_clipboard)
+        m_file.add_command(label="Export Current YAML As...",
+                           command=self._export_current_yaml_as)
+        m_file.add_command(label="Copy Current YAML to Clipboard",
+                           command=self._copy_current_yaml_to_clipboard)
         m_file.add_separator()
-        m_file.add_command(label="Open YAML Folder", command=self._open_yaml_folder)
-        m_file.add_command(label="Open Results Folder", command=self._open_results_folder)
+        m_file.add_command(label="Open YAML Folder",
+                           command=self._open_yaml_folder)
+        m_file.add_command(label="Open Results Folder",
+                           command=self._open_results_folder)
         m_file.add_separator()
         m_file.add_command(label="Exit", command=self.destroy)
         menubar.add_cascade(label="File", menu=m_file)
 
         # Edit
         m_edit = tk.Menu(menubar, tearoff=0)
-        m_edit.add_command(label="Clear Runner Log", command=self._clear_runner_log)
+        m_edit.add_command(label="Clear Runner Log",
+                           command=self._clear_runner_log)
         m_edit.add_separator()
-        m_edit.add_command(label="Refresh Preview", command=self._refresh_preview)
+        m_edit.add_command(label="Refresh Preview",
+                           command=self._refresh_preview)
         menubar.add_cascade(label="Edit", menu=m_edit)
 
         # View
         m_view = tk.Menu(menubar, tearoff=0)
-        m_view.add_command(label="Toggle Theme (Light/Dark)", command=self._toggle_theme_safely)
+        m_view.add_command(label="Toggle Theme (Light/Dark)",
+                           command=self._toggle_theme_safely)
         m_view.add_separator()
-        m_view.add_command(label="Toggle Sidebar", command=self._toggle_sidebar)
-        m_view.add_command(label="Toggle Simulation Tray", command=self._toggle_simulation_tray)
+        m_view.add_command(label="Toggle Sidebar",
+                           command=self._toggle_sidebar)
+        m_view.add_command(label="Toggle Simulation Tray",
+                           command=self._toggle_simulation_tray)
         menubar.add_cascade(label="View", menu=m_view)
 
         # Settings (NEW): Theme + Resolution
@@ -285,13 +306,15 @@ class App(tb.Window if HAS_BOOTSTRAP else tk.Tk):
                 command=self._apply_resolution_from_settings
             )
         m_res.add_separator()
-        m_res.add_command(label="Custom…", command=self._open_custom_resolution_dialog)
+        m_res.add_command(
+            label="Custom…", command=self._open_custom_resolution_dialog)
         m_settings.add_cascade(label="Resolution", menu=m_res)
 
         menubar.add_cascade(label="Settings", menu=m_settings)
 
         # Window (dynamic)
-        self._m_window = tk.Menu(menubar, tearoff=0, postcommand=self._rebuild_window_menu)
+        self._m_window = tk.Menu(
+            menubar, tearoff=0, postcommand=self._rebuild_window_menu)
         menubar.add_cascade(label="Window", menu=self._m_window)
 
         # Help
@@ -341,7 +364,8 @@ class App(tb.Window if HAS_BOOTSTRAP else tk.Tk):
             style = tb.Style()
             style.theme_use(theme_name)
             self._theme_name = theme_name
-            self._theme_is_dark = theme_name in ("darkly", "cyborg", "superhero", "solar")
+            self._theme_is_dark = theme_name in (
+                "darkly", "cyborg", "superhero", "solar")
             self._setup_custom_styles()
         except Exception as e:
             # Fall back to cosmo if theme not found
@@ -393,7 +417,8 @@ class App(tb.Window if HAS_BOOTSTRAP else tk.Tk):
         ttk.Label(frm, text="Width").grid(row=0, column=0, sticky="w")
         ent_w = ttk.Entry(frm, width=10)
         ent_w.grid(row=0, column=1, padx=(8, 0))
-        ttk.Label(frm, text="Height").grid(row=1, column=0, sticky="w", pady=(8, 0))
+        ttk.Label(frm, text="Height").grid(
+            row=1, column=0, sticky="w", pady=(8, 0))
         ent_h = ttk.Entry(frm, width=10)
         ent_h.grid(row=1, column=1, padx=(8, 0), pady=(8, 0))
 
@@ -413,18 +438,21 @@ class App(tb.Window if HAS_BOOTSTRAP else tk.Tk):
                 w = int(ent_w.get().strip())
                 h = int(ent_h.get().strip())
                 if w < 200 or h < 200:
-                    messagebox.showwarning("Invalid size", "Please choose a larger size.")
+                    messagebox.showwarning(
+                        "Invalid size", "Please choose a larger size.")
                     return
                 self._set_resolution(w, h)
                 self._size_var.set(f"{w}x{h}")
                 win.destroy()
             except Exception:
-                messagebox.showerror("Invalid input", "Width/Height must be integers.")
+                messagebox.showerror(
+                    "Invalid input", "Width/Height must be integers.")
 
         btns = ttk.Frame(frm)
         btns.grid(row=2, column=0, columnspan=2, pady=(12, 0), sticky="e")
         ttk.Button(btns, text="Cancel", command=win.destroy).pack(side="right")
-        ttk.Button(btns, text="Apply", command=apply).pack(side="right", padx=(0, 8))
+        ttk.Button(btns, text="Apply", command=apply).pack(
+            side="right", padx=(0, 8))
 
     def _build_layout(self):
         """Layout: Sidebar (Left) + Content (Right)."""
@@ -432,31 +460,38 @@ class App(tb.Window if HAS_BOOTSTRAP else tk.Tk):
         self.grid_rowconfigure(1, weight=1)
 
         # --- A. Sidebar (Left) ---
-        self.sidebar = (tb.Frame(self, bootstyle="light") if HAS_BOOTSTRAP else ttk.Frame(self))
+        self.sidebar = (tb.Frame(self, bootstyle="light")
+                        if HAS_BOOTSTRAP else ttk.Frame(self))
         self.sidebar.grid(row=0, column=0, rowspan=3, sticky="nsew")
         self._build_sidebar_header()
 
-        self.menu_frame = (tb.Frame(self.sidebar, bootstyle="light") if HAS_BOOTSTRAP else ttk.Frame(self.sidebar))
+        self.menu_frame = (tb.Frame(self.sidebar, bootstyle="light")
+                           if HAS_BOOTSTRAP else ttk.Frame(self.sidebar))
         self.menu_frame.pack(fill="both", expand=True, pady=10)
 
         # Monitor/HUD at the bottom of the sidebar
         self._build_system_monitor()
 
         # --- B. Header Bar (Top Right) ---
-        self.header = (tb.Frame(self, bootstyle="bg-white", height=70) if HAS_BOOTSTRAP else ttk.Frame(self, height=70))
+        self.header = (tb.Frame(self, bootstyle="bg-white", height=70)
+                       if HAS_BOOTSTRAP else ttk.Frame(self, height=70))
         self.header.grid(row=0, column=1, sticky="ew")
         self._build_header_content()
         if HAS_BOOTSTRAP:
-            tb.Separator(self.header, orient="horizontal", bootstyle="secondary").pack(side="bottom", fill="x")
+            tb.Separator(self.header, orient="horizontal",
+                         bootstyle="secondary").pack(side="bottom", fill="x")
         else:
-            ttk.Separator(self.header, orient="horizontal").pack(side="bottom", fill="x")
+            ttk.Separator(self.header, orient="horizontal").pack(
+                side="bottom", fill="x")
 
         # --- C. Content Area (Center Right) ---
-        self.content_area = (tb.Frame(self, padding=25) if HAS_BOOTSTRAP else ttk.Frame(self, padding=25))
+        self.content_area = (tb.Frame(self, padding=25)
+                             if HAS_BOOTSTRAP else ttk.Frame(self, padding=25))
         self.content_area.grid(row=1, column=1, sticky="nsew")
 
         # --- D. Status Bar (Bottom Right) ---
-        self.status_bar = (tb.Frame(self, bootstyle="primary") if HAS_BOOTSTRAP else ttk.Frame(self))
+        self.status_bar = (tb.Frame(self, bootstyle="primary")
+                           if HAS_BOOTSTRAP else ttk.Frame(self))
         self.status_bar.grid(row=2, column=1, sticky="ew")
         self._build_footer_content()
 
@@ -476,13 +511,15 @@ class App(tb.Window if HAS_BOOTSTRAP else tk.Tk):
             frame.pack(fill="x", pady=(30, 10), padx=20)
             ttk.Label(frame, text="SHARC").pack(anchor="w")
             ttk.Label(frame, text="SIMULATION MANAGER").pack(anchor="w")
-            ttk.Separator(self.sidebar, orient="horizontal").pack(fill="x", padx=20, pady=15)
+            ttk.Separator(self.sidebar, orient="horizontal").pack(
+                fill="x", padx=20, pady=15)
             return
 
         frame = tb.Frame(self.sidebar, bootstyle="light")
         frame.pack(fill="x", pady=(30, 10), padx=20)
 
-        lbl = tb.Label(frame, text="SHARC", style="Brand.TLabel", bootstyle="inverse-light")
+        lbl = tb.Label(frame, text="SHARC", style="Brand.TLabel",
+                       bootstyle="inverse-light")
         lbl.pack(anchor="w")
 
         sub = tb.Label(
@@ -494,24 +531,28 @@ class App(tb.Window if HAS_BOOTSTRAP else tk.Tk):
         )
         sub.pack(anchor="w")
 
-        tb.Separator(self.sidebar, bootstyle="secondary").pack(fill="x", padx=20, pady=15)
+        tb.Separator(self.sidebar, bootstyle="secondary").pack(
+            fill="x", padx=20, pady=15)
 
     def _build_system_monitor(self):
         """Builds the Circular Meter, the Status HUD, and the Retractable Tray (professional card)."""
         if not HAS_BOOTSTRAP:
             monitor_frame = ttk.Frame(self.sidebar, padding=15)
             monitor_frame.pack(side="bottom", fill="x", pady=10)
-            ttk.Label(monitor_frame, text="Global Progress").pack(anchor="center")
+            ttk.Label(monitor_frame, text="Global Progress").pack(
+                anchor="center")
             return
 
         monitor_frame = tb.Frame(self.sidebar, bootstyle="light", padding=12)
         monitor_frame.pack(side="bottom", fill="x", pady=10)
 
         # HUD CARD (key fix for background artifacts)
-        card = tb.Frame(monitor_frame, style="HudCard.TFrame", padding=10, relief="solid", borderwidth=1)
+        card = tb.Frame(monitor_frame, style="HudCard.TFrame",
+                        padding=10, relief="solid", borderwidth=1)
         card.pack(fill="x")
 
-        tb.Label(card, text="Global Progress", style="HudTitle.TLabel").pack(anchor="center", pady=(0, 5))
+        tb.Label(card, text="Global Progress", style="HudTitle.TLabel").pack(
+            anchor="center", pady=(0, 5))
 
         # --- Retractable Tray for Active Threads ---
         self.tray_button = tb.Button(
@@ -553,16 +594,21 @@ class App(tb.Window if HAS_BOOTSTRAP else tk.Tk):
 
         f_snaps = tb.Frame(self.hud_frame, style="HudCard.TFrame")
         f_snaps.grid(row=0, column=0, sticky="ew")
-        tb.Label(f_snaps, text="SNAPSHOTS", style="HudLabel.TLabel").pack(anchor="center")
-        self.lbl_hud_snaps = tb.Label(f_snaps, text="0 / 0", style="HudValue.TLabel")
+        tb.Label(f_snaps, text="SNAPSHOTS",
+                 style="HudLabel.TLabel").pack(anchor="center")
+        self.lbl_hud_snaps = tb.Label(
+            f_snaps, text="0 / 0", style="HudValue.TLabel")
         self.lbl_hud_snaps.pack(anchor="center")
 
-        ttk.Separator(self.hud_frame, orient="vertical").grid(row=0, column=1, sticky="ns", padx=8)
+        ttk.Separator(self.hud_frame, orient="vertical").grid(
+            row=0, column=1, sticky="ns", padx=8)
 
         f_eta = tb.Frame(self.hud_frame, style="HudCard.TFrame")
         f_eta.grid(row=0, column=2, sticky="ew")
-        tb.Label(f_eta, text="ETA", style="HudLabel.TLabel").pack(anchor="center")
-        self.lbl_hud_eta = tb.Label(f_eta, text="--:--:--", style="HudValue.TLabel")
+        tb.Label(f_eta, text="ETA", style="HudLabel.TLabel").pack(
+            anchor="center")
+        self.lbl_hud_eta = tb.Label(
+            f_eta, text="--:--:--", style="HudValue.TLabel")
         self.lbl_hud_eta.pack(anchor="center")
 
     def _toggle_simulation_tray(self):
@@ -615,7 +661,8 @@ class App(tb.Window if HAS_BOOTSTRAP else tk.Tk):
             command=self.save_yaml_dialog_multicombos
         )
 
-        ToolTip(self.btn_gen_main, text="Generate YAML configuration files (Batch or Single Snapshot).")
+        ToolTip(self.btn_gen_main,
+                text="Generate YAML configuration files (Batch or Single Snapshot).")
 
     def _build_toolbar(self):
         """Compact toolbar in header. Pure UI shortcuts to existing features."""
@@ -625,12 +672,10 @@ class App(tb.Window if HAS_BOOTSTRAP else tk.Tk):
         bar = tb.Frame(self.header, style="Toolbar.TFrame")
         bar.pack(side="right", padx=(0, 10), pady=16)
 
-        tb.Button(bar, text="Toggle Sidebar", width=3, bootstyle="secondary", command=self._toggle_sidebar).pack(side="left", padx=3)
-        ToolTip(bar.winfo_children()[-1], text="Toggle Sidebar")
-
     def _build_footer_content(self):
         if not HAS_BOOTSTRAP:
-            ttk.Label(self.status_bar, text="Ready.").pack(side="left", padx=20)
+            ttk.Label(self.status_bar, text="Ready.").pack(
+                side="left", padx=20)
             return
 
         # SSH Status
@@ -639,7 +684,8 @@ class App(tb.Window if HAS_BOOTSTRAP else tk.Tk):
         tb.Label(f_ssh, textvariable=self.ssh_status, font=("Consolas", 9, "bold"),
                  bootstyle="inverse-primary").pack()
 
-        tb.Label(self.status_bar, text="|", bootstyle="inverse-primary").pack(side="right")
+        tb.Label(self.status_bar, text="|",
+                 bootstyle="inverse-primary").pack(side="right")
 
         # Tunnel Status
         f_tun = tb.Frame(self.status_bar, bootstyle="primary", padding=(15, 5))
@@ -669,7 +715,8 @@ class App(tb.Window if HAS_BOOTSTRAP else tk.Tk):
     def _open_folder_crossplatform(self, folder: str):
         try:
             if not folder or not os.path.isdir(folder):
-                messagebox.showwarning("Folder not found", f"Folder does not exist:\n{folder}")
+                messagebox.showwarning(
+                    "Folder not found", f"Folder does not exist:\n{folder}")
                 return
             system = platform.system().lower()
             if "windows" in system:
@@ -704,7 +751,8 @@ class App(tb.Window if HAS_BOOTSTRAP else tk.Tk):
         try:
             data = self.current_yaml_dict()
             with open(path, "w", encoding="utf-8") as f:
-                yaml.dump(data, f, default_flow_style=False, sort_keys=False, allow_unicode=True)
+                yaml.dump(data, f, default_flow_style=False,
+                          sort_keys=False, allow_unicode=True)
             self.var_yaml_dir.set(os.path.dirname(path))
             self._show_success_toast("Exported YAML successfully.")
         except Exception as e:
@@ -713,7 +761,8 @@ class App(tb.Window if HAS_BOOTSTRAP else tk.Tk):
     def _copy_current_yaml_to_clipboard(self):
         try:
             data = self.current_yaml_dict()
-            yaml_text = yaml.dump(data, default_flow_style=False, sort_keys=False, allow_unicode=True)
+            yaml_text = yaml.dump(
+                data, default_flow_style=False, sort_keys=False, allow_unicode=True)
             self.clipboard_clear()
             self.clipboard_append(yaml_text)
             self._show_success_toast("YAML copied to clipboard.")
@@ -763,7 +812,8 @@ class App(tb.Window if HAS_BOOTSTRAP else tk.Tk):
                     if hasattr(self.tab_runner, 'txt_log'):
                         w = self.tab_runner.txt_log
                         w.configure(state="normal")
-                        w.insert("end", payload + ("\n" if not payload.endswith("\n") else ""))
+                        w.insert("end", payload +
+                                 ("\n" if not payload.endswith("\n") else ""))
                         w.see("end")
                         w.configure(state="disabled")
                 elif msg == "row":
@@ -859,7 +909,8 @@ class App(tb.Window if HAS_BOOTSTRAP else tk.Tk):
                         )
                         lbl_eta.pack(side="right")
 
-                        pb = tb.Progressbar(row, bootstyle="success-striped", maximum=100)
+                        pb = tb.Progressbar(
+                            row, bootstyle="success-striped", maximum=100)
                         pb.pack(fill="x", pady=(2, 0))
 
                         self.thread_widgets[key] = {
@@ -874,7 +925,8 @@ class App(tb.Window if HAS_BOOTSTRAP else tk.Tk):
             snaps_text = f"{total_done_snaps} / {total_max_snaps}" if total_max_snaps > 0 else "0 / 0"
             final_eta = max(etas) if etas else "--:--:--"
 
-            self.sys_meter.configure(amountused=int(avg_pct) if avg_pct > 0 else 0, subtext=f"{avg_pct:.1f}%")
+            self.sys_meter.configure(amountused=int(
+                avg_pct) if avg_pct > 0 else 0, subtext=f"{avg_pct:.1f}%")
             self.lbl_hud_snaps.configure(text=snaps_text)
             self.lbl_hud_eta.configure(text=final_eta)
 
@@ -912,7 +964,8 @@ class App(tb.Window if HAS_BOOTSTRAP else tk.Tk):
                                 pass
                     if hasattr(self.tab_imt, 'topo_section') and self.tab_imt.topo_section:
                         if hasattr(self.tab_imt.topo_section, 'get_countries_text'):
-                            data['countries_text'] = self.tab_imt.topo_section.get_countries_text()
+                            data['countries_text'] = self.tab_imt.topo_section.get_countries_text(
+                            )
                 return data
 
             def get_system_live_data():
@@ -1034,7 +1087,8 @@ class App(tb.Window if HAS_BOOTSTRAP else tk.Tk):
             self.current_frame.pack_forget()
 
         for k, btn in self.nav_buttons.items():
-            btn.configure(bootstyle="primary" if k == key else "secondary-link")
+            btn.configure(bootstyle="primary" if k ==
+                          key else "secondary-link")
 
         self.current_frame = self.frames[key]
         self.current_frame.pack(fill="both", expand=True)
@@ -1056,7 +1110,8 @@ class App(tb.Window if HAS_BOOTSTRAP else tk.Tk):
         """
         if hasattr(self, 'tab_imt') and hasattr(self.tab_imt, 'txt_countries'):
             try:
-                self.topo_countries.set(self.tab_imt.txt_countries.get("1.0", "end"))
+                self.topo_countries.set(
+                    self.tab_imt.txt_countries.get("1.0", "end"))
             except:
                 pass
         return build_yaml_structure(self)
@@ -1083,7 +1138,8 @@ class App(tb.Window if HAS_BOOTSTRAP else tk.Tk):
             try:
                 data = build_yaml_structure(self)
                 with open(path, 'w', encoding='utf-8') as f:
-                    yaml.dump(data, f, default_flow_style=False, sort_keys=False)
+                    yaml.dump(data, f, default_flow_style=False,
+                              sort_keys=False)
                 self.var_yaml_dir.set(os.path.dirname(path))
                 messagebox.showinfo("Success", f"Snapshot saved to:\n{path}")
             except Exception as e:

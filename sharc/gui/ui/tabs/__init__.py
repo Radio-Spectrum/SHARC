@@ -7,6 +7,7 @@ from .preview import PreviewTab
 from .runner import RunnerTab
 from .results import ResultsTab
 from .single_earth_station import SingleEarthStationTab
+from .ssh_config import SSHTunnelTab
 
 __all__ = [
     "GeneralTab",
@@ -14,5 +15,6 @@ __all__ = [
     "VictimTab",
     "PreviewTab",
     "RunnerTab",
-    "ResultsTab"
+    "ResultsTab",
+    "SSHTunnelTab"
 ]

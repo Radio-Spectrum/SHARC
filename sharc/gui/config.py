@@ -20,21 +20,21 @@ DEFAULTS = {
     "output_dir": str(Path.cwd() / "sharc/campaigns"),
 
     # --- SSH / Conexão Remota ---
-    "ssh_host": "164.41.75.34",
-    "ssh_user": "achiles.mota",
+    "ssh_host": "",
+    "ssh_user": "",
     "ssh_port": 2222,
-    "remote_base_dir": "/home/achiles.mota/SHARC",
+    "remote_base_dir": "/",
 
     # --- Túnel SSH (Bastion) ---
-    "tunnel_bastion_host": "164.41.75.34",
+    "tunnel_bastion_host": "",
     "tunnel_bastion_user": "anatel",
     "tunnel_bastion_port": 13508,
-    "tunnel_internal_ip": "192.168.0.204",
+    "tunnel_internal_ip": "",
     "tunnel_internal_port": 22,
     "tunnel_local_port": 2222,
 
     # Caminho padrão da chave (ajuste conforme seu sistema)
-    "tunnel_key_path": r"C:/Users/PC-CASA/OneDrive/Achiles/Pessoal/1 - UNB/3 - Pós-Graduação/3 - Pesquisas/Atuais/10 - Anatel 2/23 - Servidor/key"
+    "tunnel_key_path": r""
 }
 
 # ============================================================================

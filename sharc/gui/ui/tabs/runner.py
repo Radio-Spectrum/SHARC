@@ -112,7 +112,28 @@ class RunnerTab:
         ttk.Button(row2, text="List Remote YAMLs", command=self._scan_yaml_files).pack(
             side="left", padx=(0, 6))
 
+        
+
         # =========================================================
+        # PROTECTED REMOTE RUNS (tmux resume)
+        # =========================================================
+        self.frm_runs = ttk.LabelFrame(self.frm_remote, text="Protected Runs (tmux)")
+        self.frm_runs.pack(fill="x", padx=8, pady=(0, 8))
+
+        rr = ttk.Frame(self.frm_runs)
+        rr.pack(fill="x", padx=6, pady=6)
+
+        ttk.Button(rr, text="List Runs", command=self._list_remote_runs).pack(side="left", padx=(0, 8))
+
+        ttk.Label(rr, text="Run:", font=("Segoe UI", 9, "bold")).pack(side="left")
+        self._run_pick = tk.StringVar(value="")
+        self.cmb_runs = ttk.Combobox(rr, textvariable=self._run_pick, state="readonly", width=38)
+        self.cmb_runs.pack(side="left", padx=(6, 8), fill="x", expand=True)
+
+        ttk.Button(rr, text="Resume", command=self._resume_selected_run).pack(side="left", padx=(0, 8))
+        ttk.Button(rr, text="Open tmux attach hint", command=self._tmux_attach_hint).pack(side="left")
+
+# =========================================================
         # EXECUTION CONTROLS (vale para os dois modos)
         # =========================================================
         frm_exec = ttk.Frame(self.frame)
@@ -548,6 +569,115 @@ class RunnerTab:
 
     # =========================================================
     # Remote-only actions
+
+    def _list_remote_runs(self):
+        """
+        List persisted tmux-backed runs on remote and populate the combobox.
+        """
+        if not self.manager or not getattr(self.manager, "ssh_connected", False):
+            messagebox.showinfo("SSH", "Not connected. Connect via SSH tab first.")
+            return
+
+        def _thread():
+            try:
+                runs = self.manager.list_remote_runs()
+            except Exception as e:
+                runs = []
+                self._append_log(f"[REMOTE] list_remote_runs error: {e}")
+
+            # Build display list and mapping
+            items = []
+            self._runs_map = {}  # display -> meta
+            for r in runs:
+                ru = r.get("run_uuid", "")
+                rp = r.get("remote_path", "")
+                alive = r.get("session_alive", False)
+                short = ru[:8] if ru else "--------"
+                name = os.path.basename(rp) if rp else "(unknown)"
+                disp = f"{short} | {'alive' if alive else 'done '} | {name}"
+                items.append(disp)
+                self._runs_map[disp] = r
+
+            def _apply():
+                try:
+                    self.cmb_runs["values"] = items
+                    if items:
+                        self.cmb_runs.current(0)
+                    self._append_log(f"[REMOTE] Found {len(items)} persisted run(s).")
+                except Exception:
+                    pass
+
+            self.frame.after(0, _apply)
+
+        threading.Thread(target=_thread, daemon=True).start()
+
+    def _resume_selected_run(self):
+        """
+        Resume a selected tmux run by tailing its remote log and updating the job row.
+        """
+        if not self.manager or not getattr(self.manager, "ssh_connected", False):
+            messagebox.showinfo("SSH", "Not connected. Connect via SSH tab first.")
+            return
+
+        disp = self._run_pick.get().strip()
+        meta = getattr(self, "_runs_map", {}).get(disp) if disp else None
+        if not meta:
+            messagebox.showwarning("Resume", "Select a run first (List Runs).")
+            return
+
+        run_uuid = meta.get("run_uuid")
+        remote_path = meta.get("remote_path", "")
+        if not run_uuid:
+            messagebox.showerror("Resume", "Invalid run metadata (missing run_uuid).")
+            return
+
+        # Ensure a row exists for this resumed run (use run_uuid as iid)
+        iid = f"run:{run_uuid}"
+        if not self.tree.exists(iid):
+            yaml_name = os.path.basename(remote_path) if remote_path else f"run_{run_uuid[:8]}.yaml"
+            self._insert_job_row(
+                iid=iid,
+                yaml_name=yaml_name,
+                status="Resuming...",
+                snap="0/--",
+                pct="--",
+                eta="--",
+                branch=self.app.var_git_branch.get() or "",
+                location="(remote persisted)",
+                host=self._current_host_label(),
+            )
+        else:
+            try:
+                self.tree.set(iid, "status", "Resuming...")
+            except Exception:
+                pass
+
+        self._append_log(f"[REMOTE] Resuming run_uuid={run_uuid} (iid={iid})...")
+
+        def _thread():
+            try:
+                # tail + parse happens inside manager; it will call update_row_callback
+                self.manager.resume_remote_run(run_uuid, tree_id=iid)
+            except Exception as e:
+                self._append_log(f"[REMOTE] resume error: {e}")
+
+        threading.Thread(target=_thread, daemon=True).start()
+
+    def _tmux_attach_hint(self):
+        """
+        Shows a manual tmux attach hint in log for the selected run.
+        """
+        disp = self._run_pick.get().strip()
+        meta = getattr(self, "_runs_map", {}).get(disp) if disp else None
+        if not meta:
+            return
+        run_uuid = meta.get("run_uuid")
+        if not run_uuid:
+            return
+        # Session is sharc_<8> in ssh_runner
+        sess = meta.get("session") or f"sharc_{run_uuid[:8]}"
+        self._append_log(f"[TMUX] Manual attach on remote: tmux attach -t {sess}")
+
     # =========================================================
     def _on_force_checkout_clicked(self):
         if not self.manager or not getattr(self.manager, "ssh_connected", False):

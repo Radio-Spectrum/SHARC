@@ -3,7 +3,7 @@ import scipy.io
 import os
 
 data = scipy.io.loadmat(os.path.join(os.path.dirname(__file__), 'constants/sys4_lut2.mat'))
-LUT = data['LUT']
+LUT = data['LUT'].astype(np.float32)
 # # pattern_data = scipy.io.loadmat(os.path.join(os.path.dirname(__file__), 'E_H_Pattern_0deg_az_45deg_el.mat'))
 pattern_data = scipy.io.loadmat(os.path.join(os.path.dirname(__file__), 'constants/sys4_EH_pattern_0azim_0elev2.mat'))
 E_pattern_data = pattern_data['E_pattern'].flatten()
@@ -22,67 +22,101 @@ dx = 0.5
 dy = 0.5
 lingain = 1.75
 
-def get_weights_2(az, elev):
-    radiatingAngle = np.array([az, elev]).reshape(2, 1)
-    beamAzEl_LUT = radiatingAngle
-    beamAzEl = radiatingAngle
-    wts = np.zeros((7680, 1))
-    taperVal = np.zeros((7680, 1))
-    ival = np.abs(LUT[0, 2])  # lower value for elevation in the table
-    lut_res = np.abs(LUT[0, 2]) - np.abs(LUT[1, 2])  # Beamformer LUT resolution (2.5 deg.)
+ival = np.abs(LUT[0, 2])
+lut_res = np.abs(LUT[0, 2]) - np.abs(LUT[1, 2])
 
-    # Assuming radiatingAngle, beamAzEl_LUT, beamAzEl, range, th_range are inputs
-    # and taperVal, wts, wts_taper are outputs to be initialized
+grid_size = int(1 + (2 * ival) / lut_res)
+LUT_vals = np.ascontiguousarray(LUT[:, 3:], dtype=np.float32)
+del LUT
 
-    # beamAzEl is the Az and El towards the Earth (can be a victim)
-    # beamAzEl_LUT is beamAzEl rotated by roll, yaw and pitch - those are rotations to the antenna - based on local
-    # antenna coordinate system
 
-    for i in range(radiatingAngle.shape[0]):
-        # TODO: In the original code th_range is a threshold for slant path length. We need to convert to elevation
-        # look angle
-        # if range[i] > th_range:
-        if i > 60.0 or i < -60.0:
-            # Just find two LUT bounds arround the actual az and el
-            a1 = np.round(beamAzEl_LUT[0, i] / lut_res) * lut_res
-            a2 = a1 + lut_res if a1 < beamAzEl_LUT[0, i] else a1 - lut_res
-            e1 = np.round(beamAzEl_LUT[1, i] / lut_res) * lut_res
-            e2 = e1 + lut_res if e1 < beamAzEl_LUT[1, i] else e1 - lut_res
+import line_profiler
 
-            az1 = min(a1, a2)
-            az2 = max(a1, a2)
-            el1 = min(e1, e2)
-            el2 = max(e1, e2)
+@line_profiler.profile
+def get_weights_vectorized(az, elev):
+    az = np.asarray(az)
+    elev = np.asarray(elev)
 
-            bid1 = int(np.round((az1 + ival) / lut_res) * (1 + (2 * ival) / lut_res) + np.round((el1 + ival) / lut_res))
-            bid2 = bid1 + int(1 + (2 * ival / lut_res))
-            bid3 = bid1 + 1
-            bid4 = bid2 + 1
+    N = az.size
 
-            x = np.abs(az1 - beamAzEl_LUT[0, i]) / lut_res
-            y = np.abs(el1 - beamAzEl_LUT[1, i]) / lut_res
-            inp_taper = (LUT[bid1, 3:] * (1 - x) * (1 - y) +
-                         LUT[bid2, 3:] * x * (1 - y) +
-                         LUT[bid3, 3:] * (1 - x) * y +
-                         LUT[bid4, 3:] * x * y)
-            taperVal[:, i] = inp_taper
-        else:
-            bid = int(np.round((beamAzEl_LUT[0, i] + ival) / lut_res) * (1 + (2 * ival) / lut_res) +
-                      np.round((beamAzEl_LUT[1, i] + ival) / lut_res))
-            taperVal[:, i] = LUT[bid, 3:]
-        # # Compute weights
-        # delay = (1 / SPEED_OF_LIGHT) * pos.T @ np.array([
-        #     np.sin(np.deg2rad(beamAzEl[1, i])),
-        #     np.cos(np.deg2rad(beamAzEl[1, i])) * np.sin(np.deg2rad(beamAzEl[0, i])),
-        #     np.cos(np.deg2rad(beamAzEl[1, i])) * np.cos(np.deg2rad(beamAzEl[0, i]))
-        # ])
-        # new_wts = np.exp(1j * 2 * np.pi * fc * delay)
-        # wts[:, i] = new_wts
-        # wts_taper = new_wts * taperVal[:, i]
+    beamAz = az
+    beamEl = elev
 
-        return taperVal.flatten()
+    # ---- Branch mask
+    # check if any outside LUT range
+    mask = (beamAz > 60.0) | (beamAz < -60.0)
 
-taper_fn = get_weights_2
+    taperVal = np.zeros((N, 7680))
+
+    if np.any(mask):
+        az_sel = beamAz[mask]
+        el_sel = beamEl[mask]
+
+        a1 = np.round(az_sel / lut_res) * lut_res
+        a2 = np.where(a1 < az_sel, a1 + lut_res, a1 - lut_res)
+
+        e1 = np.round(el_sel / lut_res) * lut_res
+        e2 = np.where(e1 < el_sel, e1 + lut_res, e1 - lut_res)
+
+        az1 = np.minimum(a1, a2)
+        el1 = np.minimum(e1, e2)
+
+        bid1 = (
+            np.round((az1 + ival) / lut_res) * grid_size +
+            np.round((el1 + ival) / lut_res)
+        ).astype(int)
+
+        bid2 = bid1 + grid_size
+        bid3 = bid1 + 1
+        bid4 = bid2 + 1
+
+        x = np.abs(az1 - az_sel) / lut_res
+        y = np.abs(el1 - el_sel) / lut_res
+
+        # Broadcast multiply
+        w1 = (1 - x) * (1 - y)
+        w2 = x * (1 - y)
+        w3 = (1 - x) * y
+        w4 = x * y
+
+        # all_bids = np.stack([bid1, bid2, bid3, bid4], axis=1)
+        interp = LUT_vals[bid1].copy()
+        interp *= w1[:, None]
+        interp += LUT_vals[bid2] * w2[:, None]
+        interp += LUT_vals[bid3] * w3[:, None]
+        interp += LUT_vals[bid4] * w4[:, None]
+
+        taperVal[mask] = interp
+
+    if np.any(~mask):
+        az_sel = beamAz[~mask]
+        el_sel = beamEl[~mask]
+
+        bid = (
+            np.round((az_sel + ival) / lut_res) * grid_size +
+            np.round((el_sel + ival) / lut_res)
+        ).astype(int)
+
+        if not np.any(mask):
+            # prevent costly memory copying
+            order = np.argsort(bid)
+            sorted_bid = bid[order]
+
+            tmp_sorted = LUT_vals[sorted_bid]
+
+            result = np.empty_like(tmp_sorted)
+            result[order] = tmp_sorted
+            return result
+            # return LUT_vals[np.sort(bid)]
+
+        taperVal[~mask] = LUT_vals[bid]
+
+    return taperVal
+
+def taper_fn(az, elev):
+    return get_weights_vectorized(az, elev)
+
+# taper_fn = get_weights_2
 890, 1500, 2000, 2300, 2500
 
 if __name__ == "__main__":

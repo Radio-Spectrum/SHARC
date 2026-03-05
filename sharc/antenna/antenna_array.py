@@ -46,7 +46,6 @@ class AntennaArray(Antenna):
         """
         super().__init__()
         self.par = par
-        self.always_first_beam = False
         self.taper_fn = per_element_taper_fn
 
         self.global2local_transform = global2local_transform
@@ -56,14 +55,6 @@ class AntennaArray(Antenna):
                     "global2local_transform is supposed to have a single"
                     " transformation for the purposes of antenna calculations"
                 )
-
-    def set_always_first_beam(self):
-        """Sets the antenna to always use the first beam.
-
-        When this flag is set, :meth:`calculate_gain` ignores any ``beams_l``
-        argument and selects the first beam (index 0) for all direction angles.
-        """
-        self.always_first_beam = True
 
     def calculate_gain(self, *args, **kwargs) -> np.array:
         """Calculates the antenna gain.
@@ -78,8 +69,7 @@ class AntennaArray(Antenna):
             If True, co-channel interference is considered (default is True).
         beams_l : np.ndarray, optional
             Indices of beams to consider for each angle. If not provided,
-            all beams are considered. Also, if always_first_beam is set,
-            this parameter is ignored.
+            all beams are considered.
 
         Returns
         -------
@@ -93,9 +83,7 @@ class AntennaArray(Antenna):
             self.par.adjacent_antenna_model == "SINGLE_ELEMENT"
             and not co_channel
         )
-        if self.always_first_beam:
-            beam_idxs = np.zeros(len(phi_vec), dtype=int)
-        elif "beams_l" in kwargs.keys():
+        if "beams_l" in kwargs.keys():
             beam_idxs = np.asarray(kwargs["beams_l"], dtype=int)
         else:
             if len(self.beams_list):
@@ -201,17 +189,21 @@ class AntennaArray(Antenna):
             # shape (..., N_cols)
             b = v_vec_col * w_vec_col
             # shape (N_rows, N_cols)
-            T = taper.reshape((self.par.n_columns, self.par.n_rows)).T
+            T = taper.reshape((len(beam_phi), self.par.n_columns, self.par.n_rows))
+            T = T.swapaxes(-1, -2)  # swap last two axes to match row/col order
 
             # guarantee that the end sum of weights gives physically consistent
             # gain results = self.par.n_columns * self.par.n_rows at max_g
-            T = T * np.sqrt(
+            T_pow = np.einsum('...ij,...ij->...', T.conj(), T).real
+            T *= np.sqrt(
                 self.par.n_columns * self.par.n_rows
-                / np.sum(np.abs(T)**2, axis=(-1, -2))
-            )
+                / T_pow
+            )[:, None, None]
 
-            tmp = T @ b.T
-            AF = np.sum(a.T * tmp, axis=0)
+            # tmp = T @ b.T
+            # AF = np.sum(a.T * tmp, axis=0)
+
+            AF = np.einsum('...n,...nm,...m->...', a, T, b, optimize=True)
 
             g = 20 * np.log10(np.abs(AF))
 
@@ -466,14 +458,14 @@ class AntennaArray(Antenna):
             theta_etilt: float
                 elevation electrical tilt angle [degrees]
         """
-        if self.always_first_beam and len(self.beams_list):
-            return
-
-        phi_etilt, theta_etilt = np.atleast_1d(phi_etilt), np.atleast_1d(theta_etilt)
-
         self.beams_list.append(
-            (np.ndarray.item(phi_etilt), np.ndarray.item(theta_etilt)),
+            (phi_etilt, theta_etilt),
         )
+        # phi_etilt, theta_etilt = np.atleast_1d(phi_etilt), np.atleast_1d(theta_etilt)
+
+        # self.beams_list.append(
+        #     (np.ndarray.item(phi_etilt), np.ndarray.item(theta_etilt)),
+        # )
 
 
 if __name__ == "__main__":

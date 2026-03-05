@@ -16,6 +16,7 @@ from sharc.antenna.antenna_f1245_fs import Antenna_f1245_fs
 from sharc.antenna.antenna_s1528 import AntennaS1528, AntennaS1528Leo, AntennaS1528Taylor
 from sharc.antenna.antenna_beamforming_imt import AntennaBeamformingImt
 from sharc.antenna.antenna_array import AntennaArray
+from sharc.antenna.antenna_array_pool import AntennaArrayPool
 from sharc.support.geometry import SimulatorGeometry, RigidTransform
 from sharc.antenna.system_4_constants import taper_fn as sys4_taper_fn
 
@@ -76,22 +77,22 @@ class AntennaFactory():
                     azimuth,
                     elevation
                 )
-            case "ARRAY Satellite" | "ARRAY System 4":
-                taper_fn = None
-                if antenna_params.pattern == "ARRAY System 4":
-                    taper_fn = sys4_taper_fn
+            # case "ARRAY Satellite" | "ARRAY System 4":
+            #     taper_fn = None
+            #     if antenna_params.pattern == "ARRAY System 4":
+            #         taper_fn = sys4_taper_fn
 
-                arr = AntennaArray(
-                    antenna_params.array.get_antenna_parameters(),
-                    global2local_ref_frame,
-                    per_element_taper_fn=taper_fn
-                )
-                arr.add_beam(
-                    azimuth,
-                    90. - elevation,
-                )
-                arr.set_always_first_beam()
-                return arr
+            #     arr = AntennaArray(
+            #         antenna_params.array.get_antenna_parameters(),
+            #         global2local_ref_frame,
+            #         per_element_taper_fn=taper_fn
+            #     )
+            #     arr.add_beam(
+            #         azimuth,
+            #         90. - elevation,
+            #     )
+            #     arr.set_always_first_beam()
+            #     return arr
             case "Antenna System 4":
                 # Handled in station_factory.py since it requires two antennas
                 raise NotImplementedError(
@@ -132,7 +133,7 @@ class AntennaFactory():
         assert n_stations == len(elevation)
 
         if antenna_params.pattern in [
-            "ARRAY", "ARRAY Satellite", "ARRAY System 4"
+            "ARRAY",
         ]:
             for i in range(n_stations):
                 global2local_reference_frame = None
@@ -142,12 +143,30 @@ class AntennaFactory():
                     antenna_params, azimuth[i], elevation[i],
                     global2local_ref_frame=global2local_reference_frame
                 )
+        elif antenna_params.pattern in [
+            "ARRAY Satellite", "ARRAY System 4"
+        ]:
+            taper_fn = None
+            if antenna_params.pattern == "ARRAY System 4":
+                taper_fn = sys4_taper_fn
 
-            if antenna_params.pattern in ["ARRAY Satellite", "ARRAY System 4"]:
-                geom.set_local_coords(
-                    azim=np.zeros_like(geom.pointn_azim_global),
-                    elev=np.zeros_like(geom.pointn_elev_global),
-                )
+            pool = AntennaArrayPool()
+            pool.reset_pool(max_antennas=n_stations)
+
+            par = antenna_params.array.get_antenna_parameters()
+
+            antennas = np.array([pool.append_antenna(
+                par,
+                azimuth[i],
+                elevation[i],
+                global2local_transform=geom.global2local.take(i),
+                per_element_taper_fn=taper_fn,
+            ) for i in range(n_stations)], dtype=Antenna)
+
+            geom.set_local_coords(
+                azim=np.zeros_like(geom.pointn_azim_global),
+                elev=np.zeros_like(geom.pointn_elev_global),
+            )
 
         elif antenna_params.pattern == "Antenna System 4":
             antenna_pattern_high = AntennaS1528(antenna_params.antenna_system_4.antenna_parameters_high)

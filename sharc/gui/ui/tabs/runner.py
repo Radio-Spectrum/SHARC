@@ -26,6 +26,12 @@ class RunnerTab:
         self._orig_log_callback = None
         self._orig_update_row_callback = None
 
+        # schedule window state
+        self._schedule_win = None
+        self._schedule_canvas = None
+        self._schedule_body = None
+        self._schedule_window_id = None
+
         self._build_ui()
         self._install_manager_callbacks()
 
@@ -316,7 +322,9 @@ class RunnerTab:
         ttk.Button(rr, text="Resume", command=self._resume_selected_run).pack(
             side="left", padx=(0, 8))
         ttk.Button(rr, text="Open tmux attach hint",
-                   command=self._tmux_attach_hint).pack(side="left")
+                   command=self._tmux_attach_hint).pack(side="left", padx=(0, 8))
+        ttk.Button(rr, text="Schedule", command=self._open_schedule_window).pack(side="left", padx=(0, 8))
+        ttk.Button(rr, text="Clear tmux", command=self._clear_tmux_sessions).pack(side="left")
 
 # =========================================================
         # EXECUTION CONTROLS (vale para os dois modos)
@@ -541,6 +549,8 @@ class RunnerTab:
                 job = self._jobs.get(iid, {})
                 job.update({k: v for k, v in data.items() if k != "iid"})
                 self._jobs[iid] = job
+                if getattr(self, '_schedule_win', None) and self._schedule_win.winfo_exists():
+                    self._render_schedule_cards()
             except Exception:
                 pass
 
@@ -747,9 +757,12 @@ class RunnerTab:
         for iid in files:
             try:
                 self.tree.set(iid, "status", "Queued")
-                self.tree.set(iid, "branch", self.app.var_git_branch.get(
-                ) or self.tree.set(iid, "branch"))
+                branch = self.app.var_git_branch.get() or self.tree.set(iid, "branch")
+                self.tree.set(iid, "branch", branch)
                 self.tree.set(iid, "host", self._current_host_label())
+                job = self._jobs.get(iid, {})
+                job.update({"status": "Queued", "branch": branch, "host": self._current_host_label()})
+                self._jobs[iid] = job
             except Exception:
                 pass
 
@@ -800,9 +813,10 @@ class RunnerTab:
                 ru = r.get("run_uuid", "")
                 rp = r.get("remote_path", "")
                 alive = r.get("session_alive", False)
+                state = r.get("state") or ('alive' if alive else 'done')
                 short = ru[:8] if ru else "--------"
                 name = os.path.basename(rp) if rp else "(unknown)"
-                disp = f"{short} | {'alive' if alive else 'done '} | {name}"
+                disp = f"{short} | {state:<8} | {name}"
                 items.append(disp)
                 self._runs_map[disp] = r
 
@@ -811,8 +825,9 @@ class RunnerTab:
                     self.cmb_runs["values"] = items
                     if items:
                         self.cmb_runs.current(0)
-                    self._append_log(
-                        f"[REMOTE] Found {len(items)} persisted run(s).")
+                    self._append_log(f"[REMOTE] Found {len(items)} persisted run(s).")
+                    if getattr(self, "_schedule_win", None) and self._schedule_win.winfo_exists():
+                        self._render_schedule_cards()
                 except Exception:
                     pass
 
@@ -1380,3 +1395,145 @@ class RunnerTab:
                 messagebox.showerror("Upload YAML Folder", str(e))
 
         threading.Thread(target=_thread, daemon=True).start()
+
+
+    def _clear_tmux_sessions(self):
+        if not self.manager or not getattr(self.manager, "ssh_connected", False):
+            messagebox.showinfo("SSH", "Not connected. Connect via SSH tab first.")
+            return
+
+        def _thread():
+            try:
+                if hasattr(self.manager, "clear_sharc_tmux_sessions"):
+                    self.manager.clear_sharc_tmux_sessions(remove_persisted_orphans=True)
+                else:
+                    self._append_log("[TMUX] clear_sharc_tmux_sessions() not available in RunnerManager.")
+                try:
+                    self._list_remote_runs()
+                except Exception:
+                    pass
+            except Exception as e:
+                self._append_log(f"[TMUX] Clear error: {e}")
+
+        threading.Thread(target=_thread, daemon=True).start()
+
+    def _open_schedule_window(self):
+        if getattr(self, "_schedule_win", None) and self._schedule_win.winfo_exists():
+            self._schedule_win.deiconify()
+            self._schedule_win.lift()
+            self._render_schedule_cards()
+            return
+
+        win = tk.Toplevel(self.frame)
+        self._schedule_win = win
+        win.title("Simulation Schedule")
+        win.geometry("980x680")
+
+        top = ttk.Frame(win)
+        top.pack(fill="x", padx=10, pady=10)
+        ttk.Label(top, text="Simulation Schedule", font=("Segoe UI", 12, "bold")).pack(side="left")
+        ttk.Button(top, text="Refresh", command=self._refresh_schedule_window).pack(side="right")
+
+        container = ttk.Frame(win)
+        container.pack(fill="both", expand=True, padx=10, pady=(0, 10))
+
+        canvas = tk.Canvas(container, highlightthickness=0)
+        vsb = ttk.Scrollbar(container, orient="vertical", command=canvas.yview)
+        body = ttk.Frame(canvas)
+        body.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")), add="+")
+        window_id = canvas.create_window((0, 0), window=body, anchor="nw")
+        canvas.configure(yscrollcommand=vsb.set)
+        canvas.pack(side="left", fill="both", expand=True)
+        vsb.pack(side="right", fill="y")
+        canvas.bind("<Configure>", lambda e: canvas.itemconfigure(window_id, width=e.width), add="+")
+
+        self._schedule_canvas = canvas
+        self._schedule_body = body
+        self._schedule_window_id = window_id
+
+        self._render_schedule_cards()
+
+    def _refresh_schedule_window(self):
+        try:
+            self._list_remote_runs()
+        except Exception:
+            pass
+        self._render_schedule_cards()
+
+    def _render_schedule_cards(self):
+        body = getattr(self, "_schedule_body", None)
+        if not body or not body.winfo_exists():
+            return
+
+        for child in body.winfo_children():
+            try:
+                child.destroy()
+            except Exception:
+                pass
+
+        jobs = []
+        for iid, meta in (self._jobs or {}).items():
+            item = dict(meta)
+            item["iid"] = iid
+            jobs.append(item)
+
+        runs_map = getattr(self, "_runs_map", {}) or {}
+        for disp, r in runs_map.items():
+            iid = f"run:{r.get('run_uuid','')}"
+            if any(j.get("iid") == iid for j in jobs):
+                continue
+            final_status = r.get("final_status") or ("Running" if r.get("session_alive") else "Done")
+            state = r.get("state") or "unknown"
+            jobs.append({
+                "iid": iid,
+                "yaml": os.path.basename(r.get("remote_path", "")) or disp,
+                "status": final_status if state != "running" else "Running",
+                "snap": r.get("snap") or "0/--",
+                "pct": r.get("pct") or ("100.0%" if final_status == "Completed" else ("0.0%" if r.get("session_alive") else "--")),
+                "eta": r.get("eta") or ("--" if state != "running" else "Calc..."),
+                "branch": self.app.var_git_branch.get() or "",
+                "location": r.get("remote_path", ""),
+                "host": self._current_host_label(),
+            })
+
+        if not jobs:
+            ttk.Label(body, text="No simulations found.").pack(anchor="w", padx=6, pady=6)
+            return
+
+        def pct_value(v):
+            try:
+                if isinstance(v, str):
+                    v = v.strip().replace('%','')
+                return max(0.0, min(100.0, float(v)))
+            except Exception:
+                return 0.0
+
+        cols = 3
+        for index, job in enumerate(jobs):
+            card = ttk.LabelFrame(body, text=job.get("yaml") or "Simulation")
+            r = index // cols
+            c = index % cols
+            card.grid(row=r, column=c, sticky="nsew", padx=8, pady=8)
+            body.grid_columnconfigure(c, weight=1)
+
+            inner = ttk.Frame(card)
+            inner.pack(fill="both", expand=True, padx=8, pady=8)
+
+            ring = tk.Canvas(inner, width=120, height=120, highlightthickness=0)
+            ring.grid(row=0, column=0, rowspan=4, padx=(0, 12), pady=4)
+            ring.create_oval(10, 10, 110, 110, outline="#d9d9d9", width=8)
+            p = pct_value(job.get("pct", 0))
+            if p > 0:
+                ring.create_arc(10, 10, 110, 110, start=90, extent=-(p/100.0)*360.0, style="arc", width=8, outline="#4a90e2")
+            ring.create_text(60, 60, text=f"{p:.1f}%", font=("Segoe UI", 11, "bold"))
+
+            ttk.Label(inner, text=f"Status: {job.get('status','--')}", font=("Segoe UI", 10, "bold")).grid(row=0, column=1, sticky="w")
+            ttk.Label(inner, text=f"Snapshots: {job.get('snap','--')}").grid(row=1, column=1, sticky="w", pady=(4, 0))
+            ttk.Label(inner, text=f"ETA: {job.get('eta','--')}").grid(row=2, column=1, sticky="w", pady=(4, 0))
+            ttk.Label(inner, text=f"Host: {job.get('host','--')}").grid(row=3, column=1, sticky="w", pady=(4, 0))
+            ttk.Label(inner, text=f"Location: {job.get('location','--')}", wraplength=320).grid(row=4, column=0, columnspan=2, sticky="w", pady=(8, 0))
+
+        try:
+            body.update_idletasks()
+        except Exception:
+            pass

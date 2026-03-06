@@ -171,8 +171,6 @@ class RunnerTab:
         self._monitor_menu = tk.Menu(self.btn_monitor, tearoff=False)
         self._monitor_menu.add_command(
             label="top (snapshot)", command=self._open_top_window)
-        self._monitor_menu.add_command(
-            label="htop (snapshot)", command=self._open_htop_window)
         self.btn_monitor.configure(menu=self._monitor_menu)
         self.btn_monitor.pack(side="left", padx=(0, 8))
         ttk.Button(row, text="Refresh branches",
@@ -220,10 +218,13 @@ class RunnerTab:
                   ).grid(row=1, column=0, sticky="w", pady=(6, 0))
         ttk.Entry(rp, textvariable=self.var_remote_main_cli).grid(
             row=1, column=1, sticky="ew", padx=(6, 6), pady=(6, 0))
-        ttk.Button(rp, text="Apply", command=self._apply_remote_paths).grid(
-            row=1, column=2, padx=(0, 6), pady=(6, 0))
-        ttk.Button(rp, text="Auto-detect",
-                   command=self._auto_detect_remote_paths).grid(row=1, column=3, pady=(6, 0))
+
+        ttk.Button(
+            rp,
+            text="Apply",
+            command=lambda: (self._apply_remote_paths(),
+                             self._auto_detect_remote_paths())
+        ).grid(row=1, column=2, columnspan=2, padx=(0, 6), pady=(6, 0))
 
         rp.columnconfigure(1, weight=1)
 

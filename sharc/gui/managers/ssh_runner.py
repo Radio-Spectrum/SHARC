@@ -48,6 +48,9 @@ class RunnerManager:
         # Prefer tmux protection when available
         self.prefer_tmux = True
 
+        # Remote virtualenv detection state
+        self.remote_venv_path = None
+
     # =========================================================================
     # STATE MANAGEMENT
     # =========================================================================
@@ -138,6 +141,74 @@ class RunnerManager:
         except Exception:
             return False
 
+    def _quote_remote_single(self, value: str) -> str:
+        return "'" + str(value).replace("'", "'\''") + "'"
+
+    def _detect_remote_venv(self, log_result: bool = True):
+        """
+        Detect a usable virtualenv inside the configured remote_base_dir.
+        Returns the activate script path or None.
+        """
+        self.remote_venv_path = None
+        if not self.ssh_connected:
+            return None
+
+        base_dir = (self.remote_base_dir or "").strip()
+        if not base_dir:
+            return None
+
+        candidates = [".venv", "venv", ".sharc_env", "env"]
+        py = r'''
+import json, os
+base = os.path.expanduser({base_dir!r})
+candidates = {candidates!r}
+found = None
+for name in candidates:
+    act = os.path.join(base, name, "bin", "activate")
+    if os.path.isfile(act):
+        found = act
+        break
+print(json.dumps({{"found": found, "base": base}}))
+'''.format(base_dir=base_dir, candidates=candidates)
+        cmd = "python3 - <<'PY'\n" + py + "\nPY"
+
+        try:
+            out = self.exec_command_output(cmd).strip()
+            info = json.loads(out) if out else {}
+            found = info.get("found")
+            resolved_base = info.get("base") or base_dir
+            if resolved_base:
+                self.remote_base_dir = resolved_base
+            self.remote_venv_path = found or None
+            if log_result:
+                if self.remote_venv_path:
+                    self.log_callback(
+                        f"[VENV] Found remote virtualenv: {self.remote_venv_path}")
+                else:
+                    self.log_callback(
+                        f"[VENV] No virtualenv found in {self.remote_base_dir} (checked: {', '.join(candidates)}).")
+            return self.remote_venv_path
+        except Exception as e:
+            if log_result:
+                self.log_callback(f"[VENV] Detection error: {e}")
+            return None
+
+    def _build_remote_activation_prefix(self) -> str:
+        """
+        Build a shell-safe prefix that activates the detected remote virtualenv.
+        Detection is refreshed on demand if needed.
+        """
+        venv_path = self.remote_venv_path or self._detect_remote_venv(log_result=False)
+        if venv_path:
+            quoted = self._quote_remote_single(venv_path)
+            return (
+                f"if [ -f {quoted} ]; then "
+                f"echo '[VENV] Activating {venv_path}'; "
+                f"source {quoted}; "
+                f"else echo '[VENV] Activation script not found: {venv_path}'; fi"
+            )
+        return "echo '[VENV] No virtualenv detected. Running with system Python.'"
+
     # =========================================================================
     # SSH CONNECTION & TUNNELING
     # =========================================================================
@@ -169,6 +240,7 @@ class RunnerManager:
             self._detect_remote_home()
             self._set_paramiko_keepalive(30)
             self._ensure_remote_runs_dir()
+            self._detect_remote_venv(log_result=True)
             self.log_callback(f"[SSH] Connected to {user}@{host} (Password)")
         except Exception as e:
             self._cleanup_connection()
@@ -195,6 +267,7 @@ class RunnerManager:
             self._detect_remote_home()
             self._set_paramiko_keepalive(30)
             self._ensure_remote_runs_dir()
+            self._detect_remote_venv(log_result=True)
             self.log_callback(f"[SSH] Connected to {user}@{host} (Key)")
         except Exception as e:
             self._cleanup_connection()
@@ -207,11 +280,13 @@ class RunnerManager:
             home = stdout.read().decode().strip()
             self.remote_base_dir = f"{home}/SHARC"
             self.remote_runs_dir = f"{home}/.sharc_gui_runs"
+            self.remote_venv_path = None
             self.log_callback(
                 f"[SSH] Remote base set to: {self.remote_base_dir}")
         except Exception:
             self.remote_base_dir = "~/SHARC"
             self.remote_runs_dir = "~/.sharc_gui_runs"
+            self.remote_venv_path = None
 
     def disconnect_ssh(self):
         self._cleanup_connection()
@@ -406,12 +481,22 @@ class RunnerManager:
 
     def set_remote_paths(self, base_dir=None, main_cli=None, runs_dir=None):
         # Update remote paths without breaking existing behavior.
+        changed_base = False
         if base_dir:
             self.remote_base_dir = base_dir
+            changed_base = True
         if main_cli:
             self.remote_main_cli_rel = main_cli
         if runs_dir:
             self.remote_runs_dir = runs_dir
+
+        if changed_base:
+            self.remote_venv_path = None
+            self.log_callback(f"[SSH] Remote base set to: {self.remote_base_dir}")
+
+        if self.ssh_connected and (changed_base or runs_dir):
+            self._ensure_remote_runs_dir()
+            self._detect_remote_venv(log_result=True)
 
     def detect_remote_sharc_paths(self):
         # Best-effort detection of repo base and main_cli on the remote.
@@ -439,6 +524,8 @@ class RunnerManager:
                 if ok:
                     self.remote_base_dir = base
                     self.remote_main_cli_rel = mc
+                    self.remote_venv_path = None
+                    self._detect_remote_venv(log_result=True)
                     return {"remote_base_dir": base, "remote_main_cli_rel": mc}
 
         # fallback: find main_cli.py near home (limited depth)
@@ -456,6 +543,8 @@ class RunnerManager:
                 self.remote_base_dir = base
             if rel:
                 self.remote_main_cli_rel = rel
+            self.remote_venv_path = None
+            self._detect_remote_venv(log_result=True)
             return {"remote_base_dir": self.remote_base_dir, "remote_main_cli_rel": self.remote_main_cli_rel}
 
         return {"remote_base_dir": self.remote_base_dir, "remote_main_cli_rel": self.remote_main_cli_rel}
@@ -538,11 +627,11 @@ print(json.dumps(items))
         if not self.ssh_connected:
             return
         cmds = [
-            f"cd {self.remote_base_dir}",
+            f"cd {shlex.quote(self.remote_base_dir)}",
             "git fetch --all --prune",
             "git reset --hard",
             "git clean -fd",
-            f"git checkout {branch}",
+            f"git checkout {shlex.quote(branch)}",
             "if [ ! -d .sharc_env/ ]; then python3 -m venv .sharc_env; fi",
             "source .sharc_env/bin/activate && pip install -e ."
         ]
@@ -554,6 +643,8 @@ print(json.dumps(items))
                 full_cmd, get_pty=True)
             exit_status = stdout.channel.recv_exit_status()
             if exit_status == 0:
+                self.remote_venv_path = None
+                self._detect_remote_venv(log_result=True)
                 self.log_callback("[GIT] Checkout completed successfully.")
             else:
                 out_log = stdout.read().decode()

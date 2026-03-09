@@ -700,7 +700,7 @@ if __name__ == "__main__":
     num_bs = 5000
     rng_seed = 42
     cell_radius_m = 400.0  # 10 km
-    dist_type = "Urban"         # "Urban" | "Suburban" | "Rural" | None
+    dist_type = "Suburban"         # "Urban" | "Suburban" | "Rural" | None
     # Shapefile (or set to None to auto-download Natural Earth via cartopy/geodatasets)
     shapefile_path = Path.cwd() / "sharc" / "topology" / "map" / "ne_110m_admin_0_countries.shp"
 
@@ -727,8 +727,9 @@ if __name__ == "__main__":
     # Countries (Americas example)
     countries_americas = [
         # South America
-        "Brazil", "Uruguay","Argentina", "Paraguay", "Chile", "Peru","Bolivia", "Ecuador",
-        "Colombia", "Venezuela", "Suriname", "Guyana"
+        "Brazil",
+        #"Uruguay","Argentina", "Paraguay", "Chile", "Peru","Bolivia", "Ecuador",
+        #"Colombia", "Venezuela", "Suriname", "Guyana"
     ]
     #countries_americas = [
     #    # Europe
@@ -883,7 +884,7 @@ if __name__ == "__main__":
             cmap="gray",  # 👈 agora jet
             alpha=0.8,
             norm=LogNorm(
-                vmin=1,  # 👈 10^0
+                vmin=.01,  # 👈 10^0
                 vmax=np.nanpercentile(pop, 99)
             ),
             zorder=0

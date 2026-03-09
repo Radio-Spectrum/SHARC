@@ -401,7 +401,7 @@ import matplotlib.pyplot as plt
 from sharc.antenna.antenna_beamforming_imt import AntennaBeamformingImt
 
 
-def generate_gain_ccdf_heatmap(antenna_param, path_test, n_samples=10000):
+def generate_gain_ccdf_heatmap(antenna_param, path_test, n_samples=5000):
 
     ant = AntennaBeamformingImt(
         par=antenna_param.get_antenna_parameters(),
@@ -445,13 +445,13 @@ def generate_gain_ccdf_heatmap(antenna_param, path_test, n_samples=10000):
 
     # plot
     fig, ax = plt.subplots(figsize=(9,6))
-
+    gain_map_plot = np.fliplr(gain_map)
     im = ax.imshow(
-        gain_map,
+        gain_map_plot,
         extent=[0, 90, prob[0], prob[-1]],
         origin="lower",
         aspect='auto',
-        cmap='viridis',
+        cmap='coolwarm',
         vmin=-50,
         vmax=22
     )

@@ -203,7 +203,7 @@ class AntennaArray(Antenna):
             # tmp = T @ b.T
             # AF = np.sum(a.T * tmp, axis=0)
 
-            AF = np.einsum('...n,...nm,...m->...', a, T, b, optimize=True)
+            AF = np.einsum('...n,...nm,...m->...', a, T[beam_idxs], b, optimize=True)
 
             g = 20 * np.log10(np.abs(AF))
 

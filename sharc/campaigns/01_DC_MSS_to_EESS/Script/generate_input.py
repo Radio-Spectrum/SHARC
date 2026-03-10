@@ -190,6 +190,7 @@ def main():
                                 # Ganho da antena (duplo)
                                 ses["antenna"]["gain"] = float(victim["antenna_gain"])
                                 ses["antenna"]["itu_r_s_465"]["antenna_gain"] = float(victim["antenna_gain"])
+                                ses["frequency"] = 2110 - float(victim["bandwidth"]) / 2
 
                                 # Altura
                                 ses["geometry"]["height"] = float(victim["height_m"])

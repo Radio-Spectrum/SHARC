@@ -5,6 +5,7 @@
 /sharc/campaigns/*/output
 /sharc/campaigns/*/output_dl
 /sharc/campaigns/*/input
+/sharc/terrain_tests
 
 __pycache__
 .spyproject

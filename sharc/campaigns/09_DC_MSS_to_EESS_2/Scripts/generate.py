@@ -25,11 +25,11 @@ OUTPUT_DIR = CAMPAIGN_DIR / "output"
 # Sweep — service grid
 
 LOAD_FACTORS = [0.2, 0.5]
-MASK = ["STEP", "MSS", "Spu"]   #["STEP", "MSS"]
-EESS_systems = ["EESS_B", "EESS_D"] #["EESS_B", "EESS_D"]
+MASK = ["Spu"]   #["STEP", "MSS"]
+EESS_systems = ["EESS_D"] #["EESS_B", "EESS_D"]
 EESS_pos = ['P'] # P - Paraguay; B - Bolivia; C - Colombia
 MARGIN = [0, 60]
-DCMSS_systems = ["system_340km", "system_525km"] #["system_340km", "system_525km"]
+DCMSS_systems = ["system_525km"] #["system_340km", "system_525km"]
 COVERAGES = {
     #"uBR": {
     #    "countries": ["Brazil"],

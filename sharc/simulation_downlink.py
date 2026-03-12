@@ -10,6 +10,7 @@ import math
 import warnings
 
 from sharc.simulation import Simulation
+from sharc.support.sharc_logger import SimulationLogger
 from sharc.parameters.parameters import Parameters
 from sharc.station_factory import StationFactory
 from sharc.parameters.constants import BOLTZMANN_CONSTANT, SPEED_OF_LIGHT
@@ -635,6 +636,37 @@ class SimulationDownlink(Simulation):
             write_to_file (bool): Whether to write results to file.
             snapshot_number (int): The current snapshot number.
         """
+        es_geom = None
+        if self.parameters.imt.topology.type == "MSS_DC":
+            es_geom = self.system.geom
+            mss_dc_geom = self.bs.geom
+
+        if es_geom is not None:
+            all_pos = np.stack((mss_dc_geom.x_global,
+                                mss_dc_geom.y_global,
+                                mss_dc_geom.z_global),
+                               axis=-1)
+            _, sat_idx = np.unique(
+                all_pos,
+                axis=0,
+                return_index=True,
+            )
+            elevs = es_geom.get_local_elevation(
+                mss_dc_geom
+            )
+            elevs = elevs[0, sat_idx]
+            min_elev = np.min(elevs)
+            max_elev = np.max(elevs)
+            SimulationLogger.log_to_csv(
+                "min_observed_elevs", [min_elev]
+            )
+            SimulationLogger.log_to_csv(
+                "max_observed_elevs", [max_elev]
+            )
+            SimulationLogger.log_to_csv(
+                "observed_elevs", elevs.flatten()
+            )
+
         if not self.parameters.imt.interfered_with and np.any(self.bs.active):
             self.results.system_inr.extend(self.system.inr.flatten())
             self.results.system_dl_interf_power.extend(

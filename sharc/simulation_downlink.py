@@ -738,64 +738,18 @@ class SimulationDownlink(Simulation):
             ]
 
             if self.co_channel:
-                self.system.ap.ext_interference[ap_active] += np.sum(
+                rx_interference_linear_ap[ap_active] += np.sum(
                     10 ** (0.1 * (pow_coch - self.coupling_loss_imt_wifi_ap[active_beams][:, ap_active])),
                     axis=0
                 )
-                self.system.sta.ext_interference[sta_active] += np.sum(
+                rx_interference_linear_sta[sta_active] += np.sum(
                     10 ** (0.1 * (pow_coch - self.coupling_loss_imt_wifi_sta[active_beams][:, sta_active])),
                     axis=0
                 )
-
             if self.adjacent_channel:
-
-                # Perda de acoplamento (Matriz K x N_ap)
-                adj_loss_ap = self.coupling_loss_imt_wifi_ap_adjacent[np.ix_(active_beams, ap_active)]
-
-                # TX OOB Recebida (Matriz K x N_ap)
-                tx_oob_s = tx_oob[:, np.newaxis] - adj_loss_ap
-
-                # RX OOB Recebida (Matriz K x N_ap)
-                if self.param_system.adjacent_ch_reception != "OFF":
-                    # Nota: Ajuste a perda de acoplamento se o modelo RX ACS usar a perda co-canal
-                    rx_oob_s = rx_oob[:, np.newaxis] - adj_loss_ap
-                else:
-                    rx_oob_s = np.full((K, len(ap_active)), -np.inf)
-
-                # Potência OOB total (Matriz K x N_ap)
-                oob_power = 10 * np.log10(
-                    10 ** (0.1 * tx_oob_s) + 10 ** (0.1 * rx_oob_s)
-                )
-
-                # Acumulação Linear para APs (indexa a parte do vetor total rx_interference_linear que corresponde aos APs)
-
-                rx_interference_linear_ap[ap_active] += np.sum(
-                    np.power(10, 0.1 * oob_power),
-                    axis=0
-                )
-
-                adj_loss_sta = self.coupling_loss_imt_wifi_sta_adjacent[np.ix_(active_beams, sta_active)]
-
-                # TX OOB Recebida (Matriz K x N_sta) - tx_oob é o mesmo (depende do BS IMT)
-                tx_oob_s_sta = tx_oob[:, np.newaxis] - adj_loss_sta
-                
-                # RX OOB Recebida (Matriz K x N_sta)
-                if self.param_system.adjacent_ch_reception != "OFF":
-                    # Nota: Ajuste a perda de acoplamento se o modelo RX ACS usar a perda co-canal
-                    rx_oob_s_sta = rx_oob[:, np.newaxis] - adj_loss_sta
-                else:
-                    rx_oob_s_sta = np.full((K, len(sta_active)), -np.inf)
-
-                # Potência OOB total (Matriz K x N_sta)
-                oob_power_sta = 10 * np.log10(
-                    10 ** (0.1 * tx_oob_s_sta) + 10 ** (0.1 * rx_oob_s_sta)
-                )
-
-                # Acumulação Linear para STAs (indexa a parte do vetor total rx_interference_linear que corresponde às STAs)
-                rx_interference_linear_sta[sta_active] += np.sum(
-                    np.power(10, 0.1 * oob_power_sta),
-                    axis=0
-                )
+                sys.stderr.write(
+                    "ERROR\nAdjacent channel interference is not supported for UPLOAD simulation", )
+                sys.exit(1)
 
         self.system.ap.ext_interference = 10 * np.log10(rx_interference_linear_ap)
         self.system.sta.ext_interference = 10 * np.log10(rx_interference_linear_sta)

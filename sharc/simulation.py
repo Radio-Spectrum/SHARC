@@ -192,11 +192,7 @@ class Simulation(ABC, Observable):
                                                self.param_system.topology.hotspot.intersite_distance,
                                                self.param_system.topology.hotspot.num_clusters)
         self.system_topology.calculate_coordinates()
-        delta_x = 3000 
-        delta_y = 3000
-        
-        self.system_topology.x += delta_x
-        self.system_topology.y += delta_y
+
         num_ap = self.system_topology.num_base_stations
         num_sta = num_ap * self.parameters.wifi.sta.k * self.parameters.wifi.sta.k_m
         num_bs = self.topology.num_base_stations

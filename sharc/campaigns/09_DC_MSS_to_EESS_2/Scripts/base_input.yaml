@@ -75,7 +75,7 @@ imt:
         n_side_lobes: 2
         l_r: 1.6
         l_t: 1.6
-        frequency: 2155
+        frequency: 2000
       array:
         normalization: false
         element_pattern: M2101

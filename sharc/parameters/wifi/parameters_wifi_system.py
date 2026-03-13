@@ -50,6 +50,7 @@ class ParametersWifiSystem(ParametersBase):
         height: float = 6.0
         noise_figure: float = 10.0
         ohmic_loss: float = 3.0
+        body_loss: float = 0.0
         # Adjacent Channel Selectivity in dB
         adjacent_ch_selectivity: float = None
         # Adjacent channel leakage ratio in dB used if adjacent_ch_emissions is set to "ACLR"

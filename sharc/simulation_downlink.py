@@ -1193,24 +1193,24 @@ class SimulationDownlink(Simulation):
                     np.power(10, 0.1 * interference)
                 )
         #AP -> AP
-        coupling_loss_ap_ap = self.calculate_intra_wifi_coupling_loss(self.system.ap, self.system.ap)
+        self.coupling_loss_ap_ap = self.calculate_intra_wifi_coupling_loss(self.system.ap, self.system.ap)
         for ap_victim in ap_active:
             ap_interferers = [a for a in ap_active if a != ap_victim]
             for ai in ap_interferers:
                 interference = self.system.ap.tx_power[ai] - \
-                               coupling_loss_ap_ap[ai, ap_victim]
+                               self.coupling_loss_ap_ap[ai, ap_victim]
                 
                 self.system.ap.rx_interference[ap_victim] = 10 * np.log10(
                     np.power(10, 0.1 * self.system.ap.rx_interference[ap_victim]) +
                     np.power(10, 0.1 * interference)
                 )
         #STA -> STA
-        coupling_loss_sta_sta = self.calculate_intra_wifi_coupling_loss(self.system.sta, self.system.sta)
+        self.coupling_loss_sta_sta = self.calculate_intra_wifi_coupling_loss(self.system.sta, self.system.sta)
         for sta_victim in sta_active:
             sta_interferers = [s for s in sta_active if s != sta_victim]
             for si in sta_interferers:
                 interference = self.system.sta.tx_power[si] - \
-                               coupling_loss_sta_sta[si, sta_victim]
+                               self.coupling_loss_sta_sta[si, sta_victim]
 
                 self.system.sta.rx_interference[sta_victim] = 10 * np.log10(
                     np.power(10, 0.1 * self.system.sta.rx_interference[sta_victim]) +
@@ -1295,7 +1295,16 @@ class SimulationDownlink(Simulation):
             sta = self.system.link[ap]
             # Coleta resultados básicos do WiFi
             self.results.wifi_path_loss.extend(self.path_loss_wifi[ap, sta])
+            path_loss_ap_ap = self.path_loss_ap_ap[ap, ap_active]
+            path_loss_sta_sta = self.path_loss_sta_sta[sta, sta_active]
+            self.results.wifi_path_loss.extend(path_loss_ap_ap[np.isfinite(path_loss_ap_ap)])
+            self.results.wifi_path_loss.extend(path_loss_sta_sta[np.isfinite(path_loss_sta_sta)])
+
+            coupling_loss_ap_ap = self.coupling_loss_ap_ap[ap, ap_active]
+            coupling__loss_sta_sta = self.coupling_loss_sta_sta[sta, sta_active]
             self.results.wifi_coupling_loss.extend(self.coupling_loss_wifi[ap, sta])
+            self.results.wifi_coupling_loss.extend(coupling_loss_ap_ap[np.isfinite(coupling_loss_ap_ap)])
+            self.results.wifi_coupling_loss.extend(coupling__loss_sta_sta[np.isfinite(coupling__loss_sta_sta)])
             self.results.wifi_ap_antenna_gain.extend(self.ap_antenna_gain[ap, sta])
             self.results.wifi_sta_antenna_gain.extend(self.sta_antenna_gain[ap, sta])
 
@@ -1369,10 +1378,10 @@ class SimulationDownlink(Simulation):
                     self.imt_sta_antenna_gain[sta_active[:, np.newaxis], ue].flatten(),
                 )
 
-            self.results.imt_ap_path_loss.extend(
+            self.results.imt_system_path_loss.extend(
                 self.imt_ap_path_loss[ap_active[:, np.newaxis], ue].flatten(),
             )
-            self.results.imt_sta_path_loss.extend(
+            self.results.imt_system_path_loss.extend(
                 self.imt_sta_path_loss[sta_active[:, np.newaxis], ue].flatten(),
             )    
             if self.param_system.channel_model == "HDFSS":

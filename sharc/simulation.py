@@ -695,17 +695,24 @@ class Simulation(ABC, Observable):
 
         if wifi_sta_station is wifi_ap_station:
             np.fill_diagonal(path_loss, np.inf)
-        # Collect Wi-Fi AP and STA antenna gain samples
-        self.path_loss_wifi = np.transpose(path_loss)
+            if wifi_sta_station.station_type is StationType.WIFI_STA and wifi_ap_station.station_type is StationType.WIFI_STA:
+                self.path_loss_sta_sta = np.transpose(path_loss)
+            else:
+                self.path_loss_ap_ap = np.transpose(path_loss)
+
+        else:
+            # Collect Wi-Fi AP and STA antenna gain samples
+            self.path_loss_wifi = np.transpose(path_loss)
         self.ap_antenna_gain = ant_gain_ap_to_sta
         self.sta_antenna_gain = np.transpose(ant_gain_sta_to_ap)
+    
         additional_loss = self.parameters.wifi.ap.ohmic_loss \
             + self.parameters.wifi.sta.ohmic_loss \
             + self.parameters.wifi.sta.body_loss
 
         # calculate coupling loss
         coupling_loss = np.squeeze(
-            self.path_loss_wifi - self.ap_antenna_gain - self.sta_antenna_gain,
+            np.transpose(path_loss) - self.ap_antenna_gain - self.sta_antenna_gain,
         ) + additional_loss
 
         return coupling_loss
@@ -715,14 +722,14 @@ class Simulation(ABC, Observable):
         This scheduler divides the available resource blocks among UE's for
         a given BS
         """
-        if self.parameters.general.system == "WIFI":
+        '''if self.parameters.general.system == "WIFI":
             ap_active = np.where(self.system.ap.active)[0]
             for ap in ap_active:
                 sta = self.system.link[ap]
                 self.system.ap.bandwidth[ap] = self.system.num_rb_per_sta * \
                     self.parameters.wifi.rb_bandwidth
                 self.system.sta.bandwidth[sta] = self.system.num_rb_per_sta * \
-                    self.parameters.wifi.rb_bandwidth
+                    self.parameters.wifi.rb_bandwidth'''
                 
         bs_active = np.where(self.bs.active)[0]
         self.bs.center_freq = np.zeros(

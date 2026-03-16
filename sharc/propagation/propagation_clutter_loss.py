@@ -80,6 +80,7 @@ class PropagationClutterLoss(Propagation):
         loc_per = kwargs.pop("loc_percentage", "RANDOM")
         clutter_scenario = kwargs["clutter_scenario"]
         d = kwargs["distance"]
+        below_rooftop = kwargs["below_rooftop"]
 
         if f.size == 1:
             f = f * np.ones(d.shape)
@@ -93,10 +94,14 @@ class PropagationClutterLoss(Propagation):
 
         if clutter_scenario == "terrestrial":
             clutter_type = kwargs["clutter_type"]
+            mult_1 = np.zeros(d.shape)
+            num_ones = int(np.round(mult_1.size * below_rooftop / 100))
+            indices = self.random_number_gen.choice(mult_1.size, size=num_ones, replace=False)
+            mult_1.flat[indices] = 1
             if clutter_type == 'one_end':
-                loss = self.get_terrestrial_clutter_loss(f, d, p1, True)
+                loss = self.get_terrestrial_clutter_loss(f, d, p1, True) * mult_1
             elif clutter_type == 'both_ends':
-                loss = self.get_terrestrial_clutter_loss(f, d, p1, True) + self.get_terrestrial_clutter_loss(f, d, p2, False)
+                loss = self.get_terrestrial_clutter_loss(f, d, p1, True) * mult_1 + self.get_terrestrial_clutter_loss(f, d, p2, False)
             else:
                 raise ValueError("Invalid type of Clutter-type. It can be either 'one_end' or 'both-ends'")
         elif clutter_scenario == "spatial":

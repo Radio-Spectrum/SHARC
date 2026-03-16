@@ -39,9 +39,11 @@ class ParametersP452(ParametersBase):
     clutter_loss: bool = True
     # Determine if clutter is applied to "one_end" or "both_ends"
     clutter_type: str = "one_end"
+    below_rooftop: float = 100
     is_terrain: bool = False
     terrain_d = None
     terrain_h = None
+
     
     def load_from_paramters(self, param: ParametersBase):
         """Used to load parameters of P.452 from IMT or system parameters

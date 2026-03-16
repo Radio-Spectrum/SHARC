@@ -1938,7 +1938,8 @@ class PropagationClearAir(Propagation):
                 frequency=frequency * 1000,
                 distance=distance * 1000,
                 clutter_scenario="terrestrial",  # Always terrestrial for P.452
-                clutter_type=self.model_params.clutter_type
+                clutter_type=self.model_params.clutter_type,
+                below_rooftop=self.model_params.below_rooftop
             )
         else:
             clutter_loss = np.zeros(distance.shape)

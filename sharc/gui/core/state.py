@@ -162,6 +162,25 @@ class AppState:
         self.sbs_clusters = self._add("1")
         self.sbs_azimuth = self._add("120")
 
+        # INDOOR topology
+        self.indoor_intersite = self._add("20")
+        self.indoor_n_rows = self._add("3")
+        self.indoor_n_cols = self._add("3")
+        self.indoor_street_width = self._add("30")
+        self.indoor_num_cells = self._add("6")
+        self.indoor_num_floors = self._add("3")
+        self.indoor_num_buildings = self._add("ALL")
+        self.indoor_ue_indoor_percent = self._add("0.95")
+        self.indoor_building_class = self._add("TRADITIONAL")
+
+        # NTN topology
+        self.ntn_intersite = self._add("100000")
+        self.ntn_cell_radius = self._add("50000")
+        self.ntn_bs_height = self._add("600000")
+        self.ntn_bs_azimuth = self._add("45")
+        self.ntn_bs_elevation = self._add("45")
+        self.ntn_num_sectors = self._add("7")
+
         # --- Base Station (BS) ---
         self.bs_load_prob = self._add("0.2")
         self.bs_power = self._add("22")

@@ -352,11 +352,19 @@ class PreviewTab:
 
     def _build_ui(self):
         left = ttk.Frame(self.frame)
-        right = ttk.Frame(self.frame)
+        right = ttk.Frame(self.frame, width=280)
         left.pack(side="left", fill="both", expand=True)
         right.pack(side="right", fill="y", padx=5, pady=5)
+        right.pack_propagate(False)
 
-        self.fig3d = plt.figure(figsize=(6, 6))
+        # --- Scenario Header Label ---
+        self._lbl_scenario = ttk.Label(
+            left, text="", font=("Segoe UI", 10, "bold"),
+            foreground="#2196F3", anchor="center")
+        self._lbl_scenario.pack(fill="x", pady=(4, 0))
+
+        # --- Plot area ---
+        self.fig3d = plt.figure(figsize=(6, 6), facecolor="#1a1a2e")
         self.ax3d = self.fig3d.add_subplot(111, projection="3d")
         self.canvas3d = FigureCanvasTkAgg(self.fig3d, master=left)
         self.canvas3d.get_tk_widget().pack(fill="both", expand=True)
@@ -364,45 +372,54 @@ class PreviewTab:
         self._plotly_embed = PlotlyEmbed(left)
         self._plotly_embed.pack_forget()
 
-        ttk.Label(right, text="Engine:", font=(
-            "Segoe UI", 9, "bold")).pack(anchor="w")
+        # ═══════════════════════════════════════════════
+        # RIGHT SIDEBAR
+        # ═══════════════════════════════════════════════
 
-        frm_engine = ttk.Frame(right)
-        frm_engine.pack(fill="x", pady=(2, 10))
-        ttk.Radiobutton(frm_engine, text="Matplotlib", variable=self.app.plot_engine,
-                        value="matplotlib", command=self._draw_preview).pack(anchor="w")
-        ttk.Radiobutton(frm_engine, text="Plotly", variable=self.app.plot_engine,
-                        value="plotly", command=self._draw_preview).pack(anchor="w")
-        ttk.Checkbutton(frm_engine, text="Auto-open Browser",
+        # --- 1. Main Action ---
+        ttk.Button(right, text="🔄  Refresh Preview",
+                   command=self._draw_preview,
+                   bootstyle="primary").pack(fill="x", pady=(0, 8))
+
+        # --- 2. Engine Selection ---
+        frm_engine = ttk.Labelframe(right, text="Plot Engine", padding=4)
+        frm_engine.pack(fill="x", pady=(0, 6))
+        ttk.Radiobutton(frm_engine, text="Matplotlib (3D)",
+                        variable=self.app.plot_engine, value="matplotlib",
+                        command=self._draw_preview).pack(anchor="w")
+        ttk.Radiobutton(frm_engine, text="Plotly (Interactive)",
+                        variable=self.app.plot_engine, value="plotly",
+                        command=self._draw_preview).pack(anchor="w")
+        ttk.Checkbutton(frm_engine, text="Auto-open browser",
                         variable=self.app.open_plotly_external).pack(anchor="w", padx=15)
 
-        ttk.Separator(right, orient="horizontal").pack(fill="x", pady=5)
-        ttk.Label(right, text="Visualization:", font=(
-            "Segoe UI", 9, "bold")).pack(anchor="w")
+        # --- 3. Display Options ---
+        frm_vis = ttk.Labelframe(right, text="Display Options", padding=4)
+        frm_vis.pack(fill="x", pady=(0, 6))
 
-        ttk.Checkbutton(right, text="Show Borders", variable=self.app.show_borders,
+        ttk.Checkbutton(frm_vis, text="Show country borders",
+                        variable=self.app.show_borders,
+                        command=self._draw_preview).pack(anchor="w")
+        ttk.Checkbutton(frm_vis, text="Show satellite footprint",
+                        variable=self.app.show_beamwidth,
                         command=self._draw_preview).pack(anchor="w")
 
-        frm_glob = ttk.Labelframe(right, text="Global / Satellite", padding=5)
-        frm_glob.pack(fill="x", pady=5)
-
-        ttk.Checkbutton(frm_glob, text="Show Footprint", variable=self.app.show_beamwidth,
-                        command=self._draw_preview).pack(anchor="w")
-
-        f_bw = ttk.Frame(frm_glob)
-        f_bw.pack(fill="x")
-        ttk.Checkbutton(f_bw, text="Auto BW", variable=self.app.var_auto_beamwidth,
+        f_bw = ttk.Frame(frm_vis)
+        f_bw.pack(fill="x", padx=(15, 0))
+        ttk.Checkbutton(f_bw, text="Auto BW",
+                        variable=self.app.var_auto_beamwidth,
                         command=self._draw_preview).pack(side="left")
-        ttk.Label(f_bw, text=" or ").pack(side="left")
+        ttk.Label(f_bw, text=" / ").pack(side="left")
         ttk.Entry(f_bw, textvariable=self.app.var_beamwidth_deg,
                   width=5).pack(side="left")
         ttk.Label(f_bw, text="°").pack(side="left")
 
-        ttk.Checkbutton(frm_glob, text="Show Gain Map", variable=self.app.var_show_gainmap,
-                        command=self._draw_preview).pack(anchor="w", pady=(5, 0))
+        ttk.Checkbutton(frm_vis, text="Show gain map",
+                        variable=self.app.var_show_gainmap,
+                        command=self._draw_preview).pack(anchor="w", pady=(3, 0))
 
-        f_clim = ttk.Frame(frm_glob)
-        f_clim.pack(fill="x")
+        f_clim = ttk.Frame(frm_vis)
+        f_clim.pack(fill="x", padx=(15, 0))
         ttk.Label(f_clim, text="vMin:").pack(side="left")
         ttk.Entry(f_clim, textvariable=self.app.var_gain_vmin,
                   width=4).pack(side="left", padx=2)
@@ -410,36 +427,181 @@ class PreviewTab:
         ttk.Entry(f_clim, textvariable=self.app.var_gain_vmax,
                   width=4).pack(side="left", padx=2)
 
-        ttk.Separator(right, orient="horizontal").pack(fill="x", pady=10)
-        ttk.Button(right, text="Refresh Preview",
-                   command=self._draw_preview).pack(fill="x", pady=2)
+        # --- 4. Tools ---
+        frm_tools = ttk.Labelframe(right, text="Tools", padding=4)
+        frm_tools.pack(fill="x", pady=(0, 6))
 
-        frm_zoom = ttk.Frame(right)
+        frm_zoom = ttk.Frame(frm_tools)
         frm_zoom.pack(fill="x", pady=2)
-        ttk.Button(frm_zoom, text="Zoom +", width=8,
+        ttk.Button(frm_zoom, text="🔍+", width=5,
                    command=lambda: self._zoom_preview_3d(1/1.15)).pack(side="left", padx=(0, 2))
-        ttk.Button(frm_zoom, text="Zoom -", width=8,
-                   command=lambda: self._zoom_preview_3d(1.15)).pack(side="left")
+        ttk.Button(frm_zoom, text="🔍−", width=5,
+                   command=lambda: self._zoom_preview_3d(1.15)).pack(side="left", padx=(0, 4))
+        ttk.Button(frm_zoom, text="💾 Save Image",
+                   command=self._save_image).pack(side="left", fill="x", expand=True)
 
-        ttk.Button(right, text="Save Image...",
-                   command=self._save_image).pack(fill="x", pady=2)
-        ttk.Button(right, text="Open Plotly Browser",
+        ttk.Button(frm_tools, text="🌐 Open in Browser",
                    command=self._open_plotly).pack(fill="x", pady=2)
 
-        ttk.Separator(right, orient="horizontal").pack(fill="x", pady=10)
-        ttk.Button(right, text="Update YAML Text",
-                   command=self._update_yaml_preview).pack(fill="x")
-        self.txt_yaml = tk.Text(
-            right, width=40, height=15, wrap="none", font=("Consolas", 8))
-        self.txt_yaml.pack(fill="both", expand=True, pady=5)
+        # --- 5. Simulation Summary (detachable) ---
+        frm_summary = ttk.Labelframe(right, text="📋 Simulation Summary", padding=4)
+        frm_summary.pack(fill="both", expand=True, pady=(0, 3))
 
+        self.txt_summary = tk.Text(
+            frm_summary, width=32, height=10, wrap="word",
+            font=("Consolas", 8), bg="#1a1a2e", fg="#e0e0e0",
+            insertbackground="#e0e0e0", relief="flat",
+            state="disabled")
+        self.txt_summary.pack(fill="both", expand=True)
+
+        frm_sum_btns = ttk.Frame(frm_summary)
+        frm_sum_btns.pack(fill="x", pady=(3, 0))
+        ttk.Button(frm_sum_btns, text="🔄 Refresh",
+                   command=self._update_sim_summary).pack(side="left", fill="x", expand=True, padx=(0, 2))
+        ttk.Button(frm_sum_btns, text="📌 Pop Out",
+                   command=self._pop_out_summary).pack(side="left")
+
+        # --- 6. YAML Preview (detachable) ---
+        frm_yaml = ttk.Labelframe(right, text="📝 YAML Preview", padding=4)
+        frm_yaml.pack(fill="both", expand=True, pady=(0, 6))
+
+        self.txt_yaml = tk.Text(
+            frm_yaml, width=32, height=10, wrap="none",
+            font=("Consolas", 8), bg="#0d1117", fg="#c9d1d9",
+            insertbackground="#c9d1d9", relief="flat")
+        scroll_y = ttk.Scrollbar(frm_yaml, orient="vertical", command=self.txt_yaml.yview)
+        self.txt_yaml.configure(yscrollcommand=scroll_y.set)
+        scroll_y.pack(side="right", fill="y")
+        self.txt_yaml.pack(fill="both", expand=True)
+
+        frm_yaml_btns = ttk.Frame(frm_yaml)
+        frm_yaml_btns.pack(fill="x", pady=(3, 0))
+        ttk.Button(frm_yaml_btns, text="🔄 Update YAML",
+                   command=self._update_yaml_preview).pack(side="left", fill="x", expand=True, padx=(0, 2))
+        ttk.Button(frm_yaml_btns, text="📌 Pop Out",
+                   command=self._pop_out_yaml).pack(side="left")
+
+        # Scroll bindings
         w3d = self.canvas3d.get_tk_widget()
         w3d.bind("<MouseWheel>", self._on_scroll_3d)
         w3d.bind("<Button-4>", self._on_scroll_3d)
         w3d.bind("<Button-5>", self._on_scroll_3d)
 
+        self._update_sim_summary()
         self._update_yaml_preview()
         self._draw_preview()
+
+    def _pop_out_summary(self):
+        top = tk.Toplevel(self.frame)
+        top.title("Simulation Summary")
+        top.geometry("400x500")
+        txt = tk.Text(top, wrap="word", font=("Consolas", 10), bg="#1a1a2e", fg="#e0e0e0")
+        txt.pack(fill="both", expand=True, padx=5, pady=5)
+        txt.insert("1.0", self.txt_summary.get("1.0", "end"))
+        txt.configure(state="disabled")
+        ttk.Button(top, text="Close", command=top.destroy).pack(pady=5)
+
+    def _update_yaml_preview(self):
+        """Update the YAML text preview based on current configuration."""
+        data = self._current_yaml()
+        text = build_yaml_text(data) if data else "No configuration generated."
+        if hasattr(self, "txt_yaml"):
+            self.txt_yaml.delete("1.0", "end")
+            self.txt_yaml.insert("1.0", text)
+
+    def _pop_out_yaml(self):
+        self._update_yaml_preview()
+        top = tk.Toplevel(self.frame)
+        top.title("YAML Configuration")
+        top.geometry("600x600")
+        txt = tk.Text(top, wrap="none", font=("Consolas", 10), bg="#0d1117", fg="#c9d1d9")
+        scroll_y = ttk.Scrollbar(top, orient="vertical", command=txt.yview)
+        scroll_x = ttk.Scrollbar(top, orient="horizontal", command=txt.xview)
+        txt.configure(yscrollcommand=scroll_y.set, xscrollcommand=scroll_x.set)
+        scroll_y.pack(side="right", fill="y")
+        scroll_x.pack(side="bottom", fill="x")
+        txt.pack(fill="both", expand=True, padx=2, pady=2)
+        if hasattr(self, "txt_yaml"):
+            txt.insert("1.0", self.txt_yaml.get("1.0", "end"))
+        txt.configure(state="disabled")
+        ttk.Button(top, text="Close", command=top.destroy).pack(pady=5)
+
+    def _update_sim_summary(self):
+        """Build a human-readable summary of the current simulation configuration."""
+        lines = []
+        # Topology
+        topo = _coerce_str(getattr(self.app, "topo_type", ""), "—")
+        sys_type = _coerce_str(getattr(self.app, "var_system", ""), "—")
+        link = _coerce_str(getattr(self.app, "var_imt_link", ""), "—")
+        freq = _coerce_str(getattr(self.app, "imt_freq", ""), "—")
+        bw = _coerce_str(getattr(self.app, "imt_bw", ""), "—")
+        bs_h = _coerce_str(getattr(self.app, "bs_height", ""), "—")
+        ue_h = _coerce_str(getattr(self.app, "ue_height", ""), "—")
+        ue_k = _coerce_str(getattr(self.app, "ue_k", ""), "—")
+        snaps = _coerce_str(getattr(self.app, "var_snaps", ""), "—")
+        seed = _coerce_str(getattr(self.app, "var_seed", ""), "—")
+        bs_pwr = _coerce_str(getattr(self.app, "bs_power", ""), "—")
+        bs_dt = _coerce_str(getattr(self.app, "bs_downtilt", ""), "—")
+        ch = _coerce_str(getattr(self.app, "ch_model", ""), "—")
+
+        lines.append(f"━━━ SCENARIO ━━━")
+        lines.append(f"Topology : {topo}")
+        lines.append(f"System   : {sys_type}")
+        lines.append(f"Link     : {link}")
+        lines.append(f"")
+        lines.append(f"━━━ IMT ━━━")
+        lines.append(f"Freq     : {freq} MHz")
+        lines.append(f"BW       : {bw} MHz")
+        lines.append(f"Channel  : {ch}")
+        lines.append(f"")
+        lines.append(f"━━━ BS ━━━")
+        lines.append(f"Height   : {bs_h} m")
+        lines.append(f"Power    : {bs_pwr} dBm")
+        lines.append(f"Downtilt : {bs_dt}°")
+        lines.append(f"")
+        lines.append(f"━━━ UE ━━━")
+        lines.append(f"Height   : {ue_h} m")
+        lines.append(f"K (UEs)  : {ue_k}")
+        lines.append(f"")
+        lines.append(f"━━━ SIMULATION ━━━")
+        lines.append(f"Snapshots: {snaps}")
+        lines.append(f"Seed     : {seed}")
+
+        # Topology-specific info
+        if topo == "INDOOR":
+            lines.append(f"")
+            lines.append(f"━━━ INDOOR ━━━")
+            lines.append(f"Rows     : {_coerce_str(getattr(self.app, 'indoor_n_rows', ''), '—')}")
+            lines.append(f"Cols     : {_coerce_str(getattr(self.app, 'indoor_n_cols', ''), '—')}")
+            lines.append(f"Floors   : {_coerce_str(getattr(self.app, 'indoor_num_floors', ''), '—')}")
+            lines.append(f"Cells    : {_coerce_str(getattr(self.app, 'indoor_num_cells', ''), '—')}")
+        elif topo == "NTN":
+            lines.append(f"")
+            lines.append(f"━━━ NTN ━━━")
+            lines.append(f"Sat H    : {_coerce_str(getattr(self.app, 'ntn_bs_height', ''), '—')} m")
+            lines.append(f"Elevation: {_coerce_str(getattr(self.app, 'ntn_bs_elevation', ''), '—')}°")
+            lines.append(f"Azimuth  : {_coerce_str(getattr(self.app, 'ntn_bs_azimuth', ''), '—')}°")
+            lines.append(f"Sectors  : {_coerce_str(getattr(self.app, 'ntn_num_sectors', ''), '—')}")
+        elif topo == "Macro_countries":
+            lines.append(f"")
+            lines.append(f"━━━ COUNTRIES ━━━")
+            lines.append(f"Num BS   : {_coerce_str(getattr(self.app, 'topo_num_bs', ''), '—')}")
+            lines.append(f"Cell R   : {_coerce_str(getattr(self.app, 'topo_cell_radius', ''), '—')} m")
+
+        # Earth Station info
+        if sys_type == "SINGLE_EARTH_STATION":
+            lines.append(f"")
+            lines.append(f"━━━ EARTH STATION ━━━")
+            loc = _coerce_str(getattr(self.app, "se_loc_type", ""), "—")
+            lines.append(f"Location : {loc}")
+            lines.append(f"ES Height: {_coerce_str(getattr(self.app, 'se_height', ''), '—')} m")
+            lines.append(f"Freq     : {_coerce_str(getattr(self.app, 'se_frequency', ''), '—')} MHz")
+
+        text = "\n".join(lines)
+        self.txt_summary.configure(state="normal")
+        self.txt_summary.delete("1.0", "end")
+        self.txt_summary.insert("1.0", text)
+        self.txt_summary.configure(state="disabled")
 
     def _current_yaml(self) -> Dict[str, Any]:
         if hasattr(self.app, "current_yaml_dict") and callable(self.app.current_yaml_dict):
@@ -490,6 +652,18 @@ class PreviewTab:
         topo_type = self._detect_topology_type(data)
         engine = self.app.plot_engine.get()
 
+        # Update simulation summary and scenario header
+        self._update_sim_summary()
+        sys_type = _coerce_str(getattr(self.app, "var_system", ""), "")
+        scenario_label = f"🎯 {topo_type}"
+        if sys_type:
+            scenario_label += f"  |  System: {sys_type}"
+        link = _coerce_str(getattr(self.app, "var_imt_link", ""), "")
+        if link:
+            scenario_label += f"  |  {link}"
+        if hasattr(self, "_lbl_scenario"):
+            self._lbl_scenario.configure(text=scenario_label)
+
         print(f"[PreviewTab] Drawing {topo_type} using {engine}")
 
         if engine == "plotly" and HAS_PLOTLY:
@@ -504,8 +678,19 @@ class PreviewTab:
     def _draw_preview_matplotlib(self, topo_type: str, data: Dict[str, Any]):
         self.ax3d.cla()
 
+        # --- Dark theme styling ---
+        self.fig3d.set_facecolor("#1a1a2e")
+        self.ax3d.set_facecolor("#16213e")
+        for axis_pane in [self.ax3d.xaxis, self.ax3d.yaxis, self.ax3d.zaxis]:
+            axis_pane.set_pane_color((0.08, 0.13, 0.24, 0.9))
+            axis_pane.label.set_color("#b0c4de")
+            axis_pane._axinfo["tick"]["color"] = "#b0c4de"
+            axis_pane._axinfo["grid"]["color"] = "#2a3a5e"
+        self.ax3d.tick_params(colors="#8899aa", labelsize=7)
+
         global_types = ["MACRO_COUNTRIES", "SINGLE_SPACE_STATION",
-                        "MSS_DC", "EESS_SS", "METSAT_SS", "SINGLE_EARTH_STATION"]
+                        "MSS_DC", "EESS_SS", "METSAT_SS", "SINGLE_EARTH_STATION",
+                        "MSS_SS", "HAPS"]
         is_global = topo_type in global_types
 
         try:
@@ -518,13 +703,24 @@ class PreviewTab:
             self.ax3d.text2D(
                 0.05, 0.95, f"Error: {e}", transform=self.ax3d.transAxes, color="red")
 
-        self.ax3d.set_xlabel("x")
-        self.ax3d.set_ylabel("y")
-        self.ax3d.set_zlabel("z")
+        # --- Clean axis labels ---
+        self.ax3d.set_xlabel("x", fontsize=8, color="#b0c4de")
+        self.ax3d.set_ylabel("y", fontsize=8, color="#b0c4de")
+        self.ax3d.set_zlabel("z", fontsize=8, color="#b0c4de")
 
-        # Add legend
-        self.ax3d.legend(loc='upper right', fontsize='small')
+        # --- Title ---
+        sys_type = _coerce_str(getattr(self.app, "var_system", ""), "")
+        title = f"{topo_type}"
+        if sys_type:
+            title += f" — {sys_type}"
+        self.ax3d.set_title(title, fontsize=10, color="#e0e0e0", pad=2)
 
+        # --- Legend ---
+        leg = self.ax3d.legend(loc='upper right', fontsize=6,
+                               facecolor="#1a1a2e", edgecolor="#3a4a6e",
+                               labelcolor="#d0d0e0", framealpha=0.8)
+
+        self.fig3d.tight_layout(pad=1.0)
         self.canvas3d.draw_idle()
 
     def _draw_local_matplotlib(self, topo_type: str, data: Dict[str, Any]):
@@ -540,6 +736,93 @@ class PreviewTab:
         if not xs:
             xs, ys = [0.0], [0.0]
 
+        ue_height = _coerce_float(_yaml_first(data, ("imt.ue.height", "ue_height"), None), 1.5)
+        if hasattr(self.app, "ue_height"):
+            ue_height = _safe_float(getattr(self.app, "ue_height", None), ue_height)
+
+        # ============================================================
+        # INDOOR topology: draw building outlines and floors
+        # ============================================================
+        if topo_type == "INDOOR" and self._indoor_topo is not None:
+            topo = self._indoor_topo
+            b_w, b_d, b_h = topo.b_w, topo.b_d, topo.b_h
+            num_cells = topo.num_cells
+            cell_radius = topo.cell_radius
+            num_floors = topo.num_floors
+            n_total_bs = len(topo.x)
+            bs_per_floor = max(1, n_total_bs // max(1, num_floors))
+
+            drawn_first = False
+            for b_idx in range(bs_per_floor // max(1, num_cells)):
+                floor_i = b_idx * num_cells
+                if floor_i >= len(topo.x):
+                    break
+                x_b = topo.x[floor_i] - cell_radius
+                y_b = topo.y[floor_i] - b_d / 2
+                for f in range(num_floors):
+                    z0, z1 = f * b_h, (f + 1) * b_h
+                    cx = [x_b, x_b + b_w, x_b + b_w, x_b, x_b]
+                    cy = [y_b, y_b, y_b + b_d, y_b + b_d, y_b]
+                    lbl = "Building" if not drawn_first else None
+                    self.ax3d.plot(cx, cy, [z0]*5, color="#d4a574", lw=0.8, alpha=0.7, label=lbl)
+                    self.ax3d.plot(cx, cy, [z1]*5, color="#d4a574", lw=0.8, alpha=0.7)
+                    for vx, vy in [(x_b, y_b), (x_b+b_w, y_b), (x_b+b_w, y_b+b_d), (x_b, y_b+b_d)]:
+                        self.ax3d.plot([vx, vx], [vy, vy], [z0, z1], color="#d4a574", lw=0.5, alpha=0.5)
+                    drawn_first = True
+
+            heights = list(topo.height) if hasattr(topo, "height") and len(topo.height) > 0 else [bs_height]*len(xs)
+            self.ax3d.scatter(xs, ys, heights, c="#4fc3f7", marker="s", s=25,
+                              depthshade=False, label="Indoor BS", zorder=5)
+            n_ue = min(len(xs) * 3, 60)
+            if n_ue > 0:
+                ue_xs = [xs[i % len(xs)] + np.random.uniform(-cell_radius, cell_radius) for i in range(n_ue)]
+                ue_ys = [ys[i % len(ys)] + np.random.uniform(-b_d/2, b_d/2) for i in range(n_ue)]
+                ue_zs = [heights[i % len(heights)] - np.random.uniform(0, b_h*0.8) for i in range(n_ue)]
+                self.ax3d.scatter(ue_xs, ue_ys, ue_zs, c="#ff6b6b", marker=".", s=12,
+                                  alpha=0.7, label="UE (sample)", zorder=4)
+            if xs:
+                span = max(max(xs)-min(xs), max(ys)-min(ys), 50) * 1.3
+                cx_m, cy_m = (max(xs)+min(xs))/2, (max(ys)+min(ys))/2
+                self.ax3d.set_xlim(cx_m - span/2, cx_m + span/2)
+                self.ax3d.set_ylim(cy_m - span/2, cy_m + span/2)
+                self.ax3d.set_zlim(0, max(heights)*1.5 if heights else b_h*num_floors*1.5)
+            return
+
+        # ============================================================
+        # NTN topology: draw ground hexagons + satellite
+        # ============================================================
+        if topo_type == "NTN" and self._ntn_topo is not None:
+            topo = self._ntn_topo
+            sc = 1000.0
+            cr_km = topo.cell_radius / sc
+            first_hex = True
+            for x, y in zip(topo.x / sc, topo.y / sc):
+                lbl = "Sector Cells" if first_hex else None
+                angs = np.linspace(0, 2*np.pi, 7)
+                self.ax3d.plot(x + cr_km*np.cos(angs), y + cr_km*np.sin(angs),
+                               np.zeros(7), color="#7986cb", lw=1, label=lbl)
+                first_hex = False
+            self.ax3d.scatter(topo.x/sc, topo.y/sc, np.zeros(len(topo.x)),
+                              c="#e0e0e0", marker="v", s=50, depthshade=False, label="Anchor Points", zorder=5)
+            sx, sy, sz = topo.space_station_x/sc, topo.space_station_y/sc, topo.space_station_z/sc
+            self.ax3d.scatter([sx], [sy], [sz], c="#ff5252", marker="^", s=100, depthshade=False,
+                              label=f"Satellite (el={np.degrees(topo.bs_elevation):.0f}°)", zorder=10)
+            self.ax3d.plot([sx, sx], [sy, sy], [0, sz], color="#4fc3f7", lw=1.5,
+                           label=f"Height = {sz:.0f} km")
+            self.ax3d.plot([0, sx], [0, sy], [0, sz], color="#66bb6a", linestyle="--", lw=1.5,
+                           label=f"Slant = {topo.bs_radius/sc:.0f} km")
+            n_ue = min(len(topo.x)*5, 80)
+            if n_ue > 0:
+                ue_x = [topo.x[i%len(topo.x)]/sc + np.random.uniform(-cr_km*0.8, cr_km*0.8) for i in range(n_ue)]
+                ue_y = [topo.y[i%len(topo.y)]/sc + np.random.uniform(-cr_km*0.8, cr_km*0.8) for i in range(n_ue)]
+                self.ax3d.scatter(ue_x, ue_y, [0]*n_ue, c="#ff6b6b", marker=".", s=10,
+                                  alpha=0.6, label="UE (sample)", zorder=3)
+            self.ax3d.set_xlabel("x [km]")
+            self.ax3d.set_ylabel("y [km]")
+            self.ax3d.set_zlabel("z [km]")
+            return
+
+
         # Hexagon Grid (Honeycomb)
         if draw_hex and hex_centers:
             # Draw one hex with label for legend, rest without
@@ -547,13 +830,13 @@ class PreviewTab:
             for cx, cy in hex_centers:
                 label = "Cell Grid" if first else None
                 self._draw_hexagon_shape_mpl(cx, cy, hex_radius, rotation_deg=30,
-                                             color="gray", lw=1.0, alpha=0.15, label=label)
+                                             color="#4a5a8a", lw=1.0, alpha=0.3, label=label)
                 self.ax3d.plot([cx, cx], [cy, cy], [0, bs_height],
-                               color="gray", lw=0.5, alpha=0.5)
+                               color="#4a5a8a", lw=0.5, alpha=0.5)
                 first = False
 
         marker = "o" if topo_type == "HOTSPOT" else "^"
-        color = "tab:blue"
+        color = "#4fc3f7"
         label_bs = f"{topo_type.replace('_', ' ').title()} BS"
 
         self.ax3d.scatter(xs, ys, [bs_height]*len(xs), c=color, marker=marker, s=40,
@@ -566,13 +849,76 @@ class PreviewTab:
         if topo_type == "HOTSPOT":
             radius = 20.0
 
-        if topo_type != "SINGLE_EARTH_STATION":
+        if topo_type not in ("SINGLE_EARTH_STATION", "MSS_D2D"):
             first_sector = True
             for x, y, az in zip(xs, ys, azs):
                 lbl = "Sector" if first_sector else None
                 self._add_wedge_outline3d_mpl(
                     self.ax3d, x, y, radius, az, z_plane=bs_height, color=color, label=lbl)
                 first_sector = False
+
+        # ============================================================
+        # BS Antenna direction arrows (azimuth + downtilt)
+        # ============================================================
+        if topo_type not in ("SINGLE_EARTH_STATION", "MSS_D2D"):
+            downtilt = 6.0
+            if hasattr(self.app, "bs_downtilt"):
+                downtilt = _safe_float(getattr(self.app, "bs_downtilt", None), 6.0)
+            arrow_len = radius * 0.5 if radius > 0 else 30.0
+            first_arrow = True
+            for x, y, az in zip(xs, ys, azs):
+                az_rad = np.radians(az)
+                dt_rad = np.radians(downtilt)
+                avx = arrow_len * np.cos(-dt_rad) * np.cos(az_rad)
+                avy = arrow_len * np.cos(-dt_rad) * np.sin(az_rad)
+                avz = -arrow_len * np.sin(dt_rad)
+                lbl_a = f"Antenna (dt={downtilt:.0f}°)" if first_arrow else None
+                self.ax3d.quiver(x, y, bs_height, avx, avy, avz,
+                                 color="#ffab40", arrow_length_ratio=0.15,
+                                 linewidth=1.2, label=lbl_a)
+                first_arrow = False
+
+        # ============================================================
+        # UE positions (sample generation around BS cells)
+        # ============================================================
+        if topo_type not in ("SINGLE_EARTH_STATION", "MSS_D2D"):
+            ue_k = 3
+            if hasattr(self.app, "ue_k"):
+                ue_k = _safe_int(getattr(self.app, "ue_k", None), 3)
+            n_ue_per_bs = max(ue_k, 1)
+            ue_radius = hex_radius * 0.9 if hex_radius > 0 else radius * 0.9
+            if topo_type == "HOTSPOT":
+                hotspot_max_dist = 50.0
+                if hasattr(self.app, "hotspot_max_dist_ue"):
+                    hotspot_max_dist = _safe_float(getattr(self.app, "hotspot_max_dist_ue", None), 50.0)
+                ue_radius = hotspot_max_dist
+
+            ue_xs, ue_ys = [], []
+            unique_bs = list(set(zip(xs, ys)))
+            n_ue_total = min(len(unique_bs) * n_ue_per_bs, 120)
+            for i in range(n_ue_total):
+                bi = i % len(unique_bs)
+                bx, by = unique_bs[bi]
+                ang = np.random.uniform(0, 2 * np.pi)
+                r = np.random.uniform(0, ue_radius)
+                ue_xs.append(bx + r * np.cos(ang))
+                ue_ys.append(by + r * np.sin(ang))
+            if ue_xs:
+                self.ax3d.scatter(ue_xs, ue_ys, [ue_height]*len(ue_xs),
+                                  c="#ff6b6b", marker=".", s=15, alpha=0.7,
+                                  depthshade=False, label=f"UE (K={ue_k})", zorder=4)
+
+        # ============================================================
+        # MSS_D2D: draw two devices with link
+        # ============================================================
+        if topo_type == "MSS_D2D":
+            self.ax3d.scatter(xs[:1], ys[:1], [ue_height], c="#66bb6a", marker="D",
+                              s=60, depthshade=False, label="Device 1", zorder=5)
+            if len(xs) > 1:
+                self.ax3d.scatter(xs[1:2], ys[1:2], [ue_height], c="#ab47bc", marker="D",
+                                  s=60, depthshade=False, label="Device 2", zorder=5)
+                self.ax3d.plot([xs[0], xs[1]], [ys[0], ys[1]], [ue_height, ue_height],
+                               color="#ffab40", linestyle="--", lw=2, label="D2D Link")
 
         if self.app.var_system.get() == "SINGLE_EARTH_STATION":
             def set_equal_3d(ax):
@@ -746,20 +1092,20 @@ class PreviewTab:
         Y = a * np.outer(np.sin(u), np.sin(v))
         Z = a * np.outer(np.ones_like(u), np.cos(v))
 
-        self.ax3d.plot_surface(X, Y, Z, color="#e6f2ff",
-                               alpha=0.3, edgecolor="#b0c4de", lw=0.1)
+        self.ax3d.plot_surface(X, Y, Z, color="#1e3a5f",
+                               alpha=0.85, edgecolor="#2a4a7f", lw=0.3)
 
         if self.app.show_borders.get():
             self._draw_borders_mpl()
 
         sx, sy, sz, ex, ey, ez, sat_obj = self._get_global_positions(data)
 
-        self.ax3d.scatter([sx], [sy], [sz], c="purple", s=80,
+        self.ax3d.scatter([sx], [sy], [sz], c="#ff5252", s=80,
                           marker="^", label="Satellite", zorder=10)
-        self.ax3d.scatter([ex], [ey], [ez], c="blue", s=50,
+        self.ax3d.scatter([ex], [ey], [ez], c="#4fc3f7", s=50,
                           marker="o", label="Earth Station", zorder=10)
-        self.ax3d.plot([sx, ex], [sy, ey], [sz, ez], color="purple",
-                       linestyle="--", alpha=0.6, label="Link")
+        self.ax3d.plot([sx, ex], [sy, ey], [sz, ez], color="#ffab40",
+                       linestyle="--", lw=1.5, alpha=0.9, label="Link")
 
         if self.app.show_beamwidth.get():
             bw = self._determine_beamwidth(sat_obj)
@@ -779,7 +1125,8 @@ class PreviewTab:
         fig = go.Figure()
 
         global_types = ["MACRO_COUNTRIES", "SINGLE_SPACE_STATION",
-                        "MSS_DC", "EESS_SS", "METSAT_SS"]
+                        "MSS_DC", "EESS_SS", "METSAT_SS", "SINGLE_EARTH_STATION",
+                        "MSS_SS", "HAPS"]
         is_global = topo_type in global_types
 
         try:
@@ -807,10 +1154,109 @@ class PreviewTab:
         xs, ys, azs, hex_centers, hex_radius, draw_hex = self._compute_local_geometry(
             topo_type, data)
 
+        ue_height = _coerce_float(_yaml_first(data, ("imt.ue.height", "ue_height"), None), 1.5)
+        if hasattr(self.app, "ue_height"):
+            ue_height = _safe_float(getattr(self.app, "ue_height", None), ue_height)
+
+        # ============================================================
+        # INDOOR topology (Plotly)
+        # ============================================================
+        if topo_type == "INDOOR" and self._indoor_topo is not None:
+            topo = self._indoor_topo
+            b_w, b_d, b_h = topo.b_w, topo.b_d, topo.b_h
+            num_cells = topo.num_cells
+            cell_radius = topo.cell_radius
+            num_floors = topo.num_floors
+            n_total_bs = len(topo.x)
+            bs_per_floor = max(1, n_total_bs // max(1, num_floors))
+
+            # Draw building wireframes
+            bld_x, bld_y, bld_z = [], [], []
+            for b_idx in range(bs_per_floor // max(1, num_cells)):
+                floor_i = b_idx * num_cells
+                if floor_i >= len(topo.x):
+                    break
+                x_b = topo.x[floor_i] - cell_radius
+                y_b = topo.y[floor_i] - b_d / 2
+                for f in range(num_floors):
+                    z0, z1 = f * b_h, (f + 1) * b_h
+                    corners = [(x_b, y_b), (x_b+b_w, y_b), (x_b+b_w, y_b+b_d), (x_b, y_b+b_d), (x_b, y_b)]
+                    for cx, cy in corners:
+                        bld_x.append(cx); bld_y.append(cy); bld_z.append(z0)
+                    bld_x.append(None); bld_y.append(None); bld_z.append(None)
+                    for cx, cy in corners:
+                        bld_x.append(cx); bld_y.append(cy); bld_z.append(z1)
+                    bld_x.append(None); bld_y.append(None); bld_z.append(None)
+                    # Verticals
+                    for cx, cy in corners[:4]:
+                        bld_x.extend([cx, cx, None]); bld_y.extend([cy, cy, None]); bld_z.extend([z0, z1, None])
+
+            fig.add_trace(go.Scatter3d(x=bld_x, y=bld_y, z=bld_z, mode="lines",
+                                       line=dict(color="sienna", width=2), name="Buildings"))
+
+            heights = list(topo.height) if hasattr(topo, "height") and len(topo.height) > 0 else [bs_height]*len(xs)
+            fig.add_trace(go.Scatter3d(x=xs, y=ys, z=heights, mode="markers",
+                                       marker=dict(size=4, color="blue", symbol="square"),
+                                       name="Indoor BS"))
+            # UEs
+            n_ue = min(len(xs) * 3, 60)
+            if n_ue > 0:
+                ue_xs = [xs[i % len(xs)] + np.random.uniform(-cell_radius, cell_radius) for i in range(n_ue)]
+                ue_ys = [ys[i % len(ys)] + np.random.uniform(-b_d/2, b_d/2) for i in range(n_ue)]
+                ue_zs = [heights[i % len(heights)] - np.random.uniform(0, b_h*0.8) for i in range(n_ue)]
+                fig.add_trace(go.Scatter3d(x=ue_xs, y=ue_ys, z=ue_zs, mode="markers",
+                                           marker=dict(size=2, color="red"), name="UE (sample)", opacity=0.6))
+            return
+
+        # ============================================================
+        # NTN topology (Plotly)
+        # ============================================================
+        if topo_type == "NTN" and self._ntn_topo is not None:
+            topo = self._ntn_topo
+            sc = 1000.0
+            cr_km = topo.cell_radius / sc
+
+            # Hexagonal sectors
+            hex_x, hex_y, hex_z = [], [], []
+            for x, y in zip(topo.x / sc, topo.y / sc):
+                angs = np.linspace(0, 2*np.pi, 7)
+                hx = list(x + cr_km * np.cos(angs))
+                hy = list(y + cr_km * np.sin(angs))
+                hex_x.extend(hx + [None]); hex_y.extend(hy + [None]); hex_z.extend([0]*7 + [None])
+
+            fig.add_trace(go.Scatter3d(x=hex_x, y=hex_y, z=hex_z, mode="lines",
+                                       line=dict(color="gray", width=2), name="Sector Cells"))
+            # Anchor points
+            fig.add_trace(go.Scatter3d(x=list(topo.x/sc), y=list(topo.y/sc), z=[0]*len(topo.x),
+                                       mode="markers", marker=dict(size=5, color="black", symbol="diamond"),
+                                       name="Anchor Points"))
+            # Satellite
+            sx, sy, sz = topo.space_station_x/sc, topo.space_station_y/sc, topo.space_station_z/sc
+            fig.add_trace(go.Scatter3d(x=[sx], y=[sy], z=[sz], mode="markers",
+                                       marker=dict(size=8, color="red", symbol="diamond"),
+                                       name=f"Satellite (el={np.degrees(topo.bs_elevation):.0f}°)"))
+            # Height + slant lines
+            fig.add_trace(go.Scatter3d(x=[sx, sx], y=[sy, sy], z=[0, sz], mode="lines",
+                                       line=dict(color="blue", width=3), name=f"Height = {sz:.0f} km"))
+            fig.add_trace(go.Scatter3d(x=[0, sx], y=[0, sy], z=[0, sz], mode="lines",
+                                       line=dict(color="green", width=3, dash="dash"),
+                                       name=f"Slant = {topo.bs_radius/sc:.0f} km"))
+            # UEs
+            n_ue = min(len(topo.x)*5, 80)
+            if n_ue > 0:
+                ue_x = [topo.x[i%len(topo.x)]/sc + np.random.uniform(-cr_km*0.8, cr_km*0.8) for i in range(n_ue)]
+                ue_y = [topo.y[i%len(topo.y)]/sc + np.random.uniform(-cr_km*0.8, cr_km*0.8) for i in range(n_ue)]
+                fig.add_trace(go.Scatter3d(x=ue_x, y=ue_y, z=[0]*n_ue, mode="markers",
+                                           marker=dict(size=2, color="red"), name="UE (sample)", opacity=0.5))
+            fig.update_layout(scene=dict(xaxis_title="x [km]", yaxis_title="y [km]", zaxis_title="z [km]"))
+            return
+
+        # ============================================================
+        # Standard terrestrial topologies (Plotly)
+        # ============================================================
         if draw_hex and hex_centers:
             hex_x, hex_y, hex_z = [], [], []
             for cx, cy in hex_centers:
-                # 30 deg rotation makes it pointy-topped to match cluster layout
                 pts = self._hexagon_points(cx, cy, hex_radius, rotation_deg=30)
                 pts = np.vstack([pts, pts[0]])
                 hex_x.extend(pts[:, 0])
@@ -851,13 +1297,43 @@ class PreviewTab:
         ))
 
         sec_radius = hex_radius * 0.8 if hex_radius > 0 else 50.0
-        if topo_type != "SINGLE_EARTH_STATION":
+        if topo_type not in ("SINGLE_EARTH_STATION", "MSS_D2D"):
             for x, y, az in zip(xs, ys, azs):
                 self._add_wedge_plotly(
                     fig, x, y, sec_radius, az, bs_height, color)
 
-        if self.app.var_system == "SINGLE_EARTH_STATION":
-            mode = getattr(self.app, "se_loc_mode", None)
+        # UE positions (Plotly)
+        if topo_type not in ("SINGLE_EARTH_STATION", "MSS_D2D"):
+            ue_k = _safe_int(getattr(self.app, "ue_k", None), 3)
+            ue_radius = hex_radius * 0.9 if hex_radius > 0 else sec_radius * 0.9
+            if topo_type == "HOTSPOT":
+                ue_radius = _safe_float(getattr(self.app, "hotspot_max_dist_ue", None), 50.0)
+            unique_bs = list(set(zip(xs, ys)))
+            n_ue = min(len(unique_bs) * max(ue_k, 1), 120)
+            ue_xs, ue_ys = [], []
+            for i in range(n_ue):
+                bx, by = unique_bs[i % len(unique_bs)]
+                ang = np.random.uniform(0, 2*np.pi)
+                r = np.random.uniform(0, ue_radius)
+                ue_xs.append(bx + r*np.cos(ang))
+                ue_ys.append(by + r*np.sin(ang))
+            if ue_xs:
+                fig.add_trace(go.Scatter3d(x=ue_xs, y=ue_ys, z=[ue_height]*len(ue_xs),
+                                           mode="markers", marker=dict(size=2, color="red"),
+                                           name=f"UE (K={ue_k})", opacity=0.6))
+
+        # MSS_D2D (Plotly)
+        if topo_type == "MSS_D2D":
+            fig.add_trace(go.Scatter3d(x=xs[:1], y=ys[:1], z=[ue_height], mode="markers",
+                                       marker=dict(size=6, color="green", symbol="diamond"), name="Device 1"))
+            if len(xs) > 1:
+                fig.add_trace(go.Scatter3d(x=xs[1:2], y=ys[1:2], z=[ue_height], mode="markers",
+                                           marker=dict(size=6, color="purple", symbol="diamond"), name="Device 2"))
+                fig.add_trace(go.Scatter3d(x=[xs[0], xs[1]], y=[ys[0], ys[1]], z=[ue_height]*2,
+                                           mode="lines", line=dict(color="orange", width=4, dash="dash"), name="D2D Link"))
+
+        if self.app.var_system.get() == "SINGLE_EARTH_STATION":
+            mode = getattr(self.app, "se_loc_type", None)
             mode = mode.get() if hasattr(mode, "get") else "FIXED"
 
             # ---------------- FIXED ----------------
@@ -984,6 +1460,10 @@ class PreviewTab:
         xs, ys, azs = [], [], []
         hex_centers, hex_radius, draw_hex = [], 0.0, False
 
+        # Reset topology-specific caches
+        self._indoor_topo = None
+        self._ntn_topo = None
+
         if not HAS_SHARC_CORE:
             return ([0], [0], [0], [], 0, False)
 
@@ -1047,8 +1527,67 @@ class PreviewTab:
                 topo.calculate_coordinates()
                 xs, ys, azs = list(topo.x), list(topo.y), list(topo.azimuth)
 
+            elif topo_type == "INDOOR":
+                if ParametersIndoor is not None and TopologyIndoor is not None:
+                    p_ind = ParametersIndoor()
+                    p_ind.intersite_distance = _safe_float(getattr(self.app, "indoor_intersite", None), 20.0)
+                    p_ind.n_rows = _safe_int(getattr(self.app, "indoor_n_rows", None), 3)
+                    p_ind.n_colums = _safe_int(getattr(self.app, "indoor_n_cols", None), 3)
+                    p_ind.street_width = _safe_float(getattr(self.app, "indoor_street_width", None), 30.0)
+                    p_ind.num_cells = _safe_int(getattr(self.app, "indoor_num_cells", None), 6)
+                    p_ind.num_floors = _safe_int(getattr(self.app, "indoor_num_floors", None), 3)
+                    nb = _coerce_str(getattr(self.app, "indoor_num_buildings", "ALL"), "ALL")
+                    p_ind.num_imt_buildings = nb
+                    p_ind.ue_indoor_percent = _safe_float(getattr(self.app, "indoor_ue_indoor_percent", None), 0.95)
+                    p_ind.building_class = _coerce_str(getattr(self.app, "indoor_building_class", "TRADITIONAL"), "TRADITIONAL")
+                    topo = TopologyIndoor(p_ind)
+                    topo.calculate_coordinates()
+                    xs = list(topo.x)
+                    ys = list(topo.y)
+                    azs = list(topo.azimuth) if len(topo.azimuth) > 0 else [0.0] * len(xs)
+                    self._indoor_topo = topo
+                else:
+                    xs, ys, azs = [0], [0], [0]
+
+            elif topo_type == "NTN":
+                if TopologyNTN is not None:
+                    isd = _safe_float(getattr(self.app, "ntn_intersite", None), 100000.0)
+                    cr = _safe_float(getattr(self.app, "ntn_cell_radius", None), 50000.0)
+                    bsh = _safe_float(getattr(self.app, "ntn_bs_height", None), 600000.0)
+                    bsa = _safe_float(getattr(self.app, "ntn_bs_azimuth", None), 45.0)
+                    bse = _safe_float(getattr(self.app, "ntn_bs_elevation", None), 45.0)
+                    ns = _safe_int(getattr(self.app, "ntn_num_sectors", None), 7)
+                    if ns not in (1, 7, 19):
+                        ns = 7
+                    topo = TopologyNTN(
+                        intersite_distance=isd,
+                        cell_radius=cr,
+                        bs_height=bsh,
+                        bs_azimuth=bsa,
+                        bs_elevation=bse,
+                        num_sectors=ns,
+                    )
+                    xs = list(topo.x)
+                    ys = list(topo.y)
+                    azs = list(topo.azimuth) if hasattr(topo, "azimuth") and len(topo.azimuth) > 0 else [0.0] * len(xs)
+                    hex_radius = cr
+                    draw_hex = True
+                    hex_centers = list(set(zip(xs, ys)))
+                    self._ntn_topo = topo
+                else:
+                    xs, ys, azs = [0], [0], [0]
+
+            elif topo_type == "MSS_D2D":
+                # Simple fallback: two UE positions
+                xs, ys, azs = [0.0, 200.0], [0.0, 100.0], [0.0, 180.0]
+
+            else:
+                # Generic fallback for unknown topology
+                xs, ys, azs = [0.0], [0.0], [0.0]
+
         except Exception as e:
             print(f"Topology calc error: {e}")
+            traceback.print_exc()
             xs, ys, azs = [0], [0], [0]
 
         return xs, ys, azs, hex_centers, hex_radius, draw_hex

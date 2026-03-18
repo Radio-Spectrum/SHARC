@@ -139,7 +139,7 @@ def _normalize_topology_type(t: str) -> str:
         return "HOTSPOT"
     raw = str(t).strip()
 
-    official = {"HOTSPOT", "MACROCELL", "SINGLE_BS", "Macro_countries"}
+    official = {"HOTSPOT", "MACROCELL", "SINGLE_BS", "Macro_countries", "INDOOR", "NTN"}
     if raw in official:
         return raw
 
@@ -152,6 +152,10 @@ def _normalize_topology_type(t: str) -> str:
         return "MACROCELL"
     if low in {"single_bs", "single bs", "single-bs"}:
         return "SINGLE_BS"
+    if low in {"indoor"}:
+        return "INDOOR"
+    if low in {"ntn"}:
+        return "NTN"
     return raw
 
 
@@ -667,6 +671,30 @@ class GeneralTab:
                 "cell_radius": n(g("sbs_cell_radius", 1.0)),
                 "num_clusters": int(n(g("sbs_clusters", 1))),
                 "azimuth": sbs_az,
+            }
+
+        elif topo_type == "INDOOR":
+            nb = str(g("indoor_num_buildings", "ALL")).strip()
+            topology["indoor"] = {
+                "intersite_distance": n(g("indoor_intersite", 20.0)),
+                "n_rows": int(n(g("indoor_n_rows", 3))),
+                "n_colums": int(n(g("indoor_n_cols", 3))),
+                "street_width": n(g("indoor_street_width", 30.0)),
+                "num_cells": int(n(g("indoor_num_cells", 6))),
+                "num_floors": int(n(g("indoor_num_floors", 3))),
+                "num_imt_buildings": nb,
+                "building_class": str(g("indoor_building_class", "TRADITIONAL")),
+                "ue_indoor_percent": n(g("indoor_ue_indoor_percent", 0.95)),
+            }
+
+        elif topo_type == "NTN":
+            topology["ntn"] = {
+                "intersite_distance": n(g("ntn_intersite", 100000.0)),
+                "cell_radius": n(g("ntn_cell_radius", 50000.0)),
+                "bs_height": n(g("ntn_bs_height", 600000.0)),
+                "bs_azimuth": n(g("ntn_bs_azimuth", 45.0)),
+                "bs_elevation": n(g("ntn_bs_elevation", 45.0)),
+                "num_sectors": int(n(g("ntn_num_sectors", 7))),
             }
 
         bs_array = {

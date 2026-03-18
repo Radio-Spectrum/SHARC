@@ -150,16 +150,18 @@ class App(tb.Window if HAS_BOOTSTRAP else tk.Tk):
         header_font = ("Segoe UI", 22, "bold")
         style.configure(".", font=base_font)
 
-        # "Blue" brand label (as in original)
-        style.configure("Brand.TLabel", font=header_font, foreground="#2C3E50")
+        # Nav button style
+        self._theme_is_dark = self._theme_name in ("darkly", "cyborg", "superhero", "solar")
+        brand_color = colors.light if self._theme_is_dark else "#2C3E50"
 
-        # Sidebar + cards
-        self._sidebar_bg = colors.light
+        # Initialize missing theme color attributes
+        self._sidebar_bg = colors.bg
         self._card_bg = colors.bg
         self._muted = colors.secondary
-        self._fg = colors.fg
 
-        # Nav button style
+        # "Blue" brand label (as in original)
+        style.configure("Brand.TLabel", font=header_font, foreground=brand_color, background=self._sidebar_bg)
+        style.configure("SubBrand.TLabel", font=("Segoe UI", 9, "bold"), foreground=self._muted, background=self._sidebar_bg)
         style.configure(
             "Nav.TButton",
             font=("Segoe UI", 11),
@@ -460,12 +462,12 @@ class App(tb.Window if HAS_BOOTSTRAP else tk.Tk):
         self.grid_rowconfigure(1, weight=1)
 
         # --- A. Sidebar (Left) ---
-        self.sidebar = (tb.Frame(self, bootstyle="light")
+        self.sidebar = (tb.Frame(self, bootstyle="bg")
                         if HAS_BOOTSTRAP else ttk.Frame(self))
         self.sidebar.grid(row=0, column=0, rowspan=3, sticky="nsew")
         self._build_sidebar_header()
 
-        self.menu_frame = (tb.Frame(self.sidebar, bootstyle="light")
+        self.menu_frame = (tb.Frame(self.sidebar, bootstyle="bg")
                            if HAS_BOOTSTRAP else ttk.Frame(self.sidebar))
         self.menu_frame.pack(fill="both", expand=True, pady=10)
 
@@ -515,19 +517,16 @@ class App(tb.Window if HAS_BOOTSTRAP else tk.Tk):
                 fill="x", padx=20, pady=15)
             return
 
-        frame = tb.Frame(self.sidebar, bootstyle="light")
+        frame = tb.Frame(self.sidebar, bootstyle="bg")
         frame.pack(fill="x", pady=(30, 10), padx=20)
 
-        lbl = tb.Label(frame, text="SHARC", style="Brand.TLabel",
-                       bootstyle="inverse-light")
+        lbl = tb.Label(frame, text="SHARC", style="Brand.TLabel")
         lbl.pack(anchor="w")
 
         sub = tb.Label(
             frame,
             text="SIMULATION MANAGER",
-            font=("Segoe UI", 9, "bold"),
-            foreground="#7F8C8D",
-            bootstyle="inverse-light"
+            style="SubBrand.TLabel"
         )
         sub.pack(anchor="w")
 
@@ -543,12 +542,12 @@ class App(tb.Window if HAS_BOOTSTRAP else tk.Tk):
                 anchor="center")
             return
 
-        monitor_frame = tb.Frame(self.sidebar, bootstyle="light", padding=12)
+        monitor_frame = tb.Frame(self.sidebar, bootstyle="bg", padding=12)
         monitor_frame.pack(side="bottom", fill="x", pady=10)
 
         # HUD CARD (key fix for background artifacts)
         card = tb.Frame(monitor_frame, style="HudCard.TFrame",
-                        padding=10, relief="solid", borderwidth=1)
+                        padding=10, relief="flat", borderwidth=0)
         card.pack(fill="x")
 
         tb.Label(card, text="Global Progress", style="HudTitle.TLabel").pack(
@@ -571,18 +570,42 @@ class App(tb.Window if HAS_BOOTSTRAP else tk.Tk):
         # 1. Circular Meter
         self.sys_meter = Meter(
             card,
-            metersize=140,
-            padding=5,
+            metersize=130,
+            padding=10,
             amountused=0,
             metertype="full",
             subtext="0.0%",
             textright="",
+            textfont=("Segoe UI", 12, "bold"),
+            subtextfont=("Segoe UI", 8),
             showtext=False,
             interactive=False,
-            bootstyle="primary",
-            stripethickness=10
+            bootstyle="success",
+            stripethickness=4
         )
-        self.sys_meter.pack(anchor="center", pady=(0, 15))
+        self.sys_meter.pack(anchor="center", pady=(5, 10))
+
+        # FIX: Force Meter to draw with the sidebar background instead of default TFrame (white box fix)
+        _orig_draw = getattr(self.sys_meter, "_draw_meter", None) or getattr(self.sys_meter, "draw_meter", None)
+        if _orig_draw:
+            def _patched_draw(*args, **kwargs):
+                style = tb.Style()
+                orig_bg = style.lookup("TFrame", "background")
+                style.configure("TFrame", background=self._card_bg)
+                try:
+                    _orig_draw(*args, **kwargs)
+                    # Ensure the internal canvas also uses the exact color
+                    if hasattr(self.sys_meter, "indicator"):
+                        self.sys_meter.indicator.configure(background=self._card_bg)
+                finally:
+                    style.configure("TFrame", background=orig_bg)
+            
+            if hasattr(self.sys_meter, "_draw_meter"):
+                self.sys_meter._draw_meter = _patched_draw
+                self.after(50, self.sys_meter._draw_meter)  # apply initial draw override
+            else:
+                self.sys_meter.draw_meter = _patched_draw
+                self.after(50, self.sys_meter.draw_meter)
 
         # 2. HUD Container (Snapshots and ETA)
         self.hud_frame = tb.Frame(card, style="HudCard.TFrame")

@@ -28,6 +28,7 @@ class SpectralMaskStepped(SpectralMask):
         self.mask_steps_dBm_mhz = mask_steps_dBm_mhz
         self.freq_mhz = freq_mhz
         self.band_mhz = band_mhz
+        self.supports_backoff_subtraction = True
 
         self.delta_f_lim = np.array(
             [self.band_mhz * i for i in range(len(self.mask_steps_dBm_mhz))]

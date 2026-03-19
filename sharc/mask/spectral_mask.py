@@ -26,6 +26,7 @@ class SpectralMask(ABC):
         self.mask_dbm = None
         self.freq_lim = None
         self.p_tx = None
+        self.supports_backoff_subtraction = False
 
     @abstractmethod
     def set_mask(self, p_tx=0):

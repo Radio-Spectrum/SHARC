@@ -357,6 +357,9 @@ class SimulationDownlink(Simulation):
                                 center_freqs,
                                 ue_bws
                             ) - 30
+                            if self.system.spectral_mask.supports_backoff_subtraction:
+                                tx_oob[::] -= self.system.power_backoff_applied[system_interfering]
+
                     elif self.param_system.adjacent_ch_emissions == "ACLR":
                         # consider ACLR only over non co-channel RBs
                         # This should diminish some of the ACLR interference
@@ -512,7 +515,8 @@ class SimulationDownlink(Simulation):
                 # approximated received tx_oob = PSD * non_overlap_sys_bw
                 # NOTE: we don't get total power, but power per beam
                 # because later broadcast will sum this tx_oob `k` times
-                tx_oob = self.bs.tx_power[frst_bs] - aclr_dB + 10 * np.log10(
+                max_pow = self.bs.tx_power[frst_bs] + self.bs.power_backoff_applied[frst_bs]
+                tx_oob = max_pow - aclr_dB + 10 * np.log10(
                     non_overlap_sys_bw / measurement_bw
                 )
             elif self.parameters.imt.adjacent_ch_emissions == "OFF":
@@ -532,7 +536,8 @@ class SimulationDownlink(Simulation):
                 # PSD = tx_pow_lin / tx_bw
                 # tx_pow_adj_lin = PSD * non_overlap_imt_bw
                 # rx_oob = tx_pow_adj_lin / acs
-                rx_oob = self.bs.tx_power[frst_bs] + 10 * np.log10(
+                max_pow = self.bs.tx_power[frst_bs] + self.bs.power_backoff_applied[frst_bs]
+                rx_oob = max_pow + 10 * np.log10(
                     non_overlap_imt_bw / tx_bw
                 ) - acs_dB
             elif self.param_system.adjacent_ch_reception == "OFF":
@@ -587,8 +592,18 @@ class SimulationDownlink(Simulation):
                     assert np.all(adj_loss == adj_loss.flat[0])
 
                     tx_oob_s = tx_oob - adj_loss[0, :]
+                    if (
+                        self.parameters.imt.adjacent_ch_emissions != "SPECTRAL_MASK"
+                        or self.bs.spectral_mask.supports_backoff_subtraction
+                    ):
+                        tx_oob_s -= self.bs.power_backoff_applied[bs]
+
                 if self.param_system.adjacent_ch_reception != "OFF":
-                    rx_oob_s = rx_oob - self.coupling_loss_imt_system_adjacent[active_beams, system_interfering]
+                    rx_oob_s = (
+                        rx_oob
+                        - self.coupling_loss_imt_system_adjacent[active_beams, system_interfering]
+                        - self.bs.power_backoff_applied[bs]
+                    )
                 else:
                     rx_oob_s = -np.inf
 

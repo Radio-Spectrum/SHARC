@@ -86,6 +86,11 @@ try:
     from sharc.topology.topology_indoor import TopologyIndoor
 
     try:
+        from sharc.topology.topology_countries import TopologyCountries
+    except Exception:
+        TopologyCountries = None
+
+    try:
         from sharc.topology.topology_ue_only import TopologyUEOnly
     except Exception:
         TopologyUEOnly = None
@@ -111,12 +116,23 @@ try:
     except Exception:
         ParametersIndoor = None
 
+    # Antenna gain calculation imports
+    try:
+        from sharc.antenna.antenna_s672 import AntennaS672
+        from sharc.parameters.antenna.parameters_antenna_s672 import ParametersAntennaS672
+    except Exception:
+        AntennaS672 = None
+        ParametersAntennaS672 = None
+
 except Exception as e:
     HAS_SHARC_CORE = False
     TopologyMacrocell = TopologyHotspot = TopologySingleBaseStation = TopologyNTN = TopologyIndoor = None
+    TopologyCountries = None
     ParametersSingleSpaceStation = ParametersSingleEarthStation = None
     ParametersHotspot = ParametersIndoor = None
     StationFactory = None
+    AntennaS672 = None
+    ParametersAntennaS672 = None
     print(f"[PreviewTab] SHARC imports not available: {e}")
 
 
@@ -241,7 +257,10 @@ def _guess_antenna_beamwidth_deg(antenna: Any, fallback: float = 5.0) -> float:
 
 def _antenna_gain_db(antenna: Any, off_axis_deg: float, phi_deg: float = 0.0) -> float:
     """
-    Compute antenna gain using duck-typing for various SHARC antenna implementations.
+    Compute antenna gain using SHARC's native calculate_gain API.
+
+    SHARC antennas implement calculate_gain(**kwargs) where the off-axis
+    angle is passed as keyword 'off_axis_angle_vec' as a numpy array.
     """
     if antenna is None:
         return float("nan")
@@ -249,15 +268,27 @@ def _antenna_gain_db(antenna: Any, off_axis_deg: float, phi_deg: float = 0.0) ->
     if isinstance(antenna, (list, tuple, np.ndarray)) and len(antenna) > 0:
         return _antenna_gain_db(antenna[0], off_axis_deg, phi_deg)
 
+    # Try SHARC's standard calculate_gain(off_axis_angle_vec=...)
+    calc_fn = getattr(antenna, "calculate_gain", None)
+    if calc_fn and callable(calc_fn):
+        try:
+            result = calc_fn(off_axis_angle_vec=np.array([off_axis_deg]))
+            if hasattr(result, '__len__'):
+                return float(result[0])
+            return float(result)
+        except Exception:
+            pass
+
+    # Fallback: try duck-typing for non-standard antenna objects
     for method_name in ["get_gain", "gain", "G"]:
         func = getattr(antenna, method_name, None)
         if func and callable(func):
             try:
                 return float(func(off_axis_deg, phi_deg))
-            except:
+            except Exception:
                 try:
                     return float(func(off_axis_deg))
-                except:
+                except Exception:
                     pass
 
     for pat_attr in ["pattern", "pat", "antenna_pattern"]:
@@ -266,6 +297,33 @@ def _antenna_gain_db(antenna: Any, off_axis_deg: float, phi_deg: float = 0.0) ->
             return _antenna_gain_db(sub_pat, off_axis_deg, phi_deg)
 
     return float("nan")
+
+
+def _antenna_gain_db_batch(antenna: Any, off_axis_deg_array: np.ndarray) -> np.ndarray:
+    """
+    Compute antenna gain for a batch of off-axis angles using SHARC's native API.
+    Returns an array of gains in dB. Much faster than calling _antenna_gain_db per element.
+    """
+    if antenna is None:
+        return np.full_like(off_axis_deg_array, float("nan"))
+
+    if isinstance(antenna, (list, tuple, np.ndarray)) and len(antenna) > 0:
+        return _antenna_gain_db_batch(antenna[0], off_axis_deg_array)
+
+    # Try SHARC's standard calculate_gain(off_axis_angle_vec=...)
+    calc_fn = getattr(antenna, "calculate_gain", None)
+    if calc_fn and callable(calc_fn):
+        try:
+            result = calc_fn(off_axis_angle_vec=off_axis_deg_array)
+            return np.asarray(result, dtype=float)
+        except Exception:
+            pass
+
+    # Fallback: element-wise
+    gains = np.zeros_like(off_axis_deg_array)
+    for i, ang in enumerate(off_axis_deg_array):
+        gains[i] = _antenna_gain_db(antenna, ang)
+    return gains
 
 
 class PlotlyEmbed(ttk.Frame):
@@ -587,6 +645,8 @@ class PreviewTab:
             lines.append(f"━━━ COUNTRIES ━━━")
             lines.append(f"Num BS   : {_coerce_str(getattr(self.app, 'topo_num_bs', ''), '—')}")
             lines.append(f"Cell R   : {_coerce_str(getattr(self.app, 'topo_cell_radius', ''), '—')} m")
+            countries = _coerce_str(getattr(self.app, 'topo_countries', ''), '—')
+            lines.append(f"Countries: {countries}")
 
         # Earth Station info
         if sys_type == "SINGLE_EARTH_STATION":
@@ -614,7 +674,12 @@ class PreviewTab:
         return {}
 
     def _detect_topology_type(self, data: Dict[str, Any]) -> str:
-        """Detect topology/system type from YAML and/or app vars, with a few aliases."""
+        """Detect topology/system type from YAML and/or app vars, with a few aliases.
+
+        IMPORTANT: The SHARC simulator uses the literal string 'Macro_countries'
+        (mixed case) in topology_factory.py and station_factory.py, so we must
+        preserve that exact spelling rather than upper-casing it.
+        """
         topo_type = _coerce_str(
             _yaml_first(
                 data,
@@ -637,14 +702,14 @@ class PreviewTab:
 
         t = (topo_type or "").strip()
 
-        # normalize common legacy value
+        # Normalize Macro_countries variants to SHARC's canonical form
+        if t.lower().replace("_", "") in ("macrocountries", "macrocountry"):
+            return "Macro_countries"
         if t in ("Macro_countries", "Macro_Countries", "macro_countries"):
-            return "MACRO_COUNTRIES"
+            return "Macro_countries"
 
+        # Known SHARC topology/system types that should be uppercased
         t_up = t.upper()
-        if t_up in ("MACRO_COUNTRY", "MACROCOUNTRIES"):
-            return "MACRO_COUNTRIES"
-
         return t_up if t_up else "MACROCELL"
 
     def _draw_preview(self):
@@ -688,7 +753,7 @@ class PreviewTab:
             axis_pane._axinfo["grid"]["color"] = "#2a3a5e"
         self.ax3d.tick_params(colors="#8899aa", labelsize=7)
 
-        global_types = ["MACRO_COUNTRIES", "SINGLE_SPACE_STATION",
+        global_types = ["Macro_countries", "SINGLE_SPACE_STATION",
                         "MSS_DC", "EESS_SS", "METSAT_SS", "SINGLE_EARTH_STATION",
                         "MSS_SS", "HAPS"]
         is_global = topo_type in global_types
@@ -998,9 +1063,14 @@ class PreviewTab:
                 )
 
             # ---------------- POINTING VECTOR ----------------
-            if self.app.se_az_type.get() == "UNIFORM_DIST" or self.app.se_el_type.get() == "UNIFORM_DIST":
+            se_az_type = getattr(self.app, "se_az_type", None)
+            se_el_type = getattr(self.app, "se_el_type", None)
+            az_type_val = se_az_type.get() if hasattr(se_az_type, "get") else "FIXED"
+            el_type_val = se_el_type.get() if hasattr(se_el_type, "get") else "FIXED"
+
+            if az_type_val == "UNIFORM_DIST" or el_type_val == "UNIFORM_DIST":
                 # --------- AZ VALS ----------
-                if self.app.se_az_type.get() == "UNIFORM_DIST":
+                if az_type_val == "UNIFORM_DIST":
                     az_min = _safe_float(self.app.se_az_ud_min)
                     az_max = _safe_float(self.app.se_az_ud_max)
                 else:
@@ -1008,7 +1078,7 @@ class PreviewTab:
                     az_min, az_max = az0-1, az0+1   # pequena largura para visual
 
                 # --------- EL VALS ----------
-                if self.app.se_el_type.get() == "UNIFORM_DIST":
+                if el_type_val == "UNIFORM_DIST":
                     el_min = _safe_float(self.app.se_el_ud_min)
                     el_max = _safe_float(self.app.se_el_ud_max)
                 else:
@@ -1065,19 +1135,19 @@ class PreviewTab:
                 v = target - origin
                 v = v/np.linalg.norm(v)
                 vx, vy, vz = v*length
-                el = _safe_float(self.app.se_el_fixed)
-                az = _safe_float(self.app.se_az_fixed)
+                el = _safe_float(getattr(self.app, "se_el_fixed", 0.0))
+                az = _safe_float(getattr(self.app, "se_az_fixed", 0.0))
                 vx2 = length * np.cos(np.radians(el)) * np.cos(np.radians(az))
                 vy2 = length * np.cos(np.radians(el)) * np.sin(np.radians(az))
                 vz2 = length * np.sin(np.radians(el))
-                if self.app.se_az_type.get() == "FIXED" and self.app.se_el_type.get() == "FIXED":
+                if az_type_val == "FIXED" and el_type_val == "FIXED":
                     vx = vx2
                     vy = vy2
                     vz = vz2
-                if self.app.se_az_type.get() == "FIXED" and self.app.se_el_type.get() == "POINTING_AT_IMT_CENTER":
+                if az_type_val == "FIXED" and el_type_val == "POINTING_AT_IMT_CENTER":
                     vx = vx2
                     vy = vy2
-                if self.app.se_el_type.get() == "FIXED" and self.app.se_az_type.get() == "POINTING_AT_IMT_CENTER":
+                if el_type_val == "FIXED" and az_type_val == "POINTING_AT_IMT_CENTER":
                     vz = vz2
 
                 self.ax3d.quiver(x0, y0, bs_height, vx, vy, vz, color="red")
@@ -1098,6 +1168,75 @@ class PreviewTab:
         if self.app.show_borders.get():
             self._draw_borders_mpl()
 
+        # ============================================================
+        # Macro_countries: show BS positions distributed across countries
+        # ============================================================
+        if topo_type == "Macro_countries":
+            # Get BS positions with cache invalidation
+            countries_str = _coerce_str(getattr(self.app, "topo_countries", ""), "Brazil")
+            num_bs_val = _safe_int(getattr(self.app, "topo_num_bs", None), 50)
+            cache_key = f"{countries_str}_{num_bs_val}"
+            
+            bs_lats = getattr(self.app, "_mc_bs_lats", None)
+            bs_lons = getattr(self.app, "_mc_bs_lons", None)
+            last_key = getattr(self.app, "_mc_cache_key", None)
+
+            # If no cached positions or UI params changed, generate using real TopologyCountries or fallback
+            if bs_lats is None or bs_lons is None or last_key != cache_key:
+                try:
+                    if TopologyCountries is None or ParametersCountries is None:
+                        raise ImportError("TopologyCountries/ParametersCountries not available")
+                    
+                    param_c = ParametersCountries()
+                    # Parse country block from app
+                    names = [c.strip() for c in countries_str.split(",") if c.strip()]
+                    param_c.country_names = names if names else ["Brazil"]
+                    param_c.num_bs_total = _safe_int(getattr(self.app, "topo_num_bs", None), 50)
+                    
+                    # Auto-resolve paths
+                    base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+                    shp_path = os.path.join(base_dir, "topology", "map", "ne_110m_admin_0_countries.shp")
+                    ras_path = os.path.join(base_dir, "topology", "map", "SEDAC_map2.tiff")
+                    act_path = os.path.join(base_dir, "topology", "map", "sedac_pop.act")
+                    if os.path.exists(shp_path): param_c.shapefile_path = shp_path
+                    if os.path.exists(ras_path): param_c.population_raster = ras_path
+                    if os.path.exists(act_path): param_c.act_colormap_path = act_path
+                    
+                    topo = TopologyCountries(param_c, None)
+                    topo.calculate_coordinates()
+                    bs_lats, bs_lons = topo.lats, topo.lons
+                    
+                    self.app._mc_bs_lats = bs_lats
+                    self.app._mc_bs_lons = bs_lons
+                    self.app._mc_cache_key = cache_key
+                except Exception as e:
+                    print(f"[PreviewTab] TopologyCountries failed: {e}")
+                    # Fallback to dummy points
+                    n_bs = _safe_int(getattr(self.app, "topo_num_bs", None), 50)
+                    center_lat = _safe_float(getattr(self.app, "topo_center_lat", None), -15.0)
+                    center_lon = _safe_float(getattr(self.app, "topo_center_lon", None), -47.0)
+                    np.random.seed(42)
+                    bs_lats = center_lat + np.random.uniform(-15, 15, n_bs)
+                    bs_lons = center_lon + np.random.uniform(-20, 20, n_bs)
+
+            # Convert lat/lon to ECEF for 3D globe plot
+            bs_x, bs_y, bs_z = lla_to_ecef(bs_lats, bs_lons, 0)
+            # Offset outward slightly so dots sit on top of the sphere
+            offset = 1.005
+            self.ax3d.scatter(
+                np.asarray(bs_x) * offset,
+                np.asarray(bs_y) * offset,
+                np.asarray(bs_z) * offset,
+                c="#4fc3f7", marker="^", s=12, alpha=0.9,
+                depthshade=False, label=f"BS ({len(bs_lats)})", zorder=10
+            )
+
+            # Removed early return here so spatial/satellite link elements and gain map render 
+            # as part of the standard global scenarios pipeline below.
+
+        # ============================================================
+        # Standard satellite/earth-station global scenarios
+        # ============================================================
         sx, sy, sz, ex, ey, ez, sat_obj = self._get_global_positions(data)
 
         self.ax3d.scatter([sx], [sy], [sz], c="#ff5252", s=80,
@@ -1124,7 +1263,7 @@ class PreviewTab:
 
         fig = go.Figure()
 
-        global_types = ["MACRO_COUNTRIES", "SINGLE_SPACE_STATION",
+        global_types = ["Macro_countries", "SINGLE_SPACE_STATION",
                         "MSS_DC", "EESS_SS", "METSAT_SS", "SINGLE_EARTH_STATION",
                         "MSS_SS", "HAPS"]
         is_global = topo_type in global_types
@@ -1391,8 +1530,6 @@ class PreviewTab:
         fig.update_layout(scene=dict(aspectmode="data"))
 
     def _draw_global_plotly(self, fig: "go.Figure", topo_type: str, data: Dict[str, Any]):
-        sx, sy, sz, ex, ey, ez, sat_obj = self._get_global_positions(data)
-
         Re = WGS84_A
         # Higher resolution for better sphere
         N_phi, N_theta = 80, 40
@@ -1401,6 +1538,80 @@ class PreviewTab:
         X = Re * np.outer(np.cos(u), np.sin(v))
         Y = Re * np.outer(np.sin(u), np.sin(v))
         Z = Re * np.outer(np.ones_like(u), np.cos(v))
+
+        # ============================================================
+        # Macro_countries: show BS positions distributed across countries
+        # ============================================================
+        if topo_type == "Macro_countries":
+            fig.add_trace(go.Surface(
+                x=X, y=Y, z=Z,
+                surfacecolor=np.zeros_like(Z),
+                colorscale=[[0, "lightblue"], [1, "lightblue"]],
+                opacity=0.3, showscale=False, name="Earth Surface"
+            ))
+
+            if self.app.show_borders.get():
+                self._draw_borders_plotly(fig)
+
+            # Get BS positions with cache invalidation
+            countries_str = _coerce_str(getattr(self.app, "topo_countries", ""), "Brazil")
+            num_bs_val = _safe_int(getattr(self.app, "topo_num_bs", None), 50)
+            cache_key = f"{countries_str}_{num_bs_val}"
+            
+            bs_lats = getattr(self.app, "_mc_bs_lats", None)
+            bs_lons = getattr(self.app, "_mc_bs_lons", None)
+            last_key = getattr(self.app, "_mc_cache_key", None)
+            
+            if bs_lats is None or bs_lons is None or last_key != cache_key:
+                try:
+                    if TopologyCountries is None or ParametersCountries is None:
+                        raise ImportError("TopologyCountries/ParametersCountries not available")
+                    
+                    param_c = ParametersCountries()
+                    names = [c.strip() for c in countries_str.split(",") if c.strip()]
+                    param_c.country_names = names if names else ["Brazil"]
+                    param_c.num_bs_total = _safe_int(getattr(self.app, "topo_num_bs", None), 50)
+                    
+                    base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+                    shp_path = os.path.join(base_dir, "topology", "map", "ne_110m_admin_0_countries.shp")
+                    ras_path = os.path.join(base_dir, "topology", "map", "SEDAC_map2.tiff")
+                    act_path = os.path.join(base_dir, "topology", "map", "sedac_pop.act")
+                    if os.path.exists(shp_path): param_c.shapefile_path = shp_path
+                    if os.path.exists(ras_path): param_c.population_raster = ras_path
+                    if os.path.exists(act_path): param_c.act_colormap_path = act_path
+                    
+                    topo = TopologyCountries(param_c, None)
+                    topo.calculate_coordinates()
+                    bs_lats, bs_lons = topo.lats, topo.lons
+                    
+                    self.app._mc_bs_lats = bs_lats
+                    self.app._mc_bs_lons = bs_lons
+                except Exception as e:
+                    print(f"[PreviewTab] TopologyCountries failed: {e}")
+                    n_bs = _safe_int(getattr(self.app, "topo_num_bs", None), 50)
+                    center_lat = _safe_float(getattr(self.app, "topo_center_lat", None), -15.0)
+                    center_lon = _safe_float(getattr(self.app, "topo_center_lon", None), -47.0)
+                    np.random.seed(42)
+                    bs_lats = center_lat + np.random.uniform(-15, 15, n_bs)
+                    bs_lons = center_lon + np.random.uniform(-20, 20, n_bs)
+
+            bs_x, bs_y, bs_z = lla_to_ecef(bs_lats, bs_lons, 0)
+            offset = 1.005
+            fig.add_trace(go.Scatter3d(
+                x=np.asarray(bs_x) * offset,
+                y=np.asarray(bs_y) * offset,
+                z=np.asarray(bs_z) * offset,
+                mode="markers",
+                marker=dict(size=3, color="cyan", symbol="diamond"),
+                name=f"BS ({len(bs_lats)})"
+            ))
+
+            # Removed early return and scene data override so spatial elements render below
+
+        # ============================================================
+        # Standard satellite/earth-station global scenarios
+        # ============================================================
+        sx, sy, sz, ex, ey, ez, sat_obj = self._get_global_positions(data)
 
         surface_color = None
         cmin, cmax = None, None
@@ -1705,6 +1916,7 @@ class PreviewTab:
         return np.array(pts)
 
     def _compute_gain_surface(self, sx, sy, sz, antenna, X, Y, Z, vmin, vmax):
+        """Compute gain map on the sphere surface using SHARC's antenna API."""
         S = np.array([sx, sy, sz])
         u_bore = _unit(-S)  # Nadir
 
@@ -1723,10 +1935,8 @@ class PreviewTab:
         dots = np.clip(dots, -1.0, 1.0)
         angles_deg = np.degrees(np.arccos(dots))
 
-        gains = np.zeros_like(angles_deg)
-
-        for i, ang in enumerate(angles_deg):
-            gains[i] = _antenna_gain_db(antenna, ang)
+        # Use vectorized batch call for performance
+        gains = _antenna_gain_db_batch(antenna, angles_deg)
 
         gains = np.nan_to_num(gains, nan=vmin)
         gains = np.clip(gains, vmin, vmax)
@@ -1761,38 +1971,118 @@ class PreviewTab:
         ax.set_ylim(cy - span/2, cy + span/2)
         ax.set_zlim(0, max(z_top, span/4))
 
-    def _draw_borders_mpl(self):
-        if not (HAS_PYSHP or HAS_GEOPANDAS):
-            return
-
+    def _get_border_coords(self) -> List[Tuple[np.ndarray, np.ndarray, bool]]:
+        """Reliably extract border coordinates, trying local SHARC files first, then Geopandas.
+        Returns tuples of (lat_array, lon_array, is_selected).
+        """
         coords = []
-        if HAS_PYSHP and hasattr(self.app, "path_shp"):
-            try:
-                r = pyshp.Reader(self.app.path_shp.get())
-                for sr in r.shapeRecords():
-                    if sr.shape.points:
-                        lons, lats = zip(*sr.shape.points)
-                        coords.append((lats, lons))
-            except:
-                pass
-        elif HAS_GEOPANDAS:
-            try:
-                gdf = gpd.read_file(
-                    gpd.datasets.get_path("naturalearth_lowres"))
-                for geom in gdf.geometry:
-                    if geom.geom_type == 'Polygon':
-                        lons, lats = geom.exterior.coords.xy
-                        coords.append((lats, lons))
-                    elif geom.geom_type == 'MultiPolygon':
-                        for poly in geom.geoms:
-                            lons, lats = poly.exterior.coords.xy
-                            coords.append((lats, lons))
-            except:
-                pass
+        
+        # Get selected countries for highlighting
+        selected_names = [c.strip().lower() for c in getattr(self.app, "topo_countries", tk.StringVar()).get().split(",") if c.strip()]
+        
+        # 1. Try user-provided path
+        paths_to_try = []
+        if hasattr(self.app, "path_shp") and self.app.path_shp.get():
+            paths_to_try.append(self.app.path_shp.get().strip())
+            
+        # 2. Try SHARC local shapefiles
+        try:
+            base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+            paths_to_try.extend([
+                os.path.join(base_dir, "topology", "map", "ne_110m_admin_0_countries.shp"),
+                os.path.join(base_dir, "data", "countries", "ne_110m_admin_0_countries.shp")
+            ])
+        except Exception:
+            pass
 
-        for lat, lon in coords:
+        # Helper to check if a shapefile record matches selected countries
+        def _is_selected(record_vals):
+            for val in record_vals:
+                if str(val).lower() in selected_names:
+                    return True
+            return False
+
+        # Try to read with pyshp
+        if HAS_PYSHP:
+            for p in paths_to_try:
+                if os.path.exists(p):
+                    try:
+                        r = pyshp.Reader(p)
+                        for sr in r.shapeRecords():
+                            is_seq = _is_selected(sr.record)
+                            if sr.shape.points:
+                                lons, lats = zip(*sr.shape.points)
+                                coords.append((np.array(lats), np.array(lons), is_seq))
+                        if coords:
+                            return coords
+                    except Exception:
+                        pass
+
+        # Try Geopandas with local files
+        if HAS_GEOPANDAS:
+            for p in paths_to_try:
+                if os.path.exists(p):
+                    try:
+                        gdf = gpd.read_file(p)
+                        # Identify name columns
+                        name_cols = [c for c in gdf.columns if c in ["ADMIN", "name", "NAME", "admin", "Country", "SOVEREIGNT"]]
+                        
+                        for idx, row in gdf.iterrows():
+                            is_seq = any(str(row[c]).lower() in selected_names for c in name_cols) if name_cols else False
+                            geom = row.geometry
+                            if geom is None:
+                                continue
+                            if geom.geom_type == 'Polygon':
+                                lons, lats = geom.exterior.coords.xy
+                                coords.append((np.array(lats), np.array(lons), is_seq))
+                            elif geom.geom_type == 'MultiPolygon':
+                                for poly in geom.geoms:
+                                    lons, lats = poly.exterior.coords.xy
+                                    coords.append((np.array(lats), np.array(lons), is_seq))
+                        if coords:
+                            return coords
+                    except Exception:
+                        pass
+                        
+            # Finally, try Geopandas built-in (might fail on >=1.0)
+            try:
+                if hasattr(gpd.datasets, "get_path"):
+                    gdf = gpd.read_file(gpd.datasets.get_path("naturalearth_lowres"))
+                    name_cols = [c for c in gdf.columns if c in ["ADMIN", "name", "NAME", "admin", "Country", "SOVEREIGNT"]]
+                    for idx, row in gdf.iterrows():
+                        is_seq = any(str(row[c]).lower() in selected_names for c in name_cols) if name_cols else False
+                        geom = row.geometry
+                        if geom is None:
+                            continue
+                        if geom.geom_type == 'Polygon':
+                            lons, lats = geom.exterior.coords.xy
+                            coords.append((np.array(lats), np.array(lons), is_seq))
+                        elif geom.geom_type == 'MultiPolygon':
+                            for poly in geom.geoms:
+                                lons, lats = poly.exterior.coords.xy
+                                coords.append((np.array(lats), np.array(lons), is_seq))
+                    if coords:
+                        return coords
+            except Exception:
+                pass
+                
+        return coords
+
+    def _draw_borders_mpl(self):
+        coords = self._get_border_coords()
+
+        for lat, lon, is_selected in coords:
             x, y, z = lla_to_ecef(lat, lon, 0)
-            self.ax3d.plot(x, y, z, color="k", lw=0.3, alpha=0.5)
+            # Offset outwards slightly to prevent z-fighting with the sphere surface
+            offset = 1.002
+            x = np.asarray(x) * offset
+            y = np.asarray(y) * offset
+            z = np.asarray(z) * offset
+            
+            if is_selected:
+                self.ax3d.plot(x, y, z, color="#00ff00", lw=2.0, alpha=1.0)  # Bright lime green
+            else:
+                self.ax3d.plot(x, y, z, color="#ffffff", lw=0.6, alpha=0.9)
 
     def _draw_footprint_mpl(self, sx, sy, sz, bw):
         fp = self._compute_footprint_boundary(sx, sy, sz, bw)
@@ -1801,40 +2091,21 @@ class PreviewTab:
                            color="magenta", lw=1.5, label="Footprint")
 
     def _draw_borders_plotly(self, fig):
-        coords = []
-        if HAS_PYSHP and hasattr(self.app, "path_shp"):
-            try:
-                r = pyshp.Reader(self.app.path_shp.get())
-                for sr in r.shapeRecords():
-                    if sr.shape.points:
-                        lons, lats = zip(*sr.shape.points)
-                        coords.append((np.array(lats), np.array(lons)))
-            except:
-                pass
-        elif HAS_GEOPANDAS:
-            try:
-                gdf = gpd.read_file(
-                    gpd.datasets.get_path("naturalearth_lowres"))
-                for geom in gdf.geometry:
-                    if geom.geom_type == 'Polygon':
-                        lons, lats = geom.exterior.coords.xy
-                        coords.append((np.array(lats), np.array(lons)))
-                    elif geom.geom_type == 'MultiPolygon':
-                        for poly in geom.geoms:
-                            lons, lats = poly.exterior.coords.xy
-                            coords.append((np.array(lats), np.array(lons)))
-            except:
-                pass
+        coords = self._get_border_coords()
 
-        for lat, lon in coords:
+        for lat, lon, is_selected in coords:
             # Offset borders slightly (1.001*R) to avoid z-fighting with sphere surface
             x, y, z = lla_to_ecef(lat, lon, 0.0)
             # Basic scaling to push them out a tiny bit
             norm = np.sqrt(x*x + y*y + z*z)
             scale = (WGS84_A * 1.001) / norm
+            
+            color = "lime" if is_selected else "white"
+            width = 3 if is_selected else 1
+            
             fig.add_trace(go.Scatter3d(
                 x=x*scale, y=y*scale, z=z*scale,
-                mode="lines", line=dict(color="black", width=2), showlegend=False
+                mode="lines", line=dict(color=color, width=width), showlegend=False
             ))
 
     def _add_wedge_plotly(self, fig, x, y, r, az, z, color):
@@ -1860,10 +2131,8 @@ class PreviewTab:
             y + r * np.sin(angles)
         ])
 
-    def _update_yaml_preview(self):
-        data = self._current_yaml()
-        self.txt_yaml.delete("1.0", tk.END)
-        self.txt_yaml.insert(tk.END, build_yaml_text(data))
+    # NOTE: _update_yaml_preview is defined earlier (line ~504).
+    # The duplicate definition that was here has been removed.
 
     def _save_image(self):
         """Save the current Matplotlib preview to an image file."""

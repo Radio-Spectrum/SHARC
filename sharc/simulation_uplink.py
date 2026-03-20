@@ -72,6 +72,8 @@ class SimulationUplink(Simulation):
             self.parameters.imt.ue.antenna.array,
             self.topology, random_number_gen,
         )
+        # NOTE: did not properly implement power backoff for UE
+        assert np.all(self.ue.power_backoff_applied == 0.)
 
         if self.parameters.imt.interfered_with:
             self.paths_between_imt_and_sys = PropagationPath.create_default(
@@ -306,6 +308,8 @@ class SimulationUplink(Simulation):
                                 center_freq,
                                 bw
                             ) - 30
+                            if self.system.spectral_mask.supports_backoff_subtraction:
+                                tx_oob[i, :] -= self.system.power_backoff_applied[system_interfering]
                 elif self.param_system.adjacent_ch_emissions == "ACLR":
                     # consider ACLR only over non co-channel RBs
                     # This should diminish some of the ACLR interference

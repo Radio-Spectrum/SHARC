@@ -35,6 +35,12 @@ class StationManager(object):
         self.oob_antenna = np.empty(n, dtype=Antenna)  # Out-of-band antenna pattern
         self.bandwidth = np.empty(n)  # Bandwidth in MHz
 
+        # by default, no power backoff
+        # NOTE: inband power SHOULD ALREADY be backoff'd in the station factory
+        # this is just a reference for us to know by how much backoff has been
+        # applied
+        self.power_backoff_applied = np.zeros(n, dtype=float)
+
         self.noise_figure = np.empty(n)  # Noise figure in dB
         self.noise_temperature = np.empty(n)  # Noise temperature in K
         self.thermal_noise = np.empty(n)  # Thermal noise in dBm/MHz

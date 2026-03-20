@@ -178,6 +178,7 @@ class StationFactory(object):
         ) < param.bs.load_probability
         # Conducted power per antenna element. Total power will depend on
         # the number of antenna elements and it's configured in power control.
+        imt_base_stations.power_backoff_applied = power_backoff
         imt_base_stations.tx_power = param.bs.conducted_power * np.ones(num_bs) - power_backoff
         imt_base_stations.rx_power = dict(
             [(bs, -500 * np.ones(param.ue.k)) for bs in range(num_bs)],
@@ -1909,6 +1910,7 @@ class StationFactory(object):
         azim = mss_d2d_values["sat_antenna_azim"]
         beams_ground_elev = mss_d2d_values["beams_ground_elev"]
         power_backoff = mss_d2d_values["sat_power_backoff"]
+        mss_d2d.power_backoff_applied = power_backoff
         mss_d2d.tx_power_density = params.tx_power_density * np.ones(
             mss_d2d.num_stations,
         ) - power_backoff

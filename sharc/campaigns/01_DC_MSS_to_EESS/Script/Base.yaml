@@ -11,7 +11,7 @@ general:
 imt:
     minimum_separation_distance_bs_ue: 35
     interfered_with: false
-    frequency: 2112.5
+    frequency: 2117.5
     bandwidth: 5.0
     rb_bandwidth: 0.18
     adjacent_antenna_model: SINGLE_ELEMENT
@@ -55,7 +55,7 @@ imt:
                                 # - Argentina
                             margin_from_border: 25 # variar depois
                     eligible_sats_margin_from_border: -200.0
-                    minimum_service_angle: 40 # Variar depois
+                    minimum_service_angle: 32 # Variar depois
             beam_radius: 24000
             power_control_zones:
                 zones:
@@ -76,7 +76,7 @@ imt:
                                   #   - Argentina
                               margin_from_border: 0
     bs:
-        adjacent_ch_leak_ratio: 45
+        adjacent_ch_leak_ratio: 50
         load_probability: 0.2 # Variar 0.1, 0.2 e 0.5
         conducted_power: 33.39 # -17.6 (dBW/Hz) + 30 (dbW->dbm) + 10*log10(5e6) (Banda) - 46.0 (Ganho da antena) para chegar em dBm
         height: 690000

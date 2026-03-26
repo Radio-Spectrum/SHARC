@@ -47,41 +47,29 @@ VICTIM_STATIONS = {
 # dentro de: imt.topology.mss_dc.power_control_zones.zones[*]
 # ------------------------------------------------------------
 COVERAGES = {
-    "BR_PB150": {
-        "countries": ["Brazil"],
-        "pb_margin_if_zero": 150,  # BR: você pediu 150 quando power_backoff_db=0
-    },
-    "BR_PB100": {
-        "countries": ["Brazil"],
-        "pb_margin_if_zero": 100,  # BR: você pediu 150 quando power_backoff_db=0
-    },
     "BR_PB50": {
         "countries": ["Brazil"],
         "pb_margin_if_zero": 50,  # BR: você pediu 150 quando power_backoff_db=0
     },
-    "BR_AR_PB150": {
-        "countries": ["Brazil","Argentina"],
-        "pb_margin_if_zero": 150,  # BR: você pediu 150 quando power_backoff_db=0
-    },
-    "BR_AR_PB100": {
-        "countries": ["Brazil","Argentina"],
-        "pb_margin_if_zero": 100,  # BR: você pediu 150 quando power_backoff_db=0
+    "BR_PB0": {
+        "countries": ["Brazil"],
+        "pb_margin_if_zero": 0,  # BR: você pediu 150 quando power_backoff_db=0
     },
     "BR_AR_PB50": {
         "countries": ["Brazil","Argentina"],
         "pb_margin_if_zero": 50,  # BR: você pediu 150 quando power_backoff_db=0
     },
+    "BR_AR_PB0": {
+        "countries": ["Brazil","Argentina"],
+        "pb_margin_if_zero": 0,  # BR: você pediu 150 quando power_backoff_db=0
+    },
+    "SA_PB0": {
+        "countries": ["Brazil", "Argentina", "Uruguay", "Paraguay", "Bolivia", "Chile", "Peru"],
+        "pb_margin_if_zero": 0,  # BR: você pediu 150 quando power_backoff_db=0
+    },
     "SA_PB50": {
         "countries": ["Brazil", "Argentina", "Uruguay", "Paraguay", "Bolivia", "Chile", "Peru"],
         "pb_margin_if_zero": 50,  # BR: você pediu 150 quando power_backoff_db=0
-    },
-    "SA_PB150": {
-        "countries": ["Brazil", "Argentina", "Uruguay", "Paraguay", "Bolivia", "Chile", "Peru"],
-        "pb_margin_if_zero": 150,  # BR: você pediu 150 quando power_backoff_db=0
-    },
-    "SA_PB100": {
-        "countries": ["Brazil", "Argentina", "Uruguay", "Paraguay", "Bolivia", "Chile", "Peru"],
-        "pb_margin_if_zero": 100,  # BR: você pediu 150 quando power_backoff_db=0
     },
 }
 

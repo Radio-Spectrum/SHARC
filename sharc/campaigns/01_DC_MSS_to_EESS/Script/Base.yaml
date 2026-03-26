@@ -1,6 +1,6 @@
 general:
     seed: 838
-    num_snapshots: 4000
+    num_snapshots: 10000
     overwrite_output: false
     output_dir: campaigns/system4_vs_fs/output/
     output_dir_prefix: output_dc2fs_Sys4_H690_h20_A90_lf20_MO25

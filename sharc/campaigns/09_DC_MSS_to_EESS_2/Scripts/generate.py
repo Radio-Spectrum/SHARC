@@ -26,23 +26,23 @@ OUTPUT_DIR = CAMPAIGN_DIR / "output"
 
 LOAD_FACTORS = [0.2, 0.5]
 MASK = ["Spu"]   #["STEP", "MSS"]
-EESS_systems = ["EESS_D"] #["EESS_B", "EESS_D"]
-EESS_pos = ['P'] # P - Paraguay; B - Bolivia; C - Colombia
-MARGIN = [0, 60]
-DCMSS_systems = ["system_525km"] #["system_340km", "system_525km"]
+EESS_systems = ["EESS_B", "EESS_D"] #["EESS_B", "EESS_D"]
+EESS_pos = ['P', 'B', 'C'] # P - Paraguay; B - Bolivia; C - Colombia
+MARGIN = [0, 50, 100]
+DCMSS_systems = ["system_340km", "system_525km"] #["system_340km", "system_525km"]
 COVERAGES = {
-    #"uBR": {
-    #    "countries": ["Brazil"],
-    #},
+    "uBR": {
+        "countries": ["Brazil"],
+    },
     "BR_AR": {
         "countries": ["Brazil", "Argentina"],
     },
-    #"SA": {
-    #    "countries": [
-    #        "Argentina", "Bolivia", "Brazil", "Chile", "Colombia",
-    #        "Ecuador", "Paraguay", "Peru", "Uruguay",
-    #    ],
-    #},
+    "SA": {
+        "countries": [
+            "Argentina", "Bolivia", "Brazil", "Chile", "Colombia",
+            "Ecuador", "Paraguay", "Peru", "Uruguay",
+        ],
+    },
 }
 
 
@@ -99,8 +99,8 @@ def main():
                                         cfg["imt"].pop("spectral_mask_steps", None)
                                         cfg["imt"]["bs"]["use_oob_antenna"] = False
                                         cfg["imt"]["bs"].pop("oob_antenna", None)
-                                        cfg["imt"]["frequency"] = 2187.5 
-                                        cfg["imt"]["bs"]["antenna"]["itu_r_s_1528"]["frequency"] = 2187.5 
+                                        cfg["imt"]["frequency"] = 2117.5
+                                        #cfg["imt"]["bs"]["antenna"]["itu_r_s_1528"]["frequency"] = 2187.5 
                                         
                                     else:
                                         cfg["imt"]["spectral_mask"] = "STEPPED"

@@ -220,7 +220,8 @@ print(json.dumps({{"found": found, "base": base}}))
             return f"python3 {shlex.quote(main_cli)} -p {shlex.quote(remote_path)}"
         if main_cli:
             return f"python3 -m {main_cli} -p {shlex.quote(remote_path)}"
-        return self._build_remote_python_entrypoint(remote_path)
+        # Fallback to avoid infinite recursion
+        return f"python3 sharc/main_cli.py -p {shlex.quote(remote_path)}"
 
     # =========================================================================
     # SSH CONNECTION & TUNNELING
@@ -405,7 +406,8 @@ print(json.dumps({{"found": found, "base": base}}))
         if not self.ssh_connected:
             return []
         try:
-            cmd = f'ls "{remote_dir}"/*.yaml "{remote_dir}"/*.yml 2>/dev/null'
+            py = f"import os, glob; d=os.path.expanduser({repr(remote_dir)}); print('\\n'.join(glob.glob(d+'/*.yaml')+glob.glob(d+'/*.yml')))"
+            cmd = f"python3 -c {shlex.quote(py)}"
             out = self.exec_command_output(cmd)
             return [line.strip() for line in out.splitlines() if line.strip()]
         except Exception as e:
@@ -435,15 +437,10 @@ print(json.dumps({{"found": found, "base": base}}))
         if not remote_dir_q:
             raise ValueError("remote_dir is empty")
 
-        # Ensure remote dir exists
-        self.exec_command_output(f"mkdir -p {shlex.quote(remote_dir_q)}")
-
         # Open SFTP
         sftp = None
         uploaded = []
         try:
-            sftp = self.ssh_client.open_sftp()
-
             # Normalize remote_dir absolute path (resolve ~)
             try:
                 # paramiko doesn't expand ~; ask remote shell for it
@@ -453,6 +450,11 @@ print(json.dumps({{"found": found, "base": base}}))
                 remote_dir_resolved = resolved if resolved else remote_dir_q
             except Exception:
                 remote_dir_resolved = remote_dir_q
+
+            # Ensure remote dir exists safely after expanding `~`
+            self.exec_command_output(f"mkdir -p {shlex.quote(remote_dir_resolved)}")
+
+            sftp = self.ssh_client.open_sftp()
 
             for lp in local_paths:
                 if not lp:
@@ -522,6 +524,16 @@ print(json.dumps({{"found": found, "base": base}}))
             "~/sharc",
             "~",
         ]
+        
+        # Safely resolve tilde (~) expansion globally on the remote machine
+        try:
+            py_resolve = "python3 -c 'import os, json, sys; print(json.dumps([os.path.expanduser(p) for p in sys.argv[1:]]))' " + " ".join(shlex.quote(c) for c in candidates if c)
+            out = self.exec_command_output(py_resolve).strip()
+            if out:
+                candidates = json.loads(out)
+        except Exception:
+            pass
+
         main_candidates = [
             "sharc/main_cli.py",
             "main_cli.py",
@@ -639,14 +651,26 @@ print(json.dumps(items))
     def git_force_checkout(self, branch):
         if not self.ssh_connected:
             return
+            
+        venv_path = self.remote_venv_path or self._detect_remote_venv(log_result=False)
+        if venv_path:
+            # Re-use existing virtual environment
+            venv_rel = os.path.dirname(os.path.dirname(venv_path))
+            setup_venv = "true"
+        else:
+            # Fallback to creating a new one if not found
+            venv_rel = ".venv"
+            venv_path = f"{venv_rel}/bin/activate"
+            setup_venv = f"if [ ! -d {shlex.quote(venv_rel)} ]; then python3 -m venv {shlex.quote(venv_rel)}; fi"
+            
         cmds = [
             f"cd {shlex.quote(self.remote_base_dir)}",
             "git fetch --all --prune",
             "git reset --hard",
             "git clean -fd",
             f"git checkout {shlex.quote(branch)}",
-            "if [ ! -d .sharc_env/ ]; then python3 -m venv .sharc_env; fi",
-            "source .sharc_env/bin/activate && pip install -e ."
+            setup_venv,
+            f"source {shlex.quote(venv_path)} && pip install -e ."
         ]
         full_cmd = " && ".join(cmds)
 
@@ -670,6 +694,7 @@ print(json.dumps(items))
     # =========================================================================
 
     def run_local_parallel(self, file_paths, max_workers):
+        self.active_threads = [t for t in self.active_threads if t.is_alive()]
         semaphore = threading.Semaphore(max_workers)
         for fpath in file_paths:
             t = threading.Thread(target=self._worker_local,
@@ -748,6 +773,7 @@ print(json.dumps(items))
         else:
             self.log_callback("[REMOTE] tmux not available: using legacy SSH exec mode.")
 
+        self.active_threads = [t for t in self.active_threads if t.is_alive()]
         semaphore = threading.Semaphore(max(1, int(max_workers or 1)))
         for index, fpath in enumerate(file_paths, start=1):
             t = threading.Thread(
@@ -927,11 +953,11 @@ print(json.dumps(items))
         pat_prog = re.compile(r"(?:snapshot|step|snap).*?(\d+)\s*(?:/|of)\s*(\d+)", re.IGNORECASE)
         pat_step = re.compile(r"(?:snapshot|step|snap).*?#?(\d+)", re.IGNORECASE)
         while self.ssh_connected:
-            cmd = f"python3 - <<'PY'\nimport pathlib\np=pathlib.Path({log_file!r}).expanduser()\nprint(p.read_text(errors='ignore') if p.exists() else '')\nPY"
+            cmd = f"python3 - <<'PY'\nimport os\np=os.path.expanduser({log_file!r})\nif os.path.exists(p):\n os.system(f'tail -n +{{1 + {sent_count}}} \"{{p}}\"')\nPY"
             raw = self.exec_command_output(cmd)
             lines = raw.splitlines()
-            if sent_count < len(lines):
-                for line in lines[sent_count:]:
+            if lines:
+                for line in lines:
                     clean_text = line.strip()
                     if not clean_text:
                         continue
@@ -966,7 +992,7 @@ print(json.dumps(items))
                             status["pct_value"] = 0.0
                             status["eta"] = "--"
                         self._emit_status(status)
-                sent_count = len(lines)
+                sent_count += len(lines)
                 idle_cycles = 0
             else:
                 idle_cycles += 1

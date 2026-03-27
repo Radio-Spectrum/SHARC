@@ -498,7 +498,6 @@ b
         Select K UEs randomly from all the UEs linked to one BS as “chosen”
         UEs. These K “chosen” UEs will be scheduled during this snapshot.
         """
-        return
         if self.wrap_around_enabled:
             self.bs_to_ue_d_2D, self.bs_to_ue_d_3D, self.bs_to_ue_phi, self.bs_to_ue_theta = \
                 self.bs.geom.get_global_dist_angles_wrap_around(self.ue.geom)

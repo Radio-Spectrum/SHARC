@@ -17,6 +17,7 @@ imt:
     adjacent_antenna_model: SINGLE_ELEMENT
     adjacent_ch_reception: "OFF"
     adjacent_ch_emissions: ACLR
+    spectral_mask: MSS
     spurious_emissions: -13 #Precisa desse parâmetro?
     guard_band_ratio: 0.1
     topology:
@@ -135,7 +136,6 @@ single_earth_station:
   bandwidth: 4
   tx_power_density: -200
   noise_temperature: 190
-  adjacent_ch_selectivity: 35
   channel_model: P619
   polarization_loss: 3
   geometry:
@@ -161,7 +161,6 @@ single_earth_station:
     itu_r_s_465:
       antenna_gain: 45.8
       diameter: 8.91
-  adjacent_ch_reception: ACS
   season: SUMMER
   param_p619:
     earth_station_lat_deg: -15.33

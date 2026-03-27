@@ -5,6 +5,8 @@ import threading
 from datetime import datetime
 import shlex
 
+from sharc.gui.utils import CollapsibleFrame
+
 
 class RunnerTab:
 
@@ -201,11 +203,11 @@ class RunnerTab:
         # =========================================================
         # REMOTE PATHS (Project dir + main_cli) - somente SSH
         # =========================================================
-        self.frm_remote_paths = ttk.LabelFrame(
-            self.frm_remote, text="Remote Paths")
+        self.frm_remote_paths = CollapsibleFrame(
+            self.frm_remote, text="Remote Paths", expanded=False)
         self.frm_remote_paths.pack(fill="x", expand=False, padx=8, pady=(0, 8))
 
-        rp = ttk.Frame(self.frm_remote_paths)
+        rp = ttk.Frame(self.frm_remote_paths.sub_frame)
         rp.pack(fill="x", padx=6, pady=(6, 6))
 
         self.var_remote_project_dir = tk.StringVar(value=getattr(
@@ -237,11 +239,11 @@ class RunnerTab:
         # =========================================================
         # REMOTE FILE BROWSER (somente SSH)
         # =========================================================
-        self.frm_browser = ttk.LabelFrame(
-            self.frm_remote, text="Remote File Browser")
+        self.frm_browser = CollapsibleFrame(
+            self.frm_remote, text="Remote File Browser", expanded=True)
         self.frm_browser.pack(fill="both", expand=False, padx=8, pady=(0, 8))
 
-        br_top = ttk.Frame(self.frm_browser)
+        br_top = ttk.Frame(self.frm_browser.sub_frame)
         br_top.pack(fill="x", padx=6, pady=(6, 4))
 
         self.var_remote_browse_dir = tk.StringVar(
@@ -258,7 +260,7 @@ class RunnerTab:
         ttk.Button(br_top, text="Set YAML Dir",
                    command=self._remote_browse_set_as_yaml_dir).pack(side="left")
 
-        br_mid = ttk.Frame(self.frm_browser)
+        br_mid = ttk.Frame(self.frm_browser.sub_frame)
         br_mid.pack(fill="both", expand=True, padx=6, pady=(0, 6))
 
         bcols = ("name", "type", "size", "mtime")
@@ -302,11 +304,11 @@ class RunnerTab:
         # =========================================================
         # PROTECTED REMOTE RUNS (tmux resume)
         # =========================================================
-        self.frm_runs = ttk.LabelFrame(
-            self.frm_remote, text="Protected Runs (tmux)")
+        self.frm_runs = CollapsibleFrame(
+            self.frm_remote, text="Protected Runs (tmux)", expanded=False)
         self.frm_runs.pack(fill="x", padx=8, pady=(0, 8))
 
-        rr = ttk.Frame(self.frm_runs)
+        rr = ttk.Frame(self.frm_runs.sub_frame)
         rr.pack(fill="x", padx=6, pady=6)
 
         ttk.Button(rr, text="List Runs", command=self._list_remote_runs).pack(
@@ -397,12 +399,12 @@ class RunnerTab:
         # =========================================================
         # LOG WINDOW
         # =========================================================
-        frm_log = ttk.LabelFrame(self.frame, text="Execution Log")
+        frm_log = CollapsibleFrame(self.frame, text="Execution Log", expanded=False)
         frm_log.pack(fill="both", expand=True, padx=5, pady=5)
 
         self.txt_log = tk.Text(
-            frm_log, height=12, state="disabled", font=("Consolas", 9))
-        sb_log = ttk.Scrollbar(frm_log, orient="vertical",
+            frm_log.sub_frame, height=12, state="disabled", font=("Consolas", 9))
+        sb_log = ttk.Scrollbar(frm_log.sub_frame, orient="vertical",
                                command=self.txt_log.yview)
         self.txt_log.configure(yscroll=sb_log.set)
 

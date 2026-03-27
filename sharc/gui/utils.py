@@ -1,4 +1,5 @@
 import numpy as np
+import tkinter as tk
 from tkinter import ttk
 
 # Importa constantes definidas no config.py
@@ -113,3 +114,45 @@ def add_row_three(parent, r, items):
     while col < 6:
         parent.grid_columnconfigure(col, weight=1)
         col += 1
+
+# ============================================================================
+# EXTENDED UI WIDGETS
+# ============================================================================
+
+class CollapsibleFrame(ttk.Frame):
+    """
+    Um frame expansível/retrátil (estilo accordion) para agrupar opções.
+    Para adicionar widgets, coloque-os dentro de `self.sub_frame`.
+    """
+    def __init__(self, parent, text="", expanded=False, *args, **kwargs):
+        super().__init__(parent, *args, **kwargs)
+        
+        self.show = tk.BooleanVar(value=expanded)
+        self._text = text
+        
+        self.title_frame = ttk.Frame(self)
+        self.title_frame.pack(fill="x", expand=False)
+        
+        # O botão alterna o estado do 'show'
+        self.toggle_button = ttk.Checkbutton(
+            self.title_frame, width=3, text="-" if expanded else "+", 
+            command=self.toggle, variable=self.show, style="Toolbutton"
+        )
+        self.toggle_button.pack(side="left")
+        
+        self.title_label = ttk.Label(self.title_frame, text=self._text, font=("Segoe UI", 9, "bold"))
+        self.title_label.pack(side="left", fill="x", expand=True, padx=5)
+        
+        self.sub_frame = ttk.Frame(self)
+        
+        if expanded:
+            self.sub_frame.pack(fill="both", expand=True, pady=2, padx=5)
+            
+    def toggle(self):
+        if self.show.get():
+            self.sub_frame.pack(fill="both", expand=True, pady=2, padx=5)
+            self.toggle_button.configure(text="-")
+        else:
+            self.sub_frame.pack_forget()
+            self.toggle_button.configure(text="+")
+

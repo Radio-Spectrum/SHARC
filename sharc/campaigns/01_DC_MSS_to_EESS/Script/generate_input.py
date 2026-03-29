@@ -5,7 +5,7 @@ from __future__ import annotations
 import copy
 import csv
 from pathlib import Path
-
+import numpy as np
 # ============================================================
 # ===================== VARIÁVEIS GERAIS =====================
 # ============================================================
@@ -178,8 +178,11 @@ def main():
                                 # Ganho da antena (duplo)
                                 ses["antenna"]["gain"] = float(victim["antenna_gain"])
                                 ses["antenna"]["itu_r_s_465"]["antenna_gain"] = float(victim["antenna_gain"])
-                                ses["frequency"] = 2110 - float(victim["bandwidth"]) / 2
-
+                                ses["frequency"] = 2200 + float(victim["bandwidth"]) / 2
+                                G_linear = 10**(float(victim["antenna_gain"]) / 10)
+                                lam = 2.998e8 / (float(ses["frequency"]) * 1e6)
+                                diam = float(np.round(lam * np.sqrt(G_linear / 0.9) / np.pi, 2))
+                                ses["antenna"]["itu_r_s_465"]["diameter"] = diam
                                 # Altura
                                 ses["geometry"]["height"] = float(victim["height_m"])
                                 ses["bandwidth"] = float(victim["bandwidth"])

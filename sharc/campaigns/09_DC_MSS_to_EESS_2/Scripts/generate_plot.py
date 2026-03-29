@@ -15,12 +15,12 @@ MASK_STYLE = {
 
 LOAD_FACTORS = [0.2, 0.5]
 MASK = ["Spu"] # "STEP",  "Spu"
-EESS_systems = ["EESS_D"] # "EESS_D" "EESS_B"
+EESS_systems = ["EESS_B"] # "EESS_D" "EESS_B"
 EESS_pos = ['P','C'] # 'P','C'
-MARGIN = [0, 60]
-DCMSS_systems = ["system_525km"] # "system_525km", "system_340km"
+MARGIN = [0]
+DCMSS_systems = ["system_525km", "system_340km"] # "system_525km", "system_340km"
 
-COVERAGES = {"BR_AR": {}}
+COVERAGES = {"SA": {}}
 
 # matplotlib color cycle
 COLOR_LIST = plt.rcParams['axes.prop_cycle'].by_key()['color']
@@ -128,6 +128,7 @@ def make_plot():
         a.set_xlabel("Interference Power [dBW/MHz]")
         a.set_ylabel("CCDF")
         a.set_yscale("log")
+        a.set_ylim(0.001, 1) # show from 1% to 100% of the time
 
         # soft dotted grid
         a.grid(

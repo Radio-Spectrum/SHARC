@@ -157,7 +157,6 @@ single_earth_station:
     itu_r_s_465:
       antenna_gain: 45.8
       diameter: 8.91
-  adjacent_ch_reception: ACS
   season: SUMMER
   param_p619:
     earth_station_lat_deg: -15.33

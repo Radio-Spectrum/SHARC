@@ -27,20 +27,20 @@ OUTPUT_DIR = CAMPAIGN_DIR / "output"
 LOAD_FACTORS = [0.2, 0.5]
 MASK = ["Spu"]   #["STEP", "MSS"]
 EESS_systems = ["EESS_B", "EESS_D"] #["EESS_B", "EESS_D"]
-EESS_pos = ['P', 'B', 'C'] # P - Paraguay; B - Bolivia; C - Colombia
-MARGIN = [0, 50, 100]
+EESS_pos = ['P', 'C'] # P - Paraguay; B - Bolivia; C - Colombia
+MARGIN = [0, 75]
 DCMSS_systems = ["system_340km", "system_525km"] #["system_340km", "system_525km"]
 COVERAGES = {
-    "uBR": {
-        "countries": ["Brazil"],
-    },
+    #"uBR": {
+    #    "countries": ["Brazil"],
+    #},
     "BR_AR": {
         "countries": ["Brazil", "Argentina"],
     },
     "SA": {
         "countries": [
             "Argentina", "Bolivia", "Brazil", "Chile", "Colombia",
-            "Ecuador", "Paraguay", "Peru", "Uruguay",
+            "Ecuador", "Paraguay", "Peru", "Uruguay", "Venezuela", "Guyana", "Suriname"
         ],
     },
 }
@@ -164,7 +164,7 @@ def main():
                                         cfg["imt"]["topology"]["central_longitude"] = -68.765
                                         cfg["imt"]["topology"]["central_altitude"] = 240
                                         cfg["single_earth_station"]["param_p619"]["earth_station_lat_deg"] = -11.025
-                                        cfg["single_earth_station"]["param_p619"]["earth_station_alt_m"] = 240                                   
+                                        cfg["single_earth_station"]["param_p619"]["earth_station_alt_m"] = 240                               
 
 
                                     # ===== Output name =====

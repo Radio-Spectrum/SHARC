@@ -45,73 +45,15 @@ class RunnerTab:
     # Scroll container
     # =========================================================
 
-    def _make_scrollable_container(self, parent: tk.Widget):
-        """Cria um container com scroll vertical (para não precisar 'ver tudo' de uma vez)."""
-        outer = ttk.Frame(parent)
-        outer.pack(fill="both", expand=True)
-
-        canvas = tk.Canvas(outer, highlightthickness=0)
-        vsb = ttk.Scrollbar(outer, orient="vertical", command=canvas.yview)
-        canvas.configure(yscrollcommand=vsb.set)
-
-        vsb.pack(side="right", fill="y")
-        canvas.pack(side="left", fill="both", expand=True)
-
-        inner = ttk.Frame(canvas)
-        win_id = canvas.create_window((0, 0), window=inner, anchor="nw")
-
-        def _on_inner_configure(event=None):
-            canvas.configure(scrollregion=canvas.bbox("all"))
-
-        def _on_canvas_configure(event):
-            # mantém largura do inner = largura do canvas
-            canvas.itemconfigure(win_id, width=event.width)
-
-        inner.bind("<Configure>", _on_inner_configure, add="+")
-        canvas.bind("<Configure>", _on_canvas_configure, add="+")
-
-        # mousewheel (Windows/macOS) + Linux
-        def _on_mousewheel(event):
-            # Windows/macOS: event.delta (+/- 120)
-            if getattr(event, "delta", 0):
-                canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
-            return "break"
-
-        def _on_linux_scroll_up(event):
-            canvas.yview_scroll(-1, "units")
-            return "break"
-
-        def _on_linux_scroll_down(event):
-            canvas.yview_scroll(1, "units")
-            return "break"
-
-        # ativa scroll quando mouse está sobre o canvas/inner
-        def _bind_wheel(_e=None):
-            canvas.bind_all("<MouseWheel>", _on_mousewheel)
-            canvas.bind_all("<Button-4>", _on_linux_scroll_up)
-            canvas.bind_all("<Button-5>", _on_linux_scroll_down)
-
-        def _unbind_wheel(_e=None):
-            canvas.unbind_all("<MouseWheel>")
-            canvas.unbind_all("<Button-4>")
-            canvas.unbind_all("<Button-5>")
-
-        canvas.bind("<Enter>", _bind_wheel, add="+")
-        canvas.bind("<Leave>", _unbind_wheel, add="+")
-        inner.bind("<Enter>", _bind_wheel, add="+")
-        inner.bind("<Leave>", _unbind_wheel, add="+")
-
-        return outer, canvas, inner
+    # Scroll container no longer needed here as main.py provides ScrolledFrame
 
 # =========================================================
     # UI
     # =========================================================
     def _build_ui(self):
-        # Container com scroll vertical (a aba Runner é longa)
-        self._scroll_outer, self._scroll_canvas, self._scroll_inner = self._make_scrollable_container(
-            self.host_frame)
-        # A partir daqui, todos os widgets serão criados dentro do frame "scrollável"
-        self.frame = self._scroll_inner
+        # A partir daqui, todos os widgets serão criados dentro do frame "scrollável" provido pela Main
+        self.frame = ttk.Frame(self.host_frame)
+        self.frame.pack(fill="both", expand=True)
 
         # =========================================================
         # EXECUTION MODE

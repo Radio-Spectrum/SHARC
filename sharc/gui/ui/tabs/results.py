@@ -38,6 +38,35 @@ try:
 except ImportError:
     RESULT_FIELDNAME_TO_PLOT_INFO = {}
 
+class ScrollableContainer(ttk.Frame):
+    def __init__(self, master, **kwargs):
+        super().__init__(master, **kwargs)
+        self.v_scroll = ttk.Scrollbar(self, orient="vertical")
+        self.v_scroll.pack(side="right", fill="y")
+        
+        self.canvas = tk.Canvas(self, highlightthickness=0, borderwidth=0)
+        self.canvas.pack(side="left", fill="both", expand=True)
+        self.canvas.configure(yscrollcommand=self.v_scroll.set)
+        self.v_scroll.configure(command=self.canvas.yview)
+        
+        self.container = ttk.Frame(self.canvas)
+        self.canvas_window = self.canvas.create_window((0, 0), window=self.container, anchor="nw")
+        
+        self.container.bind("<Configure>", lambda e: self.canvas.configure(scrollregion=self.canvas.bbox("all")))
+        self.canvas.bind("<Configure>", lambda e: self.canvas.itemconfig(self.canvas_window, width=e.width))
+        self.bind_all("<MouseWheel>", self._on_mousewheel)
+
+    def _on_mousewheel(self, event):
+        try:
+            widget = self.winfo_containing(*self.winfo_pointerxy())
+            cur = widget
+            while cur:
+                if cur == self:
+                    if event.delta > 0: self.canvas.yview_scroll(-1, "units")
+                    elif event.delta < 0: self.canvas.yview_scroll(1, "units")
+                    break
+                cur = cur.master
+        except: pass
 
 class ResultsTab:
     """
@@ -164,8 +193,8 @@ class ResultsTab:
             self.app.var_plot_selected_only = self.var_plot_selected_only
 
         self.var_style_label = tk.StringVar()
-        self.var_style_color = tk.StringVar(value="Auto")
-        self.var_style_ls = tk.StringVar(value="Auto")
+        self.var_style_color = tk.StringVar(value="auto")
+        self.var_style_ls = tk.StringVar(value="")
         self.var_style_lw = tk.DoubleVar(value=1.5)
 
         # --- Plot Engine Selection ---
@@ -189,9 +218,12 @@ class ResultsTab:
     def _build_ui(self):
         paned = ttk.PanedWindow(self.frame, orient="horizontal")
         paned.pack(fill="both", expand=True)
-        left_frame = ttk.Frame(paned, width=450)
+        
+        self.left_scroll = ScrollableContainer(paned)
+        left_frame = self.left_scroll.container
+        
         right_frame = ttk.Frame(paned)
-        paned.add(left_frame, weight=0)
+        paned.add(self.left_scroll, weight=0)
         paned.add(right_frame, weight=1)
 
         self._build_file_manager(left_frame)
@@ -218,7 +250,7 @@ class ResultsTab:
         # Listbox
         list_frame = ttk.Frame(frm)
         list_frame.pack(fill="x", padx=5, pady=5)
-        self.lb_dirs = tk.Listbox(list_frame, height=5, selectmode="extended")
+        self.lb_dirs = tk.Listbox(list_frame, height=5, selectmode="extended", exportselection=0)
         self.lb_dirs.pack(side="left", fill="both", expand=True)
         sb = ttk.Scrollbar(list_frame, command=self.lb_dirs.yview)
         sb.pack(side="right", fill="y")
@@ -721,8 +753,9 @@ class ResultsTab:
                 path = self.app.res_dirs[idx]
                 if path not in self.app.res_styles:
                     self.app.res_styles[path] = {}
-                if label:
-                    self.app.res_styles[path]["label"] = label
+                
+                # A string vazia sobrescreverá qualquer label anterior, permitindo "limpar" o campo
+                self.app.res_styles[path]["label"] = label
                 self.app.res_styles[path]["color"] = color
                 self.app.res_styles[path]["linestyle"] = ls
                 self.app.res_styles[path]["linewidth"] = float(lw)
@@ -1015,38 +1048,60 @@ class ResultsTab:
                 title_text=xlab, type="log" if cfg["x_log"] else "linear", showgrid=True)
             yaxis_params = dict(
                 title_text=ylab, type="log" if cfg["y_log"] else "linear", showgrid=True)
+            
+            # --- Configuração de Eixos X ---
             try:
                 xmin = float(cfg.get("x_min", ""))
                 xmax = float(cfg.get("x_max", ""))
-                xaxis_params["range"] = [xmin, xmax]
+                if cfg["x_log"]:
+                    # No Plotly, range de eixo log precisa ser convertido para log10
+                    xmin_log = math.log10(xmin) if xmin > 0 else 0
+                    xmax_log = math.log10(xmax) if xmax > 0 else 1
+                    xaxis_params["range"] = [xmin_log, xmax_log]
+                else:
+                    xaxis_params["range"] = [xmin, xmax]
             except ValueError:
                 pass
+            
+            # --- Configuração de Eixos Y ---
             try:
                 ymin = float(cfg.get("y_min", ""))
                 ymax = float(cfg.get("y_max", ""))
-                yaxis_params["range"] = [ymin, ymax]
+                if cfg["y_log"]:
+                    ymin_log = math.log10(ymin) if ymin > 0 else 0
+                    ymax_log = math.log10(ymax) if ymax > 0 else 1
+                    yaxis_params["range"] = [ymin_log, ymax_log]
+                else:
+                    yaxis_params["range"] = [ymin, ymax]
             except ValueError:
                 pass
+
+            # --- Configuração de Steps X ---
             try:
                 xstep = float(cfg.get("x_step", ""))
                 if xstep > 0:
-                    xaxis_params["dtick"] = xstep
-                    if not cfg["x_log"] and xstep < 1.0:
-                        decimals = max(
-                            0, int(math.ceil(-math.log10(xstep)) - 2))
-                        xaxis_params["tickformat"] = f".{decimals}%"
+                    # Só aplica o step linear se NÃO estiver em escala log
+                    if not cfg["x_log"]:
+                        xaxis_params["dtick"] = xstep
+                        if xstep < 1.0:
+                            decimals = max(0, int(math.ceil(-math.log10(xstep)) - 2))
+                            xaxis_params["tickformat"] = f".{decimals}%"
             except ValueError:
                 pass
+
+            # --- Configuração de Steps Y ---
             try:
                 ystep = float(cfg.get("y_step", ""))
                 if ystep > 0:
-                    yaxis_params["dtick"] = ystep
-                    if not cfg["y_log"] and ystep < 1.0:
-                        decimals = max(
-                            0, int(math.ceil(-math.log10(ystep)) - 2))
-                        yaxis_params["tickformat"] = f".{decimals}%"
+                    # Só aplica o step linear se NÃO estiver em escala log
+                    if not cfg["y_log"]:
+                        yaxis_params["dtick"] = ystep
+                        if ystep < 1.0:
+                            decimals = max(0, int(math.ceil(-math.log10(ystep)) - 2))
+                            yaxis_params["tickformat"] = f".{decimals}%"
             except ValueError:
                 pass
+
             fig.update_xaxes(xaxis_params, row=r, col=c)
             fig.update_yaxes(yaxis_params, row=r, col=c)
 

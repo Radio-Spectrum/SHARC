@@ -14,6 +14,7 @@ try:
     import ttkbootstrap as tb
     from ttkbootstrap.constants import *
     from ttkbootstrap.widgets import Meter, ToastNotification, ToolTip
+    # Replace ttkbootstrap ScrolledFrame since it only supports vertical scrolling
     HAS_BOOTSTRAP = True
 except ImportError:
     HAS_BOOTSTRAP = False
@@ -44,6 +45,76 @@ from ui.tabs.ssh_config import SSHTunnelTab
 PROJECT_ROOT = get_sharc_root()
 
 
+class ResponsiveTabFrame(ttk.Frame):
+    """
+    A professional full-axis scrollable container.
+    Fixes the Tkinter infinite layout loop that occurred previously 
+    by persisting elegant scrollbars, accommodating any resolution safely.
+    """
+    def __init__(self, master, **kwargs):
+        super().__init__(master, **kwargs)
+        
+        bg_color = "SystemButtonFace"
+        if HAS_BOOTSTRAP:
+            try:
+                bg_color = tb.Style().colors.bg
+            except:
+                pass
+                
+        # Persistent scrollbars prevent infinite layout thrashing
+        self.v_scroll = ttk.Scrollbar(self, orient="vertical")
+        self.v_scroll.pack(side="right", fill="y")
+        
+        self.h_scroll = ttk.Scrollbar(self, orient="horizontal")
+        self.h_scroll.pack(side="bottom", fill="x")
+        
+        self.canvas = tk.Canvas(self, highlightthickness=0, borderwidth=0, bg=bg_color)
+        self.canvas.pack(side="left", fill="both", expand=True)
+        
+        self.canvas.configure(yscrollcommand=self.v_scroll.set, xscrollcommand=self.h_scroll.set)
+        self.v_scroll.configure(command=self.canvas.yview)
+        self.h_scroll.configure(command=self.canvas.xview)
+        
+        self.container = ttk.Frame(self.canvas)
+        self.canvas_window = self.canvas.create_window((0, 0), window=self.container, anchor="nw")
+        
+        self.container.bind("<Configure>", self._on_frame_configure)
+        self.canvas.bind("<Configure>", self._on_canvas_configure)
+        
+        self.bind_all("<MouseWheel>", self._on_mousewheel)
+
+    def _on_frame_configure(self, event=None):
+        self.canvas.configure(scrollregion=self.canvas.bbox("all"))
+
+    def _on_canvas_configure(self, event):
+        req_width = self.container.winfo_reqwidth()
+        req_height = self.container.winfo_reqheight()
+        
+        w = max(req_width, event.width)
+        h = max(req_height, event.height)
+        self.canvas.itemconfig(self.canvas_window, width=w, height=h)
+
+    def _on_mousewheel(self, event):
+        try:
+            x, y = self.winfo_pointerxy()
+            widget = self.winfo_containing(x, y)
+            is_child = False
+            cur = widget
+            while cur:
+                if cur == self:
+                    is_child = True
+                    break
+                cur = cur.master
+            
+            if is_child:
+                if event.delta > 0:
+                    self.canvas.yview_scroll(-1, "units")
+                elif event.delta < 0:
+                    self.canvas.yview_scroll(1, "units")
+        except:
+            pass
+
+
 class App(tb.Window if HAS_BOOTSTRAP else tk.Tk):
     """
     SHARC GUI:
@@ -61,9 +132,36 @@ class App(tb.Window if HAS_BOOTSTRAP else tk.Tk):
             super().__init__()
 
         self.title("SHARC – SHARing and Compatibility")
-        self.geometry("800x600")
-        # Keep original minimum, but allow users to increase resolution via Settings
-        self.minsize(800, 600)
+        
+        # 1.1 Resolution Adaptation: Adjust initial size based on screen dimensions
+        try:
+            sw = self.winfo_screenwidth()
+            sh = self.winfo_screenheight()
+            
+            # Initial size: 85% of screen
+            target_w = int(sw * 0.85)
+            target_h = int(sh * 0.85)
+            
+            # Cap maximum initial size
+            target_w = min(1440, max(800, target_w))
+            target_h = min(900, max(600, target_h))
+            
+            # If screen is very small, use most of it
+            if sw <= 1024 or sh <= 768:
+                target_w = int(sw * 0.95)
+                target_h = int(sh * 0.90)
+                
+            self.geometry(f"{target_w}x{target_h}")
+        except Exception:
+            self.geometry("1024x768")
+
+        # Dynamically set minsize based on screen (prevent clipping on small screens natively)
+        try:
+            min_w = min(800, self.winfo_screenwidth() - 50)
+            min_h = min(600, self.winfo_screenheight() - 50)
+            self.minsize(min_w, min_h)
+        except:
+            self.minsize(800, 600)
 
         # 2. Initialize State Variables
         self.state_model = AppState()
@@ -467,8 +565,13 @@ class App(tb.Window if HAS_BOOTSTRAP else tk.Tk):
         self.sidebar.grid(row=0, column=0, rowspan=3, sticky="nsew")
         self._build_sidebar_header()
 
-        self.menu_frame = (tb.Frame(self.sidebar, bootstyle="bg")
-                           if HAS_BOOTSTRAP else ttk.Frame(self.sidebar))
+        # Try to use ScrolledFrame from ttkbootstrap for the sidebar if it exists
+        try:
+            from ttkbootstrap.scrolled import ScrolledFrame
+            self.menu_frame = ScrolledFrame(self.sidebar, bootstyle="bg", autohide=True)
+        except Exception:
+            self.menu_frame = ttk.Frame(self.sidebar)
+            
         self.menu_frame.pack(fill="both", expand=True, pady=10)
 
         # Monitor/HUD at the bottom of the sidebar
@@ -960,18 +1063,36 @@ class App(tb.Window if HAS_BOOTSTRAP else tk.Tk):
 
     def _init_pages(self):
         """Initializes all tabs and establishes data connections."""
+        # Get the actual frame to place buttons (if ScrolledFrame is used)
+        btn_parent = getattr(self.menu_frame, "container", self.menu_frame)
+
         for key, label, Cls, icon in self.pages_config:
             btn = tb.Button(
-                self.menu_frame,
+                btn_parent,
                 text=f"  {icon}   {label}",
                 style="Nav.TButton",
                 bootstyle="secondary-link",
                 command=lambda k=key, l=label: self._switch_page(k, l)
             )
             self.nav_buttons[key] = btn
-            container = tb.Frame(self.content_area)
+            
+            # The 'results' and 'preview' tabs contain interactive dynamic Plots 
+            # and PanedWindows that MUST natively shrink/expand to the window bounds.
+            # Wrapping them in a Canvas (ResponsiveTabFrame) causes them to indefinitely 
+            # overflow the screen horizontally and hide sidebars (PanedWindow sash issues).
+            if key in ["results", "preview"]:
+                container = ttk.Frame(self.content_area)
+                content_parent = container
+            else:
+                if HAS_BOOTSTRAP:
+                    container = ResponsiveTabFrame(self.content_area)
+                    content_parent = container.container
+                else:
+                    container = ttk.Frame(self.content_area)
+                    content_parent = container
+
             self.frames[key] = container
-            instance = Cls(self, container)
+            instance = Cls(self, content_parent)
             setattr(self, f"tab_{key}", instance)
 
         if hasattr(self, 'tab_general'):

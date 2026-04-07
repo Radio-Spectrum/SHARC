@@ -102,47 +102,10 @@ class SingleEarthStationTab:
 
     def _setup_scroll_area(self):
         """
-        Sets up the scrollable canvas infrastructure.
-        Ensures the tab can hold more content than fits on the screen.
+        No longer needs dedicated canvas as main.py provides ScrolledFrame.
         """
-        canvas_frame = ttk.Frame(self.frame)
-        canvas_frame.pack(fill="both", expand=True, side="top")
-
-        self.canvas = tk.Canvas(canvas_frame, highlightthickness=0)
-        scrollbar = ttk.Scrollbar(
-            canvas_frame, orient="vertical", command=self.canvas.yview)
-
-        self.scrollable_frame = ttk.Frame(self.canvas)
-
-        self.canvas_window = self.canvas.create_window(
-            (0, 0), window=self.scrollable_frame, anchor="nw")
-
-        # Configure Scroll Events
-        self.scrollable_frame.bind("<Configure>", lambda e: self.canvas.configure(
-            scrollregion=self.canvas.bbox("all")))
-
-        self.canvas.bind("<Configure>", lambda e: self.canvas.itemconfig(
-            self.canvas_window, width=e.width))
-
-        self.canvas.configure(yscrollcommand=scrollbar.set)
-
-        scrollbar.pack(side="right", fill="y")
-        self.canvas.pack(side="left", fill="both", expand=True)
-
-        # Mousewheel bindings
-        self._bind_mouse_scroll(self.canvas)
-        self._bind_mouse_scroll(self.scrollable_frame)
-
-    def _bind_mouse_scroll(self, widget):
-        """Binds mousewheel events for cross-platform scrolling."""
-        # Windows / MacOS
-        widget.bind("<MouseWheel>", lambda e: self.canvas.yview_scroll(
-            int(-1*(e.delta/120)), "units") if e.delta else None)
-        # Linux
-        widget.bind(
-            "<Button-4>", lambda e: self.canvas.yview_scroll(-1, "units"))
-        widget.bind(
-            "<Button-5>", lambda e: self.canvas.yview_scroll(1, "units"))
+        self.scrollable_frame = ttk.Frame(self.frame)
+        self.scrollable_frame.pack(fill="both", expand=True)
 
     def _build_content(self):
         """

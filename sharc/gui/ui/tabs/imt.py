@@ -106,50 +106,10 @@ class IMTTab:
 
     def _setup_scroll_container(self):
         """
-        Sets up the vertical scrollbar and canvas infrastructure.
-        This enables the tab to hold more content than fits on the screen.
+        No longer needs dedicated canvas as main.py provides ScrolledFrame.
         """
-        container = ttk.Frame(self.frame)
-        container.pack(fill="both", expand=True)
-
-        # Canvas Setup
-        canvas = tk.Canvas(container, highlightthickness=0)
-        vsb = ttk.Scrollbar(container, orient="vertical", command=canvas.yview)
-        canvas.configure(yscrollcommand=vsb.set)
-
-        vsb.pack(side="right", fill="y")
-        canvas.pack(side="left", fill="both", expand=True)
-
-        # Inner Frame (Content Holder)
-        self.inner_frame = ttk.Frame(canvas)
-        canvas_window = canvas.create_window(
-            (0, 0), window=self.inner_frame, anchor="nw")
-
-        # Events to resize scroll region dynamically
-        def _configure_scroll(event):
-            canvas.configure(scrollregion=canvas.bbox("all"))
-            canvas.itemconfig(canvas_window, width=canvas.winfo_width())
-
-        self.inner_frame.bind("<Configure>", _configure_scroll)
-        canvas.bind("<Configure>", lambda e: canvas.itemconfig(
-            canvas_window, width=e.width))
-
-        # Mousewheel Support
-        def _on_mousewheel(event):
-            if self.inner_frame.winfo_exists():
-                # Cross-platform scroll direction adjustment (Windows/MacOS)
-                delta = int(-1 * (event.delta / 120))
-                canvas.yview_scroll(delta, "units")
-
-        # Binding mousewheel globally (Note: this might affect other tabs if not handled carefully,
-        # but is standard for simple Tkinter scroll implementations).
-        canvas.bind_all("<MouseWheel>", _on_mousewheel)
-        canvas.bind_all(
-            # Linux Up
-            "<Button-4>", lambda e: canvas.yview_scroll(-1, "units"))
-        canvas.bind_all(
-            # Linux Down
-            "<Button-5>", lambda e: canvas.yview_scroll(1, "units"))
+        self.inner_frame = ttk.Frame(self.frame)
+        self.inner_frame.pack(fill="both", expand=True)
 
     def _build_content(self):
         """

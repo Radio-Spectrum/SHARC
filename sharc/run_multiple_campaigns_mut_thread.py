@@ -99,4 +99,4 @@ def run_campaign_re(campaign_name, param_name_regex):
 
 if __name__ == "__main__":
     # Example usage
-    run_campaign("IMT_WIFI_UL")
+    run_campaign("IMT_WIFI")

@@ -1,7 +1,7 @@
 general:
     ###########################################################################
     # Number of simulation snapshots
-    num_snapshots: 5000
+    num_snapshots: 20000
     ###########################################################################
     # IMT link that will be simulated (DOWNLINK or UPLINK)
     imt_link: DOWNLINK
@@ -239,7 +239,7 @@ imt:
 wifi:
     ###########################################################################
     # Sensor center frequency [MHz]
-    frequency: 5000
+    frequency: 7000
     ###########################################################################
     # Sensor bandwidth [MHz]
     bandwidth: 80

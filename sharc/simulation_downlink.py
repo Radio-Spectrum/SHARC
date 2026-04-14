@@ -1179,7 +1179,7 @@ class SimulationDownlink(Simulation):
 
         self.system.thermal_noise = \
             10 * np.log10(BOLTZMANN_CONSTANT * self.param_system.noise_temperature * 1e3) + \
-            10 * np.log10(self.param_system.bandwidth * 1e6) 
+            10 * np.log10(self.param_system.bandwidth * 1e6) + self.param_system.ap.noise_figure
 
 
         self.system.ap.total_interference = 10 * np.log10(
@@ -1231,7 +1231,7 @@ class SimulationDownlink(Simulation):
         ap_active = np.where(self.system.ap.active)[0]
         sta_active = np.where(self.system.sta.active)[0]
 
-        offset_sta_start = self.system.ap.sinr.size
+        '''offset_sta_start = self.system.ap.sinr.size
         # Cria cópia para não alterar a simulação em andamento
         global_sinr_clean = np.array(self.system.sinr, copy=True)
         global_snr_clean  = np.array(self.system.snr, copy=True)
@@ -1242,7 +1242,7 @@ class SimulationDownlink(Simulation):
 
         # Aplica Piso (Remover Mortos/Erros: -120 dB)
         global_sinr_clean[global_sinr_clean < -120] = -120.0
-        global_snr_clean[global_snr_clean < -120]   = -120.0
+        global_snr_clean[global_snr_clean < -120]   = -120.0'''
 
         for ap in ap_active:
             sta_indices = np.atleast_1d(self.system.link[ap]).astype(int)

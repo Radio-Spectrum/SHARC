@@ -154,7 +154,7 @@ class StationFactory(object):
             [(bs, -500 * np.ones(param.ue.k)) for bs in range(num_bs)],
         )
 
-        '''imt_base_stations.antenna = np.empty(
+        imt_base_stations.antenna = np.empty(
             num_bs, dtype=Antenna,
         )
 
@@ -163,9 +163,9 @@ class StationFactory(object):
             imt_base_stations.azimuth,
             imt_base_stations.elevation,
             num_bs
-        )'''
+        )
 
-        imt_base_stations.antenna = [AntennaOmni(0) for bs in range(num_bs)]
+        #imt_base_stations.antenna = [AntennaOmni(0) for bs in range(num_bs)]
         imt_base_stations.bandwidth = param.bandwidth * np.ones(num_bs)
         imt_base_stations.center_freq = param.frequency * np.ones(num_bs)
         imt_base_stations.noise_figure = param.bs.noise_figure * \
@@ -461,15 +461,15 @@ class StationFactory(object):
         imt_ue.ext_interference = -500 * np.ones(num_ue)
 
         # TODO: this piece of code works only for uplink
-        '''ue_param_ant.get_antenna_parameters()
+        ue_param_ant.get_antenna_parameters()
         imt_ue.antenna = AntennaFactory.create_n_antennas(
             param.ue.antenna,
             imt_ue.azimuth,
             imt_ue.elevation,
             num_ue,
-        )'''
+        )
 
-        imt_ue.antenna = [AntennaOmni(0) for bs in range(num_ue)]
+        #imt_ue.antenna = [AntennaOmni(0) for bs in range(num_ue)]
         imt_ue.bandwidth = param.bandwidth * np.ones(num_ue)
         imt_ue.center_freq = param.frequency * np.ones(num_ue)
         imt_ue.noise_figure = param.ue.noise_figure * np.ones(num_ue)

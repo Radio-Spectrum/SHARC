@@ -61,12 +61,12 @@ SG_POLY = 3
 MIN_EXTREMA = 2
 
 # Fig2 will create one subplot per distance here
-DISTANCES_TEST = [25,50,100, 200, 300]
+DISTANCES_TEST = [25, 50, 100, 200, 300]
 FREQ_GHZ = 8.0
 
 # Histogram bins (counts stored). Density computed at plot time.
 D_BINS = np.linspace(0, 60, 61)
-H_BINS = np.linspace(0, 2500, 251)
+H_BINS = np.linspace(-2500, 2500, 501)
 LOSS_BINS = np.linspace(120, 260, 250)  # tune if needed
 
 RESERVOIR_MAX_DH = 300000
@@ -347,20 +347,22 @@ def sample_elevation_from_tiles(path_latlon: np.ndarray, cache: TileCache):
 # ============================================================
 # P.452: terrain profile vs "no-terrain"
 # ============================================================
-def compute_p452_losses(d_profile, h_profile, distances_test, freq_ghz):
-    rng = np.random.RandomState()
+def compute_p452_losses(d_profile, h_profile, distances_test, freq_ghz, rng=None):
+    if rng is None:
+        rng = np.random.RandomState()
     params_p452 = ParametersP452()
     prop452 = PropagationClearAir(rng, params_p452)
     params_p452.clutter_loss = False
-    params_p452.percentage_p = 'RANDOM'
+    params_p452.percentage_p = 0.2
 
-    def loss_for(D_km, d_prof, h_prof, terrain_mode="real"):
+    def loss_for(D_km, d_prof, h_prof, p_pct, terrain_mode="real"):
         distance = np.array([[float(D_km)]], dtype=float)
         freq = np.array([[float(freq_ghz)]], dtype=float)
         indoor = np.array([[False]])
         elev = np.array([[0]])
         txg = np.array([[0]])
         rxg = np.array([[0]])
+        params_p452.percentage_p = float(p_pct)
 
         if terrain_mode == "real":
             params_p452.terrain_d = d_prof
@@ -397,8 +399,9 @@ def compute_p452_losses(d_profile, h_profile, distances_test, freq_ghz):
             out_none[D] = np.nan
             continue
 
-        out_real[D] = loss_for(D, d_sub, h_sub, "real")
-        out_none[D] = loss_for(D, d_sub, h_sub, "none")
+        p_pct = 50.0 * rng.rand()
+        out_real[D] = loss_for(D, d_sub, h_sub, p_pct, "real")
+        out_none[D] = loss_for(D, d_sub, h_sub, p_pct, "none")
 
     return out_real, out_none
 
@@ -434,26 +437,35 @@ class Reservoir:
 # ============================================================
 # Best distribution fit (AIC + KS) for distance/height
 # ============================================================
-def fit_best_distribution(x):
+def fit_best_distribution(x, positive_only=False):
     x = np.asarray(x, dtype=float)
     x = x[np.isfinite(x)]
-    x = x[x > 0]
+    if positive_only:
+        x = x[x > 0]
     if x.size < 300:
         return None
 
-    candidates = {
-        "expon": stats.expon,
-        "lognorm": stats.lognorm,
-        "norm": stats.norm,
-        "gamma": stats.gamma,
-        "weibull_min": stats.weibull_min,
-        "t": stats.t,
-    }
+    if positive_only:
+        candidates = {
+            "expon": stats.expon,
+            "lognorm": stats.lognorm,
+            "norm": stats.norm,
+            "gamma": stats.gamma,
+            "weibull_min": stats.weibull_min,
+            "t": stats.t,
+        }
+    else:
+        candidates = {
+            "norm": stats.norm,
+            "laplace": stats.laplace,
+            "logistic": stats.logistic,
+            "t": stats.t,
+        }
 
     results = []
     for name, dist in candidates.items():
         try:
-            if name in ["expon", "gamma", "weibull_min", "lognorm"]:
+            if positive_only and name in ["expon", "gamma", "weibull_min", "lognorm"]:
                 params = dist.fit(x, floc=0)
             else:
                 params = dist.fit(x)
@@ -636,8 +648,9 @@ def worker_one(seed: int,
                 hseg = np.array([], dtype=float)
             else:
                 dseg = STEP_KM * np.diff(extrema.astype(float))
-                hseg = np.abs(np.diff(e_s[extrema].astype(float)))
-                mask = (dseg > 0) & (hseg > 0) & np.isfinite(dseg) & np.isfinite(hseg)
+                # Positive values end on a peak; negative values end on a valley.
+                hseg = np.diff(e_s[extrema].astype(float))
+                mask = (dseg > 0) & (hseg != 0) & np.isfinite(dseg) & np.isfinite(hseg)
                 dseg = dseg[mask]
                 hseg = hseg[mask]
 
@@ -649,13 +662,14 @@ def worker_one(seed: int,
             if d_prof.size != e_s.size:
                 d_prof = np.linspace(0.0, PATH_LENGTH_KM, e_s.size, dtype=float)
 
-            losses_real, losses_none = compute_p452_losses(d_prof, e_s, distances_test, freq_ghz)
+            losses_real, losses_none = compute_p452_losses(d_prof, e_s, distances_test, freq_ghz, rng=rng)
 
             loss_hist_real = {D: np.zeros((len(loss_bins) - 1,), dtype=np.int64) for D in distances_test}
             loss_hist_none = {D: np.zeros((len(loss_bins) - 1,), dtype=np.int64) for D in distances_test}
 
             loss_samples_real = {}
             loss_samples_none = {}
+            loss_samples_delta = {}
 
             for D in distances_test:
                 v = losses_real.get(D, np.nan)
@@ -667,6 +681,10 @@ def worker_one(seed: int,
                 if np.isfinite(v2):
                     loss_hist_none[D] = np.histogram([v2], bins=loss_bins)[0].astype(np.int64)
                     loss_samples_none[D] = float(v2)
+
+                if np.isfinite(v) and np.isfinite(v2):
+                    dv = float(v - v2)
+                    loss_samples_delta[D] = dv
 
             # Reservoir samples (downsample segments)
             max_take = 512
@@ -689,6 +707,7 @@ def worker_one(seed: int,
                 "h_samp": h_take.astype(float),
                 "loss_samp_real": loss_samples_real,
                 "loss_samp_none": loss_samples_none,
+                "loss_samp_delta": loss_samples_delta,
                 "path_line": path_line,
             }
 
@@ -715,21 +734,26 @@ def init_figures():
     fig2, axs = plt.subplots(1, n, figsize=(6 * n, 5), squeeze=False)
     axs = axs[0].tolist()
 
-    return (fig1, ax_map, ax_d, ax_h), (fig2, axs)
+    # FIG3: one subplot per distance for delta loss = terrain - no terrain
+    fig3, axs_delta = plt.subplots(1, n, figsize=(6 * n, 5), squeeze=False)
+    axs_delta = axs_delta[0].tolist()
+
+    return (fig1, ax_map, ax_d, ax_h), (fig2, axs), (fig3, axs_delta)
 
 
-def update_plots(fig1_pack, fig2_pack,
+def update_plots(fig1_pack, fig2_pack, fig3_pack,
                  d_counts, h_counts,
-                 loss_counts_real, loss_counts_none,
+                 loss_counts_real, loss_counts_none, loss_values_delta,
                  res_d, res_h,
                  res_loss_real,
                  n_paths_done):
 
     (fig1, ax_map, ax_d, ax_h) = fig1_pack
     (fig2, axs_loss) = fig2_pack
+    (fig3, axs_delta) = fig3_pack
 
     # ---- Fits (distance/height on reservoirs; P.452 GMM ONLY on TERRAIN reservoir)
-    d_fit = fit_best_distribution(res_d.get())
+    d_fit = fit_best_distribution(res_d.get(), positive_only=True)
     h_fit = fit_best_distribution(res_h.get())
     gmm_real = {D: fit_gmm2(res_loss_real[D].get()) for D in DISTANCES_TEST}
 
@@ -738,9 +762,9 @@ def update_plots(fig1_pack, fig2_pack,
     centers_d = 0.5 * (D_BINS[:-1] + D_BINS[1:])
     dens_d = counts_to_density(d_counts, D_BINS)
     ax_d.bar(centers_d, dens_d, width=np.diff(D_BINS), align="center")
-    ax_d.set_xlabel("km")
-    ax_d.set_ylabel("density")
-    ax_d.set_title(f"Peak–Valley distance (km)\nNseg={int(np.sum(d_counts))} | Npaths={n_paths_done}")
+    ax_d.set_xlabel("Distance between peaks/valleys (km)")
+    ax_d.set_ylabel("Histogram")
+    #ax_d.set_title(f"Peak–Valley distance (km)\nNseg={int(np.sum(d_counts))} | Npaths={n_paths_done}")
     overlay_bestfit_pdf(ax_d, d_fit, D_BINS, color=FIT_COLOR)
 
     # ---- FIG1: height density + best-fit PDF (RED)
@@ -748,9 +772,10 @@ def update_plots(fig1_pack, fig2_pack,
     centers_h = 0.5 * (H_BINS[:-1] + H_BINS[1:])
     dens_h = counts_to_density(h_counts, H_BINS)
     ax_h.bar(centers_h, dens_h, width=np.diff(H_BINS), align="center")
-    ax_h.set_xlabel("m")
-    ax_h.set_ylabel("density")
-    ax_h.set_title(f"Peak–Valley height (m)\nNseg={int(np.sum(h_counts))} | Npaths={n_paths_done}")
+    ax_h.axvline(0.0, color="black", linewidth=1, alpha=0.4)
+    ax_h.set_xlabel("Height (m, peak + / valley -)")
+    ax_h.set_ylabel("Histogram")
+    #ax_h.set_title(f"Peak–Valley height (m)\nNseg={int(np.sum(h_counts))} | Npaths={n_paths_done}")
     overlay_bestfit_pdf(ax_h, h_fit, H_BINS, color=FIT_COLOR)
 
     fig1.tight_layout()
@@ -790,17 +815,44 @@ def update_plots(fig1_pack, fig2_pack,
         ax.set_yscale("log")
         ax.set_ylim(1e-4, 1)
 
-        ax.set_xlabel("dB")
+        ax.set_xlabel("Path Loss (dB)")
         ax.set_ylabel("CDF (log)")
         ax.set_title(
             f"P.452 loss @ {D} km\n"
-            f"Nterrain={int(np.sum(loss_counts_real[D]))} | Nno={int(np.sum(loss_counts_none[D]))}"
+            #f"Nterrain={int(np.sum(loss_counts_real[D]))} | Nno={int(np.sum(loss_counts_none[D]))}"
         )
 
         ax.legend(fontsize=8, loc="best")
 
     fig2.tight_layout()
     fig2.canvas.draw_idle()
+
+    # ---- FIG3: delta P.452 CDF where delta = terrain - no terrain
+    for i, D in enumerate(DISTANCES_TEST):
+
+        ax = axs_delta[i]
+        ax.clear()
+
+        delta_vals = np.asarray(loss_values_delta[D], dtype=float)
+        delta_vals = delta_vals[np.isfinite(delta_vals)]
+
+        if delta_vals.size > 0:
+            xs = np.sort(delta_vals)
+            cdf_delta = np.arange(1, xs.size + 1, dtype=float) / xs.size
+            cdf_delta = np.clip(cdf_delta, 1e-6, 1.0)
+            ax.plot(xs, cdf_delta, lw=2, color="tab:green", label="terrain - no terrain")
+
+        ax.axvline(0.0, color="black", linewidth=1, alpha=0.4)
+        ax.set_yscale("log")
+        ax.set_ylim(1e-4, 1)
+        ax.set_xlabel("Delta Path Loss (dB)")
+        ax.set_ylabel("CDF (log)")
+        ax.set_title(f"Delta P.452 loss @ {D} km\nN={delta_vals.size}")
+        if delta_vals.size > 0:
+            ax.legend(fontsize=8, loc="best")
+
+    fig3.tight_layout()
+    fig3.canvas.draw_idle()
 
     plt.pause(0.01)
 
@@ -863,6 +915,7 @@ def main():
 
     loss_counts_real = {D: np.zeros((len(LOSS_BINS) - 1,), dtype=np.int64) for D in DISTANCES_TEST}
     loss_counts_none = {D: np.zeros((len(LOSS_BINS) - 1,), dtype=np.int64) for D in DISTANCES_TEST}
+    loss_values_delta = {D: [] for D in DISTANCES_TEST}
 
     # reservoirs for fitting
     res_d = Reservoir(RESERVOIR_MAX_DH, seed=RESERVOIR_SEED + 0)
@@ -873,7 +926,7 @@ def main():
                      for i, D in enumerate(DISTANCES_TEST)}
 
     # figures
-    fig1_pack, fig2_pack = init_figures()
+    fig1_pack, fig2_pack, fig3_pack = init_figures()
     (_, ax_map, _, _) = fig1_pack
 
     # async pipeline
@@ -918,6 +971,8 @@ def main():
                 for D in DISTANCES_TEST:
                     loss_counts_real[D] += result["loss_hist_real"][D]
                     loss_counts_none[D] += result["loss_hist_none"][D]
+                    if D in result["loss_samp_delta"]:
+                        loss_values_delta[D].append(result["loss_samp_delta"][D])
 
                 # reservoirs
                 res_d.add(result["d_samp"])
@@ -939,9 +994,9 @@ def main():
 
                 if (accepted % UPDATE_EVERY) == 0 or accepted == TARGET_PATHS:
                     update_plots(
-                        fig1_pack, fig2_pack,
+                        fig1_pack, fig2_pack, fig3_pack,
                         d_counts, h_counts,
-                        loss_counts_real, loss_counts_none,
+                        loss_counts_real, loss_counts_none, loss_values_delta,
                         res_d, res_h,
                         res_loss_real,
                         accepted

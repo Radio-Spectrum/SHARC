@@ -76,24 +76,60 @@ try:
 except Exception:
     WGS84_A = 6378137.0
 
+SUPPORTED_TOPOLOGY_TYPES = (
+    "MACROCELL",
+    "HOTSPOT",
+    "SINGLE_BS",
+    "Macro_countries",
+    "INDOOR",
+    "NTN",
+    "MSS_DC",
+)
+
+SUPPORTED_SYSTEM_TYPES = (
+    "SINGLE_EARTH_STATION",
+    "SINGLE_SPACE_STATION",
+    "HAPS",
+    "MSS_SS",
+    "MSS_D2D",
+)
+
+GLOBAL_PREVIEW_TYPES = {
+    "Macro_countries",
+    "SINGLE_SPACE_STATION",
+    "EESS_SS",
+    "METSAT_SS",
+    "FSS_SS",
+}
+
 # SHARC Core Imports
 HAS_SHARC_CORE = True
 try:
     from sharc.topology.topology_macrocell import TopologyMacrocell
     from sharc.topology.topology_hotspot import TopologyHotspot
     from sharc.topology.topology_single_base_station import TopologySingleBaseStation
-    from sharc.topology.topology_ntn import TopologyNTN
     from sharc.topology.topology_indoor import TopologyIndoor
 
     try:
+        from sharc.topology.topology_ntn import TopologyNTN
+    except Exception:
+        TopologyNTN = None
+
+    try:
         from sharc.topology.topology_countries import TopologyCountries
+        from sharc.parameters.imt.parameters_Countries_imt import ParametersCountries
     except Exception:
         TopologyCountries = None
+        ParametersCountries = None
 
     try:
         from sharc.topology.topology_ue_only import TopologyUEOnly
     except Exception:
         TopologyUEOnly = None
+
+    StationFactory = None
+    ParametersSingleSpaceStation = None
+    ParametersSingleEarthStation = None
 
     # StationFactory location varies across SHARC layouts
     try:
@@ -104,8 +140,15 @@ try:
         except Exception:
             StationFactory = None
 
-    from sharc.parameters.parameters_single_space_station import ParametersSingleSpaceStation
-    from sharc.parameters.parameters_single_earth_station import ParametersSingleEarthStation
+    try:
+        from sharc.parameters.parameters_single_space_station import ParametersSingleSpaceStation
+    except Exception:
+        ParametersSingleSpaceStation = None
+
+    try:
+        from sharc.parameters.parameters_single_earth_station import ParametersSingleEarthStation
+    except Exception:
+        ParametersSingleEarthStation = None
 
     try:
         from sharc.parameters.imt.parameters_hotspot import ParametersHotspot
@@ -128,6 +171,7 @@ except Exception as e:
     HAS_SHARC_CORE = False
     TopologyMacrocell = TopologyHotspot = TopologySingleBaseStation = TopologyNTN = TopologyIndoor = None
     TopologyCountries = None
+    ParametersCountries = None
     ParametersSingleSpaceStation = ParametersSingleEarthStation = None
     ParametersHotspot = ParametersIndoor = None
     StationFactory = None
@@ -253,6 +297,33 @@ def _guess_antenna_beamwidth_deg(antenna: Any, fallback: float = 5.0) -> float:
             pass
 
     return fallback
+
+
+def _approx_hex_cluster_centers(count: int, spacing: float) -> List[Tuple[float, float]]:
+    """Create an approximate 1/7/19-beam hex cluster for preview purposes."""
+    if count <= 0:
+        return []
+
+    centers: List[Tuple[float, float]] = [(0.0, 0.0)]
+    if count == 1:
+        return centers
+
+    for k in range(6):
+        angle = math.radians(k * 60.0)
+        centers.append((spacing * math.cos(angle), spacing * math.sin(angle)))
+    if count <= 7:
+        return centers[:count]
+
+    for k in range(6):
+        angle = math.radians(k * 60.0)
+        next_angle = math.radians((k + 1) * 60.0)
+        centers.append((2.0 * spacing * math.cos(angle), 2.0 * spacing * math.sin(angle)))
+        centers.append((
+            spacing * math.cos(angle) + spacing * math.cos(next_angle),
+            spacing * math.sin(angle) + spacing * math.sin(next_angle),
+        ))
+
+    return centers[:count]
 
 
 def _antenna_gain_db(antenna: Any, off_axis_deg: float, phi_deg: float = 0.0) -> float:
@@ -535,7 +606,18 @@ class PreviewTab:
         ttk.Button(frm_tools, text="🌐 Open in Browser",
                    command=self._open_plotly).pack(fill="x", pady=2)
 
-        # --- 5. Simulation Summary (detachable) ---
+        # --- 5. Supported Types ---
+        frm_catalog = ttk.Labelframe(right, text="✅ Visible Before Run", padding=4)
+        frm_catalog.pack(fill="both", expand=False, pady=(0, 6))
+
+        self.txt_catalog = tk.Text(
+            frm_catalog, width=32, height=9, wrap="word",
+            font=("Consolas", 8), bg="#101726", fg="#d8e6ff",
+            insertbackground="#d8e6ff", relief="flat",
+            state="disabled")
+        self.txt_catalog.pack(fill="both", expand=True)
+
+        # --- 6. Simulation Summary (detachable) ---
         frm_summary = ttk.Labelframe(right, text="📋 Simulation Summary", padding=4)
         frm_summary.pack(fill="both", expand=True, pady=(0, 3))
 
@@ -553,7 +635,7 @@ class PreviewTab:
         ttk.Button(frm_sum_btns, text="📌 Pop Out",
                    command=self._pop_out_summary).pack(side="left")
 
-        # --- 6. YAML Preview (detachable) ---
+        # --- 7. YAML Preview (detachable) ---
         frm_yaml = ttk.Labelframe(right, text="📝 YAML Preview", padding=4)
         frm_yaml.pack(fill="both", expand=True, pady=(0, 6))
 
@@ -579,9 +661,8 @@ class PreviewTab:
         w3d.bind("<Button-4>", self._on_scroll_3d)
         w3d.bind("<Button-5>", self._on_scroll_3d)
 
-        self._update_sim_summary()
-        self._update_yaml_preview()
-        self._draw_preview()
+        self._update_supported_catalog("", "")
+        self.refresh()
 
     def _pop_out_summary(self):
         top = tk.Toplevel(self.frame)
@@ -600,6 +681,11 @@ class PreviewTab:
         if hasattr(self, "txt_yaml"):
             self.txt_yaml.delete("1.0", "end")
             self.txt_yaml.insert("1.0", text)
+
+    def refresh(self):
+        self._update_yaml_preview()
+        self._update_sim_summary()
+        self._draw_preview()
 
     def _pop_out_yaml(self):
         self._update_yaml_preview()
@@ -620,21 +706,34 @@ class PreviewTab:
 
     def _update_sim_summary(self):
         """Build a human-readable summary of the current simulation configuration."""
+        data = self._current_yaml()
+
+        def v(paths: Tuple[str, ...], attr: Optional[str] = None, default: str = "—") -> str:
+            value = _yaml_first(data, paths, None)
+            if (value is None or value == "") and attr and hasattr(self.app, attr):
+                value = getattr(self.app, attr)
+            return _coerce_str(value, default)
+
+        def list_v(paths: Tuple[str, ...]) -> str:
+            value = _yaml_first(data, paths, None)
+            if isinstance(value, list):
+                return ", ".join(str(item) for item in value if str(item).strip()) or "—"
+            return _coerce_str(value, "—")
+
         lines = []
-        # Topology
-        topo = _coerce_str(getattr(self.app, "topo_type", ""), "—")
-        sys_type = _coerce_str(getattr(self.app, "var_system", ""), "—")
+        topo = self._detect_topology_type(data)
+        sys_type = self._detect_system_type(data)
         link = _coerce_str(getattr(self.app, "var_imt_link", ""), "—")
-        freq = _coerce_str(getattr(self.app, "imt_freq", ""), "—")
-        bw = _coerce_str(getattr(self.app, "imt_bw", ""), "—")
-        bs_h = _coerce_str(getattr(self.app, "bs_height", ""), "—")
-        ue_h = _coerce_str(getattr(self.app, "ue_height", ""), "—")
-        ue_k = _coerce_str(getattr(self.app, "ue_k", ""), "—")
+        freq = v(("imt.frequency",), "imt_freq")
+        bw = v(("imt.bandwidth",), "imt_bw")
+        bs_h = v(("imt.bs.height", "imt.base_station.height_m"), "bs_height")
+        ue_h = v(("imt.ue.height",), "ue_height")
+        ue_k = v(("imt.ue.k",), "ue_k")
         snaps = _coerce_str(getattr(self.app, "var_snaps", ""), "—")
         seed = _coerce_str(getattr(self.app, "var_seed", ""), "—")
-        bs_pwr = _coerce_str(getattr(self.app, "bs_power", ""), "—")
-        bs_dt = _coerce_str(getattr(self.app, "bs_downtilt", ""), "—")
-        ch = _coerce_str(getattr(self.app, "ch_model", ""), "—")
+        bs_pwr = v(("imt.bs.conducted_power",), "bs_power")
+        bs_dt = v(("imt.bs.antenna.array.downtilt",), "bs_downtilt")
+        ch = v(("imt.channel_model",), "ch_model")
 
         lines.append(f"━━━ SCENARIO ━━━")
         lines.append(f"Topology : {topo}")
@@ -670,26 +769,58 @@ class PreviewTab:
         elif topo == "NTN":
             lines.append(f"")
             lines.append(f"━━━ NTN ━━━")
-            lines.append(f"Sat H    : {_coerce_str(getattr(self.app, 'ntn_bs_height', ''), '—')} m")
-            lines.append(f"Elevation: {_coerce_str(getattr(self.app, 'ntn_bs_elevation', ''), '—')}°")
-            lines.append(f"Azimuth  : {_coerce_str(getattr(self.app, 'ntn_bs_azimuth', ''), '—')}°")
-            lines.append(f"Sectors  : {_coerce_str(getattr(self.app, 'ntn_num_sectors', ''), '—')}")
+            lines.append(f"Sat H    : {v(('imt.topology.ntn.bs_height',), 'ntn_bs_height')} m")
+            lines.append(f"Elevation: {v(('imt.topology.ntn.bs_elevation',), 'ntn_bs_elevation')}°")
+            lines.append(f"Azimuth  : {v(('imt.topology.ntn.bs_azimuth',), 'ntn_bs_azimuth')}°")
+            lines.append(f"Sectors  : {v(('imt.topology.ntn.num_sectors',), 'ntn_num_sectors')}")
+        elif topo == "MSS_DC":
+            lines.append(f"")
+            lines.append(f"━━━ MSS-DC TOPOLOGY ━━━")
+            lines.append(f"Beam R   : {v(('imt.topology.mss_dc.beam_radius',), None)} m")
+            lines.append(f"Beams    : {v(('imt.topology.mss_dc.num_beams',), None)}")
+            lines.append(
+                f"Countries: {list_v(('imt.topology.mss_dc.sat_is_active_if.lat_long_inside_country.country_names', 'imt.topology.mss_dc.beam_positioning.service_grid.country_names'))}"
+            )
         elif topo == "Macro_countries":
             lines.append(f"")
             lines.append(f"━━━ COUNTRIES ━━━")
-            lines.append(f"Num BS   : {_coerce_str(getattr(self.app, 'topo_num_bs', ''), '—')}")
-            lines.append(f"Cell R   : {_coerce_str(getattr(self.app, 'topo_cell_radius', ''), '—')} m")
-            countries = _coerce_str(getattr(self.app, 'topo_countries', ''), '—')
+            lines.append(f"Num BS   : {v(('imt.topology.macro_countries.num_bs',), 'topo_num_bs')}")
+            lines.append(f"Cell R   : {v(('imt.topology.macro_countries.cell_radius',), 'topo_cell_radius')} m")
+            countries = v(("imt.topology.macro_countries.countries",), "topo_countries")
             lines.append(f"Countries: {countries}")
 
-        # Earth Station info
         if sys_type == "SINGLE_EARTH_STATION":
             lines.append(f"")
             lines.append(f"━━━ EARTH STATION ━━━")
-            loc = _coerce_str(getattr(self.app, "se_loc_type", ""), "—")
+            loc = v(("single_earth_station.geometry.location.type",), "se_loc_type")
             lines.append(f"Location : {loc}")
-            lines.append(f"ES Height: {_coerce_str(getattr(self.app, 'se_height', ''), '—')} m")
-            lines.append(f"Freq     : {_coerce_str(getattr(self.app, 'se_frequency', ''), '—')} MHz")
+            lines.append(f"ES Height: {v(('single_earth_station.geometry.height',), 'se_height')} m")
+            lines.append(f"Freq     : {v(('single_earth_station.frequency',), 'se_frequency')} MHz")
+        elif sys_type == "SINGLE_SPACE_STATION":
+            lines.append(f"")
+            lines.append(f"━━━ SPACE STATION ━━━")
+            lines.append(f"Altitude : {v(('single_space_station.geometry.altitude',), 'v_alt')} m")
+            lines.append(f"Lat/Lon  : {v(('single_space_station.geometry.location.fixed.lat_deg',), 'v_fix_lat')} / {v(('single_space_station.geometry.location.fixed.long_deg',), 'v_fix_lon')}")
+            lines.append(f"Freq     : {v(('single_space_station.frequency',), 'v_freq')} MHz")
+        elif sys_type == "HAPS":
+            lines.append(f"")
+            lines.append(f"━━━ HAPS ━━━")
+            lines.append(f"Altitude : {v(('haps.altitude',), 'v_alt')} m")
+            lines.append(f"Latitude : {v(('haps.lat_deg',), 'v_fix_lat')}°")
+            lines.append(f"Freq     : {v(('haps.frequency',), 'v_freq')} MHz")
+        elif sys_type == "MSS_SS":
+            lines.append(f"")
+            lines.append(f"━━━ MSS-SS ━━━")
+            lines.append(f"Altitude : {v(('mss_ss.altitude',), 'v_alt')} m")
+            lines.append(f"Cell R   : {v(('mss_ss.cell_radius',), 'ntn_cell_radius')} m")
+            lines.append(f"Sectors  : {v(('mss_ss.num_sectors',), 'ntn_num_sectors')}")
+        elif sys_type == "MSS_D2D":
+            lines.append(f"")
+            lines.append(f"━━━ MSS-D2D ━━━")
+            lines.append(f"Freq     : {v(('mss_d2d.frequency',), 'v_freq')} MHz")
+            lines.append(f"BW       : {v(('mss_d2d.bandwidth',), 'v_bw')} MHz")
+            lines.append(f"Beams    : {v(('mss_d2d.num_sectors', 'imt.topology.mss_dc.num_beams'), None)}")
+            lines.append(f"Channel  : {v(('mss_d2d.channel_model',), 'v_ch_model')}")
 
         text = "\n".join(lines)
         self.txt_summary.configure(state="normal")
@@ -706,6 +837,45 @@ class PreviewTab:
             except Exception:
                 pass
         return {}
+
+    def _detect_system_type(self, data: Dict[str, Any]) -> str:
+        sys_type = _coerce_str(_yaml_first(data, ("general.system",), None), "")
+        if not sys_type:
+            for key, name in (
+                ("mss_d2d", "MSS_D2D"),
+                ("mss_ss", "MSS_SS"),
+                ("haps", "HAPS"),
+                ("single_space_station", "SINGLE_SPACE_STATION"),
+                ("single_earth_station", "SINGLE_EARTH_STATION"),
+            ):
+                if isinstance(data.get(key), dict):
+                    sys_type = name
+                    break
+
+        if not sys_type and hasattr(self.app, "var_system"):
+            sys_type = _coerce_str(getattr(self.app, "var_system", ""), "")
+
+        t = (sys_type or "").strip().upper().replace("-", "_")
+        return t or "SINGLE_EARTH_STATION"
+
+    def _update_supported_catalog(self, topo_type: str, sys_type: str):
+        lines = ["Topologies"]
+        for name in SUPPORTED_TOPOLOGY_TYPES:
+            prefix = ">" if name == topo_type else " "
+            lines.append(f"{prefix} {name}")
+
+        lines.append("")
+        lines.append("Systems")
+        for name in SUPPORTED_SYSTEM_TYPES:
+            prefix = ">" if name == sys_type else " "
+            lines.append(f"{prefix} {name}")
+
+        text = "\n".join(lines)
+        if hasattr(self, "txt_catalog"):
+            self.txt_catalog.configure(state="normal")
+            self.txt_catalog.delete("1.0", "end")
+            self.txt_catalog.insert("1.0", text)
+            self.txt_catalog.configure(state="disabled")
 
     def _detect_topology_type(self, data: Dict[str, Any]) -> str:
         """Detect topology/system type from YAML and/or app vars, with a few aliases.
@@ -728,6 +898,9 @@ class PreviewTab:
             ""
         )
 
+        if not topo_type and isinstance(_yaml_get(data, "imt.topology.mss_dc", None), dict):
+            topo_type = "MSS_DC"
+
         if not topo_type and "single_earth_station" in data:
             topo_type = "SINGLE_EARTH_STATION"
 
@@ -741,6 +914,10 @@ class PreviewTab:
             return "Macro_countries"
         if t in ("Macro_countries", "Macro_Countries", "macro_countries"):
             return "Macro_countries"
+        if t.lower().replace("-", "_") in ("mss_dc", "mssdc"):
+            return "MSS_DC"
+        if t.upper() in {"SINGLE_BASE_STATION", "SINGLE_BS"}:
+            return "SINGLE_BS"
 
         # Known SHARC topology/system types that should be uppercased
         t_up = t.upper()
@@ -749,11 +926,12 @@ class PreviewTab:
     def _draw_preview(self):
         data = self._current_yaml()
         topo_type = self._detect_topology_type(data)
+        sys_type = self._detect_system_type(data)
         engine = self.app.plot_engine.get()
 
         # Update simulation summary and scenario header
         self._update_sim_summary()
-        sys_type = _coerce_str(getattr(self.app, "var_system", ""), "")
+        self._update_supported_catalog(topo_type, sys_type)
         scenario_label = f"🎯 {topo_type}"
         if sys_type:
             scenario_label += f"  |  System: {sys_type}"
@@ -787,10 +965,7 @@ class PreviewTab:
             axis_pane._axinfo["grid"]["color"] = "#2a3a5e"
         self.ax3d.tick_params(colors="#8899aa", labelsize=7)
 
-        global_types = ["Macro_countries", "SINGLE_SPACE_STATION",
-                        "MSS_DC", "EESS_SS", "METSAT_SS", "SINGLE_EARTH_STATION",
-                        "MSS_SS", "HAPS"]
-        is_global = topo_type in global_types
+        is_global = topo_type in GLOBAL_PREVIEW_TYPES
 
         try:
             if is_global:
@@ -1297,10 +1472,7 @@ class PreviewTab:
 
         fig = go.Figure()
 
-        global_types = ["Macro_countries", "SINGLE_SPACE_STATION",
-                        "MSS_DC", "EESS_SS", "METSAT_SS", "SINGLE_EARTH_STATION",
-                        "MSS_SS", "HAPS"]
-        is_global = topo_type in global_types
+        is_global = topo_type in GLOBAL_PREVIEW_TYPES
 
         try:
             if is_global:
@@ -1795,15 +1967,30 @@ class PreviewTab:
                     xs, ys, azs = [0], [0], [0]
 
             elif topo_type == "NTN":
+                isd = _coerce_float(_yaml_first(data, ("imt.topology.ntn.intersite_distance",), None), 100000.0)
+                cr = _coerce_float(_yaml_first(data, ("imt.topology.ntn.cell_radius",), None), 50000.0)
+                bsh = _coerce_float(_yaml_first(data, ("imt.topology.ntn.bs_height",), None), 600000.0)
+                bsa = _coerce_float(_yaml_first(data, ("imt.topology.ntn.bs_azimuth",), None), 45.0)
+                bse = _coerce_float(_yaml_first(data, ("imt.topology.ntn.bs_elevation",), None), 45.0)
+                ns = _coerce_int(_yaml_first(data, ("imt.topology.ntn.num_sectors",), None), 7)
+
+                if hasattr(self.app, "ntn_intersite"):
+                    isd = _safe_float(getattr(self.app, "ntn_intersite", None), isd)
+                if hasattr(self.app, "ntn_cell_radius"):
+                    cr = _safe_float(getattr(self.app, "ntn_cell_radius", None), cr)
+                if hasattr(self.app, "ntn_bs_height"):
+                    bsh = _safe_float(getattr(self.app, "ntn_bs_height", None), bsh)
+                if hasattr(self.app, "ntn_bs_azimuth"):
+                    bsa = _safe_float(getattr(self.app, "ntn_bs_azimuth", None), bsa)
+                if hasattr(self.app, "ntn_bs_elevation"):
+                    bse = _safe_float(getattr(self.app, "ntn_bs_elevation", None), bse)
+                if hasattr(self.app, "ntn_num_sectors"):
+                    ns = _safe_int(getattr(self.app, "ntn_num_sectors", None), ns)
+
+                if ns not in (1, 7, 19):
+                    ns = 7
+
                 if TopologyNTN is not None:
-                    isd = _safe_float(getattr(self.app, "ntn_intersite", None), 100000.0)
-                    cr = _safe_float(getattr(self.app, "ntn_cell_radius", None), 50000.0)
-                    bsh = _safe_float(getattr(self.app, "ntn_bs_height", None), 600000.0)
-                    bsa = _safe_float(getattr(self.app, "ntn_bs_azimuth", None), 45.0)
-                    bse = _safe_float(getattr(self.app, "ntn_bs_elevation", None), 45.0)
-                    ns = _safe_int(getattr(self.app, "ntn_num_sectors", None), 7)
-                    if ns not in (1, 7, 19):
-                        ns = 7
                     topo = TopologyNTN(
                         intersite_distance=isd,
                         cell_radius=cr,
@@ -1815,12 +2002,52 @@ class PreviewTab:
                     xs = list(topo.x)
                     ys = list(topo.y)
                     azs = list(topo.azimuth) if hasattr(topo, "azimuth") and len(topo.azimuth) > 0 else [0.0] * len(xs)
-                    hex_radius = cr
-                    draw_hex = True
-                    hex_centers = list(set(zip(xs, ys)))
                     self._ntn_topo = topo
                 else:
-                    xs, ys, azs = [0], [0], [0]
+                    centers = _approx_hex_cluster_centers(ns, isd)
+                    xs = [c[0] for c in centers]
+                    ys = [c[1] for c in centers]
+                    azs = [bsa] * len(centers)
+
+                hex_radius = cr
+                draw_hex = True
+                hex_centers = list(set(zip(xs, ys)))
+
+            elif topo_type == "MSS_DC":
+                beam_radius = _coerce_float(
+                    _yaml_first(data, ("imt.topology.mss_dc.beam_radius", "mss_d2d.cell_radius"), None),
+                    36516.0,
+                )
+                num_beams = _coerce_int(
+                    _yaml_first(data, ("imt.topology.mss_dc.num_beams", "mss_d2d.num_sectors"), None),
+                    7,
+                )
+                if num_beams <= 0:
+                    num_beams = 1
+                spacing = beam_radius * math.sqrt(3.0)
+                centers = _approx_hex_cluster_centers(num_beams, spacing)
+                xs = [c[0] for c in centers]
+                ys = [c[1] for c in centers]
+                azs = [0.0] * len(centers)
+                hex_centers = centers
+                hex_radius = beam_radius
+                draw_hex = True
+
+            elif topo_type == "MSS_SS":
+                cell_radius = _coerce_float(_yaml_first(data, ("mss_ss.cell_radius",), None), 45000.0)
+                num_sectors = _coerce_int(_yaml_first(data, ("mss_ss.num_sectors",), None), 7)
+                if num_sectors <= 0:
+                    num_sectors = 1
+                centers = _approx_hex_cluster_centers(num_sectors, cell_radius * math.sqrt(3.0))
+                xs = [c[0] for c in centers]
+                ys = [c[1] for c in centers]
+                azs = [0.0] * len(centers)
+                hex_centers = centers
+                hex_radius = cell_radius
+                draw_hex = True
+
+            elif topo_type in ("HAPS", "SINGLE_SPACE_STATION"):
+                xs, ys, azs = [0.0], [0.0], [0.0]
 
             elif topo_type == "MSS_D2D":
                 # Simple fallback: two UE positions

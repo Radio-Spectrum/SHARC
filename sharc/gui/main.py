@@ -123,7 +123,7 @@ class App(tb.Window if HAS_BOOTSTRAP else tk.Tk):
       macOS menubar support, Settings menu (theme + resolution).
     """
 
-    def __init__(self):
+    def __init__(self, defer_ui_init: bool = False):
         # 1. Theme Configuration
         self._theme_name = "cosmo"
         if HAS_BOOTSTRAP:
@@ -207,6 +207,15 @@ class App(tb.Window if HAS_BOOTSTRAP else tk.Tk):
         self._theme_var = tk.StringVar(value=self._theme_name)
         self._size_var = tk.StringVar(value="800x600")
 
+        self._ui_initialized = False
+        if not defer_ui_init:
+            self.initialize_ui()
+
+    def initialize_ui(self):
+        """Build the full interface once the root window is ready."""
+        if self._ui_initialized:
+            return
+
         # 4. Interface Construction
         self._setup_custom_styles()
         self._build_menubar()     # ✅ macOS-safe menubar (goes to top bar on mac)
@@ -234,6 +243,7 @@ class App(tb.Window if HAS_BOOTSTRAP else tk.Tk):
         self.after(800, self._show_welcome_toast)
 
         self.after(1000, self._disable_strict_validation)
+        self._ui_initialized = True
 
     def _setup_custom_styles(self):
         """Define styles for the theme (visual upgrades, preserving behavior)."""
@@ -1117,10 +1127,10 @@ class App(tb.Window if HAS_BOOTSTRAP else tk.Tk):
                 sys_mode = self.var_system.get()
                 objs_to_scan = [self]
 
-                if sys_mode == "SINGLE_SPACE_STATION":
+                if sys_mode in self._space_ui_systems():
                     if hasattr(self, 'tab_victim'):
                         objs_to_scan.append(self.tab_victim)
-                elif sys_mode == "SINGLE_EARTH_STATION":
+                elif sys_mode in self._earth_ui_systems():
                     if hasattr(self, 'tab_station'):
                         objs_to_scan.append(self.tab_station)
 
@@ -1161,6 +1171,26 @@ class App(tb.Window if HAS_BOOTSTRAP else tk.Tk):
             self.tab_general.register_data_collector(get_imt_live_data)
             self.tab_general.register_data_collector(get_system_live_data)
 
+    def _space_ui_systems(self):
+        return {
+            "SINGLE_SPACE_STATION",
+            "HAPS",
+            "MSS_SS",
+            "MSS_D2D",
+            "FSS_SS",
+            "EESS_SS",
+            "METSAT_SS",
+            "RNS",
+        }
+
+    def _earth_ui_systems(self):
+        return {
+            "SINGLE_EARTH_STATION",
+            "FS",
+            "FSS_ES",
+            "RAS",
+        }
+
     def _on_system_changed(self, *args):
         self._refresh_sidebar_items()
 
@@ -1169,12 +1199,12 @@ class App(tb.Window if HAS_BOOTSTRAP else tk.Tk):
         visible = set()
         for key, label, _, _ in self.pages_config:
             should_show = True
-            if sys_type == "SINGLE_EARTH_STATION":
+            if sys_type in self._earth_ui_systems():
                 if key == "victim":
                     should_show = False
                 if key == "station":
                     should_show = True
-            elif sys_type == "SINGLE_SPACE_STATION":
+            elif sys_type in self._space_ui_systems():
                 if key == "station":
                     should_show = False
                 if key == "victim":
@@ -1193,12 +1223,12 @@ class App(tb.Window if HAS_BOOTSTRAP else tk.Tk):
 
         for key, label, _, _ in self.pages_config:
             should_show = True
-            if sys_type == "SINGLE_EARTH_STATION":
+            if sys_type in self._earth_ui_systems():
                 if key == "victim":
                     should_show = False
                 if key == "station":
                     should_show = True
-            elif sys_type == "SINGLE_SPACE_STATION":
+            elif sys_type in self._space_ui_systems():
                 if key == "station":
                     should_show = False
                 if key == "victim":
@@ -1250,13 +1280,12 @@ class App(tb.Window if HAS_BOOTSTRAP else tk.Tk):
         """
         Generates the current configuration dictionary (Snapshot).
         Required by PreviewTab to display the YAML.
-        USES THE GOOD OLD BUILDER: build_yaml_structure
+        Uses the live GeneralTab builder so preview and batch generation stay aligned.
         """
-        if hasattr(self, 'tab_imt') and hasattr(self.tab_imt, 'txt_countries'):
+        if hasattr(self, "tab_general") and hasattr(self.tab_general, "build_current_structure"):
             try:
-                self.topo_countries.set(
-                    self.tab_imt.txt_countries.get("1.0", "end"))
-            except:
+                return self.tab_general.build_current_structure()
+            except Exception:
                 pass
         return build_yaml_structure(self)
 
@@ -1280,7 +1309,10 @@ class App(tb.Window if HAS_BOOTSTRAP else tk.Tk):
         )
         if path:
             try:
-                data = build_yaml_structure(self)
+                if hasattr(self, "tab_general") and hasattr(self.tab_general, "build_current_structure"):
+                    data = self.tab_general.build_current_structure()
+                else:
+                    data = build_yaml_structure(self)
                 with open(path, 'w', encoding='utf-8') as f:
                     yaml.dump(data, f, default_flow_style=False,
                               sort_keys=False)

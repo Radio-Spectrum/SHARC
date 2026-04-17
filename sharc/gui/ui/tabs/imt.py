@@ -153,6 +153,7 @@ class IMTTab:
         if self.topo_section:
             # We assume 'get_countries_text' returns a string from a Text widget
             data["countries_text"] = self.topo_section.get_countries_text()
+            data["mss_dc_text"] = self.topo_section.get_mss_dc_text()
 
         # 3. Write to File
         fpath = filedialog.asksaveasfilename(
@@ -208,6 +209,9 @@ class IMTTab:
                 # Fallback for legacy key compatibility
                 elif "countries" in data:
                     self.topo_section.set_countries_text(data["countries"])
+
+                if "mss_dc_text" in data:
+                    self.topo_section.set_mss_dc_text(data["mss_dc_text"])
 
             messagebox.showinfo(
                 "Success", "Configuration loaded successfully!")

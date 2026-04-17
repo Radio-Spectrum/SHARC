@@ -46,12 +46,11 @@ class AppState:
     def __init__(self):
         try:
             if not tk._default_root:
-                print("WARNING: Creating AppState before tk.Tk() root is initialized.")
+                pass
         except:
             pass
 
         self.project_root = get_sharc_root()
-        print(f"Project root defined at: {self.project_root}")
 
         self._create_vars()
 

@@ -17,6 +17,24 @@ from ui.tabs.assets.general_tab.variable_editor import VariableEditor
 from ui.tabs.assets.general_tab.general_tools import parse_list_safe
 from ui.tabs.assets.ses_tab.ses_persistence import SESPersistence
 
+GUI_SYSTEM_TYPES = [
+    "SINGLE_EARTH_STATION",
+    "SINGLE_SPACE_STATION",
+    "HAPS",
+    "MSS_SS",
+    "MSS_D2D",
+]
+
+GUI_TOPOLOGY_TYPES = [
+    "MACROCELL",
+    "HOTSPOT",
+    "SINGLE_BS",
+    "Macro_countries",
+    "INDOOR",
+    "NTN",
+    "MSS_DC",
+]
+
 
 # =============================================================================
 # Helper Functions
@@ -84,6 +102,69 @@ def _sanitize_recursive(data: Any) -> Any:
     return _num_or_str(data)
 
 
+def _parse_mapping_text(raw_text: Any) -> Dict[str, Any]:
+    """Parse a YAML/JSON mapping block from free text."""
+    text = str(raw_text or "").strip()
+    if not text:
+        return {}
+
+    try:
+        data = yaml.safe_load(text)
+    except Exception as exc:
+        print(f"Error parsing mapping text: {exc}")
+        return {}
+
+    if isinstance(data, dict):
+        return _sanitize_recursive(data)
+    return {}
+
+
+def _default_mss_dc_config(country_names: List[str]) -> Dict[str, Any]:
+    names = country_names or ["Brazil"]
+    return {
+        "num_beams": 19,
+        "beam_radius": 36516.0,
+        "sat_is_active_if": {
+            "conditions": [
+                "LAT_LONG_INSIDE_COUNTRY",
+                "MINIMUM_ELEVATION_FROM_ES",
+            ],
+            "minimum_elevation_from_es": 5.0,
+            "lat_long_inside_country": {
+                "country_names": list(names),
+                "margin_from_border": 0.0,
+            },
+        },
+        "beam_positioning": {
+            "type": "SERVICE_GRID",
+            "service_grid": {
+                "transform_grid_randomly": True,
+                "grid_in_zone": {
+                    "type": "FROM_COUNTRIES",
+                    "from_countries": {
+                        "country_names": list(names),
+                        "margin_from_border": 0.0,
+                    },
+                },
+                "eligible_sats_margin_from_border": 0.0,
+                "minimum_service_angle": 30.0,
+            },
+        },
+        "orbits": [
+            {
+                "n_planes": 28,
+                "inclination_deg": 53.0,
+                "perigee_alt_km": 525.0,
+                "apogee_alt_km": 525.0,
+                "sats_per_plane": 120,
+                "long_asc_deg": 0.0,
+                "phasing_deg": 1.5,
+                "initial_mean_anomaly": 0.0,
+            }
+        ],
+    }
+
+
 def load_param_file(filepath: str) -> Dict[str, Any]:
     """Safely loads a JSON or YAML file and sanitizes types."""
     path = Path(filepath)
@@ -139,7 +220,7 @@ def _normalize_topology_type(t: str) -> str:
         return "HOTSPOT"
     raw = str(t).strip()
 
-    official = {"HOTSPOT", "MACROCELL", "SINGLE_BS", "Macro_countries", "INDOOR", "NTN"}
+    official = {"HOTSPOT", "MACROCELL", "SINGLE_BS", "Macro_countries", "INDOOR", "NTN", "MSS_DC"}
     if raw in official:
         return raw
 
@@ -156,6 +237,8 @@ def _normalize_topology_type(t: str) -> str:
         return "INDOOR"
     if low in {"ntn"}:
         return "NTN"
+    if low in {"mss_dc", "mss dc", "mss-dc"}:
+        return "MSS_DC"
     return raw
 
 
@@ -275,7 +358,7 @@ class GeneralTab:
         cb_sys = ttk.Combobox(
             frm,
             textvariable=self.app.var_system,
-            values=["SINGLE_EARTH_STATION", "SINGLE_SPACE_STATION"],
+            values=GUI_SYSTEM_TYPES,
             state="readonly",
             width=26,
         )
@@ -387,6 +470,87 @@ class GeneralTab:
                     pass
         return data
 
+    def _system_section_key(self, sys_type: str) -> str:
+        return (sys_type or "").strip().lower() or "system"
+
+    def _selected_country_names(self, flat: Dict[str, Any]) -> List[str]:
+        raw = str(flat.get("topo_countries", "") or "").strip()
+        if hasattr(self.app, "tab_imt") and hasattr(self.app.tab_imt, "topo_section"):
+            getter = getattr(self.app.tab_imt.topo_section, "get_countries_text", None)
+            if callable(getter):
+                live_text = str(getter() or "").strip()
+                if live_text:
+                    raw = live_text
+
+        return [c.strip() for c in raw.splitlines() if c.strip()]
+
+    def _get_mss_dc_text(self, flat: Dict[str, Any]) -> str:
+        text = str(flat.get("mss_dc_config", "") or "").strip()
+        if hasattr(self.app, "tab_imt") and hasattr(self.app.tab_imt, "topo_section"):
+            getter = getattr(self.app.tab_imt.topo_section, "get_mss_dc_text", None)
+            if callable(getter):
+                live_text = str(getter() or "").strip()
+                if live_text:
+                    text = live_text
+        return text
+
+    def _build_mss_dc_block(self, flat: Dict[str, Any]) -> Dict[str, Any]:
+        countries = self._selected_country_names(flat)
+        block = copy.deepcopy(_default_mss_dc_config(countries))
+        parsed = _parse_mapping_text(self._get_mss_dc_text(flat))
+        if parsed:
+            deep_merge(block, parsed)
+
+        sat_active = block.setdefault("sat_is_active_if", {})
+        lat_long = sat_active.setdefault("lat_long_inside_country", {})
+        if countries and not lat_long.get("country_names"):
+            lat_long["country_names"] = list(countries)
+
+        beam_positioning = block.setdefault("beam_positioning", {})
+        service_grid = beam_positioning.setdefault("service_grid", {})
+        grid_in_zone = service_grid.setdefault("grid_in_zone", {})
+        from_countries = grid_in_zone.setdefault("from_countries", {})
+        if countries and not from_countries.get("country_names"):
+            from_countries["country_names"] = list(countries)
+
+        if not block.get("beam_radius"):
+            block["beam_radius"] = _num_or_str(flat.get("ntn_cell_radius", 36516.0)) or 36516.0
+        if not block.get("num_beams"):
+            block["num_beams"] = int(_num_or_str(flat.get("ntn_num_sectors", 19)) or 19)
+
+        return _sanitize_recursive(block)
+
+    def build_current_structure(self) -> Dict[str, Any]:
+        sys_type = self.app.var_system.get()
+        sys_key = self._system_section_key(sys_type)
+
+        general_conf = {
+            "seed": self.app.var_seed.get() if not self.var_use_random_seed.get() else "RANDOM",
+            "num_snapshots": self.app.var_snaps.get(),
+            "overwrite_output": bool(self.app.var_overwrite.get()),
+            "output_dir": str(self.app.var_outdir.get()),
+            "output_dir_prefix": str(self.app.var_prefix.get()),
+            "system": sys_type,
+            "imt_link": str(self.app.var_imt_link.get()),
+            "enable_adjacent_channel": bool(self.app.var_adj.get()),
+            "enable_cochannel": bool(self.app.var_coch.get()),
+        }
+
+        combined_flat = self._collect_app_globals()
+        for collector in self.data_collectors:
+            try:
+                flat_data = collector()
+                if flat_data:
+                    combined_flat.update(flat_data)
+            except Exception as e:
+                print(f"Warning: Collector error: {e}")
+
+        return {
+            "general": general_conf,
+            "imt": self._build_imt_hierarchy(combined_flat),
+            sys_key: self._build_system_hierarchy(combined_flat, sys_type),
+        }
+
     def save_yaml_to_yamldir(self):
         self._internal_save_logic(use_combinations=True)
 
@@ -420,38 +584,8 @@ class GeneralTab:
                 return
 
         sys_type = self.app.var_system.get()
-
-        if sys_type == "SINGLE_EARTH_STATION":
-            sys_key = "single_earth_station"
-        elif sys_type == "SINGLE_SPACE_STATION":
-            sys_key = "single_space_station"
-        else:
-            sys_key = sys_type.lower().strip() or "system"
-
-        general_conf = {
-            "seed": self.app.var_seed.get() if not self.var_use_random_seed.get() else "RANDOM",
-            "num_snapshots": self.app.var_snaps.get(),
-            "overwrite_output": bool(self.app.var_overwrite.get()),
-            "output_dir": str(self.app.var_outdir.get()),
-            "output_dir_prefix": str(self.app.var_prefix.get()),
-            "system": sys_type,
-            "imt_link": str(self.app.var_imt_link.get()),
-            "enable_adjacent_channel": bool(self.app.var_adj.get()),
-            "enable_cochannel": bool(self.app.var_coch.get()),
-        }
-
-        app_globals = self._collect_app_globals()
-        combined_flat = app_globals.copy()
-        for collector in self.data_collectors:
-            try:
-                flat_data = collector()
-                if flat_data:
-                    combined_flat.update(flat_data)
-            except Exception as e:
-                print(f"Warning: Collector error: {e}")
-
-        live_imt = self._build_imt_hierarchy(combined_flat)
-        live_sys = self._build_system_hierarchy(combined_flat, sys_type)
+        sys_key = self._system_section_key(sys_type)
+        base_structure = self.build_current_structure()
 
         combinations: List[List[Tuple[str, Any, Any]]] = [[]]
         if use_combinations:
@@ -473,11 +607,7 @@ class GeneralTab:
         prefix_tmpl = str(self.app.var_prefix.get())
 
         for combo in combinations:
-            final_structure = {
-                "general": copy.deepcopy(general_conf),
-                "imt": copy.deepcopy(live_imt),
-                sys_key: copy.deepcopy(live_sys),
-            }
+            final_structure = copy.deepcopy(base_structure)
 
             fname_vars: Dict[str, Any] = {}
             mapping_vars: Dict[str, Any] = {}
@@ -504,7 +634,7 @@ class GeneralTab:
                         final_structure["imt"] = self._build_imt_hierarchy(
                             combined_flat2)
 
-                    elif config_type in {"SSS", "SES", "SYSTEM", "SINGLE_EARTH_STATION", "SINGLE_SPACE_STATION"}:
+                    elif config_type in {"SSS", "SES", "SYSTEM", "SINGLE_EARTH_STATION", "SINGLE_SPACE_STATION", "MSS_SS", "MSS_D2D", "HAPS"}:
                         SESPersistence.apply_config(self.app, external_data)
                         combined_flat2 = self._collect_app_globals()
                         final_structure[sys_key] = self._build_system_hierarchy(
@@ -696,6 +826,9 @@ class GeneralTab:
                 "bs_elevation": n(g("ntn_bs_elevation", 45.0)),
                 "num_sectors": int(n(g("ntn_num_sectors", 7))),
             }
+
+        elif topo_type == "MSS_DC":
+            topology["mss_dc"] = self._build_mss_dc_block(flat)
 
         bs_array = {
             "normalization": bool(g("bs_norm", False)),
@@ -973,6 +1106,85 @@ class GeneralTab:
                 se["param_p452"] = p452
 
             return se
+
+        if sys_type == "HAPS":
+            az_type = str(g("v_az_type", "FIXED")).strip().upper()
+            el_type = str(g("v_el_type", "FIXED")).strip().upper()
+            azimuth = n(g("v_az_fixed", 0.0)) if az_type == "FIXED" else 0.0
+            elevation = n(g("v_el_fixed", 270.0)) if el_type == "FIXED" else 270.0
+            long_diff = (n(g("v_fix_lon", 0.0)) or 0.0) - (n(g("v_es_lon", 0.0)) or 0.0)
+            ant_pattern = "OMNI" if str(g("v_ant_pattern", "")).strip().upper() == "OMNI" else "ITU-R F.1891"
+
+            return {
+                "frequency": n(g("v_freq", 27250.0)),
+                "bandwidth": n(g("v_bw", 200.0)),
+                "antenna_gain": n(g("v_ant_gain", 28.1)),
+                "tx_power_density": n(g("v_txpsd", -83.7)),
+                "altitude": n(g("v_alt", 20000.0)),
+                "lat_deg": n(g("v_fix_lat", 0.0)),
+                "elevation": elevation,
+                "azimuth": azimuth,
+                "antenna_pattern": ant_pattern,
+                "earth_station_alt_m": n(g("v_es_alt", 0.0)),
+                "earth_station_lat_deg": n(g("v_es_lat", 0.0)),
+                "earth_station_long_diff_deg": long_diff,
+                "season": str(g("v_season", "SUMMER")),
+                "acs": 30.0,
+                "channel_model": str(g("v_ch_model", "P619")),
+                "antenna_l_n": -25.0,
+                "polarization_loss": n(g("v_pol_loss", 0.0)),
+            }
+
+        if sys_type == "MSS_SS":
+            az_type = str(g("v_az_type", "FIXED")).strip().upper()
+            el_type = str(g("v_el_type", "FIXED")).strip().upper()
+            azimuth = n(g("v_az_fixed", 45.0)) if az_type == "FIXED" else 45.0
+            elevation = n(g("v_el_fixed", 90.0)) if el_type == "FIXED" else 90.0
+
+            return {
+                "x": 0.0,
+                "y": 0.0,
+                "frequency": n(g("v_freq", 2110.0)),
+                "bandwidth": n(g("v_bw", 20.0)),
+                "spectral_mask": "3GPP E-UTRA",
+                "spurious_emissions": n(g("imt_spurious", -13.0)),
+                "adjacent_ch_leak_ratio": 45.0,
+                "altitude": n(g("v_alt", 1200000.0)),
+                "cell_radius": n(g("ntn_cell_radius", 45000.0)),
+                "tx_power_density": n(g("v_txpsd", 40.0)),
+                "antenna_gain": n(g("v_ant_gain", 30.0)),
+                "azimuth": azimuth,
+                "elevation": elevation,
+                "num_sectors": int(n(g("ntn_num_sectors", 7))),
+                "antenna_pattern": "ITU-R-S.1528-LEO",
+                "channel_model": str(g("v_ch_model", "P619")),
+                "season": str(g("v_season", "SUMMER")),
+            }
+
+        if sys_type == "MSS_D2D":
+            mss_dc_block = self._build_mss_dc_block(flat)
+            long_diff = (n(g("v_fix_lon", 0.0)) or 0.0) - (n(g("v_es_lon", 0.0)) or 0.0)
+            system = copy.deepcopy(mss_dc_block)
+            system.update({
+                "name": str(g("mss_d2d_name", "SystemA")),
+                "adjacent_ch_emissions": "SPECTRAL_MASK",
+                "spectral_mask": "MSS",
+                "frequency": n(g("v_freq", 2160.0)),
+                "bandwidth": n(g("v_bw", 5.0)),
+                "cell_radius": n(mss_dc_block.get("beam_radius", 36516.0)),
+                "tx_power_density": n(g("v_txpsd", -54.2)),
+                "num_sectors": int(n(mss_dc_block.get("num_beams", 1))),
+                "antenna_pattern": "ITU-R-S.1528-Taylor",
+                "polarization_loss": n(g("v_pol_loss", 0.0)),
+                "channel_model": str(g("v_ch_model", "P619")),
+                "param_p619": {
+                    "earth_station_alt_m": n(g("v_es_alt", 0.0)),
+                    "earth_station_lat_deg": n(g("v_es_lat", 0.0)),
+                    "earth_station_long_diff_deg": long_diff,
+                    "season": str(g("v_season", "SUMMER")),
+                },
+            })
+            return system
 
         return {}
 

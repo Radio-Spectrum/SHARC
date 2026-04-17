@@ -3,6 +3,40 @@ from tkinter import ttk, filedialog
 from utils import add_row_three  # Assuming this exists in your project
 from ui.tabs.assets.imt_tab.imt_tools import IMTUIHelper
 
+DEFAULT_MSS_DC_TEXT = """num_beams: 19
+beam_radius: 36516.0
+sat_is_active_if:
+  conditions:
+    - LAT_LONG_INSIDE_COUNTRY
+    - MINIMUM_ELEVATION_FROM_ES
+  minimum_elevation_from_es: 5.0
+  lat_long_inside_country:
+    country_names:
+      - Brazil
+    margin_from_border: 0.0
+beam_positioning:
+  type: SERVICE_GRID
+  service_grid:
+    transform_grid_randomly: true
+    grid_in_zone:
+      type: FROM_COUNTRIES
+      from_countries:
+        country_names:
+          - Brazil
+        margin_from_border: 0.0
+    eligible_sats_margin_from_border: 0.0
+    minimum_service_angle: 30.0
+orbits:
+  - n_planes: 28
+    inclination_deg: 53.0
+    perigee_alt_km: 525.0
+    apogee_alt_km: 525.0
+    sats_per_plane: 120
+    long_asc_deg: 0.0
+    phasing_deg: 1.5
+    initial_mean_anomaly: 0.0
+"""
+
 
 class IMTTopologySection:
     """
@@ -19,6 +53,7 @@ class IMTTopologySection:
         self.ent_raster = None
         self.btn_raster = None
         self.txt_countries = None
+        self.txt_mss_dc = None
 
         self._build_ui()
 
@@ -33,7 +68,7 @@ class IMTTopologySection:
         ttk.Label(row_type, text="type").pack(side="left")
         cb_topo_type = ttk.Combobox(
             row_type, textvariable=self.state.get("topo_type"),
-            values=["MACROCELL", "HOTSPOT", "SINGLE_BS", "Macro_countries", "INDOOR", "NTN"],
+            values=["MACROCELL", "HOTSPOT", "SINGLE_BS", "Macro_countries", "INDOOR", "NTN", "MSS_DC"],
             state="readonly", width=18
         )
         cb_topo_type.pack(side="left", padx=(6, 0))
@@ -56,6 +91,7 @@ class IMTTopologySection:
         self.frames["SINGLE_BS"] = self._build_sbs(frm_t)
         self.frames["INDOOR"] = self._build_indoor(frm_t)
         self.frames["NTN"] = self._build_ntn(frm_t)
+        self.frames["MSS_DC"] = self._build_mss_dc(frm_t)
 
         self.toggle_visibility()
 
@@ -215,6 +251,30 @@ class IMTTopologySection:
         ])
         return frm
 
+    def _build_mss_dc(self, parent):
+        frm = ttk.LabelFrame(parent, text="Topology – MSS_DC")
+        frm.grid(row=8, column=0, columnspan=6, sticky="we", pady=(4, 8))
+
+        ttk.Label(
+            frm,
+            text="Configuração avançada em YAML/JSON do bloco imt.topology.mss_dc",
+        ).grid(row=0, column=0, sticky="w", padx=4, pady=(2, 4))
+
+        self.txt_mss_dc = tk.Text(frm, width=64, height=16)
+        self.txt_mss_dc.grid(row=1, column=0, sticky="nsew", padx=4, pady=(0, 4))
+        frm.grid_columnconfigure(0, weight=1)
+        frm.grid_rowconfigure(1, weight=1)
+
+        initial_text = self.state.get("mss_dc_config").get().strip() or DEFAULT_MSS_DC_TEXT
+        self.txt_mss_dc.insert("1.0", initial_text)
+        self.state.get("mss_dc_config").set(initial_text)
+
+        ttk.Label(
+            frm,
+            text="Dica: use este bloco para orbits, sat_is_active_if e beam_positioning.",
+        ).grid(row=2, column=0, sticky="w", padx=4, pady=(0, 2))
+        return frm
+
     # --- Logic ---
 
     def toggle_visibility(self, *args):
@@ -263,3 +323,15 @@ class IMTTopologySection:
         if self.txt_countries:
             self.txt_countries.delete("1.0", "end")
             self.txt_countries.insert("1.0", text)
+
+    def get_mss_dc_text(self):
+        if self.txt_mss_dc:
+            return self.txt_mss_dc.get("1.0", "end").strip()
+        return self.state.get("mss_dc_config").get().strip()
+
+    def set_mss_dc_text(self, text):
+        final_text = (text or "").strip() or DEFAULT_MSS_DC_TEXT
+        self.state.get("mss_dc_config").set(final_text)
+        if self.txt_mss_dc:
+            self.txt_mss_dc.delete("1.0", "end")
+            self.txt_mss_dc.insert("1.0", final_text)

@@ -1,12 +1,22 @@
+import copy
+import yaml
+
+
 def _num_or_str(s):
     """Conversor robusto de strings para float/int."""
     if s is None:
         return None
-    if isinstance(s, (int, float)):
+    if isinstance(s, (int, float, bool)):
         return s
     s_str = str(s).strip()
     if not s_str:
         return None
+
+    low = s_str.lower()
+    if low == "true":
+        return True
+    if low == "false":
+        return False
 
     if '.' not in s_str and 'e' not in s_str.lower():
         try:
@@ -49,6 +59,173 @@ def _normalize_raster_encoding(value):
     return enc if enc in {"uniform", "density", "indexed"} else "uniform"
 
 
+def _normalize_topology_type(value):
+    raw = str(value or "").strip()
+    if not raw:
+        return "HOTSPOT"
+
+    official = {"HOTSPOT", "MACROCELL", "SINGLE_BS", "Macro_countries", "INDOOR", "NTN", "MSS_DC"}
+    if raw in official:
+        return raw
+
+    low = raw.lower()
+    if low in {"macro_countries", "macro countries", "macro-countries"}:
+        return "Macro_countries"
+    if low == "macrocell":
+        return "MACROCELL"
+    if low == "single_bs":
+        return "SINGLE_BS"
+    if low == "indoor":
+        return "INDOOR"
+    if low == "ntn":
+        return "NTN"
+    if low in {"mss_dc", "mss dc", "mss-dc"}:
+        return "MSS_DC"
+    return raw
+
+
+def _normalize_imt_spectral_mask(value):
+    raw = str(value or "").strip()
+    if not raw:
+        return "IMT-2020"
+
+    low = raw.lower()
+    mapping = {
+        "imt-2020": "IMT-2020",
+        "3gpp": "3GPP E-UTRA",
+        "3gpp e-utra": "3GPP E-UTRA",
+        "mss": "MSS",
+    }
+    return mapping.get(low, raw)
+
+
+def _normalize_adjacent_antenna_model(value):
+    raw = str(value or "").strip()
+    if not raw:
+        return "SINGLE_ELEMENT"
+
+    low = raw.lower()
+    mapping = {
+        "single_element": "SINGLE_ELEMENT",
+        "single element": "SINGLE_ELEMENT",
+        "beamforming": "BEAMFORMING",
+        "itu-r f.1336": "SINGLE_ELEMENT",
+        "f1336": "SINGLE_ELEMENT",
+    }
+    return mapping.get(low, raw)
+
+
+def _normalize_imt_channel_model(value):
+    raw = str(value or "").strip()
+    if not raw:
+        return "UMa"
+
+    low = raw.lower()
+    mapping = {
+        "fspl": "FSPL",
+        "ci": "CI",
+        "uma": "UMa",
+        "umi": "UMi",
+        "tvro-urban": "TVRO-URBAN",
+        "tvro-suburban": "TVRO-SUBURBAN",
+        "abg": "ABG",
+        "p619": "P619",
+    }
+    return mapping.get(low, raw)
+
+
+def _normalize_num_imt_buildings(value):
+    parsed = _num_or_str(value)
+    if parsed is None:
+        return "ALL"
+    if isinstance(parsed, str):
+        return "ALL" if parsed.strip().upper() == "ALL" else parsed.strip()
+    return int(parsed)
+
+
+def _deep_merge(base_dict, new_dict):
+    for key, value in new_dict.items():
+        if isinstance(value, dict) and isinstance(base_dict.get(key), dict):
+            _deep_merge(base_dict[key], value)
+        else:
+            base_dict[key] = value
+    return base_dict
+
+
+def _parse_mapping_text(raw_text):
+    text = str(raw_text or "").strip()
+    if not text:
+        return {}
+    try:
+        data = yaml.safe_load(text)
+    except Exception:
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def _default_mss_dc_config(country_names):
+    names = country_names or ["Brazil"]
+    return {
+        "name": "SystemA",
+        "num_beams": 19,
+        "beam_radius": 36516.0,
+        "sat_is_active_if": {
+            "conditions": [
+                "LAT_LONG_INSIDE_COUNTRY",
+                "MINIMUM_ELEVATION_FROM_ES",
+            ],
+            "minimum_elevation_from_es": 5.0,
+            "lat_long_inside_country": {
+                "country_names": list(names),
+                "margin_from_border": 0.0,
+            },
+        },
+        "beam_positioning": {
+            "type": "SERVICE_GRID",
+            "service_grid": {
+                "country_names": list(names),
+                "transform_grid_randomly": True,
+                "grid_margin_from_border": 0.0,
+                "eligible_sats_margin_from_border": 0.0,
+            },
+        },
+        "orbits": [
+            {
+                "n_planes": 28,
+                "inclination_deg": 53.0,
+                "perigee_alt_km": 525.0,
+                "apogee_alt_km": 525.0,
+                "sats_per_plane": 120,
+                "long_asc_deg": 0.0,
+                "phasing_deg": 1.5,
+                "initial_mean_anomaly": 0.0,
+            }
+        ],
+    }
+
+
+def _get_countries_text(app_state):
+    try:
+        return app_state.tab_imt.topo_section.get_countries_text()
+    except Exception:
+        return ""
+
+
+def _get_mss_dc_text(app_state):
+    try:
+        return app_state.tab_imt.topo_section.get_mss_dc_text()
+    except Exception:
+        return ""
+
+
+def _get_mss_dc_data(app_state):
+    try:
+        data = app_state.tab_imt.topo_section.get_mss_dc_data()
+    except Exception:
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
 def build_yaml_structure(app_state):
     """
     Constrói o dicionário completo do YAML extraindo os dados em tempo real.
@@ -78,7 +255,7 @@ def build_yaml_structure(app_state):
     }
 
     # --- 2. Topology (IMT) ---
-    topo_type = str(g_imt("topo_type"))
+    topo_type = _normalize_topology_type(g_imt("topo_type"))
     topology = {
         "central_latitude": n(g_imt("topo_c_lat")),
         "central_longitude": n(g_imt("topo_c_lon")),
@@ -88,7 +265,7 @@ def build_yaml_structure(app_state):
 
     if topo_type == "Macro_countries":
         try:
-            raw_txt = app_state.tab_imt.topo_section.get_countries_text()
+            raw_txt = _get_countries_text(app_state)
         except:
             raw_txt = str(g_imt("topo_countries") or "")
 
@@ -145,12 +322,73 @@ def build_yaml_structure(app_state):
         except:
             sbs_az = az_text
 
-        topology["single_bs"] = {
-            "intersite_distance": n(g_imt("sbs_intersite")),
-            "cell_radius": n(g_imt("sbs_cell_radius")),
+        single_bs = {
             "num_clusters": int(n(g_imt("sbs_clusters")) or 1),
             "azimuth": sbs_az,
         }
+        sbs_cell_radius = n(g_imt("sbs_cell_radius"))
+        sbs_intersite = n(g_imt("sbs_intersite"))
+        if sbs_cell_radius is not None:
+            single_bs["cell_radius"] = sbs_cell_radius
+        elif sbs_intersite is not None:
+            single_bs["intersite_distance"] = sbs_intersite
+        topology["single_bs"] = single_bs
+
+    elif topo_type == "INDOOR":
+        topology["indoor"] = {
+            "basic_path_loss": str(g_imt("indoor_basic_path_loss") or "INH_OFFICE"),
+            "intersite_distance": n(g_imt("indoor_intersite")),
+            "n_rows": int(n(g_imt("indoor_n_rows")) or 3),
+            "n_colums": int(n(g_imt("indoor_n_cols")) or 2),
+            "street_width": n(g_imt("indoor_street_width")),
+            "num_cells": int(n(g_imt("indoor_num_cells")) or 3),
+            "num_floors": int(n(g_imt("indoor_num_floors")) or 1),
+            "num_imt_buildings": _normalize_num_imt_buildings(g_imt("indoor_num_buildings")),
+            "building_class": str(g_imt("indoor_building_class") or "TRADITIONAL"),
+            "ue_indoor_percent": n(g_imt("indoor_ue_indoor_percent")),
+        }
+
+    elif topo_type == "NTN":
+        ntn = {
+            "bs_height": n(g_imt("ntn_bs_height")),
+            "bs_azimuth": n(g_imt("ntn_bs_azimuth")),
+            "bs_elevation": n(g_imt("ntn_bs_elevation")),
+            "num_sectors": int(n(g_imt("ntn_num_sectors")) or 7),
+            "bs_backoff_power": int(n(g_imt("ntn_bs_backoff_power")) or 3),
+            "bs_n_rows_layer1": int(n(g_imt("ntn_bs_n_rows_layer1")) or 2),
+            "bs_n_columns_layer1": int(n(g_imt("ntn_bs_n_columns_layer1")) or 2),
+            "bs_n_rows_layer2": int(n(g_imt("ntn_bs_n_rows_layer2")) or 4),
+            "bs_n_columns_layer2": int(n(g_imt("ntn_bs_n_columns_layer2")) or 2),
+        }
+        ntn_cell_radius = n(g_imt("ntn_cell_radius"))
+        ntn_intersite = n(g_imt("ntn_intersite"))
+        if ntn_cell_radius is not None:
+            ntn["cell_radius"] = ntn_cell_radius
+        elif ntn_intersite is not None:
+            ntn["intersite_distance"] = ntn_intersite
+        topology["ntn"] = ntn
+
+    elif topo_type == "MSS_DC":
+        raw_txt = _get_countries_text(app_state) or str(g_imt("topo_countries") or "")
+        countries = [c.strip() for c in raw_txt.splitlines() if c.strip()]
+        mss_dc = copy.deepcopy(_default_mss_dc_config(countries))
+        parsed = _get_mss_dc_data(app_state)
+        if not parsed:
+            parsed = _parse_mapping_text(_get_mss_dc_text(app_state) or g_imt("mss_dc_config"))
+        if parsed:
+            _deep_merge(mss_dc, parsed)
+
+        sat_active = mss_dc.setdefault("sat_is_active_if", {})
+        lat_long = sat_active.setdefault("lat_long_inside_country", {})
+        if countries and not lat_long.get("country_names"):
+            lat_long["country_names"] = list(countries)
+
+        beam_positioning = mss_dc.setdefault("beam_positioning", {})
+        service_grid = beam_positioning.setdefault("service_grid", {})
+        if countries and not service_grid.get("country_names"):
+            service_grid["country_names"] = list(countries)
+
+        topology["mss_dc"] = mss_dc
 
     # --- 3. IMT Structure ---
     ue_array = {
@@ -193,6 +431,9 @@ def build_yaml_structure(app_state):
     if str(g_imt("ue_dist_type")).upper() == "ANGLE_AND_DISTANCE":
         ue_block["distribution_distance"] = g_imt("ue_dist_distance")
         ue_block["distribution_azimuth"] = g_imt("ue_dist_azimuth")
+        az_min = n(g_imt("ue_az_min"))
+        az_max = n(g_imt("ue_az_max"))
+        ue_block["azimuth_range"] = f"{az_min},{az_max}"
 
     bs_array = {
         "normalization": bool(g_imt("bs_norm")),
@@ -219,21 +460,27 @@ def build_yaml_structure(app_state):
         }
     }
 
+    bs_height = n(g_imt("bs_height"))
+    if topo_type == "NTN":
+        ntn_height = n(g_imt("ntn_bs_height"))
+        if ntn_height is not None:
+            bs_height = ntn_height
+
     imt = {
         "minimum_separation_distance_bs_ue": n(g_imt("imt_min_sep")),
         "interfered_with": bool(g_imt("imt_interfered")),
         "frequency": n(g_imt("imt_freq")),
         "bandwidth": n(g_imt("imt_bw")),
         "rb_bandwidth": n(g_imt("imt_rb_bw")),
-        "spectral_mask": g_imt("imt_spec_mask"),
+        "spectral_mask": _normalize_imt_spectral_mask(g_imt("imt_spec_mask")),
         "spurious_emissions": n(g_imt("imt_spurious")),
-        "adjacent_antenna_model": g_imt("imt_adj_ant_model"),
+        "adjacent_antenna_model": _normalize_adjacent_antenna_model(g_imt("imt_adj_ant_model")),
         "guard_band_ratio": n(g_imt("imt_guard_ratio")),
         "topology": topology,
         "bs": {
             "load_probability": n(g_imt("bs_load_prob")),
             "conducted_power": n(g_imt("bs_power")),
-            "height": n(g_imt("bs_height")),
+            "height": bs_height,
             "noise_figure": n(g_imt("bs_nf")),
             "ohmic_loss": n(g_imt("bs_ohmic")),
             "antenna": {"array": bs_array}
@@ -249,7 +496,7 @@ def build_yaml_structure(app_state):
             "sinr_min": n(g_imt("dl_sinr_min")),
             "sinr_max": n(g_imt("dl_sinr_max")),
         },
-        "channel_model": g_imt("ch_model"),
+        "channel_model": _normalize_imt_channel_model(g_imt("ch_model")),
         "shadowing": bool(g_imt("shadowing")),
     }
 

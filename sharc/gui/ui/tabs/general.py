@@ -123,6 +123,7 @@ def _parse_mapping_text(raw_text: Any) -> Dict[str, Any]:
 def _default_mss_dc_config(country_names: List[str]) -> Dict[str, Any]:
     names = country_names or ["Brazil"]
     return {
+        "name": "SystemA",
         "num_beams": 19,
         "beam_radius": 36516.0,
         "sat_is_active_if": {
@@ -139,16 +140,10 @@ def _default_mss_dc_config(country_names: List[str]) -> Dict[str, Any]:
         "beam_positioning": {
             "type": "SERVICE_GRID",
             "service_grid": {
+                "country_names": list(names),
                 "transform_grid_randomly": True,
-                "grid_in_zone": {
-                    "type": "FROM_COUNTRIES",
-                    "from_countries": {
-                        "country_names": list(names),
-                        "margin_from_border": 0.0,
-                    },
-                },
+                "grid_margin_from_border": 0.0,
                 "eligible_sats_margin_from_border": 0.0,
-                "minimum_service_angle": 30.0,
             },
         },
         "orbits": [
@@ -248,6 +243,65 @@ def _normalize_raster_encoding(value: Any) -> str:
     legacy = {"Uniforme": "uniform", "Denspop": "indexed", "": "uniform"}
     enc = legacy.get(raw, raw.lower())
     return enc if enc in {"uniform", "density", "indexed"} else "uniform"
+
+
+def _normalize_imt_spectral_mask(value: Any) -> str:
+    raw = str(value or "").strip()
+    if not raw:
+        return "IMT-2020"
+
+    low = raw.lower()
+    mapping = {
+        "imt-2020": "IMT-2020",
+        "3gpp": "3GPP E-UTRA",
+        "3gpp e-utra": "3GPP E-UTRA",
+        "mss": "MSS",
+    }
+    return mapping.get(low, raw)
+
+
+def _normalize_adjacent_antenna_model(value: Any) -> str:
+    raw = str(value or "").strip()
+    if not raw:
+        return "SINGLE_ELEMENT"
+
+    low = raw.lower()
+    mapping = {
+        "single_element": "SINGLE_ELEMENT",
+        "single element": "SINGLE_ELEMENT",
+        "beamforming": "BEAMFORMING",
+        "itu-r f.1336": "SINGLE_ELEMENT",
+        "f1336": "SINGLE_ELEMENT",
+    }
+    return mapping.get(low, raw)
+
+
+def _normalize_imt_channel_model(value: Any) -> str:
+    raw = str(value or "").strip()
+    if not raw:
+        return "UMa"
+
+    low = raw.lower()
+    mapping = {
+        "fspl": "FSPL",
+        "ci": "CI",
+        "uma": "UMa",
+        "umi": "UMi",
+        "tvro-urban": "TVRO-URBAN",
+        "tvro-suburban": "TVRO-SUBURBAN",
+        "abg": "ABG",
+        "p619": "P619",
+    }
+    return mapping.get(low, raw)
+
+
+def _normalize_num_imt_buildings(value: Any) -> Any:
+    parsed = _num_or_str(value)
+    if parsed is None:
+        return "ALL"
+    if isinstance(parsed, str):
+        return "ALL" if parsed.strip().upper() == "ALL" else parsed.strip()
+    return int(parsed)
 
 
 def _consolidate_param_p452(block: Dict[str, Any]) -> Dict[str, Any]:
@@ -502,10 +556,22 @@ class GeneralTab:
                     text = live_text
         return text
 
+    def _get_mss_dc_data(self, flat: Dict[str, Any]) -> Dict[str, Any]:
+        if hasattr(self.app, "tab_imt") and hasattr(self.app.tab_imt, "topo_section"):
+            getter = getattr(self.app.tab_imt.topo_section, "get_mss_dc_data", None)
+            if callable(getter):
+                try:
+                    data = getter()
+                    if isinstance(data, dict) and data:
+                        return _sanitize_recursive(data)
+                except Exception:
+                    pass
+        return _parse_mapping_text(self._get_mss_dc_text(flat))
+
     def _build_mss_dc_block(self, flat: Dict[str, Any]) -> Dict[str, Any]:
         countries = self._selected_country_names(flat)
         block = copy.deepcopy(_default_mss_dc_config(countries))
-        parsed = _parse_mapping_text(self._get_mss_dc_text(flat))
+        parsed = self._get_mss_dc_data(flat)
         if parsed:
             deep_merge(block, parsed)
 
@@ -516,10 +582,8 @@ class GeneralTab:
 
         beam_positioning = block.setdefault("beam_positioning", {})
         service_grid = beam_positioning.setdefault("service_grid", {})
-        grid_in_zone = service_grid.setdefault("grid_in_zone", {})
-        from_countries = grid_in_zone.setdefault("from_countries", {})
-        if countries and not from_countries.get("country_names"):
-            from_countries["country_names"] = list(countries)
+        if countries and not service_grid.get("country_names"):
+            service_grid["country_names"] = list(countries)
 
         if not block.get("beam_radius"):
             block["beam_radius"] = _num_or_str(flat.get("ntn_cell_radius", 36516.0)) or 36516.0
@@ -849,16 +913,22 @@ class GeneralTab:
             except Exception:
                 sbs_az = az_text
 
-            topology["single_bs"] = {
-                "intersite_distance": n(g("sbs_intersite", 500.0)),
-                "cell_radius": n(g("sbs_cell_radius", 1.0)),
+            single_bs = {
                 "num_clusters": int(n(g("sbs_clusters", 1))),
                 "azimuth": sbs_az,
             }
+            sbs_cell_radius = n(g("sbs_cell_radius", None))
+            sbs_intersite = n(g("sbs_intersite", None))
+            if sbs_cell_radius is not None:
+                single_bs["cell_radius"] = sbs_cell_radius
+            elif sbs_intersite is not None:
+                single_bs["intersite_distance"] = sbs_intersite
+            topology["single_bs"] = single_bs
 
         elif topo_type == "INDOOR":
-            nb = str(g("indoor_num_buildings", "ALL")).strip()
+            nb = _normalize_num_imt_buildings(g("indoor_num_buildings", "ALL"))
             topology["indoor"] = {
+                "basic_path_loss": str(g("indoor_basic_path_loss", "INH_OFFICE")),
                 "intersite_distance": n(g("indoor_intersite", 20.0)),
                 "n_rows": int(n(g("indoor_n_rows", 3))),
                 "n_colums": int(n(g("indoor_n_cols", 3))),
@@ -871,14 +941,24 @@ class GeneralTab:
             }
 
         elif topo_type == "NTN":
-            topology["ntn"] = {
-                "intersite_distance": n(g("ntn_intersite", 100000.0)),
-                "cell_radius": n(g("ntn_cell_radius", 50000.0)),
+            ntn = {
                 "bs_height": n(g("ntn_bs_height", 600000.0)),
                 "bs_azimuth": n(g("ntn_bs_azimuth", 45.0)),
                 "bs_elevation": n(g("ntn_bs_elevation", 45.0)),
                 "num_sectors": int(n(g("ntn_num_sectors", 7))),
+                "bs_backoff_power": int(n(g("ntn_bs_backoff_power", 3))),
+                "bs_n_rows_layer1": int(n(g("ntn_bs_n_rows_layer1", 2))),
+                "bs_n_columns_layer1": int(n(g("ntn_bs_n_columns_layer1", 2))),
+                "bs_n_rows_layer2": int(n(g("ntn_bs_n_rows_layer2", 4))),
+                "bs_n_columns_layer2": int(n(g("ntn_bs_n_columns_layer2", 2))),
             }
+            ntn_cell_radius = n(g("ntn_cell_radius", None))
+            ntn_intersite = n(g("ntn_intersite", None))
+            if ntn_cell_radius is not None:
+                ntn["cell_radius"] = ntn_cell_radius
+            elif ntn_intersite is not None:
+                ntn["intersite_distance"] = ntn_intersite
+            topology["ntn"] = ntn
 
         elif topo_type == "MSS_DC":
             topology["mss_dc"] = self._build_mss_dc_block(flat)
@@ -950,6 +1030,15 @@ class GeneralTab:
         if str(g("ue_dist_type", "")).upper() == "ANGLE_AND_DISTANCE":
             ue_block["distribution_distance"] = g("ue_dist_distance", "")
             ue_block["distribution_azimuth"] = g("ue_dist_azimuth", "")
+            az_min = n(g("ue_az_min", -60.0))
+            az_max = n(g("ue_az_max", 60.0))
+            ue_block["azimuth_range"] = f"{az_min},{az_max}"
+
+        bs_height = n(g("bs_height", 30.0))
+        if topo_type == "NTN":
+            ntn_height = n(g("ntn_bs_height", None))
+            if ntn_height is not None:
+                bs_height = ntn_height
 
         imt = {
             "minimum_separation_distance_bs_ue": n(g("imt_min_sep", 10.0)),
@@ -957,15 +1046,15 @@ class GeneralTab:
             "frequency": n(g("imt_freq", 3500.0)),
             "bandwidth": n(g("imt_bw", 100.0)),
             "rb_bandwidth": n(g("imt_rb_bw", 0.18)),
-            "spectral_mask": str(g("imt_spec_mask", "IMT-2020")),
+            "spectral_mask": _normalize_imt_spectral_mask(g("imt_spec_mask", "IMT-2020")),
             "spurious_emissions": n(g("imt_spurious", -13.0)),
-            "adjacent_antenna_model": str(g("imt_adj_ant_model", "ITU-R F.1336")),
+            "adjacent_antenna_model": _normalize_adjacent_antenna_model(g("imt_adj_ant_model", "SINGLE_ELEMENT")),
             "guard_band_ratio": n(g("imt_guard_ratio", 0.0)),
             "topology": topology,
             "bs": {
                 "load_probability": n(g("bs_load_prob", 1.0)),
                 "conducted_power": n(g("bs_power", 46.0)),
-                "height": n(g("bs_height", 30.0)),
+                "height": bs_height,
                 "noise_figure": n(g("bs_nf", 5.0)),
                 "ohmic_loss": n(g("bs_ohmic", 2.0)),
                 "antenna": {"array": bs_array},
@@ -981,7 +1070,7 @@ class GeneralTab:
                 "sinr_min": n(g("dl_sinr_min", -10.0)),
                 "sinr_max": n(g("dl_sinr_max", 30.0)),
             },
-            "channel_model": str(g("ch_model", "Uma")),
+            "channel_model": _normalize_imt_channel_model(g("ch_model", "UMa")),
             "shadowing": bool(g("shadowing", True)),
         }
         return imt

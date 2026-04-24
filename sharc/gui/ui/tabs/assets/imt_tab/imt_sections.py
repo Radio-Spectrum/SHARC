@@ -26,13 +26,18 @@ class IMTSections:
             ("rb_bandwidth [MHz]", ttk.Entry(
                 frm, textvariable=state.get("imt_rb_bw"), width=10)),
             ("spectral_mask", ttk.Combobox(frm, textvariable=state.get(
-                "imt_spec_mask"), values=["IMT-2020", "3GPP"], state="readonly", width=12)),
+                "imt_spec_mask"), values=["IMT-2020", "3GPP E-UTRA", "MSS"], state="readonly", width=14)),
         ])
         add_row_three(frm, 2, [
             ("spurious_emissions [dBc]", ttk.Entry(
                 frm, textvariable=state.get("imt_spurious"), width=10)),
-            ("adjacent_antenna_model", ttk.Entry(
-                frm, textvariable=state.get("imt_adj_ant_model"), width=16)),
+            ("adjacent_antenna_model", ttk.Combobox(
+                frm,
+                textvariable=state.get("imt_adj_ant_model"),
+                values=["SINGLE_ELEMENT", "BEAMFORMING"],
+                state="readonly",
+                width=16,
+            )),
             ("guard_band_ratio", ttk.Entry(
                 frm, textvariable=state.get("imt_guard_ratio"), width=10)),
         ])

@@ -1177,6 +1177,7 @@ class App(tb.Window if HAS_BOOTSTRAP else tk.Tk):
             "HAPS",
             "MSS_SS",
             "MSS_D2D",
+            "MSS_DC",
             "FSS_SS",
             "EESS_SS",
             "METSAT_SS",

@@ -92,6 +92,7 @@ SUPPORTED_SYSTEM_TYPES = (
     "HAPS",
     "MSS_SS",
     "MSS_D2D",
+    "MSS_DC",
 )
 
 GLOBAL_PREVIEW_TYPES = {
@@ -258,6 +259,40 @@ def _coerce_str(x: Any, default: str) -> str:
         return s if s else default
     except Exception:
         return default
+
+
+def _get_imt_value(app: Any, key: str, default: Any = None) -> Any:
+    try:
+        tab = getattr(app, "tab_imt")
+        state = getattr(tab, "state")
+        var = state.get(key)
+        return var.get()
+    except Exception:
+        pass
+
+    try:
+        value = getattr(app, key)
+        return _as_value(value)
+    except Exception:
+        return default
+
+
+def _get_countries_text(app: Any, default: str = "Brazil") -> str:
+    try:
+        return app.tab_imt.topo_section.get_countries_text()
+    except Exception:
+        return _coerce_str(getattr(app, "topo_countries", ""), default)
+
+
+def _parse_country_names(text: str) -> List[str]:
+    return [c.strip() for c in str(text or "").replace(",", "\n").splitlines() if c.strip()]
+
+
+def _normalize_raster_encoding(value: Any) -> str:
+    raw = str(value or "").strip()
+    legacy = {"Uniforme": "uniform", "Denspop": "indexed", "": "uniform"}
+    enc = legacy.get(raw, raw.lower())
+    return enc if enc in {"uniform", "density", "indexed"} else "uniform"
 
 
 def _unit(v: np.ndarray) -> np.ndarray:
@@ -821,6 +856,13 @@ class PreviewTab:
             lines.append(f"BW       : {v(('mss_d2d.bandwidth',), 'v_bw')} MHz")
             lines.append(f"Beams    : {v(('mss_d2d.num_sectors', 'imt.topology.mss_dc.num_beams'), None)}")
             lines.append(f"Channel  : {v(('mss_d2d.channel_model',), 'v_ch_model')}")
+        elif sys_type == "MSS_DC":
+            lines.append(f"")
+            lines.append(f"━━━ MSS-DC ━━━")
+            lines.append(f"Freq     : {v(('mss_dc.frequency',), 'v_freq')} MHz")
+            lines.append(f"BW       : {v(('mss_dc.bandwidth',), 'v_bw')} MHz")
+            lines.append(f"Beams    : {v(('mss_dc.num_sectors', 'imt.topology.mss_dc.num_beams'), None)}")
+            lines.append(f"Channel  : {v(('mss_dc.channel_model',), 'v_ch_model')}")
 
         text = "\n".join(lines)
         self.txt_summary.configure(state="normal")
@@ -842,6 +884,7 @@ class PreviewTab:
         sys_type = _coerce_str(_yaml_first(data, ("general.system",), None), "")
         if not sys_type:
             for key, name in (
+                ("mss_dc", "MSS_DC"),
                 ("mss_d2d", "MSS_D2D"),
                 ("mss_ss", "MSS_SS"),
                 ("haps", "HAPS"),
@@ -1382,9 +1425,24 @@ class PreviewTab:
         # ============================================================
         if topo_type == "Macro_countries":
             # Get BS positions with cache invalidation
-            countries_str = _coerce_str(getattr(self.app, "topo_countries", ""), "Brazil")
-            num_bs_val = _safe_int(getattr(self.app, "topo_num_bs", None), 50)
-            cache_key = f"{countries_str}_{num_bs_val}"
+            countries_str = _get_countries_text(self.app, "Brazil")
+            num_bs_val = _safe_int(_get_imt_value(self.app, "topo_num_bs"), 50)
+            raster_encoding = _normalize_raster_encoding(
+                _get_imt_value(self.app, "topo_raster_enc", "uniform")
+            )
+            raster_path_ui = _coerce_str(_get_imt_value(self.app, "path_raster", ""), "")
+            cache_key = "|".join([
+                countries_str,
+                str(num_bs_val),
+                raster_encoding,
+                raster_path_ui,
+                _coerce_str(_get_imt_value(self.app, "topo_dist_type", ""), ""),
+                _coerce_str(_get_imt_value(self.app, "topo_min_density_threshold", ""), ""),
+                _coerce_str(_get_imt_value(self.app, "topo_density_exponent", ""), ""),
+                _coerce_str(_get_imt_value(self.app, "topo_sedac_palette_mode", ""), ""),
+                _coerce_str(_get_imt_value(self.app, "topo_sedac_min", ""), ""),
+                _coerce_str(_get_imt_value(self.app, "topo_sedac_max", ""), ""),
+            ])
             
             bs_lats = getattr(self.app, "_mc_bs_lats", None)
             bs_lons = getattr(self.app, "_mc_bs_lons", None)
@@ -1398,17 +1456,53 @@ class PreviewTab:
                     
                     param_c = ParametersCountries()
                     # Parse country block from app
-                    names = [c.strip() for c in countries_str.split(",") if c.strip()]
+                    names = _parse_country_names(countries_str)
                     param_c.country_names = names if names else ["Brazil"]
-                    param_c.num_bs_total = _safe_int(getattr(self.app, "topo_num_bs", None), 50)
+                    param_c.num_bs_total = num_bs_val
+                    param_c.rng_seed = _safe_int(_get_imt_value(self.app, "topo_rng"), param_c.rng_seed)
+                    param_c.cell_radius = _safe_float(
+                        _get_imt_value(self.app, "topo_cell_radius"), param_c.cell_radius
+                    )
+                    param_c.dist_type = _coerce_str(
+                        _get_imt_value(self.app, "topo_dist_type", ""), ""
+                    ) or None
+                    param_c.raster_encoding = raster_encoding if raster_encoding != "uniform" else "indexed"
+                    param_c.sedac_palette_mode = _coerce_str(
+                        _get_imt_value(self.app, "topo_sedac_palette_mode", ""),
+                        param_c.sedac_palette_mode,
+                    )
+                    param_c.sedac_min = _safe_float(
+                        _get_imt_value(self.app, "topo_sedac_min"), param_c.sedac_min
+                    )
+                    param_c.sedac_max = _safe_float(
+                        _get_imt_value(self.app, "topo_sedac_max"), param_c.sedac_max
+                    )
+                    param_c.min_density_threshold = _safe_float(
+                        _get_imt_value(self.app, "topo_min_density_threshold"),
+                        param_c.min_density_threshold,
+                    )
+                    param_c.density_exponent = _safe_float(
+                        _get_imt_value(self.app, "topo_density_exponent"),
+                        param_c.density_exponent,
+                    )
                     
                     # Auto-resolve paths
                     base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
                     shp_path = os.path.join(base_dir, "topology", "map", "ne_110m_admin_0_countries.shp")
                     ras_path = os.path.join(base_dir, "topology", "map", "SEDAC_map2.tiff")
                     act_path = os.path.join(base_dir, "topology", "map", "sedac_pop.act")
-                    if os.path.exists(shp_path): param_c.shapefile_path = shp_path
-                    if os.path.exists(ras_path): param_c.population_raster = ras_path
+                    shp_path_ui = _coerce_str(_get_imt_value(self.app, "path_shp", ""), "")
+                    if shp_path_ui:
+                        param_c.shapefile_path = shp_path_ui
+                    elif os.path.exists(shp_path):
+                        param_c.shapefile_path = shp_path
+                    if raster_encoding != "uniform":
+                        if raster_path_ui:
+                            param_c.population_raster = raster_path_ui
+                        elif os.path.exists(ras_path):
+                            param_c.population_raster = ras_path
+                    else:
+                        param_c.population_raster = None
                     if os.path.exists(act_path): param_c.act_colormap_path = act_path
                     
                     topo = TopologyCountries(param_c, None)
@@ -1760,9 +1854,24 @@ class PreviewTab:
                 self._draw_borders_plotly(fig)
 
             # Get BS positions with cache invalidation
-            countries_str = _coerce_str(getattr(self.app, "topo_countries", ""), "Brazil")
-            num_bs_val = _safe_int(getattr(self.app, "topo_num_bs", None), 50)
-            cache_key = f"{countries_str}_{num_bs_val}"
+            countries_str = _get_countries_text(self.app, "Brazil")
+            num_bs_val = _safe_int(_get_imt_value(self.app, "topo_num_bs"), 50)
+            raster_encoding = _normalize_raster_encoding(
+                _get_imt_value(self.app, "topo_raster_enc", "uniform")
+            )
+            raster_path_ui = _coerce_str(_get_imt_value(self.app, "path_raster", ""), "")
+            cache_key = "|".join([
+                countries_str,
+                str(num_bs_val),
+                raster_encoding,
+                raster_path_ui,
+                _coerce_str(_get_imt_value(self.app, "topo_dist_type", ""), ""),
+                _coerce_str(_get_imt_value(self.app, "topo_min_density_threshold", ""), ""),
+                _coerce_str(_get_imt_value(self.app, "topo_density_exponent", ""), ""),
+                _coerce_str(_get_imt_value(self.app, "topo_sedac_palette_mode", ""), ""),
+                _coerce_str(_get_imt_value(self.app, "topo_sedac_min", ""), ""),
+                _coerce_str(_get_imt_value(self.app, "topo_sedac_max", ""), ""),
+            ])
             
             bs_lats = getattr(self.app, "_mc_bs_lats", None)
             bs_lons = getattr(self.app, "_mc_bs_lons", None)
@@ -1774,16 +1883,52 @@ class PreviewTab:
                         raise ImportError("TopologyCountries/ParametersCountries not available")
                     
                     param_c = ParametersCountries()
-                    names = [c.strip() for c in countries_str.split(",") if c.strip()]
+                    names = _parse_country_names(countries_str)
                     param_c.country_names = names if names else ["Brazil"]
-                    param_c.num_bs_total = _safe_int(getattr(self.app, "topo_num_bs", None), 50)
+                    param_c.num_bs_total = num_bs_val
+                    param_c.rng_seed = _safe_int(_get_imt_value(self.app, "topo_rng"), param_c.rng_seed)
+                    param_c.cell_radius = _safe_float(
+                        _get_imt_value(self.app, "topo_cell_radius"), param_c.cell_radius
+                    )
+                    param_c.dist_type = _coerce_str(
+                        _get_imt_value(self.app, "topo_dist_type", ""), ""
+                    ) or None
+                    param_c.raster_encoding = raster_encoding if raster_encoding != "uniform" else "indexed"
+                    param_c.sedac_palette_mode = _coerce_str(
+                        _get_imt_value(self.app, "topo_sedac_palette_mode", ""),
+                        param_c.sedac_palette_mode,
+                    )
+                    param_c.sedac_min = _safe_float(
+                        _get_imt_value(self.app, "topo_sedac_min"), param_c.sedac_min
+                    )
+                    param_c.sedac_max = _safe_float(
+                        _get_imt_value(self.app, "topo_sedac_max"), param_c.sedac_max
+                    )
+                    param_c.min_density_threshold = _safe_float(
+                        _get_imt_value(self.app, "topo_min_density_threshold"),
+                        param_c.min_density_threshold,
+                    )
+                    param_c.density_exponent = _safe_float(
+                        _get_imt_value(self.app, "topo_density_exponent"),
+                        param_c.density_exponent,
+                    )
                     
                     base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
                     shp_path = os.path.join(base_dir, "topology", "map", "ne_110m_admin_0_countries.shp")
                     ras_path = os.path.join(base_dir, "topology", "map", "SEDAC_map2.tiff")
                     act_path = os.path.join(base_dir, "topology", "map", "sedac_pop.act")
-                    if os.path.exists(shp_path): param_c.shapefile_path = shp_path
-                    if os.path.exists(ras_path): param_c.population_raster = ras_path
+                    shp_path_ui = _coerce_str(_get_imt_value(self.app, "path_shp", ""), "")
+                    if shp_path_ui:
+                        param_c.shapefile_path = shp_path_ui
+                    elif os.path.exists(shp_path):
+                        param_c.shapefile_path = shp_path
+                    if raster_encoding != "uniform":
+                        if raster_path_ui:
+                            param_c.population_raster = raster_path_ui
+                        elif os.path.exists(ras_path):
+                            param_c.population_raster = ras_path
+                    else:
+                        param_c.population_raster = None
                     if os.path.exists(act_path): param_c.act_colormap_path = act_path
                     
                     topo = TopologyCountries(param_c, None)
@@ -1792,9 +1937,10 @@ class PreviewTab:
                     
                     self.app._mc_bs_lats = bs_lats
                     self.app._mc_bs_lons = bs_lons
+                    self.app._mc_cache_key = cache_key
                 except Exception as e:
                     print(f"[PreviewTab] TopologyCountries failed: {e}")
-                    n_bs = _safe_int(getattr(self.app, "topo_num_bs", None), 50)
+                    n_bs = num_bs_val
                     center_lat = _safe_float(getattr(self.app, "topo_center_lat", None), -15.0)
                     center_lon = _safe_float(getattr(self.app, "topo_center_lon", None), -47.0)
                     np.random.seed(42)
@@ -2015,11 +2161,11 @@ class PreviewTab:
 
             elif topo_type == "MSS_DC":
                 beam_radius = _coerce_float(
-                    _yaml_first(data, ("imt.topology.mss_dc.beam_radius", "mss_d2d.cell_radius"), None),
+                    _yaml_first(data, ("imt.topology.mss_dc.beam_radius", "mss_dc.cell_radius", "mss_d2d.cell_radius"), None),
                     36516.0,
                 )
                 num_beams = _coerce_int(
-                    _yaml_first(data, ("imt.topology.mss_dc.num_beams", "mss_d2d.num_sectors"), None),
+                    _yaml_first(data, ("imt.topology.mss_dc.num_beams", "mss_dc.num_sectors", "mss_d2d.num_sectors"), None),
                     7,
                 )
                 if num_beams <= 0:

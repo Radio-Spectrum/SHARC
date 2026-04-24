@@ -42,6 +42,13 @@ def _get_var(app_state, tab_name, var_name):
         return None
 
 
+def _normalize_raster_encoding(value):
+    raw = str(value or "").strip()
+    legacy = {"Uniforme": "uniform", "Denspop": "indexed", "": "uniform"}
+    enc = legacy.get(raw, raw.lower())
+    return enc if enc in {"uniform", "density", "indexed"} else "uniform"
+
+
 def build_yaml_structure(app_state):
     """
     Constrói o dicionário completo do YAML extraindo os dados em tempo real.
@@ -86,9 +93,10 @@ def build_yaml_structure(app_state):
             raw_txt = str(g_imt("topo_countries") or "")
 
         country_names = [c.strip() for c in raw_txt.splitlines() if c.strip()]
-        enc_ui = str(g_imt("topo_raster_enc")).strip()
-        pop_raster = str(g_imt("path_raster")).strip(
-        ) if enc_ui != "Uniforme" else None
+        enc_ui = _normalize_raster_encoding(g_imt("topo_raster_enc"))
+        pop_raster = (
+            str(g_imt("path_raster")).strip() or None
+        ) if enc_ui != "uniform" else None
 
         topology["macrocell_countries"] = {
             "country_names": country_names,
@@ -99,8 +107,18 @@ def build_yaml_structure(app_state):
             "countries_shapefile": str(g_imt("path_shp")).strip() or None,
             "population_raster": pop_raster,
         }
-        if enc_ui != "Uniforme":
-            topology["macrocell_countries"]["raster_encoding"] = "indexed"
+        if enc_ui != "uniform":
+            topology["macrocell_countries"].update({
+                "raster_encoding": enc_ui,
+                "min_density_threshold": n(g_imt("topo_min_density_threshold")),
+                "density_exponent": n(g_imt("topo_density_exponent")),
+            })
+            if enc_ui == "indexed":
+                topology["macrocell_countries"].update({
+                    "sedac_palette_mode": g_imt("topo_sedac_palette_mode"),
+                    "sedac_min": n(g_imt("topo_sedac_min")),
+                    "sedac_max": n(g_imt("topo_sedac_max")),
+                })
 
     elif topo_type == "MACROCELL":
         topology["macrocell"] = {

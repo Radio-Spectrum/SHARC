@@ -124,7 +124,12 @@ class AppState:
         self.topo_num_bs = self._add(DEFAULTS.get("topo_num_bs", "100"))
         self.topo_cell_radius = self._add("400")
         self.topo_rng = self._add("10")
-        self.topo_raster_enc = self._add("Denspop")
+        self.topo_raster_enc = self._add("uniform")
+        self.topo_sedac_palette_mode = self._add("log")
+        self.topo_sedac_min = self._add("1.0")
+        self.topo_sedac_max = self._add("1e4")
+        self.topo_min_density_threshold = self._add("0.0")
+        self.topo_density_exponent = self._add("1.0")
 
         self.topo_countries = self._add("\n".join([
             "Brazil", "Argentina", "Uruguay", "Paraguay", "Chile",

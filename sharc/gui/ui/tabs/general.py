@@ -23,6 +23,7 @@ GUI_SYSTEM_TYPES = [
     "HAPS",
     "MSS_SS",
     "MSS_D2D",
+    "MSS_DC",
 ]
 
 GUI_TOPOLOGY_TYPES = [
@@ -240,6 +241,13 @@ def _normalize_topology_type(t: str) -> str:
     if low in {"mss_dc", "mss dc", "mss-dc"}:
         return "MSS_DC"
     return raw
+
+
+def _normalize_raster_encoding(value: Any) -> str:
+    raw = str(value or "").strip()
+    legacy = {"Uniforme": "uniform", "Denspop": "indexed", "": "uniform"}
+    enc = legacy.get(raw, raw.lower())
+    return enc if enc in {"uniform", "density", "indexed"} else "uniform"
 
 
 def _consolidate_param_p452(block: Dict[str, Any]) -> Dict[str, Any]:
@@ -520,6 +528,40 @@ class GeneralTab:
 
         return _sanitize_recursive(block)
 
+    def _build_mss_satellite_system(
+        self,
+        flat: Dict[str, Any],
+        *,
+        name_default: str,
+    ) -> Dict[str, Any]:
+        n = _num_or_str
+        def g(k, d=None): return flat.get(k, d)
+
+        mss_dc_block = self._build_mss_dc_block(flat)
+        long_diff = (n(g("v_fix_lon", 0.0)) or 0.0) - \
+            (n(g("v_es_lon", 0.0)) or 0.0)
+        system = copy.deepcopy(mss_dc_block)
+        system.update({
+            "name": str(g("mss_d2d_name", name_default)),
+            "adjacent_ch_emissions": "SPECTRAL_MASK",
+            "spectral_mask": "MSS",
+            "frequency": n(g("v_freq", 2160.0)),
+            "bandwidth": n(g("v_bw", 5.0)),
+            "cell_radius": n(mss_dc_block.get("beam_radius", 36516.0)),
+            "tx_power_density": n(g("v_txpsd", -54.2)),
+            "num_sectors": int(n(mss_dc_block.get("num_beams", 1))),
+            "antenna_pattern": "ITU-R-S.1528-Taylor",
+            "polarization_loss": n(g("v_pol_loss", 0.0)),
+            "channel_model": str(g("v_ch_model", "P619")),
+            "param_p619": {
+                "earth_station_alt_m": n(g("v_es_alt", 0.0)),
+                "earth_station_lat_deg": n(g("v_es_lat", 0.0)),
+                "earth_station_long_diff_deg": long_diff,
+                "season": str(g("v_season", "SUMMER")),
+            },
+        })
+        return system
+
     def build_current_structure(self) -> Dict[str, Any]:
         sys_type = self.app.var_system.get()
         sys_key = self._system_section_key(sys_type)
@@ -634,7 +676,7 @@ class GeneralTab:
                         final_structure["imt"] = self._build_imt_hierarchy(
                             combined_flat2)
 
-                    elif config_type in {"SSS", "SES", "SYSTEM", "SINGLE_EARTH_STATION", "SINGLE_SPACE_STATION", "MSS_SS", "MSS_D2D", "HAPS"}:
+                    elif config_type in {"SSS", "SES", "SYSTEM", "SINGLE_EARTH_STATION", "SINGLE_SPACE_STATION", "MSS_SS", "MSS_D2D", "MSS_DC", "HAPS"}:
                         SESPersistence.apply_config(self.app, external_data)
                         combined_flat2 = self._collect_app_globals()
                         final_structure[sys_key] = self._build_system_hierarchy(
@@ -755,9 +797,10 @@ class GeneralTab:
             raw_txt = str(g("topo_countries", ""))
             country_names = [c.strip()
                              for c in raw_txt.splitlines() if c.strip()]
-            enc_ui = str(g("topo_raster_enc", "")).strip()
-            pop_raster = str(g("path_raster", "")).strip(
-            ) if enc_ui != "Uniforme" else None
+            enc_ui = _normalize_raster_encoding(g("topo_raster_enc", ""))
+            pop_raster = (
+                str(g("path_raster", "")).strip() or None
+            ) if enc_ui != "uniform" else None
 
             topology["macrocell_countries"] = {
                 "country_names": country_names,
@@ -768,8 +811,18 @@ class GeneralTab:
                 "countries_shapefile": str(g("path_shp", "")).strip() or None,
                 "population_raster": pop_raster,
             }
-            if enc_ui != "Uniforme":
-                topology["macrocell_countries"]["raster_encoding"] = "indexed"
+            if enc_ui != "uniform":
+                topology["macrocell_countries"].update({
+                    "raster_encoding": enc_ui,
+                    "min_density_threshold": n(g("topo_min_density_threshold", 0.0)),
+                    "density_exponent": n(g("topo_density_exponent", 1.0)),
+                })
+                if enc_ui == "indexed":
+                    topology["macrocell_countries"].update({
+                        "sedac_palette_mode": g("topo_sedac_palette_mode", "log"),
+                        "sedac_min": n(g("topo_sedac_min", 1.0)),
+                        "sedac_max": n(g("topo_sedac_max", 1e4)),
+                    })
 
         elif topo_type == "MACROCELL":
             topology["macrocell"] = {
@@ -1162,29 +1215,12 @@ class GeneralTab:
             }
 
         if sys_type == "MSS_D2D":
-            mss_dc_block = self._build_mss_dc_block(flat)
-            long_diff = (n(g("v_fix_lon", 0.0)) or 0.0) - (n(g("v_es_lon", 0.0)) or 0.0)
-            system = copy.deepcopy(mss_dc_block)
-            system.update({
-                "name": str(g("mss_d2d_name", "SystemA")),
-                "adjacent_ch_emissions": "SPECTRAL_MASK",
-                "spectral_mask": "MSS",
-                "frequency": n(g("v_freq", 2160.0)),
-                "bandwidth": n(g("v_bw", 5.0)),
-                "cell_radius": n(mss_dc_block.get("beam_radius", 36516.0)),
-                "tx_power_density": n(g("v_txpsd", -54.2)),
-                "num_sectors": int(n(mss_dc_block.get("num_beams", 1))),
-                "antenna_pattern": "ITU-R-S.1528-Taylor",
-                "polarization_loss": n(g("v_pol_loss", 0.0)),
-                "channel_model": str(g("v_ch_model", "P619")),
-                "param_p619": {
-                    "earth_station_alt_m": n(g("v_es_alt", 0.0)),
-                    "earth_station_lat_deg": n(g("v_es_lat", 0.0)),
-                    "earth_station_long_diff_deg": long_diff,
-                    "season": str(g("v_season", "SUMMER")),
-                },
-            })
-            return system
+            return self._build_mss_satellite_system(
+                flat, name_default="SystemA")
+
+        if sys_type == "MSS_DC":
+            return self._build_mss_satellite_system(
+                flat, name_default="MSS-DC")
 
         return {}
 

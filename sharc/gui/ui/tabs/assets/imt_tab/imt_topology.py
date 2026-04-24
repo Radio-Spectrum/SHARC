@@ -54,6 +54,8 @@ class IMTTopologySection:
         self.btn_raster = None
         self.txt_countries = None
         self.txt_mss_dc = None
+        self.raster_widgets = []
+        self.indexed_widgets = []
 
         self._build_ui()
 
@@ -108,7 +110,7 @@ class IMTTopologySection:
         ttk.Label(row_opts, text="raster_encoding").pack(side="left")
         cb_enc = ttk.Combobox(
             row_opts, textvariable=self.state.get("topo_raster_enc"),
-            values=["Uniforme", "Denspop"], state="readonly", width=12
+            values=["uniform", "density", "indexed"], state="readonly", width=12
         )
         cb_enc.pack(side="left")
         cb_enc.bind("<<ComboboxSelected>>", self._toggle_raster_state)
@@ -120,9 +122,48 @@ class IMTTopologySection:
             values=["Urban", "Suburban", "Rural"], state="readonly", width=12
         ).pack(side="left")
 
+        row_scale = ttk.Frame(frm)
+        row_scale.grid(row=1, column=0, columnspan=6, sticky="we", pady=(2, 4))
+        for col in range(6):
+            row_scale.columnconfigure(col, weight=1 if col in (1, 3, 5) else 0)
+
+        cb_mode = ttk.Combobox(
+            row_scale,
+            textvariable=self.state.get("topo_sedac_palette_mode"),
+            values=["log", "linear"],
+            state="readonly",
+            width=10,
+        )
+        ent_sedac_min = ttk.Entry(
+            row_scale, textvariable=self.state.get("topo_sedac_min"), width=10
+        )
+        ent_sedac_max = ttk.Entry(
+            row_scale, textvariable=self.state.get("topo_sedac_max"), width=10
+        )
+        ent_density_thr = ttk.Entry(
+            row_scale,
+            textvariable=self.state.get("topo_min_density_threshold"),
+            width=10,
+        )
+        ent_density_exp = ttk.Entry(
+            row_scale,
+            textvariable=self.state.get("topo_density_exponent"),
+            width=10,
+        )
+
+        IMTUIHelper.add_field(row_scale, 0, "sedac_palette_mode", cb_mode)
+        IMTUIHelper.add_field(row_scale, 0, "sedac_min", ent_sedac_min, col=2)
+        IMTUIHelper.add_field(row_scale, 0, "sedac_max", ent_sedac_max, col=4)
+        IMTUIHelper.add_field(row_scale, 1, "min_density_threshold", ent_density_thr)
+        IMTUIHelper.add_field(row_scale, 1, "density_exponent", ent_density_exp, col=2)
+        IMTUIHelper.add_field(row_scale, 1, "", ttk.Label(row_scale, text=""), col=4)
+
+        self.raster_widgets.extend([ent_density_thr, ent_density_exp])
+        self.indexed_widgets.extend([cb_mode, ent_sedac_min, ent_sedac_max])
+
         # Text Area
         row_c = ttk.Frame(frm)
-        row_c.grid(row=1, column=0, columnspan=6, sticky="we", pady=2)
+        row_c.grid(row=2, column=0, columnspan=6, sticky="we", pady=2)
         ttk.Label(row_c, text="country_names (1/line)").pack(side="left")
         self.txt_countries = tk.Text(row_c, width=48, height=7)
         self.txt_countries.insert("1.0", self.state.get("countries").get())
@@ -130,7 +171,7 @@ class IMTTopologySection:
                                 expand=True, padx=(6, 6))
 
         # Numeric Params
-        add_row_three(frm, 2, [
+        add_row_three(frm, 3, [
             ("num_bs_total", ttk.Entry(
                 frm, textvariable=self.state.get("topo_num_bs"), width=10)),
             ("cell_radius [m]", ttk.Entry(
@@ -139,10 +180,10 @@ class IMTTopologySection:
         ])
 
         # File Pickers
-        self._add_file_row(frm, 3, "countries_shapefile",
+        self._add_file_row(frm, 4, "countries_shapefile",
                            self.state.get("path_shp"), "Shapefile", "*.shp")
         self.ent_raster, self.btn_raster = self._add_file_row(
-            frm, 4, "population_raster", self.state.get("path_raster"), "GeoTIFF", "*.tif;*.tiff", return_widgets=True
+            frm, 5, "population_raster", self.state.get("path_raster"), "GeoTIFF", "*.tif;*.tiff", return_widgets=True
         )
 
         # Init toggle state
@@ -288,12 +329,31 @@ class IMTTopologySection:
     def _toggle_raster_state(self, *args):
         if not self.ent_raster:
             return
-        enc = (self.state.get("topo_raster_enc").get() or "").strip()
-        state = "disabled" if enc == "Uniforme" else "normal"
-        if enc == "Uniforme":
+        enc = self._normalized_raster_encoding()
+        state = "disabled" if enc == "uniform" else "normal"
+        indexed_state = "readonly" if enc == "indexed" else "disabled"
+        indexed_entry_state = "normal" if enc == "indexed" else "disabled"
+        if enc == "uniform":
             self.state.get("path_raster").set("")
         self.ent_raster.configure(state=state)
         self.btn_raster.configure(state=state)
+        for widget in self.raster_widgets:
+            widget.configure(state=state)
+        for widget in self.indexed_widgets:
+            if isinstance(widget, ttk.Combobox):
+                widget.configure(state=indexed_state)
+            else:
+                widget.configure(state=indexed_entry_state)
+
+    def _normalized_raster_encoding(self):
+        raw = (self.state.get("topo_raster_enc").get() or "").strip()
+        legacy = {"Uniforme": "uniform", "Denspop": "indexed", "": "uniform"}
+        enc = legacy.get(raw, raw.lower())
+        if enc not in {"uniform", "density", "indexed"}:
+            enc = "uniform"
+        if raw != enc:
+            self.state.get("topo_raster_enc").set(enc)
+        return enc
 
     def _add_file_row(self, parent, row, label, var, type_name, ext, return_widgets=False):
         f = ttk.Frame(parent)

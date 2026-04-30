@@ -132,7 +132,7 @@ class TopologyCountries(Topology):
                 raise ValueError("Provide either 'bs_per_country' or 'num_bs_total'.")
 
             p = self._resolve_asset(params.population_raster)
-            params.population_raster = (str(p))
+            params.population_raster = str(p) if p is not None else None
 
             if params.population_raster:
                 # Population-based allocation (physical totals; no gamma here)
@@ -664,6 +664,9 @@ class TopologyCountries(Topology):
             return None
 
         s = str(p).strip().replace("\\", "/")
+        if s.lower() in {"none", "null", "nil"}:
+            return None
+
         low = s.lower()
 
         # detecta caminho Windows tipo "C:/..." ou "C:\..."
@@ -705,14 +708,14 @@ if __name__ == "__main__":
     shapefile_path = Path.cwd() / "sharc" / "topology" / "map" / "ne_110m_admin_0_countries.shp"
 
     # Population raster (set to None to sample uniformly by area)
-    population_raster_path = Path.cwd() / "sharc" / "topology" / "map" / "SEDAC_map2.tiff"
-    population_raster_path = Path.cwd() / "sharc" / "topology" / "map" / "gpw_v4_population_density_rev11_2020_2pt5_min.tif"
-
+    #population_raster_path = Path.cwd() / "sharc" / "topology" / "map" / "SEDAC_map2.tiff"
+    #population_raster_path = Path.cwd() / "sharc" / "topology" / "map" / "gpw_v4_population_density_rev11_2020_2pt5_min.tif"
+    population_raster_path = None
     # Raster type:
     #   "density" = people per km² (e.g., GPWv4 density GeoTIFF)
     #   "count"   = people per pixel
     #   "indexed" = 0..255 palette indices (NEO-like) -> mapped via log/linear bins
-    raster_encoding = "density"  # change to "density" if your GeoTIFF is ppl/km²
+    raster_encoding = "indexed"  # change to "density" if your GeoTIFF is ppl/km²
 
     # For "indexed" rasters only
     sedac_palette_mode = "log"   # "log" or "linear"

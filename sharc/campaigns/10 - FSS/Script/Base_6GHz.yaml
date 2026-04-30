@@ -1,0 +1,131 @@
+general:
+  num_snapshots: 10000
+  imt_link: DOWNLINK
+  system: SINGLE_SPACE_STATION
+  enable_cochannel: true
+  enable_adjacent_channel: false
+  seed: 150
+  overwrite_output: false
+  output_dir: campaigns/10 - FSS/output_dl/
+  output_dir_prefix: out_put
+imt:
+  minimum_separation_distance_bs_ue: 35
+  interfered_with: false
+  frequency: 6525 # A banda vai de 6 425 a 7 125, então pensei na faixa de 100 MHz mais próxima do início da banda
+  bandwidth: 200
+  rb_bandwidth: 0.18
+  #spectral_mask: 3GPP E-UTRA #Conferir com a tabela 3-2/3, mas acho que não importa, certo?
+  #spurious_emissions: -30 # CatB de 1 GHz a 26 GHz
+  #adjacent_ch_emissions: SPECTRAL_MASK # conferir se é a que se estabelece na Table 3-2/3, mas acho que não importa, certo?
+  #adjacent_antenna_model: SINGLE_ELEMENT # Como funciona isso?
+  guard_band_ratio: 0.1 
+  topology:
+      central_latitude: -11
+      central_longitude: -58
+      central_altitude: 200
+      type: Macro_countries
+      macrocell_countries:
+        country_names:
+        - Brazil
+        num_bs_total: 500
+        cell_radius: 400.0 # Need to change
+        rng_seed: 10
+        dist_type: Urban # Need to change
+        countries_shapefile: C:\Achiles\SHARC\sharc\topology\map\ne_110m_admin_0_countries.shp
+        population_raster: C:/Achiles/SHARC/sharc/topology/map/SEDAC_map2.tiff
+        raster_encoding: indexed
+  bs:
+    load_probability: 0.5
+    conducted_power: 33.97
+    height: 18
+    noise_figure: 11 # 6, 11, 14 dB for wide, medium, local area BS
+    ohmic_loss: 0  #1.8 of table 10 and Note 1
+    antenna:
+      array:
+        normalization: false
+        element_pattern: M2101
+        minimum_array_gain: -200
+        horizontal_beamsteering_range: !!python/tuple
+        - -60.0
+        - 60.0
+        vertical_beamsteering_range: !!python/tuple
+        - 90.0
+        - 100.0
+        downtilt: 6
+        element_max_g: 3.65
+        element_phi_3db: 90
+        element_theta_3db: 65
+        n_rows: 8  # Verificar com o Frederico se iremos altrar no caso dos 6 GHz
+        n_columns: 8 # Idem
+        element_horiz_spacing: 0.5
+        element_vert_spacing: 4.2
+        element_am: 30 # Item 1.4 da tabela 10
+        element_sla_v: 30 # Item 1.4 da tabela 10
+        multiplication_factor: 12 # Tablea 3 do Anexo 1 da ITU-R M.2101
+        subarray:
+          is_enabled: true
+          n_rows: 6 # Note 2 Tabela 10, mas não está tão claro quanto na tabela 9, para faixa menor -> 3 após reiunião com Frederico
+          element_vert_spacing: 0.7 # Não está definido na tabela 10, como está na tabela 9 -> 0.7 após resunião com Frederico
+          eletrical_downtilt: 3.0 # Idem.
+  ue:
+    k: 4
+    k_m: 1
+    indoor_percent: 70
+    distribution_type: Macro_Countries
+    tx_power_control: true
+    p_o_pusch: -92.2
+    alpha: 0.8
+    p_cmax: 23
+    power_dynamic_range: 56 ## Verificar
+    height: 1.5
+    noise_figure: 9 #Conferir, mas não impacta a simulação atual.
+    ohmic_loss: 0
+    body_loss: 4 # Variar
+    antenna:
+      array:
+        element_pattern: FIXED
+        element_max_g: -4
+        n_rows: 1
+        n_columns: 1
+  uplink:
+    attenuation_factor: 0.4 # Não achei
+    sinr_min: -10 # Idem
+    sinr_max: 22 # Idem
+  downlink:
+    attenuation_factor: 0.6 #Não achei
+    sinr_min: -10 # Idem
+    sinr_max: 30 #Idem
+  channel_model: UMa
+  shadowing: true
+
+single_space_station:
+  frequency: 6525
+  bandwidth: 36 # MHz
+  tx_power_density: -200
+  polarization_loss: 3
+  noise_temperature: 800
+  channel_model: P619
+  is_global_coordinate_system: true
+  param_p619:
+    mean_clutter_height: Mid
+    below_rooftop: 65.0
+  geometry:
+    altitude: 35786000.0
+    location:
+      type: FIXED
+      fixed:
+        lat_deg: 0.0
+        long_deg: -84
+    es_altitude: 200
+    es_lat_deg: -11
+    es_long_deg: -58
+    azimuth:
+      type: POINTING_AT_IMT
+    elevation:
+      type: POINTING_AT_IMT
+  antenna:
+    pattern: ITU-R S.672
+    gain: 34.0
+    itu_r_s_672:
+      antenna_3_dB: 5.0
+      antenna_l_s: -20.0

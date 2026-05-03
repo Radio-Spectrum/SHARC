@@ -3,7 +3,7 @@
 /sharc/output/*.png
 /sharc/output_*/*
 /sharc/campaigns/*/output*/
-/sharc/campaigns/*/input/
+/sharc/campaigns/*/
 /cop_tiles
 /cop90_tiles
 /sharc/terrain_tests/global_dem

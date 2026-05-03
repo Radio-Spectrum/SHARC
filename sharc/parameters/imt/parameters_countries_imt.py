@@ -47,7 +47,6 @@ class ParametersCountries(ParametersBase):
     sedac_palette_mode: str = 'log'
     pixel_area_method: str = "spherical"
 
-    # Filtragem por densidade (usada se dist_type não for None)
     dist_type: Optional[Literal["Urban", "Suburban", "Rural"]] = None
     dist_density_min: float = None
     dist_density_max: float = None

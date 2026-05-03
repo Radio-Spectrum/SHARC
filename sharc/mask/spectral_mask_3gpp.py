@@ -45,7 +45,7 @@ class SpectralMask3Gpp(SpectralMask):
             sys.stderr.write(message)
             sys.exit(1)
 
-        if band_mhz not in [5, 10, 15, 20, 100]:
+        if band_mhz not in [5, 10, 15, 20]:
             message = "ERROR\nInvalid bandwidth for 3GPP mask: " + band_mhz
             sys.stderr.write(message)
             sys.exit(1)
@@ -88,10 +88,8 @@ class SpectralMask3Gpp(SpectralMask):
                 delta_f_lim = np.append(delta_f_lim, np.array([10, 15]))
             if bandwidth == 15:
                 delta_f_lim = np.append(delta_f_lim, np.array([15, 20]))
-            if bandwidth == 15:
-                delta_f_lim = np.append(delta_f_lim, np.array([20, 25]))
             else:
-                delta_f_lim = np.append(delta_f_lim, np.array([100, 105]))
+                delta_f_lim = np.append(delta_f_lim, np.array([20, 25]))
         return delta_f_lim
 
     def set_mask(self, p_tx=0):

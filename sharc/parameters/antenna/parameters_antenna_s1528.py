@@ -37,6 +37,14 @@ class ParametersAntennaS1528(ParametersBase):
     l_r: float = None
     l_t: float = None
 
+    # Recommends 1.2 only
+    # For elliptical antennas, this is the ratio major axis/minor axis
+    # we assume circular antennas, so z = 1
+    major_minor_axis_ratio: float = None
+
+    # Far-out side-lobe level
+    far_out_side_lobe: float = None
+
     def load_parameters_from_file(self, config_file: str):
         """Load the parameters from file an run a sanity check.
 

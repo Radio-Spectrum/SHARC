@@ -5,7 +5,6 @@ from sharc.mask.spectral_mask import SpectralMask
 import numpy as np
 import math
 import matplotlib.pyplot as plt
-from warnings import warn
 
 
 class SpectralMaskMSS(SpectralMask):
@@ -30,6 +29,8 @@ class SpectralMaskMSS(SpectralMask):
         mask_dbm (np.array): spectral mask emission values in dBm
     """
 
+    ALREADY_WARNED_AGAINST_LONG_CALCULATIONS = False
+
     def __init__(
         self,
         freq_mhz: float,
@@ -48,9 +49,10 @@ class SpectralMaskMSS(SpectralMask):
         self.spurious_emissions = spurious_emissions
 
         if freq_mhz < 15000:
-            warn(
-                "SpectralMaskMSS may take noticeably long to calculate. Consider changing its integral step."
-            )
+            if band_mhz > 20 and not self.ALREADY_WARNED_AGAINST_LONG_CALCULATIONS:
+                self.ALREADY_WARNED_AGAINST_LONG_CALCULATIONS = True
+                print(
+                    "WARNING: SpectralMaskMSS may take noticeably long to calculate. Consider changing its integral step.")
             self.reference_bandwidth = 0.004
         else:
             self.reference_bandwidth = 1
@@ -108,10 +110,10 @@ class SpectralMaskMSS(SpectralMask):
 
 if __name__ == '__main__':
     # Initialize variables
-    p_tx = 42
-    freq = 2155
+    p_tx = 34.061799739838875
+    freq = 2100
     band = 5
-    spurious_emissions_dbm_mhz = -13
+    spurious_emissions_dbm_mhz = -30
 
     # Create mask
     msk = SpectralMaskMSS(freq, band, spurious_emissions_dbm_mhz)
@@ -133,7 +135,7 @@ if __name__ == '__main__':
     plt.plot(freqs, mask_val)
     plt.xlim([freqs[0], freqs[-1]])
     plt.xlabel(r"f [MHz]")
-    plt.ylabel("Spectral Mask [dBm/MHz]")
+    plt.ylabel("Spectral Mask [dBm]")
     plt.grid()
     plt.show()
 

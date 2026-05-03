@@ -1,12 +1,19 @@
 from pathlib import Path
 from ruamel.yaml import YAML
 from copy import deepcopy
+import math
 import random
 
 # ===== Caminhos =====
 SCRIPT_DIR = Path(__file__).resolve().parent
 BASE_YAML = SCRIPT_DIR / "Base_6GHz.yaml"
 OUT_DIR = SCRIPT_DIR.parent / "input"
+
+IMT_REFERENCE_BANDWIDTH_MHZ = 200.0
+IMT_REFERENCE_CONDUCTED_POWER_DBM = {
+    8: 33.997,
+    16: 30.9691,
+}
 
 # ===== Cenários =====
 ENVIRONMENTS = {
@@ -41,7 +48,13 @@ for env_name, env_cfg in ENVIRONMENTS.items():
             # ---- gera cópia e edita parâmetros do cenário, array e banda ----
             doc = deepcopy(data)
             doc["imt"]["bs"]["antenna"]["array"]["n_columns"] = n_array
-            doc["imt"]["bs"]["conducted_power"] = 33.997 if n_array == 8 else 30.9691
+            bandwidth_ratio_db = 10 * math.log10(
+                sss_bandwidth / IMT_REFERENCE_BANDWIDTH_MHZ
+            )
+            doc["imt"]["bs"]["conducted_power"] = round(
+                IMT_REFERENCE_CONDUCTED_POWER_DBM[n_array] + bandwidth_ratio_db,
+                4,
+            )
             doc["imt"]["bs"]["height"] = env_cfg["bs_height"]
             doc["imt"]["topology"]["macrocell_countries"]["cell_radius"] = env_cfg["cell_radius"]
             doc["imt"]["topology"]["macrocell_countries"]["dist_type"] = env_cfg["dist_type"]

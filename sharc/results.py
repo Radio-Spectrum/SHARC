@@ -240,7 +240,7 @@ class Results(object):
         Returns:
             list[Results]: A list of loaded Results objects.
         """
-        output_dirs = sorted(glob.glob(os.path.join(root_dir, "*")))
+        output_dirs = sorted(list(glob.glob(f"{root_dir}/output_*")))
 
         if len(output_dirs) == 0:
             print("[WARNING]: Results.load_many_from_dir did not find any results")

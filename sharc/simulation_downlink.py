@@ -13,6 +13,7 @@ from sharc.simulation import Simulation
 from sharc.parameters.parameters import Parameters
 from sharc.station_factory import StationFactory
 from sharc.parameters.constants import BOLTZMANN_CONSTANT
+from sharc.propagation.propagation_path import PropagationPath
 
 warn = warnings.warn
 
@@ -72,7 +73,7 @@ class SimulationDownlink(Simulation):
         # Create the other system (FSS, HAPS, etc...)
         self.system = StationFactory.generate_system(
             self.parameters, self.topology, random_number_gen,
-            geometry_converter=self.geometry_converter
+            coordinate_system=self.coordinate_system
         )
 
         # Create IMT user equipments
@@ -81,6 +82,22 @@ class SimulationDownlink(Simulation):
             # TODO: remove this:
             self.parameters.imt.ue.antenna.array,
             self.topology, random_number_gen,
+        )
+
+        if self.parameters.imt.interfered_with:
+            self.paths_between_imt_and_sys = PropagationPath.create_default(
+                self.system,
+                self.ue,
+            )
+        else:
+            self.paths_between_imt_and_sys = PropagationPath.create_default(
+                self.system,
+                self.bs,
+            )
+
+        self.intra_imt_paths = PropagationPath.create_default(
+            self.ue,
+            self.bs,
         )
 
         # self.plot_scenario()
@@ -155,22 +172,40 @@ class SimulationDownlink(Simulation):
         Calculates the downlink SINR for each UE.
         """
         bs_active = np.where(self.bs.active)[0]
+        ue_k = self.parameters.imt.ue.k
+
+        # paths that actually exist and should make signal or interf
+        ue_to_bs_path_mask = self.intra_imt_paths.mask
+        # since bs tx_power is dict, we get it to array for easier use
+        bs_tx_power_per_beam_array = np.array([
+            self.bs.tx_power[k] if k in self.bs.tx_power
+            else np.full(ue_k, -np.inf)
+            for k in range(self.bs.num_stations)
+        ])
         for bs in bs_active:
             ue = self.link[bs]
             self.ue.rx_power[ue] = self.bs.tx_power[bs] - \
                 self.coupling_loss_imt[bs, ue]
+            for ui in ue:
+                # base stations that have links/paths to ue
+                bs_interf = np.where(ue_to_bs_path_mask[ui])[0]
+                # remove serving bs to get interferrers
+                bs_interf = bs_interf[bs_interf != bs]
+                # get each base station power per beam
+                interf_tx_pow = bs_tx_power_per_beam_array[bs_interf]
+                # get UE RB index
+                ue_rb_beam_idx = int(self.bs_to_ue_beam_rbs[ui])
+                # only overlapping RB interf power is considered
+                interf_tx_pow = interf_tx_pow[:, ue_rb_beam_idx]
+                # coupling loss already considers only the overlapping beam
+                # from BS
+                interference = interf_tx_pow - \
+                    self.coupling_loss_imt[bs_interf, ui]
 
-            # create a list with base stations that generate interference in
-            # ue_list
-            bs_interf = [b for b in bs_active if b not in [bs]]
-
-            # calculate intra system interference
-            for bi in bs_interf:
-                interference = self.bs.tx_power[bi] - \
-                    self.coupling_loss_imt[bi, ue]
-
-                self.ue.rx_interference[ue] = 10 * np.log10(np.power(
-                    10, 0.1 * self.ue.rx_interference[ue]) + np.power(10, 0.1 * interference), )
+                # sum 1e-50 so that rx_interference >= -500
+                self.ue.rx_interference[ui] = 10 * np.log10(
+                    np.sum(np.power(10, 0.1 * interference)) + 1e-50
+                )
 
         # Thermal noise in dBm
         self.ue.thermal_noise = \
@@ -210,176 +245,174 @@ class SimulationDownlink(Simulation):
 
         # applying a bandwidth scaling factor since UE transmits on a portion
         # of the satellite's bandwidth
-        active_sys = np.where(self.system.active)[0]
+        ue_interferer_paths = self.paths_between_imt_and_sys.mask.T
 
         # All UEs are active on an active BS
         bs_active = np.where(self.bs.active)[0]
         for bs in bs_active:
-            ue = self.link[bs]
+            for ue in self.link[bs]:
+                # NOTE: ue is a scalar
+                system_interfering = np.where(ue_interferer_paths[ue])[0]
 
-            # Get the weight factor for the system overlaping bandwidth in each
-            # UE band.
-            weights = self.calculate_bw_weights(
-                self.ue.bandwidth[ue],
-                self.ue.center_freq[ue],
-                float(self.param_system.bandwidth),
-                float(self.param_system.frequency),
-            )
-
-            in_band_interf_power = -500.
-            if self.co_channel:
-                # Inteferer transmit power in dBm over the overlapping band
-                # (MHz) with UEs.
-                if self.overlapping_bandwidth > 0:
-                    # in_band_interf_power = self.param_system.tx_power_density + \
-                    #     10 * np.log10(self.overlapping_bandwidth * 1e6) + 30
-                    with warnings.catch_warnings():
-                        warnings.filterwarnings(
-                            "ignore",
-                            category=RuntimeWarning,
-                            message="divide by zero encountered in log10",
-                        )
-                        in_band_interf_power = \
-                            self.param_system.tx_power_density + 10 * np.log10(
-                                self.ue.bandwidth[ue, np.newaxis] * 1e6
-                            ) + 10 * np.log10(weights)[:, np.newaxis] - \
-                            self.coupling_loss_imt_system[ue, :][:, active_sys]
-
-            oob_power = np.resize(-500., (len(ue), 1))
-            if self.adjacent_channel:
-                # emissions outside of tx bandwidth and inside of rx bw
-                # due to oob emissions on tx side
-                tx_oob = np.resize(-500., len(ue))
-
-                # emissions outside of rx bw and inside of tx bw
-                # due to non ideal filtering on rx side
-                # will be the same for all UE's, only considering
-                rx_oob = np.resize(-500., len(ue))
-
-                # TODO: M.2101 states that:
-                # "The ACIR value should be calculated based on per UE allocated number of resource blocks"
-
-                # should we actually implement that for ACS since the receiving
-                # filter is fixed?
-
-                # or maybe ignore ACS altogether (ACS = inf)? If we consider only allocated RB, it makes
-                # no sense to use ACS.
-                # At the same time, ignoring ACS doesn't seem correct since the interference
-                # could DECREASE when it would make sense for it to increase.
-                # e.g. adjacent systems -> slightly co-channel with ACS = inf
-                # should interfer ^        less than this ^
-
-                if self.parameters.imt.adjacent_ch_reception == "ACS":
-                    if self.overlapping_bandwidth:
-                        if getattr(self, "_acs_warned"):
-                            warn(
-                                "You're trying to use ACS on a partially overlapping band "
-                                "with UEs.\n\tVerify the code implements the behavior you expect!!"
-                            )
-                            self._acs_warned = True
-                    non_overlap_sys_bw = self.param_system.bandwidth - self.overlapping_bandwidth
-                    acs_dB = self.parameters.imt.ue.adjacent_ch_selectivity
-
-                    # NOTE: only the power not overlapping is attenuated by ACS
-                    # tx_pow_adj_lin = PSD * non_overlap_imt_bw
-                    # rx_oob = tx_pow_adj_lin / acs
-                    rx_oob[::] = self.param_system.tx_power_density + 10 * np.log10(non_overlap_sys_bw * 1e6) - acs_dB
-                elif self.parameters.imt.adjacent_ch_reception == "OFF":
-                    pass
-                else:
-                    raise ValueError(
-                        f"No implementation for parameters.imt.adjacent_ch_reception == {
-                            self.parameters.imt.adjacent_ch_reception}")
-
-                # for tx oob we accept ACLR and spectral mask
-                if self.param_system.adjacent_ch_emissions == "SPECTRAL_MASK":
-                    ue_bws = self.ue.bandwidth[ue]
-                    center_freqs = self.ue.center_freq[ue]
-
-                    with warnings.catch_warnings():
-                        warnings.filterwarnings("ignore",
-                                                category=RuntimeWarning,
-                                                message="divide by zero encountered in log10")
-                        for i, center_freq, bw in zip(
-                                range(len(center_freqs)), center_freqs, ue_bws):
-                            # calculate tx emissions in UE in use bandwidth only
-                            # [dB]
-                            tx_oob[i] = self.system.spectral_mask.power_calc(
-                                center_freq,
-                                bw
-                            ) - 30
-                elif self.param_system.adjacent_ch_emissions == "ACLR":
-                    # consider ACLR only over non co-channel RBs
-                    # This should diminish some of the ACLR interference
-                    # in a way that make sense
-                    non_overlap_imt_bw = self.ue.bandwidth[ue] * (1. - weights)
-                    # NOTE: approximated equal to IMT bw
-                    measurement_bw = self.param_system.bandwidth
-                    aclr_dB = self.param_system.adjacent_ch_leak_ratio
-
-                    if self.parameters.imt.bandwidth - self.overlapping_bandwidth > measurement_bw:
-                        # NOTE: ACLR defines total leaked power over a fixed measurement bandwidth.
-                        # If the victim bandwidth is wider, you’re assuming the same leakage
-                        # profile extends beyond the ACLR-defined region, which may overestimate interference
-                        # FIXME: if the victim bw fully contains tx bw, then
-                        # EACH region should be <= measurement_bw
-                        warn(
-                            "Using System ACLR into IMT, but ACLR measurement bw is "
-                            f"{measurement_bw} while the IMT bw is bigger ({self.parameters.imt.bandwidth}).\n"
-                            "Are you sure you intend to apply the same ACLR to the entire IMT bw?"
-                        )
-
-                    # tx_oob_in_measurement = (tx_pow_lin / aclr)
-                    # => approx. PSD = (tx_pow_lin / aclr) / measurement_bw
-                    # approximated received tx_oob = PSD * non_overlap_imt_bw
-                    tx_oob[::] = self.param_system.tx_power_density + \
-                        10 * np.log10(1e6) -  \
-                        aclr_dB + 10 * np.log10(
-                            non_overlap_imt_bw)
-                elif self.param_system.adjacent_ch_emissions == "OFF":
-                    pass
-                else:
-                    raise ValueError(
-                        f"No implementation for param_system.adjacent_ch_emissions == {
-                            self.param_system.adjacent_ch_emissions}")
-
-                if self.param_system.adjacent_ch_emissions != "OFF":
-                    tx_oob = tx_oob[:, np.newaxis] - self.coupling_loss_imt_system[ue, :][:, active_sys]
-
-                rx_oob = rx_oob[:, np.newaxis] - self.coupling_loss_imt_system_adjacent[ue, :][:, active_sys]
-
-                # Out of band power
-                # sum linearly power leaked into band and power received in the
-                # adjacent band
-                oob_power = 10 * np.log10(
-                    10 ** (0.1 * tx_oob) + 10 ** (0.1 * rx_oob)
+                # Get the weight factor for the system overlaping bandwidth in each
+                # UE band.
+                weights = self.calculate_bw_weights(
+                    self.ue.bandwidth[ue],
+                    self.ue.center_freq[ue],
+                    float(self.param_system.bandwidth),
+                    float(self.param_system.frequency),
                 )
-            # Total external interference into the UE in dBm
-            ue_ext_int = 10 * np.log10(np.power(10,
-                                                0.1 * in_band_interf_power) + np.power(10,
-                                                                                       0.1 * oob_power))
 
-            # Sum all the interferers for each UE
-            self.ue.ext_interference[ue] = 10 * \
-                np.log10(np.sum(np.power(10, 0.1 * ue_ext_int), axis=1)) + 30
+                in_band_interf_power = np.array(-500.)
+                if self.co_channel:
+                    # Inteferer transmit power in dBm over the overlapping band
+                    # (MHz) with UEs.
+                    if self.overlapping_bandwidth > 0:
+                        # in_band_interf_power = self.param_system.tx_power_density + \
+                        #     10 * np.log10(self.overlapping_bandwidth * 1e6) + 30
+                        with warnings.catch_warnings():
+                            warnings.filterwarnings(
+                                "ignore",
+                                category=RuntimeWarning,
+                                message="divide by zero encountered in log10",
+                            )
+                            in_band_interf_power = \
+                                self.param_system.tx_power_density + 10 * np.log10(
+                                    self.ue.bandwidth[ue] * 1e6
+                                ) + 10 * np.log10(weights) - \
+                                self.coupling_loss_imt_system[ue, :][system_interfering]
 
-            self.ue.sinr_ext[ue] = \
-                self.ue.rx_power[ue] - (10 * np.log10(np.power(10, 0.1 * self.ue.total_interference[ue]) +
-                                                      np.power(10, 0.1 * (self.ue.ext_interference[ue]))))
+                oob_power = np.resize(-500., 1)
+                if self.adjacent_channel:
+                    # emissions outside of tx bandwidth and inside of rx bw
+                    # due to oob emissions on tx side
+                    tx_oob = np.resize(-500., 1)
 
-            # Calculate INR in dB
-            self.ue.thermal_noise[ue] = \
-                10 * np.log10(BOLTZMANN_CONSTANT * self.parameters.imt.noise_temperature * 1e3) + \
-                10 * np.log10(self.ue.bandwidth[ue] * 1e6) + self.parameters.imt.ue.noise_figure
+                    # emissions outside of rx bw and inside of tx bw
+                    # due to non ideal filtering on rx side
+                    # will be the same for all UE's, only considering
+                    rx_oob = np.resize(-500., 1)
 
-            self.ue.inr[ue] = self.ue.ext_interference[ue] - \
-                self.ue.thermal_noise[ue]
+                    # TODO: M.2101 states that:
+                    # "The ACIR value should be calculated based on per UE allocated number of resource blocks"
+
+                    # should we actually implement that for ACS since the receiving
+                    # filter is fixed?
+
+                    # or maybe ignore ACS altogether (ACS = inf)? If we consider only allocated RB, it makes
+                    # no sense to use ACS.
+                    # At the same time, ignoring ACS doesn't seem correct since the interference
+                    # could DECREASE when it would make sense for it to increase.
+                    # e.g. adjacent systems -> slightly co-channel with ACS = inf
+                    # should interfer ^        less than this ^
+
+                    if self.parameters.imt.adjacent_ch_reception == "ACS":
+                        if self.overlapping_bandwidth:
+                            if getattr(self, "_acs_warned"):
+                                warn(
+                                    "You're trying to use ACS on a partially overlapping band "
+                                    "with UEs.\n\tVerify the code implements the behavior you expect!!"
+                                )
+                                self._acs_warned = True
+                        non_overlap_sys_bw = self.param_system.bandwidth - self.overlapping_bandwidth
+                        acs_dB = self.parameters.imt.ue.adjacent_ch_selectivity
+
+                        # NOTE: only the power not overlapping is attenuated by ACS
+                        # tx_pow_adj_lin = PSD * non_overlap_imt_bw
+                        # rx_oob = tx_pow_adj_lin / acs
+                        rx_oob[::] = self.param_system.tx_power_density + 10 * np.log10(non_overlap_sys_bw * 1e6) - acs_dB
+                    elif self.parameters.imt.adjacent_ch_reception == "OFF":
+                        pass
+                    else:
+                        raise ValueError(
+                            f"No implementation for parameters.imt.adjacent_ch_reception == {
+                                self.parameters.imt.adjacent_ch_reception}")
+
+                    # for tx oob we accept ACLR and spectral mask
+                    if self.param_system.adjacent_ch_emissions == "SPECTRAL_MASK":
+                        ue_bws = self.ue.bandwidth[ue]
+                        center_freqs = self.ue.center_freq[ue]
+
+                        with warnings.catch_warnings():
+                            warnings.filterwarnings("ignore",
+                                                    category=RuntimeWarning,
+                                                    message="divide by zero encountered in log10")
+                            tx_oob[0] = self.system.spectral_mask.power_calc(
+                                center_freqs,
+                                ue_bws
+                            ) - 30
+                    elif self.param_system.adjacent_ch_emissions == "ACLR":
+                        # consider ACLR only over non co-channel RBs
+                        # This should diminish some of the ACLR interference
+                        # in a way that make sense
+                        non_overlap_imt_bw = self.ue.bandwidth[ue] * (1. - weights)
+                        # NOTE: approximated equal to IMT bw
+                        measurement_bw = self.param_system.bandwidth
+                        aclr_dB = self.param_system.adjacent_ch_leak_ratio
+
+                        if self.parameters.imt.bandwidth - self.overlapping_bandwidth > measurement_bw:
+                            # NOTE: ACLR defines total leaked power over a fixed measurement bandwidth.
+                            # If the victim bandwidth is wider, you’re assuming the same leakage
+                            # profile extends beyond the ACLR-defined region, which may overestimate interference
+                            # FIXME: if the victim bw fully contains tx bw, then
+                            # EACH region should be <= measurement_bw
+                            warn(
+                                "Using System ACLR into IMT, but ACLR measurement bw is "
+                                f"{measurement_bw} while the IMT bw is bigger ({self.parameters.imt.bandwidth}).\n"
+                                "Are you sure you intend to apply the same ACLR to the entire IMT bw?"
+                            )
+
+                        # tx_oob_in_measurement = (tx_pow_lin / aclr)
+                        # => approx. PSD = (tx_pow_lin / aclr) / measurement_bw
+                        # approximated received tx_oob = PSD * non_overlap_imt_bw
+                        tx_oob[::] = self.param_system.tx_power_density + \
+                            10 * np.log10(1e6) -  \
+                            aclr_dB + 10 * np.log10(
+                                non_overlap_imt_bw)
+                    elif self.param_system.adjacent_ch_emissions == "OFF":
+                        pass
+                    else:
+                        raise ValueError(
+                            f"No implementation for param_system.adjacent_ch_emissions == {
+                                self.param_system.adjacent_ch_emissions}")
+
+                    if self.param_system.adjacent_ch_emissions != "OFF":
+                        tx_oob = tx_oob[:] - self.coupling_loss_imt_system[ue, :][system_interfering]
+
+                    rx_oob = rx_oob[:] - self.coupling_loss_imt_system_adjacent[ue, :][system_interfering]
+
+                    # Out of band power
+                    # sum linearly power leaked into band and power received in the
+                    # adjacent band
+                    oob_power = 10 * np.log10(
+                        10 ** (0.1 * tx_oob) + 10 ** (0.1 * rx_oob)
+                    )
+                # Total external interference into the UE in dBm
+                ue_ext_int = 10 * np.log10(np.power(10,
+                                                    0.1 * in_band_interf_power) + np.power(10,
+                                                                                           0.1 * oob_power))
+
+                # Sum all the interferers for each UE
+                self.ue.ext_interference[ue] = 10 * \
+                    np.log10(np.sum(np.power(10, 0.1 * ue_ext_int), axis=0)) + 30
+
+                self.ue.sinr_ext[ue] = \
+                    self.ue.rx_power[ue] - (10 * np.log10(np.power(10, 0.1 * self.ue.total_interference[ue]) +
+                                                          np.power(10, 0.1 * (self.ue.ext_interference[ue]))))
+
+                # Calculate INR in dB
+                self.ue.thermal_noise[ue] = \
+                    10 * np.log10(BOLTZMANN_CONSTANT * self.parameters.imt.noise_temperature * 1e3) + \
+                    10 * np.log10(self.ue.bandwidth[ue] * 1e6) + self.parameters.imt.ue.noise_figure
+
+                self.ue.inr[ue] = self.ue.ext_interference[ue] - \
+                    self.ue.thermal_noise[ue]
 
         # Calculate PFD at the UE
 
         # Distance from each system transmitter to each UE receiver (in meters)
-        dist_sys_to_imt = self.system.get_3d_distance_to(
-            self.ue)  # shape: [n_tx, n_ue]
+        dist_sys_to_imt = self.system.geom.get_3d_distance_to(
+            self.ue.geom)  # shape: [n_tx, n_ue]
 
         # EIRP in dBW/MHz per transmitter
         eirp_dBW_MHz = self.param_system.tx_power_density + \
@@ -396,7 +429,9 @@ class SimulationDownlink(Simulation):
         pfd_linear = 10 ** (self.ue.pfd_external / 10)
         # Sum PFDs from all transmitters for each UE (axis=0 assumes shape
         # [n_tx, n_ue])
-        pfd_agg_linear = np.sum(pfd_linear[active_sys], axis=0)
+        sys_active = np.where(self.system.active)[0]
+        # FIXME: consider only correct paths here
+        pfd_agg_linear = np.sum(pfd_linear[sys_active], axis=0)
         # Convert back to dBW
         self.ue.pfd_external_aggregated = 10 * np.log10(pfd_agg_linear)
 
@@ -512,14 +547,15 @@ class SimulationDownlink(Simulation):
                     f"No implementation for self.param_system.adjacent_ch_reception == {
                         self.param_system.adjacent_ch_reception}")
 
-        sys_active = np.where(self.system.active)[0]
-        if len(sys_active) > 1:
+        if self.system.num_stations > 1:
             raise NotImplementedError(
                 "Implementation does not support victim system with more than 1 active station"
             )
 
         rx_interference = 0
+        bs_interferer_paths = self.paths_between_imt_and_sys.mask.T
         for bs in bs_active:
+            system_interfering = np.where(bs_interferer_paths[bs])[0]
             active_beams = [
                 i for i in range(
                     bs *
@@ -529,7 +565,7 @@ class SimulationDownlink(Simulation):
             ]
             if self.co_channel:
                 rx_interference += np.sum(
-                    10 ** (0.1 * (pow_coch - self.coupling_loss_imt_system[active_beams, sys_active]))
+                    10 ** (0.1 * (pow_coch - self.coupling_loss_imt_system[active_beams, system_interfering]))
                 )
 
             if self.adjacent_channel:
@@ -537,7 +573,7 @@ class SimulationDownlink(Simulation):
                 # NOTE: we only consider one beam since all beams should have gain
                 # of a single element for IMT, and as such the coupling loss should be the
                 # same for all beams
-                adj_loss = self.coupling_loss_imt_system_adjacent[np.ix_(active_beams, sys_active)]
+                adj_loss = self.coupling_loss_imt_system_adjacent[np.ix_(active_beams, system_interfering)]
 
                 # FIXME: for more than 1 sys
                 # NOTE: sharc impl already doesn't really work with n_sys > 1
@@ -546,7 +582,7 @@ class SimulationDownlink(Simulation):
 
                 tx_oob_s = tx_oob - adj_loss[0, :]
                 if self.param_system.adjacent_ch_reception != "OFF":
-                    rx_oob_s = rx_oob - self.coupling_loss_imt_system[active_beams, sys_active]
+                    rx_oob_s = rx_oob - self.coupling_loss_imt_system[active_beams, system_interfering]
                 else:
                     rx_oob_s = -np.inf
 
@@ -608,8 +644,32 @@ class SimulationDownlink(Simulation):
                     "effective_area") and self.system.num_stations == 1:
                 self.results.system_pfd.extend([self.system.pfd])
 
+        if self.parameters.imt.interfered_with:
+            self.add_system_imt_interaction_attr_to_results(
+                "DL",
+                self.coupling_loss_imt_system.T,
+                "sys_to_imt_coupling_loss",
+            )
+            self.add_system_imt_interaction_attr_to_results(
+                "DL",
+                self.ue.pfd_external,
+                "imt_dl_pfd_external",
+            )
+
+        self.add_system_imt_interaction_attr_to_results("DL", "system_imt_antenna_gain")
+        if len(self.imt_system_antenna_gain):
+            self.add_system_imt_interaction_attr_to_results("DL", "imt_system_antenna_gain")
+
+        if len(self.imt_system_antenna_gain_adjacent):
+            self.add_system_imt_interaction_attr_to_results("DL", "imt_system_antenna_gain_adjacent")
+
+        self.add_system_imt_interaction_attr_to_results("DL", "imt_system_path_loss")
+        if self.param_system.channel_model == "HDFSS":
+            self.add_system_imt_interaction_attr_to_results("DL", "imt_system_build_entry_loss")
+            self.add_system_imt_interaction_attr_to_results("DL", "imt_system_diffraction_loss")
+
         bs_active = np.where(self.bs.active)[0]
-        sys_active = np.where(self.system.active)[0]
+
         for bs in bs_active:
             ue = self.link[bs]
 
@@ -648,57 +708,8 @@ class SimulationDownlink(Simulation):
                 )
                 self.results.imt_dl_inr.extend(self.ue.inr[ue].tolist())
 
-                self.results.imt_dl_pfd_external.extend(
-                    self.ue.pfd_external[sys_active[:, np.newaxis], ue].flatten())
-
                 self.results.imt_dl_pfd_external_aggregated.extend(
                     self.ue.pfd_external_aggregated[ue].tolist())
-
-                self.results.system_imt_antenna_gain.extend(
-                    self.system_imt_antenna_gain[sys_active[:, np.newaxis], ue].flatten(),
-                )
-                if len(self.imt_system_antenna_gain):
-                    self.results.imt_system_antenna_gain.extend(
-                        self.imt_system_antenna_gain[sys_active[:, np.newaxis], ue].flatten(),
-                    )
-                if len(self.imt_system_antenna_gain_adjacent):
-                    self.results.imt_system_antenna_gain_adjacent.extend(
-                        self.imt_system_antenna_gain_adjacent[sys_active[:, np.newaxis], ue].flatten(),
-                    )
-                self.results.imt_system_path_loss.extend(
-                    self.imt_system_path_loss[sys_active[:, np.newaxis], ue].flatten(),
-                )
-                if self.param_system.channel_model == "HDFSS":
-                    self.results.imt_system_build_entry_loss.extend(
-                        self.imt_system_build_entry_loss[sys_active[:, np.newaxis], ue].flatten(),
-                    )
-                    self.results.imt_system_diffraction_loss.extend(
-                        self.imt_system_diffraction_loss[sys_active[:, np.newaxis], ue].flatten(),
-                    )
-                self.results.sys_to_imt_coupling_loss.extend(
-                    self.coupling_loss_imt_system[np.array(ue)[:, np.newaxis], sys_active].flatten())
-            else:  # IMT is the interferer
-                self.results.system_imt_antenna_gain.extend(
-                    self.system_imt_antenna_gain[sys_active[:, np.newaxis], ue].flatten(),
-                )
-                if len(self.imt_system_antenna_gain):
-                    self.results.imt_system_antenna_gain.extend(
-                        self.imt_system_antenna_gain[sys_active[:, np.newaxis], ue].flatten(),
-                    )
-                if len(self.imt_system_antenna_gain_adjacent):
-                    self.results.imt_system_antenna_gain_adjacent.extend(
-                        self.imt_system_antenna_gain_adjacent[sys_active[:, np.newaxis], ue].flatten(),
-                    )
-                self.results.imt_system_path_loss.extend(
-                    self.imt_system_path_loss[sys_active[:, np.newaxis], ue].flatten(),
-                )
-                if self.param_system.channel_model == "HDFSS":
-                    self.results.imt_system_build_entry_loss.extend(
-                        self.imt_system_build_entry_loss[:, bs],
-                    )
-                    self.results.imt_system_diffraction_loss.extend(
-                        self.imt_system_diffraction_loss[:, bs],
-                    )
 
             self.results.imt_dl_tx_power.extend(self.bs.tx_power[bs].tolist())
 

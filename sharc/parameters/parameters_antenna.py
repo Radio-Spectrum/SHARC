@@ -2,6 +2,7 @@ from sharc.parameters.parameters_base import ParametersBase
 from sharc.parameters.parameters_antenna_with_diameter import ParametersAntennaWithDiameter
 from sharc.parameters.parameters_antenna_with_envelope_gain import ParametersAntennaWithEnvelopeGain
 from sharc.parameters.antenna.parameters_antenna_s1528 import ParametersAntennaS1528
+from sharc.parameters.antenna.parameters_antenna_s672 import ParametersAntennaS672
 from sharc.parameters.antenna.parameters_antenna_with_freq import ParametersAntennaWithFreq
 from sharc.parameters.imt.parameters_antenna_imt import ParametersAntennaImt
 
@@ -25,10 +26,12 @@ class ParametersAntenna(ParametersBase):
         "ITU-R S.1855",
         "ITU-R Reg. RR. Appendice 7 Annex 3",
         "ARRAY",
+        "ARRAY2",
         "ITU-R-S.1528-Taylor",
         "ITU-R-S.1528-Section1.2",
         "ITU-R-S.1528-LEO",
-        "MSS Adjacent"]
+        "MSS Adjacent",
+        "ITU-R F.1245_fs"]
 
     # chosen antenna radiation pattern
     pattern: typing.Literal["OMNI",
@@ -40,10 +43,12 @@ class ParametersAntenna(ParametersBase):
                             "ITU-R S.1855",
                             "ITU-R Reg. RR. Appendice 7 Annex 3",
                             "ARRAY",
+                            "ARRAY2",
                             "ITU-R-S.1528-Taylor",
                             "ITU-R-S.1528-Section1.2",
                             "ITU-R-S.1528-LEO",
-                            "MSS Adjacent"] = None
+                            "MSS Adjacent",
+                            "ITU-R F.1245_fs"] = None
 
     # antenna gain [dBi]
     gain: float = None
@@ -89,6 +94,14 @@ class ParametersAntenna(ParametersBase):
         default_factory=ParametersAntennaS1528,
     )
 
+    itu_r_s_672: ParametersAntennaS672 = field(
+        default_factory=ParametersAntennaS672,
+    )
+
+    itu_r_f_1245_fs: ParametersAntennaWithDiameter = field(
+        default_factory=ParametersAntennaWithDiameter,
+    )
+
     def set_external_parameters(self, **kwargs):
         """
         Set external parameters for all sub-parameters of the antenna.
@@ -105,7 +118,8 @@ class ParametersAntenna(ParametersBase):
             param = getattr(self, attr_name)
 
             for k, v in kwargs.items():
-                if k in dir(param):
+                # we only set if not already set
+                if k in dir(param) and getattr(param, k, None) is None:
                     setattr(param, k, v)
 
             if "antenna_gain" in dir(param):
@@ -144,7 +158,7 @@ class ParametersAntenna(ParametersBase):
                 f"{ctx}.pattern should be set. Is None instead",
             )
 
-        if self.pattern != "ARRAY" and self.gain is None:
+        if self.pattern != "ARRAY" and self.pattern != "ARRAY2" and self.gain is None:
             raise ValueError(
                 f"{ctx}.gain should be set if not using array antenna.",
             )
@@ -176,7 +190,7 @@ class ParametersAntenna(ParametersBase):
                     # just hijacking validation since diameter is optional
                     self.itu_reg_rr_a7_3.diameter = 0
                 self.itu_reg_rr_a7_3.validate(f"{ctx}.itu_reg_rr_a7_3")
-            case "ARRAY":
+            case "ARRAY" | "ARRAY2":
                 # TODO: validate here and make array non imt specific
                 # self.array.validate(
                 #     f"{ctx}.array",
@@ -188,8 +202,12 @@ class ParametersAntenna(ParametersBase):
                 self.itu_r_s_1528.validate(f"{ctx}.itu_r_s_1528")
             case "ITU-R-S.1528-LEO":
                 self.itu_r_s_1528.validate(f"{ctx}.itu_r_s_1528")
+            case "ITU-R-S.672":
+                self.itu_r_s_672.validate(f"{ctx}.itu_r_s_672")
             case "MSS Adjacent":
                 self.mss_adjacent.validate(f"{ctx}.mss_adjacent")
+            case "ITU-R F.1245_fs":
+                self.itu_r_f_1245_fs.validate(f"{ctx}.itu_r_f_1245_fs")
             case _:
                 raise NotImplementedError(
                     "ParametersAntenna.validate does not implement this antenna validation!", )

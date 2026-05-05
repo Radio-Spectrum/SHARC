@@ -13,6 +13,7 @@ from sharc.parameters.parameters import Parameters
 from sharc.propagation.propagation_free_space import PropagationFreeSpace
 from sharc.propagation.propagation_clutter_loss import PropagationClutterLoss
 from sharc.support.enumerations import StationType
+from sharc.propagation.propagation_path import PropagationPath
 
 
 class PropagationTerSimple(Propagation):
@@ -28,17 +29,16 @@ class PropagationTerSimple(Propagation):
         self.clutter = PropagationClutterLoss(np.random.RandomState(101))
         self.free_space = PropagationFreeSpace(np.random.RandomState(101))
         self.building_loss = 20
+        self.clutter_type = "one_end"
+        self.clutter_scenario = "terrestrial"
 
-    @dispatch(Parameters, float, StationManager,
-              StationManager, np.ndarray, np.ndarray)
-    def get_loss(
+    def get_path_loss(
         self,
         params: Parameters,
         frequency: float,
-        station_a: StationManager,
-        station_b: StationManager,
-        station_a_gains=None,
-        station_b_gains=None,
+        path: PropagationPath,
+        station_a_gains,
+        station_b_gains,
     ) -> np.array:
         """Wrapper function for the get_loss method to fit the Propagation ABC class interface
         Calculates the loss between station_a and station_b
@@ -64,13 +64,11 @@ class PropagationTerSimple(Propagation):
             Return an array station_a.num_stations x station_b.num_stations with the path loss
             between each station
         """
-        distance = station_a.get_3d_distance_to(station_b)
+        distance = path.mtx_to_masked(path.sta_a.geom.get_3d_distance_to(path.sta_b.geom))
         frequency_array = frequency * np.ones(distance.shape)
-        indoor_stations = np.tile(
-            station_b.indoor, (station_a.num_stations, 1),
-        )
+        indoor_stations = path.sta_b_to_masked(path.sta_b.indoor)
 
-        return self.get_loss(distance, frequency_array, indoor_stations, -1.0)
+        return path.from_masked_mtx(self.get_loss(distance, frequency_array, indoor_stations, -1.0))
 
     # pylint: disable=arguments-differ
     @dispatch(np.ndarray, np.ndarray, np.ndarray, float)
@@ -114,6 +112,8 @@ class PropagationTerSimple(Propagation):
             distance=distance,
             loc_percentage=loc_percentage,
             station_type=StationType.FSS_ES,
+            clutter_type=self.clutter_type,
+            clutter_scenario=self.clutter_scenario,
         )
 
         building_loss = self.building_loss * indoor_stations

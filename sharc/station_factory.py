@@ -10,6 +10,9 @@ import numpy as np
 import sys
 import math
 
+from sharc.support.geometry import (
+    DWNReferenceFrame, ENUReferenceFrame
+)
 from sharc.support.enumerations import StationType
 from sharc.parameters.parameters import Parameters
 from sharc.parameters.imt.parameters_imt import ParametersImt
@@ -44,12 +47,14 @@ from sharc.antenna.antenna_rs1861_9b import AntennaRS1861_9B
 from sharc.antenna.antenna_rs1861_9c import AntennaRS1861_9C
 from sharc.antenna.antenna_rs2043 import AntennaRS2043
 from sharc.antenna.antenna_s465 import AntennaS465
+from sharc.antenna.antenna_array import AntennaArray
 from sharc.antenna.antenna_rra7_3 import AntennaReg_RR_A7_3
 from sharc.antenna.antenna_modified_s465 import AntennaModifiedS465
 from sharc.antenna.antenna_s580 import AntennaS580
 from sharc.antenna.antenna_s672 import AntennaS672
 from sharc.antenna.antenna_s1528 import AntennaS1528
 from sharc.antenna.antenna_s1855 import AntennaS1855
+from sharc.antenna.antenna_f1245_fs import Antenna_f1245_fs
 from sharc.antenna.antenna_s1528 import AntennaS1528, AntennaS1528Leo, AntennaS1528Taylor
 from sharc.antenna.antenna_beamforming_imt import AntennaBeamformingImt
 from sharc.topology.topology import Topology
@@ -58,7 +63,7 @@ from sharc.topology.topology_macrocell import TopologyMacrocell
 from sharc.topology.topology_imt_mss_dc import TopologyImtMssDc
 from sharc.mask.spectral_mask_3gpp import SpectralMask3Gpp
 from sharc.mask.spectral_mask_mss import SpectralMaskMSS
-from sharc.support.sharc_geom import GeometryConverter
+from sharc.support.sharc_geom import CoordinateSystem
 from sharc.support.sharc_utils import wrap2_180
 
 
@@ -97,30 +102,38 @@ class StationFactory(object):
         imt_base_stations = StationManager(num_bs)
         imt_base_stations.station_type = StationType.IMT_BS
         if param.topology.type == "NTN":
-            imt_base_stations.x = topology.space_station_x * np.ones(num_bs)
-            imt_base_stations.y = topology.space_station_y * np.ones(num_bs)
-            imt_base_stations.z = topology.space_station_z * np.ones(num_bs)
-            imt_base_stations.height = imt_base_stations.z
-            imt_base_stations.elevation = topology.elevation
+            imt_base_stations.geom.set_global_coords(
+                topology.space_station_x * np.ones(num_bs),
+                topology.space_station_y * np.ones(num_bs),
+                topology.space_station_z * np.ones(num_bs),
+                elev=topology.elevation
+            )
             imt_base_stations.is_space_station = True
         elif param.topology.type == "MSS_DC":
-            imt_base_stations.x = topology.space_station_x * np.ones(num_bs)
-            imt_base_stations.y = topology.space_station_y * np.ones(num_bs)
-            imt_base_stations.z = topology.space_station_z * np.ones(num_bs)
-            imt_base_stations.height = topology.height
-            imt_base_stations.elevation = topology.elevation
+            imt_base_stations.geom.set_global_coords(
+                topology.space_station_x * np.ones(num_bs),
+                topology.space_station_y * np.ones(num_bs),
+                topology.space_station_z * np.ones(num_bs),
+                elev=topology.elevation
+            )
             imt_base_stations.is_space_station = True
         else:
-            imt_base_stations.x = topology.x
-            imt_base_stations.y = topology.y
-            imt_base_stations.z = topology.z + param.bs.height
-            imt_base_stations.elevation = -param_ant.downtilt * np.ones(num_bs)
-            if param.topology.type == 'INDOOR':
-                imt_base_stations.height = topology.height
-            else:
-                imt_base_stations.height = param.bs.height * np.ones(num_bs)
+            if topology.determines_local_geometry:
+                imt_base_stations.geom = topology.get_bs_geometry()
 
-        imt_base_stations.azimuth = wrap2_180(topology.azimuth)
+            imt_base_stations.geom.set_local_coords(
+                topology.x * np.ones(num_bs),
+                topology.y * np.ones(num_bs),
+                param.bs.height * np.ones(num_bs),
+                elev=-param_ant.downtilt * np.ones(num_bs)
+            )
+            if param.topology.type == 'INDOOR':
+                imt_base_stations.geom.set_local_coords(
+                    z=topology.height
+                )
+        imt_base_stations.geom.set_local_coords(
+            azim=wrap2_180(topology.azimuth)
+        )
         imt_base_stations.active = random_number_gen.rand(
             num_bs,
         ) < param.bs.load_probability
@@ -155,10 +168,12 @@ class StationFactory(object):
             num_bs, dtype=Antenna,
         )
 
+        # TODO: transform BS to local coord system before creating antenna
+
         imt_base_stations.antenna = AntennaFactory.create_n_antennas(
             param.bs.antenna,
-            imt_base_stations.azimuth,
-            imt_base_stations.elevation,
+            imt_base_stations.geom.pointn_azim_global,
+            imt_base_stations.geom.pointn_elev_global,
             num_bs
         )
 
@@ -195,9 +210,9 @@ class StationFactory(object):
                 f"Invalid IMT-BS spectral mask {param.spectral_mask}")
 
         if param.topology.type == 'MACROCELL':
-            imt_base_stations.intersite_dist = param.topology.macrocell.intersite_distance
+            imt_base_stations.geom.intersite_dist = param.topology.macrocell.intersite_distance
         elif param.topology.type == 'HOTSPOT':
-            imt_base_stations.intersite_dist = param.topology.hotspot.intersite_distance
+            imt_base_stations.geom.intersite_dist = param.topology.hotspot.intersite_distance
 
         return imt_base_stations
 
@@ -291,13 +306,17 @@ class StationFactory(object):
         num_ue = num_bs * num_ue_per_bs
 
         imt_ue = StationManager(num_ue)
+        if topology.determines_local_geometry:
+            imt_ue.geom = topology.get_ue_geometry(param.ue.k)
         imt_ue.station_type = StationType.IMT_UE
 
         ue_x = list()
         ue_y = list()
         ue_z = list()
 
-        imt_ue.height = param.ue.height * np.ones(num_ue)
+        imt_ue.geom.set_local_coords(
+            z=param.ue.height * np.ones(num_ue)
+        )
 
         # TODO: Sanitaze the azimuth_range parameter
         azimuth_range = param.ue.azimuth_range
@@ -340,8 +359,10 @@ class StationFactory(object):
                 np.arctan((param.bs.height - param.ue.height) / distance),
             )
 
-            imt_ue.azimuth = (azimuth + theta + np.pi / 2)
-            imt_ue.elevation = elevation + psi
+            imt_ue.geom.set_local_coords(
+                azim=(azimuth + theta + np.pi / 2),
+                elev=elevation + psi,
+            )
 
         elif param.ue.distribution_type.upper() == "ANGLE_AND_DISTANCE":
             # The Rayleigh and Normal distribution parameters (mean, scale and cutoff)
@@ -407,6 +428,9 @@ class StationFactory(object):
                 )
                 sys.exit(1)
 
+            ue_azims = np.zeros_like(imt_ue.geom.pointn_azim_global)
+            ue_elevs = np.zeros_like(imt_ue.geom.pointn_elev_global)
+
             for bs in range(num_bs):
                 idx = [
                     i for i in range(
@@ -419,6 +443,7 @@ class StationFactory(object):
                 x = radius[idx] * np.cos(np.radians(theta))
                 y = radius[idx] * np.sin(np.radians(theta))
                 z = np.zeros_like(x)
+                # TODO: move this to local coordinate system calc
                 x, y, z = topology.transform_ue_xyz(
                     bs, x, y, z
                 )
@@ -427,7 +452,7 @@ class StationFactory(object):
                 ue_z.extend(z)
 
                 # calculate UE azimuth wrt serving BS
-                imt_ue.azimuth[idx] = (azimuth[idx] + theta + 180) % 360
+                ue_azims[idx] = (azimuth[idx] + theta + 180) % 360
 
                 # calculate elevation angle
                 # psi is the vertical angle of the UE wrt the serving BS
@@ -437,7 +462,11 @@ class StationFactory(object):
                 psi = np.degrees(
                     np.arctan((param.bs.height - param.ue.height) / distance),
                 )
-                imt_ue.elevation[idx] = elevation[idx] + psi
+                ue_elevs[idx] = elevation[idx] + psi
+            imt_ue.geom.set_local_coords(
+                azim=ue_azims,
+                elev=ue_elevs,
+            )
 
         else:
             sys.stderr.write(
@@ -446,9 +475,11 @@ class StationFactory(object):
             )
             sys.exit(1)
 
-        imt_ue.x = np.array(ue_x)
-        imt_ue.y = np.array(ue_y)
-        imt_ue.z = np.array(ue_z) + param.ue.height
+        imt_ue.geom.set_local_coords(
+            np.array(ue_x),
+            np.array(ue_y),
+            np.array(ue_z) + param.ue.height,
+        )
 
         imt_ue.active = np.zeros(num_ue, dtype=bool)
         imt_ue.indoor = random_number_gen.random_sample(
@@ -461,8 +492,8 @@ class StationFactory(object):
         ue_param_ant.get_antenna_parameters()
         imt_ue.antenna = AntennaFactory.create_n_antennas(
             param.ue.antenna,
-            imt_ue.azimuth,
-            imt_ue.elevation,
+            imt_ue.geom.pointn_azim_global,
+            imt_ue.geom.pointn_elev_global,
             num_ue,
         )
 
@@ -495,9 +526,9 @@ class StationFactory(object):
         imt_ue.spectral_mask.set_mask()
 
         if param.topology.type == 'MACROCELL':
-            imt_ue.intersite_dist = param.topology.macrocell.intersite_distance
+            imt_ue.geom.intersite_dist = param.topology.macrocell.intersite_distance
         elif param.topology.type == 'HOTSPOT':
-            imt_ue.intersite_dist = param.topology.hotspot.intersite_distance
+            imt_ue.geom.intersite_dist = param.topology.hotspot.intersite_distance
 
         return imt_ue
 
@@ -556,6 +587,8 @@ class StationFactory(object):
             topology.b_d / math.sqrt(topology.ue_indoor_percent) - topology.b_d
         ) / 2
 
+        ue_azims = np.zeros_like(imt_ue.geom.pointn_azim_global)
+        ue_elevs = np.zeros_like(imt_ue.geom.pointn_elev_global)
         for bs in range(num_bs):
             idx = [
                 i for i in range(
@@ -603,7 +636,7 @@ class StationFactory(object):
                 ),
             )
             # calculate UE azimuth wrt serving BS
-            imt_ue.azimuth[idx] = (azimuth[idx] + theta + 180) % 360
+            ue_azims[idx] = (azimuth[idx] + theta + 180) % 360
 
             # calculate elevation angle
             # psi is the vertical angle of the UE wrt the serving BS
@@ -613,7 +646,7 @@ class StationFactory(object):
             psi = np.degrees(
                 np.arctan((param.bs.height - param.ue.height) / distance),
             )
-            imt_ue.elevation[idx] = elevation[idx] + psi
+            ue_elevs[idx] = elevation[idx] + psi
 
             # check if UE is indoor
             if bs % topology.num_cells == 0:
@@ -629,9 +662,13 @@ class StationFactory(object):
                       (y < topology.y[bs] - topology.b_d / 2)
             imt_ue.indoor[idx] = ~ out
 
-        imt_ue.x = np.array(ue_x)
-        imt_ue.y = np.array(ue_y)
-        imt_ue.height = np.array(ue_z)
+        imt_ue.geom.set_local_coords(
+            np.array(ue_x),
+            np.array(ue_y),
+            np.array(ue_z),
+            np.array(ue_azims),
+            np.array(ue_elevs),
+        )
 
         imt_ue.active = np.zeros(num_ue, dtype=bool)
         imt_ue.rx_interference = -500 * np.ones(num_ue)
@@ -641,8 +678,8 @@ class StationFactory(object):
         par = ue_param_ant.get_antenna_parameters()
         for i in range(num_ue):
             imt_ue.antenna[i] = AntennaBeamformingImt(
-                par, imt_ue.azimuth[i],
-                imt_ue.elevation[i],
+                par, imt_ue.geom.pointn_azim_global[i],
+                imt_ue.geom.pointn_elev_global[i],
             )
 
         # imt_ue.antenna = [AntennaOmni(0) for bs in range(num_ue)]
@@ -676,7 +713,7 @@ class StationFactory(object):
         parameters: Parameters,
         topology: Topology,
         random_number_gen: np.random.RandomState,
-        geometry_converter=GeometryConverter()
+        coordinate_system=CoordinateSystem()
     ):
         """Generate the system based on the provided parameters and topology.
 
@@ -688,8 +725,8 @@ class StationFactory(object):
             Topology object containing station positions.
         random_number_gen : np.random.RandomState
             Random number generator instance.
-        geometry_converter : GeometryConverter, optional
-            Converter for coordinate transformations (default is GeometryConverter()).
+        coordinate_system : CoordinateSystem, optional
+            Converter for coordinate transformations (default is CoordinateSystem()).
 
         Returns
         -------
@@ -735,7 +772,7 @@ class StationFactory(object):
             return StationFactory.generate_mss_ss(parameters.mss_ss)
         elif parameters.general.system == "MSS_D2D":
             return StationFactory.generate_mss_d2d(
-                parameters.mss_d2d, random_number_gen, geometry_converter)
+                parameters.mss_d2d, random_number_gen, coordinate_system)
         else:
             sys.stderr.write(
                 "ERROR\nInvalid system: " +
@@ -746,15 +783,13 @@ class StationFactory(object):
     @staticmethod
     def generate_single_space_station(
             param: ParametersSingleSpaceStation,
-            simplify_dist_to_y=True):
+        ):
         """Create a single space station (satellite) based on the provided parameters.
 
         Parameters
         ----------
         param : ParametersSingleSpaceStation
             Parameters for the single space station.
-        simplify_dist_to_y : bool, optional
-            If True (default), places the satellite only on the y axis.
 
         Returns
         -------
@@ -765,75 +800,78 @@ class StationFactory(object):
         space_station.station_type = StationType.SINGLE_SPACE_STATION
         space_station.is_space_station = True
 
-        # now we set the coordinates according to
-        # ITU-R P619-1, Attachment A
-
-        # calculate distances to the centre of the Earth
-        dist_sat_centre_earth_km = (
-            EARTH_RADIUS + param.geometry.altitude) / 1000
-        dist_imt_centre_earth_km = (
-            EARTH_RADIUS + param.geometry.es_altitude
-        ) / 1000
-
-        # calculate Cartesian coordinates of satellite, with origin at centre
-        # of the Earth
-        sat_lat_rad = param.geometry.location.fixed.lat_deg * np.pi / 180.
-        imt_long_diff_rad = (param.geometry.location.fixed.long_deg -
-                             param.geometry.es_long_deg) * np.pi / 180.
-        x1 = dist_sat_centre_earth_km * \
-            np.cos(sat_lat_rad) * np.cos(imt_long_diff_rad)
-        y1 = dist_sat_centre_earth_km * \
-            np.cos(sat_lat_rad) * np.sin(imt_long_diff_rad)
-        z1 = dist_sat_centre_earth_km * np.sin(sat_lat_rad)
-
-        # rotate axis and calculate coordinates with origin at IMT system
-        imt_lat_rad = param.geometry.es_lat_deg * np.pi / 180.
-        space_station.x = np.array(
-            [x1 * np.sin(imt_lat_rad) - z1 * np.cos(imt_lat_rad)],
-        ) * 1000
-        space_station.y = np.array([y1]) * 1000
-        space_station.height = np.array([
-            (
-                z1 * np.sin(imt_lat_rad) + x1 * np.cos(imt_lat_rad) -
-                dist_imt_centre_earth_km
-            ) * 1000,
-        ])
-
-        # putting on y axis
-        if simplify_dist_to_y:
-            space_station.y = np.sqrt(
-                space_station.x *
-                space_station.x +
-                space_station.y *
-                space_station.y)
-            space_station.x = np.zeros_like(space_station.x)
+        coord_sys = CoordinateSystem()
+        coord_sys.set_reference(
+            param.geometry.es_lat_deg,
+            param.geometry.es_long_deg,
+            param.geometry.es_altitude,
+        )
+        x, y, z = coord_sys.lla2enu(
+            param.geometry.location.fixed.lat_deg,
+            param.geometry.location.fixed.long_deg,
+            param.geometry.altitude,
+        )
+        space_station.geom.set_global_coords(
+            np.atleast_1d(x),
+            np.atleast_1d(y),
+            np.atleast_1d(z),
+        )
 
         if param.geometry.azimuth.type == "POINTING_AT_IMT":
-            space_station.azimuth = np.rad2deg(
-                np.arctan2(-space_station.y, -space_station.x))
+            azim = np.rad2deg(
+                np.arctan2(-space_station.geom.y_global, -space_station.geom.x_global))
+        elif param.geometry.azimuth.type == "POINTING_AT_LAT_LONG_ALT":
+            px, py, pz = coord_sys.lla2enu(
+                param.geometry.pointing_at_lat,
+                param.geometry.pointing_at_long,
+                param.geometry.pointing_at_alt,
+            )
+
+            azim = np.rad2deg(
+                np.arctan2(py - space_station.geom.y_global, px - space_station.geom.x_global))
         elif param.geometry.azimuth.type == "FIXED":
-            space_station.azimuth = param.geometry.azimuth.fixed
+            azim = param.geometry.azimuth.fixed
         else:
             raise ValueError(
                 f"Did not recognize azimuth type of {
                     param.geometry.azimuth.type}")
 
-        if param.geometry.azimuth.type == "POINTING_AT_IMT":
+        if param.geometry.elevation.type == "POINTING_AT_IMT":
             gnd_elev = np.rad2deg(
                 np.arctan2(
-                    space_station.height,
+                    space_station.geom.z_global,
                     np.sqrt(
-                        space_station.y *
-                        space_station.y +
-                        space_station.x *
-                        space_station.x)))
-            space_station.elevation = -gnd_elev
-        elif param.geometry.azimuth.type == "FIXED":
-            space_station.elevation = param.geometry.elevation.fixed
+                        space_station.geom.y_global *
+                        space_station.geom.y_global +
+                        space_station.geom.x_global *
+                        space_station.geom.x_global)))
+            elev = -gnd_elev
+        elif param.geometry.elevation.type == "POINTING_AT_LAT_LONG_ALT":
+            px, py, pz = coord_sys.lla2enu(
+                param.geometry.pointing_at_lat,
+                param.geometry.pointing_at_long,
+                param.geometry.pointing_at_alt,
+            )
+            dy = py - space_station.geom.y_global
+            dx = px - space_station.geom.x_global
+            dz = pz - space_station.geom.z_global
+
+            gnd_elev = np.rad2deg(
+                np.arctan2(
+                    dz,
+                    np.sqrt(dy * dy + dx * dx)))
+            elev = gnd_elev
+        elif param.geometry.elevation.type == "FIXED":
+            elev = param.geometry.elevation.fixed
         else:
             raise ValueError(
                 f"Did not recognize elevation type of {
                     param.geometry.elevation.type}")
+
+        space_station.geom.set_global_coords(
+            azim=np.atleast_1d(azim),
+            elev=np.atleast_1d(elev),
+        )
 
         space_station.active = np.array([True])
         space_station.tx_power = np.array(
@@ -843,11 +881,10 @@ class StationFactory(object):
         space_station.rx_interference = -500
 
         space_station.antenna = np.array([
-            AntennaFactory.create_antenna(param.antenna, space_station.azimuth[0],
-                                          space_station.elevation[0])
+            AntennaFactory.create_antenna(param.antenna, space_station.geom.pointn_azim_global[0],
+                                          space_station.geom.pointn_elev_global[0])
         ])
 
-        space_station.z = space_station.height
         space_station.bandwidth = param.bandwidth
         space_station.noise_temperature = param.noise_temperature
         space_station.thermal_noise = -500
@@ -894,20 +931,22 @@ class StationFactory(object):
 
         # rotate axis and calculate coordinates with origin at IMT system
         imt_lat_rad = param.earth_station_lat_deg * np.pi / 180.
-        fss_space_station.x = np.array(
+        x = np.array(
             [x1 * np.sin(imt_lat_rad) - z1 * np.cos(imt_lat_rad)],
         ) * 1000
-        fss_space_station.y = np.array([y1]) * 1000
-        fss_space_station.height = np.array([
+        y = np.array([y1]) * 1000
+        z = np.array([
             (
                 z1 * np.sin(imt_lat_rad) + x1 * np.cos(imt_lat_rad) -
                 dist_imt_centre_earth_km
             ) * 1000,
         ])
-        fss_space_station.z = fss_space_station.height
-
-        fss_space_station.azimuth = np.array([param.azimuth])
-        fss_space_station.elevation = np.array([param.elevation])
+        azim = np.array([param.azimuth])
+        elev = np.array([param.elevation])
+        fss_space_station.geom.set_global_coords(
+            x, y, z,
+            azim, elev
+        )
 
         fss_space_station.active = np.array([True])
         fss_space_station.tx_power = np.array(
@@ -978,22 +1017,22 @@ class StationFactory(object):
         fss_earth_station.station_type = StationType.FSS_ES
 
         if param.location.upper() == "FIXED":
-            fss_earth_station.x = np.array([param.x])
-            fss_earth_station.y = np.array([param.y])
+            x = np.array([param.x])
+            y = np.array([param.y])
         elif param.location.upper() == "CELL":
             x, y, _, _ = StationFactory.get_random_position(
                 1, topology, random_number_gen,
                 param.min_dist_to_bs, True,
             )
-            fss_earth_station.x = np.array(x)
-            fss_earth_station.y = np.array(y)
+            x = np.array(x)
+            y = np.array(y)
         elif param.location.upper() == "NETWORK":
             x, y, _, _ = StationFactory.get_random_position(
                 1, topology, random_number_gen,
                 param.min_dist_to_bs, False,
             )
-            fss_earth_station.x = np.array(x)
-            fss_earth_station.y = np.array(y)
+            x = np.array(x)
+            y = np.array(y)
         elif param.location.upper() == "UNIFORM_DIST":
             # FSS ES is randomly (uniform) created inside a circle of radius
             # equal to param.max_dist_to_bs
@@ -1013,8 +1052,8 @@ class StationFactory(object):
                 if (radius > param.min_dist_to_bs) & (
                         radius < param.max_dist_to_bs):
                     break
-            fss_earth_station.x[0] = dist_x
-            fss_earth_station.y[0] = dist_y
+            x = np.array(dist_x)
+            y = np.array(dist_y)
         else:
             sys.stderr.write(
                 "ERROR\nFSS-ES location type {} not supported".format(
@@ -1022,19 +1061,27 @@ class StationFactory(object):
             )
             sys.exit(1)
 
-        fss_earth_station.z = np.array([param.height])
-        fss_earth_station.height = np.array([param.height])
+        z = np.array([param.height])
+
+        fss_earth_station.geom.set_global_coords(
+            x, y, z
+        )
 
         if param.azimuth.upper() == "RANDOM":
-            fss_earth_station.azimuth = np.array(
+            azim = np.array(
                 [random_number_gen.uniform(-180., 180.)])
         else:
-            fss_earth_station.azimuth = np.array([float(param.azimuth)])
+            azim = np.array([float(param.azimuth)])
 
         elevation = random_number_gen.uniform(
             param.elevation_min, param.elevation_max,
         )
-        fss_earth_station.elevation = np.array([elevation])
+        elev = np.array([elevation])
+
+        fss_earth_station.geom.set_global_coords(
+            azim=azim,
+            elev=elev,
+        )
 
         fss_earth_station.active = np.array([True])
         fss_earth_station.tx_power = np.array(
@@ -1104,10 +1151,10 @@ class StationFactory(object):
 
         match param.geometry.location.type:
             case "FIXED":
-                single_earth_station.x = np.array(
+                x = np.array(
                     [param.geometry.location.fixed.x],
                 )
-                single_earth_station.y = np.array(
+                y = np.array(
                     [param.geometry.location.fixed.y],
                 )
             case "CELL":
@@ -1115,15 +1162,15 @@ class StationFactory(object):
                     1, topology, random_number_gen,
                     param.geometry.location.cell.min_dist_to_bs, True,
                 )
-                single_earth_station.x = np.array(x)
-                single_earth_station.y = np.array(y)
+                x = np.array(x)
+                y = np.array(y)
             case "NETWORK":
                 x, y, _, _ = StationFactory.get_random_position(
                     1, topology, random_number_gen,
                     param.geometry.location.network.min_dist_to_bs, False,
                 )
-                single_earth_station.x = np.array(x)
-                single_earth_station.y = np.array(y)
+                x = np.array(x)
+                y = np.array(y)
             case "UNIFORM_DIST":
                 # ES is randomly (uniform) created inside a circle of radius
                 # equal to param.max_dist_to_bs
@@ -1145,8 +1192,8 @@ class StationFactory(object):
                     if (radius > param.geometry.location.uniform_dist.min_dist_to_bs) & (
                             radius < param.geometry.location.uniform_dist.max_dist_to_bs):
                         break
-                single_earth_station.x[0] = dist_x
-                single_earth_station.y[0] = dist_y
+                x = np.array(dist_x)
+                y = np.array(dist_y)
             case _:
                 sys.stderr.write(
                     "ERROR\nSingle-ES location type {} not supported".format(
@@ -1154,8 +1201,11 @@ class StationFactory(object):
                 )
                 sys.exit(1)
 
-        single_earth_station.z = np.array([param.geometry.height])
-        single_earth_station.height = np.array([param.geometry.height])
+        z = np.array([param.geometry.height])
+
+        single_earth_station.geom.set_global_coords(
+            x, y, z
+        )
 
         if param.geometry.azimuth.type == "UNIFORM_DIST":
             if param.geometry.azimuth.uniform_dist.min < -180:
@@ -1171,30 +1221,37 @@ class StationFactory(object):
                     ),
                 )
                 sys.exit(1)
-            single_earth_station.azimuth = np.array([
+            azim = np.array([
                 random_number_gen.uniform(
                     param.geometry.azimuth.uniform_dist.min, param.geometry.azimuth.uniform_dist.max,
                 ),
             ])
         else:
-            single_earth_station.azimuth = np.array(
+            azim = np.array(
                 [param.geometry.azimuth.fixed],
             )
 
         if param.geometry.elevation.type == "UNIFORM_DIST":
-            single_earth_station.elevation = np.array([
+            elev = np.array([
                 random_number_gen.uniform(
                     param.geometry.elevation.uniform_dist.min, param.geometry.elevation.uniform_dist.max,
                 ),
             ])
         else:
-            single_earth_station.elevation = np.array(
+            elev = np.array(
                 [param.geometry.elevation.fixed],
             )
 
+        single_earth_station.geom.set_global_coords(
+            azim=azim,
+            elev=elev,
+        )
+
         single_earth_station.antenna = np.array([
             AntennaFactory.create_antenna(
-                param.antenna, single_earth_station.azimuth, single_earth_station.elevation
+                param.antenna,
+                single_earth_station.geom.pointn_azim_global,
+                single_earth_station.geom.pointn_elev_global
             )
         ])
 
@@ -1256,13 +1313,13 @@ class StationFactory(object):
         fs_station = StationManager(1)
         fs_station.station_type = StationType.FS
 
-        fs_station.x = np.array([param.x])
-        fs_station.y = np.array([param.y])
-        fs_station.z = np.array([param.height])
-        fs_station.height = np.array([param.height])
-
-        fs_station.azimuth = np.array([param.azimuth])
-        fs_station.elevation = np.array([param.elevation])
+        fs_station.geom.set_global_coords(
+            np.array([param.x]),
+            np.array([param.y]),
+            np.array([param.height]),
+            np.array([param.azimuth]),
+            np.array([param.elevation]),
+        )
 
         fs_station.active = np.array([True])
         fs_station.tx_power = np.array(
@@ -1275,6 +1332,8 @@ class StationFactory(object):
             fs_station.antenna = np.array([AntennaOmni(param.antenna_gain)])
         elif param.antenna_pattern == "ITU-R F.699":
             fs_station.antenna = np.array([AntennaF699(param)])
+        elif param.antenna_pattern == "ITU-R F.1245_fs":
+            fs_station.antenna = np.array([Antenna_f1245_fs(param)])
         else:
             sys.stderr.write(
                 "ERROR\nInvalid FS antenna pattern: " + param.antenna_pattern,
@@ -1316,16 +1375,19 @@ class StationFactory(object):
 #        h = (d/3)*math.sqrt(3)/2
 #        haps.x = np.array([0, 7*d/2, -d/2, -4*d, -7*d/2, d/2, 4*d])
 #        haps.y = np.array([0, 9*h, 15*h, 6*h, -9*h, -15*h, -6*h])
-        haps.x = np.array([0])
-        haps.y = np.array([0])
-        haps.z = param.altitude * np.ones(num_haps)
-
-        haps.height = haps.z
 
         elev_max = 68.19  # corresponds to 50 km radius and 20 km altitude
-        haps.azimuth = 360 * random_number_gen.random_sample(num_haps)
-        haps.elevation = ((270 + elev_max) - (270 - elev_max)) * \
+        azim = 360 * random_number_gen.random_sample(num_haps)
+        elev = ((270 + elev_max) - (270 - elev_max)) * \
             random_number_gen.random_sample(num_haps) + (270 - elev_max)
+
+        haps.geom.set_global_coords(
+            np.zeros(num_haps),
+            np.zeros(num_haps),
+            param.altitude * np.ones(num_haps),
+            azim,
+            elev,
+        )
 
         haps.active = np.ones(num_haps, dtype=bool)
 
@@ -1371,19 +1433,23 @@ class StationFactory(object):
         rns.station_type = StationType.RNS
         rns.is_space_station = True
 
-        rns.x = np.array([param.x])
-        rns.y = np.array([param.y])
-        rns.z = np.array([param.altitude])
-        rns.height = np.array([param.altitude])
+        x = np.array([param.x])
+        y = np.array([param.y])
+        z = np.array([param.altitude])
 
         # minimum and maximum values for azimuth and elevation
         azimuth = np.array([-30, 30])
         elevation = np.array([-30, 5])
 
-        rns.azimuth = 90 + (azimuth[1] - azimuth[0]) * \
+        azim = 90 + (azimuth[1] - azimuth[0]) * \
             random_number_gen.random_sample(num_rns) + azimuth[0]
-        rns.elevation = (elevation[1] - elevation[0]) * \
+        elev = (elevation[1] - elevation[0]) * \
             random_number_gen.random_sample(num_rns) + elevation[0]
+
+        rns.geom.set_global_coords(
+            x, y, z,
+            azim, elev,
+        )
 
         rns.active = np.ones(num_rns, dtype=bool)
 
@@ -1391,7 +1457,7 @@ class StationFactory(object):
             rns.antenna = np.array([AntennaOmni(param.antenna_gain)])
         elif param.antenna_pattern == "ITU-R M.1466":
             rns.antenna = np.array(
-                [AntennaM1466(param.antenna_gain, rns.azimuth, rns.elevation)],
+                [AntennaM1466(param.antenna_gain, rns.geom.pointn_azim_global, rns.geom.pointn_elev_global)],
             )
         else:
             sys.stderr.write(
@@ -1489,19 +1555,23 @@ class StationFactory(object):
         # Elevation at ground (centre of the footprint)
         theta_grd_elev = 90 - incidence_angle
 
-        space_station.x = np.array([0])
-        space_station.y = np.array(
+        x = np.array([0])
+        y = np.array(
             [distance * math.cos(math.radians(theta_grd_elev))],
         )
-        space_station.height = np.array(
+        z = np.array(
             [distance * math.sin(math.radians(theta_grd_elev))],
         )
-        space_station.z = space_station.height
 
         # Elevation and azimuth at sensor wrt centre of the footprint
         # It is assumed the sensor is at y-axis, hence azimuth is 270 deg
-        space_station.azimuth = np.array([270])
-        space_station.elevation = np.array([-theta_grd_elev])
+        azim = np.array([270])
+        elev = np.array([-theta_grd_elev])
+
+        space_station.geom.set_global_coords(
+            x, y, z,
+            azim, elev
+        )
 
         space_station.active = np.array([True])
         space_station.rx_interference = np.array([-500])
@@ -1560,13 +1630,17 @@ class StationFactory(object):
         num_bs = ntn_topology.num_base_stations
         mss_ss = StationManager(n=num_bs)
         mss_ss.station_type = StationType.MSS_SS
-        mss_ss.x = ntn_topology.space_station_x * np.ones(num_bs) + param_mss.x
-        mss_ss.y = ntn_topology.space_station_y * np.ones(num_bs) + param_mss.y
-        mss_ss.z = ntn_topology.space_station_z * np.ones(num_bs)
-        mss_ss.height = ntn_topology.space_station_z * np.ones(num_bs)
-        mss_ss.elevation = ntn_topology.elevation
+        x = ntn_topology.space_station_x * np.ones(num_bs) + param_mss.x
+        y = ntn_topology.space_station_y * np.ones(num_bs) + param_mss.y
+        z = ntn_topology.space_station_z * np.ones(num_bs)
+        elev = ntn_topology.elevation
+        azim = ntn_topology.azimuth
+        mss_ss.geom.set_global_coords(
+            x, y, z,
+            azim, elev
+        )
+
         mss_ss.is_space_station = True
-        mss_ss.azimuth = ntn_topology.azimuth
         mss_ss.active = np.ones(num_bs, dtype=int)
         mss_ss.tx_power = np.ones(
             num_bs, dtype=int) * param_mss.tx_power_density + 10 * np.log10(
@@ -1598,10 +1672,10 @@ class StationFactory(object):
                 param_mss.bandwidth,
                 param_mss.spurious_emissions,
                 scenario="OUTDOOR")
-        elif params.spectral_mask == "MSS":
-            mss_ss.spectral_mask = SpectralMaskMSS(params.frequency,
-                                                   params.bandwidth,
-                                                   params.spurious_emissions)
+        elif param_mss.spectral_mask == "MSS":
+            mss_ss.spectral_mask = SpectralMaskMSS(param_mss.frequency,
+                                                   param_mss.bandwidth,
+                                                   param_mss.spurious_emissions)
         else:
             raise ValueError(
                 f"Invalid or not implemented spectral mask - {param_mss.spectral_mask}")
@@ -1618,7 +1692,7 @@ class StationFactory(object):
     def generate_mss_d2d(
         params: ParametersMssD2d,
         random_number_gen: np.random.RandomState,
-        geometry_converter: GeometryConverter,
+        coordinate_system: CoordinateSystem,
     ):
         """
         Generate the MSS D2D constellation with support for multiple orbits and base station visibility.
@@ -1629,7 +1703,7 @@ class StationFactory(object):
             Parameters for the MSS D2D system, including orbits and antenna configuration.
         random_number_gen : np.random.RandomState
             Random number generator for generating satellite positions.
-        geometry_converter : GeometryConverter
+        coordinate_system : CoordinateSystem
             A converter that has already set a reference for coordinates transformation
 
         Returns
@@ -1637,11 +1711,11 @@ class StationFactory(object):
         StationManager
             A StationManager object containing satellite configurations and positions.
         """
-        geometry_converter.validate()
+        coordinate_system.validate()
 
         # Initialize the StationManager for the MSS D2D system
         mss_d2d_values = TopologyImtMssDc.get_coordinates(
-            geometry_converter,
+            coordinate_system,
             params,
             random_number_gen,
         )
@@ -1679,44 +1753,85 @@ class StationFactory(object):
                 1e6) + 30
         )
 
-       # Configure satellite positions in the StationManager
-        mss_d2d.x = mss_d2d_values["sat_x"]
-        mss_d2d.y = mss_d2d_values["sat_y"]
-        mss_d2d.z = mss_d2d_values["sat_z"]
-        mss_d2d.elevation = mss_d2d_values["sat_antenna_elev"]
-        mss_d2d.azimuth = mss_d2d_values["sat_antenna_azim"]
-        mss_d2d.height = mss_d2d_values["sat_alt"]
+        # Configure satellite positions in the StationManager
+        x = mss_d2d_values["sat_x"]
+        y = mss_d2d_values["sat_y"]
+        z = mss_d2d_values["sat_z"]
+        elev = mss_d2d_values["sat_antenna_elev"]
+        azim = mss_d2d_values["sat_antenna_azim"]
+        global_ref = ENUReferenceFrame(
+            lat=coordinate_system.ref_lat,
+            lon=coordinate_system.ref_long,
+            alt=coordinate_system.ref_alt,
+        )
+        mss_d2d.geom.setup(
+            mss_d2d.num_stations, True,
+            global_ref,
+        )
+        mss_d2d.geom.set_local_reference_frame(
+            DWNReferenceFrame(
+                lat=mss_d2d_values["sat_lat"],
+                lon=mss_d2d_values["sat_lon"],
+                alt=mss_d2d_values["sat_alt"],
+            )
+        )
+
+        mss_d2d.geom.set_global_coords(
+            x, y, z,
+            azim, elev,
+        )
 
         mss_d2d.active = np.zeros(total_satellites, dtype=bool)
 
         if mss_d2d_values["num_active_satellites"] != mss_d2d_values["num_satellites"]:
-            mss_d2d.active[mss_d2d_values["active_satellites_idxs"]] = random_number_gen.uniform(
-                size=len(mss_d2d_values["active_satellites_idxs"])) < params.beams_load_factor
+            while np.sum(mss_d2d.active) == 0:
+                mss_d2d.active[mss_d2d_values["active_satellites_idxs"]] = random_number_gen.uniform(
+                    size=len(mss_d2d_values["active_satellites_idxs"])) < params.beams_load_factor
         else:
-            # Set active satellite flags
-            mss_d2d.active = random_number_gen.uniform(
-                size=total_satellites
-            ) < params.beams_load_factor
+            while np.sum(mss_d2d.active) == 0:
+                # Set active satellite flags
+                mss_d2d.active = random_number_gen.uniform(
+                    size=total_satellites
+                ) < params.beams_load_factor
 
         # Initialize satellites antennas
         # we need to initialize them after coordinates transformation because of
         # repeated state (elevation and azimuth) inside multiple transceiver
         # implementation
         mss_d2d.antenna = np.empty(total_satellites, dtype=AntennaS1528Leo)
-        if params.antenna_pattern == "ITU-R-S.1528-LEO":
-            antenna_pattern = AntennaS1528Leo(params.antenna_s1528)
-        elif params.antenna_pattern == "ITU-R-S.1528-Section1.2":
-            antenna_pattern = AntennaS1528(params.antenna_s1528)
-        elif params.antenna_pattern == "ITU-R-S.1528-Taylor":
-            antenna_pattern = AntennaS1528Taylor(params.antenna_s1528)
-        elif params.antenna_pattern == "MSS Adjacent":
+        if params.antenna.pattern == "ITU-R-S.1528-LEO":
+            antenna_pattern = AntennaS1528Leo(params.antenna.itu_r_s_1528)
+        elif params.antenna.pattern == "ITU-R-S.1528-Section1.2":
+            antenna_pattern = AntennaS1528(params.antenna.itu_r_s_1528)
+        elif params.antenna.pattern == "ITU-R-S.1528-Taylor":
+            antenna_pattern = AntennaS1528Taylor(params.antenna.itu_r_s_1528)
+        elif params.antenna.pattern == "ARRAY2":
+            pass
+        elif params.antenna.pattern == "MSS Adjacent":
             antenna_pattern = AntennaMSSAdjacent(params.frequency)
         else:
             raise ValueError(
-                "generate_mss_ss: Invalid antenna type: {param_mss.antenna_pattern}")
+                f"generate_mss_ss: Invalid antenna type: {params.antenna.pattern}")
 
         for i in range(mss_d2d.num_stations):
+            if params.antenna.pattern == "ARRAY2":
+                antenna_pattern = AntennaArray(
+                    params.antenna.array,
+                    mss_d2d.geom.global2local.take(i)
+                )
+                antenna_pattern.add_beam(
+                    mss_d2d.geom.pointn_azim_global[i],
+                    90. - mss_d2d.geom.pointn_elev_global[i],
+                )
+                antenna_pattern.set_always_first_beam()
+
             mss_d2d.antenna[i] = antenna_pattern
+
+        if params.antenna.pattern == "ARRAY2":
+            mss_d2d.geom.set_local_coords(
+                azim=np.zeros_like(mss_d2d.geom.pointn_azim_global),
+                elev=np.zeros_like(mss_d2d.geom.pointn_elev_global),
+            )
 
         return mss_d2d  # Return the configured StationManager
 
@@ -1856,13 +1971,13 @@ class StationFactory(object):
 
 if __name__ == '__main__':
     rand_gen = np.random.RandomState(101)
-    geometry_converter = GeometryConverter()
+    coordinate_system = CoordinateSystem()
 
     # somente vou utilizar a translação que o satélite teoricamente sofreu:
     ref_lat = -14.1
     ref_long = -45.1
     ref_alt = 1200
-    geometry_converter.set_reference(ref_lat, ref_long, ref_alt)
+    coordinate_system.set_reference(ref_lat, ref_long, ref_alt)
     from sharc.parameters.parameters_orbit import ParametersOrbit
 
     orbit = ParametersOrbit(
@@ -1875,141 +1990,94 @@ if __name__ == '__main__':
         apogee_alt_km=525
     )
     from sharc.parameters.imt.parameters_imt_mss_dc import ParametersImtMssDc
-    params = ParametersImtMssDc(
+    params_mss_dc = ParametersImtMssDc(
         beam_radius=36516.0,
         num_beams=7,
         orbits=[orbit]
     )
-    params.sat_is_active_if.conditions = ["MINIMUM_ELEVATION_FROM_ES"]
-    params.sat_is_active_if.minimum_elevation_from_es = 5.0
+    params_mss_dc.sat_is_active_if.conditions = ["MINIMUM_ELEVATION_FROM_ES"]
+    params_mss_dc.sat_is_active_if.minimum_elevation_from_es = 5.0
 
-    topology = TopologyImtMssDc(params, geometry_converter)
+    parameters = Parameters()
+    parameters.imt.topology.mss_dc = params_mss_dc
+
+    parameters.imt.ue.k = 1
+    parameters.imt.ue.k_m = 1
+    parameters.imt.ue.azimuth_range = (-180, 180)
+    parameters.imt.ue.distribution_distance = "UNIFORM"
+    parameters.imt.ue.distribution_type = "ANGLE_AND_DISTANCE"
+    parameters.imt.ue.distribution_azimuth = "NORMAL"
+    parameters.imt.ue.height = 1.5
+    parameters.imt.ue.indoor_percent = 0
+    parameters.imt.bandwidth = 10
+    parameters.imt.frequency = 10
+    parameters.imt.ue.noise_figure = 0
+
+    parameters.imt.bs.antenna.array.downtilt = 0
+
+    parameters.imt.topology.sampling_from_spherical_grid.num_bs = 3 * 3 * 19
+    # parameters.imt.topology.sampling_from_spherical_grid.num_bs = 3 * 3 * 19 * 7
+    parameters.imt.topology.sampling_from_spherical_grid.max_ue_distance = 800
+    parameters.imt.topology.sampling_from_spherical_grid.grid.transform_grid_randomly = True
+    parameters.imt.topology.sampling_from_spherical_grid.grid.cell_radius = 10e3
+    parameters.imt.topology.sampling_from_spherical_grid.grid.grid_in_zone.type = "CIRCLE"
+    parameters.imt.topology.sampling_from_spherical_grid.grid.grid_in_zone.circle.center_lat = ref_lat
+    parameters.imt.topology.sampling_from_spherical_grid.grid.grid_in_zone.circle.center_lon = ref_long
+    parameters.imt.topology.sampling_from_spherical_grid.grid.grid_in_zone.circle.radius_km = 30 * 111
+
+    # parameters.imt.topology.type = "SAMPLING_FROM_SPHERICAL_GRID"
+    parameters.imt.topology.type = "MSS_DC"
+    parameters.imt.validate("station_factory_imt")
+    # print(
+    #     "parameters.imt.topology.sampling_from_spherical_grid.grid.lon_lat_grid.shape",
+    #     parameters.imt.topology.sampling_from_spherical_grid.grid.lon_lat_grid.shape
+    # )
+
+    from sharc.topology.topology_factory import TopologyFactory
+    topology = TopologyFactory.createTopology(
+        parameters,
+        coordinate_system
+    )
 
     topology.calculate_coordinates(rand_gen)
-
     topology.calculate_coordinates(rand_gen)
-
-    parameters = ParametersImt()
-    parameters.ue.k = 1
-    parameters.ue.k_m = 1
-    parameters.ue.azimuth_range = (-180, 180)
-    parameters.ue.distribution_distance = "UNIFORM"
-    parameters.ue.distribution_type = "ANGLE_AND_DISTANCE"
-    parameters.ue.distribution_azimuth = "NORMAL"
-    parameters.ue.height = 1.5
-    parameters.ue.indoor_percent = 0
-    parameters.bandwidth = 10
-    parameters.frequency = 10
-    parameters.ue.noise_figure = 0
 
     imt_ue = StationFactory.generate_imt_ue_outdoor(
-        parameters,
-        parameters.ue.antenna.array,
+        parameters.imt,
+        parameters.imt.ue.antenna.array,
         rand_gen,
         topology
     )
+    imt_bs = StationFactory.generate_imt_base_stations(
+        parameters.imt,
+        parameters.imt.bs.antenna.array,
+        topology,
+        rand_gen,
+    )
+    # imt_bs.geom.set_local_coords(
+    #     azim=np.zeros_like(imt_bs.geom.pointn_azim_local)
+    # )
+    # imt_bs.geom.set_global_coords(
+    #     elev=np.zeros_like(imt_bs.geom.pointn_azim_local) + 90.,
+    #     z=np.zeros_like(imt_bs.geom.pointn_azim_local)
+    # )
 
     from sharc.satellite.scripts.plot_globe import plot_globe_with_borders
-    fig = plot_globe_with_borders(True, geometry_converter, False)
+    fig = plot_globe_with_borders(True, coordinate_system, False)
 
     import plotly.graph_objects as go
 
-    # fig.add_trace(go.Scatter3d(
-    #     x=topology.x,
-    #     y=topology.y,
-    #     z=topology.z,
-    #     mode='markers',
-    #     marker=dict(size=3, color='green', opacity=0.8),
-    #     showlegend=False
-    # ))
-    fig.add_trace(go.Scatter3d(
-        x=topology.space_station_x,
-        y=topology.space_station_y,
-        z=topology.space_station_z,
-        mode='markers',
-        marker=dict(size=3, color='green', opacity=0.8),
-        showlegend=False
-    ))
-
-    fig.add_trace(
-        go.Scatter3d(
-            x=imt_ue.x,
-            y=imt_ue.y,
-            z=imt_ue.z,
-            mode='markers',
-            marker=dict(size=1, color='red', opacity=1),
-            showlegend=False
-        )
-    )
-
-    # TODO: replace this with generate imt mss dc station
-    st = StationManager(topology.num_base_stations)
-    st.x = topology.space_station_x
-    st.y = topology.space_station_y
-    st.z = topology.space_station_z
-
-    fig.add_trace(
-        go.Scatter3d(
-            x=[0],
-            y=[0],
-            z=[0],
-            mode='markers',
-            marker=dict(size=3, color='black', opacity=1),
-            showlegend=False
-        )
-    )
-
-    from sharc.support.sharc_geom import polar_to_cartesian
-    # Plot beam boresight vectors
-    boresight_length = 100 * 1e3  # Length of the boresight vectors for visualization
-    boresight_x, boresight_y, boresight_z = polar_to_cartesian(
-        boresight_length,
-        imt_ue.azimuth,
-        imt_ue.elevation
-    )
-    # Add arrow heads to the end of the boresight vectors
-    for x, y, z, bx, by, bz in zip(imt_ue.x,
-                                   imt_ue.y,
-                                   imt_ue.z,
-                                   boresight_x,
-                                   boresight_y,
-                                   boresight_z):
-        fig.add_trace(go.Cone(
-            x=[x + bx],
-            y=[y + by],
-            z=[z + bz],
-            u=[bx],
-            v=[by],
-            w=[bz],
-            colorscale=[[0, 'orange'], [1, 'orange']],
-            sizemode='absolute',
-            sizeref=2 * boresight_length / 5,
-            showscale=False
-        ))
-    for x, y, z, bx, by, bz in zip(imt_ue.x,
-                                   imt_ue.y,
-                                   imt_ue.z,
-                                   boresight_x,
-                                   boresight_y,
-                                   boresight_z):
-        fig.add_trace(go.Scatter3d(
-            x=[x, x + bx],
-            y=[y, y + by],
-            z=[z, z + bz],
-            mode='lines',
-            line=dict(color='orange', width=2),
-            name='Boresight'
-        ))
-    # Suppress the legend for the boresight plot
-    fig.update_traces(showlegend=False, selector=dict(name='Boresight'))
+    from sharc.support.geometry import plot_geom
+    plot_geom(fig, imt_ue.geom)
+    plot_geom(fig, imt_bs.geom, {"marker": dict(size=2, color='blue', opacity=1)}, True)
 
     # Maintain axis proportions
     fig.update_layout(scene_aspectmode='data')
 
-    ref_x = imt_ue.x[11]
-    ref_y = imt_ue.y[11]
-    ref_z = imt_ue.z[11]
-    range_scale = 1000
+    # ref_x = imt_ue.geom.x_global[11]
+    # ref_y = imt_ue.geom.y_global[11]
+    # ref_z = imt_ue.geom.z_global[11]
+    # range_scale = 1000
 
     range_scale = 5000
     ref_x = 0

@@ -15,6 +15,18 @@ class PropagationBuildingEntryLoss(Propagation):
     """
     Implements the building entry loss according to ITU-R P.2109-0 (Prediction of Building Entry Loss)
     """
+    def get_path_loss(
+        self,
+        params,
+        frequency: float,
+        path,
+        station_a_gains=None,
+        station_b_gains=None,
+    ) -> np.array:
+        """This class isn't supposed to be directly called in the simulation
+        loop, so this methods doesn't need to be implemented
+        """
+        raise NotImplementedError()
 
     def get_loss(
         self, frequency_MHz, elevation, prob="RANDOM",

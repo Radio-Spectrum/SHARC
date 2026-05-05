@@ -13,8 +13,9 @@ from sharc.topology.topology_hotspot import TopologyHotspot
 from sharc.topology.topology_indoor import TopologyIndoor
 from sharc.topology.topology_ntn import TopologyNTN
 from sharc.topology.topology_single_base_station import TopologySingleBaseStation
+from sharc.topology.topology_spherical_sampling_from_grid import TopologySamplingFromSphericalGrid
 from sharc.parameters.parameters import Parameters
-from sharc.support.sharc_geom import GeometryConverter
+from sharc.support.sharc_geom import CoordinateSystem
 
 
 class TopologyFactory(object):
@@ -22,7 +23,7 @@ class TopologyFactory(object):
 
     @staticmethod
     def createTopology(parameters: Parameters,
-                       geometry_converter: GeometryConverter) -> Topology:
+                       coordinate_system: CoordinateSystem) -> Topology:
         """Create and return a topology object based on the provided parameters."""
         if parameters.imt.topology.type == "SINGLE_BS":
             return TopologySingleBaseStation(
@@ -55,7 +56,14 @@ class TopologyFactory(object):
         elif parameters.imt.topology.type == "MSS_DC":
             return TopologyImtMssDc(
                 parameters.imt.topology.mss_dc,
-                geometry_converter
+                coordinate_system
+            )
+        elif parameters.imt.topology.type == "SAMPLING_FROM_SPHERICAL_GRID":
+            return TopologySamplingFromSphericalGrid(
+                parameters.imt.topology.sampling_from_spherical_grid.max_ue_distance,
+                parameters.imt.topology.sampling_from_spherical_grid.num_bs,
+                (coordinate_system.ref_lat, coordinate_system.ref_long, coordinate_system.ref_alt),
+                parameters.imt.topology.sampling_from_spherical_grid.grid,
             )
         else:
             sys.stderr.write(

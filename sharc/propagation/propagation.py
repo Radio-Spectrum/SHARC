@@ -7,8 +7,11 @@ Created on Thu Feb 16 12:03:12 2017
 
 from abc import ABC, abstractmethod
 import numpy as np
+from typing import TYPE_CHECKING
 
-from sharc.station_manager import StationManager
+if TYPE_CHECKING:
+    from sharc.propagation.propagation_path import PropagationPath
+
 from sharc.parameters.parameters import Parameters
 
 
@@ -22,14 +25,14 @@ class Propagation(ABC):
         # Inicates whether this propagation model is for links between earth
         # and space
         self.is_earth_space_model = False
+        self.needs_antenna_gains = False
 
     @abstractmethod
-    def get_loss(
+    def get_path_loss(
         self,
         params: Parameters,
         frequency: float,
-        station_a: StationManager,
-        station_b: StationManager,
+        path: "PropagationPath",
         station_a_gains=None,
         station_b_gains=None,
     ) -> np.array:

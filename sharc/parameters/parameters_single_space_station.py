@@ -57,13 +57,21 @@ class ParametersSingleSpaceStation(ParametersBase):
         es_long_deg: float = -47.882778
         es_lat_deg: float = -15.793889
 
+        # Used if azimuth or elevation are POINTING_AT_LAT_LONG_ALT
+        # [deg]
+        pointing_at_lat: typing.Optional[float] = None
+        # [deg]
+        pointing_at_long: typing.Optional[float] = None
+        # [m]
+        pointing_at_alt: typing.Optional[float] = None
+
         @dataclass
         class PointingParam(ParametersBase):
             """
             Defines pointing parameters for the space station geometry.
             """
-            __EXISTING_TYPES = ["FIXED", "POINTING_AT_IMT"]
-            type: typing.Literal["FIXED", "POINTING_AT_IMT"] = None
+            __EXISTING_TYPES = ["FIXED", "POINTING_AT_IMT", "POINTING_AT_LAT_LONG_ALT"]
+            type: typing.Literal["FIXED", "POINTING_AT_IMT", "POINTING_AT_LAT_LONG_ALT"] = None
             fixed: float = None
 
             def validate(self, ctx):

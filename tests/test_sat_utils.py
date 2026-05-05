@@ -136,6 +136,50 @@ class TestSatUtils(unittest.TestCase):
             )
             npt.assert_almost_equal(e, expected_elevations[i], 1)
 
+    def test_sat_elevation_offaxis_conversion(self):
+        """Test conversion between satellite elevation angle and off-axis angle."""
+        sat_altitude_km = 520.0
+
+        test_elevation_angles = np.array([0.0, 10.0, 30.0, 45.0, 60.0, 80.0, 90.0])
+        for elev_angle in test_elevation_angles:
+            offaxis_angle = sat_utils.sat_elevation_to_offaxis(elev_angle, sat_altitude_km)
+            elev_angle_converted = sat_utils.offaxis_to_sat_elevation(offaxis_angle, sat_altitude_km)
+            npt.assert_almost_equal(elev_angle, elev_angle_converted, 5)
+
+    def test_sat_elevation_offaxis_conversion_raises_value_error(self):
+        """Test that ValueError is raised for invalid elevation angles."""
+        sat_altitude_km = 520.0
+
+        invalid_elevation_angles = [-10.0, 100.0, 150.0]
+        for elev_angle in invalid_elevation_angles:
+            with self.assertRaises(ValueError):
+                sat_utils.sat_elevation_to_offaxis(elev_angle, sat_altitude_km)
+
+        with self.assertRaises(ValueError):
+            sat_utils.sat_elevation_to_offaxis(np.array([10.0, -5.0, 30.0]), sat_altitude_km)
+
+    def test_offaxis_sat_elevation_conversion_raises_value_error(self):
+        """Test that ValueError is raised for invalid elevation angles in offaxis_to_sat_elevation."""
+        sat_altitude_km = 520.0
+
+        invalid_offaxis_angles = [-10.0, 100.0, 150.0]
+        for elev_angle in invalid_offaxis_angles:
+            with self.assertRaises(ValueError):
+                sat_utils.offaxis_to_sat_elevation(elev_angle, sat_altitude_km)
+
+        with self.assertRaises(ValueError):
+            sat_utils.offaxis_to_sat_elevation(np.array([10.0, -5.0, 30.0]), sat_altitude_km)
+
+    def test_earth_arc_length_from_nadir(self):
+        """Test calculation of Earth's arc length from nadir based on off-axis angle."""
+        sat_altitude_m = 520.0 * 1e3
+
+        test_offaxis_angles = np.array([0.0, 10.0, 30.0, 45.0, 60.0])
+        expected_arc_lengths_m = np.array([0, 91.80971067, 304.53451317, 543.82932797, 1056.78781731]) * 1e3
+
+        arc_length = sat_utils.earth_arc_length_from_nadir(test_offaxis_angles, sat_altitude_m)
+        npt.assert_almost_equal(arc_length, expected_arc_lengths_m, decimal=3)
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -15,6 +15,7 @@ from sharc.antenna.antenna_omni import AntennaOmni
 from sharc.antenna.antenna_beamforming_imt import AntennaBeamformingImt
 from sharc.station_factory import StationFactory
 from sharc.propagation.propagation_factory import PropagationFactory
+from sharc.propagation.propagation_path import PropagationPath
 
 
 class SimulationUplinkTest(unittest.TestCase):
@@ -201,8 +202,10 @@ class SimulationUplinkTest(unittest.TestCase):
             self.simulation.topology,
             random_number_gen,
         )
-        self.simulation.ue.x = np.array([20, 70, 110, 170])
-        self.simulation.ue.y = np.array([0, 0, 0, 0])
+        self.simulation.ue.geom.set_global_coords(
+            np.array([20, 70, 110, 170]),
+            np.array([0, 0, 0, 0]),
+        )
         self.simulation.ue.antenna = np.array(
             [AntennaOmni(10), AntennaOmni(11), AntennaOmni(22), AntennaOmni(23)],
         )
@@ -230,6 +233,9 @@ class SimulationUplinkTest(unittest.TestCase):
             random_number_gen,
         )
 
+        self.simulation.intra_imt_paths = PropagationPath.create_default(
+            self.simulation.ue, self.simulation.bs
+        )
         # test coupling loss method
         self.simulation.coupling_loss_imt = self.simulation.calculate_intra_imt_coupling_loss(
             self.simulation.ue, self.simulation.bs, )
@@ -363,10 +369,14 @@ class SimulationUplinkTest(unittest.TestCase):
         self.simulation.system = StationFactory.generate_fss_space_station(
             self.param.fss_ss,
         )
-        self.simulation.system.x = np.array([0])
-        self.simulation.system.y = np.array([0])
-        self.simulation.system.z = np.array([self.param.fss_ss.altitude])
-        self.simulation.system.height = np.array([self.param.fss_ss.altitude])
+        self.simulation.system.geom.set_global_coords(
+            np.array([0]),
+            np.array([0]),
+            np.array([self.param.fss_ss.altitude]),
+        )
+        self.simulation.paths_between_imt_and_sys = PropagationPath.create_default(
+            self.simulation.system, self.simulation.ue
+        )
 
         # test the method that calculates interference from IMT UE to FSS space
         # station
@@ -433,8 +443,10 @@ class SimulationUplinkTest(unittest.TestCase):
             self.simulation.topology,
             random_number_gen,
         )
-        self.simulation.ue.x = np.array([20, 70, 110, 170])
-        self.simulation.ue.y = np.array([0, 0, 0, 0])
+        self.simulation.ue.geom.set_global_coords(
+            np.array([20, 70, 110, 170]),
+            np.array([0, 0, 0, 0]),
+        )
         self.simulation.ue.antenna = np.array(
             [AntennaOmni(10), AntennaOmni(11), AntennaOmni(22), AntennaOmni(23)],
         )
@@ -458,6 +470,9 @@ class SimulationUplinkTest(unittest.TestCase):
             random_number_gen,
         )
 
+        self.simulation.intra_imt_paths = PropagationPath.create_default(
+            self.simulation.ue, self.simulation.bs
+        )
         # test coupling loss method
         self.simulation.coupling_loss_imt = self.simulation.calculate_intra_imt_coupling_loss(
             self.simulation.ue, self.simulation.bs, )
@@ -587,6 +602,10 @@ class SimulationUplinkTest(unittest.TestCase):
             self.param.fss_es, random_number_gen,
         )
 
+        self.simulation.paths_between_imt_and_sys = PropagationPath.create_default(
+            self.simulation.system, self.simulation.bs
+        )
+
         # what if FSS ES is interferer???
         self.simulation.calculate_sinr_ext()
 
@@ -655,6 +674,9 @@ class SimulationUplinkTest(unittest.TestCase):
             atol=1e-2,
         )
 
+        self.simulation.paths_between_imt_and_sys = PropagationPath.create_default(
+            self.simulation.system, self.simulation.ue
+        )
         # what if IMT is interferer?
         self.simulation.calculate_external_interference()
 
@@ -720,8 +742,10 @@ class SimulationUplinkTest(unittest.TestCase):
             self.simulation.topology,
             random_number_gen,
         )
-        self.simulation.ue.x = np.array([20, 70, 110, 170])
-        self.simulation.ue.y = np.array([0, 0, 0, 0])
+        self.simulation.ue.geom.set_global_coords(
+            np.array([20, 70, 110, 170]),
+            np.array([0, 0, 0, 0]),
+        )
         self.simulation.ue.antenna = np.array(
             [AntennaOmni(10), AntennaOmni(11), AntennaOmni(22), AntennaOmni(23)],
         )
@@ -743,6 +767,9 @@ class SimulationUplinkTest(unittest.TestCase):
             self.param,
             self.simulation.param_system,
             random_number_gen,
+        )
+        self.simulation.intra_imt_paths = PropagationPath.create_default(
+            self.simulation.ue, self.simulation.bs
         )
 
         # test coupling loss method
@@ -779,10 +806,14 @@ class SimulationUplinkTest(unittest.TestCase):
         self.simulation.system = StationFactory.generate_ras_station(
             self.param.ras, random_number_gen, None,
         )
-        self.simulation.system.x = np.array([-2000])
-        self.simulation.system.y = np.array([0])
-        self.simulation.system.height = np.array(
-            [self.param.ras.geometry.height])
+        self.simulation.system.geom.set_global_coords(
+            np.array([-2000]),
+            np.array([0]),
+            np.array([self.param.ras.geometry.height]),
+        )
+        self.simulation.paths_between_imt_and_sys = PropagationPath.create_default(
+            self.simulation.system, self.simulation.ue
+        )
         self.simulation.system.antenna[0].effective_area = 54.9779
 
         # Test gain calculation
@@ -862,8 +893,10 @@ class SimulationUplinkTest(unittest.TestCase):
             self.simulation.topology,
             random_number_gen,
         )
-        self.simulation.ue.x = np.array([50.000, 43.301, 150.000, 175.000])
-        self.simulation.ue.y = np.array([0.000, 25.000, 0.000, 43.301])
+        self.simulation.ue.geom.set_global_coords(
+            np.array([50.000, 43.301, 150.000, 175.000]),
+            np.array([0.000, 25.000, 0.000, 43.301]),
+        )
 
         # Physical pointing angles
         self.assertEqual(self.simulation.bs.antenna[0].azimuth, 0)
@@ -872,13 +905,16 @@ class SimulationUplinkTest(unittest.TestCase):
         self.assertEqual(self.simulation.bs.antenna[0].elevation, -10)
 
         # Change UE pointing
-        self.simulation.ue.azimuth = np.array([180, -90, 90, -90])
-        self.simulation.ue.elevation = np.array([-30, -15, 15, 30])
+        self.simulation.ue.geom.set_global_coords(
+            azim=np.array([180, -90, 90, -90]),
+            elev=np.array([-30, -15, 15, 30]),
+        )
+
         par = self.param.imt.ue.antenna.array.get_antenna_parameters()
         for i in range(self.simulation.ue.num_stations):
             self.simulation.ue.antenna[i] = AntennaBeamformingImt(
-                par, self.simulation.ue.azimuth[i],
-                self.simulation.ue.elevation[i],
+                par, self.simulation.ue.geom.pointn_azim_global[i],
+                self.simulation.ue.geom.pointn_elev_global[i],
             )
         self.assertEqual(self.simulation.ue.antenna[0].azimuth, 180)
         self.assertEqual(self.simulation.ue.antenna[0].elevation, -30)
@@ -895,8 +931,8 @@ class SimulationUplinkTest(unittest.TestCase):
 
         # Test BS gains
         # Test pointing vector
-        phi, theta = self.simulation.bs.get_pointing_vector_to(
-            self.simulation.ue,
+        phi, theta = self.simulation.bs.geom.get_global_pointing_vector_to(
+            self.simulation.ue.geom,
         )
         npt.assert_allclose(
             phi, np.array([

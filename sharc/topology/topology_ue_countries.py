@@ -38,7 +38,7 @@ class TopologyUECountries(Topology):
         self.bs_topology = bs_topology
         self.params = params
         self.rng = random_number_gen if random_number_gen is not None \
-            else np.random.RandomState(params.rng_seed)
+            else np.random.RandomState()
 
         # will be filled by calculate_coordinates()
         self.x = None
@@ -294,7 +294,8 @@ if __name__ == "__main__":
         dist_type=dist_type
     )
 
-    bs_topo = TopologyCountries(params, geoconv).calculate_coordinates()
+    rng_bs = np.random.RandomState(params.rng_seed)
+    bs_topo = TopologyCountries(params, geoconv, random_number_gen=rng_bs).calculate_coordinates(random_number_gen=rng_bs)
 
     # --------- Build UE topology (Cartesian) ----------
     # UE params
@@ -308,7 +309,8 @@ if __name__ == "__main__":
         min_dist_from_bs=min_dist_from_bs_m,
         rng_seed=ue_rng_seed,
     )
-    ue_topo = TopologyUECountries(bs_topo, ue_params)
+    ue_rng = np.random.RandomState(ue_params.rng_seed)
+    ue_topo = TopologyUECountries(bs_topo, ue_params, random_number_gen=ue_rng)
     ue_topo.calculate_coordinates()
 
     # --------- Map plot (lon/lat): boundaries + BS + wedges + UEs ----------

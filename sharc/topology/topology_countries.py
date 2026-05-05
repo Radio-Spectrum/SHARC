@@ -54,7 +54,7 @@ class TopologyCountries(Topology):
         self.params = params
         self.geometry_converter = geometry_converter
         self.rng = random_number_gen if random_number_gen is not None \
-                   else np.random.RandomState(params.rng_seed)
+                   else np.random.RandomState()
 
         # Buffers (serão preenchidos em calculate_coordinates)
         self.countries: List[str] = list(params.country_names)
@@ -71,8 +71,7 @@ class TopologyCountries(Topology):
         self.azimuth = np.empty(0, dtype=float)
         self.num_base_stations: int = 0
 
-        self.rng = random_number_gen if random_number_gen is not None \
-            else np.random.RandomState(params.rng_seed)
+
 
     def calculate_coordinates(self,
                             random_number_gen: np.random.RandomState | None = None) -> "TopologyCountries":
@@ -796,7 +795,8 @@ if __name__ == "__main__":
 
     geoconv = GeometryConverter()
     geoconv.set_reference(-15.793889, -47.882778, 0.0)
-    topo = TopologyCountries(params, geoconv).calculate_coordinates()
+    rng = np.random.RandomState(params.rng_seed)
+    topo = TopologyCountries(params, geoconv, random_number_gen=rng).calculate_coordinates(random_number_gen=rng)
     
     # ============ Figure: Map (left) + BS-per-country (right) ============
     fig = plt.figure(figsize=(14, 9))

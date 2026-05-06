@@ -60,7 +60,7 @@ class TopologyFactory(object):
                 parameters.imt.topology.mss_dc,
                 coordinate_system
             )
-        elif parameters.imt.topology.type == "Macro_countries":
+        elif parameters.imt.topology.type == "MACRO_COUNTRIES":
             geoconv = GeometryConverter()
             geoconv.set_reference(coordinate_system.ref_lat, coordinate_system.ref_long, coordinate_system.ref_alt)
             return TopologyCountries(

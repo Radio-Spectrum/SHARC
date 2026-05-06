@@ -113,7 +113,7 @@ class StationFactory(object):
             imt_base_stations.height = topology.height
             imt_base_stations.elevation = topology.elevation
             imt_base_stations.is_space_station = True
-        elif param.topology.type == "Macro_countries":
+        elif param.topology.type == "MACRO_COUNTRIES":
             imt_base_stations.x = topology.x
             imt_base_stations.y = topology.y
             imt_base_stations.z = topology.z

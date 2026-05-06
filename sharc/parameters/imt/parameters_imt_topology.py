@@ -18,7 +18,7 @@ class ParametersImtTopology(ParametersBase):
     nested_parameters_enabled = True
 
     type: typing.Literal[
-        "MACROCELL", "HOTSPOT", "INDOOR", "SINGLE_BS", "NTN", "MSS_DC", "Macro_countries"
+        "MACROCELL", "HOTSPOT", "INDOOR", "SINGLE_BS", "NTN", "MSS_DC", "MACRO_COUNTRIES"
     ] = "MACROCELL"
 
     # these parameters are needed in case the other system requires coordinate
@@ -61,7 +61,7 @@ class ParametersImtTopology(ParametersBase):
                 self.ntn.validate(f"{ctx}.ntn")
             case "MSS_DC":
                 self.mss_dc.validate(f"{ctx}.mss_dc")
-            case "Macro_countries":
+            case "MACRO_COUNTRIES":
                 pass
             case _:
                 raise NotImplementedError(

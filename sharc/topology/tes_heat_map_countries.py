@@ -66,7 +66,6 @@ for run in range(num_runs):
     params = ParametersCountries(
         country_names=countries_americas,
         num_bs_total=bs_per_run,
-        rng_seed=rng_seed + run,   # muda a semente a cada rodada
         cell_radius=cell_radius_m,
         countries_shapefile=shapefile_path,
         population_raster=population_raster_path,
@@ -92,7 +91,8 @@ for run in range(num_runs):
         # --- geometria: remove lagos do polígono ---
         mask_inland_water=True,
     )
-    topo = TopologyCountries(params, geoconv)
+    rng_run = np.random.RandomState(rng_seed + run)
+    topo = TopologyCountries(params, geoconv, random_number_gen=rng_run)
     all_lons.extend(topo.lons)
     all_lats.extend(topo.lats)
 

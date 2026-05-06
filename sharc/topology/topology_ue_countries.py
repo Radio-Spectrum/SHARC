@@ -274,7 +274,6 @@ if __name__ == "__main__":
     params = ParametersCountries(
         country_names=countries,
         num_bs_total=num_bs,
-        rng_seed=rng_seed,
         cell_radius=cell_radius_m,
         countries_shapefile=shapefile_path,
         population_raster=population_raster_path,
@@ -294,7 +293,7 @@ if __name__ == "__main__":
         dist_type=dist_type
     )
 
-    rng_bs = np.random.RandomState(params.rng_seed)
+    rng_bs = np.random.RandomState(rng_seed)
     bs_topo = TopologyCountries(params, geoconv, random_number_gen=rng_bs).calculate_coordinates(random_number_gen=rng_bs)
 
     # --------- Build UE topology (Cartesian) ----------

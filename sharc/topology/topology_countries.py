@@ -779,7 +779,6 @@ if __name__ == "__main__":
     params = ParametersCountries(
         country_names=countries_americas,
         num_bs_total=num_bs,
-        rng_seed=rng_seed,
         cell_radius=cell_radius_m,
         countries_shapefile=shapefile_path,
         population_raster=population_raster_path,
@@ -795,7 +794,7 @@ if __name__ == "__main__":
 
     geoconv = GeometryConverter()
     geoconv.set_reference(-15.793889, -47.882778, 0.0)
-    rng = np.random.RandomState(params.rng_seed)
+    rng = np.random.RandomState(rng_seed)
     topo = TopologyCountries(params, geoconv, random_number_gen=rng).calculate_coordinates(random_number_gen=rng)
     
     # ============ Figure: Map (left) + BS-per-country (right) ============

@@ -274,7 +274,6 @@ if __name__ == "__main__":
     params = ParametersCountries(
         country_names=countries,
         num_bs_total=num_bs,
-        rng_seed=rng_seed,
         cell_radius=cell_radius_m,
         countries_shapefile=shapefile_path,
         population_raster=population_raster_path,

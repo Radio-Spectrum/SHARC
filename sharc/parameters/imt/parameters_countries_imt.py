@@ -30,7 +30,6 @@ class ParametersCountries(ParametersBase):
         default_factory=lambda: ["Brazil", "Argentina"]
     )   
     num_bs_total: int = 1000
-    rng_seed: int = 1
     cell_radius: float = 400
     fixed_azimuth: Optional[float] = None
     countries_shapefile: Optional[str] = None
@@ -104,10 +103,6 @@ class ParametersCountries(ParametersBase):
         else:
             if not (isinstance(self.num_bs_total, int) and self.num_bs_total > 0):
                 raise ValueError("num_bs_total deve ser inteiro > 0 quando bs_per_country não é fornecido.")
-
-        # RNG seed
-        if not isinstance(self.rng_seed, int):
-            raise ValueError("rng_seed deve ser inteiro.")
 
         # Shapefile
         if self.countries_shapefile is not None:

@@ -4,7 +4,7 @@ from sharc.parameters.parameters_space_station import ParametersSpaceStation
 
 # The default values come from Report ITU-R SA.2488-0, table 19 (the only earth-to-space MetSat entry)
 # TODO: let MetSat as interferrer
-# TODO: ver com professor se considerar as tabelas do report está correto
+# TODO: check with professor if considering the tables from the report is correct
 
 
 @dataclass

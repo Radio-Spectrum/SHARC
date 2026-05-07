@@ -62,7 +62,7 @@ class ParametersImtTopology(ParametersBase):
             case "MSS_DC":
                 self.mss_dc.validate(f"{ctx}.mss_dc")
             case "MACRO_COUNTRIES":
-                pass
+                self.macrocell_countries.validate(f"{ctx}.macrocell_countries")
             case _:
                 raise NotImplementedError(
                     f"{ctx}.type == '{

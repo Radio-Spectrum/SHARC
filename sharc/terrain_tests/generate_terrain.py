@@ -34,19 +34,19 @@ BASE_URL = "https://s3.amazonaws.com/elevation-tiles-prod/skadi/"
 LAT_MIN, LAT_MAX = -60, 80
 LON_MIN, LON_MAX = -180, 180
 
-# preview em tempo real (2 km)
+# real-time preview (2 km)
 RES_PREVIEW_KM = 1.0
 
-# saída por tile (250 m)
+# output per tile (250 m)
 RES_OUT_M = 250.0
 
-MAX_WORKERS = 16          # aumente se sua internet aguentar
-PLOT_EVERY_N = 1000         # atualiza a tela a cada N tiles prontos
+MAX_WORKERS = 16          # increase if your internet can handle it
+PLOT_EVERY_N = 1000         # updates screen every N finished tiles
 
 NODATA_I16 = np.int16(-32768)
 
 # ============================================================
-# HELPERS: graus por metro (aprox)
+# HELPERS: degrees per meter (approx)
 # ============================================================
 def meters_to_deg_lat(m: float) -> float:
     return m / 111_320.0
@@ -124,7 +124,7 @@ def read_hgt(path_hgt: str, lat0: int, lon0: int):
 
     arr = np.fromfile(path_hgt, dtype=">i2").reshape((n, n)).astype(np.int16, copy=False)
 
-    # inclui endpoints -> passo = 1/(n-1)
+    # includes endpoints -> step = 1/(n-1)
     src_res_deg = 1.0 / (n - 1)
     src_transform = from_origin(lon0, lat0 + 1.0, src_res_deg, src_res_deg)
 
@@ -142,7 +142,7 @@ def write_tile_250m(lat0: int, lon0: int, src_arr: np.ndarray, src_transform, sr
 
     target_res_deg = meters_to_deg_lat(RES_OUT_M)
 
-    # fator (src_res_deg ~ 0.000277..., target_res_deg ~ 0.002245...) => downsample
+    # factor (src_res_deg ~ 0.000277..., target_res_deg ~ 0.002245...) => downsample
     scale = target_res_deg / src_res_deg
     out_h = max(2, int(round(src_arr.shape[0] / scale)))
     out_w = max(2, int(round(src_arr.shape[1] / scale)))
@@ -184,7 +184,7 @@ def write_tile_250m(lat0: int, lon0: int, src_arr: np.ndarray, src_transform, sr
     return out_path
 
 # ============================================================
-# PREVIEW MOSAIC 2km (buffer em RAM)
+# PREVIEW MOSAIC 2km (RAM buffer)
 # ============================================================
 preview_res_deg = km_to_deg_lat(RES_PREVIEW_KM)
 
@@ -196,9 +196,9 @@ preview_buffer = np.full((preview_height, preview_width), NODATA_I16, dtype=np.i
 
 def preview_window_indices(lat0: int, lon0: int):
     """
-    Calcula o retângulo do tile (1°x1°) no grid do preview global.
+    Calculates the tile rectangle (1°x1°) in the global preview grid.
     """
-    # linhas aumentam para baixo; topo é LAT_MAX
+    # lines increase downwards; top is LAT_MAX
     r0 = int(np.floor((LAT_MAX - (lat0 + 1.0)) / preview_res_deg))
     r1 = int(np.ceil ((LAT_MAX - (lat0 + 0.0)) / preview_res_deg))
     c0 = int(np.floor(((lon0 + 0.0) - LON_MIN) / preview_res_deg))
@@ -212,8 +212,8 @@ def preview_window_indices(lat0: int, lon0: int):
 
 def make_preview_patch(lat0: int, lon0: int, src_arr: np.ndarray, src_transform):
     """
-    Gera somente o patch do preview (2km) correspondente a esse tile,
-    para o thread principal colar no buffer global.
+    Generates only the preview patch (2km) corresponding to this tile,
+    for the main thread to paste into the global buffer.
     """
     r0, r1, c0, c1 = preview_window_indices(lat0, lon0)
     ph = max(1, r1 - r0)
@@ -221,7 +221,7 @@ def make_preview_patch(lat0: int, lon0: int, src_arr: np.ndarray, src_transform)
 
     patch = np.full((ph, pw), NODATA_I16, dtype=np.int16)
 
-    # transform do patch: canto superior esquerdo em lon = LON_MIN + c0*res, lat = LAT_MAX - r0*res
+    # patch transform: top left corner at lon = LON_MIN + c0*res, lat = LAT_MAX - r0*res
     patch_lon0 = LON_MIN + c0 * preview_res_deg
     patch_lat1 = LAT_MAX - r0 * preview_res_deg
     patch_transform = from_origin(patch_lon0, patch_lat1, preview_res_deg, preview_res_deg)
@@ -241,7 +241,7 @@ def make_preview_patch(lat0: int, lon0: int, src_arr: np.ndarray, src_transform)
     return (r0, r1, c0, c1, patch)
 
 # ============================================================
-# BUILD TILE LIST (somente terra)
+# BUILD TILE LIST (land only)
 # ============================================================
 print("Building tile list (land only)...")
 tiles = []
@@ -252,16 +252,16 @@ for lat0 in range(LAT_MIN, LAT_MAX):
 print("Tiles over land:", len(tiles))
 
 # ============================================================
-# WORKER: tudo pesado em paralelo
+# WORKER: heavy work in parallel
 # ============================================================
 def worker_full(lat0: int, lon0: int):
 
-    # ⭐ cache check baseado no TIFF
+    # ⭐ cache check based on TIFF
     tiff_name = tile_tiff_name(lat0, lon0)
     tiff_path = os.path.join(TILES_250_DIR, tiff_name)
 
     if os.path.exists(tiff_path) and os.path.getsize(tiff_path) > 10000:
-        # já existe → só gera preview patch a partir do TIFF
+        # already exists -> only generates preview patch from TIFF
         try:
             with rasterio.open(tiff_path) as ds:
                 src_arr = ds.read(1)
@@ -271,7 +271,7 @@ def worker_full(lat0: int, lon0: int):
         except Exception:
             pass
 
-    # ⭐ precisa baixar HGT
+    # ⭐ needs to download HGT
     got = download_tile_hgt(lat0, lon0)
     if got is None:
         return None
@@ -281,13 +281,13 @@ def worker_full(lat0: int, lon0: int):
     try:
         src_arr, src_transform, src_res_deg = read_hgt(hgt_path, lat0, lon0)
 
-        # ⭐ gera TIFF 250m
+        # ⭐ generates TIFF 250m
         out_tiff = write_tile_250m(lat0, lon0, src_arr, src_transform, src_res_deg)
 
-        # ⭐ gera preview patch
+        # ⭐ generates preview patch
         patch_info = make_preview_patch(lat0, lon0, src_arr, src_transform)
 
-        # ⭐ delete temporários
+        # ⭐ delete temporaries
         try:
             if os.path.exists(hgt_path):
                 os.remove(hgt_path)
@@ -303,7 +303,7 @@ def worker_full(lat0: int, lon0: int):
         return patch_info
 
     except Exception:
-        # se deu erro, mantém temporários
+        # if error occurred, keeps temporaries
         return None
 
 # ============================================================
@@ -315,7 +315,7 @@ world.boundary.plot(ax=ax, color="black", linewidth=0.5)
 
 ax.set_xlim(LON_MIN, LON_MAX)
 ax.set_ylim(LAT_MIN, LAT_MAX)
-ax.set_title(f"Preview mosaico em tempo real ({RES_PREVIEW_KM:.0f} km) | gerando tiles {int(RES_OUT_M)} m")
+ax.set_title(f"Real-time mosaic preview ({RES_PREVIEW_KM:.0f} km) | generating tiles {int(RES_OUT_M)} m")
 ax.set_xlabel("Longitude")
 ax.set_ylabel("Latitude")
 
@@ -330,7 +330,7 @@ im = ax.imshow(
     alpha=0.95
 )
 cbar = plt.colorbar(im, ax=ax, fraction=0.035, pad=0.02)
-cbar.set_label("Elevação (m)")
+cbar.set_label("Elevation (m)")
 
 plt.draw()
 plt.pause(0.01)
@@ -353,7 +353,7 @@ with ThreadPoolExecutor(max_workers=MAX_WORKERS) as ex:
 
         r0, r1, c0, c1, patch = out
 
-        # cola patch no buffer global (rápido) - main thread
+        # pastes patch in global buffer (fast) - main thread
         sub = preview_buffer[r0:r1, c0:c1]
         m = (patch != NODATA_I16)
         sub[m] = patch[m]
@@ -361,7 +361,7 @@ with ThreadPoolExecutor(max_workers=MAX_WORKERS) as ex:
 
         ok += 1
 
-        # atualiza plot (main thread)
+        # updates plot (main thread)
         if ok % PLOT_EVERY_N == 0:
             masked = np.ma.masked_equal(preview_buffer, NODATA_I16)
             im.set_data(masked)
@@ -384,6 +384,6 @@ print("Saved preview PNG:", PREVIEW_PNG)
 plt.ioff()
 plt.show(block=True)
 
-print("\nTiles 250m gerados em:", TILES_250_DIR)
-print("Sugestão: criar VRT para mosaico virtual (instantâneo):")
+print("\n250m Tiles generated in:", TILES_250_DIR)
+print("Suggestion: create VRT for virtual mosaic (instantaneous):")
 print(f'  gdalbuildvrt -overwrite "{os.path.join(OUT_DIR, "global_250m.vrt")}" "{TILES_250_DIR}\\*.tif"')

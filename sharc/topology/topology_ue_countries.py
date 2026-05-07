@@ -244,14 +244,14 @@ if __name__ == "__main__":
     sedac_max = 1e4
     index_nodata = (0, 255)
 
-    # Optional ACT to auto-estender brancos como NoData (deixe None se não quiser)
+    # Optional ACT to auto-extend whites as NoData (leave None if you don't want to)
     act_palette_path = Path.cwd() / "sharc" / "topology" / "map" / "sedac_pop.act"
 
-    # Sampling-only knobs (não afetam totais por país)
+    # Sampling-only knobs (do not affect totals per country)
     min_density_threshold = 0.0  # ppl/km² cutoff in sampling
     density_exponent = 1.0       # >1 bias toward dense areas
 
-    # Países (Américas exemplo)
+    # Countries (Americas example)
     countries = [
         # South America
         "Brazil", "Argentina", "Uruguay", "Paraguay", "Chile",
@@ -269,7 +269,7 @@ if __name__ == "__main__":
 
     # ============ Build topology ============
     geoconv = GeometryConverter()
-    geoconv.set_reference(-15.793889, -47.882778, 0.0)  # Brasília
+    geoconv.set_reference(-15.793889, -47.882778, 0.0)  # Brasilia
 
     params = ParametersCountries(
         country_names=countries,

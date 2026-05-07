@@ -768,7 +768,7 @@ def generate_grid_in_multipolygon(
 
 
 if __name__ == "__main__":
-    # baixo, direita, frente, esquerda, atrás, cima, cima
+    # bottom, right, front, left, back, top, top
     # elev = np.array([-90., 0., 0., 0., 0., 90., 90.])
     # azim = np.array([0., 0., 90., 180., -90., 0., 90.])
     elev = np.array([-89.93761622])

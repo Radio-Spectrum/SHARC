@@ -74,21 +74,21 @@ class PropagationP528(Propagation):
                  station_a_gains=None,
                  station_b_gains=None) -> np.ndarray:
         """
-        Wrapper compatível com PropagationP619.get_loss(...).
-        Decide quem é “alto/baixo” (aeronave vs base/solo), calcula distâncias e chama o kernel.
+        Wrapper compatible with PropagationP619.get_loss(...).
+        Decides who is "high/low" (aircraft vs base/ground), calculates distances and calls the kernel.
         """
-        # Distância 3D entre todos os pares (matriz N_a x N_b)
+        # 3D distance between all pairs (N_a x N_b matrix)
         distance = station_a.get_3d_distance_to(station_b)  # [m]
         f_arr = float(frequency) * np.ones_like(distance, dtype=float)
 
-        # Alturas geométricas [km]
+        # Geometric heights [km]
         hA_km = (np.asarray(station_a.height, dtype=float) / 1e3) * np.ones_like(distance, dtype=float)
         hB_km = (np.asarray(station_b.height, dtype=float) / 1e3) * np.ones_like(distance, dtype=float)
 
-        # Indoor (P.528 não cobre indoor/clutter — manter 0)
+        # Indoor (P.528 does not cover indoor/clutter — keep 0)
         indoor = np.zeros_like(distance, dtype=bool)
 
-        # Polarização e tempo (se vierem de ParametersP528)
+        # Polarization and time (if they come from ParametersP528)
         Tpol = params.single_space_station.param_p528.Tpol
         p_time = params.single_space_station.param_p528.time_percentage
         if params.single_space_station.param_p528.time_percentage == 'RANDOM':

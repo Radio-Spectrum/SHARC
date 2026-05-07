@@ -5,38 +5,38 @@ from pathlib import Path
 from sharc.topology.topology_countries import ParametersCountries, TopologyCountries
 from sharc.support.sharc_geom import GeometryConverter
 
-# ----------------- CONFIGURAÇÕES -----------------
-num_runs = 30          # quantas vezes rodar a simulação
-bs_per_run = 2000      # número de estações por simulação
-rng_seed = 42          # semente inicial
-cell_radius_m = 10000  # raio da célula em metros
+# ----------------- CONFIGURATIONS -----------------
+num_runs = 30          # how many times to run the simulation
+bs_per_run = 2000      # number of stations per simulation
+rng_seed = 42          # initial seed
+cell_radius_m = 10000  # cell radius in meters
 
-# Filtro por faixa de densidade (conforme implementação em topology_countries.py)
-# Use UMA das opções a seguir:
+# Density range filter (as implemented in topology_countries.py)
+# Use ONE of the following options:
 dist_type = "Suburban"      # "Urban" | "Suburban" | "Rural" | None
-# dist_density_min = 800.0   # se quiser faixa explícita, defina estes e comente o dist_type
-# dist_density_max = 6000.0  # (faixa explícita tem precedência sobre dist_type)
+# dist_density_min = 800.0   # if you want an explicit range, define these and comment out dist_type
+# dist_density_max = 6000.0  # (explicit range takes precedence over dist_type)
 
-# Dados geográficos
+# Geographic data
 shapefile_path = Path.cwd() / "sharc" / "topology" / "map" / "ne_110m_admin_0_countries.shp"
 population_raster_path = Path.cwd() / "sharc" / "topology" / "map" / "SEDAC_map2.tiff"
 
-# RASTER: escolha o tipo que condiz com seu GeoTIFF
-#   "density" = ppl/km² (ex.: GPWv4 density)
-#   "count"   = pessoas por pixel
-#   "indexed" = índices 0..255 (ex.: SEDAC/NEO) que serão mapeados p/ densidade
-raster_encoding = "indexed"        # mude para "indexed" se seu TIFF for paletizado 0..255
-sedac_palette_mode = "log"         # "log" ou "linear" (apenas p/ indexed)
-sedac_min = 1.0                    # ppl/km² (apenas p/ indexed)
-sedac_max = 1e4                    # ppl/km² (apenas p/ indexed)
-index_nodata = (0, 255)            # índices ignorados (água/NoData) em indexed
-act_palette_path = None            # caminho do .act (opcional) para auto-detectar "brancos"
+# RASTER: choose the type that matches your GeoTIFF
+#   "density" = ppl/km² (e.g.: GPWv4 density)
+#   "count"   = people per pixel
+#   "indexed" = 0..255 indices (e.g.: SEDAC/NEO) that will be mapped to density
+raster_encoding = "indexed"        # change to "indexed" if your TIFF is palettized 0..255
+sedac_palette_mode = "log"         # "log" or "linear" (only for indexed)
+sedac_min = 1.0                    # ppl/km² (only for indexed)
+sedac_max = 1e4                    # ppl/km² (only for indexed)
+index_nodata = (0, 255)            # ignored indices (water/NoData) in indexed
+act_palette_path = None            # path of .act (optional) to auto-detect "whites"
 
-# Amostragem (apenas para sampling; não altera totais)
-min_density_threshold = 0.0        # ppl/km² mínimo p/ sampling
-density_exponent = 1.0             # >1 puxa mais para áreas densas
+# Sampling (only for sampling; does not alter totals)
+min_density_threshold = 0.0        # minimum ppl/km² for sampling
+density_exponent = 1.0             # >1 pulls more towards dense areas
 
-# Países das Américas
+# Countries of the Americas
 countries_americas = [
     # South America
     "Brazil", "Argentina", "Uruguay", "Paraguay", "Chile",
@@ -50,16 +50,16 @@ countries_americas = [
     # North America
     "Mexico", "United States of America", "Canada",
 
-    # Caribbean (alguns exemplos)
+    # Caribbean (some examples)
     "Cuba", "Haiti", "Dominican Republic", "Jamaica",
     "Trinidad and Tobago"
 ]
 
-# Referência de coordenadas (Brasília)
+# Coordinate reference (Brasilia)
 geoconv = GeometryConverter()
 geoconv.set_reference(-15.793889, -47.882778, 0.0)
 
-# ----------------- ACUMULAR RESULTADOS -----------------
+# ----------------- ACCUMULATE RESULTS -----------------
 all_lons, all_lats = [], []
 
 for run in range(num_runs):
@@ -70,12 +70,12 @@ for run in range(num_runs):
         countries_shapefile=shapefile_path,
         population_raster=population_raster_path,
 
-        # --- NOVO: filtros de densidade por tipo/faixa ---
+        # --- NEW: density filters by type/range ---
         dist_type=dist_type,
         # dist_density_min=dist_density_min,
         # dist_density_max=dist_density_max,
 
-        # --- Raster/legend (caso use "indexed") ---
+        # --- Raster/legend (if using "indexed") ---
         raster_encoding=raster_encoding,
         sedac_palette_mode=sedac_palette_mode,
         sedac_min=sedac_min,
@@ -83,12 +83,12 @@ for run in range(num_runs):
         index_nodata=index_nodata,
         act_colormap_path=act_palette_path,
 
-        # --- área de pixel e sampling ---
+        # --- pixel area and sampling ---
         pixel_area_method="spherical",
         min_density_threshold=min_density_threshold,
         density_exponent=density_exponent,
 
-        # --- geometria: remove lagos do polígono ---
+        # --- geometry: remove lakes from polygon ---
         mask_inland_water=True,
     )
     rng_run = np.random.RandomState(rng_seed + run)
@@ -102,7 +102,7 @@ all_lats = np.array(all_lats)
 # ----------------- HEATMAP -----------------
 fig, ax = plt.subplots(figsize=(12, 14))
 
-# Plotar fronteiras
+# Plot boundaries
 world = gpd.read_file(shapefile_path)
 
 if "name" in world.columns and "ADMIN" in world.columns:
@@ -117,11 +117,11 @@ else:
 
 americas.boundary.plot(ax=ax, linewidth=0.8, color="black")
 
-# Criar histograma 2D (densidade espacial)
-bins = 200  # resolução do grid
+# Create 2D histogram (spatial density)
+bins = 200  # grid resolution
 density, xedges, yedges = np.histogram2d(all_lons, all_lats, bins=bins)
 
-# Plotar heatmap
+# Plot heatmap
 im = ax.imshow(
     density.T,
     origin="lower",
@@ -132,18 +132,18 @@ im = ax.imshow(
 
 # Colorbar
 cbar = plt.colorbar(im, ax=ax)
-cbar.set_label("Número de BS (acumulado)")
+cbar.set_label("Number of BS (accumulated)")
 
 band_txt = ""
 if dist_type:
-    band_txt = f" | banda: {dist_type}"
+    band_txt = f" | band: {dist_type}"
 # if you used explicit range:
-# band_txt = f" | banda explícita: [{dist_density_min}, {dist_density_max}) ppl/km²"
+# band_txt = f" | explicit band: [{dist_density_min}, {dist_density_max}) ppl/km²"
 
 ax.set_xlabel("Longitude [°]")
 ax.set_ylabel("Latitude [°]")
 ax.set_title(
-    f"Distribuição simulada de {num_runs * bs_per_run} estações base nas Américas"
+    f"Simulated distribution of {num_runs * bs_per_run} base stations in the Americas"
     f"{band_txt} | encoding={raster_encoding}"
 )
 plt.tight_layout()

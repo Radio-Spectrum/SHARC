@@ -56,7 +56,7 @@ class TopologyCountries(Topology):
         self.rng = random_number_gen if random_number_gen is not None \
                    else np.random.RandomState()
 
-        # Buffers (serão preenchidos em calculate_coordinates)
+        # Buffers (will be filled in calculate_coordinates)
         self.countries: List[str] = list(params.country_names)
         self.country_polys: Dict[str, Polygon | MultiPolygon] = {}
         self.country_index = np.empty(0, dtype=object)
@@ -665,19 +665,19 @@ class TopologyCountries(Topology):
         s = str(p).strip().replace("\\", "/")
         low = s.lower()
 
-        # detecta caminho Windows tipo "C:/..." ou "C:\..."
+        # detects Windows path type "C:/..." or "C:\..."
         is_windows_abs = (len(s) >= 2 and s[1] == ":")
 
-        # se tiver "/sharc/", pegue o sufixo a partir da ÚLTIMA ocorrência
+        # if it has "/sharc/", get the suffix from the LAST occurrence
         j = low.rfind("/sharc/")
         if j != -1:
             s = s[j+1:]  # "sharc/..."
 
         path = Path(s)
 
-        # se era windows abs e não tinha /sharc/, não dá pra resolver no linux
+        # if it was windows abs and had no /sharc/, it cannot be resolved in linux
         if is_windows_abs and j == -1:
-            raise ValueError(f"Path Windows não-portável no Linux: {p}")
+            raise ValueError(f"Non-portable Windows Path on Linux: {p}")
 
         if not path.is_absolute():
             sharc_root = Path(sharc.__file__).resolve().parent.parent
@@ -867,7 +867,7 @@ if __name__ == "__main__":
         pop = out_img[0]
         pop = np.where(pop.mask, np.nan, pop.data)
 
-        # evitar zeros (log não aceita)
+        # avoid zeros (log doesn't accept)
         pop[pop <= 0] = np.nan
 
         # ===== extent =====
@@ -880,7 +880,7 @@ if __name__ == "__main__":
             pop,
             extent=[left, right, bottom, top],
             origin="upper",
-            cmap="gray",  # 👈 agora jet
+            cmap="gray",  # 👈 now jet
             alpha=0.8,
             norm=LogNorm(
                 vmin=.01,  # 👈 10^0

@@ -28,17 +28,17 @@ class ParametersP528(ParametersBase):
     time_percentage: Union[float, str] = "RANDOM"
     polarization: Union[int, str] = "RANDOM"
     channel_model: str = "P528"
-    Ns: Optional[float] = None  # if None, modelo usa o default interno (e.g. 301.0)
+    Ns: Optional[float] = None  # if None, the model uses the internal default (e.g. 301.0)
 
     # -------------------------
     # Compat layer to PropagationP528:
-    # .p_time and .Tpol are the names o kernel espera.
+    # .p_time and .Tpol are the names the kernel expects.
     # -------------------------
     @property
     def p_time(self) -> float:
         """Numeric time percentage for the model (if 'RANDOM', returns 50.0 by default)."""
         if isinstance(self.time_percentage, str):
-            # Valor determinístico para compatibilidade quando não se deseja aleatoriedade.
+            # Deterministic value for compatibility when randomness is not desired.
             return 50.0
         return float(self.time_percentage)
 
@@ -46,7 +46,7 @@ class ParametersP528(ParametersBase):
     def Tpol(self) -> int:
         """Numeric polarization flag for the model (if 'RANDOM', returns vertical by default)."""
         if isinstance(self.polarization, str):
-            return POL_V  # escolha determinística
+            return POL_V  # deterministic choice
         val = int(self.polarization)
         if val not in (POL_H, POL_V):
             raise ValueError("ParametersP528.Tpol must be 0 (H) or 1 (V).")
@@ -58,14 +58,14 @@ class ParametersP528(ParametersBase):
     def resolve(self,
                 rng: Optional[np.random.RandomState] = None,
                 time_rng: tuple[float, float] = (1.0, 99.0)) -> "ParametersP528":
-        """Materializa campos 'RANDOM' em valores numéricos, in-place, e retorna self.
+        """Materializes 'RANDOM' fields into numeric values, in-place, and returns self.
 
         Args:
-            rng: np.random.RandomState para reprodutibilidade; se None, usa RandomState().
-            time_rng: intervalo (min,max) para sortear o time_percentage quando 'RANDOM'.
+            rng: np.random.RandomState for reproducibility; if None, uses RandomState().
+            time_rng: interval (min, max) to draw time_percentage when 'RANDOM'.
 
         Returns:
-            self (com time_percentage/polarization resolvidos).
+            self (with time_percentage/polarization resolved).
         """
         if rng is None:
             rng = np.random.RandomState()
@@ -88,7 +88,7 @@ class ParametersP528(ParametersBase):
         return self
 
     # -------------------------
-    # Loader a partir de um ParametersBase pai
+    # Loader from a parent ParametersBase
     # -------------------------
     def load_from_parameters(self, param: ParametersBase):
         """Load P.528 parameters from a parent ParametersBase (expects 'param_p528')."""
@@ -157,12 +157,12 @@ class ParametersP528(ParametersBase):
                     "Must be 0 (horizontal), 1 (vertical) or 'RANDOM'"
                 )
 
-        # Ns (se fornecido)
+        # Ns (if provided)
         if self.Ns is not None:
             try:
                 Ns_val = float(self.Ns)
                 if not (100.0 <= Ns_val <= 450.0):
-                    # faixa típica de Ns; ajuste conforme sua base climática
+                    # typical Ns range; adjust according to your climate database
                     raise ValueError(
                         f"ParametersP528: Ns={Ns_val} out of expected range [100, 450]."
                     )

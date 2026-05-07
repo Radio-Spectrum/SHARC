@@ -79,10 +79,10 @@ class PropagationFactory(object):
             return PropagationClearAir(
                 random_number_gen, param_system.param_p452)
 
-        # ⬇️ novo caso P528 (aeronautical / air-ground)
+        # ⬇️ new case P528 (aeronautical / air-ground)
         elif channel_model == "P528":
-            # Sem restrições adicionais aqui; qualquer validação de aplicabilidade
-            # (ex.: não-satélite) pode ser feita onde o modelo é usado.
+            # No additional restrictions here; any applicability validation
+            # (e.g.: non-satellite) can be done where the model is used.
             return PropagationP528(random_number_gen)
 
         elif channel_model == "TVRO-URBAN":

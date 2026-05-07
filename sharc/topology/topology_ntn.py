@@ -211,7 +211,7 @@ class TopologyNTN(Topology):
                 "ne_110m_admin_0_countries.shp",
             )
             brazil = brazil[brazil['NAME'] == "Brazil"]
-            # Coordinates of the Federal District (Brasília)
+            # Coordinates of the Federal District (Brasilia)
             federal_district_coords = (-47.9292, -15.7801)
             # Approximate conversion factors (1 degree latitude = 111 km, 1
             # degree longitude = 111 km)

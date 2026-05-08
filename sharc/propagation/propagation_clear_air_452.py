@@ -1655,7 +1655,7 @@ class PropagationClearAir(Propagation):
                 h[ii,:] = profile_h
 
             num_dists = distance.shape[1]
-        elif self.model_params.is_terrain:
+        elif self.model_params.generate_nonflat_terrain:
             # --- RNG and distribution parameters ---------------------------------
             rng = np.random.default_rng()
 

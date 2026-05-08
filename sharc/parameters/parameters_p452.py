@@ -40,7 +40,7 @@ class ParametersP452(ParametersBase):
     # Determine if clutter is applied to "one_end" or "both_ends"
     clutter_type: str = "one_end"
     below_rooftop: float = 100
-    is_terrain: bool = False
+    generate_nonflat_terrain: bool = False
     terrain_d = None
     terrain_h = None
 

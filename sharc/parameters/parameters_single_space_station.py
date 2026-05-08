@@ -187,8 +187,7 @@ class ParametersSingleSpaceStation(ParametersBase):
         super().load_parameters_from_file(config_file)
 
         self.propagate_parameters()
-        if self.param_p528:
-            self.param_p528.load_from_parameters(self)
+
         # this should be done by validating this parameters only if it is the selected system on the general section
         # TODO: make this better by changing the Parameters class itself
         should_validate = any(

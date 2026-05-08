@@ -95,24 +95,6 @@ class ParametersP528(ParametersBase):
         return resolved
 
     # -------------------------
-    # Loader from a parent ParametersBase
-    # -------------------------
-    def load_from_parameters(self, param: ParametersBase):
-        """Load P.528 parameters from a parent ParametersBase (expects 'param_p528')."""
-        if hasattr(param, 'param_p528'):
-            config = getattr(param, 'param_p528')
-            if hasattr(config, 'time_percentage'):
-                self.time_percentage = config.time_percentage
-            if hasattr(config, 'polarization'):
-                self.polarization = config.polarization
-            if hasattr(config, 'channel_model'):
-                self.channel_model = config.channel_model
-            if hasattr(config, 'Ns'):
-                self.Ns = config.Ns
-
-        self.validate("ParametersP528")
-
-    # -------------------------
     # Validation
     # -------------------------
     def validate(self, ctx: str):

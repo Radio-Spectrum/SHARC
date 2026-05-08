@@ -88,19 +88,14 @@ class PropagationP528(Propagation):
         # Indoor (P.528 does not cover indoor/clutter — keep 0)
         indoor = np.zeros_like(distance, dtype=bool)
 
-        # Polarization and time (if they come from ParametersP528)
-        Tpol = params.single_space_station.param_p528.Tpol
-        p_time = params.single_space_station.param_p528.time_percentage
-        if params.single_space_station.param_p528.time_percentage == 'RANDOM':
-            p_time = 1 + 98 * self.random_number_gen.rand(distance.shape[1])   # (170,)
-            p_time = p_time[None, :]  
-        else:
-            p_time = float(params.single_space_station.param_p528.time_percentage) * np.ones(distance.size)
-
+        # Resolve P.528 parameters for this iteration to handle 'RANDOM' cleanly
+        resolved_p528 = params.single_space_station.param_p528.resolve(rng=self.random_number_gen)
+        Tpol = resolved_p528.Tpol
+        p_time = resolved_p528.p_time * np.ones_like(distance, dtype=float)
 
         return self.get_loss(
             distance, f_arr, hA_km, hB_km, indoor,
-            int(Tpol), (p_time)
+            int(Tpol), p_time
         )
 
     # ------------------------------------------------------------------

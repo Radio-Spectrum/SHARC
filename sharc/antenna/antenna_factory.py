@@ -54,7 +54,7 @@ class AntennaFactory():
                 return AntennaS465(antenna_params.itu_r_s_465_modified)
             case "ITU-R S.1855":
                 return AntennaS1855(antenna_params.itu_r_s_1855)
-            case "ITU-R F.1245_fs":
+            case "ITU-R F.1245-FS":
                 return Atenna_f1245_fs(antenna_params.itu_r_f_1245_fs)
             case "ITU-R Reg. RR. Appendice 7 Annex 3":
                 return AntennaReg_RR_A7_3(antenna_params.itu_reg_rr_a7_3)
@@ -67,7 +67,7 @@ class AntennaFactory():
                     azimuth,
                     elevation,
                 )
-            case "RA_M2319":
+            case "ITU-R M.2319-RA":
                 return AntennaRA_M2319(antenna_params.itu_ra_m2319)
             case _:
                 raise ValueError(

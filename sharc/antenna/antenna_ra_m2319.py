@@ -15,6 +15,11 @@ class ParametersRA(ParametersBase):
     phi_3db_deg: float = 20
     inband: bool = True
 
+    def validate(self, ctx: str):
+        super().validate(ctx)
+        if self.phi_3db_deg <= 0:
+            raise ValueError(f"{ctx}.phi_3db_deg must be > 0 (in degrees).")
+
 class AntennaRA_M2319(Antenna):
     """
     Circular-symmetric parabolic antenna for radio altimeter (Eq. A-3.6).

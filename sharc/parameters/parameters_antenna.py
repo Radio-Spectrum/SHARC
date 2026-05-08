@@ -31,8 +31,8 @@ class ParametersAntenna(ParametersBase):
         "ITU-R-S.1528-LEO",
         "MSS Adjacent",
         "ITU-R S.672",
-        "ITU-R F.1245_fs",
-        "RA_M2319"]
+        "ITU-R F.1245-FS",
+        "ITU-R M.2319-RA"]
 
     # chosen antenna radiation pattern
     pattern: typing.Literal["OMNI",
@@ -49,8 +49,8 @@ class ParametersAntenna(ParametersBase):
                             "ITU-R-S.1528-LEO",
                             "MSS Adjacent",
                             "ITU-R S.672",
-                            "ITU-R F.1245_fs",
-                            "RA_M2319"] = None
+                            "ITU-R F.1245-FS",
+                            "ITU-R M.2319-RA"] = None
 
     # antenna gain [dBi]
     gain: float = None
@@ -228,12 +228,12 @@ class ParametersAntenna(ParametersBase):
                 self.itu_r_s_1528.validate(f"{ctx}.itu_r_s_1528")
             case "ITU-R-S.1528-LEO":
                 self.itu_r_s_1528.validate(f"{ctx}.itu_r_s_1528")
-            case "ITU-R F.1245_fs":
+            case "ITU-R F.1245-FS":
                 self.itu_r_f_1245_fs.validate(f"{ctx}.itu_r_f_1245_fs")
             case "MSS Adjacent":
                 self.mss_adjacent.validate(f"{ctx}.mss_adjacent")
-            case "RA_M2319":
-                pass
+            case "ITU-R M.2319-RA":
+                self.itu_ra_m2319.validate(f"{ctx}.itu_ra_m2319")
             case _:
                 raise NotImplementedError(
                     "ParametersAntenna.validate does not implement this antenna validation!", )

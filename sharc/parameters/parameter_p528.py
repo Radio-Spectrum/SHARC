@@ -37,16 +37,17 @@ class ParametersP528(ParametersBase):
     @property
     def p_time(self) -> float:
         """Numeric time percentage for the model (if 'RANDOM', returns 50.0 by default)."""
-        if isinstance(self.time_percentage, str):
-            # Deterministic value for compatibility when randomness is not desired.
+        if self.time_percentage == "RANDOM":
+            # Deterministic fallback value for compatibility when 'RANDOM' is not resolved yet.
             return 50.0
         return float(self.time_percentage)
 
     @property
     def Tpol(self) -> int:
         """Numeric polarization flag for the model (if 'RANDOM', returns vertical by default)."""
-        if isinstance(self.polarization, str):
-            return POL_V  # deterministic choice
+        if self.polarization == "RANDOM":
+            # Deterministic fallback choice when 'RANDOM' is not resolved yet.
+            return POL_V
         val = int(self.polarization)
         if val not in (POL_H, POL_V):
             raise ValueError("ParametersP528.Tpol must be 0 (H) or 1 (V).")
@@ -71,7 +72,7 @@ class ParametersP528(ParametersBase):
             rng = np.random.RandomState()
 
         # time_percentage
-        if isinstance(self.time_percentage, str):
+        if self.time_percentage == "RANDOM":
             lo, hi = float(time_rng[0]), float(time_rng[1])
             lo = max(1.0, lo)
             hi = min(99.0, hi)
@@ -80,7 +81,7 @@ class ParametersP528(ParametersBase):
             self.time_percentage = float(rng.uniform(lo, hi))
 
         # polarization
-        if isinstance(self.polarization, str):
+        if self.polarization == "RANDOM":
             self.polarization = int(rng.choice([POL_H, POL_V]))
 
         # sanity

@@ -1,10 +1,9 @@
 general:
     ###########################################################################
     # Number of simulation snapshots
-    num_snapshots: 1000
-    ###########################################################################
+    num_snapshots: 500
     # IMT link that will be simulated (DOWNLINK or UPLINK)
-    imt_link: UPLINK
+    imt_link: DOWNLINK
     ###########################################################################
     # The chosen system for sharing study
     # EESS_PASSIVE, FSS_SS, FSS_ES, FS, RAS, SINGLE_EARTH_STATION
@@ -21,21 +20,21 @@ general:
     overwrite_output: TRUE
     ###########################################################################
     # output destination folder - this is relative SHARC/sharc directory
-    output_dir  : campaigns/WiFi_Preliminary_UL/output/LF90
+    output_dir  : campaigns/huawei_uma/output/LF20
     ###########################################################################
     # output folder prefix
     output_dir_prefix  : output_IMT_WIFI
 imt:
-    minimum_separation_distance_bs_ue: 5              # Minimum 2D distance between BS and UE [m]
+    minimum_separation_distance_bs_ue: 35              # Minimum 2D distance between BS and UE [m]
     interfered_with: FALSE                           # TRUE = IMT is victim; FALSE = IMT is interferer
     frequency: 7000                              # IMT center frequency [MHz]
     bandwidth: 80                                    # Total IMT bandwidth [MHz]
     rb_bandwidth: 0.180                               # Resource Block bandwidth [MHz]
     adjacent_antenna_model: BEAMFORMING            # Antenna model: SINGLE_ELEMENT or BEAMFORMING
-    spectral_mask: IMT-2020                           # Spectral mask model
+    spectral_mask: 3GPP E-UTRA                           # Spectral mask model
     spurious_emissions: -15                         # Spurious emission level [dBm/MHz]
     guard_band_ratio: 0.1                             # Ratio of total bandwidth used as guard band
-    channel_model: UMi                                # Channel model: FSPL, CI, UMa, UMi, etc.
+    channel_model: UMa                          # Channel model: FSPL, CI, UMa, UMi, etc.
     shadowing: TRUE  
     ###########################################################################
     # Topology Type. Possible values are "MACROCELL", "HOTSPOT", "SINGLE_BS"
@@ -43,8 +42,8 @@ imt:
     topology:
         type: MACROCELL
         macrocell:
-            intersite_distance: 600
-            wrap_around: false
+            intersite_distance: 450
+            wrap_around: true
             num_clusters: 1
        
     adjacent_antenna_model: BEAMFORMING
@@ -56,17 +55,17 @@ imt:
         load_probability: 0.2
         ###########################################################################
         # Conducted power per antenna element [dBm/bandwidth]
-        conducted_power: 28.0
+        conducted_power: 22.0
         ###########################################################################
         # Base station height [m]
-        height: 20.0
+        height: 18
         ###########################################################################
         # Base station noise figure [dB]
         noise_figure: 5.0
         ###########################################################################
         # Base station array ohmic loss  [dB]
         # NOTE: element gain includes ohmic loss
-        ohmic_loss: 0.0
+        ohmic_loss: 2
         ###########################################################################
         # Adjacent channel selectivity
         adjacent_ch_selectivity: 46.0
@@ -99,28 +98,30 @@ imt:
                 # Possible values: "M2101", "F1336", "FIXED"
                 element_pattern: M2101
                 ###########################################################################
+                dual_polarization: TRUE
+                ###########################################################################
                 # Minimum array gain for the beamforming antenna [dBi]
                 minimum_array_gain: -200
                 ###########################################################################
                 # mechanical downtilt [degrees]
                 # NOTE: consider defining it to 90 degrees in case of indoor simulations
-                downtilt: 6
+                downtilt: 10
                 ###########################################################################
                 # BS/UE maximum transmit/receive element gain [dBi]
                 # default: element_max_g = 5, for M.2101
                 #                           = 15, for M.2292
                 #                           = -3, for M.2292
-                element_max_g: 6.4
+                element_max_g: 5.5
                 ###########################################################################
                 # BS/UE horizontal 3dB beamwidth of single element [degrees]
                 element_phi_3db: 90
                 ###########################################################################
                 # BS/UE vertical 3dB beamwidth of single element [degrees]
                 # For F1336: if equal to 0, then beamwidth is calculated automaticaly
-                element_theta_3db: 65
+                element_theta_3db: 90
                 ###########################################################################
                 # BS/UE number of rows in antenna array
-                n_rows: 4
+                n_rows: 16
                 ###########################################################################
                 # BS/UE number of columns in antenna array
                 n_columns: 8
@@ -129,7 +130,7 @@ imt:
                 element_horiz_spacing: 0.5
                 ###########################################################################
                 # BS/UE array vertical element spacing (d/lambda)
-                element_vert_spacing: 2.1
+                element_vert_spacing: 0.5
                 ###########################################################################
                 # BS/UE front to back ratio of single element [dB]
                 element_am: 30
@@ -148,7 +149,7 @@ imt:
                 subarray:
                     # NOTE: if subarray is enabled, element definition will mostly come from
                     # the above definitions
-                    is_enabled: true
+                    is_enabled: false
                     # Rows per subarray
                     n_rows: 3
                     # Sub array element spacing (d/lambda).
@@ -156,7 +157,7 @@ imt:
                     # Sub array eletrical downtilt [deg]
                     eletrical_downtilt: 3.0
     ue:
-        k: 1
+        k: 3
         k_m: 1
         indoor_percent: 70.0
         distribution_type: UNIFORM_IN_CELL
@@ -168,9 +169,9 @@ imt:
         p_cmax: 23
         power_dynamic_range: 56
         height: 1.5
-        noise_figure: 13
-        ohmic_loss: 0
-        body_loss: 4
+        noise_figure: 9
+        ohmic_loss: 2
+        body_loss: 4s
         antenna:
             array:
                 ###########################################################################
@@ -247,22 +248,22 @@ wifi:
     # System receive noise temperature [K]
     noise_temperature: 190
     ###########################################################################
-    # Peak transmit power spectral density (clear sky) [dBW/Hz]
-    tx_power_density: -65
-    # Adjacent channel selectivity [dB]
+    max_dist_nodes_wifi: 20
     ###########################################################################
-    adjacent_ch_selectivity: 35
-    #spectrum emission mask for WIFI.
-    #   "WIFI-2020" : for 802.11ad/ay as described in IEEE 802.11-2020
+    #"WIFI-2020" : for 802.11ad/ay as described in IEEE 802.11-2020
     spectral_mask: WIFI-2020
     ###########################################################################
     spurious_emissions: -27
     ###########################################################################
-    adjacent_ch_selectivity: 20.0
-    max_dist_nodes_wifi: 20.0
-    channel_model: UMi                                # Channel model: FSPL, CI, UMa, UMi, etc.
+    minimum_separation_distance_ap_sta: 10
+    ###########################################################################
+    # Wall loss [dB]
+    wall_loss: 15
+    ###########################################################################
+    # Channel model: FSPL, CI, UMa, UMi, etc.
+    channel_model: UMa                       
     shadowing: TRUE
-    polarization_loss: 0
+    polarization_loss: 2
     topology:
         ###########################################################################
         # Topology Type. Possible values are "HOTSPOT"
@@ -296,7 +297,7 @@ wifi:
         # The load probability (or activity factor) models the statistical
         # variation of the network load by defining the number of fully loaded
         # base stations that are simultaneously transmitting
-        load_probability: 0.9
+        load_probability: 1.0
         ###########################################################################
         # Conducted power per antenna element [dBm/bandwidth]
         conducted_power: 23
@@ -305,94 +306,20 @@ wifi:
         height: 1.5
         ###########################################################################
         # Base station noise figure [dB]
-        noise_figure: 10.1
+        noise_figure: 6
         ###########################################################################
-        # Base station array ohmic loss  [dB]
-        ohmic_loss: 3.1
         # Base Station Antenna parameters:
         antenna:
             array:
-                ###########################################################################
-                # If normalization of M2101 should be applied for BS
-                normalization: FALSE
-                ###########################################################################
-                # Base station horizontal beamsteering range. [deg]
-                # The range considers the BS azimuth as 0deg
-                horizontal_beamsteering_range: !!python/tuple [-60., 60.]
-                ###########################################################################
-                # Base station horizontal beamsteering range. [deg]
-                # The range considers the horizon as 90deg, 0 as zenith
-                vertical_beamsteering_range: !!python/tuple [90., 100.]
-                ###########################################################################
-                # File to be used in the BS beamforming normalization
-                # Normalization files can be generated with the
-                # antenna/beamforming_normalization/normalize_script.py script
-                normalization_file: antenna/beamforming_normalization/bs_norm.npz
-                ###########################################################################
-                # File to be used in the UE beamforming normalization
-                # Normalization files can be generated with the 
-                # antenna/beamforming_normalization/normalize_script.py script
-                ###########################################################################
-                # Radiation pattern of each antenna element
-                # Possible values: "M2101", "F1336", "FIXED"
-                element_pattern: M2101
-                ###########################################################################
-                # Minimum array gain for the beamforming antenna [dBi]
-                minimum_array_gain: -200
                 ###########################################################################
                 # mechanical downtilt [degrees]
                 # NOTE: consider defining it to 90 degrees in case of indoor simulations
                 downtilt: 6
                 ###########################################################################
-                # BS/UE maximum transmit/receive element gain [dBi]
-                # default: element_max_g = 5, for M.2101
-                #                           = 15, for M.2292
-                #                           = -3, for M.2292
-                element_max_g: 6.4
-                ###########################################################################
-                # BS/UE horizontal 3dB beamwidth of single element [degrees]
-                element_phi_3db: 90
-                ###########################################################################
-                # BS/UE vertical 3dB beamwidth of single element [degrees]
-                # For F1336: if equal to 0, then beamwidth is calculated automaticaly
-                element_theta_3db: 65
-                ###########################################################################
-                # BS/UE number of rows in antenna array
                 n_rows: 4
                 ###########################################################################
                 # BS/UE number of columns in antenna array
                 n_columns: 8
-                ###########################################################################
-                # BS/UE array horizontal element spacing (d/lambda)
-                element_horiz_spacing: 0.5
-                ###########################################################################
-                # BS/UE array vertical element spacing (d/lambda)
-                element_vert_spacing: 2.1
-                ###########################################################################
-                # BS/UE front to back ratio of single element [dB]
-                element_am: 30
-                ###########################################################################
-                # BS/UE single element vertical sidelobe attenuation [dB]
-                element_sla_v: 30
-                ###########################################################################
-                # Multiplication factor k that is used to adjust the single-element pattern.
-                # According to Report ITU-R M.[IMT.AAS], this may give a closer match of the 
-                # side lobes when beamforming is assumed in adjacent channel.
-                #       Original value: 12 (Rec. ITU-R M.2101)
-                multiplication_factor: 12
-                ###########################################################################
-                # Subarray for IMT as defined in R23-WP5D-C-0413, Annex 4.2
-                # Single column sub array
-                subarray:
-                    # NOTE: if subarray is enabled, element definition will mostly come from
-                    # the above definitions
-                    is_enabled: true
-                    # Rows per subarray
-                    n_rows: 3
-                    # Sub array element spacing (d/lambda).
-                    element_vert_spacing: 0.7
-                    # Sub array eletrical downtilt [deg]
-                    eletrical_downtilt: 3.0
 
     ###########################################################################
     # User Equipment parameters:
@@ -407,9 +334,6 @@ wifi:
         # of K users is allocated to each cell. Normally, this values varies
         # between 2 and 10 according to the user drop method
         k_m: 1
-        ###########################################################################
-        # Percentage of indoor UE's [%]
-        indoor_percent: 5
         ###########################################################################
         # Regarding the distribution of active UE's over the cell area, this
         # parameter states how the UEs will be distributed
@@ -437,84 +361,22 @@ wifi:
         # tx_power_control = "OFF",power control Off
         tx_power_control: OFF
         ###########################################################################
-        conducted_power: 12
-        # Power per RB used as target value [dBm]
-        p_o_pusch: -95
-        ###########################################################################
-        # Alfa is the balancing factor for UEs with bad channel
-        # and UEs with good channel
-        alpha: 1
-        ###########################################################################
-        # Maximum UE transmit power [dBm]
-        p_cmax: 22
-        ###########################################################################
-        # UE power dynamic range [dB]
-        # The minimum transmit power of a UE is (p_cmax - dynamic_range)
-        power_dynamic_range: 63
+        conducted_power: 23
         ###########################################################################
         # UE height [m]
         height: 1.5
         ###########################################################################
         # User equipment noise figure [dB]
-        noise_figure: 10
-        ###########################################################################
-        # User equipment feed loss [dB]
-        ohmic_loss: 3
+        noise_figure: 6
         ###########################################################################
         # User equipment body loss [dB]
-        body_loss: 4
+        body_loss: 0
         antenna:
             array:
-                ###########################################################################
-                # If normalization of M2101 should be applied for UE
-                normalization: FALSE
-                ###########################################################################
-                # File to be used in the UE beamforming normalization
-                # Normalization files can be generated with the 
-                # antenna/beamforming_normalization/normalize_script.py script
-                normalization_file: antenna/beamforming_normalization/ue_norm.npz
-                ###########################################################################
-                # Radiation pattern of each antenna element
-                # Possible values: "M2101", "F1336", "FIXED"
-                element_pattern: FIXED
-                ###########################################################################
-                # Minimum array gain for the beamforming antenna [dBi]
-                minimum_array_gain: -200
-                ###########################################################################
-                # BS/UE maximum transmit/receive element gain [dBi]
-                #                           = 15, for M.2292
-                # default: element_max_g = 5, for M.2101
-                #                           = -3, for M.2292
                 element_max_g: -3
-                ###########################################################################
-                # BS/UE horizontal 3dB beamwidth of single element [degrees]
-                element_phi_3db: 90
-                ###########################################################################
-                # BS/UE vertical 3dB beamwidth of single element [degrees]
-                # For F1336: if equal to 0, then beamwidth is calculated automaticaly
-                element_theta_3db: 90
-                ###########################################################################
                 # BS/UE number of rows in antenna array
                 n_rows: 1
                 ###########################################################################
                 # BS/UE number of columns in antenna array
                 n_columns: 1
-                ###########################################################################
-                # BS/UE array horizontal element spacing (d/lambda)
-                element_horiz_spacing: 0.5
-                ###########################################################################
-                # BS/UE array vertical element spacing (d/lambda)
-                element_vert_spacing: 0.5
-                ###########################################################################
-                # BS/UE front to back ratio of single element [dB]
-                element_am: 25
-                ###########################################################################
-                # BS/UE single element vertical sidelobe attenuation [dB]
-                element_sla_v: 25
-                ###########################################################################
-                # Multiplication factor k that is used to adjust the single-element pattern.
-                # According to Report ITU-R M.[IMT.AAS], this may give a closer match of the 
-                # side lobes when beamforming is assumed in adjacent channel.
-                #       Original value: 12 (Rec. ITU-R M.2101)
-                multiplication_factor: 12
-    
+

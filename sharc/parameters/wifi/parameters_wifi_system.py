@@ -35,6 +35,7 @@ class ParametersWifiSystem(ParametersBase):
     adjacent_ch_selectivity: float = 20.0
     tx_power_density: float = -65
     max_dist_nodes_wifi: float = 20.0
+    wall_loss: float = 0.0
 
     # Adjacent channel emissions type
     # Possible values are "ACLR", "SPECTRAL_MASK" and "OFF"
@@ -50,11 +51,6 @@ class ParametersWifiSystem(ParametersBase):
         height: float = 6.0
         noise_figure: float = 10.0
         ohmic_loss: float = 3.0
-        body_loss: float = 0.0
-        # Adjacent Channel Selectivity in dB
-        adjacent_ch_selectivity: float = None
-        # Adjacent channel leakage ratio in dB used if adjacent_ch_emissions is set to "ACLR"
-        adjacent_ch_leak_ratio: float = 45.0
         antenna: ParametersAntenna = field(
             default_factory=lambda: ParametersAntenna(
                 pattern="ARRAY", array=ParametersAntennaWifi(

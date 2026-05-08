@@ -272,7 +272,11 @@ class Simulation(ABC, Observable):
         # TODO: remove this from here and put it inside the parameter eval
         # or antenna itself
         if self.parameters.imt.bs.antenna.pattern == "ARRAY":
-            self.bs_power_gain = 10 * math.log10(
+            if self.parameters.imt.bs.antenna.array.dual_polarization:
+                polarization_factor = 2
+            else:
+                polarization_factor = 1
+            self.bs_power_gain = 10 * math.log10(polarization_factor *
                 self.parameters.imt.bs.antenna.array.n_rows *
                 self.parameters.imt.bs.antenna.array.n_columns,
             )
@@ -280,6 +284,7 @@ class Simulation(ABC, Observable):
                 self.parameters.imt.ue.antenna.array.n_rows *
                 self.parameters.imt.ue.antenna.array.n_columns,
             )
+            #self.ue_power_gain = -4
         else:
             self.bs_power_gain = 0
             self.ue_power_gain = 0
@@ -424,7 +429,7 @@ class Simulation(ABC, Observable):
                     ),
                 )
             additional_loss = self.parameters.imt.bs.ohmic_loss \
-                + self.polarization_loss
+                + self.polarization_loss + self.param_system.wall_loss
                 
         else:
             # should never reach this line

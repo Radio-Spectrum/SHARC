@@ -45,7 +45,7 @@ class SpectralMask3Gpp(SpectralMask):
             sys.stderr.write(message)
             sys.exit(1)
 
-        if band_mhz not in [5, 10, 15, 20, 100]:
+        if band_mhz not in [5, 10, 15, 20, 80, 100]:
             message = "ERROR\nInvalid bandwidth for 3GPP mask: " + str(band_mhz)
             sys.stderr.write(message)
             sys.exit(1)

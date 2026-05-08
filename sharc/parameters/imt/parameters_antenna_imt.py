@@ -52,6 +52,7 @@ class ParametersAntennaImt(ParametersBase):
 
     # Minimum array gain for the beamforming antenna [dBi].
     minimum_array_gain: float = -200.0
+    dual_polarization: bool = False
 
     # beamforming angle limitation [deg].
     # PS: it isn't implemented for UEs

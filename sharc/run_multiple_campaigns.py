@@ -72,4 +72,4 @@ def run_campaign_re(campaign_name, param_name_regex):
 
 if __name__ == "__main__":
     # Example usage
-    run_campaign("huaweii")
+    run_campaign("huaweii_fspl_lf100")

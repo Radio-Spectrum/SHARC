@@ -94,7 +94,7 @@ class SimulationDownlink(Simulation):
 
         if self.parameters.general.system == "WIFI":
             self.system.connect_wifi_sta_to_ap(self.parameters.wifi)
-            self.system.run_csma_ca_scheduling(random_number_gen)
+            #self.system.run_csma_ca_scheduling(random_number_gen)
             self.system.select_sta(random_number_gen)
             #self.power_control_wifi()
 
@@ -739,11 +739,11 @@ class SimulationDownlink(Simulation):
 
             if self.co_channel:
                 rx_interference_linear_ap[ap_active] += np.sum(
-                    10 ** (0.1 * (pow_coch - self.coupling_loss_imt_wifi_ap[active_beams][:, ap_active])),
+                    10 ** (0.1 * (pow_coch[:, np.newaxis] - self.coupling_loss_imt_wifi_ap[active_beams][:, ap_active])),
                     axis=0
                 )
                 rx_interference_linear_sta[sta_active] += np.sum(
-                    10 ** (0.1 * (pow_coch - self.coupling_loss_imt_wifi_sta[active_beams][:, sta_active])),
+                    10 ** (0.1 * (pow_coch[:, np.newaxis] - self.coupling_loss_imt_wifi_sta[active_beams][:, sta_active])),
                     axis=0
                 )
             if self.adjacent_channel:
@@ -1254,11 +1254,11 @@ class SimulationDownlink(Simulation):
             self.results.wifi_path_loss.extend(path_loss_ap_ap[np.isfinite(path_loss_ap_ap)])
             self.results.wifi_path_loss.extend(path_loss_sta_sta[np.isfinite(path_loss_sta_sta)])
 
-            coupling_loss_ap_ap = self.coupling_loss_ap_ap[ap, ap_active]
-            coupling__loss_sta_sta = self.coupling_loss_sta_sta[sta, sta_active]
-            self.results.wifi_coupling_loss.extend(self.coupling_loss_wifi[ap, sta])
-            self.results.wifi_coupling_loss.extend(coupling_loss_ap_ap[np.isfinite(coupling_loss_ap_ap)])
-            self.results.wifi_coupling_loss.extend(coupling__loss_sta_sta[np.isfinite(coupling__loss_sta_sta)])
+            #coupling_loss_ap_ap = self.coupling_loss_ap_ap[ap, ap_active]
+            #coupling__loss_sta_sta = self.coupling_loss_sta_sta[sta, sta_active]
+            #self.results.wifi_coupling_loss.extend(self.coupling_loss_wifi[ap, sta])
+            #self.results.wifi_coupling_loss.extend(coupling_loss_ap_ap[np.isfinite(coupling_loss_ap_ap)])
+            #self.results.wifi_coupling_loss.extend(coupling__loss_sta_sta[np.isfinite(coupling__loss_sta_sta)])
             self.results.wifi_ap_antenna_gain.extend(self.ap_antenna_gain[ap, sta])
             self.results.wifi_sta_antenna_gain.extend(self.sta_antenna_gain[ap, sta])
 

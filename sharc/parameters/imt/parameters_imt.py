@@ -39,7 +39,7 @@ class ParametersImt(ParametersBase):
 
     # Adjacent channel emissions type
     # Possible values are "ACLR", "SPECTRAL_MASK" and "OFF"
-    adjacent_ch_emissions: str = "SPECTRAL_MASK"
+    adjacent_ch_emissions: str = "OFF"
 
     # Spectral mask used for the IMT system when adjacent_ch_emissions is set to "SPECTRAL_MASK"
     spectral_mask: str = "IMT-2020"

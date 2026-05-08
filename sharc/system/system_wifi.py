@@ -16,7 +16,7 @@ from itertools import product
 
 class SystemWifi:
     """Implements a Wifi Network compose of APs and STAs."""
-    def __init__(self, param: ParametersWifiSystem, param_ant_ap: ParametersAntennaWifi, param_ant_sta: ParametersAntennaWifi, random_number_gen: np.random.RandomState, topology: Topology):
+    def __init__(self, param: ParametersWifiSystem, param_ant_ap: ParametersAntennaWifi, random_number_gen: np.random.RandomState, topology: Topology):
         self.parameters = param
         self.parameters_antenna = param_ant_ap
         self.topology = topology
@@ -25,7 +25,7 @@ class SystemWifi:
         self.num_sta = self.num_aps * self.parameters.sta.k * self.parameters.sta.k_m
 
 
-        self.wrap_around_enabled = False
+        self.wrap_around_enabled = True
 
         '''self.ap_power_gain = 10 * math.log10(
             self.parameters.ap.antenna.n_rows *
@@ -62,23 +62,21 @@ class SystemWifi:
             self.polarization_loss = self.parameters.polarization_loss
         else:
             self.polarization_loss = 3.0
-
-        self.propagation_wifi = self.generate_propagation()
+            
         self.bandwidth = self.parameters.bandwidth
         self.noise_temperature = self.parameters.noise_temperature
 
         self.inr = np.empty([self.num_aps, self.num_sta])
         self.rx_interference = np.empty(0)
 
+        self.wall_loss = self.parameters.wall_loss
+
         self.ap = self.generate_aps(random_number_gen)
         self.sta = self.generate_stas(random_number_gen)
     
-    def generate_propagation(self):
-        return PropagationFreeSpace(np.random.RandomState(1))
-    
     def generate_aps(self, random_number_gen: np.random.RandomState) -> StationManager:
-        param_ant = self.parameters_antenna.get_antenna_parameters()
-        num_aps = self.topology.num_base_stations
+        param_ant = self.parameters_antenna
+        num_aps = self.num_aps
         wifi_aps = StationManager(num_aps)
         wifi_aps.station_type = StationType.WIFI_APS
 
@@ -197,7 +195,7 @@ class SystemWifi:
 
         wifi_sta.x = np.array(sta_x)
         wifi_sta.y = np.array(sta_y)
-        wifi_sta.z = np.full(self.num_sta, self.parameters.sta.height)
+        wifi_sta.z = np.full(self.num_sta, self.parameters.sta.height)  
         wifi_sta.height = wifi_sta.z
 
 

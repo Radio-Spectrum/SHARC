@@ -109,7 +109,13 @@ class ParametersSingleSpaceStation(ParametersBase):
                                 int) and not isinstance(
                                 self.min,
                                 float):
-                            raise ValueError(f"{ctx}.fixed should be a number")
+                            raise ValueError(f"{ctx}.min should be a number")
+                        if not isinstance(
+                                self.max,
+                                int) and not isinstance(
+                                self.max,
+                                float):
+                            raise ValueError(f"{ctx}.max should be a number")
                     case "POINTING_AT_IMT":
                         pass
                     case "POINTING_AT_LAT_LONG_ALT":

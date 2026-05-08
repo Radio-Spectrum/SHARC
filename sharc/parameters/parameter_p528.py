@@ -59,34 +59,40 @@ class ParametersP528(ParametersBase):
     def resolve(self,
                 rng: Optional[np.random.RandomState] = None,
                 time_rng: tuple[float, float] = (1.0, 99.0)) -> "ParametersP528":
-        """Materializes 'RANDOM' fields into numeric values, in-place, and returns self.
+        """Materializes 'RANDOM' fields into numeric values and returns a new instance.
+
+        This avoids in-place modification so that if called per iteration,
+        the original 'RANDOM' configuration is preserved.
 
         Args:
             rng: np.random.RandomState for reproducibility; if None, uses RandomState().
             time_rng: interval (min, max) to draw time_percentage when 'RANDOM'.
 
         Returns:
-            self (with time_percentage/polarization resolved).
+            A new ParametersP528 instance with time_percentage/polarization resolved.
         """
+        import copy
+        resolved = copy.copy(self)
+
         if rng is None:
             rng = np.random.RandomState()
 
         # time_percentage
-        if self.time_percentage == "RANDOM":
+        if resolved.time_percentage == "RANDOM":
             lo, hi = float(time_rng[0]), float(time_rng[1])
             lo = max(1.0, lo)
             hi = min(99.0, hi)
             if lo > hi:
                 lo, hi = hi, lo
-            self.time_percentage = float(rng.uniform(lo, hi))
+            resolved.time_percentage = float(rng.uniform(lo, hi))
 
         # polarization
-        if self.polarization == "RANDOM":
-            self.polarization = int(rng.choice([POL_H, POL_V]))
+        if resolved.polarization == "RANDOM":
+            resolved.polarization = int(rng.choice([POL_H, POL_V]))
 
         # sanity
-        self._validate()
-        return self
+        resolved.validate("ParametersP528")
+        return resolved
 
     # -------------------------
     # Loader from a parent ParametersBase
@@ -104,23 +110,24 @@ class ParametersP528(ParametersBase):
             if hasattr(config, 'Ns'):
                 self.Ns = config.Ns
 
-        self._validate()
+        self.validate("ParametersP528")
 
     # -------------------------
     # Validation
     # -------------------------
-    def _validate(self):
+    def validate(self, ctx: str):
+        super().validate(ctx)
         # channel_model
         if self.channel_model != "P528":
             raise ValueError(
-                f"ParametersP528: Invalid channel_model '{self.channel_model}'. Must be 'P528'."
+                f"{ctx}: Invalid channel_model '{self.channel_model}'. Must be 'P528'."
             )
 
         # time_percentage
         if isinstance(self.time_percentage, str):
             if self.time_percentage != "RANDOM":
                 raise ValueError(
-                    f"ParametersP528: Invalid time_percentage {self.time_percentage}. "
+                    f"{ctx}: Invalid time_percentage {self.time_percentage}. "
                     "Must be between 1-99 or 'RANDOM'"
                 )
         else:
@@ -128,12 +135,12 @@ class ParametersP528(ParametersBase):
                 time_pct = float(self.time_percentage)
                 if not (1.0 <= time_pct <= 99.0):
                     raise ValueError(
-                        f"ParametersP528: Invalid time_percentage {time_pct}. "
+                        f"{ctx}: Invalid time_percentage {time_pct}. "
                         "Must be between 1-99 or 'RANDOM'"
                     )
             except (ValueError, TypeError):
                 raise ValueError(
-                    f"ParametersP528: Invalid time_percentage {self.time_percentage}. "
+                    f"{ctx}: Invalid time_percentage {self.time_percentage}. "
                     "Must be between 1-99 or 'RANDOM'"
                 )
 
@@ -141,7 +148,7 @@ class ParametersP528(ParametersBase):
         if isinstance(self.polarization, str):
             if self.polarization != "RANDOM":
                 raise ValueError(
-                    f"ParametersP528: Invalid polarization {self.polarization}. "
+                    f"{ctx}: Invalid polarization {self.polarization}. "
                     "Must be 0 (horizontal), 1 (vertical) or 'RANDOM'"
                 )
         else:
@@ -149,12 +156,12 @@ class ParametersP528(ParametersBase):
                 pol = int(self.polarization)
                 if pol not in (POL_H, POL_V):
                     raise ValueError(
-                        f"ParametersP528: Invalid polarization {pol}. "
+                        f"{ctx}: Invalid polarization {pol}. "
                         "Must be 0 (horizontal), 1 (vertical) or 'RANDOM'"
                     )
             except (ValueError, TypeError):
                 raise ValueError(
-                    f"ParametersP528: Invalid polarization {self.polarization}. "
+                    f"{ctx}: Invalid polarization {self.polarization}. "
                     "Must be 0 (horizontal), 1 (vertical) or 'RANDOM'"
                 )
 
@@ -165,9 +172,9 @@ class ParametersP528(ParametersBase):
                 if not (100.0 <= Ns_val <= 450.0):
                     # typical Ns range; adjust according to your climate database
                     raise ValueError(
-                        f"ParametersP528: Ns={Ns_val} out of expected range [100, 450]."
+                        f"{ctx}: Ns={Ns_val} out of expected range [100, 450]."
                     )
             except (ValueError, TypeError):
                 raise ValueError(
-                    f"ParametersP528: Invalid Ns {self.Ns}. Must be float or None."
+                    f"{ctx}: Invalid Ns {self.Ns}. Must be float or None."
                 )

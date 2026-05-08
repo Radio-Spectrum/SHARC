@@ -29,7 +29,7 @@ from shapely.ops import unary_union
 
 from sharc.topology.topology import Topology
 from sharc.satellite.ngso.constants import EARTH_DEFAULT_CRS
-from sharc.parameters.imt.parameters_Countries_imt import ParametersCountries
+from sharc.parameters.imt.parameters_countries_imt import ParametersCountries
 from sharc.support.sharc_geom_countries import GeometryConverter
 import sharc
 

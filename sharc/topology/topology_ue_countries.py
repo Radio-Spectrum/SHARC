@@ -217,7 +217,7 @@ if __name__ == "__main__":
     from pathlib import Path
     import os
     from sharc.topology.topology_countries import TopologyCountries
-    from sharc.parameters.imt.parameters_Countries_imt import ParametersCountries
+    from sharc.parameters.imt.parameters_countries_imt import ParametersCountries
     from sharc.support.sharc_geom_countries import GeometryConverter
 
     # --------- User inputs ----------

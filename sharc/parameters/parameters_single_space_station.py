@@ -4,7 +4,7 @@ import typing
 from sharc.parameters.parameters_base import ParametersBase
 from sharc.parameters.parameters_antenna import ParametersAntenna
 from sharc.parameters.parameters_p619 import ParametersP619
-from sharc.parameters.parameter_p528 import ParametersP528
+from sharc.parameters.parameters_p528 import ParametersP528
 
 
 @dataclass

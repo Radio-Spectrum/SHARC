@@ -62,7 +62,7 @@ from sharc.mask.spectral_mask_mss import SpectralMaskMSS
 from sharc.support.sharc_geom import CoordinateSystem
 from sharc.mask.spectral_mask_imt2030 import SpectralMaskImt2030
 from sharc.support.sharc_utils import wrap2_180
-from sharc.topology.topology_UE_countries import ParametersUECountries, TopologyUECountries
+from sharc.topology.topology_ue_countries import ParametersUECountries, TopologyUECountries
 
 
 class StationFactory(object):

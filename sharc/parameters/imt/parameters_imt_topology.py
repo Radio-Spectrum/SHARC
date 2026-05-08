@@ -8,7 +8,7 @@ from sharc.parameters.imt.parameters_macrocell import ParametersMacrocell
 from sharc.parameters.imt.parameters_ntn import ParametersNTN
 from sharc.parameters.imt.parameters_imt_mss_dc import ParametersImtMssDc
 from sharc.parameters.imt.parameters_single_bs import ParametersSingleBS
-from sharc.parameters.imt.parameters_Countries_imt import ParametersCountries
+from sharc.parameters.imt.parameters_countries_imt import ParametersCountries
 
 @dataclass
 class ParametersImtTopology(ParametersBase):

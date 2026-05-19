@@ -164,8 +164,11 @@ class SimulationUplink(Simulation):
                 # calculate intra system interference
                 interference_per_beam = self.ue.tx_power[ue_interf] - \
                     self.coupling_loss_imt[bs, ue_interf]
+                # Group interference by RBG
+                ue_to_rbg_idx = self.bs_to_ue_beam_rbs[ue_interf].argsort(axis=0)
+                interference_per_beam = interference_per_beam[ue_to_rbg_idx].reshape(-1, self.parameters.imt.ue.k)
                 self.bs.rx_interference[bs] = 10 * np.log10(
-                    np.power(10, 0.1 * interference_per_beam),
+                    np.power(10, 0.1 * interference_per_beam).sum(axis=0),
                 )
             else:
                 # No active interfering UEs

@@ -634,11 +634,7 @@ class ParametersTest(unittest.TestCase):
         self.assertEqual(self.parameters.mss_d2d.beam_radius, 19001)
         self.assertEqual(self.parameters.mss_d2d.tx_power_density, -30)
         self.assertEqual(self.parameters.mss_d2d.num_sectors, 19)
-<<<<<<< HEAD
-        self.assertEqual(self.parameters.mss_d2d.antenna_s1528.antenna_l_s, -6.75)
-        self.assertEqual(self.parameters.mss_d2d.antenna_s1528.antenna_3_dB_bw, 4.4127)
-=======
->>>>>>> origin/feat/DensPop_IMT_topology
+
         self.assertEqual(
             self.parameters.mss_d2d.antenna.pattern,
             'ITU-R-S.1528-Taylor')

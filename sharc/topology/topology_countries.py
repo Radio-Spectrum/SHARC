@@ -484,7 +484,8 @@ class TopologyCountries(Topology):
 
                 elif encoding == "indexed":
                     # treat specific palette indices as NoData/water
-                    nodata_mask = np.isin(vals.astype(np.int16), list(index_nodata))
+                    nodata_mask = np.zeros(vals.shape, dtype=bool)
+                    nodata_mask[valid] = np.isin(vals[valid].astype(np.int16), list(index_nodata))
                     valid_idx = valid & (~nodata_mask)
                     if np.any(valid_idx):
                         mapped = self._index_to_density(vals[valid_idx], sedac_mode, sedac_min, sedac_max)
@@ -579,7 +580,8 @@ class TopologyCountries(Topology):
                 data[valid] = np.maximum(vals[valid], 0.0)
 
             elif encoding == "indexed":
-                nodata_mask = np.isin(vals.astype(np.int16), list(index_nodata))
+                nodata_mask = np.zeros(vals.shape, dtype=bool)
+                nodata_mask[valid] = np.isin(vals[valid].astype(np.int16), list(index_nodata))
                 valid_idx = valid & (~nodata_mask)
                 if np.any(valid_idx):
                     mapped = self._index_to_density(vals[valid_idx], sedac_mode, sedac_min, sedac_max)
@@ -703,19 +705,19 @@ if __name__ == "__main__":
     num_bs = 5000
     rng_seed = 42
     cell_radius_m = 400.0  # 10 km
-    dist_type = "Suburban"         # "Urban" | "Suburban" | "Rural" | None
+    dist_type = "Urban"         # "Urban" | "Suburban" | "Rural" | None
     # Shapefile (or set to None to auto-download Natural Earth via cartopy/geodatasets)
     shapefile_path = Path.cwd() / "sharc" / "topology" / "map" / "ne_110m_admin_0_countries.shp"
 
     # Population raster (set to None to sample uniformly by area)
     #population_raster_path = Path.cwd() / "sharc" / "topology" / "map" / "SEDAC_map2.tiff"
-    #population_raster_path = Path.cwd() / "sharc" / "topology" / "map" / "gpw_v4_population_density_rev11_2020_2pt5_min.tif"
+    population_raster_path = Path.cwd() / "sharc" / "topology" / "map" / "gpw_v4_population_density_rev11_2020_2pt5_min.tif"
     population_raster_path = None
     # Raster type:
     #   "density" = people per km² (e.g., GPWv4 density GeoTIFF)
     #   "count"   = people per pixel
     #   "indexed" = 0..255 palette indices (NEO-like) -> mapped via log/linear bins
-    raster_encoding = "indexed"  # change to "density" if your GeoTIFF is ppl/km²
+    raster_encoding = "density"  # change to "density" if your GeoTIFF is ppl/km²
 
     # For "indexed" rasters only
     sedac_palette_mode = "log"   # "log" or "linear"
@@ -917,6 +919,9 @@ if __name__ == "__main__":
     for label in ax_bar.get_yticklabels():
         label.set_fontsize(9)
 
-    fig.tight_layout()
+    #fig.tight_layout()
 
-    plt.show()
+    try:
+        plt.show()
+    except KeyboardInterrupt:
+        pass

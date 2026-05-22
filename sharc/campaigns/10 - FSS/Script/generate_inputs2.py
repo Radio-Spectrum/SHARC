@@ -10,6 +10,12 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 BASE_YAML = SCRIPT_DIR / "Base_6GHz.yaml"
 OUT_DIR = SCRIPT_DIR.parent / "input"
 
+IMT_REFERENCE_BANDWIDTH_MHZ = 200.0
+IMT_REFERENCE_CONDUCTED_POWER_DBM = {
+    8: 33.997,
+    16: 30.9691,
+}
+
 # ===== Cenários =====
 ENVIRONMENTS = {
     "urban": {

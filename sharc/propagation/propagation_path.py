@@ -239,6 +239,11 @@ class PropagationPath():
                 create_path_mask_low_elevation_sat_from_es(0.0)
             )
 
+        if not sta_a.is_imt_station() and sta_b.is_imt_station():
+            mask_fns.append(
+                path_mask_center_imt_bs
+            )
+
         # if one of the stations considers a maximum earth path distance
         # for interference, we remove those paths
         max_interf_dist = np.inf
@@ -331,6 +336,20 @@ def path_mask_inactive_stations(
 
     return acc_mask
 
+def path_mask_center_imt_bs(
+    sta_a: StationManager,
+    sta_b: StationManager,
+    acc_mask: np.ndarray[np.ndarray[bool]]
+):
+    """Marks paths between system stations and non-central IMT BS as disabled
+    """
+
+    # NOTE: this is only relevant for macrocell topologies, but it doesn't hurt to apply it to all topologies
+    # central_bs_idx = sta_b.topology.central_cell_idx
+    central_bs_idx = np.where((sta_b.geom.x_global == 0) & (sta_b.geom.y_global == 0))[0]  # central BS is the one at (0, 0)
+    acc_mask[:, np.setdiff1d(np.arange(sta_b.num_stations), central_bs_idx)] = False
+
+    return acc_mask
 
 if __name__ == "__main__":
     bs = StationManager(2)

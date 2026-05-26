@@ -45,6 +45,7 @@ class StationManager(object):
         self.noise_temperature = np.empty(n)  # Noise temperature in K
         self.thermal_noise = np.empty(n)  # Thermal noise in dBm/MHz
         self.total_interference = np.empty(n)  # Total received interference
+        self.total_rx_interference = np.empty(n)  # Total received interference power (Intra + External)
         self.snr = np.empty(n)  # SNR in dB
         self.sinr = np.empty(n)  # SINR in dB
         self.sinr_ext = np.empty(n)  # Used to store IMT SINR with external interference in dB

@@ -47,6 +47,8 @@ class TopologyMacrocell(Topology):
         self.site_x = np.empty(0)
         self.site_y = np.empty(0)
 
+        self.central_cell_idx = np.empty(0)
+
     def calculate_coordinates(self, random_number_gen=np.random.RandomState()):
         """Calculate the coordinates of the stations for the macrocell topology."""
         if not self.static_base_stations:
@@ -86,6 +88,8 @@ class TopologyMacrocell(Topology):
             self.z = np.zeros_like(self.x)
             self.azimuth = np.tile(self.AZIMUTH, 19 * self.num_clusters)
 
+            self.central_cell_idx = np.where((self.x == 0) & (self.y == 0))[0]
+
             # In the end, we have to update the number of base stations
             self.num_base_stations = len(self.x)
 
@@ -115,8 +119,8 @@ class TopologyMacrocell(Topology):
 
 
 if __name__ == '__main__':
-    intersite_distance = 1500
-    num_clusters = 1
+    intersite_distance = 600
+    num_clusters = 7
     topology = TopologyMacrocell(intersite_distance, num_clusters)
     topology.calculate_coordinates()
 
@@ -129,7 +133,7 @@ if __name__ == '__main__':
     topology.plot(ax)
 
     plt.axis('image')
-    plt.title("Macro cell topology")
+    plt.title(f"Macro cell topology - ISD={intersite_distance}m")
     plt.xlabel("x-coordinate [m]")
     plt.ylabel("y-coordinate [m]")
     plt.tight_layout()

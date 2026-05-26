@@ -95,6 +95,8 @@ class Results(object):
 
         self.system_ul_coupling_loss = SampleList()
         self.system_ul_interf_power = SampleList()
+        self.imt_ul_intra_interf_power = SampleList()
+        self.imt_ul_total_interf_power = SampleList()
         # Interference Power [dBm]
 
         self.system_dl_coupling_loss = SampleList()

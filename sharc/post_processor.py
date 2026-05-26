@@ -163,6 +163,14 @@ class PostProcessor:
             "title": "[IMT] UL interference power",
             "x_label": "Interference Power [dB]",
         },
+        "imt_ul_intra_interf_power": {
+            "title": "[IMT] UL intra interference power",
+            "x_label": "Interference Power [dB]",
+        },
+        "imt_ul_total_interf_power": {
+            "title": "[IMT] UL total interference power (Intra + External)",
+            "x_label": "Interference Power [dB]",
+        },
         "imt_path_loss": {
             "title": "[IMT] path loss",
             "x_label": "Path loss [dB]",

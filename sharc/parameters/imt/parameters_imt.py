@@ -26,6 +26,10 @@ class ParametersImt(ParametersBase):
     # If this is set to True, the intra SINR calculation will not be performed
     imt_dl_intra_sinr_calculation_disabled: bool = False
 
+    # Whether to calculate interference only into the central BS. This is useful to speed-up the simulation for cases 
+    # where we're interested only on the interference into the central BS from the UEs of the other system.
+    central_bs_interference_only: bool = False
+
     minimum_separation_distance_bs_ue: float = 0.0
     interfered_with: bool = False
     frequency: float = 24350.0

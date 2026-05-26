@@ -176,6 +176,11 @@ class StationFactory(object):
         imt_base_stations.active = random_number_gen.rand(
             num_bs,
         ) < param.bs.load_probability
+
+        if param.central_bs_interference_only and param.topology.type == "MACROCELL":
+            # Activate central cell regardless of the random load probability.
+            imt_base_stations.active[topology.central_cell_idx] = True
+
         # Conducted power per antenna element. Total power will depend on
         # the number of antenna elements and it's configured in power control.
         imt_base_stations.power_backoff_applied = power_backoff
@@ -190,6 +195,9 @@ class StationFactory(object):
             [(bs, -500 * np.ones(param.ue.k)) for bs in range(num_bs)],
         )
         imt_base_stations.total_interference = dict(
+            [(bs, -500 * np.ones(param.ue.k)) for bs in range(num_bs)],
+        )
+        imt_base_stations.total_rx_interference = dict(
             [(bs, -500 * np.ones(param.ue.k)) for bs in range(num_bs)],
         )
 

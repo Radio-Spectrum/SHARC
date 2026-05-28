@@ -3,6 +3,7 @@ import sys
 
 import numpy as np
 from sharc.antenna.antenna_omni import AntennaOmni
+from sharc.parameters.wifi.parameters_hotspot import ParametersHotspot
 from sharc.parameters.wifi.parameters_wifi_system import ParametersWifiSystem
 from sharc.station_manager import StationManager
 from sharc.support.enumerations import StationType
@@ -11,7 +12,8 @@ from sharc.propagation.propagation_free_space import PropagationFreeSpace
 from sharc.parameters.wifi.parameters_antenna_wifi import ParametersAntennaWifi
 from sharc.mask.spectral_mask_wifi import SpectralMaskWifi
 from sharc.support.sharc_utils import wrap2_180
-
+from scipy.stats.sampling import DiscreteAliasUrn
+import matplotlib.pyplot as plt
 from itertools import product
 
 class SystemWifi:
@@ -20,10 +22,9 @@ class SystemWifi:
         self.parameters = param
         self.parameters_antenna = param_ant_ap
         self.topology = topology
-        #self.topology.calculate_coordinates()
-        self.num_aps = self.topology.num_base_stations
+        self.topology.calculate_coordinates()
+        self.num_aps = self.topology.num_aps
         self.num_sta = self.num_aps * self.parameters.sta.k * self.parameters.sta.k_m
-
 
         self.wrap_around_enabled = True
 
@@ -71,8 +72,12 @@ class SystemWifi:
 
         self.wall_loss = self.parameters.wall_loss
 
+        self.floor_probs = [0.2466, 0.2036, 0.1405, 0.1127, 0.0919, 0.0752, 0.0556, 0.0388, 0.0241, 0.0110]
+        self.floor_height_m = 3.0 # Altura padrão por andar em metros
+
         self.ap = self.generate_aps(random_number_gen)
         self.sta = self.generate_stas(random_number_gen)
+
     
     def generate_aps(self, random_number_gen: np.random.RandomState) -> StationManager:
         param_ant = self.parameters_antenna
@@ -82,7 +87,9 @@ class SystemWifi:
 
         wifi_aps.x = self.topology.x
         wifi_aps.y = self.topology.y
-        wifi_aps.z = self.topology.z + self.parameters.ap.height
+        wifi_aps.z = self.topology.z 
+        wifi_aps.floor = self.topology.floor
+        wifi_aps.indoor = self.topology.indoor
         wifi_aps.height = wifi_aps.z
         wifi_aps.elevation = -param_ant.downtilt * np.ones(num_aps)
 
@@ -117,6 +124,7 @@ class SystemWifi:
 
         if self.parameters.topology.type == 'HOTSPOT':
             wifi_aps.intersite_dist = self.parameters.topology.hotspot.intersite_distance
+        
 
         return wifi_aps
 
@@ -125,9 +133,7 @@ class SystemWifi:
         wifi_sta = StationManager(self.num_sta)
         wifi_sta.station_type = StationType.WIFI_STA
 
-        sta_x = list()
-        sta_y = list()
-        sta_z = list()
+        
 
         sta_height = self.parameters.sta.height * np.ones(self.num_sta)
         azimuth_range = self.parameters.sta.azimuth_range
@@ -140,58 +146,67 @@ class SystemWifi:
         elevation = (elevation_range[1] - elevation_range[0]) * \
             random_number_gen.random_sample(self.num_sta) + elevation_range[0]
         
-        if self.parameters.sta.distribution_type.upper() == "ANGLE_AND_DISTANCE":
-            # The Rayleigh and Normal distribution parameters (mean, scale and cutoff)
-            # were agreed in TG 5/1 meeting (May 2017).
-
-            if self.parameters.sta.distribution_distance.upper() == "SQRT(UNIFORM)":
-                # this is so that area distribution may be uniform in
-                # annulus/ring
-                r_min = self.parameters.minimum_separation_distance_ap_sta
-                r_max = self.topology.cell_radius
-                radius = np.sqrt(
-                    random_number_gen.random_sample(
-                        self.num_sta
-                    ) * (r_max**2 - r_min**2) + r_min**2
-                )
-
-            if self.parameters.sta.distribution_azimuth.upper() == "UNIFORM":
-                angle = (azimuth_range[1] - azimuth_range[0]) * \
-                    random_number_gen.random_sample(self.num_sta) + azimuth_range[0]
+        if self.parameters.topology.type == "INDOOR_BUILDING":
+            wifi_sta.indoor = np.ones(self.num_sta, dtype=bool)
+            # 2. Pede as coordenadas e andares para dentro dos prédios
+            sta_x, sta_y, sta_z, wifi_sta.floor = self.topology.generate_indoor_coordinates(self.num_sta, random_number_gen)
         
+        else:
+            sta_x = list()
+            sta_y = list()
+            sta_z = list()
+            if self.parameters.sta.distribution_type.upper() == "ANGLE_AND_DISTANCE":
+                # The Rayleigh and Normal distribution parameters (mean, scale and cutoff)
+                # were agreed in TG 5/1 meeting (May 2017).
 
-            for ap in range(self.num_aps):
-                idx = [
-                    i for i in range(
-                        ap * num_sta_per_ap, ap * num_sta_per_ap + num_sta_per_ap,
+                if self.parameters.sta.distribution_distance.upper() == "SQRT(UNIFORM)":
+                    # this is so that area distribution may be uniform in
+                    # annulus/ring
+                    r_min = self.parameters.minimum_separation_distance_ap_sta
+                    r_max = self.topology.cell_radius
+                    radius = np.sqrt(
+                        random_number_gen.random_sample(
+                            self.num_sta
+                        ) * (r_max**2 - r_min**2) + r_min**2
                     )
-                ]
 
-                # theta is the horizontal angle of the UE wrt the serving BS
-                theta = self.topology.azimuth[ap] + angle[idx]
-                # calculate UE position in x-y coordinates
-                x = radius[idx] * np.cos(np.radians(theta))
-                y = radius[idx] * np.sin(np.radians(theta))
-                z = np.zeros_like(x)
-                x, y, z = self.topology.transform_ue_xyz(
-                    ap, x, y, z
-                )
-                sta_x.extend(x)
-                sta_y.extend(y)
-                sta_z.extend(z)
+                if self.parameters.sta.distribution_azimuth.upper() == "UNIFORM":
+                    angle = (azimuth_range[1] - azimuth_range[0]) * \
+                        random_number_gen.random_sample(self.num_sta) + azimuth_range[0]
+            
 
-                 # calculate UE azimuth wrt serving BS
-                wifi_sta.azimuth[idx] = (azimuth[idx] + theta + 180) % 360
+                for ap in range(self.num_aps):
+                    idx = [
+                        i for i in range(
+                            ap * num_sta_per_ap, ap * num_sta_per_ap + num_sta_per_ap,
+                        )
+                    ]
 
-                # calculate elevation angle
-                # psi is the vertical angle of the UE wrt the serving BS
-                distance = np.sqrt(
-                    (self.topology.x[ap] - x) ** 2 + (self.topology.y[ap] - y) ** 2,
-                )
-                psi = np.degrees(
-                    np.arctan((self.parameters.ap.height - self.parameters.sta.height) / distance),
-                )
-                wifi_sta.elevation[idx] = elevation[idx] + psi
+                    # theta is the horizontal angle of the UE wrt the serving BS
+                    theta = self.topology.azimuth[ap] + angle[idx]
+                    # calculate UE position in x-y coordinates
+                    x = radius[idx] * np.cos(np.radians(theta))
+                    y = radius[idx] * np.sin(np.radians(theta))
+                    z = np.zeros_like(x)
+                    x, y, z = self.topology.transform_ue_xyz(
+                        ap, x, y, z
+                    )
+                    sta_x.extend(x)
+                    sta_y.extend(y)
+                    sta_z.extend(z)
+
+                    # calculate UE azimuth wrt serving BS
+                    wifi_sta.azimuth[idx] = (azimuth[idx] + theta + 180) % 360
+
+                    # calculate elevation angle
+                    # psi is the vertical angle of the UE wrt the serving BS
+                    distance = np.sqrt(
+                        (self.topology.x[ap] - x) ** 2 + (self.topology.y[ap] - y) ** 2,
+                    )
+                    psi = np.degrees(
+                        np.arctan((self.parameters.ap.height - self.parameters.sta.height) / distance),
+                    )
+                    wifi_sta.elevation[idx] = elevation[idx] + psi
 
         wifi_sta.x = np.array(sta_x)
         wifi_sta.y = np.array(sta_y)
@@ -230,7 +245,6 @@ class SystemWifi:
             )
         wifi_sta.spectral_mask.set_mask()
 
-        wifi_sta.intersite_dist = self.parameters.topology.hotspot.intersite_distance
 
         return wifi_sta
 
@@ -359,147 +373,105 @@ class SystemWifi:
                         self.ap.antenna[ap].beams_list,
                     ) - 1
     
-    def get_random_position(num_stas: int,
-                            topology: Topology,
-                            random_number_gen: np.random.RandomState,
-                            min_dist_to_bs=0.,
-                            central_cell=False,
-                            deterministic_cell=False):
-        """
-        Generate UE random-possitions inside the topolgy area.
-
-        Parameters
-        ----------
-        num_stas : int
-            Number of UE stations
-        topology : Topology
-            The IMT topology object
-        random_number_gen : np.random.RandomState
-            Random number generator
-        min_dist_to_bs : _type_, optional
-            Minimum distance to the BS, by default 0.
-        central_cell : bool, optional
-            Whether the central cell in the cluster is used, by default False
-        deterministic_cell : bool, optional
-            Fix the cell to be used as anchor point, by default False
-
-        Returns
-        -------
-        tuple
-            x, y, z, azimuth and elevation angles.
-        """
-        hexagon_radius = topology.intersite_distance * 2 / 3
-
-        x = np.array([])
-        y = np.array([])
-        z = np.array([])
-        bs_x = -hexagon_radius
-        bs_y = 0
-
-        while len(x) < num_stas:
-            num_stas_temp = num_stas - len(x)
-            # generate UE uniformly in a triangle
-            x_temp = random_number_gen.uniform(
-                0, hexagon_radius * np.cos(np.pi / 6), num_stas_temp)
-            y_temp = random_number_gen.uniform(
-                0, hexagon_radius / 2, num_stas_temp)
-
-            invert_index = np.arctan(y_temp / x_temp) > np.pi / 6
-            y_temp[invert_index] = -(hexagon_radius / 2 - y_temp[invert_index])
-            x_temp[invert_index] = (
-                hexagon_radius *
-                np.cos(
-                    np.pi /
-                    6) -
-                x_temp[invert_index])
-
-            # randomly choose a hextant
-            hextant = random_number_gen.random_integers(0, 5, num_stas_temp)
-            hextant_angle = np.pi / 6 + np.pi / 3 * hextant
-
-            old_x = x_temp
-            x_temp = x_temp * np.cos(hextant_angle) - \
-                y_temp * np.sin(hextant_angle)
-            y_temp = old_x * np.sin(hextant_angle) + \
-                y_temp * np.cos(hextant_angle)
-
-            dist = np.sqrt((x_temp - bs_x) ** 2 + (y_temp - bs_y) ** 2)
-            indices = dist > min_dist_to_bs
-
-            x_temp = x_temp[indices]
-            y_temp = y_temp[indices]
-
-            x = np.append(x, x_temp)
-            y = np.append(y, y_temp)
-
-        x = x - bs_x
-        y = y - bs_y
-
-        # choose cells
-        if central_cell:
-            central_cell_indices = np.where(
-                (topology.x == 0) & (topology.y == 0))
-
-            if not len(central_cell_indices[0]):
-                sys.stderr.write(
-                    "ERROR\nTopology does not have a central cell")
-                sys.exit(1)
-
-            cell = central_cell_indices[0][random_number_gen.random_integers(
-                0, len(central_cell_indices[0]) - 1, num_stas)]
-        elif deterministic_cell:
-            num_bs = topology.num_base_stations
-            stas_per_cell = num_stas / num_bs
-            cell = np.repeat(np.arange(num_bs, dtype=int), stas_per_cell)
-
-        else:  # random cells
-            num_bs = topology.num_base_stations
-            cell = random_number_gen.random_integers(0, num_bs - 1, num_stas)
-
-        cell_x = topology.x[cell]
-        cell_y = topology.y[cell]
-        cell_z = topology.z[cell]
-
-        # x = x + cell_x + hexagon_radius * np.cos(topology.azimuth[cell] * np.pi / 180)
-        # y = y + cell_y + hexagon_radius * np.sin(topology.azimuth[cell] * np.pi / 180)
-        old_x = x
-        x = x * np.cos(np.radians(topology.azimuth[cell])) - \
-            y * np.sin(np.radians(topology.azimuth[cell]))
-        y = old_x * np.sin(np.radians(topology.azimuth[cell])) + y * np.cos(
-            np.radians(topology.azimuth[cell]))
-        x = x + cell_x
-        y = y + cell_y
-        z = cell_z
-
-        x = list(x)
-        y = list(y)
-        z = list(z)
-
-        # calculate UE azimuth wrt serving BS
-        if topology.is_space_station is False:
-            theta = np.arctan2(y - cell_y, x - cell_x)
-
-            # calculate elevation angle
-            # psi is the vertical angle of the UE wrt the serving BS
-            distance = np.sqrt((cell_x - x) ** 2 + (cell_y - y) ** 2)
-        else:
-            theta = np.arctan2(
-                y - topology.space_station_y[cell],
-                x - topology.space_station_x[cell])
-            distance = np.sqrt((cell_x - x) ** 2 +
-                               (cell_y - y) ** 2 + (cell_z)**2)
-
-        return x, y, z, theta, distance
 
 
 if __name__ == "__main__":
-    wifi = SystemWifi(
-        ParametersWifiSystem(),
-        ParametersAntennaWifi(),
-        ParametersAntennaWifi(),
-        np.random.RandomState(),
-        TopologyIndoorWifi(ParametersIndoor())
-    )
+    from sharc.parameters.wifi.parameters_indoor_building import ParametersIndoorBuilding
+    from sharc.parameters.parameters import Parameters
+    from sharc.topology.topology_indoor_building import TopologyIndoorBuilding
+    from sharc.topology.topology_macrocell import TopologyMacrocell 
+    import os
+    import numpy as np
+    import matplotlib.pyplot as plt
 
-    aps = wifi.generate_aps(np.random.RandomState(1))
-    stas = wifi.generate_stas(np.random.RandomState(1))
+    # Lendo os parâmetros
+    param_file = os.path.join(os.getcwd(), "sharc/input", "parameters.yaml")
+    params = Parameters()
+    params.set_file_name(param_file)
+    params.read_params()
+
+    wifi_ant_param = ParametersAntennaWifi() # Certifique-se de que esta classe está importada
+    wifi_param = params.wifi
+    t_param = ParametersIndoorBuilding()
+
+    # 1. Instanciar e calcular a Topologia IMT (Macrocell) base primeiro
+    imt_topology = TopologyMacrocell(intersite_distance=450, num_clusters=1)
+    imt_topology.calculate_coordinates()
+
+    # 2. Passar a Topologia IMT para a Topologia Indoor
+    wifi_topology = TopologyIndoorBuilding(t_param, imt_topology)
+    wifi_topology.calculate_coordinates()
+
+    rnd = np.random.RandomState(1)
+    wifi = SystemWifi(wifi_param, wifi_ant_param, rnd, wifi_topology)
+
+    """
+    Plota o cenário 3D mostrando os Prédios, a posição dos APs e das STAs.
+    """
+    fig = plt.figure(figsize=(12, 10))
+    ax = fig.add_subplot(111, projection='3d')
+    
+    # ==========================================================
+    # 1. Desenhar o Volume dos Prédios (Paredes de "Vidro")
+    # ==========================================================
+    def draw_building_3d(ax, b):
+        z_base = 0
+        z_top = b.total_height
+        x = [b.x_min, b.x_max, b.x_max, b.x_min, b.x_min]
+        y = [b.y_min, b.y_min, b.y_max, b.y_max, b.y_min]
+        
+        # Paredes com transparência elevada (alpha=0.1)
+        for i in range(4):
+            ax.plot([x[i], x[i]], [y[i], y[i]], [z_base, z_top], color='gray', alpha=0.1)
+        # Chão
+        ax.plot(x, y, [z_base]*5, color='gray', alpha=0.1)
+        # Teto mais escuro para demarcar o fim do prédio
+        ax.plot(x, y, [z_top]*5, color='black', alpha=0.5, linewidth=1.5)
+        
+    for b in wifi_topology.buildings:
+        draw_building_3d(ax, b)
+
+    # ==========================================================
+    # 2. Plotando os APs e as STAs
+    # ==========================================================
+    # APs (Roteadores - Triângulos Vermelhos Grandes)
+    ax.scatter(wifi.ap.x, wifi.ap.y, wifi.ap.z, 
+                c='red', marker='^', s=120, alpha=1.0, edgecolors='black', label='APs (Roteadores)')
+    
+    # STAs (Utilizadores - Círculos Azuis Menores)
+    ax.scatter(wifi.sta.x, wifi.sta.y, wifi.sta.z, 
+                c='blue', marker='o', s=40, alpha=0.8, edgecolors='black', label='STAs (Utilizadores)')
+    
+    # Configurando os rótulos e título
+    ax.set_title("Distribuição Espacial 3D: Prédios, APs e STAs", fontsize=14)
+    ax.set_xlabel("Eixo X (metros)")
+    ax.set_ylabel("Eixo Y (metros)")
+    ax.set_zlabel("Eixo Z / Altura (metros)")
+    
+    # ==========================================================
+    # 3. Adicionando as linhas tracejadas das alturas dos andares
+    # ==========================================================
+    # Juntamos as coordenadas de todos os dispositivos para achar os limites do mapa
+    all_x = np.concatenate((wifi.ap.x, wifi.sta.x))
+    all_y = np.concatenate((wifi.ap.y, wifi.sta.y))
+    all_z = np.concatenate((wifi.ap.z, wifi.sta.z))
+
+    x_min = np.min(all_x) - 10 # Margem visual
+    x_max = np.max(all_x) + 10
+    y_min = np.min(all_y) - 10
+    y_max = np.max(all_y) + 10
+    
+    # Extraímos todas as alturas únicas onde há algum equipamento (AP ou STA)
+    alturas_andares = np.unique(all_z)
+    
+    for z in alturas_andares:
+        ax.plot([x_min, x_max, x_max, x_min, x_min], 
+                [y_min, y_min, y_max, y_max, y_min], 
+                [z, z, z, z, z], 
+                color='blue', linestyle=':', alpha=0.3, linewidth=1.0)
+
+    # Ajusta o ângulo de visão para uma boa perspetiva isométrica
+    ax.view_init(elev=25, azim=-45)
+    
+    plt.legend()
+    plt.show()

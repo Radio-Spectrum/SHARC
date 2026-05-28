@@ -1912,65 +1912,75 @@ if __name__ == '__main__':
     from sharc.parameters.wifi.parameters_hotspot import ParametersHotspot
     from sharc.topology.topology_hotspot import TopologyHotspot
     from sharc.topology.topology_macrocell import TopologyMacrocell
+    from sharc.parameters.wifi.parameters_indoor_building import ParametersIndoorBuilding
+    from sharc.parameters.parameters import Parameters
+    from sharc.topology.topology_indoor_building import TopologyIndoorBuilding
     import os
 
+    imt_topology = TopologyMacrocell(450, 1)
+    imt_topology.calculate_coordinates()
+    
     # plot uniform distribution in macrocell scenario
     param_file = os.path.join(os.getcwd(), "sharc/input", "parameters.yaml")
     params = Parameters()
     params.set_file_name(param_file)
     params.read_params()
 
-    factory = StationFactory()
-
     wifi_ant_param = ParametersAntennaWifi()
     wifi_param = params.wifi
-    t_param = ParametersHotspot()
+    t_param = ParametersIndoorBuilding()
 
-    wifi_topology = TopologyHotspot(t_param, 321, 1)
+    wifi_topology = TopologyIndoorBuilding(t_param, imt_topology)
     wifi_topology.calculate_coordinates()
-
-    imt_topology = TopologyMacrocell(450, 1)
-    imt_topology.calculate_coordinates()
-
-
-    imt_ant_param = params.imt.bs.antenna.array
-
+    
     rnd = np.random.RandomState(1)
+    wifi = SystemWifi(wifi_param, wifi_ant_param, rnd, wifi_topology)
 
-    imt_ue = factory.generate_imt_ue(params.imt, imt_ant_param, imt_topology, rnd)
-    imt_bs = factory.generate_imt_base_stations(params.imt, imt_ant_param, imt_topology, rnd)
+    """
+    Plota o cenário 3D mostrando a posição física dos APs e STAs.
+    """
+    fig = plt.figure(figsize=(10, 8))
+    # O argumento projection='3d' habilita o motor 3D do matplotlib
+    ax = fig.add_subplot(111, projection='3d')
 
-    wifi = factory.generate_wifi_system(wifi_param, wifi_ant_param, rnd, wifi_topology)
-    # Separar por tipo de estação
-    # Base stations
-    imt_bs_x = imt_bs.x
-    imt_bs_y = imt_bs.y
+    # Plotando as STAs (Aumentei ligeiramente o tamanho 's' e a opacidade 'alpha' para melhor visibilidade)
+    ax.scatter(wifi.sta.x, wifi.sta.y, wifi.sta.z, 
+                c='blue', marker='o', s=20, alpha=0.6, label='STAs (Utilizadores)')
+    
+    # Plotando os APs
+    ax.scatter(wifi.ap.x, wifi.ap.y, wifi.ap.z, 
+                c='red', marker='^', s=120, alpha=1.0, edgecolors='black', label='APs (Roteadores)')
+    
+    # Configurando os rótulos e título
+    ax.set_title("Distribuição Espacial 3D dos Nós Wi-Fi", fontsize=14)
+    ax.set_xlabel("Eixo X (metros)")
+    ax.set_ylabel("Eixo Y (metros)")
+    ax.set_zlabel("Eixo Z / Altura (metros)")
+    
+    # ==========================================================
+    # INÍCIO: Adicionando as linhas tracejadas dos andares
+    # ==========================================================
+    # 1. Encontrar as bordas do nosso cenário (Mínimo e Máximo de X e Y)
+    x_min = min(np.min(wifi.sta.x), np.min(wifi.ap.x))
+    x_max = max(np.max(wifi.sta.x), np.max(wifi.ap.x))
+    y_min = min(np.min(wifi.sta.y), np.min(wifi.ap.y))
+    y_max = max(np.max(wifi.sta.y), np.max(wifi.ap.y))
+    
+    # 2. Descobrir quais são as alturas (Eixo Z) em que temos dispositivos
+    # Isso vai extrair automaticamente as cotas dos andares (ex: 1.5m, 4.5m, 7.5m...)
+    alturas_andares = np.unique(np.concatenate((wifi.sta.z, wifi.ap.z)))
+    
+    # 3. Desenhar um retângulo tracejado para cada andar
+    for z in alturas_andares:
+        # Traça 4 linhas conectando os cantos do mapa na mesma altura Z
+        ax.plot([x_min, x_max, x_max, x_min, x_min], 
+                [y_min, y_min, y_max, y_max, y_min], 
+                [z, z, z, z, z], 
+                color='gray', linestyle='--', alpha=0.5, linewidth=1.5)
+    # ==========================================================
+    # FIM
+    # ==========================================================
 
-    wifi_aps_x = wifi.ap.x 
-    wifi_aps_y = wifi.ap.y
-
-    # User equipments
-    imt_ue_x = imt_ue.x 
-    imt_ue_y = imt_ue.y
-
-    wifi_sta_x = wifi.sta.x
-    wifi_sta_y = wifi.sta.y
-
-    fig = plt.figure(figsize=(8, 8), facecolor='w', edgecolor='k')
-    ax = fig.add_subplot(1, 1, 1)
-    imt_topology.plot(ax)
-
-    plt.axis('image')
-    plt.title("Macro cell topology")
-    plt.xlabel("x-coordinate [m]")
-    plt.ylabel("y-coordinate [m]")
-
-    # Plotagem diferenciada
-    ax.plot(imt_bs_x, imt_bs_y, "bs", label="IMT BS")       # azul, quadrado
-    ax.plot(wifi_aps_x, wifi_aps_y, "go", label="WiFi AP")  # verde, círculo
-    ax.plot(imt_ue_x, imt_ue_y, "r^", label="IMT UE")        # vermelho, triângulo
-    ax.plot(wifi_sta_x, wifi_sta_y, "m.", label="WiFi STA") # magenta, ponto
-
-    plt.legend(loc="best")
-    plt.tight_layout()
+    plt.legend()
+    plt.grid(True)
     plt.show()

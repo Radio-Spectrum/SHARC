@@ -95,7 +95,7 @@ class TestPropagationClutterLoss(unittest.TestCase):
             mean_clutter_height='high', below_rooftop=below_rooftop,
         )
         # High clutter should cause at least as much loss as low
-        self.assertGreaterEqual(float(loss_high), float(loss_low) - 1.0)
+        self.assertGreaterEqual(loss_high.item(), loss_low.item() - 1.0)
 
     def test_spatial_clutter_mid_between(self):
         """Mid mean_clutter_height should produce loss between low and high (or equal)."""
@@ -132,7 +132,7 @@ class TestPropagationClutterLoss(unittest.TestCase):
             clutter_scenario="terrestrial", clutter_type='both_ends',
             below_rooftop=100,
         )
-        self.assertGreaterEqual(float(loss_both), float(loss_one) - 0.5)
+        self.assertGreaterEqual(loss_both.item(), loss_one.item() - 0.5)
 
     def test_spatial_clutter_finite_at_extremes(self):
         """Spatial clutter loss should be finite for extreme elevations."""

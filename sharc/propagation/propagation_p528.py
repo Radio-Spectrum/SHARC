@@ -194,7 +194,7 @@ class PropagationP528(Propagation):
             # --- Step 3-12: Combine with absorption, FSPL and variability ----------------
             r_fsl = r1m + r2m + 2.0 * np.maximum(dk - (dr1m + dr2m), 0.0)
             Afs   = _fspl_dB(fm, np.maximum(r_fsl, dk))
-            Yp    = self._variability_long_term(p_time, dk, fm)
+            Yp    = self._variability_long_term(p_time[~los_mask], dk, fm)
             Lb[~los_mask] = Afs + Aa_m + AT + Yp
 
         # --- (Post) Finalization ---------------------------------------------------------
@@ -457,8 +457,10 @@ class PropagationP528(Propagation):
         # Step 11-6: scattering efficiency Se (108–111)
         eps1 = (5.67e-6) * (Ns**2) - 0.00232 * Ns + 0.031  # (108)
         eps2 = 0.0002 * (Ns**2) - 0.06 * Ns + 6.6          # (109)
-        gamma = 0.1424 * (1.0 + eps1 / np.exp((hv/4.0)**6))  # (110)
-        Se = 83.1 - (eps2 / (1.0 + 0.07716 * (hv**2))) + 20.0 * np.log10(((0.1424/gamma)**2) * np.exp(gamma*hv))  # (111)
+        # Clip exponent for gamma to avoid overflow warnings; large exp means eps1 term -> 0
+        gamma = 0.1424 * (1.0 + eps1 / np.exp(np.clip((hv/4.0)**6, None, 700.0)))  # (110)
+        # Rewrite log10(exp(x)) as x * log10(e) to avoid overflow in Se
+        Se = 83.1 - (eps2 / (1.0 + 0.07716 * (hv**2))) + 20.0 * np.log10((0.1424/gamma)**2) + 20.0 * (gamma * hv) * np.log10(np.e)  # (111)
 
         # Step 11-7: scattering volume term SV (112–126)
         # d1,d2: distance from terminals to CV center along smooth-Earth
@@ -495,7 +497,8 @@ class PropagationP528(Propagation):
         # (126)
         CS = 12.0 * ((rho1 + np.sqrt(2.0)*rho1)**2) * ((rho2 + np.sqrt(2.0)*rho2)**2) * ((rho1 + rho2) / np.maximum(rho1 + rho2 + 2.0*np.sqrt(2.0), 1e-12))
         # (119)
-        SV = 10.0 * np.log10( (A * (eta**2) + BS * eta) * q1 * q2 / np.maximum(rho1**2 * rho2**2 + CS, 1e-24) )
+        SV_arg = (A * (eta**2) + BS * eta) * q1 * q2 / np.maximum(rho1**2 * rho2**2 + CS, 1e-24)
+        SV = 10.0 * np.log10( np.maximum(SV_arg, 1e-24) )
 
         # Step 11-8: Troposcatter loss (89)
         As = Se + SV + 10.0 * np.log10(np.maximum(kappa * (theta_s**3) / np.maximum(ell,1e-12), 1e-24))

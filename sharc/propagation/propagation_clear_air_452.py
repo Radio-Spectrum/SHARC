@@ -1900,7 +1900,8 @@ class PropagationClearAir(Propagation):
                 b0[ii],
             )
 
-            Lminbap = eta * np.log(np.exp(Lba / eta) + np.exp(Lb0p / eta))
+            max_val = np.maximum(Lba, Lb0p)
+            Lminbap = max_val + eta * np.log(1.0 + np.exp(-np.abs(Lba - Lb0p) / eta))
 
             # Calculate a notional basic transmission loss associated with diffraction
             # and LoS or ducting / layer reflection enhancements
@@ -1920,10 +1921,8 @@ class PropagationClearAir(Propagation):
             )
 
             # Calculate the final transmission loss not exceeded for p % time
-            Lb_pol = -5 * np.log10(
-                10 ** (-0.2 * Lbs) +
-                10 ** (-0.2 * Lbam),
-            ) + Aht + Ahr
+            sum_vals = 10 ** (-0.2 * Lbs) + 10 ** (-0.2 * Lbam)
+            Lb_pol = -5 * np.log10(np.maximum(sum_vals, 1e-300)) + Aht + Ahr
 
             if (self.model_params.polarization).lower() == "horizontal":
                 Lb[0, ii] = Lb_pol[0]

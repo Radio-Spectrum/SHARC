@@ -35,7 +35,29 @@ class PropagationFactory(object):
         param_system: ParametersBase,
         random_number_gen: rnd.RandomState,
     ) -> Propagation:
-        """Create and return a propagation model object."""
+        """Create and return a propagation model object.
+
+        Parameters
+        ----------
+        channel_model : str
+            The channel model.
+        param : Parameters
+            The simulation parameters.
+        param_system : ParametersBase
+            Specific system parameters. It can be either ParametersIMT or other system parameters.
+        random_number_gen : rnd.RandomState
+            Random number generator.
+
+        Returns
+        -------
+        Propagation
+            Propagation object.
+
+        Raises
+        ------
+        ValueError
+            If the channel model is not implemented.
+        """
         if channel_model == "FSPL":
             return PropagationFreeSpace(random_number_gen)
         elif channel_model == "ABG":

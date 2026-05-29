@@ -261,7 +261,7 @@ class ParametersSectorPositioning(ParametersBase):
                 if self.type is None:
                     return np.stack((lon, lat))
 
-                msk = ~shp.vectorized.contains(
+                msk = ~shp.contains_xy(
                     self._polygon,
                     lon,
                     lat,
@@ -393,7 +393,7 @@ class ParametersSectorPositioning(ParametersBase):
                 self.lon_lat_grid = np.stack((self.fixed_lons, self.fixed_lats))
 
             self.lon_lat_grid = self.grid_exclusion_zone.apply_exclusion_zone(
-                lon, lat
+                self.lon_lat_grid[0], self.lon_lat_grid[1]
             )
 
             self.ecef_grid = lla2ecef(

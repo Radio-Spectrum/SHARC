@@ -2,7 +2,6 @@ import unittest
 import numpy as np
 import numpy.testing as npt
 import shapely as shp
-import shapely.vectorized
 from pathlib import Path
 
 from sharc.support.sharc_geom import generate_grid_in_multipolygon
@@ -48,7 +47,7 @@ class TestSharcGeom(unittest.TestCase):
             npt.assert_allclose(len(grid[0]), pol_A / hx_A, rtol=0.05, atol=10)
             lons, lats = grid
             self.assertTrue(
-                shp.vectorized.contains(poly, lons, lats).all()
+                shp.contains_xy(poly, lons, lats).all()
             )
 
         gdf = load_gdf(
@@ -67,7 +66,7 @@ class TestSharcGeom(unittest.TestCase):
         npt.assert_allclose(br_grid_len, pol_A / hx_A, rtol=0.007, atol=190)
         lons, lats = grid
         self.assertTrue(
-            shp.vectorized.contains(poly, lons, lats).all()
+            shp.contains_xy(poly, lons, lats).all()
         )
 
         poly = gdf[gdf["NAME"] == "Chile"]["geometry"].values[0]
@@ -82,7 +81,7 @@ class TestSharcGeom(unittest.TestCase):
         npt.assert_allclose(cl_grid_len, pol_A / hx_A, rtol=0.08, atol=230)
         lons, lats = grid
         self.assertTrue(
-            shp.vectorized.contains(poly, lons, lats).all()
+            shp.contains_xy(poly, lons, lats).all()
         )
 
         # generating grid for both Chile and Brazil at the same time
@@ -92,7 +91,7 @@ class TestSharcGeom(unittest.TestCase):
         npt.assert_allclose(len(grid[0]), cl_grid_len + br_grid_len, rtol=0.0011)
         lons, lats = grid
         self.assertTrue(
-            shp.vectorized.contains(poly, lons, lats).all()
+            shp.contains_xy(poly, lons, lats).all()
         )
 
         from scipy.spatial import cKDTree

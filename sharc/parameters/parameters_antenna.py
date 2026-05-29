@@ -3,6 +3,7 @@ from sharc.parameters.parameters_antenna_with_diameter import ParametersAntennaW
 from sharc.parameters.parameters_antenna_with_envelope_gain import ParametersAntennaWithEnvelopeGain
 from sharc.parameters.antenna.parameters_antenna_s1528 import ParametersAntennaS1528
 from sharc.parameters.antenna.parameters_antenna_with_freq import ParametersAntennaWithFreq
+from sharc.parameters.antenna.parameters_antenna_from_table import ParametersAntennaFromTable
 from sharc.parameters.imt.parameters_antenna_imt import ParametersAntennaImt
 from sharc.antenna.antenna_ra_m2319 import ParametersRA
 
@@ -32,7 +33,8 @@ class ParametersAntenna(ParametersBase):
         "MSS Adjacent",
         "ITU-R S.672",
         "ITU-R F.1245_fs",
-        "RA_M2319"]
+        "RA_M2319",
+        "TABLE"]
 
     # chosen antenna radiation pattern
     pattern: typing.Literal["OMNI",
@@ -50,7 +52,8 @@ class ParametersAntenna(ParametersBase):
                             "MSS Adjacent",
                             "ITU-R S.672",
                             "ITU-R F.1245_fs",
-                            "RA_M2319"] = None
+                            "RA_M2319",
+                            "TABLE"] = None
 
     # antenna gain [dBi]
     gain: float = None
@@ -127,6 +130,10 @@ class ParametersAntenna(ParametersBase):
         default_factory=ParametersAntennaS1528,
     )
 
+    table: ParametersAntennaFromTable = field(
+        default_factory=ParametersAntennaFromTable,
+    )
+
     def set_external_parameters(self, **kwargs):
         """
         Set external parameters for all sub-parameters of the antenna.
@@ -182,7 +189,7 @@ class ParametersAntenna(ParametersBase):
                 f"{ctx}.pattern should be set. Is None instead",
             )
 
-        if self.pattern != "ARRAY" and self.gain is None:
+        if self.pattern not in ["ARRAY", "TABLE"] and self.gain is None:
             raise ValueError(
                 f"{ctx}.gain should be set if not using array antenna.",
             )
@@ -234,6 +241,8 @@ class ParametersAntenna(ParametersBase):
                 self.mss_adjacent.validate(f"{ctx}.mss_adjacent")
             case "RA_M2319":
                 pass
+            case "TABLE":
+                self.table.validate(f"{ctx}.table")
             case _:
                 raise NotImplementedError(
                     "ParametersAntenna.validate does not implement this antenna validation!", )

@@ -17,6 +17,7 @@ from sharc.antenna.antenna_f1245_fs import Atenna_f1245_fs
 from sharc.antenna.antenna_s1528 import AntennaS1528, AntennaS1528Leo, AntennaS1528Taylor
 from sharc.antenna.antenna_beamforming_imt import AntennaBeamformingImt
 from sharc.antenna.antenna_ra_m2319 import AntennaRA_M2319
+from sharc.antenna.antenna_from_table import AntennaFromTable
 
 import numpy as np
 
@@ -69,6 +70,8 @@ class AntennaFactory():
                 )
             case "RA_M2319":
                 return AntennaRA_M2319(antenna_params.itu_ra_m2319)
+            case "TABLE":
+                return AntennaFromTable(antenna_params.table)
             case _:
                 raise ValueError(
                     f"Antenna factory does not support pattern {

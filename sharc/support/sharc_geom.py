@@ -1,6 +1,5 @@
 import numpy as np
 import shapely as shp
-import shapely.vectorized
 import pyproj
 import scipy.spatial.transform
 import typing
@@ -83,24 +82,24 @@ def get_rotation_matrix(around_z, around_y):
 
     Returns
     -------
-    np.matrix
+    np.ndarray
         The combined rotation matrix.
     """
     alpha = np.deg2rad(around_z)
     beta = np.deg2rad(around_y)
 
-    ry = np.matrix([
+    ry = np.array([
         [np.cos(beta), 0.0, np.sin(beta)],
         [0.0, 1.0, 0.0],
         [-np.sin(beta), 0.0, np.cos(beta)],
     ])
-    rz = np.matrix([
+    rz = np.array([
         [np.cos(alpha), -np.sin(alpha), 0.0],
         [np.sin(alpha), np.cos(alpha), 0.0],
         [0.0, 0.0, 1.0],
     ])
 
-    return rz * ry
+    return rz @ ry
 
 
 def rotate_angles_based_on_new_nadir(elev, azim, nadir_elev, nadir_azim):
@@ -146,7 +145,7 @@ def rotate_angles_based_on_new_nadir(elev, azim, nadir_elev, nadir_azim):
     phi_rad = np.ravel(np.array([np.deg2rad(phi)]))
     theta_rad = np.ravel(np.array([np.deg2rad(theta)]))
 
-    points = np.matrix([
+    points = np.array([
         np.sin(theta_rad) * np.cos(phi_rad),
         np.sin(theta_rad) * np.sin(phi_rad),
         np.cos(theta_rad),
@@ -694,7 +693,7 @@ def generate_grid_in_polygon(
     # we buffer the polygon very slightly to include points
     # right on the border of the polygon
     polygon = polygon.buffer(1e-9)
-    msk = shp.vectorized.contains(polygon, xt, yt)
+    msk = shp.contains_xy(polygon, xt, yt)
     xt = xt[msk]
     yt = yt[msk]
 

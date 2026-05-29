@@ -349,13 +349,13 @@ class AntennaBeamformingImt(Antenna):
         phi_rad = np.ravel(np.array([np.deg2rad(phi)]))
         theta_rad = np.ravel(np.array([np.deg2rad(theta)]))
 
-        points = np.matrix([
+        points = np.array([
             np.sin(theta_rad) * np.cos(phi_rad),
             np.sin(theta_rad) * np.sin(phi_rad),
             np.cos(theta_rad),
         ])
 
-        rotated_points = self.rotation_mtx * points
+        rotated_points = self.rotation_mtx @ points
 
         lo_phi = np.ravel(
             np.asarray(
@@ -377,17 +377,17 @@ class AntennaBeamformingImt(Antenna):
         alpha = np.deg2rad(self.azimuth)
         beta = np.deg2rad(self.elevation)
 
-        ry = np.matrix([
+        ry = np.array([
             [np.cos(beta), 0.0, np.sin(beta)],
             [0.0, 1.0, 0.0],
             [-np.sin(beta), 0.0, np.cos(beta)],
         ])
-        rz = np.matrix([
+        rz = np.array([
             [np.cos(alpha), -np.sin(alpha), 0.0],
             [np.sin(alpha), np.cos(alpha), 0.0],
             [0.0, 0.0, 1.0],
         ])
-        self.rotation_mtx = ry * np.transpose(rz)
+        self.rotation_mtx = ry @ np.transpose(rz)
 
 ###############################################################################
 

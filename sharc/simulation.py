@@ -63,6 +63,8 @@ class Simulation(ABC, Observable):
             self.param_system = self.parameters.mss_ss
         elif self.parameters.general.system == "MSS_D2D":
             self.param_system = self.parameters.mss_d2d
+        elif self.parameters.general.system == "MSS_DC":
+            self.param_system = self.parameters.mss_dc
         else:
             sys.stderr.write(
                 "ERROR\nInvalid system: " +

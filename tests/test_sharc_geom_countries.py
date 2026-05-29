@@ -235,14 +235,20 @@ class TestLambertEqualAreaCRS(unittest.TestCase):
         poly = box(-48, -24, -46, -22)
         crs = get_lambert_equal_area_crs(poly)
         self.assertIsNotNone(crs)
-        crs_str = crs.to_proj4()
+        import warnings
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", UserWarning)
+            crs_str = crs.to_proj4()
         self.assertIn("+proj=laea", crs_str)
 
     def test_crs_contains_centroid_coords(self):
         """CRS proj4 should contain lat_0 and lon_0 near centroid."""
         poly = box(10, 40, 20, 50)
         crs = get_lambert_equal_area_crs(poly)
-        crs_str = crs.to_proj4()
+        import warnings
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", UserWarning)
+            crs_str = crs.to_proj4()
         self.assertIn("lat_0=45", crs_str)
         self.assertIn("lon_0=15", crs_str)
 

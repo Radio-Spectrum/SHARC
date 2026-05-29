@@ -83,20 +83,19 @@ class TopologyHotspot(Topology):
             for hs in range(self.param.num_hotspots_per_cell):
                 num_attempts = 0
                 while (True):
-                    # create one hotspot
-                    hotspot_radius = r * random_number_gen.rand(1)
-                    hotspot_angle = 2 * np.pi * random_number_gen.rand(1)
+                    hotspot_radius = r * random_number_gen.rand()
+                    hotspot_angle = 2 * np.pi * random_number_gen.rand()
                     candidate_x = hotspot_radius * \
                         np.cos(hotspot_angle) + macro_cell_x
                     candidate_y = hotspot_radius * \
                         np.sin(hotspot_angle) + macro_cell_y
-                    candidate_azimuth = 360 * random_number_gen.rand(1)
+                    candidate_azimuth = 360 * random_number_gen.rand()
                     if hs == 0:
                         # the candidate is valid if it is the first to be
                         # created
-                        hotspot_x = candidate_x
-                        hotspot_y = candidate_y
-                        hotspot_azimuth = candidate_azimuth
+                        hotspot_x = np.array([candidate_x])
+                        hotspot_y = np.array([candidate_y])
+                        hotspot_azimuth = np.array([candidate_azimuth])
                         break
                     else:
                         overlapping_hotspots = self.overlapping_hotspots(
@@ -119,14 +118,14 @@ class TopologyHotspot(Topology):
                             not overlapping_hotspots
                         ) and min_dist_validated
                         if candidate_valid:
-                            hotspot_x = np.concatenate(
-                                (hotspot_x, candidate_x),
+                            hotspot_x = np.append(
+                                hotspot_x, candidate_x,
                             )
-                            hotspot_y = np.concatenate(
-                                (hotspot_y, candidate_y),
+                            hotspot_y = np.append(
+                                hotspot_y, candidate_y,
                             )
-                            hotspot_azimuth = np.concatenate(
-                                (hotspot_azimuth, candidate_azimuth),
+                            hotspot_azimuth = np.append(
+                                hotspot_azimuth, candidate_azimuth,
                             )
                             break
                         else:
@@ -183,6 +182,16 @@ class TopologyHotspot(Topology):
         -------
             True if there is intersection between any two hotspots
         """
+        # Convert coordinate inputs to standard Python floats / lists of floats
+        # to ensure no 1D/ndim>0 arrays are passed to built-in math functions or Polygon constructors.
+        candidate_x = float(candidate_x.item()) if hasattr(candidate_x, "item") else float(candidate_x)
+        candidate_y = float(candidate_y.item()) if hasattr(candidate_y, "item") else float(candidate_y)
+        candidate_azimuth = float(candidate_azimuth.item()) if hasattr(candidate_azimuth, "item") else float(candidate_azimuth)
+
+        set_x = [float(x.item()) if hasattr(x, "item") else float(x) for x in set_x]
+        set_y = [float(y.item()) if hasattr(y, "item") else float(y) for y in set_y]
+        set_azimuth = [float(az.item()) if hasattr(az, "item") else float(az) for az in set_azimuth]
+
         # Each hotspot coverage area corresponds to a Polygon object
         # Creating the set of polygons
         set_polygons = list()

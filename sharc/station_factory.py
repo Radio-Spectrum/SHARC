@@ -788,6 +788,9 @@ class StationFactory(object):
         elif parameters.general.system == "MSS_D2D":
             return StationFactory.generate_mss_d2d(
                 parameters.mss_d2d, random_number_gen, coordinate_system)
+        elif parameters.general.system == "MSS_DC":
+            return StationFactory.generate_mss_d2d(
+                parameters.mss_dc, random_number_gen, coordinate_system)
         else:
             sys.stderr.write(
                 "ERROR\nInvalid system: " +

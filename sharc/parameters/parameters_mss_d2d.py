@@ -66,8 +66,8 @@ class ParametersMssD2d(ParametersBase):
     # Satellite tx power density in dBW/MHz
     tx_power_density: float = 40.0
 
-    # # Satellite Tx max Gain in dBi
-    # antenna_gain: float = 30.0
+    # Satellite Tx max Gain in dBi
+    antenna_gain: float = 30.0
 
     # Number of beams per satellite
     num_sectors: int = 19
@@ -85,6 +85,9 @@ class ParametersMssD2d(ParametersBase):
 
     sat_is_active_if: ParametersSelectActiveSatellite = field(
         default_factory=ParametersSelectActiveSatellite)
+
+    # Satellite antenna
+    antenna: ParametersAntenna = field(default_factory=ParametersAntenna)
 
     # paramters for channel model
     param_p619: ParametersP619 = field(default_factory=ParametersP619)
@@ -179,9 +182,24 @@ class ParametersMssD2d(ParametersBase):
         Propagate relevant parameters to nested antenna and beam positioning objects.
         """
         self.antenna.set_external_parameters(
+            pattern=self.antenna_pattern,
+            gain=self.antenna_gain,
             frequency=self.frequency,
             bandwidth=self.bandwidth,
         )
+
+        # Propagate S1528-specific fields from the top-level antenna_s1528 to the nested antenna
+        for attr in dir(self.antenna_s1528):
+            if not attr.startswith('_') and attr not in ['validate', 'load_parameters_from_file', 'load_from_parameters', 'section_name']:
+                val = getattr(self.antenna_s1528, attr)
+                if val is not None:
+                    if getattr(self.antenna.itu_r_s_1528, attr, None) is None:
+                        setattr(self.antenna.itu_r_s_1528, attr, val)
+
+        # Propagate to the redundant top-level antenna_s1528 for validation consistency
+        self.antenna_s1528.frequency = self.frequency
+        self.antenna_s1528.bandwidth = self.bandwidth
+        self.antenna_s1528.antenna_gain = self.antenna_gain
         if self.beam_positioning.service_grid.beam_radius is None:
             self.beam_positioning.service_grid.beam_radius = self.cell_radius
 

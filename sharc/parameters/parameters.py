@@ -46,6 +46,8 @@ class Parameters(object):
         self.metsat_ss = ParametersMetSatSS()
         self.mss_ss = ParametersMssSs()
         self.mss_d2d = ParametersMssD2d()
+        self.mss_dc = ParametersMssD2d()
+        self.mss_dc.section_name = "mss_dc"
 
     def set_file_name(self, file_name: str):
         """sets the configuration file name
@@ -125,7 +127,13 @@ class Parameters(object):
         # MSS_D2d
         #######################################################################
         self.mss_d2d.load_parameters_from_file(self.file_name)
+
+        #######################################################################
+        # MSS_DC
+        #######################################################################
+        self.mss_dc.load_parameters_from_file(self.file_name)
         self.single_space_station.load_parameters_from_file(self.file_name)
+
 
 
 if __name__ == "__main__":

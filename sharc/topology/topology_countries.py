@@ -81,7 +81,7 @@ class TopologyCountries(Topology):
         self.height = params.height
 
         p = self._resolve_asset(params.shapefile_path)
-        ne = self._load_countries_gdf(str(p))
+        ne = self._load_countries_gdf(str(p) if p is not None else None)
 
         if not params.country_names:
             raise ValueError("TopologyCountries: 'country_names' cannot be empty.")
@@ -131,7 +131,7 @@ class TopologyCountries(Topology):
                 raise ValueError("Provide either 'bs_per_country' or 'num_bs_total'.")
 
             p = self._resolve_asset(params.population_raster)
-            params.population_raster = (str(p))
+            params.population_raster = str(p) if p is not None else None
 
             if params.population_raster:
                 # Population-based allocation (physical totals; no gamma here)

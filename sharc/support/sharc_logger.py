@@ -3,6 +3,7 @@ import os
 import sys
 import yaml
 import logging
+import logging.config
 import subprocess
 from pathlib import Path
 from datetime import datetime
@@ -26,6 +27,14 @@ class Logging:
         if os.path.exists(path):
             with open(path, "rt") as f:
                 config = yaml.safe_load(f.read())
+
+            # Ensure output directories exist for file handlers
+            if "handlers" in config:
+                for handler_config in config["handlers"].values():
+                    if "filename" in handler_config:
+                        log_file = Path(handler_config["filename"])
+                        log_file.parent.mkdir(parents=True, exist_ok=True)
+
             logging.config.dictConfig(config)
         else:
             logging.basicConfig(level=default_level)

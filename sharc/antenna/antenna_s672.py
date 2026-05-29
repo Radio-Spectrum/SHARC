@@ -37,7 +37,7 @@ class AntennaS672(Antenna):
 
         self.b = 6.32
 
-        self.psi_0 = param.antenna_3_dB / 2
+        self.psi_0 = param.antenna_3_dB_bw / 2
         self.psi_1 = self.psi_0 * \
             np.power(10, (self.peak_gain + self.l_s + 20) / 25)
 

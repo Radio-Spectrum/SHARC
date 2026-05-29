@@ -3,22 +3,7 @@
 
 import numpy as np
 from sharc.antenna.antenna import Antenna
-from sharc.parameters.parameters_base import ParametersBase
-
-class ParametersRA(ParametersBase):
-    """
-    Minimal parameter holder for the RA antenna.
-    - gain_isotropic_dbi : G_RA,dBi  (isotropic gain offset, in dBi)
-    - phi_3db_deg        : φ_3dB     (3 dB beamwidth, in degrees)
-    """
-    gain_isotropic_dbi: float = 5
-    phi_3db_deg: float = 20
-    inband: bool = True
-
-    def validate(self, ctx: str):
-        super().validate(ctx)
-        if self.phi_3db_deg <= 0:
-            raise ValueError(f"{ctx}.phi_3db_deg must be > 0 (in degrees).")
+from sharc.parameters.antenna.parameters_antenna_ra_m2319 import ParametersAntennaRA
 
 class AntennaRA_M2319(Antenna):
     """
@@ -34,7 +19,7 @@ class AntennaRA_M2319(Antenna):
       clipping, apply np.maximum afterwards as required by your link budget.
     """
 
-    def __init__(self, param: ParametersRA):
+    def __init__(self, param: ParametersAntennaRA):
         super().__init__()
         if param.phi_3db_deg <= 0:
             raise ValueError("phi_3db_deg must be > 0 (in degrees).")
@@ -72,7 +57,7 @@ if __name__ == "__main__":
     import matplotlib.pyplot as plt
 
     # Example parameters: 3 dB beamwidth = 20 deg, isotropic offset = 5 dBi
-    p = ParametersRA
+    p = ParametersAntennaRA
     p.gain_isotropic_dbi=13.0
     p.phi_3db_deg=45.0
     p.inband = False

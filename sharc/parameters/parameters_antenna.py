@@ -4,7 +4,8 @@ from sharc.parameters.parameters_antenna_with_envelope_gain import ParametersAnt
 from sharc.parameters.antenna.parameters_antenna_s1528 import ParametersAntennaS1528
 from sharc.parameters.antenna.parameters_antenna_with_freq import ParametersAntennaWithFreq
 from sharc.parameters.imt.parameters_antenna_imt import ParametersAntennaImt
-from sharc.antenna.antenna_ra_m2319 import ParametersRA
+from sharc.parameters.antenna.parameters_antenna_ra_m2319 import ParametersAntennaRA
+from sharc.parameters.antenna.parameters_antenna_f1245_fs import ParametersAntennaF1245Fs
 
 from dataclasses import dataclass, field
 import typing
@@ -86,22 +87,12 @@ class ParametersAntenna(ParametersBase):
     itu_reg_rr_a7_3: ParametersAntennaWithDiameter = field(
         default_factory=ParametersAntennaWithDiameter,
     )
-    itu_ra_m2319: ParametersRA = field(
-        default_factory=ParametersRA,
+    itu_ra_m2319: ParametersAntennaRA = field(
+        default_factory=ParametersAntennaRA,
     )
 
-    @dataclass
-    class ParametersAntennaRF1245(ParametersBase):
-        gain: float = -25
-        diameter: float = None
-        frequency: float = None
-
-        def validate(self, ctx):
-            if None in [self.gain, self.diameter, self.frequency]:
-                raise ValueError(f"{ctx}.antenna_3_dB should be set to a number")
-       
-    itu_r_f_1245_fs: ParametersAntennaRF1245 = field(
-        default_factory=ParametersAntennaRF1245,
+    itu_r_f_1245_fs: ParametersAntennaF1245Fs = field(
+        default_factory=ParametersAntennaF1245Fs,
     )
 
     @dataclass
@@ -136,6 +127,11 @@ class ParametersAntenna(ParametersBase):
         **kwargs : dict
             External parameters to set on sub-parameters.
         """
+        for k, v in kwargs.items():
+            if hasattr(self, k) and not k.startswith('_'):
+                if getattr(self, k) is None:
+                    setattr(self, k, v)
+
         attr_list = [a for a in dir(self) if not a.startswith(
             '__') and isinstance(getattr(self, a), ParametersBase)]
 
@@ -144,10 +140,12 @@ class ParametersAntenna(ParametersBase):
 
             for k, v in kwargs.items():
                 if k in dir(param):
-                    setattr(param, k, v)
+                    if getattr(param, k) is None:
+                        setattr(param, k, v)
 
             if "antenna_gain" in dir(param):
-                param.antenna_gain = self.gain
+                if getattr(param, "antenna_gain") is None:
+                    param.antenna_gain = self.gain
 
     def load_parameters_from_file(self, config_file):
         """

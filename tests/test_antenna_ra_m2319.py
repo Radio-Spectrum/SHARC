@@ -7,14 +7,15 @@ import unittest
 import numpy as np
 import numpy.testing as npt
 
-from sharc.antenna.antenna_ra_m2319 import AntennaRA_M2319, ParametersRA
+from sharc.antenna.antenna_ra_m2319 import AntennaRA_M2319
+from sharc.parameters.antenna.parameters_antenna_ra_m2319 import ParametersAntennaRA
 
 
 class TestAntennaRAM2319Inband(unittest.TestCase):
     """Tests for in-band mode of the M.2319 antenna."""
 
     def setUp(self):
-        self.param = ParametersRA()
+        self.param = ParametersAntennaRA()
         self.param.gain_isotropic_dbi = 5.0
         self.param.phi_3db_deg = 20.0
         self.param.inband = True
@@ -67,7 +68,7 @@ class TestAntennaRAM2319Outband(unittest.TestCase):
     """Tests for out-of-band mode of the M.2319 antenna."""
 
     def setUp(self):
-        self.param = ParametersRA()
+        self.param = ParametersAntennaRA()
         self.param.gain_isotropic_dbi = 5.0
         self.param.phi_3db_deg = 20.0
         self.param.inband = False
@@ -98,14 +99,14 @@ class TestAntennaRAM2319Validation(unittest.TestCase):
 
     def test_invalid_phi_3db_raises(self):
         """phi_3db_deg <= 0 should raise ValueError."""
-        param = ParametersRA()
+        param = ParametersAntennaRA()
         param.phi_3db_deg = 0.0
         with self.assertRaises(ValueError):
             AntennaRA_M2319(param)
 
     def test_negative_phi_3db_raises(self):
         """Negative phi_3db_deg should raise ValueError."""
-        param = ParametersRA()
+        param = ParametersAntennaRA()
         param.phi_3db_deg = -10.0
         with self.assertRaises(ValueError):
             AntennaRA_M2319(param)

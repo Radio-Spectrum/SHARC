@@ -1626,7 +1626,6 @@ class PropagationClearAir(Propagation):
         rx_gain = np.ravel(rx_gain)
 
         # Modify the path according to Section 4.5.4, Step 1  and compute clutter losses
-        # consider no obstacles profile
 
         terrain_d = getattr(self.model_params, "terrain_d", None)
         terrain_h = getattr(self.model_params, "terrain_h", None)
@@ -1645,7 +1644,6 @@ class PropagationClearAir(Propagation):
             num_links = distance.shape[1]
             profile_length = profile_d.size
 
-            # ⭐ orientação correta
             d = np.zeros((num_links, profile_length), dtype=float)
             h = np.zeros((num_links, profile_length), dtype=float)
 
@@ -1686,7 +1684,7 @@ class PropagationClearAir(Propagation):
             rng = np.random.default_rng()
 
             total_dist = float(np.min(distance))    # use shortest path as reference
-            while True:   # <-- loop gerador até passar no critério
+            while True:
 
                 d_vals = [0.0]
                 h_vals = [0.0]
@@ -1694,7 +1692,6 @@ class PropagationClearAir(Propagation):
                 # Generate a single profile realization
                 while d_vals[-1] < total_dist:
 
-                    # distance step (lognormal, matching Matlab)
                     step = rng.lognormal(mean=mu_d, sigma=sigma_d)
                     next_d = d_vals[-1] + step
 
@@ -1712,19 +1709,12 @@ class PropagationClearAir(Propagation):
                     h_sample = mu_h + sigma_h * t_sample
                     h_vals.append(h_sample)
 
-                # --------------------------
-                # Aqui está sua condição nova
-                # --------------------------
                 if len(d_vals) > 3:
-                    break   # OK → finaliza
-                
+                    break
+
             # Convert to arrays
             profile_d = np.array(d_vals, dtype=float)
             profile_h = np.array(h_vals, dtype=float)
-
-            # ============================================================
-            # 2) Repeat profile for all num_dists
-            # ============================================================
 
             num_dists = distance.size
             profile_length = len(profile_d)
@@ -1736,7 +1726,7 @@ class PropagationClearAir(Propagation):
                 d[ii, :] = profile_d
                 h[ii, :] = profile_h
                 d[ii, -1] = distance[0, ii]
-                h[ii, -1] = 0.0  # garante topo plano no final
+                h[ii, -1] = 0.0
         else:
             profile_length = 100
             num_dists = distance.size

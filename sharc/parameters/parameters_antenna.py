@@ -6,6 +6,7 @@ from sharc.parameters.antenna.parameters_antenna_s672 import ParametersAntennaS6
 from sharc.parameters.antenna.parameters_antenna_with_freq import ParametersAntennaWithFreq
 from sharc.parameters.imt.parameters_antenna_imt import ParametersAntennaImt
 from sharc.parameters.antenna.parameters_antenna_system4 import ParametersAntennaSystem4
+from sharc.parameters.antenna.parameters_antenna_from_table import ParametersAntennaFromTable
 
 from dataclasses import dataclass, field
 import typing
@@ -35,7 +36,8 @@ class ParametersAntenna(ParametersBase):
         "ITU-R F.1245_fs",
         "Cosine Antenna",
         "Antenna System3 OOB",
-        "Antenna System 4"]
+        "Antenna System 4",
+        "FROM TABLE"]
 
     # chosen antenna radiation pattern
     pattern: typing.Literal["OMNI",
@@ -55,7 +57,8 @@ class ParametersAntenna(ParametersBase):
                             "ITU-R F.1245_fs",
                             "Cosine Antenna",
                             "Antenna System3 OOB",
-                            "Antenna System 4"] = None
+                            "Antenna System 4",
+                            "FROM TABLE"] = None
 
     # antenna gain [dBi]
     gain: float = None
@@ -146,6 +149,10 @@ class ParametersAntenna(ParametersBase):
 
     antenna_system_4: ParametersAntennaSystem4 = field(
         default_factory=ParametersAntennaSystem4,
+    )
+
+    from_table: ParametersAntennaFromTable = field(
+        default_factory=ParametersAntennaFromTable,
     )
 
     def set_external_parameters(self, **kwargs):
@@ -261,6 +268,8 @@ class ParametersAntenna(ParametersBase):
                 pass
             case "Antenna System 4":
                 self.antenna_system_4.validate(f"{ctx}.antenna_system_4")
+            case "FROM TABLE":
+                self.from_table.validate(f"{ctx}.from_table")
             case _:
                 raise NotImplementedError(
                     "ParametersAntenna.validate does not implement this antenna validation!", )

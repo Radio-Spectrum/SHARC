@@ -18,6 +18,7 @@ from sharc.antenna.antenna_beamforming_imt import AntennaBeamformingImt
 from sharc.antenna.antenna_array import AntennaArray
 from sharc.support.geometry import SimulatorGeometry, RigidTransform
 from sharc.antenna.system_4_constants import taper_fn as sys4_taper_fn
+from sharc.antenna.antenna_from_table import AntennaFromTable
 
 import numpy as np
 
@@ -98,6 +99,8 @@ class AntennaFactory():
                     "Antenna System 4 requires two antenna instances and "
                     "should be created in station_factory.py"
                 )
+            case "FROM TABLE":
+                return AntennaFromTable(antenna_params.from_table)
             case _:
                 raise ValueError(
                     f"Antenna factory does not support pattern {

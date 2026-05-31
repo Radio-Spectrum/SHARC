@@ -530,10 +530,9 @@ class ParametersSelectActiveSatellite(ParametersBase):
                 raise ValueError(
                     f"{ctx}.minimum_elevation_from_es is not a number!"
                 )
-            if not (self.minimum_elevation_from_es >=
-                    0 and self.minimum_elevation_from_es < 90):
+            if not (-90 <= self.minimum_elevation_from_es < 90):
                 raise ValueError(
-                    f"{ctx}.minimum_elevation_from_es needs to be a number in interval [0, 90]")
+                    f"{ctx}.minimum_elevation_from_es needs to be a number in interval [-90, 90)")
 
         if "MAXIMUM_ELEVATION_FROM_ES" in self.conditions:
             if not isinstance(
@@ -544,10 +543,9 @@ class ParametersSelectActiveSatellite(ParametersBase):
                 raise ValueError(
                     f"{ctx}.maximum_elevation_from_es is not a number!"
                 )
-            if not (self.maximum_elevation_from_es >=
-                    0 and self.maximum_elevation_from_es < 90):
+            if not (-90 <= self.maximum_elevation_from_es < 90):
                 raise ValueError(
-                    f"{ctx}.maximum_elevation_from_es needs to be a number in interval [0, 90]")
+                    f"{ctx}.maximum_elevation_from_es needs to be a number in interval [-90, 90)")
             if "MINIMUM_ELEVATION_FROM_ES" in self.conditions:
                 if self.maximum_elevation_from_es < self.minimum_elevation_from_es:
                     raise ValueError(

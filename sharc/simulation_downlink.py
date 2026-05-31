@@ -582,12 +582,16 @@ class SimulationDownlink(Simulation):
                     # same for all beams
                     adj_loss = self.coupling_loss_oob_tx_inband_rx[np.ix_(active_beams, system_interfering)]
 
-                    # FIXME: for more than 1 sys
-                    # NOTE: sharc impl already doesn't really work with n_sys > 1
-                    # so more would have to be fixed before this
-                    assert np.all(adj_loss == adj_loss.flat[0])
-
-                    tx_oob_s = tx_oob - adj_loss[0, :]
+                    if adj_loss.size == 0:
+                        # No visible system station for this BS this snapshot —
+                        # contributes 0 interference, consistent with co-channel behaviour
+                        tx_oob_s = np.array([-np.inf])
+                    else:
+                        # FIXME: for more than 1 sys
+                        # NOTE: sharc impl already doesn't really work with n_sys > 1
+                        # so more would have to be fixed before this
+                        assert np.all(adj_loss == adj_loss.flat[0])
+                        tx_oob_s = tx_oob - adj_loss[0, :]
                 if self.param_system.adjacent_ch_reception != "OFF":
                     rx_oob_s = rx_oob - self.coupling_loss_imt_system_adjacent[active_beams, system_interfering]
                 else:

@@ -3,6 +3,7 @@
 """Implements ITU-R P.452 clear-air propagation model and related calculations."""
 import numpy as np
 from multipledispatch import dispatch
+from scipy.signal import find_peaks as _find_peaks
 
 from sharc.propagation.propagation import Propagation
 from sharc.station_manager import StationManager
@@ -13,6 +14,159 @@ from sharc.propagation.clear_air_452_aux import inv_cum_norm
 from sharc.support.enumerations import StationType
 from sharc.propagation.propagation_clutter_loss import PropagationClutterLoss
 from sharc.propagation.propagation_building_entry_loss import PropagationBuildingEntryLoss
+
+
+# Statistical terrain-profile parameters fitted from global DEM data.
+# - Height h_extrema = e_s[extrema] - median(e_s) (signed terrain height
+#   relative to the path median): Normal(mu_h, sigma_h). h_extrema is signed
+#   naturally — peaks above median (positive), valleys below median (negative).
+#   Generator samples h directly from rng.normal(mu_h, sigma_h) — no sign
+#   manipulation, no cumulative sum.
+# - Distance between peaks/valleys: lognormal in log-space (mu_d, sigma_d).
+# NOTE: WORLD and FINLAND values below are placeholders. Re-run
+# terain_data_cities.py and paste the Normal-fit height params (mu_h, sigma_h).
+TERRAIN_PROFILE_PARAMS = {
+    "WORLD": {
+        "mu_h": 0.0,        # TODO: refit Normal on signed h_extrema (WORLD)
+        "sigma_h": 30.0,    # TODO
+        "rho_h_1": 0.5,     # TODO: AR(2) lag-1 autocorrelation
+        "rho_h_2": 0.25,    # TODO: AR(2) lag-2 autocorrelation
+        "mu_d": 1.06,
+        "sigma_d": 0.814,
+    },
+    "FINLAND": {
+        "mu_h": 5.0907,
+        "sigma_h": 43.7595,
+        "rho_h_1":0.5828,  # TODO: paste rho_h_1 from terain_data_cities.py
+        "rho_h_2": 0.7892,     # TODO: paste rho_h_2 from terain_data_cities.py
+        "mu_d": 0.7660,
+        "sigma_d": 0.6708,
+    },
+}
+
+
+def _filter_profile_via_peaks(d_vals, h_vals, grid_step_km=1.0):
+    """Apply find_peaks (same params as the terrain analysis pipeline) to a
+    piecewise-linear profile so its effective density of extrema matches what
+    real DEM analysis would produce.
+
+    Returns (d_filt, h_filt) including (0, 0) and (total_dist, 0) endpoints.
+    """
+    total_dist = float(d_vals[-1])
+    n_grid = max(2, int(np.round(total_dist / grid_step_km)) + 1)
+    d_grid = np.linspace(0.0, total_dist, n_grid)
+    h_grid = np.interp(d_grid, d_vals, h_vals)
+
+    relief = float(np.percentile(h_grid, 95) - np.percentile(h_grid, 5))
+    prom = max(5.0, 0.05 * relief)
+    dist_min = max(3, int(0.02 * n_grid))
+
+    peaks, _ = _find_peaks(h_grid, prominence=prom, distance=dist_min)
+    valleys, _ = _find_peaks(-h_grid, prominence=prom, distance=dist_min)
+    extrema = np.sort(np.concatenate([peaks, valleys]))
+
+    if extrema.size == 0:
+        return np.array([0.0, total_dist]), np.array([0.0, 0.0])
+
+    d_filt = np.concatenate([[0.0], d_grid[extrema], [total_dist]])
+    h_filt = np.concatenate([[0.0], h_grid[extrema], [0.0]])
+    # Deduplicate if an extremum lands exactly at an endpoint
+    _, unique_idx = np.unique(d_filt.round(6), return_index=True)
+    unique_idx = np.sort(unique_idx)
+    return d_filt[unique_idx], h_filt[unique_idx]
+
+
+def generate_terrain_profile(rng, total_dist_km, location="WORLD",
+                             apply_peak_filter=False, snap_to_grid_km=1.0):
+    """Generate a random terrain profile from the statistical model.
+
+    Spacings between consecutive peak/valley extrema follow lognormal(mu_d, sigma_d).
+    Each extremum's terrain height follows an AR(2) process that preserves the
+    Normal(mu_h, sigma_h) marginal while introducing spatial autocorrelation at
+    lags 1 and 2:
+        h_t = mu_h + phi_1*(h_{t-1}-mu_h) + phi_2*(h_{t-2}-mu_h) + sigma_eps*Z
+    where Z ~ N(0,1), and (phi_1, phi_2) come from Yule-Walker:
+        phi_2 = (rho_2 - rho_1^2) / (1 - rho_1^2)
+        phi_1 = rho_1 * (1 - phi_2)
+        sigma_eps^2 = sigma_h^2 * (1 - phi_1*rho_1 - phi_2*rho_2)
+    First two samples drawn from the marginal Normal(mu_h, sigma_h) so the
+    process is stationary from the start. Final point NOT forced to h=0.
+
+    apply_peak_filter : bool, default False
+        If True, the raw lognormal-generated profile is interpolated to a 1-km
+        grid and passed through find_peaks to thin out close-spaced or
+        low-magnitude extrema. Off by default — P.452 sees every generated
+        extremum, matching the unfiltered terrain analysis pipeline.
+    snap_to_grid_km : float, default 1.0
+        Discretizes each step to a multiple of this resolution (with a floor of
+        one grid cell). The lognormal was fit on integer-km dseg data (1-km DEM
+        sampling), so continuous sub-km steps would not survive the same 1-km
+        grid round-trip. Set to 0 to disable snapping.
+    """
+    if location not in TERRAIN_PROFILE_PARAMS:
+        raise ValueError(
+            f"Unknown location '{location}'. "
+            f"Valid: {list(TERRAIN_PROFILE_PARAMS.keys())}"
+        )
+    p = TERRAIN_PROFILE_PARAMS[location]
+
+    mu_h = float(p["mu_h"])
+    sigma_h = float(p["sigma_h"])
+    # AR(2) autocorrelations (back-compat: rho_h => rho_h_1, rho_h_2=0)
+    rho_1 = float(p.get("rho_h_1", p.get("rho_h", 0.0)))
+    rho_2 = float(p.get("rho_h_2", 0.0))
+    rho_1 = max(-0.999, min(0.999, rho_1))
+    rho_2 = max(-0.999, min(0.999, rho_2))
+    # Yule-Walker: derive AR(2) coefficients from autocorrelations
+    denom_yw = 1.0 - rho_1 ** 2
+    if abs(denom_yw) < 1e-9:
+        phi_1, phi_2 = rho_1, 0.0
+    else:
+        phi_2 = (rho_2 - rho_1 ** 2) / denom_yw
+        phi_1 = rho_1 * (1.0 - phi_2)
+    # Innovation std (clipped to keep AR(2) stable if Yule-Walker indicates non-stationary)
+    inn_var_fac = max(1.0 - phi_1 * rho_1 - phi_2 * rho_2, 1e-6)
+    sigma_eps = sigma_h * float(np.sqrt(inn_var_fac))
+
+    while True:
+        d_vals = [0.0]
+        h_vals = [0.0]
+        # Stationary init: (h_prev1, h_prev2) must have correlation rho_1
+        # so AR(2) is in stationary state from the very first generated sample.
+        h_prev2 = float(rng.normal(mu_h, sigma_h))
+        h_prev1 = (mu_h
+                   + rho_1 * (h_prev2 - mu_h)
+                   + sigma_h * float(np.sqrt(1.0 - rho_1 ** 2)) * float(rng.normal()))
+
+        while d_vals[-1] < total_dist_km:
+            step = rng.lognormal(mean=p["mu_d"], sigma=p["sigma_d"])
+            if snap_to_grid_km > 0:
+                step = max(snap_to_grid_km,
+                           snap_to_grid_km * float(np.round(step / snap_to_grid_km)))
+            next_d = d_vals[-1] + step
+            # AR(2) step: preserves Normal(mu_h, sigma_h) marginal with lag-1=rho_1, lag-2=rho_2
+            h_val = (mu_h
+                     + phi_1 * (h_prev1 - mu_h)
+                     + phi_2 * (h_prev2 - mu_h)
+                     + sigma_eps * float(rng.normal()))
+            if next_d >= total_dist_km:
+                d_vals.append(total_dist_km)
+                h_vals.append(h_val)   # last point NOT forced to 0
+                break
+            d_vals.append(next_d)
+            h_vals.append(h_val)
+            h_prev2 = h_prev1
+            h_prev1 = h_val
+
+        if len(d_vals) > 3:
+            break
+
+    raw_d = np.array(d_vals, dtype=float)
+    raw_h = np.array(h_vals, dtype=float)
+
+    if apply_peak_filter:
+        return _filter_profile_via_peaks(raw_d, raw_h)
+    return raw_d, raw_h
 
 
 class PropagationClearAir(Propagation):
@@ -252,8 +406,13 @@ class PropagationClearAir(Propagation):
         alpha_obr = max(HH[1:n - 1] / (dtot - d[1:n - 1]))  # Eq(165c)
 
         # Calculate provisional values for the Tx and Rx smooth surface heights
-        gt = alpha_obt / (alpha_obt + alpha_obr)  # Eq(166e)
-        gr = alpha_obr / (alpha_obt + alpha_obr)  # Eq(166f)
+        denom_ab = alpha_obt + alpha_obr
+        if denom_ab > 0:
+            gt = alpha_obt / denom_ab  # Eq(166e)
+            gr = alpha_obr / denom_ab  # Eq(166f)
+        else:
+            gt = 0.0
+            gr = 0.0
 
         if hobs <= 0:
             hstp = hst
@@ -672,8 +831,13 @@ class PropagationClearAir(Propagation):
         alpha_obr = max(HH[1:n - 1] / (dtot - d[1:n - 1]))  # Eq(165c)
 
         # Calculate provisional values for the Tx and Rx smooth surface heights
-        gt = alpha_obt / (alpha_obt + alpha_obr)  # Eq(166e)
-        gr = alpha_obr / (alpha_obt + alpha_obr)  # Eq(166f)
+        denom_ab = alpha_obt + alpha_obr
+        if denom_ab > 0:
+            gt = alpha_obt / denom_ab  # Eq(166e)
+            gr = alpha_obr / denom_ab  # Eq(166f)
+        else:
+            gt = 0.0
+            gr = 0.0
 
         if hobs <= 0:
             hstp = hst
@@ -1050,7 +1214,8 @@ class PropagationClearAir(Propagation):
 
         beta = b0 * mu2 * mu3
 
-        # beta = max(beta, eps); % to avoid division by zero
+        # Avoid divide-by-zero / overflow when mu2 or mu3 collapse to 0
+        beta = max(float(beta), np.finfo(float).eps)
 
         Gamma = 1.076 / (2.0058 - np.log10(beta)) ** 1.012 * np.exp(-(9.51 - 4.8 * \
                          np.log10(beta) + 0.198 * (np.log10(beta)) ** 2) * 1e-6 * dtot ** (1.13),)
@@ -1359,7 +1524,9 @@ class PropagationClearAir(Propagation):
             hse = hse / d
 
             # Calculate the required clearance for zero diffraction loss
-            hreq = 17.456 * np.sqrt(dse1 * dse2 * lamb / d)
+            # Guard against degenerate geometry (dse1*dse2 < 0 when b > 1)
+            sqrt_arg = float(dse1 * dse2 * lamb / d)
+            hreq = 17.456 * np.sqrt(max(sqrt_arg, 0.0))
 
             if hse > hreq:
                 Ldsph = np.array([0, 0])
@@ -1656,71 +1823,10 @@ class PropagationClearAir(Propagation):
 
             num_dists = distance.shape[1]
         elif self.model_params.is_terrain:
-            # --- RNG and distribution parameters ---------------------------------
             rng = np.random.default_rng()
-
-            # Height distribution: t-location-scale
-            # From your fit: μ, σ², ν  (adjust if your numbers change)
-            nu_h      = 1.525           # degrees of freedom
-            mu_h      = 0         # location [m]
-            sigma_h   = 24.52
-
-            # Distance between peaks/valleys: lognormal
-            # y(x) = 1/(x σ √(2π)) exp(-(log x - μ)²/(2σ²))
-            # Use the μ, σ² you fitted (careful with units: km vs m).
-            mu_d      = 1.06           # mean in log-space
-            sigma_d   = 0.814
-
-            # ----------------------------------------------------------------------
-            # Build random profiles: d[ii, :] and h[ii, :] for each link
-            #   - d starts at 0 and ends exactly at distance[0][ii]
-            #   - h starts at 0 and ends at 0
-            #   - intermediate h follow t-location-scale
-            #   - spacings follow lognormal
-            # ----------------------------------------------------------------------
-            num_dists = distance.size
-
-            profiles_d = []
-            profiles_h = []
-
-            rng = np.random.default_rng()
-
-            total_dist = float(np.min(distance))    # use shortest path as reference
-            while True:   # <-- loop gerador até passar no critério
-
-                d_vals = [0.0]
-                h_vals = [0.0]
-
-                # Generate a single profile realization
-                while d_vals[-1] < total_dist:
-
-                    # distance step (lognormal, matching Matlab)
-                    step = rng.lognormal(mean=mu_d, sigma=sigma_d)
-                    next_d = d_vals[-1] + step
-
-                    if next_d >= total_dist:
-                        # final point: snap exactly to total distance
-                        d_vals.append(total_dist)
-                        h_vals.append(0.0)
-                        break
-
-                    # add next segment
-                    d_vals.append(next_d)
-
-                    # height sample (t-location-scale)
-                    t_sample = rng.standard_t(df=nu_h)
-                    h_sample = mu_h + sigma_h * t_sample
-                    h_vals.append(h_sample)
-
-                # --------------------------
-                # Aqui está sua condição nova
-                # --------------------------
-                if len(d_vals) > 3:
-                    break   # OK → finaliza
-                
-            # Convert to arrays
-            profile_d = np.array(d_vals, dtype=float)
-            profile_h = np.array(h_vals, dtype=float)
+            location = getattr(self.model_params, "terrain_profile_location", "WORLD")
+            total_dist = float(np.min(distance))
+            profile_d, profile_h = generate_terrain_profile(rng, total_dist, location)
 
             # ============================================================
             # 2) Repeat profile for all num_dists
@@ -1900,7 +2006,12 @@ class PropagationClearAir(Propagation):
                 b0[ii],
             )
 
-            Lminbap = eta * np.log(np.exp(Lba / eta) + np.exp(Lb0p / eta))
+            # log-sum-exp stable form: eta*log(exp(a) + exp(b)) where a=Lba/eta, b=Lb0p/eta
+            # = m + eta*log1p(exp(-|a-b|)) with m = eta*max(a, b)
+            a = Lba / eta
+            b = Lb0p / eta
+            m_max = np.maximum(a, b)
+            Lminbap = eta * (m_max + np.log1p(np.exp(-np.abs(a - b))))
 
             # Calculate a notional basic transmission loss associated with diffraction
             # and LoS or ducting / layer reflection enhancements

@@ -43,6 +43,9 @@ class ParametersP452(ParametersBase):
     is_terrain: bool = False
     terrain_d = None
     terrain_h = None
+    # Statistical terrain-profile parameter set used when is_terrain=True and
+    # terrain_d/terrain_h are not provided. Valid values: "WORLD", "FINLAND".
+    terrain_profile_location: str = "WORLD"
 
     
     def load_from_paramters(self, param: ParametersBase):
@@ -67,3 +70,6 @@ class ParametersP452(ParametersBase):
         self.polarization = param.polarization
         self.clutter_loss = param.clutter_loss
         self.clutter_type = param.clutter_type
+        self.terrain_profile_location = getattr(
+            param, "terrain_profile_location", self.terrain_profile_location
+        )

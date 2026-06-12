@@ -16,7 +16,6 @@ from sharc.topology.topology_single_base_station import TopologySingleBaseStatio
 from sharc.topology.topology_countries import TopologyCountries
 from sharc.parameters.parameters import Parameters
 from sharc.support.sharc_geom import CoordinateSystem
-from sharc.support.sharc_geom_countries import GeometryConverter
 
 
 
@@ -61,11 +60,9 @@ class TopologyFactory(object):
                 coordinate_system
             )
         elif parameters.imt.topology.type == "MACRO_COUNTRIES":
-            geoconv = GeometryConverter()
-            geoconv.set_reference(coordinate_system.ref_lat, coordinate_system.ref_long, coordinate_system.ref_alt)
             return TopologyCountries(
                 parameters.imt.topology.macrocell_countries,
-                geometry_converter=geoconv
+                coordinate_system=coordinate_system
             )
         else:
             sys.stderr.write(

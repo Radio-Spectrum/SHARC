@@ -18,11 +18,11 @@ class ParametersCountries(ParametersBase):
       - cell_radius: cell radius (m) (size of the "pizza" in the plot)
       - countries_shapefile: path to countries shapefile (WGS84); if None, tries cartopy/geodatasets
       - population_raster: path to SEDAC raster (or equivalent). If None -> uniform distribution
-      - raster_encoding: "density" (value = hab/km²) or "indexed" (value 0-255 with log10 scale between sedac_min/sedac_max)
+      - raster_encoding: "density" (value = ppl/km²) or "indexed" (value 0-255 with log10 scale between sedac_min/sedac_max)
       - sedac_min, sedac_max: log scale limits for "indexed" raster (e.g.: 1 <-> 10^0 and 1e4 <-> 10^4)
       - mask_inland_water: if True, treats water values (0/nodata) as non-populated
       - dist_type: None|"Urban"|"Suburban"|"Rural" -> filters pixels by density range
-      - density_ranges: ranges (hab/km²) by type (used when dist_type is not None)
+      - density_ranges: ranges (ppl/km²) by type (used when dist_type is not None)
       - sector_half_bw_deg: sector half-width (deg) for the "pizza plot"
     """
     country_names: List[str] = field(

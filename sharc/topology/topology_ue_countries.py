@@ -8,6 +8,7 @@ from matplotlib.patches import Wedge
 from sharc.topology.topology import Topology
 # NOTE: we import the BS topology class you already built
 from sharc.topology.topology_countries import TopologyCountries
+from sharc.support.sharc_geom import CoordinateSystem
 
 WGS84_A = 6378137.0
 WGS84_F = 1.0 / 298.257223563
@@ -90,37 +91,27 @@ class TopologyUECountries(Topology):
             center = float(self.bs_topology.azimuth[i])
             theta = np.deg2rad(center + self.rng.uniform(half_bw, -half_bw, size=ue_per_bs))
             
-            lat = np.radians(self.bs_topology.lats[i])
-            lon = np.radians(self.bs_topology.lons[i])
+            cs = CoordinateSystem()
+            cs.set_reference(self.bs_topology.lats[i], self.bs_topology.lons[i], 0.0)
 
-            R_ecef_to_enu = np.array([
-                [-np.sin(lon), np.cos(lon), 0.0],
-                [-np.sin(lat) * np.cos(lon), -np.sin(lat) * np.sin(lon), np.cos(lat)],
-                [ np.cos(lat) * np.cos(lon), np.cos(lat) * np.sin(lon), np.sin(lat)]
-            ], dtype=float)
-            R_enu_to_ecef = np.linalg.inv(R_ecef_to_enu)
-
-            # ECEF vector (position or offset)
-            v_ecef = np.array([self.bs_topology.x[i], self.bs_topology.y[i], self.bs_topology.z[i]], dtype=float)
-
-            # Convert to ENU
-            v_enu = R_ecef_to_enu @ v_ecef       # shape (3,)
-            
             # Local offsets (meters)
             x_local = r * np.cos(theta)
             y_local = r * np.sin(theta)
-            z_local = np.full(ue_per_bs, h_mu, dtype=float) - self.bs_topology.height[0]
+            
+            # Convert BS ECEF to ENU
+            v_enu = cs.ecef2enu(self.bs_topology.x[i], self.bs_topology.y[i], self.bs_topology.z[i])
 
             for k in range(ue_per_bs):
-                    xg, yg, zg = v_enu[0] + x_local[k], v_enu[1] + y_local[k], v_enu[2] + z_local[k]
-                    v_eu_new = np.array([xg, yg, zg], dtype=float)
-                    v_ecef = R_enu_to_ecef @ v_eu_new
-                    xs[idx] = v_ecef[0]
-                    ys[idx] = v_ecef[1]
-                    zs[idx] = v_ecef[2]
-                    az[idx] = np.rad2deg(theta[k])
-                    latitude[idx], longitude[idx], height[idx] = self.ecef_to_lla(np.asarray(xs[idx], float), np.asarray(ys[idx], float), np.asarray(zs[idx], float))
-                    idx = idx + 1
+                # UE height is h_mu above Earth surface
+                v_ecef = cs.enu2ecef(v_enu[0] + x_local[k], v_enu[1] + y_local[k], h_mu).ravel()
+                xs[idx] = v_ecef[0]
+                ys[idx] = v_ecef[1]
+                zs[idx] = v_ecef[2]
+                az[idx] = np.rad2deg(theta[k])
+                latitude[idx], longitude[idx], height[idx] = self.ecef_to_lla(
+                    np.asarray(xs[idx], float), np.asarray(ys[idx], float), np.asarray(zs[idx], float)
+                )
+                idx = idx + 1
 
         self.x, self.y, self.z = xs, ys, zs
         self.azimuth = az
@@ -218,7 +209,7 @@ if __name__ == "__main__":
     import os
     from sharc.topology.topology_countries import TopologyCountries
     from sharc.parameters.imt.parameters_countries_imt import ParametersCountries
-    from sharc.support.sharc_geom_countries import GeometryConverter
+    from sharc.support.sharc_geom import CoordinateSystem
 
     # --------- User inputs ----------
       # ============ User-defined inputs ============
@@ -268,8 +259,8 @@ if __name__ == "__main__":
     ]
 
     # ============ Build topology ============
-    geoconv = GeometryConverter()
-    geoconv.set_reference(-15.793889, -47.882778, 0.0)  # Brasilia
+    coord_sys = CoordinateSystem()
+    coord_sys.set_reference(-15.793889, -47.882778, 0.0)  # Brasilia
 
     params = ParametersCountries(
         country_names=countries,
@@ -294,7 +285,7 @@ if __name__ == "__main__":
     )
 
     rng_bs = np.random.RandomState(rng_seed)
-    bs_topo = TopologyCountries(params, geoconv, random_number_gen=rng_bs).calculate_coordinates(random_number_gen=rng_bs)
+    bs_topo = TopologyCountries(params, coord_sys, random_number_gen=rng_bs).calculate_coordinates(random_number_gen=rng_bs)
 
     # --------- Build UE topology (Cartesian) ----------
     # UE params

@@ -14,7 +14,7 @@ from shapely.geometry import box, Polygon, MultiPolygon
 
 from sharc.topology.topology_countries import TopologyCountries, _WGS84_A, _WGS84_E2, _WGS84_F
 from sharc.parameters.imt.parameters_countries_imt import ParametersCountries
-from sharc.support.sharc_geom_countries import GeometryConverter
+from sharc.support.sharc_geom import CoordinateSystem
 
 
 class TestLlaToEcef(unittest.TestCase):
@@ -87,9 +87,9 @@ class TestGetDensityRange(unittest.TestCase):
             dist_density_min=dist_density_min,
             dist_density_max=dist_density_max,
         )
-        gc = GeometryConverter()
-        gc.set_reference(0, 0, 0)
-        return TopologyCountries(params, gc)
+        cs = CoordinateSystem()
+        cs.set_reference(0, 0, 0)
+        return TopologyCountries(params, cs)
 
     def test_urban(self):
         """dist_type='Urban' returns (1500, 10000)."""
@@ -181,9 +181,9 @@ class TestRandomPointsInPolygon(unittest.TestCase):
 
     def setUp(self):
         params = ParametersCountries(country_names=["Brazil"])
-        gc = GeometryConverter()
-        gc.set_reference(0, 0, 0)
-        self.topo = TopologyCountries(params, gc, np.random.RandomState(42))
+        cs = CoordinateSystem()
+        cs.set_reference(0, 0, 0)
+        self.topo = TopologyCountries(params, cs, np.random.RandomState(42))
 
     def test_correct_count(self):
         """Should generate exactly n points."""
@@ -214,10 +214,10 @@ class TestRandomPointsInPolygon(unittest.TestCase):
         """Same seed should produce same points."""
         poly = box(-50, -25, -40, -15)
         params = ParametersCountries(country_names=["Brazil"])
-        gc = GeometryConverter()
-        gc.set_reference(0, 0, 0)
-        t1 = TopologyCountries(params, gc, np.random.RandomState(42))
-        t2 = TopologyCountries(params, gc, np.random.RandomState(42))
+        cs = CoordinateSystem()
+        cs.set_reference(0, 0, 0)
+        t1 = TopologyCountries(params, cs, np.random.RandomState(42))
+        t2 = TopologyCountries(params, cs, np.random.RandomState(42))
         lons1, lats1 = t1._random_points_in_polygon(poly, 20)
         lons2, lats2 = t2._random_points_in_polygon(poly, 20)
         npt.assert_array_equal(lons1, lons2)
@@ -230,9 +230,9 @@ class TestTransformUeXyz(unittest.TestCase):
     def test_zero_offset(self):
         """Zero local offset should return BS position."""
         params = ParametersCountries(country_names=["Brazil"])
-        gc = GeometryConverter()
-        gc.set_reference(0, 0, 0)
-        topo = TopologyCountries(params, gc)
+        cs = CoordinateSystem()
+        cs.set_reference(0, 0, 0)
+        topo = TopologyCountries(params, cs)
         topo.x = np.array([1000.0, 2000.0])
         topo.y = np.array([3000.0, 4000.0])
         topo.z = np.array([5000.0, 6000.0])
@@ -245,9 +245,9 @@ class TestTransformUeXyz(unittest.TestCase):
     def test_nonzero_offset(self):
         """Non-zero offset should be added to BS position."""
         params = ParametersCountries(country_names=["Brazil"])
-        gc = GeometryConverter()
-        gc.set_reference(0, 0, 0)
-        topo = TopologyCountries(params, gc)
+        cs = CoordinateSystem()
+        cs.set_reference(0, 0, 0)
+        topo = TopologyCountries(params, cs)
         topo.x = np.array([1000.0])
         topo.y = np.array([2000.0])
         topo.z = np.array([3000.0])

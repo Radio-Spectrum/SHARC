@@ -30,7 +30,7 @@ from shapely.ops import unary_union
 from sharc.topology.topology import Topology
 from sharc.satellite.ngso.constants import EARTH_DEFAULT_CRS
 from sharc.parameters.imt.parameters_countries_imt import ParametersCountries
-from sharc.support.sharc_geom_countries import GeometryConverter
+from sharc.support.sharc_geom import CoordinateSystem
 import sharc
 
 _WGS84_A  = 6378137.0                 # semi-major axis [m]
@@ -44,15 +44,15 @@ class TopologyCountries(Topology):
 
     """
     Distributes BS positions across selected countries in WGS84 and converts to
-    .
+    simulation coordinates.
     """
 
     def __init__(self,
                  params: ParametersCountries,
-                 geometry_converter,
+                 coordinate_system: CoordinateSystem,
                  random_number_gen: np.random.RandomState | None = None):
         self.params = params
-        self.geometry_converter = geometry_converter
+        self.coordinate_system = coordinate_system
         self.rng = random_number_gen if random_number_gen is not None \
                    else np.random.RandomState()
 
@@ -792,10 +792,10 @@ if __name__ == "__main__":
         dist_type=dist_type,
     )
 
-    geoconv = GeometryConverter()
-    geoconv.set_reference(-15.793889, -47.882778, 0.0)
+    coord_sys = CoordinateSystem()
+    coord_sys.set_reference(-15.793889, -47.882778, 0.0)
     rng = np.random.RandomState(rng_seed)
-    topo = TopologyCountries(params, geoconv, random_number_gen=rng).calculate_coordinates(random_number_gen=rng)
+    topo = TopologyCountries(params, coord_sys, random_number_gen=rng).calculate_coordinates(random_number_gen=rng)
     
     # ============ Figure: Map (left) + BS-per-country (right) ============
     fig = plt.figure(figsize=(14, 9))

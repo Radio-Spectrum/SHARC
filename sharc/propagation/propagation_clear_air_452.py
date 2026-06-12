@@ -35,12 +35,12 @@ TERRAIN_PROFILE_PARAMS = {
         "sigma_d": 0.814,
     },
     "FINLAND": {
-        "mu_h": 5.0907,
-        "sigma_h": 43.7595,
-        "rho_h_1":0.5828,  # TODO: paste rho_h_1 from terain_data_cities.py
-        "rho_h_2": 0.7892,     # TODO: paste rho_h_2 from terain_data_cities.py
-        "mu_d": 0.7660,
-        "sigma_d": 0.6708,
+        "mu_h": 5.0112,
+        "sigma_h": 43.8416,
+        "rho_h_1": 0.5839,
+        "rho_h_2": 0.7896,
+        "mu_d": 0.7667,
+        "sigma_d": 0.6701,
     },
 }
 
@@ -131,12 +131,12 @@ def generate_terrain_profile(rng, total_dist_km, location="WORLD",
     while True:
         d_vals = [0.0]
         h_vals = [0.0]
-        # Stationary init: (h_prev1, h_prev2) must have correlation rho_1
-        # so AR(2) is in stationary state from the very first generated sample.
+        # Independent init from the marginal Normal(mu_h, sigma_h).
+        # Theoretically the stationary AR(2) joint would have Corr(h_prev1, h_prev2) = rho_1,
+        # but empirically the independent init gives a slight roughness to the first
+        # generated extrema that better matches real terrain at short distances.
         h_prev2 = float(rng.normal(mu_h, sigma_h))
-        h_prev1 = (mu_h
-                   + rho_1 * (h_prev2 - mu_h)
-                   + sigma_h * float(np.sqrt(1.0 - rho_1 ** 2)) * float(rng.normal()))
+        h_prev1 = float(rng.normal(mu_h, sigma_h))
 
         while d_vals[-1] < total_dist_km:
             step = rng.lognormal(mean=p["mu_d"], sigma=p["sigma_d"])

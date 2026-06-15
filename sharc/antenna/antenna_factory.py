@@ -19,6 +19,7 @@ from sharc.antenna.antenna_array import AntennaArray
 from sharc.support.geometry import SimulatorGeometry, RigidTransform
 from sharc.antenna.system_4_constants import taper_fn as sys4_taper_fn
 from sharc.antenna.antenna_from_table import AntennaFromTable
+from sharc.antenna.antenna_f1336 import AntennaF1336
 
 import numpy as np
 
@@ -101,6 +102,8 @@ class AntennaFactory():
                 )
             case "FROM TABLE":
                 return AntennaFromTable(antenna_params.from_table)
+            case "ITU-R F.1336":
+                return AntennaF1336(antenna_params.itu_r_f_1336)
             case _:
                 raise ValueError(
                     f"Antenna factory does not support pattern {

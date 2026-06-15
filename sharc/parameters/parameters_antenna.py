@@ -37,7 +37,8 @@ class ParametersAntenna(ParametersBase):
         "Cosine Antenna",
         "Antenna System3 OOB",
         "Antenna System 4",
-        "FROM TABLE"]
+        "FROM TABLE",
+        "ITU-R F.1336"]
 
     # chosen antenna radiation pattern
     pattern: typing.Literal["OMNI",
@@ -58,7 +59,8 @@ class ParametersAntenna(ParametersBase):
                             "Cosine Antenna",
                             "Antenna System3 OOB",
                             "Antenna System 4",
-                            "FROM TABLE"] = None
+                            "FROM TABLE",
+                            "ITU-R F.1336"] = None
 
     # antenna gain [dBi]
     gain: float = None
@@ -153,6 +155,54 @@ class ParametersAntenna(ParametersBase):
 
     from_table: ParametersAntennaFromTable = field(
         default_factory=ParametersAntennaFromTable,
+    )
+
+    @dataclass
+    class ParametersAntennaF1336(ParametersBase):
+        """
+        Parameters for ITU-R F.1336 antenna model.
+
+        Paremeters
+        ----------
+        gain : float, default=12
+            Antenna gain in dB.
+        k : float, optional
+            Accounts for side-lobe.
+        cable_loss : float, optional
+            Cable loss.
+        """
+        gain: float = 12.0
+        k: float = 0.7
+        cable_loss: float = 2.0
+
+        def validate(self, ctx):
+            """
+            Validate the antenna parameters for correctness.
+
+            Parameters
+            ----------
+            ctx : str
+                Context string for error messages.
+                
+            Raises
+            ------
+            ValueError
+                If any parameter is invalid.
+            """
+            if None in [self.gain, self.k, self.cable_loss]:
+                raise ValueError(
+                    f"{ctx}.(gain|k|cable_loss) need to be set to numbers"
+                )
+            
+            if self.k < 0:
+                raise ValueError(f"{ctx}.k needs to be a positive number")
+                
+            if getattr(super(), 'validate', None):
+                super().validate(ctx)
+
+
+    itu_r_f_1336: ParametersAntennaF1336 = field(
+        default_factory=ParametersAntennaF1336,
     )
 
     def set_external_parameters(self, **kwargs):
@@ -270,6 +320,8 @@ class ParametersAntenna(ParametersBase):
                 self.antenna_system_4.validate(f"{ctx}.antenna_system_4")
             case "FROM TABLE":
                 self.from_table.validate(f"{ctx}.from_table")
+            case "ITU-R F.1336":
+                self.itu_r_f_1336.validate(f"{ctx}.itu_r_f1336")
             case _:
                 raise NotImplementedError(
                     "ParametersAntenna.validate does not implement this antenna validation!", )

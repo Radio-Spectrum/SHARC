@@ -20,6 +20,7 @@ from sharc.parameters.parameters import Parameters
 from sharc.station_manager import StationManager
 from sharc.results import Results
 from sharc.propagation.propagation_factory import PropagationFactory
+from sharc.topology.topology_indoor import TopologyIndoor
 
 class Simulation(ABC, Observable):
     """
@@ -187,10 +188,18 @@ class Simulation(ABC, Observable):
             self.add_observer(o)
 
     def initialize_wifi(self, *args, **kwargs):
-        from sharc.topology.topology_hotspot import TopologyHotspot
-        self.system_topology = TopologyHotspot(self.param_system.topology.hotspot,
-                                               self.param_system.topology.hotspot.intersite_distance,
-                                               self.param_system.topology.hotspot.num_clusters)
+        if self.param_system.topology.type == "HOTSPOT":
+            from sharc.topology.topology_hotspot import TopologyHotspot
+            self.system_topology = TopologyHotspot(self.param_system.topology.hotspot,
+                                                self.param_system.topology.hotspot.intersite_distance,
+                                                self.param_system.topology.hotspot.num_clusters)
+        elif self.param_system.topology.type == "INDOOR_BUILDING":
+            from sharc.topology.topology_indoor_building import TopologyIndoorBuilding
+            self.system_topology = TopologyIndoorBuilding(self.param_system.topology.indoor, self.topology)
+        
+        else:
+            raise ValueError("Invalid system topology type")
+
         self.system_topology.calculate_coordinates()
 
         num_ap = self.system_topology.num_base_stations

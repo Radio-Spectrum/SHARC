@@ -23,7 +23,7 @@ class SystemWifi:
         self.parameters_antenna = param_ant_ap
         self.topology = topology
         self.topology.calculate_coordinates()
-        self.num_aps = self.topology.num_aps
+        self.num_aps = self.topology.num_base_stations
         self.num_sta = self.num_aps * self.parameters.sta.k * self.parameters.sta.k_m
 
         self.wrap_around_enabled = True

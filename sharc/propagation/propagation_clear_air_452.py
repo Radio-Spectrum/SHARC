@@ -4,6 +4,8 @@
 import numpy as np
 from multipledispatch import dispatch
 from scipy.signal import find_peaks as _find_peaks
+from scipy import stats as _spstats
+from scipy.optimize import brentq
 
 from sharc.propagation.propagation import Propagation
 from sharc.station_manager import StationManager
@@ -25,6 +27,16 @@ from sharc.propagation.propagation_building_entry_loss import PropagationBuildin
 # - Distance between peaks/valleys: lognormal in log-space (mu_d, sigma_d).
 # NOTE: WORLD and FINLAND values below are placeholders. Re-run
 # terain_data_cities.py and paste the Normal-fit height params (mu_h, sigma_h).
+#
+# OPTIONAL (better fit for skewed/heavy-tailed terrain like FRANCE):
+# replace mu_h/sigma_h by a Student-t MIXTURE marginal. Add a "components"
+# list (N_stu entries) and the generator switches to a Gaussian-copula path
+# that keeps the AR(2) rho_h_1/rho_h_2 autocorrelation:
+#     "components": [
+#         {"weight": 0.70, "mu": -45.0, "sigma": 30.0, "df": 5.0},
+#         {"weight": 0.30, "mu": 110.0, "sigma": 80.0, "df": 4.0},
+#     ],
+# Locations WITHOUT "components" keep the exact legacy Normal path (unchanged).
 TERRAIN_PROFILE_PARAMS = {
     "WORLD": {
         "mu_h": 0.0,        # TODO: refit Normal on signed h_extrema (WORLD)
@@ -41,6 +53,16 @@ TERRAIN_PROFILE_PARAMS = {
         "rho_h_2": 0.7896,
         "mu_d": 0.7667,
         "sigma_d": 0.6701,
+    },
+    "FRANCE": {
+        "components": [
+            {"weight": 0.6191, "mu": 3.314, "sigma": 48.203, "df": 5.319},
+            {"weight": 0.3809, "mu": 132.15, "sigma": 141.63, "df": 29.132},
+        ],
+        "rho_h_1": 0.85,
+        "rho_h_2": 0.8,
+        "mu_d": 0.7204,
+        "sigma_d": 0.7179,
     },
 }
 
@@ -76,6 +98,196 @@ def _filter_profile_via_peaks(d_vals, h_vals, grid_step_km=1.0):
     return d_filt[unique_idx], h_filt[unique_idx]
 
 
+def _height_components(p):
+    """Build the height marginal as a list of [weight, loc, scale, df].
+
+    New schema:
+        p["components"] = [{"weight":..,"mu":..,"sigma":..,"df":..}, ...]
+    where df may be omitted/inf for a Normal component. Returns None when the
+    location has no "components" key, signalling the caller to use the legacy
+    Normal AR(2) path (so existing locations stay byte-for-byte unchanged).
+    """
+    comps = p.get("components")
+    if not comps:
+        return None
+    out = []
+    wsum = 0.0
+    for c in comps:
+        w = float(c.get("weight", 1.0))
+        out.append([w, float(c["mu"]), float(c["sigma"]),
+                    float(c.get("df", np.inf))])
+        wsum += w
+    if wsum <= 0:
+        wsum = 1.0
+    for c in out:
+        c[0] /= wsum
+    return out
+
+
+def _mix_t_cdf(x, components):
+    """CDF of a Student-t (or Normal, df=inf) mixture."""
+    x = np.asarray(x, dtype=float)
+    out = np.zeros_like(x)
+    for w, loc, scale, df in components:
+        scale = max(scale, 1e-9)
+        if not np.isfinite(df):
+            out += w * _spstats.norm.cdf(x, loc=loc, scale=scale)
+        else:
+            out += w * _spstats.t.cdf((x - loc) / scale, df)
+    return out
+
+
+def _mix_t_ppf_grid(components, n_grid=8192, p_tail=1e-6):
+    """Precompute a monotone (cdf -> x) lookup for fast inverse-CDF sampling
+    of the height mixture (used by the Gaussian-copula generator)."""
+    los, his = [], []
+    for w, loc, scale, df in components:
+        scale = max(scale, 1e-9)
+        if not np.isfinite(df):
+            los.append(loc + scale * _spstats.norm.ppf(p_tail))
+            his.append(loc + scale * _spstats.norm.ppf(1.0 - p_tail))
+        else:
+            los.append(loc + scale * _spstats.t.ppf(p_tail, df))
+            his.append(loc + scale * _spstats.t.ppf(1.0 - p_tail, df))
+    lo, hi = float(min(los)), float(max(his))
+    xs = np.linspace(lo, hi, n_grid)
+    cdf = _mix_t_cdf(xs, components)
+    cdf = np.maximum.accumulate(cdf)  # enforce monotonicity for interp
+    return xs, cdf
+
+
+# Gauss-Hermite quadrature nodes/weights (deterministic) for the copula
+# correlation-inflation step, plus a per-location cache.
+_GH_NODES, _GH_WEIGHTS = np.polynomial.hermite.hermgauss(48)
+_INFLATION_CACHE = {}
+
+
+def _inflate_rhos(components, rho_1, rho_2, grid_xs, grid_cdf):
+    """NORTA correlation inflation.
+
+    The copula h = F_mix^{-1}(Phi(z)) attenuates correlation: a Gaussian
+    lag-k correlation r_z yields a smaller h-domain correlation g(r_z).
+    To make the generated h reproduce the TARGET rho_1/rho_2, we solve for the
+    inflated z-domain correlations r1_z, r2_z such that g(r1_z)=rho_1 and
+    g(r2_z)=rho_2. Result is cached per (components, rho_1, rho_2).
+    """
+    key = (tuple(round(v, 6) for c in components for v in c),
+           round(rho_1, 6), round(rho_2, 6))
+    cached = _INFLATION_CACHE.get(key)
+    if cached is not None:
+        return cached
+
+    xq = np.sqrt(2.0) * _GH_NODES                  # N(0,1) quadrature points
+    wq = _GH_WEIGHTS / np.sqrt(np.pi)              # normalized weights
+    H = np.interp(_spstats.norm.cdf(xq), grid_cdf, grid_xs)
+    EH = float(np.sum(wq * H))
+    varH = max(float(np.sum(wq * H * H)) - EH * EH, 1e-12)
+
+    def g(r):
+        r = max(-0.999, min(0.999, float(r)))
+        a = np.sqrt(max(1.0 - r * r, 0.0))
+        z2 = r * xq[:, None] + a * xq[None, :]
+        h2 = np.interp(_spstats.norm.cdf(z2.ravel()), grid_cdf, grid_xs).reshape(z2.shape)
+        eh1h2 = float(np.sum((wq[:, None] * wq[None, :]) * (H[:, None] * h2)))
+        return (eh1h2 - EH * EH) / varH
+
+    def solve(target):
+        t = float(target)
+        if t <= 0.0:                                # no inflation needed
+            return max(-0.95, min(0.95, t))
+        t = min(t, 0.95)
+        if g(0.999) <= t:                           # cannot reach target -> clip
+            return 0.999
+        try:
+            return float(brentq(lambda r: g(r) - t, t, 0.999))
+        except Exception:
+            return t
+
+    r1_z = solve(rho_1)
+    r2_z = solve(rho_2)
+    # Keep (r1_z, r2_z) inside the stationary AR(2) acf region.
+    r2_min = 2.0 * r1_z * r1_z - 1.0
+    if r2_z <= r2_min:
+        r2_z = r2_min + 1e-3
+    r2_z = max(-0.999, min(r2_z, 0.999))
+    _INFLATION_CACHE[key] = (r1_z, r2_z)
+    return (r1_z, r2_z)
+
+
+def _generate_terrain_profile_tmix(rng, total_dist_km, p, components,
+                                   apply_peak_filter, snap_to_grid_km):
+    """Terrain generator with a Student-t MIXTURE height marginal, keeping the
+    AR(2) lag-1/lag-2 spatial autocorrelation via a Gaussian copula:
+
+        z_t  ~ AR(2) on N(0,1) with lag-1=rho_1, lag-2=rho_2   (Yule-Walker)
+        h_t  = F_mix^{-1}( Phi(z_t) )
+
+    For a single Normal component this reduces exactly to the legacy path,
+    so behaviour for existing locations is unchanged.
+    """
+    rho_1 = float(p.get("rho_h_1", p.get("rho_h", 0.0)))
+    rho_2 = float(p.get("rho_h_2", 0.0))
+    rho_1 = max(-0.999, min(0.999, rho_1))
+    rho_2 = max(-0.999, min(0.999, rho_2))
+
+    # Tail coverage of the inverse-CDF grid caps how extreme a generated peak
+    # can be. With p_tail=1e-6 a heavy component (large sigma) extrapolates to
+    # absurd heights (km-tall obstacles) that over-predict diffraction loss.
+    # Default 1e-4; lower further (e.g. 1e-3) via "h_tail_p" to cap peaks more.
+    grid_xs, grid_cdf = _mix_t_ppf_grid(
+        components, p_tail=float(p.get("h_tail_p", 1e-4)))
+
+    # NORTA: inflate the z-domain acf so the copula output reproduces the
+    # TARGET h-domain rho_1/rho_2 (the nonlinear transform attenuates them).
+    r1_z, r2_z = _inflate_rhos(components, rho_1, rho_2, grid_xs, grid_cdf)
+    denom_yw = 1.0 - r1_z ** 2
+    if abs(denom_yw) < 1e-9:
+        phi_1, phi_2 = r1_z, 0.0
+    else:
+        phi_2 = (r2_z - r1_z ** 2) / denom_yw
+        phi_1 = r1_z * (1.0 - phi_2)
+    # AR(2) driven on the STANDARD normal (target marginal variance = 1)
+    inn_var_fac = max(1.0 - phi_1 * r1_z - phi_2 * r2_z, 1e-6)
+    sigma_eps_z = float(np.sqrt(inn_var_fac))
+
+    def h_of_z(z):
+        u = float(_spstats.norm.cdf(z))
+        return float(np.interp(u, grid_cdf, grid_xs))
+
+    while True:
+        d_vals = [0.0]
+        h_vals = [0.0]
+        z_prev2 = float(rng.normal())
+        z_prev1 = float(rng.normal())
+
+        while d_vals[-1] < total_dist_km:
+            step = rng.lognormal(mean=p["mu_d"], sigma=p["sigma_d"])
+            if snap_to_grid_km > 0:
+                step = max(snap_to_grid_km,
+                           snap_to_grid_km * float(np.round(step / snap_to_grid_km)))
+            next_d = d_vals[-1] + step
+            z_t = (phi_1 * z_prev1 + phi_2 * z_prev2
+                   + sigma_eps_z * float(rng.normal()))
+            h_val = h_of_z(z_t)
+            if next_d >= total_dist_km:
+                d_vals.append(total_dist_km)
+                h_vals.append(h_val)
+                break
+            d_vals.append(next_d)
+            h_vals.append(h_val)
+            z_prev2 = z_prev1
+            z_prev1 = z_t
+
+        if len(d_vals) > 3:
+            break
+
+    raw_d = np.array(d_vals, dtype=float)
+    raw_h = np.array(h_vals, dtype=float)
+    if apply_peak_filter:
+        return _filter_profile_via_peaks(raw_d, raw_h)
+    return raw_d, raw_h
+
+
 def generate_terrain_profile(rng, total_dist_km, location="WORLD",
                              apply_peak_filter=False, snap_to_grid_km=1.0):
     """Generate a random terrain profile from the statistical model.
@@ -109,6 +321,16 @@ def generate_terrain_profile(rng, total_dist_km, location="WORLD",
             f"Valid: {list(TERRAIN_PROFILE_PARAMS.keys())}"
         )
     p = TERRAIN_PROFILE_PARAMS[location]
+
+    # New: Student-t mixture marginal (e.g. FRANCE with N_stu=2) via Gaussian
+    # copula. Locations defined only by mu_h/sigma_h fall through to the exact
+    # legacy Normal AR(2) path below (FINLAND/WORLD stay unchanged).
+    _components = _height_components(p)
+    if _components is not None:
+        return _generate_terrain_profile_tmix(
+            rng, total_dist_km, p, _components,
+            apply_peak_filter, snap_to_grid_km,
+        )
 
     mu_h = float(p["mu_h"])
     sigma_h = float(p["sigma_h"])

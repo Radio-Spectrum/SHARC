@@ -44,6 +44,11 @@ class ParametersImt(ParametersBase):
     # Spectral mask used for the IMT system when adjacent_ch_emissions is set to "SPECTRAL_MASK"
     spectral_mask: str = "IMT-2020"
 
+    # NR bands-below-1-GHz Wide Area BS mask (used by the IMT-2020 mask when the
+    # BS center frequency is < 1 GHz). Emission limit category "A" or "B": sets
+    # both the OOB region (-13/-16) and the spurious limit (-13/-36 dBm/100kHz).
+    spectral_mask_category: str = "A"
+
     @dataclass
     class ParametersBS(ParametersBase):
         """Dataclass containing the IMT Base Station (BS) parameters."""
@@ -172,6 +177,11 @@ class ParametersImt(ParametersBase):
             raise ValueError(
                 f"""ParametersImt: Inavlid Spectral Mask Name {
                     self.spectral_mask}""", )
+        self.spectral_mask_category = str(self.spectral_mask_category).upper()
+        if self.spectral_mask_category not in ["A", "B"]:
+            raise ValueError(
+                "ParametersImt: Invalid spectral_mask_category "
+                f"{self.spectral_mask_category} (must be 'A' or 'B')")
         if self.adjacent_ch_reception not in ["ACS", "OFF"]:
             raise ValueError(
                 f"""ParametersImt: Invalid Adjacent Channel Reception model {

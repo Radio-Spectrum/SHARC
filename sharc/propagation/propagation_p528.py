@@ -90,13 +90,16 @@ class PropagationP528(Propagation):
 
         # Polarização e tempo (se vierem de ParametersP528)
         Tpol = params.single_space_station.param_p528.Tpol
-        p_time = params.single_space_station.param_p528.time_percentage
-        if params.single_space_station.param_p528.time_percentage == 'RANDOM':
-            p_time = 1 + 98 * self.random_number_gen.rand(distance.shape[1])   # (170,)
-            p_time = p_time[None, :]  
+        time_percentage = params.single_space_station.param_p528.time_percentage
+        if time_percentage == 'RANDOM':
+            # Uma porcentagem de tempo aleatória por estação_b (coluna),
+            # replicada para todas as linhas -> matriz (num_a, num_b).
+            p_col = 1.0 + 98.0 * self.random_number_gen.rand(distance.shape[1])
+            p_time = np.broadcast_to(p_col[None, :], distance.shape).copy()
         else:
-            p_time = float(params.single_space_station.param_p528.time_percentage) * np.ones(distance.size)
-
+            # Valor fixo com o mesmo shape de distance, para casar com a
+            # indexação booleana 2D feita no kernel (p_time[los_mask]).
+            p_time = np.full(distance.shape, float(time_percentage), dtype=float)
 
         return self.get_loss(
             distance, f_arr, hA_km, hB_km, indoor,
@@ -199,7 +202,7 @@ class PropagationP528(Propagation):
             # --- Step 3-12: Combine with absorption, FSPL and variability ----------------
             r_fsl = r1m + r2m + 2.0 * np.maximum(dk - (dr1m + dr2m), 0.0)
             Afs   = _fspl_dB(fm, np.maximum(r_fsl, dk))
-            Yp    = self._variability_long_term(p_time, dk, fm)
+            Yp    = self._variability_long_term(p_time[~los_mask], dk, fm)
             Lb[~los_mask] = Afs + Aa_m + AT + Yp
 
         # --- (Post) Finalization ---------------------------------------------------------

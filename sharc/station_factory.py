@@ -187,6 +187,7 @@ class StationFactory(object):
                 param.bandwidth,
                 param.spurious_emissions,
                 scenario=param.topology.type,
+                category=param.spectral_mask_category,
             )
         elif param.spectral_mask == "3GPP E-UTRA":
             imt_base_stations.spectral_mask = SpectralMask3Gpp(

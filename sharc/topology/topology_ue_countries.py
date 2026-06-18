@@ -35,7 +35,7 @@ class TopologyUECountries(Topology):
                  params: ParametersUECountries,
                  random_number_gen: Optional[np.random.RandomState] = None):
         # Inherit the cell radius & intersite distance directly from the BS topology
-        #super().__init__(bs_topology.intersite_distance, bs_topology.cell_radius)
+        super().__init__(bs_topology.intersite_distance, bs_topology.cell_radius)
         self.bs_topology = bs_topology
         self.params = params
         self.rng = random_number_gen if random_number_gen is not None \

@@ -36,6 +36,52 @@ class PropagationUMaTest(unittest.TestCase):
             atol=1e-2,
         )
 
+    def test_los_probability_row_oriented(self):
+        """Test the calculation of line-of-sight (LOS) probability when UEs are row-oriented."""
+        distance_2D = np.array([
+            [10, 15],
+            [17, 60],
+            [40, 80],
+        ])
+        h_ue = np.array([1.5, 8, 15])
+        # Expected:
+        # UT 0 (1.5m) and UT 1 (8m) have height <= 13 -> c_prime = 0
+        # UT 2 (15m) has height > 13 -> c_prime = ((15-13)/10)**1.5 = 0.2**1.5 ≈ 0.0894
+        c_prime = np.array([
+            [0.0, 0.0],
+            [0.0, 0.0],
+            [0.0894427, 0.0894427]
+        ])
+        
+        # We manually compute the expected p_los:
+        # For d2d <= 18: p_los = 1
+        # For d2d > 18:
+        # p_los = (18/d + exp(-d/63)*(1 - 18/d)) * (1 + 1.25 * c_prime * (d/100)**3 * exp(-d/150))
+        # UT 0: d=[10, 15] <= 18 -> p_los = [1.0, 1.0]
+        # UT 1: d=17 <= 18 -> 1.0, d=60 > 18 -> p_los[1, 1]
+        # UT 2: d=40 > 18, d=80 > 18 -> p_los[2, 0], p_los[2, 1]
+        expected_p_los = np.ones((3, 2))
+        
+        # d = 60 (UT 1, BS 1)
+        term1 = 18/60 + np.exp(-60/63)*(1 - 18/60)
+        expected_p_los[1, 1] = term1
+        
+        # d = 40 (UT 2, BS 0)
+        term1 = 18/40 + np.exp(-40/63)*(1 - 18/40)
+        term2 = 1 + 1.25 * c_prime[2, 0] * (40/100)**3 * np.exp(-40/150)
+        expected_p_los[2, 0] = term1 * term2
+        
+        # d = 80 (UT 2, BS 1)
+        term1 = 18/80 + np.exp(-80/63)*(1 - 18/80)
+        term2 = 1 + 1.25 * c_prime[2, 1] * (80/100)**3 * np.exp(-80/150)
+        expected_p_los[2, 1] = term1 * term2
+
+        npt.assert_allclose(
+            self.uma.get_los_probability(distance_2D, h_ue),
+            expected_p_los,
+            atol=1e-5,
+        )
+
     def test_breakpoint_distance(self):
         """Test the calculation of breakpoint distance for UMa scenario."""
         h_bs = np.array([15, 20, 25, 30])

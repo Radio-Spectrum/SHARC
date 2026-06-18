@@ -309,7 +309,10 @@ class PropagationUMa(Propagation):
         idc = np.where(h_ue > 13)[0]
 
         if len(idc):
-            c_prime[:, idc] = np.power((h_ue[idc] - 13) / 10, 1.5)
+            if distance_2D.shape[0] == len(h_ue):
+                c_prime[idc, :] = np.power((h_ue[idc] - 13) / 10, 1.5)[:, np.newaxis]
+            else:
+                c_prime[:, idc] = np.power((h_ue[idc] - 13) / 10, 1.5)
 
         p_los = np.ones(distance_2D.shape)
         idl = np.where(distance_2D > 18)

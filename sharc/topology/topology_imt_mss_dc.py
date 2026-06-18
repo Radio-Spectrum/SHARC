@@ -49,6 +49,7 @@ class TopologyImtMssDc(Topology):
         """
         # That means the we need to pass the groud reference points to the base
         # stations generator
+        super().__init__(intersite_distance=params.beam_radius * np.sqrt(3), cell_radius=params.beam_radius)
         self.is_space_station = True
         self.num_sectors = params.num_beams
 

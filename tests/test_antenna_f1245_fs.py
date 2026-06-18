@@ -8,12 +8,12 @@ import math
 import numpy as np
 import numpy.testing as npt
 
-from sharc.antenna.antenna_f1245_fs import Atenna_f1245_fs
+from sharc.antenna.antenna_f1245_fs import Antenna_f1245_fs
 from sharc.parameters.parameters_antenna import ParametersAntenna
 
 
 class _MockParam:
-    """Lightweight parameter mock for Atenna_f1245_fs.__init__."""
+    """Lightweight parameter mock for Antenna_f1245_fs.__init__."""
 
     def __init__(self, gain, frequency_mhz, diameter):
         self.gain = gain
@@ -22,12 +22,12 @@ class _MockParam:
 
 
 class TestAntennaF1245FsGreater(unittest.TestCase):
-    """Tests for Atenna_f1245_fs with d/λ > 100 (large antenna)."""
+    """Tests for Antenna_f1245_fs with d/λ > 100 (large antenna)."""
 
     def setUp(self):
         # D=5m, f=8000MHz => λ=0.0375m => d/λ = 133.3 > 100
         self.param = _MockParam(gain=40.0, frequency_mhz=8000, diameter=5.0)
-        self.antenna = Atenna_f1245_fs(self.param)
+        self.antenna = Antenna_f1245_fs(self.param)
         self.antenna.add_beam(0, 0)
 
     def test_d_lambda_greater_than_100(self):
@@ -76,12 +76,12 @@ class TestAntennaF1245FsGreater(unittest.TestCase):
 
 
 class TestAntennaF1245FsLess(unittest.TestCase):
-    """Tests for Atenna_f1245_fs with d/λ ≤ 100 (smaller antenna)."""
+    """Tests for Antenna_f1245_fs with d/λ ≤ 100 (smaller antenna)."""
 
     def setUp(self):
         # D=2m, f=8000MHz => λ=0.0375m => d/λ = 53.3 ≤ 100
         self.param = _MockParam(gain=35.0, frequency_mhz=8000, diameter=2.0)
-        self.antenna = Atenna_f1245_fs(self.param)
+        self.antenna = Antenna_f1245_fs(self.param)
         self.antenna.add_beam(0, 0)
 
     def test_d_lambda_less_or_equal_100(self):
@@ -121,7 +121,7 @@ class TestAntennaF1245FsBeams(unittest.TestCase):
 
     def setUp(self):
         self.param = _MockParam(gain=35.0, frequency_mhz=8000, diameter=2.0)
-        self.antenna = Atenna_f1245_fs(self.param)
+        self.antenna = Antenna_f1245_fs(self.param)
 
     def test_add_beam(self):
         """add_beam should grow the beams list."""

@@ -51,6 +51,7 @@ class TopologyCountries(Topology):
                  params: ParametersCountries,
                  coordinate_system: CoordinateSystem,
                  random_number_gen: np.random.RandomState | None = None):
+        super().__init__(intersite_distance=0.0, cell_radius=params.cell_radius)
         self.params = params
         self.coordinate_system = coordinate_system
         self.rng = random_number_gen if random_number_gen is not None \
@@ -680,7 +681,11 @@ class TopologyCountries(Topology):
             raise ValueError(f"Non-portable Windows Path on Linux: {p}")
 
         if not path.is_absolute():
-            sharc_root = Path(sharc.__file__).resolve().parent.parent
+            sharc_file = getattr(sharc, "__file__", None)
+            if sharc_file is not None:
+                sharc_root = Path(sharc_file).resolve().parent.parent
+            else:
+                sharc_root = Path(__file__).resolve().parent.parent.parent
             path = sharc_root / path
 
         return path

@@ -256,6 +256,35 @@ class TestTransformUeXyz(unittest.TestCase):
         self.assertEqual(x, 1010.0)
         self.assertEqual(y, 2020.0)
         self.assertEqual(z, 3030.0)
+class TestResolveAsset(unittest.TestCase):
+    """Tests for TopologyCountries._resolve_asset."""
+
+    def test_absolute_path(self):
+        from pathlib import Path
+        p = Path("/tmp/test_file.shp")
+        result = TopologyCountries._resolve_asset(p)
+        self.assertEqual(result, p)
+
+    def test_none_path(self):
+        self.assertIsNone(TopologyCountries._resolve_asset(None))
+
+    def test_relative_path(self):
+        from pathlib import Path
+        rel_path = "sharc/topology/map/ne_110m_admin_0_countries.shp"
+        result = TopologyCountries._resolve_asset(rel_path)
+        self.assertTrue(result.is_absolute())
+        self.assertTrue(result.exists())
+
+    def test_relative_path_sharc_file_none(self):
+        from pathlib import Path
+        import sharc
+        from unittest.mock import patch
+        
+        rel_path = "sharc/topology/map/ne_110m_admin_0_countries.shp"
+        with patch.object(sharc, "__file__", None):
+            result = TopologyCountries._resolve_asset(rel_path)
+            self.assertTrue(result.is_absolute())
+            self.assertTrue(result.exists())
 
 
 if __name__ == "__main__":

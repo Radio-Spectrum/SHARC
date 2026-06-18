@@ -54,16 +54,16 @@ class StationFactoryTest(unittest.TestCase):
         ntn_topology.calculate_coordinates()
         ntn_bs = StationFactory.generate_imt_base_stations(
             param_imt, param_imt.bs.antenna.array, ntn_topology, rng)
-        npt.assert_equal(ntn_bs.height, param_imt.topology.ntn.bs_height)
+        npt.assert_equal(ntn_bs.geom.z_global, param_imt.topology.ntn.bs_height)
         # the azimuth seen from BS antenna
         npt.assert_almost_equal(
-            ntn_bs.azimuth[0],
+            ntn_bs.geom.pointn_azim_global[0],
             param_imt.topology.ntn.bs_azimuth - 180,
             1e-3)
         # Elevation w.r.t to xy plane
-        npt.assert_almost_equal(ntn_bs.elevation[0], -45.0, 1e-2)
+        npt.assert_almost_equal(ntn_bs.geom.pointn_elev_global[0], -45.0, 1e-2)
         npt.assert_almost_equal(
-            ntn_bs.x, param_imt.topology.ntn.bs_height *
+            ntn_bs.geom.x_global, param_imt.topology.ntn.bs_height *
             np.tan(np.radians(param_imt.topology.ntn.bs_elevation)) *
             np.cos(np.radians(param_imt.topology.ntn.bs_azimuth)), 1e-2,
         )
@@ -101,7 +101,7 @@ class StationFactoryTest(unittest.TestCase):
         ntn_topology.calculate_coordinates()
         ntn_ue = StationFactory.generate_imt_ue_outdoor(
             param_imt, param_imt.ue.antenna.array, rng, ntn_topology)
-        dist = np.sqrt(ntn_ue.x**2 + ntn_ue.y**2)
+        dist = np.sqrt(ntn_ue.geom.x_global**2 + ntn_ue.geom.y_global**2)
         # test if the maximum distance is close to the cell radius within a
         # 100km range
         npt.assert_almost_equal(
@@ -138,16 +138,16 @@ class StationFactoryTest(unittest.TestCase):
         def get_ground_elevation(ss):
             return np.rad2deg(
                 np.arctan2(
-                    ss.height,
+                    ss.geom.z_global,
                     np.sqrt(
-                        ss.x**2 +
-                        ss.y**2)))
+                        ss.geom.x_global**2 +
+                        ss.geom.y_global**2)))
 
         space_station = StationFactory.generate_single_space_station(param)
 
         # test if the maximum distance is close to the cell radius within a
         # 100km range
-        npt.assert_almost_equal(space_station.height, param.geometry.altitude)
+        npt.assert_almost_equal(space_station.geom.z_global, param.geometry.altitude)
         npt.assert_almost_equal(get_ground_elevation(space_station), 90)
 
         param.geometry.es_lat_deg = max_gso_fov
@@ -155,7 +155,7 @@ class StationFactoryTest(unittest.TestCase):
         space_station = StationFactory.generate_single_space_station(param)
 
         npt.assert_almost_equal(get_ground_elevation(space_station), 0, 5)
-        npt.assert_almost_equal(space_station.height, 0, 0)
+        npt.assert_almost_equal(space_station.geom.z_global, 0, 0)
 
         param.geometry.es_lat_deg = 0
         param.geometry.es_long_deg = max_gso_fov
@@ -163,7 +163,7 @@ class StationFactoryTest(unittest.TestCase):
         space_station = StationFactory.generate_single_space_station(param)
 
         npt.assert_almost_equal(get_ground_elevation(space_station), 0, 5)
-        npt.assert_almost_equal(space_station.height, 0, 0)
+        npt.assert_almost_equal(space_station.geom.z_global, 0, 0)
 
         param.geometry.es_long_deg = 0
         param.geometry.location.fixed.lat_deg = max_gso_fov
@@ -171,14 +171,14 @@ class StationFactoryTest(unittest.TestCase):
         space_station = StationFactory.generate_single_space_station(param)
 
         npt.assert_almost_equal(get_ground_elevation(space_station), 0, 5)
-        npt.assert_almost_equal(space_station.height, 0, 0)
+        npt.assert_almost_equal(space_station.geom.z_global, 0, 0)
 
         param.geometry.location.fixed.lat_deg = 0
         param.geometry.location.fixed.long_deg = max_gso_fov
 
         space_station = StationFactory.generate_single_space_station(param)
         npt.assert_almost_equal(get_ground_elevation(space_station), 0, 5)
-        npt.assert_almost_equal(space_station.height, 0, 0)
+        npt.assert_almost_equal(space_station.geom.z_global, 0, 0)
 
     def test_single_space_station_pointing(self):
         """Basic test for space station generation."""
@@ -207,9 +207,11 @@ class StationFactoryTest(unittest.TestCase):
         param.validate()
 
         imt_center = StationManager(1)
-        imt_center.x = np.array([0.])
-        imt_center.y = np.array([0.])
-        imt_center.z = np.array([0.])
+        imt_center.geom.set_global_coords(
+            np.array([0.]),
+            np.array([0.]),
+            np.array([0.]),
+        )
 
         # Test point it toward IMT center (0, 0, 0)
         param.geometry.azimuth.type = "POINTING_AT_IMT"
@@ -217,7 +219,7 @@ class StationFactoryTest(unittest.TestCase):
 
         space_station = StationFactory.generate_single_space_station(param)
 
-        npt.assert_almost_equal(space_station.get_off_axis_angle(imt_center), 0, 5)
+        npt.assert_almost_equal(space_station.geom.get_off_axis_angle(imt_center.geom), 0, 5)
 
         # Test pointing it toward IMT center (0, 0, 0)
         # but in another way
@@ -229,16 +231,18 @@ class StationFactoryTest(unittest.TestCase):
 
         space_station = StationFactory.generate_single_space_station(param)
 
-        npt.assert_almost_equal(space_station.get_off_axis_angle(imt_center), 0, 5)
+        npt.assert_almost_equal(space_station.geom.get_off_axis_angle(imt_center.geom), 0, 5)
 
         # Test pointing it toward subsatellite.
         # In spherical earth model,
         # same as pointing toward center of earth
         center_of_earth = StationManager(1)
 
-        center_of_earth.x = np.array([0.])
-        center_of_earth.y = np.array([0.])
-        center_of_earth.z = -np.array([EARTH_RADIUS_M + 1200])
+        center_of_earth.geom.set_global_coords(
+            np.array([0.]),
+            np.array([0.]),
+            -np.array([EARTH_RADIUS_M + 1200]),
+        )
 
         param.geometry.azimuth.type = "POINTING_AT_LAT_LONG_ALT"
         param.geometry.elevation.type = "POINTING_AT_LAT_LONG_ALT"
@@ -248,7 +252,7 @@ class StationFactoryTest(unittest.TestCase):
 
         space_station = StationFactory.generate_single_space_station(param)
 
-        npt.assert_almost_equal(space_station.get_off_axis_angle(center_of_earth), 0, 5)
+        npt.assert_almost_equal(space_station.geom.get_off_axis_angle(center_of_earth.geom), 0, 5)
 
 
 if __name__ == '__main__':

@@ -1,21 +1,15 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Wed Apr 4 17:08:00 2018
-@author: Calil
-"""
 import matplotlib.pyplot as plt
 from sharc.antenna.antenna import Antenna
-from sharc.parameters.imt.parameters_imt import ParametersImt
-from sharc.parameters.imt.parameters_imt import ParametersImt
-from sharc.parameters.imt.parameters_antenna_imt import ParametersAntennaImt
-from sharc.parameters.parameters_antenna import ParametersAntenna
+from sharc.parameters.parameters_antenna_with_diameter import ParametersAntennaWithDiameter
 import numpy as np
 import math
 
 
-class Atenna_f1245_fs(Antenna):
+class Antenna_f1245_fs(Antenna):
+    """Class that implements the ITU-R F.1245 antenna pattern for fixed
+    satellite service earth stations."""
 
-    def __init__(self, param: ParametersImt):
+    def __init__(self, param: ParametersAntennaWithDiameter):
         super().__init__()
         self.peak_gain = param.gain
         lmbda = 3e8 / (param.frequency * 1e6)
@@ -40,16 +34,16 @@ class Atenna_f1245_fs(Antenna):
         np.array
             Calculated antenna gain values.
         """
-        #phi_vec = np.absolute(kwargs["phi_vec"])
-        #theta_vec = np.absolute(kwargs["theta_vec"])
-        #beams_l = np.absolute(kwargs["beams_l"])
+        # phi_vec = np.absolute(kwargs["phi_vec"])
+        # theta_vec = np.absolute(kwargs["theta_vec"])
+        # beams_l = np.absolute(kwargs["beams_l"])
         off_axis = np.absolute(kwargs["off_axis_angle_vec"])
         if self.d_lmbda > 100:
             gain = self.calculate_gain_greater(off_axis)
         else:
             gain = self.calculate_gain_less(off_axis)
-            #idx_max_gain = np.where(beams_l == -1)[0]
-            #gain = self.peak_gain
+            # idx_max_gain = np.where(beams_l == -1)[0]
+            # gain = self.peak_gain
         return gain
 
     def calculate_gain_greater(self, phi: float) -> np.array:
@@ -151,26 +145,25 @@ class Atenna_f1245_fs(Antenna):
 if __name__ == '__main__':
     off_axis_angle_vec = np.linspace(0.1, 180, num=1001)
     # initialize antenna parameters
-    param = ParametersAntenna()
+    param = ParametersAntennaWithDiameter()
     param.frequency = 2155
-    param_gt = ParametersAntennaImt()
     param.gain = 33.1
     param.diameter = 2
-    antenna_gt = Atenna_f1245_fs(param)
+    antenna_gt = Antenna_f1245_fs(param)
     antenna_gt.add_beam(0, 0)
     gain_gt = antenna_gt.calculate_gain(
         off_axis_angle_vec=off_axis_angle_vec,
     )
     param.diameter = 3
-    antenna_gt = Atenna_f1245_fs(param)
+    antenna_gt = Antenna_f1245_fs(param)
     gain_gt_3 = antenna_gt.calculate_gain(
         off_axis_angle_vec=off_axis_angle_vec,
-    )   
+    )
     param.diameter = 1.8
-    antenna_gt = Atenna_f1245_fs(param)
+    antenna_gt = Antenna_f1245_fs(param)
     gain_gt_18 = antenna_gt.calculate_gain(
         off_axis_angle_vec=off_axis_angle_vec,
-    )   
+    )
 
     fig = plt.figure(
         figsize=(8, 7), facecolor='w',
@@ -184,7 +177,7 @@ if __name__ == '__main__':
     plt.xlabel(r"Off-axis angle $\phi$ [deg]")
     plt.ylabel("Gain relative to $G_m$ [dB]")
     plt.legend(loc="lower left")
-    #plt.xlim((phi[0], phi[-1]))
+    # plt.xlim((phi[0], phi[-1]))
     plt.ylim((-20, 50))
     # ax = plt.gca()
     # ax.set_yticks([-30, -20, -10, 0])

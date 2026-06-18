@@ -11,6 +11,7 @@ from sharc.support.enumerations import StationType
 from sharc.station import Station
 from sharc.antenna.antenna import Antenna
 from sharc.mask.spectral_mask import SpectralMask
+from sharc.support.geometry import SimulatorGeometry
 
 _WGS84_A  = 6378137.0                 # semi-major axis [m]
 _WGS84_F  = 1.0 / 298.257223563
@@ -25,13 +26,8 @@ class StationManager(object):
 
     def __init__(self, n):
         self.num_stations = n
-        self.x = np.empty(n)  # x coordinate
-        self.y = np.empty(n)  # y coordinate
-        self.z = np.empty(n)  # z coordinate (includes height above ground)
         self.latitude = np.zeros(n, dtype=float)  # Latitude of station
         self.longitude = np.zeros(n, dtype=float)  # Longitude of Base Station
-        self.azimuth = np.empty(n)
-        self.elevation = np.empty(n)
         self.height = np.empty(n)  # station height above ground
         self.idx_orbit = np.empty(n)
         self.indoor = np.zeros(n, dtype=bool)
@@ -58,7 +54,49 @@ class StationManager(object):
         self.center_freq = np.empty(n)
         self.station_type = StationType.NONE
         self.is_space_station = False
+        self.geom = SimulatorGeometry(n)
+        self.max_earth_sta_interf_distance = np.inf
         self.intersite_dist = 0.0
+
+    @property
+    def x(self):
+        return self.geom.x_global
+
+    @x.setter
+    def x(self, value):
+        self.geom.set_global_coords(x=value)
+
+    @property
+    def y(self):
+        return self.geom.y_global
+
+    @y.setter
+    def y(self, value):
+        self.geom.set_global_coords(y=value)
+
+    @property
+    def z(self):
+        return self.geom.z_global
+
+    @z.setter
+    def z(self, value):
+        self.geom.set_global_coords(z=value)
+
+    @property
+    def azimuth(self):
+        return self.geom.pointn_azim_global
+
+    @azimuth.setter
+    def azimuth(self, value):
+        self.geom.set_global_coords(azim=value)
+
+    @property
+    def elevation(self):
+        return self.geom.pointn_elev_global
+
+    @elevation.setter
+    def elevation(self, value):
+        self.geom.set_global_coords(elev=value)
 
     def get_station_list(self, id=None) -> list:
         """Return a list of Station objects for the given indices.
@@ -95,11 +133,11 @@ class StationManager(object):
         """
         station = Station()
         station.id = id
-        station.x = self.x[id]
-        station.y = self.y[id]
-        station.z = self.z[id]
-        station.azimuth = self.azimuth[id]
-        station.elevation = self.elevation[id]
+        station.x = self.geom.x_global[id]
+        station.y = self.geom.y_global[id]
+        station.z = self.geom.z_global[id]
+        station.azimuth = self.geom.pointn_azim_global[id]
+        station.elevation = self.geom.pointn_elev_global[id]
         station.height = self.height[id]
         station.indoor = self.indoor[id]
         station.active = self.active[id]

@@ -101,11 +101,16 @@ class SimulationE2EAdjacentTest(unittest.TestCase):
 
         # replacing load parameters to be able to use parameters load validations
         # own load paarameters usage
-        ParametersBase.load_parameters_from_file = lambda x, y: None
+        self.original_load = ParametersBase.load_parameters_from_file
+        ParametersBase.load_parameters_from_file = lambda x, y=None: None
         self.param.imt.load_parameters_from_file("")
         self.param.imt.validate("imt")
         self.param.single_earth_station.load_parameters_from_file("")
         self.param.single_earth_station.validate("single_earth_station")
+
+    def tearDown(self):
+        """Restore the globally mocked method to prevent test pollution."""
+        ParametersBase.load_parameters_from_file = self.original_load
 
     def lin(self, dB):
         """Convert decibel (dB) values to linear scale."""

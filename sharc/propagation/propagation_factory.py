@@ -19,6 +19,7 @@ from sharc.propagation.propagation_uma import PropagationUMa
 from sharc.propagation.propagation_umi import PropagationUMi
 from sharc.propagation.propagation_abg import PropagationABG
 from sharc.propagation.propagation_clear_air_452 import PropagationClearAir
+from sharc.propagation.propagation_p1812 import PropagationP1812
 from sharc.propagation.propagation_tvro import PropagationTvro
 from sharc.propagation.propagation_indoor import PropagationIndoor
 from sharc.propagation.propagation_hdfss import PropagationHDFSS
@@ -97,6 +98,9 @@ class PropagationFactory(object):
         elif channel_model == "P452":
             return PropagationClearAir(
                 random_number_gen, param_system.param_p452)
+        elif channel_model == "P1812":
+            return PropagationP1812(
+                random_number_gen, param_system.param_p1812)
         elif channel_model == "TVRO-URBAN":
             return PropagationTvro(random_number_gen, "URBAN")
         elif channel_model == "TVRO-SUBURBAN":

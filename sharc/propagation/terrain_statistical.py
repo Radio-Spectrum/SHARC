@@ -135,6 +135,9 @@ class StatisticalTerrainModel:
         if self.smoothing_km > 0 and n_points > 2:
             step = total_km / (n_points - 1)
             win = int(round(self.smoothing_km / step))
+            # Cap the window to the profile length; np.convolve(mode="same")
+            # would otherwise return an array as long as the (larger) kernel.
+            win = min(win, n_points)
             if win > 1:
                 kernel = np.ones(win) / win
                 h_m = np.convolve(h_m, kernel, mode="same")

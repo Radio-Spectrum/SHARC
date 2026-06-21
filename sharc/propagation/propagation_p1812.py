@@ -790,13 +790,12 @@ class PropagationP1812(Propagation):
             index2 = kk[-1] if kk.size else 0
             hrgc = ha_r
 
-        # At least two points must remain between the clutter at both ends
+        # At least two points must remain between the clutter at both ends.
+        # On paths shorter than the clutter nominal distances the terminal
+        # clutter geometry does not apply: degrade gracefully to no clutter
+        # rather than failing (short links are common in Monte-Carlo sims).
         if index2 - index1 < 3:
-            error_message = (
-                "tl_p1812: clutter_correction: the sum of clutter nominal "
-                "distances is larger than the path length."
-            )
-            raise ValueError(error_message)
+            return d, h, htg, hrg, 0.0, 0.0
 
         dc = d[index1:index2 + 1] - d[index1]
         hc = h[index1:index2 + 1]

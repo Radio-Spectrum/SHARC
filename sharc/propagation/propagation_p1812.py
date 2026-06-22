@@ -91,11 +91,15 @@ class PropagationP1812(Propagation):
             self.stat_clutter = StatisticalClutterModel(
                 clutter_mu=model_params.stat_clutter_mu,
                 clutter_sigma=model_params.stat_clutter_sigma,
+                clutter_mu_slope_per_km=getattr(
+                    model_params, "stat_clutter_mu_slope_per_km", 0.0),
             )
 
-        # Per-link terrain profiles stashed by the high-level get_loss wrapper
-        # so the low-level (multipledispatch-bound) method can consume them.
+        # Per-link terrain profiles and terminal distances-from-centre stashed by
+        # the high-level get_loss wrapper so the low-level (multipledispatch-bound)
+        # method can consume them.
         self._terrain_profiles = None
+        self._link_center_dist = None
 
     def _station_lat_lon(self, station: StationManager):
         """Return per-station (latitude, longitude) arrays in degrees for SRTM sampling.
@@ -864,6 +868,17 @@ class PropagationP1812(Propagation):
                 for ii in range(station_b.num_stations)
             ]
 
+        # Per-terminal distance (km) from the IMT cluster centre (local origin),
+        # used by the distance-dependent statistical clutter model. ha_t pairs
+        # with the profile d=0 end (station_a), ha_r with the d=end (station_b).
+        if self.stat_clutter is not None:
+            dca = np.hypot(station_a.x, station_a.y) * 1e-3
+            dcb = np.hypot(station_b.x, station_b.y) * 1e-3
+            self._link_center_dist = [
+                (float(dca[0]), float(dcb[ii]))
+                for ii in range(station_b.num_stations)
+            ]
+
         try:
             return self.get_loss(
                 distance,
@@ -875,6 +890,7 @@ class PropagationP1812(Propagation):
             )
         finally:
             self._terrain_profiles = None
+            self._link_center_dist = None
 
     # pylint: disable=function-redefined
     # pylint: disable=arguments-differ
@@ -1034,10 +1050,17 @@ class PropagationP1812(Propagation):
 
             if clutter_mode == "terrain":
                 # Representative clutter heights: drawn per link from the
-                # statistical clutter model, or fixed from parameters.
+                # statistical clutter model (decaying with each terminal's
+                # distance from the cluster centre), or fixed from parameters.
                 if self.stat_clutter is not None:
-                    ha_t_i = float(self.stat_clutter.sample(self.random_number_gen))
-                    ha_r_i = float(self.stat_clutter.sample(self.random_number_gen))
+                    if self._link_center_dist is not None:
+                        dc_t, dc_r = self._link_center_dist[ii]
+                    else:
+                        dc_t = dc_r = 0.0
+                    ha_t_i = float(self.stat_clutter.sample(
+                        self.random_number_gen, distance_km=dc_t))
+                    ha_r_i = float(self.stat_clutter.sample(
+                        self.random_number_gen, distance_km=dc_r))
                 else:
                     ha_t_i = ha_t
                     ha_r_i = ha_r

@@ -30,9 +30,14 @@ CAMPINAS_TERRAIN = {
     "dist_mu": -0.652,      # underlying-normal mean of ln(distance/km)
     "dist_sigma": 0.720,    # underlying-normal std
 }
+# Distance-dependent clutter fitted from REAL land use (ESA WorldCover) along
+# 20x50 km radials around Campinas-SP. mu_ln(d) = mu + slope*d (d in km),
+# reproducing the urban -> suburban -> rural decay (median 8.4 m at the centre
+# down to ~3 m at 50 km).
 CAMPINAS_CLUTTER = {
-    "clutter_mu": 1.846,    # underlying-normal mean of ln(clutter/m)
-    "clutter_sigma": 1.179,
+    "clutter_mu": 2.1325,            # ln-median clutter at the cluster centre
+    "clutter_mu_slope_per_km": -0.02031,
+    "clutter_sigma": 1.2587,
 }
 
 # Published reference values from ITU-R WP5D 5D/1059 (Brazilian borders)
@@ -149,36 +154,52 @@ class StatisticalTerrainModel:
 
 
 class StatisticalClutterModel:
-    """Simple statistical clutter-over-terrain model (lognormal clutter heights).
+    """Distance-dependent statistical clutter-over-terrain model.
 
     Represents the representative clutter height ``R`` (m) around a terminal as a
-    lognormal random variable ``R = exp(N(mu, sigma))``. P.1812 uses ``R`` in the
-    representative-clutter height-gain correction (Section 4.7) at each terminal.
+    lognormal random variable whose location decays with the distance ``d`` (km)
+    from the IMT cluster centre:
+
+        R = exp( N( mu + slope*d, sigma ) )
+
+    This reproduces the real urban -> suburban -> rural clutter gradient (fitted
+    from ESA WorldCover land use). With ``slope = 0`` it reduces to a
+    distance-independent lognormal. P.1812 uses ``R`` in the representative-clutter
+    height-gain correction (Section 4.7) at each terminal.
 
     Parameters
     ----------
-    clutter_mu, clutter_sigma : float
-        Parameters of the underlying normal: clutter_height = exp(N(mu, sigma)).
+    clutter_mu : float
+        ln-location of the lognormal at the cluster centre (d = 0).
+    clutter_sigma : float
+        ln-scale (standard deviation) of the lognormal.
+    clutter_mu_slope_per_km : float
+        Linear decay of the ln-location with distance from the centre (per km).
     """
 
     def __init__(
         self,
         clutter_mu: float = CAMPINAS_CLUTTER["clutter_mu"],
         clutter_sigma: float = CAMPINAS_CLUTTER["clutter_sigma"],
+        clutter_mu_slope_per_km: float = CAMPINAS_CLUTTER["clutter_mu_slope_per_km"],
     ):
         self.clutter_mu = float(clutter_mu)
         self.clutter_sigma = float(clutter_sigma)
+        self.clutter_mu_slope_per_km = float(clutter_mu_slope_per_km)
 
-    def sample(self, rng: np.random.RandomState, size=None):
-        """Draw representative clutter height(s) in metres."""
-        return np.exp(rng.normal(self.clutter_mu, self.clutter_sigma, size=size))
+    def _mu(self, distance_km):
+        """ln-location at a given distance (km) from the cluster centre."""
+        return self.clutter_mu + self.clutter_mu_slope_per_km * np.asarray(
+            distance_km, dtype=float)
 
-    @property
-    def mean_m(self):
-        """Mean clutter height (m)."""
-        return float(np.exp(self.clutter_mu + 0.5 * self.clutter_sigma ** 2))
+    def sample(self, rng: np.random.RandomState, distance_km=0.0, size=None):
+        """Draw representative clutter height(s) (m) at a distance from the centre."""
+        return np.exp(rng.normal(self._mu(distance_km), self.clutter_sigma, size=size))
 
-    @property
-    def median_m(self):
-        """Median clutter height (m)."""
-        return float(np.exp(self.clutter_mu))
+    def median_m(self, distance_km=0.0):
+        """Median clutter height (m) at a distance from the centre."""
+        return float(np.exp(self._mu(distance_km)))
+
+    def mean_m(self, distance_km=0.0):
+        """Mean clutter height (m) at a distance from the centre."""
+        return float(np.exp(self._mu(distance_km) + 0.5 * self.clutter_sigma ** 2))

@@ -125,7 +125,8 @@ single_earth_station:
     azimuth:
       type: POINTING_AT_IMT_CENTER
     elevation:
-      type: POINTING_AT_IMT_CENTER
+      type: FIXED
+      fixed: 0.0
   antenna:
     pattern: ITU-R F.1245_fs
     gain: 36
@@ -153,7 +154,7 @@ single_earth_station:
     tx_lat: -22.90
     rx_lat: -22.90
     # --- Statistical terrain (Monte-Carlo synthetic profile) ---
-    terrain_profile: statistical
+    terrain_profile: statistical  # flat | statistical
     # Optional overrides of the fitted distributions (defaults = Campinas-SP):
     # stat_height_sigma_m: 36.27
     # stat_height_nu: 2.93
@@ -163,6 +164,10 @@ single_earth_station:
     # --- Clutter over terrain (statistical, instead of ITU-R P.2108) ---
     clutter_mode: terrain        # p2108 | terrain | none
     clutter_statistical: true    # draw representative clutter heights per link
-    # Optional overrides of the clutter lognormal (defaults = Campinas-SP):
-    # stat_clutter_mu: 1.846
-    # stat_clutter_sigma: 1.179
+    # Distance-dependent lognormal fitted from REAL land use (ESA WorldCover)
+    # over Campinas: clutter_m = exp(N(mu + slope*d, sigma)), d = terminal
+    # distance from the cluster centre (km). Defaults reproduce the urban->rural
+    # decay (median 8.4 m at centre -> ~3 m at 50 km). Override if desired:
+    # stat_clutter_mu: 2.1325
+    # stat_clutter_mu_slope_per_km: -0.02031
+    # stat_clutter_sigma: 1.2587

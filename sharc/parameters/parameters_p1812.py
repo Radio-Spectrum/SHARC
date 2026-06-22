@@ -107,10 +107,14 @@ class ParametersP1812(ParametersBase):
     # If True, the representative clutter heights at the terminals are drawn per
     # link from a lognormal model instead of the fixed repr_clutter_height_*.
     clutter_statistical: bool = False
-    # Lognormal parameters: clutter_height_m = exp(N(mu, sigma)).
-    # Defaults: values fitted from the Campinas-SP radials.
-    stat_clutter_mu: float = 1.846
-    stat_clutter_sigma: float = 1.179
+    # Distance-dependent lognormal: clutter_m = exp(N(mu + slope*d, sigma)),
+    # where d (km) is the terminal's distance from the IMT cluster centre.
+    # Defaults: fitted from REAL land use (ESA WorldCover) over Campinas-SP,
+    # reproducing the urban -> suburban -> rural decay (median 8.4 m at the
+    # centre down to ~3 m at 50 km). Set the slope to 0 for constant clutter.
+    stat_clutter_mu: float = 2.1325
+    stat_clutter_mu_slope_per_km: float = -0.02031
+    stat_clutter_sigma: float = 1.2587
 
     def load_from_paramters(self, param: ParametersBase):
         """Load the P.1812 parameters from an IMT or system parameters object.
@@ -159,4 +163,5 @@ class ParametersP1812(ParametersBase):
         self.stat_smoothing_km = param.stat_smoothing_km
         self.clutter_statistical = param.clutter_statistical
         self.stat_clutter_mu = param.stat_clutter_mu
+        self.stat_clutter_mu_slope_per_km = param.stat_clutter_mu_slope_per_km
         self.stat_clutter_sigma = param.stat_clutter_sigma

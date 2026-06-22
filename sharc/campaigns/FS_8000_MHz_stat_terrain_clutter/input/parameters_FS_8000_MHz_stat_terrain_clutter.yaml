@@ -1,0 +1,168 @@
+general:
+  seed: 566423
+  num_snapshots: 500
+  overwrite_output: false
+  output_dir: G:\Meu Drive\Projeto 6G\Sharc\SHARC\sharc\campaigns\FS_8000_MHz_stat_terrain_clutter\output
+  output_dir_prefix: FS_5km
+  system: SINGLE_EARTH_STATION
+  imt_link: DOWNLINK
+  enable_adjacent_channel: false
+  enable_cochannel: true
+imt:
+  minimum_separation_distance_bs_ue: 35.0
+  interfered_with: false
+  frequency: 8000
+  bandwidth: 100.0
+  rb_bandwidth: 0.18
+  spectral_mask: IMT-2020
+  spurious_emissions: -13.0
+  adjacent_antenna_model: ITU-R F.1336
+  guard_band_ratio: 0.0
+  topology:
+    # Centre of Campinas-SP (matches the region where the statistical terrain
+    # and clutter parameters were estimated).
+    central_latitude: -22.9048878490284
+    central_longitude: -47.06032221390534
+    central_altitude: 0
+    type: MACROCELL
+    macrocell:
+      intersite_distance: 600
+      wrap_around: false
+      num_clusters: 1
+  bs:
+    load_probability: 0.5
+    conducted_power: 22
+    height: 18
+    noise_figure: 6
+    ohmic_loss: 0
+    antenna:
+      array:
+        normalization: false
+        element_pattern: M2101
+        minimum_array_gain: -200
+        horizontal_beamsteering_range:
+        - -60.0
+        - 60.0
+        vertical_beamsteering_range:
+        - 90
+        - 100
+        downtilt: 6
+        element_max_g: 6.4
+        element_phi_3db: 90
+        element_theta_3db: 65.0
+        n_rows: 8
+        n_columns: 16
+        element_horiz_spacing: 0.5
+        element_vert_spacing: 2.1
+        element_am: 30.0
+        element_sla_v: 30.0
+        multiplication_factor: 12
+        subarray:
+          is_enabled: true
+          n_rows: 3
+          element_vert_spacing: 0.7
+          eletrical_downtilt: 3
+  ue:
+    k: 3
+    k_m: 1
+    indoor_percent: 70
+    distribution_type: UNIFORM_IN_CELL
+    tx_power_control: true
+    p_o_pusch: -92.2
+    alpha: 0.8
+    p_cmax: 23.0
+    power_dynamic_range: 56
+    height: 1.5
+    noise_figure: 13
+    ohmic_loss: 0
+    body_loss: 4
+    antenna:
+      array:
+        normalization: false
+        element_pattern: FIXED
+        minimum_array_gain: -200
+        element_max_g: -4
+        element_phi_3db: 180
+        element_theta_3db: 360
+        n_rows: 1.0
+        n_columns: 1.0
+        element_am: 25
+        element_sla_v: 25
+        multiplication_factor: 12
+  uplink:
+    attenuation_factor: 0.4
+    sinr_min: -10.0
+    sinr_max: 22
+  downlink:
+    attenuation_factor: 0.6
+    sinr_min: -10.0
+    sinr_max: 30.0
+  channel_model: UMa
+  shadowing: true
+single_earth_station:
+  frequency: 8000
+  bandwidth: 40
+  noise_temperature: 513
+  adjacent_ch_reception: 'OFF'
+  adjacent_ch_selectivity: 0.0
+  adjacent_ch_emissions: 'OFF'
+  adjacent_ch_leak_ratio: 0.0
+  spectral_mask: ''
+  spurious_emissions: -60.0
+  tx_power_density: -50.0
+  polarization_loss: 0.0
+  # Use ITU-R P.1812 (must match the param_p1812 block below)
+  channel_model: P1812
+  geometry:
+    height: 20
+    location:
+      type: UNIFORM_DIST
+      uniform_dist:
+        min_dist_to_center: 5000
+        max_dist_to_center: 5000
+    # ES antenna boresight tracks the IMT cluster centre (recomputed from the
+    # ES position each snapshot).
+    azimuth:
+      type: POINTING_AT_IMT_CENTER
+    elevation:
+      type: POINTING_AT_IMT_CENTER
+  antenna:
+    pattern: ITU-R F.1245_fs
+    gain: 36
+    itu_r_f_1245_fs:
+      gain: 36
+      diameter: 3
+      frequency: 8000
+  param_p1812:
+    # --- Atmosphere / radio-climate ---
+    atmospheric_pressure: 1017
+    air_temperature: 293.15
+    N0: 352.58
+    delta_N: 60
+    # --- Time/location percentages ---
+    percentage_p: 1          # PL not exceeded for 1% of time
+    location_percentage: 50  # PL50 (median locations)
+    location_variability_sigma: 0.0
+    # --- Geometry / polarization ---
+    polarization: horizontal
+    Dct: 100
+    Dcr: 101
+    Hte: 18                  # interfering antenna effective height (IMT BS)
+    Hre: 20                  # interfered-with antenna effective height (ES)
+    # Path-centre latitudes (for beta0); set to the deployment region (Campinas)
+    tx_lat: -22.90
+    rx_lat: -22.90
+    # --- Statistical terrain (Monte-Carlo synthetic profile) ---
+    terrain_profile: statistical
+    # Optional overrides of the fitted distributions (defaults = Campinas-SP):
+    # stat_height_sigma_m: 36.27
+    # stat_height_nu: 2.93
+    # stat_dist_mu: -0.652
+    # stat_dist_sigma: 0.720
+    # stat_smoothing_km: 1.6
+    # --- Clutter over terrain (statistical, instead of ITU-R P.2108) ---
+    clutter_mode: terrain        # p2108 | terrain | none
+    clutter_statistical: true    # draw representative clutter heights per link
+    # Optional overrides of the clutter lognormal (defaults = Campinas-SP):
+    # stat_clutter_mu: 1.846
+    # stat_clutter_sigma: 1.179

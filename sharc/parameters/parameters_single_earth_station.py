@@ -5,6 +5,7 @@ from sharc.parameters.parameters_base import ParametersBase
 from sharc.parameters.parameters_antenna import ParametersAntenna
 from sharc.parameters.parameters_p619 import ParametersP619
 from sharc.parameters.parameters_p452 import ParametersP452
+from sharc.parameters.parameters_p1812 import ParametersP1812
 from sharc.parameters.parameters_hdfss import ParametersHDFSS
 
 
@@ -72,7 +73,7 @@ class ParametersSingleEarthStation(ParametersBase):
     # Channel model, possible values are "FSPL" (free-space path loss), "P619"
     channel_model: typing.Literal[
         "FSPL", "P619",
-        "P452",
+        "P452", "P1812",
     ] = "FSPL"  # Channel model to be used
 
     param_p619: ParametersP619 = field(default_factory=ParametersP619)
@@ -80,6 +81,8 @@ class ParametersSingleEarthStation(ParametersBase):
     season: typing.Literal["WINTER", "SUMMER"] = "SUMMER"
 
     param_p452: ParametersP452 = field(default_factory=ParametersP452)
+
+    param_p1812: ParametersP1812 = field(default_factory=ParametersP1812)
 
     param_hdfss: ParametersHDFSS = field(default_factory=ParametersHDFSS)
 
@@ -94,8 +97,10 @@ class ParametersSingleEarthStation(ParametersBase):
         class FixedOrUniformDist(ParametersBase):
             """Represents a value that can be fixed or uniformly distributed."""
 
-            __EXISTING_TYPES = ["UNIFORM_DIST", "FIXED"]
-            type: typing.Literal["UNIFORM_DIST", "FIXED"] = None
+            __EXISTING_TYPES = ["UNIFORM_DIST", "FIXED", "POINTING_AT_IMT_CENTER"]
+            type: typing.Literal[
+                "UNIFORM_DIST", "FIXED", "POINTING_AT_IMT_CENTER",
+            ] = None
             fixed: float = None
 
             @dataclass
@@ -147,6 +152,11 @@ class ParametersSingleEarthStation(ParametersBase):
                                 self.fixed,
                                 float):
                             raise ValueError(f"{ctx}.fixed should be a number")
+                    case "POINTING_AT_IMT_CENTER":
+                        # Azimuth/elevation are computed at station generation
+                        # from the ES position toward the IMT cluster centre;
+                        # no extra parameters are required.
+                        pass
                     case _:
                         raise NotImplementedError(
                             f"Validation for {ctx}.type = {
@@ -336,10 +346,11 @@ class ParametersSingleEarthStation(ParametersBase):
             "FSPL",
             "P619",
             "P452",
+            "P1812",
             "TerrestrialSimple",
             "TVRO-URBAN",
                 "TVRO-SUBURBAN"]:
             raise ValueError(
                 f"{ctx}.channel_model" +
-                "needs to be in ['FSPL', 'P619', 'P452', 'TerrestrialSimple', 'TVRO-URBAN', 'TVRO-SUBURBAN']",
+                "needs to be in ['FSPL', 'P619', 'P452', 'P1812', 'TerrestrialSimple', 'TVRO-URBAN', 'TVRO-SUBURBAN']",
             )

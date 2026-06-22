@@ -1229,6 +1229,13 @@ class StationFactory(object):
                     param.geometry.azimuth.uniform_dist.min, param.geometry.azimuth.uniform_dist.max,
                 ),
             ])
+        elif param.geometry.azimuth.type == "POINTING_AT_IMT_CENTER":
+            # Boresight azimuth toward the IMT cluster centre (local origin),
+            # recomputed from the ES position (so it tracks the centre even
+            # when the location is randomly drawn each snapshot).
+            single_earth_station.azimuth = np.rad2deg(
+                np.arctan2(-single_earth_station.y, -single_earth_station.x),
+            )
         else:
             single_earth_station.azimuth = np.array(
                 [param.geometry.azimuth.fixed],
@@ -1240,6 +1247,16 @@ class StationFactory(object):
                     param.geometry.elevation.uniform_dist.min, param.geometry.elevation.uniform_dist.max,
                 ),
             ])
+        elif param.geometry.elevation.type == "POINTING_AT_IMT_CENTER":
+            # Elevation toward the IMT cluster centre on the ground (negative =
+            # looking slightly down from the ES height to the centre).
+            horiz_dist = np.sqrt(
+                single_earth_station.x ** 2 + single_earth_station.y ** 2,
+            )
+            gnd_elev = np.rad2deg(
+                np.arctan2(single_earth_station.z, horiz_dist),
+            )
+            single_earth_station.elevation = -gnd_elev
         else:
             single_earth_station.elevation = np.array(
                 [param.geometry.elevation.fixed],

@@ -31,13 +31,17 @@ CAMPINAS_TERRAIN = {
     "dist_sigma": 0.720,    # underlying-normal std
 }
 # Distance-dependent clutter fitted from REAL land use (ESA WorldCover) along
-# 20x50 km radials around Campinas-SP. mu_ln(d) = mu + slope*d (d in km),
-# reproducing the urban -> suburban -> rural decay (median 8.4 m at the centre
-# down to ~3 m at 50 km).
+# 20x50 km radials around Campinas-SP. The deterministic trend is an
+# exponential-with-floor fitted to the MEAN clutter height vs distance
+# (R^2 = 0.98): f(d) = C + (A - C) * exp(-d / d0_km); the random spread is a
+# multiplicative lognormal of log-std `sigma`. With target="mean" the model's
+# mean equals f(d) (mean 22.7 m at the centre decaying to a ~7.9 m rural floor).
 CAMPINAS_CLUTTER = {
-    "clutter_mu": 2.1325,            # ln-median clutter at the cluster centre
-    "clutter_mu_slope_per_km": -0.02031,
-    "clutter_sigma": 1.2587,
+    "trend_A": 22.68,        # mean clutter height at the cluster centre (m)
+    "trend_C": 7.90,         # rural floor mean clutter height (m)
+    "trend_d0_km": 5.97,     # decay scale (km)
+    "clutter_sigma": 1.238,  # log-std of the multiplicative spread
+    "target": "mean",
 }
 
 # Published reference values from ITU-R WP5D 5D/1059 (Brazilian borders)
@@ -156,50 +160,65 @@ class StatisticalTerrainModel:
 class StatisticalClutterModel:
     """Distance-dependent statistical clutter-over-terrain model.
 
-    Represents the representative clutter height ``R`` (m) around a terminal as a
-    lognormal random variable whose location decays with the distance ``d`` (km)
-    from the IMT cluster centre:
+    Decomposes the representative clutter height ``R`` (m) into a deterministic
+    distance trend times a multiplicative lognormal spread:
 
-        R = exp( N( mu + slope*d, sigma ) )
+        R(d) = f(d) * exp( N(0, sigma) ) / k        (k normalises to the target)
+        f(d) = C + (A - C) * exp(-d / d0)
 
-    This reproduces the real urban -> suburban -> rural clutter gradient (fitted
-    from ESA WorldCover land use). With ``slope = 0`` it reduces to a
-    distance-independent lognormal. P.1812 uses ``R`` in the representative-clutter
-    height-gain correction (Section 4.7) at each terminal.
+    where ``d`` (km) is the terminal's distance from the IMT cluster centre. The
+    exponential-with-floor trend ``f(d)`` is fitted to the clutter height vs
+    distance from real land cover; ``A`` is the central value, ``C`` the rural
+    floor and ``d0`` the decay scale. ``target`` selects whether ``f(d)`` is the
+    mean (``"mean"``) or the median (``"median"``) of ``R(d)``.
+
+    Implemented as a lognormal with location ``mu_ln(d) = ln f(d) - off``, where
+    ``off = sigma^2/2`` for ``target="mean"`` (so the mean equals ``f(d)``) and
+    ``off = 0`` for ``target="median"``.
 
     Parameters
     ----------
-    clutter_mu : float
-        ln-location of the lognormal at the cluster centre (d = 0).
+    trend_A, trend_C, trend_d0_km : float
+        Central value, rural floor and decay scale (km) of the trend ``f(d)``.
     clutter_sigma : float
-        ln-scale (standard deviation) of the lognormal.
-    clutter_mu_slope_per_km : float
-        Linear decay of the ln-location with distance from the centre (per km).
+        log-std of the multiplicative lognormal spread.
+    target : str
+        ``"mean"`` or ``"median"`` -- which statistic of ``R(d)`` equals ``f(d)``.
     """
 
     def __init__(
         self,
-        clutter_mu: float = CAMPINAS_CLUTTER["clutter_mu"],
+        trend_A: float = CAMPINAS_CLUTTER["trend_A"],
+        trend_C: float = CAMPINAS_CLUTTER["trend_C"],
+        trend_d0_km: float = CAMPINAS_CLUTTER["trend_d0_km"],
         clutter_sigma: float = CAMPINAS_CLUTTER["clutter_sigma"],
-        clutter_mu_slope_per_km: float = CAMPINAS_CLUTTER["clutter_mu_slope_per_km"],
+        target: str = CAMPINAS_CLUTTER["target"],
     ):
-        self.clutter_mu = float(clutter_mu)
+        self.trend_A = float(trend_A)
+        self.trend_C = float(trend_C)
+        self.trend_d0_km = float(trend_d0_km)
         self.clutter_sigma = float(clutter_sigma)
-        self.clutter_mu_slope_per_km = float(clutter_mu_slope_per_km)
+        self.target = str(target).lower()
+
+    def trend_m(self, distance_km=0.0):
+        """Deterministic trend f(d) (m): exponential decay to the rural floor."""
+        d = np.asarray(distance_km, dtype=float)
+        return self.trend_C + (self.trend_A - self.trend_C) * np.exp(-d / self.trend_d0_km)
 
     def _mu(self, distance_km):
-        """ln-location at a given distance (km) from the cluster centre."""
-        return self.clutter_mu + self.clutter_mu_slope_per_km * np.asarray(
-            distance_km, dtype=float)
+        """ln-location of the lognormal at a given distance (km)."""
+        f = np.maximum(self.trend_m(distance_km), 1e-3)
+        off = 0.5 * self.clutter_sigma ** 2 if self.target == "mean" else 0.0
+        return np.log(f) - off
 
     def sample(self, rng: np.random.RandomState, distance_km=0.0, size=None):
         """Draw representative clutter height(s) (m) at a distance from the centre."""
         return np.exp(rng.normal(self._mu(distance_km), self.clutter_sigma, size=size))
 
-    def median_m(self, distance_km=0.0):
-        """Median clutter height (m) at a distance from the centre."""
-        return float(np.exp(self._mu(distance_km)))
-
     def mean_m(self, distance_km=0.0):
         """Mean clutter height (m) at a distance from the centre."""
         return float(np.exp(self._mu(distance_km) + 0.5 * self.clutter_sigma ** 2))
+
+    def median_m(self, distance_km=0.0):
+        """Median clutter height (m) at a distance from the centre."""
+        return float(np.exp(self._mu(distance_km)))

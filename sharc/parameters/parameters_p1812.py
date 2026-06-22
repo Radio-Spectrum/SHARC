@@ -105,16 +105,20 @@ class ParametersP1812(ParametersBase):
 
     # --- Statistical clutter-over-terrain (used in clutter_mode "terrain") ---
     # If True, the representative clutter heights at the terminals are drawn per
-    # link from a lognormal model instead of the fixed repr_clutter_height_*.
+    # link from the distance-dependent model instead of the fixed
+    # repr_clutter_height_*.
     clutter_statistical: bool = False
-    # Distance-dependent lognormal: clutter_m = exp(N(mu + slope*d, sigma)),
+    # Distance-dependent clutter: deterministic exponential-with-floor trend
+    # f(d) = C + (A - C)*exp(-d/d0) times a multiplicative lognormal spread,
     # where d (km) is the terminal's distance from the IMT cluster centre.
-    # Defaults: fitted from REAL land use (ESA WorldCover) over Campinas-SP,
-    # reproducing the urban -> suburban -> rural decay (median 8.4 m at the
-    # centre down to ~3 m at 50 km). Set the slope to 0 for constant clutter.
-    stat_clutter_mu: float = 2.1325
-    stat_clutter_mu_slope_per_km: float = -0.02031
-    stat_clutter_sigma: float = 1.2587
+    # Defaults fitted from REAL land use (ESA WorldCover) over Campinas-SP
+    # (trend fitted to the MEAN, R^2=0.98): mean 22.7 m at the centre decaying
+    # to a ~7.9 m rural floor. stat_clutter_target = "mean" or "median".
+    stat_clutter_trend_A: float = 22.68
+    stat_clutter_trend_C: float = 7.90
+    stat_clutter_trend_d0_km: float = 5.97
+    stat_clutter_sigma: float = 1.238
+    stat_clutter_target: str = "mean"
 
     def load_from_paramters(self, param: ParametersBase):
         """Load the P.1812 parameters from an IMT or system parameters object.
@@ -162,6 +166,8 @@ class ParametersP1812(ParametersBase):
         self.stat_baseline_m = param.stat_baseline_m
         self.stat_smoothing_km = param.stat_smoothing_km
         self.clutter_statistical = param.clutter_statistical
-        self.stat_clutter_mu = param.stat_clutter_mu
-        self.stat_clutter_mu_slope_per_km = param.stat_clutter_mu_slope_per_km
+        self.stat_clutter_trend_A = param.stat_clutter_trend_A
+        self.stat_clutter_trend_C = param.stat_clutter_trend_C
+        self.stat_clutter_trend_d0_km = param.stat_clutter_trend_d0_km
         self.stat_clutter_sigma = param.stat_clutter_sigma
+        self.stat_clutter_target = param.stat_clutter_target

@@ -164,10 +164,13 @@ single_earth_station:
     # --- Clutter over terrain (statistical, instead of ITU-R P.2108) ---
     clutter_mode: terrain        # p2108 | terrain | none
     clutter_statistical: true    # draw representative clutter heights per link
-    # Distance-dependent lognormal fitted from REAL land use (ESA WorldCover)
-    # over Campinas: clutter_m = exp(N(mu + slope*d, sigma)), d = terminal
-    # distance from the cluster centre (km). Defaults reproduce the urban->rural
-    # decay (median 8.4 m at centre -> ~3 m at 50 km). Override if desired:
-    # stat_clutter_mu: 2.1325
-    # stat_clutter_mu_slope_per_km: -0.02031
-    # stat_clutter_sigma: 1.2587
+    # Distance-dependent clutter fitted from REAL land use (ESA WorldCover) over
+    # Campinas. Deterministic trend f(d) = C + (A-C)*exp(-d/d0) (fitted to the
+    # MEAN clutter height vs distance, R^2=0.98) times a multiplicative lognormal
+    # spread; d = terminal distance from the cluster centre (km). Defaults give
+    # mean 22.7 m at the centre decaying to a ~7.9 m rural floor. Override:
+    # stat_clutter_trend_A: 22.68
+    # stat_clutter_trend_C: 7.90
+    # stat_clutter_trend_d0_km: 5.97
+    # stat_clutter_sigma: 1.238
+    # stat_clutter_target: mean   # "mean" or "median"

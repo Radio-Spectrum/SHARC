@@ -89,10 +89,11 @@ class PropagationP1812(Propagation):
         self.stat_clutter = None
         if getattr(model_params, "clutter_statistical", False):
             self.stat_clutter = StatisticalClutterModel(
-                clutter_mu=model_params.stat_clutter_mu,
+                trend_A=model_params.stat_clutter_trend_A,
+                trend_C=model_params.stat_clutter_trend_C,
+                trend_d0_km=model_params.stat_clutter_trend_d0_km,
                 clutter_sigma=model_params.stat_clutter_sigma,
-                clutter_mu_slope_per_km=getattr(
-                    model_params, "stat_clutter_mu_slope_per_km", 0.0),
+                target=getattr(model_params, "stat_clutter_target", "mean"),
             )
 
         # Per-link terrain profiles and terminal distances-from-centre stashed by

@@ -86,31 +86,42 @@ def main():
         print(f"{edges[i]:4.0f}-{edges[i+1]:<4.0f} | {h[m].mean():6.2f} | "
               f"{np.median(h[m]):6.2f} | {dom}")
 
-    # Fit distance-dependent lognormal: regress ln(max(h,MIN_H)) on distance
-    hh = np.maximum(h, MIN_H)
-    lnh = np.log(hh)
-    A = np.vstack([np.ones_like(d), d]).T
-    (a, b), *_ = np.linalg.lstsq(A, lnh, rcond=None)
-    resid = lnh - (a + b * d)
-    sigma_ln = float(np.std(resid))
-    a, b = float(a), float(b)
+    # Deterministic trend f(d) = C + (A - C)*exp(-d/d0) fitted to the per-bin
+    # MEAN clutter height; multiplicative lognormal spread sigma from the
+    # log-residuals around the trend (Section: trend-then-spread approach).
+    from scipy.optimize import curve_fit
 
-    print("\nDistance-dependent lognormal clutter model (from real land use):")
-    print(f"  mu_ln(d) = {a:.4f} + ({b:.5f}) * d_km")
-    print(f"  sigma_ln = {sigma_ln:.4f}")
-    print(f"  -> median clutter @0 km : {np.exp(a):5.2f} m")
-    print(f"  -> median clutter @5 km : {np.exp(a + b*5):5.2f} m")
-    print(f"  -> median clutter @25km : {np.exp(a + b*25):5.2f} m")
-    print(f"  -> median clutter @50km : {np.exp(a + b*50):5.2f} m")
+    def trend(dist, A, C, d0):
+        return C + (A - C) * np.exp(-dist / d0)
+
+    (A, C, d0), _ = curve_fit(trend, np.array(centers), np.array(mean_h),
+                              p0=[18.0, 7.0, 8.0], maxfev=10000)
+    yhat = trend(np.array(centers), A, C, d0)
+    r2 = float(1 - np.sum((np.array(mean_h) - yhat) ** 2) /
+               np.sum((np.array(mean_h) - np.mean(mean_h)) ** 2))
+    ft = trend(d, A, C, d0)
+    sigma_ln = float(np.std(np.log(np.maximum(h, MIN_H)) - np.log(np.maximum(ft, MIN_H))))
+    A, C, d0 = float(A), float(C), float(d0)
+
+    print("\nDistance-dependent clutter model (trend fitted to the MEAN, real land use):")
+    print(f"  f(d) = {C:.2f} + ({A - C:.2f}) * exp(-d / {d0:.2f})   [R^2 = {r2:.3f}]")
+    print(f"  sigma_ln = {sigma_ln:.4f}  (multiplicative lognormal spread)")
+    print(f"  -> mean clutter @0 km : {trend(0, A, C, d0):5.2f} m")
+    print(f"  -> mean clutter @5 km : {trend(5, A, C, d0):5.2f} m")
+    print(f"  -> mean clutter @25km : {trend(25, A, C, d0):5.2f} m")
+    print(f"  -> mean clutter @50km : {trend(50, A, C, d0):5.2f} m")
 
     result = {
         "source": "ESA WorldCover v200 2021 (real land use), Campinas-SP, 20x50 km radials",
-        "model": "distance_dependent_lognormal",
-        "stat_clutter_mu_intercept": a,
-        "stat_clutter_mu_slope_per_km": b,
+        "model": "exponential_floor_trend_times_lognormal (target=mean)",
+        "stat_clutter_trend_A": A,
+        "stat_clutter_trend_C": C,
+        "stat_clutter_trend_d0_km": d0,
         "stat_clutter_sigma": sigma_ln,
-        "median_height_m": {"d0": float(np.exp(a)), "d5": float(np.exp(a + b * 5)),
-                            "d25": float(np.exp(a + b * 25)), "d50": float(np.exp(a + b * 50))},
+        "stat_clutter_target": "mean",
+        "trend_r2": r2,
+        "mean_height_m": {"d0": trend(0, A, C, d0), "d5": trend(5, A, C, d0),
+                          "d25": trend(25, A, C, d0), "d50": trend(50, A, C, d0)},
     }
     with open(os.path.join(out, "clutter_landuse_params.json"), "w") as fh:
         json.dump(result, fh, indent=2)
@@ -118,10 +129,10 @@ def main():
     # Plot
     fig, ax = plt.subplots(figsize=(8, 4.6))
     ax.scatter(d, h, s=2, alpha=0.05, color="#9b8cc4", label="clutter height (per point)")
-    ax.plot(centers, med_h, "o-", color="#6c3fa0", lw=2, label="median per 5-km bin")
+    ax.plot(centers, mean_h, "o-", color="#6c3fa0", lw=2, label="mean per 5-km bin")
     dd = np.linspace(0, RADIAL_LENGTH_KM, 200)
-    ax.plot(dd, np.exp(a + b * dd), "r--", lw=2,
-            label=f"fit median = exp({a:.2f} {b:+.4f}·d)")
+    ax.plot(dd, trend(dd, A, C, d0), "r--", lw=2,
+            label=f"fit mean = {C:.1f}+{A-C:.1f}·exp(-d/{d0:.1f})")
     ax.set_xlabel("Distância ao centro de Campinas (km)")
     ax.set_ylabel("Altura de clutter (uso do solo, m)")
     ax.set_title("Clutter por uso do solo real (ESA WorldCover) vs. distância")

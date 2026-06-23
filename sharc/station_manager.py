@@ -28,8 +28,11 @@ class StationManager(object):
         self.x = np.empty(n)  # x coordinate
         self.y = np.empty(n)  # y coordinate
         self.z = np.empty(n)  # z coordinate (includes height above ground)
-        self.latitude = np.empty(n)  # Latitude of station
-        self.longitude = np.empty(n)  # Longitude of Base Station
+        # NaN marks "not geo-referenced" so get_pointing_vector_to uses the
+        # planar branch for local-frame stations (e.g. SINGLE_EARTH_STATION)
+        # instead of the ECEF branch with uninitialized coordinates.
+        self.latitude = np.full(n, np.nan)  # Latitude of station
+        self.longitude = np.full(n, np.nan)  # Longitude of Base Station
         self.azimuth = np.empty(n)
         self.elevation = np.empty(n)
         self.height = np.empty(n)  # station height above ground
@@ -293,7 +296,7 @@ class StationManager(object):
             phi, theta (phi is calculated with respect to x counter-clockwise and
             theta is calculated with respect to z counter-clockwise).
         """
-        if (self.latitude[0] != np.empty):
+        if not np.isnan(self.latitude[0]):
             # 3) LOS in ECEF, broadcast to (N,M,3)
             dx = -(self.x[None, :] - station.x[:, None])
             dy = -(self.y[None, :] - station.y[:, None])

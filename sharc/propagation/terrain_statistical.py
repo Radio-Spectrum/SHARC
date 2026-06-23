@@ -23,12 +23,13 @@ Campinas-SP (see ``tools/estimate_terrain_params_campinas.py``). The published
 import numpy as np
 
 # --- Parameter sets ----------------------------------------------------------
-# Estimated from 20x50 km radials around Campinas-SP (-22.9049, -47.0603)
+# Estimated from 20x50 km radials around Campinas-SP (-22.9049, -47.0603),
+# sampled at 1 km (terrain-scale extrema, comparable to 5D/1059).
 CAMPINAS_TERRAIN = {
-    "height_sigma_m": 36.27,
-    "height_nu": 2.93,
-    "dist_mu": -0.652,      # underlying-normal mean of ln(distance/km)
-    "dist_sigma": 0.720,    # underlying-normal std
+    "height_sigma_m": 39.04,
+    "height_nu": 4.197,
+    "dist_mu": 0.4268,      # underlying-normal mean of ln(distance/km)
+    "dist_sigma": 0.5237,   # underlying-normal std (median 1.53 km, mode 1.17 km)
 }
 # Distance-dependent clutter fitted from REAL land use (ESA WorldCover) along
 # 20x50 km radials around Campinas-SP. The deterministic trend is an

@@ -14,15 +14,21 @@ import os
 import json
 
 import numpy as np
+from pyproj import Geod
 
 from sharc.parameters.parameters_p1812 import ParametersP1812
 from sharc.propagation.propagation_p1812 import PropagationP1812
+from sharc.propagation.terrain_srtm import SRTMReader
 
 FREQ_GHZ = 3.5
 HTE = 30.0
 HRE = 1.5
 DISTANCES_KM = [10.0, 20.0, 30.0, 50.0]
 N_MC = 1000
+N_RADIALS = 20
+START_LAT = -22.9048878490284
+START_LON = -47.06032221390534
+FINE_STEP_KM = 0.1   # ground-truth real profiles use fine sampling (true diffraction)
 
 
 def _out_dir():
@@ -57,10 +63,21 @@ def _make_prop(terrain_profile, clutter_mode="none", clutter_statistical=False, 
     return PropagationP1812(np.random.RandomState(seed), par)
 
 
+def _real_profile(reader, geod, az_deg, dist_km):
+    """Finely-sampled (100 m) real SRTM profile from the centre along an azimuth."""
+    n = int(round(dist_km / FINE_STEP_KM)) + 1
+    end_lon, end_lat, _ = geod.fwd(START_LON, START_LAT, az_deg, dist_km * 1000.0)
+    return reader.path_profile(START_LAT, START_LON, end_lat, end_lon, n)
+
+
 def main():
     out = _out_dir()
-    samples = np.load(os.path.join(out, "campinas_samples.npz"))
-    n_rad = sum(1 for k in samples.files if k.endswith("_d") and k.startswith("radial_"))
+    # Ground-truth real profiles are generated at fine (100 m) sampling so they
+    # carry the true terrain diffraction (independent of the 1 km step used to
+    # FIT the extrema distributions).
+    reader = SRTMReader(os.path.join(out, "srtm"), auto_download=True)
+    geod = Geod(ellps="WGS84")
+    n_rad = N_RADIALS
 
     flat_prop = _make_prop("flat")
 
@@ -76,15 +93,11 @@ def main():
             flat_prop, np.linspace(0, dist, 100), np.zeros(100),
         )
 
-        # Real path-specific profiles (truncate each radial to `dist`)
+        # Real path-specific profiles (fine 100 m sampling, true diffraction)
         real = []
-        for i in range(n_rad):
-            d = samples[f"radial_{i}_d"]
-            h = samples[f"radial_{i}_h"]
-            mask = d <= dist
-            if mask.sum() < 4:
-                continue
-            real.append(_loss_for_profile(flat_prop, d[mask], h[mask]))
+        for k in range(n_rad):
+            d_km, h_m = _real_profile(reader, geod, 360.0 * k / n_rad, dist)
+            real.append(_loss_for_profile(flat_prop, d_km, h_m))
         real = np.array(real)
 
         # Statistical Monte-Carlo realizations

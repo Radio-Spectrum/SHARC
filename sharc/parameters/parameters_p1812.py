@@ -91,11 +91,12 @@ class ParametersP1812(ParametersBase):
     # --- Statistical terrain model (terrain_profile == "statistical") ---
     # Student's t-distribution of peak/valley height deviations (m, location 0)
     # and lognormal distribution of distance (km) between consecutive extrema.
-    # Defaults: values fitted from 20x50 km radials around Campinas-SP.
-    stat_height_sigma_m: float = 36.27
-    stat_height_nu: float = 2.93
-    stat_dist_mu: float = -0.652
-    stat_dist_sigma: float = 0.720
+    # Defaults: fitted from 20x50 km radials around Campinas-SP sampled at 1 km
+    # (terrain-scale extrema; distance median 1.53 km, mode 1.17 km).
+    stat_height_sigma_m: float = 39.04
+    stat_height_nu: float = 4.197
+    stat_dist_mu: float = 0.4268
+    stat_dist_sigma: float = 0.5237
     # Constant elevation added to the synthetic profile (m amsl); does not
     # affect diffraction.
     stat_baseline_m: float = 0.0

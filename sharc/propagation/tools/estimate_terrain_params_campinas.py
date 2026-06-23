@@ -35,8 +35,11 @@ START_LAT = -22.9048878490284
 START_LON = -47.06032221390534
 N_RADIALS = 20
 RADIAL_LENGTH_KM = 50.0
-# Profile sampling: SRTMGL1 is ~30 m; use ~100 m spacing along the radial
-PROFILE_STEP_KM = 0.1
+# Profile sampling step along the radial. 1 km is used (instead of 100 m) so the
+# detected peaks/valleys are terrain-scale features rather than sub-kilometre
+# SRTM wiggles; this aligns the extrema spacing with the 5D/1059 methodology
+# (mode ~1.4 km) for cross-comparability.
+PROFILE_STEP_KM = 1.0
 SEGMENT_KM = 10.0           # detrending segment length (per 5D/1059)
 CLUTTER_SMOOTH_KM = 1.6     # terrain correlation length -> separates clutter roughness
 # Minimum prominence (m) for a residual extremum to count as a terrain feature.

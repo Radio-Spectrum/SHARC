@@ -22,7 +22,7 @@ import matplotlib.pyplot as plt
 
 CAMPAIGN_YAML = ("sharc/campaigns/FS_8000_MHz_stat_terrain_clutter/input/"
                  "parameters_FS_8000_MHz_stat_terrain_clutter.yaml")
-DISTANCES_KM = [5, 10, 20, 40, 80, 160]
+DISTANCES_KM = [5, 10, 20, 40, 80, 160, 320, 640]
 N_SNAP = 300
 CRIT_IN_DB = -10.0
 CRIT_PCT = 20.0

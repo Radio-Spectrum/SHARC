@@ -62,8 +62,9 @@ def main():
         axi = fig.add_axes([0.06, 0.30, 0.88, 0.50]); axi.axis("off"); axi.imshow(ccdf)
         _text(fig, 0.27, [
             ("body", "Criterio de protecao: I/N nao deve exceder -10 dB em mais de 20% dos "
-                     "eventos. Resultado: I/N > -10 dB em 44,4% -> CRITERIO VIOLADO a 5 km "
-                     "(mediana do I/N = -14,8 dB; cauda ate +29,6 dB)."),
+                     "eventos. Resultado (apos corrigir o bug de off-axis da antena da ES): "
+                     "I/N > -10 dB em 100% -> CRITERIO VIOLADO a 5 km (mediana do I/N = "
+                     "+41,8 dB; minimo +19,1 dB)."),
         ])
         pdf.savefig(fig); plt.close(fig)
 
@@ -79,8 +80,11 @@ def main():
         _text(fig, 0.30, [
             ("body", f"Excedencia por distancia: {rows}."),
             ("body", f"Distancia de protecao (I/N > -10 dB em <= 20% dos eventos): "
-                     f"aproximadamente {prot:.1f} km. Abaixo dela o criterio e violado; "
-                     f"acima, atendido. A 20 km a excedencia ja cai para ~4%."),
+                     f"aproximadamente {prot:.0f} km. Abaixo dela o criterio e violado; "
+                     f"acima, atendido. Note o efeito do bug: com o off-axis errado a "
+                     f"distancia era ~11 km; corrigido, sobe para ~{prot:.0f} km (a ES de 36 dBi "
+                     f"apontada ao cluster ve as BS proximas ao centro com ganho de feixe "
+                     f"principal). Cenario de pior caso (boresight da ES sobre a IMT)."),
         ])
         pdf.savefig(fig); plt.close(fig)
 

@@ -76,10 +76,11 @@ def hata_cost231(d_km, hb=HTX_M, hm=HRX_M, f=FREQ_MHZ, big_city=False):
             + (44.9 - 6.55 * np.log10(hb)) * np.log10(d_km) + C)
 
 
-def _p452_prop():
+def _p452_prop(clutter=False):
     par = ParametersP452()
-    par.percentage_p = 50.0      # PL50
-    par.clutter_loss = False     # smooth-earth propagation only
+    par.percentage_p = 50.0          # PL50
+    par.clutter_loss = clutter       # add ITU-R P.2108 statistical clutter if True
+    par.clutter_type = "one_end"
     par.Hte = HTX_M
     par.Hre = HRX_M
     return PropagationClearAir(np.random.RandomState(1), par)
@@ -99,10 +100,16 @@ def _p1812_prop(terrain_profile, clutter_mode, clutter_statistical=False, seed=1
     return PropagationP1812(np.random.RandomState(seed), par)
 
 
-def _loss_low(prop, d_km, profile=None):
-    """Single-link low-level get_loss call (km, GHz). Optionally stash a profile."""
+def _loss_low(prop, d_km, profile=None, center_dist=None):
+    """Single-link low-level get_loss call (km, GHz).
+
+    Optionally stash a terrain profile and the (Tx, Rx) distances from the
+    cluster centre (km) used by the distance-dependent statistical clutter.
+    """
     if profile is not None:
         prop._terrain_profiles = [profile]
+    if center_dist is not None:
+        prop._link_center_dist = [center_dist]
     try:
         d = np.array([[d_km]])
         f = FREQ_GHZ * np.ones((1, 1))
@@ -113,6 +120,8 @@ def _loss_low(prop, d_km, profile=None):
     finally:
         if profile is not None:
             prop._terrain_profiles = None
+        if center_dist is not None:
+            prop._link_center_dist = None
 
 
 def main(argv=None):
@@ -141,14 +150,15 @@ def main(argv=None):
     # SRTM master profile (Tx -> each sample point) using cached tiles
     reader = SRTMReader(os.path.join(out, "srtm"), auto_download=True)
 
-    p452 = _p452_prop()
+    p452 = _p452_prop(clutter=False)
+    p452_clut = _p452_prop(clutter=True)
     p1812_flat = _p1812_prop("flat", "none")
     p1812_srtm = _p1812_prop("srtm", "none")
     p1812_stat = _p1812_prop("statistical", "none")
     p1812_statc = _p1812_prop("statistical", "terrain", clutter_statistical=True)
 
     res = {k: np.full(n, np.nan) for k in
-           ["fspl", "hata", "p452", "p1812_flat", "p1812_srtm",
+           ["fspl", "hata", "p452", "p452_clut", "p1812_flat", "p1812_srtm",
             "p1812_stat", "p1812_statc"]}
 
     res["fspl"] = fspl(d_km)
@@ -157,19 +167,22 @@ def main(argv=None):
     for k in range(1, n):
         dk = d_km[k]
         res["p452"][k] = _loss_low(p452, dk)
+        res["p452_clut"][k] = _loss_low(p452_clut, dk)
         res["p1812_flat"][k] = _loss_low(p1812_flat, dk)
 
         # Specific terrain: real SRTM profile Tx -> point k
         prof = reader.path_profile(tx_lat, tx_lon, lats[k], lons[k], PROFILE_LEN)
         res["p1812_srtm"][k] = _loss_low(p1812_srtm, dk, profile=prof)
 
-        # Statistical terrain: PL50 = median over MC realizations
+        # Statistical terrain: PL50 = median over MC realizations. For the
+        # distance-dependent clutter, the Tx sits at the cluster centre (d=0)
+        # and the Rx is at the along-path distance dk (clutter decays with dk).
         mc, mcc = [], []
         for s in range(N_MC):
             p1812_stat.random_number_gen = np.random.RandomState(1000 * k + s)
             mc.append(_loss_low(p1812_stat, dk))
             p1812_statc.random_number_gen = np.random.RandomState(7000 * k + s)
-            mcc.append(_loss_low(p1812_statc, dk))
+            mcc.append(_loss_low(p1812_statc, dk, center_dist=(0.0, dk)))
         res["p1812_stat"][k] = np.median(mc)
         res["p1812_statc"][k] = np.median(mcc)
 
@@ -178,6 +191,7 @@ def main(argv=None):
         ("fspl",        "Espaço livre (FSPL)",                         "#7f8c8d", "--"),
         ("hata",        "Okumura-Hata / COST-231 (extrap. 6 GHz)",     "#9b59b6", "--"),
         ("p452",        "ITU-R P.452 (smooth earth)",                  "#16a085", "-"),
+        ("p452_clut",   "ITU-R P.452 + clutter P.2108",                "#16a085", ":"),
         ("p1812_flat",  "ITU-R P.1812 (smooth earth)",                 "#2980b9", "-"),
         ("p1812_srtm",  "ITU-R P.1812 (terreno específico SRTM)",      "#27ae60", "-"),
         ("p1812_stat",  "ITU-R P.1812 (terreno estatístico)",          "#e67e22", "-"),

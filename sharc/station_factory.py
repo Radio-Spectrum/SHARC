@@ -1178,26 +1178,27 @@ class StationFactory(object):
                 single_earth_station.x = np.array(x)
                 single_earth_station.y = np.array(y)
             case "UNIFORM_DIST":
-                # ES is randomly (uniform) created inside a circle of radius
-                # equal to param.max_dist_to_bs
-                if param.geometry.location.uniform_dist.min_dist_to_bs < 0:
+                # ES is randomly placed inside the ring between min_dist_to_center
+                # and max_dist_to_center (area-uniform). A (near) zero-width ring
+                # (min == max) means a fixed radius with random azimuth.
+                r_min = param.geometry.location.uniform_dist.min_dist_to_center
+                r_max = param.geometry.location.uniform_dist.max_dist_to_center
+                if r_min < 0 or r_max < r_min:
                     sys.stderr.write(
-                        "ERROR\nInvalid minimum distance from Single ES to BS: {}".format(
-                            param.geometry.location.uniform_dist.min_dist_to_bs, ), )
+                        "ERROR\nInvalid Single ES distance-to-centre range: "
+                        "[{}, {}]".format(r_min, r_max), )
                     sys.exit(1)
-                while (True):
-                    dist_x = random_number_gen.uniform(
-                        -param.geometry.location.uniform_dist.max_dist_to_bs,
-                        param.geometry.location.uniform_dist.max_dist_to_bs,
-                    )
-                    dist_y = random_number_gen.uniform(
-                        -param.geometry.location.uniform_dist.max_dist_to_bs,
-                        param.geometry.location.uniform_dist.max_dist_to_bs,
-                    )
-                    radius = np.sqrt(dist_x**2 + dist_y**2)
-                    if (radius > param.geometry.location.uniform_dist.min_dist_to_bs) & (
-                            radius < param.geometry.location.uniform_dist.max_dist_to_bs):
-                        break
+                if (r_max - r_min) < 1.0:
+                    angle = random_number_gen.uniform(0, 2 * np.pi)
+                    dist_x = r_max * np.cos(angle)
+                    dist_y = r_max * np.sin(angle)
+                else:
+                    while (True):
+                        dist_x = random_number_gen.uniform(-r_max, r_max)
+                        dist_y = random_number_gen.uniform(-r_max, r_max)
+                        radius = np.sqrt(dist_x**2 + dist_y**2)
+                        if (radius > r_min) & (radius < r_max):
+                            break
                 single_earth_station.x[0] = dist_x
                 single_earth_station.y[0] = dist_y
             case _:

@@ -173,9 +173,15 @@ class StationFactory(object):
                 imt_base_stations.geom.set_local_coords(
                     z=topology.height
                 )
-        imt_base_stations.active = random_number_gen.rand(
-            num_bs,
-        ) < param.bs.load_probability
+        # Ensure at least one active base station with retry loop
+        for attempt in range(100):
+            imt_base_stations.active = random_number_gen.rand(
+                num_bs,
+            ) < param.bs.load_probability
+            if np.any(imt_base_stations.active):
+                break
+        else:
+            raise RuntimeError("Failed to generate at least one active base station after 100 attempts")
         # Conducted power per antenna element. Total power will depend on
         # the number of antenna elements and it's configured in power control.
         imt_base_stations.tx_power = param.bs.conducted_power * np.ones(num_bs) - power_backoff

@@ -104,6 +104,9 @@ class AntennaFactory():
                     "Antenna System 4 requires two antenna instances and "
                     "should be created in station_factory.py"
                 )
+            case "MODIFIED ITU-R BT.419":
+                from sharc.antenna.antenna_bt419 import AntennaBt419
+                return AntennaBt419(antenna_params.itu_r_bt_419)
             case _:
                 raise ValueError(
                     f"Antenna factory does not support pattern {

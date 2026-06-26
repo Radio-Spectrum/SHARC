@@ -88,10 +88,14 @@ class PropagationP528(Propagation):
         # Indoor (P.528 does not cover indoor/clutter — keep 0)
         indoor = np.zeros_like(distance, dtype=bool)
 
-        # Resolve P.528 parameters for this iteration to handle 'RANDOM' cleanly
-        resolved_p528 = params.single_space_station.param_p528.resolve(rng=self.random_number_gen)
-        Tpol = resolved_p528.Tpol
-        p_time = resolved_p528.p_time * np.ones_like(distance, dtype=float)
+       # Resolve P.528 parameters for this iteration to handle 'RANDOM' cleanly
+        Tpol = params.single_space_station.param_p528.Tpol
+        time_percentage = params.single_space_station.param_p528.time_percentage
+        if time_percentage == 'RANDOM':
+            p_col = 1.0 + 98.0 * self.random_number_gen.rand(distance.shape[1])
+            p_time = np.broadcast_to(p_col[None, :], distance.shape).copy()
+        else:
+            p_time = np.full(distance.shape, float(time_percentage), dtype=float)
 
         return self.get_loss(
             distance, f_arr, hA_km, hB_km, indoor,

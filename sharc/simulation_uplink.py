@@ -463,7 +463,10 @@ class SimulationUplink(Simulation):
                     oob_power_lin
                 )
 
-        self.system.rx_interference = 10 * np.log10(rx_interference)
+        if rx_interference > 0:
+            self.system.rx_interference = 10 * np.log10(rx_interference)
+        else:
+            self.system.rx_interference = -np.inf
         # calculate N
         self.system.thermal_noise = \
             10 * np.log10(

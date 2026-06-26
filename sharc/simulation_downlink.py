@@ -563,10 +563,13 @@ class SimulationDownlink(Simulation):
                 )
 
         # Total received interference - dBW
-        self.system.rx_interference = 10 * np.log10(np.maximum(rx_interference, 1e-30))
+        if rx_interference > 0:
+            self.system.rx_interference = 10 * np.log10(rx_interference)
+        else:
+            self.system.rx_interference = -np.inf
         # calculate N
         self.system.thermal_noise = \
-            10 * np.log10(BOLTZMANN_CONSTANT * self.system.noise_temperature * 1e3) + \
+            10 * math.log10(BOLTZMANN_CONSTANT * self.system.noise_temperature * 1e3) + \
             10 * math.log10(self.param_system.bandwidth * 1e6)
 
         # Calculate INR at the system - dBm
@@ -595,11 +598,12 @@ class SimulationDownlink(Simulation):
         """
         if not self.parameters.imt.interfered_with and np.any(self.bs.active):
             self.results.system_inr.extend(self.system.inr.flatten())
+            rx_interf = np.atleast_1d(self.system.rx_interference)
             self.results.system_dl_interf_power.extend(
-                self.system.rx_interference.flatten(),
+                rx_interf.flatten(),
             )
             self.results.system_dl_interf_power_per_mhz.extend(
-                self.system.rx_interference.flatten() - 10 * math.log10(self.system.bandwidth),
+                rx_interf.flatten() - 10 * math.log10(self.system.bandwidth),
             )
             # TODO: generalize this a bit more if needed (same conditional as
             # above)

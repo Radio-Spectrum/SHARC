@@ -38,7 +38,8 @@ class ParametersAntenna(ParametersBase):
         "Antenna System3 OOB",
         "Antenna System 4",
         "FROM TABLE",
-        "ITU-R F.1336"]
+        "ITU-R F.1336",
+        "ITU-R M.1851"]
 
     # chosen antenna radiation pattern
     pattern: typing.Literal["OMNI",
@@ -60,7 +61,8 @@ class ParametersAntenna(ParametersBase):
                             "Antenna System3 OOB",
                             "Antenna System 4",
                             "FROM TABLE",
-                            "ITU-R F.1336"] = None
+                            "ITU-R F.1336",
+                            "ITU-R M.1851"] = None
 
     # antenna gain [dBi]
     gain: float = None
@@ -199,10 +201,70 @@ class ParametersAntenna(ParametersBase):
                 
             if getattr(super(), 'validate', None):
                 super().validate(ctx)
-
-
+                
     itu_r_f_1336: ParametersAntennaF1336 = field(
-        default_factory=ParametersAntennaF1336,
+            default_factory=ParametersAntennaF1336,
+        )
+    
+    @dataclass
+    class ParametersAntennaM1851(ParametersBase):
+        """
+        Parâmetros para o modelo de antena ITU-R M.1851-12 (CSC²).
+
+        Parâmetros
+        ----------
+        gain : float, default=30.0
+            Ganho máximo da antena em dBi.
+        theta_3 : float, default=2.0
+            Largura de feixe (beamwidth) em graus.
+        theta_start : float, default=1.0
+            Ângulo inicial para o CSC² em graus.
+        theta_end : float, default=45.0
+            Ângulo final para o CSC² em graus.
+        g_0 : float, default=-30.0
+            Nível de floor (ganho base) em dB.
+        theta_tilt : float
+            Ângulo de inclinação em graus.
+        """
+        gain: float = 30.0
+        theta_3: float = 2.0
+        theta_start: float = 1.0
+        theta_end: float = 45.0
+        g_0: float = -30.0
+
+        def validate(self, ctx):
+            """
+            Valida os parâmetros da antena para a norma M.1851.
+
+            Parameters
+            ----------
+            ctx : str
+                Contexto da string para mensagens de erro.
+                
+            Raises
+            ------
+            ValueError
+                Se algum parâmetro numérico estiver faltando ou for fisicamente inconsistente.
+            """
+            # Verifica se os parâmetros essenciais estão presentes
+            if None in [self.gain, self.theta_3, self.theta_start, self.theta_end, self.g_0]:
+                raise ValueError(
+                    f"{ctx}.(gain|theta_3|theta_start|theta_end|g_0) precisam ser definidos"
+                )
+            
+            # Validações lógicas para consistência geométrica
+            if self.theta_3 <= 0:
+                raise ValueError(f"{ctx}.theta_3 deve ser um número positivo")
+                
+            if self.theta_end <= self.theta_start:
+                raise ValueError(f"{ctx}.theta_end deve ser maior que theta_start")
+                
+            # Chama a validação da classe pai, se existir
+            if getattr(super(), 'validate', None):
+                super().validate(ctx)
+
+    itu_r_m_1851: ParametersAntennaM1851 = field(
+        default_factory=ParametersAntennaM1851,
     )
 
     def set_external_parameters(self, **kwargs):
@@ -322,6 +384,8 @@ class ParametersAntenna(ParametersBase):
                 self.from_table.validate(f"{ctx}.from_table")
             case "ITU-R F.1336":
                 self.itu_r_f_1336.validate(f"{ctx}.itu_r_f1336")
+            case "ITU-R M.1851":
+                self.itu_r_m_1851.validate(f"{ctx}.itu_r_m_1851")
             case _:
                 raise NotImplementedError(
                     "ParametersAntenna.validate does not implement this antenna validation!", )

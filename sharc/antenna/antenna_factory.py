@@ -21,6 +21,7 @@ from sharc.antenna.system_4_constants import taper_fn as sys4_taper_fn
 from sharc.antenna.antenna_from_table import AntennaFromTable
 from sharc.antenna.antenna_f1336 import AntennaF1336
 from sharc.antenna.antenna_m1851 import AntennaM1851
+from sharc.antenna.antenna_m1851_cosecant_squared import AntennaM1851CosecantSquared
 
 import numpy as np
 
@@ -107,6 +108,10 @@ class AntennaFactory():
                 return AntennaF1336(antenna_params.itu_r_f_1336)
             case "ITU-R M.1851":
                 return AntennaM1851(antenna_params.itu_r_m_1851)
+            case "M.1851-cosecant-squared":
+                return AntennaM1851CosecantSquared(
+                    antenna_params.itu_r_m1851_csc2, azimuth, elevation,
+                )
             case _:
                 raise ValueError(
                     f"Antenna factory does not support pattern {

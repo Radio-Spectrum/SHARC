@@ -7,6 +7,9 @@ from sharc.parameters.antenna.parameters_antenna_with_freq import ParametersAnte
 from sharc.parameters.imt.parameters_antenna_imt import ParametersAntennaImt
 from sharc.parameters.antenna.parameters_antenna_system4 import ParametersAntennaSystem4
 from sharc.parameters.antenna.parameters_antenna_from_table import ParametersAntennaFromTable
+from sharc.parameters.parameters_antenna_m1851_cosecant_squared import (
+    ParametersAntennaM1851CosecantSquared,
+)
 
 from dataclasses import dataclass, field
 import typing
@@ -39,7 +42,8 @@ class ParametersAntenna(ParametersBase):
         "Antenna System 4",
         "FROM TABLE",
         "ITU-R F.1336",
-        "ITU-R M.1851"]
+        "ITU-R M.1851",
+        "M.1851-cosecant-squared"]
 
     # chosen antenna radiation pattern
     pattern: typing.Literal["OMNI",
@@ -62,7 +66,8 @@ class ParametersAntenna(ParametersBase):
                             "Antenna System 4",
                             "FROM TABLE",
                             "ITU-R F.1336",
-                            "ITU-R M.1851"] = None
+                            "ITU-R M.1851",
+                            "M.1851-cosecant-squared"] = None
 
     # antenna gain [dBi]
     gain: float = None
@@ -267,6 +272,10 @@ class ParametersAntenna(ParametersBase):
         default_factory=ParametersAntennaM1851,
     )
 
+    itu_r_m1851_csc2: ParametersAntennaM1851CosecantSquared = field(
+        default_factory=ParametersAntennaM1851CosecantSquared,
+    )
+
     def set_external_parameters(self, **kwargs):
         """
         Set external parameters for all sub-parameters of the antenna.
@@ -324,7 +333,7 @@ class ParametersAntenna(ParametersBase):
             )
 
         if self.pattern not in [
-            "ARRAY", "ARRAY System 4", "ARRAY Satellite"
+            "ARRAY", "ARRAY System 4", "ARRAY Satellite", "M.1851-cosecant-squared"
         ] and self.gain is None:
             raise ValueError(
                 f"{ctx}.gain should be set if not using array antenna.",
@@ -386,6 +395,8 @@ class ParametersAntenna(ParametersBase):
                 self.itu_r_f_1336.validate(f"{ctx}.itu_r_f1336")
             case "ITU-R M.1851":
                 self.itu_r_m_1851.validate(f"{ctx}.itu_r_m_1851")
+            case "M.1851-cosecant-squared":
+                self.itu_r_m1851_csc2.validate(f"{ctx}.itu_r_m1851_csc2")
             case _:
                 raise NotImplementedError(
                     "ParametersAntenna.validate does not implement this antenna validation!", )

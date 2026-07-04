@@ -177,10 +177,17 @@ class ParametersAntenna(ParametersBase):
             Accounts for side-lobe.
         cable_loss : float, optional
             Cable loss.
+        mask_type : str, optional
+            Side-lobe mask: "average" (eq. 1d, aggregate of multiple
+            interferers -- the usual ITU-R sharing case, default) or "peak"
+            (eq. 1a, single-entry worst case). Rec. ITU-R F.1336-5 sec. 2.1.
         """
         gain: float = 12.0
         k: float = 0.7
         cable_loss: float = 2.0
+        # >>> F.1336 sec. 2.1 side-lobe mask (default average = aggregate case)
+        mask_type: str = "average"
+        # <<<
 
         def validate(self, ctx):
             """
@@ -190,7 +197,7 @@ class ParametersAntenna(ParametersBase):
             ----------
             ctx : str
                 Context string for error messages.
-                
+
             Raises
             ------
             ValueError
@@ -200,10 +207,17 @@ class ParametersAntenna(ParametersBase):
                 raise ValueError(
                     f"{ctx}.(gain|k|cable_loss) need to be set to numbers"
                 )
-            
+
             if self.k < 0:
                 raise ValueError(f"{ctx}.k needs to be a positive number")
-                
+
+            # >>> F.1336 sec. 2.1: validate the side-lobe mask type
+            if str(self.mask_type).lower() not in ("peak", "average"):
+                raise ValueError(
+                    f"{ctx}.mask_type must be 'peak' or 'average'"
+                )
+            # <<<
+
             if getattr(super(), 'validate', None):
                 super().validate(ctx)
                 

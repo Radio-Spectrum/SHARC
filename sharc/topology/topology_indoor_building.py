@@ -96,7 +96,7 @@ class TopologyIndoorBuilding(Topology):
                         created_buildings += 1
 
             # Gera as coordenadas nativas dos APs dentro dos prédios criados
-            self.x, self.y, self.z, self.floor = self.generate_indoor_coordinates(self.num_aps, random_number_gen)
+            self.x, self.y, self.z, self.floor, self.building_id = self.generate_indoor_coordinates(self.num_aps, random_number_gen)
             
             self.indoor = np.ones(self.num_aps, dtype=bool)
             self.azimuth = np.zeros(self.num_aps) 
@@ -108,6 +108,7 @@ class TopologyIndoorBuilding(Topology):
         out_y = np.zeros(num_nodes)
         out_z = np.zeros(num_nodes)
         out_floors = np.zeros(num_nodes, dtype=int)
+        out_building_id = np.zeros(num_nodes, dtype=int)
         
         itu_probs = np.array([0.2466, 0.2036, 0.1405, 0.1127, 0.0919, 
                               0.0752, 0.0556, 0.0388, 0.0241, 0.0110])
@@ -159,6 +160,7 @@ class TopologyIndoorBuilding(Topology):
                     out_y[i] = temp_y
                     out_z[i] = temp_z
                     out_floors[i] = temp_floor
+                    out_building_id[i] = b.build_id
                     placed = True
             
             # Se tentou 100 vezes e falhou (ex: prédio pequeno demais para tanta gente),
@@ -168,10 +170,11 @@ class TopologyIndoorBuilding(Topology):
                 out_y[i] = temp_y
                 out_z[i] = temp_z
                 out_floors[i] = temp_floor
+                out_building_id[i] = b.build_id
                 print(f"[Aviso] O nó {i} foi forçado na posição após {MAX_RETRIES} tentativas. O prédio pode estar sobrelotado.")
                 
-        return out_x, out_y, out_z, out_floors
-            
+        return out_x, out_y, out_z, out_floors, out_building_id
+
     def plot(self, ax: matplotlib.axes.Axes):
         """Plota a vista superior (2D) do cenário HetNet."""
         self.imt_topology.plot(ax) 

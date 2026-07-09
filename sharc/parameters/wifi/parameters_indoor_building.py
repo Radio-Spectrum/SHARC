@@ -9,7 +9,7 @@ class ParametersIndoorBuilding(ParametersBase):
     # Basic path loss model for indoor topology. Possible values:
     #       "FSPL" (free-space path loss),
     #       "INH_OFFICE" (3GPP Indoor Hotspot - Office)
-    #basic_path_loss: typing.Literal["INH_OFFICE", "FSPL"] = "INH_OFFICE"
+    basic_path_loss: str = "UMa"
     # Number of rows of buildings in the simulation scenario
     #n_rows: int = 3
     # Number of colums of buildings in the simulation scenario
@@ -29,6 +29,7 @@ class ParametersIndoorBuilding(ParametersBase):
     # Percentage of indoor UE's [0, 1]
     #sta_indoor_percent: int = .95
     # Building class: "TRADITIONAL" or "THERMALLY_EFFICIENT"
+    building_class: str = "TRADITIONAL"
 
     buildings_per_cell: int = 3
     min_dist_bs: float = 20.0

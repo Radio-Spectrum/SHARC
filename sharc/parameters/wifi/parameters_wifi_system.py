@@ -76,7 +76,7 @@ class ParametersWifiSystem(ParametersBase):
         conducted_power = 12
         k: int = 1
         k_m: int = 1
-        indoor_percent: int = 0.0
+        indoor_percent: int = 1
         distribution_type: str = "ANGLE_AND_DISTANCE"
         distribution_distance: str = "SQRT(UNIFORM)"
         distribution_azimuth: str = "UNIFORM"
@@ -141,11 +141,11 @@ class ParametersWifiSystem(ParametersBase):
         """
         super().load_parameters_from_file(config_file)
         
-        if self.channel_model not in ["FSPL", "CI", "UMa", "UMi", "TVRO-URBAN", "TVRO-SUBURBAN", "ABG", "P619"]:
+        if self.channel_model not in ["FSPL", "CI", "UMa", "UMi", "TVRO-URBAN", "TVRO-SUBURBAN", "ABG", "P619", "INDOOR_BUILDING", "INDOOR"]:
             raise ValueError(f"ParamtersImt: \
                              Invalid value for parameter channel_model - {self.channel_model}. \
                              Possible values are \"FSPL\",\"CI\", \"UMa\", \"UMi\", \"TVRO-URBAN\", \"TVRO-SUBURBAN\", \
-                             \"ABG\", \"P619\".")
+                             \"ABG\", \"P619\", \"INDOOR_BUILDING\".")
 
 
         if self.season not in ["SUMMER", "WINTER"]:

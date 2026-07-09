@@ -90,6 +90,7 @@ class SystemWifi:
         wifi_aps.z = self.topology.z 
         wifi_aps.floor = self.topology.floor
         wifi_aps.indoor = self.topology.indoor
+        wifi_aps.building_id = self.topology.building_id
         wifi_aps.height = wifi_aps.z
         wifi_aps.elevation = -param_ant.downtilt * np.ones(num_aps)
 
@@ -149,7 +150,7 @@ class SystemWifi:
         if self.parameters.topology.type == "INDOOR_BUILDING":
             wifi_sta.indoor = np.ones(self.num_sta, dtype=bool)
             # 2. Pede as coordenadas e andares para dentro dos prédios
-            sta_x, sta_y, sta_z, wifi_sta.floor = self.topology.generate_indoor_coordinates(self.num_sta, random_number_gen)
+            sta_x, sta_y, sta_z, wifi_sta.floor, wifi_sta.building_id = self.topology.generate_indoor_coordinates(self.num_sta, random_number_gen)
         
         else:
             sta_x = list()
@@ -216,9 +217,7 @@ class SystemWifi:
 
         random_values = random_number_gen.rand(self.num_sta)
         wifi_sta.active = random_values < self.parameters.sta.load_probability
-        wifi_sta.indoor = random_number_gen.random_sample(
-            self.num_sta,
-        ) <= (self.parameters.sta.indoor_percent / 100)
+        wifi_sta.indoor = self.topology.indoor
         wifi_sta.rx_interference = np.full(self.num_sta, -500.0)
         wifi_sta.ext_interference = np.full(self.num_sta, -500.0)
 

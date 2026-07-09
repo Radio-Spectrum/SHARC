@@ -23,6 +23,7 @@ from sharc.propagation.propagation_tvro import PropagationTvro
 from sharc.propagation.propagation_indoor import PropagationIndoor
 from sharc.propagation.propagation_hdfss import PropagationHDFSS
 from sharc.propagation.propagation_p1411 import PropagationP1411
+from sharc.propagation.propagation_indoor_building import PropagationIndoorBuilding
 
 
 class PropagationFactory(object):
@@ -116,6 +117,11 @@ class PropagationFactory(object):
             )
         elif channel_model == "P1411":
             return PropagationP1411(random_number_gen, "URBAN")
+        elif channel_model == "INDOOR_BUILDING":
+            return PropagationIndoorBuilding(
+                random_number_gen,
+                param_system.topology.indoor,
+            )
         else:
             sys.stderr.write("ERROR\nInvalid channel_model: " + channel_model)
             sys.exit(1)

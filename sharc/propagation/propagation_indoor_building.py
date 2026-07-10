@@ -448,7 +448,7 @@ class PropagationIndoorBuilding(Propagation):
                 distance_3D, distance_2D, frequency,
                 height_b, height_a, shadowing_flag,
             )
-        return self.bpl.get_loss(distance_3D=distance_3D, frequency=frequency)
+        return self.bpl.get_loss(distance_3D, frequency)
 
 
 if __name__ == '__main__':

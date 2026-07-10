@@ -1,7 +1,7 @@
 general:
     ###########################################################################
     # Number of simulation snapshots
-    num_snapshots: 500
+    num_snapshots: 1000
     # IMT link that will be simulated (DOWNLINK or UPLINK)
     imt_link: DOWNLINK
     ###########################################################################
@@ -171,7 +171,7 @@ imt:
         height: 1.5
         noise_figure: 9
         ohmic_loss: 2
-        body_loss: 4s
+        body_loss: 4
         antenna:
             array:
                 ###########################################################################
@@ -258,7 +258,7 @@ wifi:
     minimum_separation_distance_ap_sta: 10
     ###########################################################################
     # Wall loss [dB]
-    wall_loss: 15
+    wall_loss: 0
     ###########################################################################
     # Channel model: FSPL, CI, UMa, UMi, etc.
     channel_model: UMa                       
@@ -268,7 +268,7 @@ wifi:
         ###########################################################################
         # Topology Type. Possible values are "HOTSPOT"
         type: HOTSPOT
-        ###########################################################################
+        ###########################################################################fb
         # Hotspot Topology parameters. Relevant when imt.topology.type == "HOTSPOT"
         hotspot:
             ###########################################################################

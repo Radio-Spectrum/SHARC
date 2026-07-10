@@ -87,10 +87,13 @@ class SystemWifi:
 
         wifi_aps.x = self.topology.x
         wifi_aps.y = self.topology.y
-        wifi_aps.z = self.topology.z 
-        wifi_aps.floor = self.topology.floor
-        wifi_aps.indoor = self.topology.indoor
-        wifi_aps.building_id = self.topology.building_id
+        wifi_aps.z = self.topology.z
+        
+        if self.parameters.topology.type == "INDOOR_BUILDING": 
+            wifi_aps.floor = self.topology.floor
+            wifi_aps.indoor = self.topology.indoor
+            wifi_aps.building_id = self.topology.building_id
+
         wifi_aps.height = wifi_aps.z
         wifi_aps.elevation = -param_ant.downtilt * np.ones(num_aps)
 
@@ -216,8 +219,7 @@ class SystemWifi:
 
 
         random_values = random_number_gen.rand(self.num_sta)
-        wifi_sta.active = random_values < self.parameters.sta.load_probability
-        wifi_sta.indoor = self.topology.indoor
+        wifi_sta.active = random_values < self.parameters.sta.load_probability        
         wifi_sta.rx_interference = np.full(self.num_sta, -500.0)
         wifi_sta.ext_interference = np.full(self.num_sta, -500.0)
 

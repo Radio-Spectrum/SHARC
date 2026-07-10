@@ -38,35 +38,7 @@ try:
 except ImportError:
     RESULT_FIELDNAME_TO_PLOT_INFO = {}
 
-class ScrollableContainer(ttk.Frame):
-    def __init__(self, master, **kwargs):
-        super().__init__(master, **kwargs)
-        self.v_scroll = ttk.Scrollbar(self, orient="vertical")
-        self.v_scroll.pack(side="right", fill="y")
-        
-        self.canvas = tk.Canvas(self, highlightthickness=0, borderwidth=0)
-        self.canvas.pack(side="left", fill="both", expand=True)
-        self.canvas.configure(yscrollcommand=self.v_scroll.set)
-        self.v_scroll.configure(command=self.canvas.yview)
-        
-        self.container = ttk.Frame(self.canvas)
-        self.canvas_window = self.canvas.create_window((0, 0), window=self.container, anchor="nw")
-        
-        self.container.bind("<Configure>", lambda e: self.canvas.configure(scrollregion=self.canvas.bbox("all")))
-        self.canvas.bind("<Configure>", lambda e: self.canvas.itemconfig(self.canvas_window, width=e.width))
-        self.bind_all("<MouseWheel>", self._on_mousewheel)
-
-    def _on_mousewheel(self, event):
-        try:
-            widget = self.winfo_containing(*self.winfo_pointerxy())
-            cur = widget
-            while cur:
-                if cur == self:
-                    if event.delta > 0: self.canvas.yview_scroll(-1, "units")
-                    elif event.delta < 0: self.canvas.yview_scroll(1, "units")
-                    break
-                cur = cur.master
-        except: pass
+from ui.components.scroll_containers import ScrollableContainer
 
 class ResultsTab:
     """
@@ -88,8 +60,8 @@ class ResultsTab:
 
         self._init_ssh_vars()
 
-        self._data_cache = {}
-        self._cache_limit = 50  # Max number of datasets to keep in RAM
+        from core.remote_data_client import RemoteDataClient
+        self.data_client = RemoteDataClient(cache_limit=50)
 
         # --- Rendering Control ---
         self._render_lock = threading.Lock()
@@ -487,30 +459,22 @@ class ResultsTab:
             return None
         try:
             host = self.var_ssh_host.get()
+            port = int(self.var_ssh_port.get() or 22)
             user = self.var_ssh_user.get()
             pwd = self.var_ssh_pass.get()
-            port = int(self.var_ssh_port.get())
-            if not host or not user:
-                return None
-            client = paramiko.SSHClient()
-            client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-            client.connect(host, port=port, username=user,
-                           password=pwd or None, timeout=5)
-            self.app.ssh_client = client
-            return client
+            cli = self.data_client.get_ssh_client(host, port, user, pwd)
+            if cli:
+                self.app.ssh_client = cli
+            return cli
         except Exception as e:
-            print(f"SSH Error: {e}")
+            print(f"Error getting SSH client: {e}")
             return None
+
 
     def _remote_dir_picker(self):
         cli = self._get_ssh_client()
         if not cli:
-            messagebox.showerror(
-                "SSH Error", "Could not connect.\nCheck 'Connection' settings.")
-            return None
-        try:
-            sftp = cli.open_sftp()
-        except:
+            messagebox.showerror("SSH Error", "Could not connect.\\nCheck 'Connection' settings.")
             return None
         win = tk.Toplevel(self.frame)
         win.title("Select Remote Folder(s)")
@@ -518,35 +482,32 @@ class ResultsTab:
         cur_path = tk.StringVar(value=self.var_remote_base.get() or ".")
         top = ttk.Frame(win)
         top.pack(fill="x")
-        ttk.Entry(top, textvariable=cur_path).pack(
-            side="left", fill="x", expand=True)
+        ttk.Entry(top, textvariable=cur_path).pack(side="left", fill="x", expand=True)
         tv = ttk.Treeview(win, show="tree", selectmode="extended")
         tv.pack(fill="both", expand=True)
         chosen_paths = []
 
         def _ls(p):
             tv.delete(*tv.get_children())
-            try:
-                if p == ".":
-                    p = sftp.normalize(".")
-                cur_path.set(p)
-                for item in sorted(sftp.listdir_attr(p), key=lambda x: x.filename):
-                    if stat.S_ISDIR(item.st_mode):
-                        tv.insert("", "end", text=item.filename,
-                                  values=("DIR",))
-            except Exception as e:
-                print(e)
+            cur_path.set(p)
+            for item, ftype in self.data_client.list_dir(cli, p):
+                if ftype == "DIR":
+                    tv.insert("", "end", text=item, values=("DIR",))
 
         def _enter(_):
             sel = tv.selection()
             if not sel:
                 return
             name = tv.item(sel[0])["text"]
+            import posixpath
             _ls(posixpath.join(cur_path.get(), name))
 
-        def _up(): _ls(posixpath.dirname(cur_path.get()))
+        def _up(): 
+            import posixpath
+            _ls(posixpath.dirname(cur_path.get()))
 
         def _select():
+            import posixpath
             selection = tv.selection()
             base_p = cur_path.get()
             if not selection:
@@ -557,99 +518,25 @@ class ResultsTab:
                     chosen_paths.append(posixpath.join(base_p, name))
             self.var_remote_base.set(base_p)
             win.destroy()
+            
         tv.bind("<Double-1>", _enter)
         btn = ttk.Frame(win)
         btn.pack(fill="x")
         ttk.Button(btn, text="Up Level", command=_up).pack(side="left")
-        ttk.Button(btn, text="Select Selected Folder(s)",
-                   command=_select).pack(side="right")
+        ttk.Button(btn, text="Select Selected Folder(s)", command=_select).pack(side="right")
         _ls(cur_path.get())
         win.wait_window()
-        sftp.close()
         return chosen_paths if chosen_paths else None
 
     # ---------------- Data Handling (ADVANCED) ----------------
 
-    def _sync_remote_file(self, tag, field, force_refresh=False):
-        if not tag.startswith("ssh://"):
-            return tag
-        remote_path = tag[6:]
-        fname = f"{field}.csv"
+    def _get_data(self, folder_tag, field, force_refresh=False):
         base = getattr(self.app, "var_outdir", None)
         base = base.get() if (base and hasattr(base, "get")) else os.getcwd()
-        safe_name = remote_path.strip("/").replace("/", "__").replace(":", "_")
-        local_dir = os.path.join(base, "_remote_cache", safe_name)
-        os.makedirs(local_dir, exist_ok=True)
-        local_file = os.path.join(local_dir, fname)
-
-        # Force download logic
-        should_download = force_refresh or not (os.path.exists(
-            local_file) and os.path.getsize(local_file) > 0)
-
-        if should_download:
+        cli = None
+        if folder_tag.startswith("ssh://"):
             cli = self._get_ssh_client()
-            if cli:
-                try:
-                    sftp = cli.open_sftp()
-                    rem_file = posixpath.join(remote_path, fname)
-                    # Simple size check could be added here to avoid re-download if identical
-                    sftp.get(rem_file, local_file)
-                    sftp.close()
-                except Exception as e:
-                    # If we can't download, maybe the local file is enough
-                    if not os.path.exists(local_file):
-                        print(f"Sync failed for {fname}: {e}")
-
-        return local_dir
-
-    def _get_data(self, folder_tag, field, force_refresh=False):
-        # 1. Clear Cache if growing too big (LRU approximation)
-        if len(self._data_cache) > self._cache_limit:
-            # Clear 20% of cache
-            keys_to_remove = list(self._data_cache.keys())[
-                :int(self._cache_limit * 0.2)]
-            for k in keys_to_remove:
-                del self._data_cache[k]
-
-        # 2. Sync File
-        local_folder = self._sync_remote_file(folder_tag, field, force_refresh)
-        fpath = os.path.join(local_folder, f"{field}.csv")
-
-        if not os.path.exists(fpath):
-            return None
-
-        # 3. Check Memory Cache
-        try:
-            mtime = os.path.getmtime(fpath)
-            key = (local_folder, field)
-
-            if not force_refresh and key in self._data_cache:
-                cm, data = self._data_cache[key]
-                if cm == mtime:
-                    return data
-
-            # 4. Read Header (Optimization)
-            df_header = pd.read_csv(fpath, nrows=0)
-            target_col = None
-            for c in df_header.columns:
-                if field.lower() in c.lower() or "value" in c.lower():
-                    target_col = c
-                    break
-
-            if target_col is None and len(df_header.columns) > 0:
-                target_col = df_header.columns[0]
-
-            if target_col:
-                # 5. Read Column with float32 (Memory Optimization)
-                df = pd.read_csv(fpath, usecols=[target_col], dtype={
-                                 target_col: np.float32})
-                data = df[target_col].dropna().values
-                self._data_cache[key] = (mtime, data)
-                return data
-
-        except Exception as e:
-            print(f"Read error: {e}")
-        return None
+        return self.data_client.get_data(cli, folder_tag, field, base, force_refresh)
 
     def _compute_ecdf(self, x, ccdf=False, downsample_to=0):
         x = np.sort(x)
@@ -673,41 +560,20 @@ class ResultsTab:
             return
 
         folder = self.app.res_dirs[0]
-        # Just check the first likely csv file (we don't know the field name yet)
-        # We'll try to find ANY .csv in that folder to scan headers
-
-        found_csv = None
 
         if folder.startswith("ssh://"):
-            # Remote Scan
             cli = self._get_ssh_client()
-            if not cli:
+            if not cli: return
+            remote_path = folder[6:]
+            cols, f = self.data_client.scan_columns(cli, remote_path)
+            if cols:
+                self.cb_field['values'] = cols
+                self.result_fields = cols
+                messagebox.showinfo("Success", f"Found columns in {f}: {cols}")
                 return
-            try:
-                sftp = cli.open_sftp()
-                path = folder[6:]
-                files = sftp.listdir(path)
-                for f in files:
-                    if f.endswith(".csv"):
-                        # Download header only
-                        temp_local = os.path.join(
-                            os.getcwd(), "_header_scan.tmp")
-                        with sftp.open(posixpath.join(path, f), 'r') as rf:
-                            # Read first line
-                            header_line = rf.readline()
-                            import csv
-                            reader = csv.reader([header_line])
-                            cols = list(reader)[0]
-                            self.cb_field['values'] = cols
-                            self.result_fields = cols
-                            messagebox.showinfo(
-                                "Success", f"Found columns in {f}: {cols}")
-                            return
-            except Exception as e:
-                messagebox.showerror("Error", f"Remote scan failed: {e}")
-                return
+            messagebox.showerror("Error", "Remote scan failed or no CSV found.")
+            return
         else:
-            # Local Scan
             try:
                 for f in os.listdir(folder):
                     if f.endswith(".csv"):
@@ -716,14 +582,12 @@ class ResultsTab:
                         cols = list(df.columns)
                         self.cb_field['values'] = cols
                         self.result_fields = cols
-                        messagebox.showinfo(
-                            "Success", f"Found columns in {f}: {cols}")
+                        messagebox.showinfo("Success", f"Found columns in {f}: {cols}")
                         return
             except Exception as e:
                 messagebox.showerror("Error", f"Local scan failed: {e}")
 
-        messagebox.showwarning(
-            "Scan", "No CSV files found in the first folder.")
+        messagebox.showwarning("Scan", "No CSV files found in the first folder.")
 
     # ---------------- UI Events ----------------
 

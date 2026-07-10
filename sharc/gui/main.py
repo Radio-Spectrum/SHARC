@@ -1283,11 +1283,6 @@ class App(tb.Window if HAS_BOOTSTRAP else tk.Tk):
         Required by PreviewTab to display the YAML.
         Uses the live GeneralTab builder so preview and batch generation stay aligned.
         """
-        if hasattr(self, "tab_general") and hasattr(self.tab_general, "build_current_structure"):
-            try:
-                return self.tab_general.build_current_structure()
-            except Exception:
-                pass
         return build_yaml_structure(self)
 
     def _proxy_batch_generate(self):
@@ -1310,10 +1305,7 @@ class App(tb.Window if HAS_BOOTSTRAP else tk.Tk):
         )
         if path:
             try:
-                if hasattr(self, "tab_general") and hasattr(self.tab_general, "build_current_structure"):
-                    data = self.tab_general.build_current_structure()
-                else:
-                    data = build_yaml_structure(self)
+                data = build_yaml_structure(self)
                 with open(path, 'w', encoding='utf-8') as f:
                     yaml.dump(data, f, default_flow_style=False,
                               sort_keys=False)

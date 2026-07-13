@@ -468,6 +468,8 @@ class SimulationDownlink(Simulation):
         rx_oob = -np.inf
 
         bs_active = np.where(self.bs.active)[0]
+        if len(bs_active) == 0:
+            return
         # this implm assumes some parameters will be same for all interferring BS's
         frst_bs = bs_active[0]
         if self.co_channel:

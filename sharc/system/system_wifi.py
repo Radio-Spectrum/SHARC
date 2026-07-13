@@ -71,8 +71,7 @@ class SystemWifi:
         self.rx_interference = np.empty(0)
 
         self.wall_loss = self.parameters.wall_loss
-
-        self.floor_probs = [0.2466, 0.2036, 0.1405, 0.1127, 0.0919, 0.0752, 0.0556, 0.0388, 0.0241, 0.0110]
+        
         self.floor_height_m = 3.0 # Altura padrão por andar em metros
 
         self.ap = self.generate_aps(random_number_gen)
@@ -152,8 +151,37 @@ class SystemWifi:
         
         if self.parameters.topology.type == "INDOOR_BUILDING":
             wifi_sta.indoor = np.ones(self.num_sta, dtype=bool)
-            # 2. Pede as coordenadas e andares para dentro dos prédios
-            sta_x, sta_y, sta_z, wifi_sta.floor, wifi_sta.building_id = self.topology.generate_indoor_coordinates(self.num_sta, random_number_gen)
+            
+            # 1. Extração dos atributos dos APs (já instanciados no construtor)
+            ap_building_ids = self.ap.building_id
+            ap_floors = self.ap.floor
+            
+            # 2. Mapeamento 1:N - Clonagem Vetorizada das propriedades do AP para as STAs
+            sta_bids = np.repeat(ap_building_ids, num_sta_per_ap)
+            sta_floors = np.repeat(ap_floors, num_sta_per_ap)
+            
+            wifi_sta.building_id = sta_bids
+            wifi_sta.floor = sta_floors
+            
+            # 3. Mapeamento de Limites dos Prédios (Bounding Box)
+            buildings = self.topology.buildings
+            b_x_min = np.array([buildings[bid].x_min for bid in sta_bids])
+            b_x_max = np.array([buildings[bid].x_max for bid in sta_bids])
+            b_y_min = np.array([buildings[bid].y_min for bid in sta_bids])
+            b_y_max = np.array([buildings[bid].y_max for bid in sta_bids])
+            b_height = np.array([buildings[bid].floor_height for bid in sta_bids])
+            
+            # 4. Geração Vetorizada de Coordenadas X e Y restritas ao prédio
+            sta_x = random_number_gen.uniform(b_x_min, b_x_max)
+            sta_y = random_number_gen.uniform(b_y_min, b_y_max)
+            
+            # 5. Configuração da Coordenada Z (Altura do Andar + Altura do UE)
+            sta_z = (sta_floors * b_height) + self.parameters.sta.height
+            
+            wifi_sta.x = sta_x
+            wifi_sta.y = sta_y
+            wifi_sta.z = sta_z
+            wifi_sta.height = sta_z
         
         else:
             sta_x = list()
@@ -313,23 +341,47 @@ class SystemWifi:
     
     def connect_wifi_sta_to_ap(self, parameters: ParametersWifiSystem):
         """
-        Link the Wi-Fi STA's to the serving AP. It is assumed that each group of K
-        user equipments are distributed and pointed to a certain access point
+        Associa dinamicamente as STAs aos APs com base na menor distância efetiva.
+        Aplica penalidades espaciais caso a STA e o AP estejam em prédios ou andares diferentes.
         """
-        num_sta_per_ap = parameters.sta.k * parameters.sta.k_m
-        ap_active = np.where(self.ap.active)[0]
-        for ap in ap_active:
-            sta_list = [
-                i for i in range(
-                    ap * num_sta_per_ap, ap * num_sta_per_ap + num_sta_per_ap,
-                )
-            ]
-            self.link[ap] = sta_list
+        # 1. Broadcasting para cálculo da Distância Euclidiana 3D
+        # As matrizes resultantes terão shape (num_aps, num_sta)
+        dx = self.ap.x[:, np.newaxis] - self.sta.x[np.newaxis, :]
+        dy = self.ap.y[:, np.newaxis] - self.sta.y[np.newaxis, :]
+        dz = self.ap.z[:, np.newaxis] - self.sta.z[np.newaxis, :]
+        
+        dist_3d = np.sqrt(dx**2 + dy**2 + dz**2)
+        
+        # 2. Inicializar matriz de penalidades físicas
+        penalty = np.zeros_like(dist_3d)
+        
+        # Se for um cenário INDOOR_BUILDING, aplica penalidades de estrutura
+        if self.parameters.topology.type == "INDOOR_BUILDING":
+            # Penalidade de Prédio Diferente (Simula perda de penetração de fachada)
+            b_ap = self.ap.building_id[:, np.newaxis]
+            b_sta = self.sta.building_id[np.newaxis, :]
+            penalty += np.where(b_ap == b_sta, 0.0, 1000.0) # Adiciona 1km de distância virtual
+            
+            # Penalidade de Andar Diferente (Simula Floor Penetration Loss - ITU-R P.1238)
+            f_ap = self.ap.floor[:, np.newaxis]
+            f_sta = self.sta.floor[np.newaxis, :]
+            penalty += np.abs(f_ap - f_sta) * 50.0 # Adiciona 50m de distância virtual por andar
+        
+        # 3. Distância Efetiva = FSL Proxy + Perdas Físicas Representadas em Metros
+        effective_dist = dist_3d + penalty
+        
+        # 4. Índice do AP de Menor Custo (Max RSSI) para cada STA
+        best_ap_indices = np.argmin(effective_dist, axis=0)
+        
+        # 5. Atualizar Estrutura de Link
+        self.link = {ap: [] for ap in range(self.num_aps)}
+        for sta_idx, ap_idx in enumerate(best_ap_indices):
+            self.link[ap_idx].append(sta_idx)
 
     def select_sta(self, random_number_gen: np.random.RandomState):
         """
-        Select K STAs randomly from all the STAs linked to one AP as “chosen”
-        STAs. These K “chosen” STAs will be scheduled during this snapshot.
+        Select UP TO K STAs randomly from all the STAs linked to one AP as “chosen”
+        STAs. These chosen STAs will be scheduled during this snapshot.
         """
         # Calculate distances and angles between Access Points (APs) and Stations (STAs)
         if self.wrap_around_enabled:
@@ -347,16 +399,22 @@ class SystemWifi:
         
         # Iterate over each active Access Point
         for ap in ap_active:
-            # Select K STA's among the ones that are connected to this AP
+            if not self.link[ap]:
+                continue # Pula se este AP não atraiu nenhuma STA no estágio de associação
+
+            # Shuffle the STAs to guarantee random selection
             random_number_gen.shuffle(self.link[ap])
             K = self.parameters.sta.k
-            del self.link[ap][K:]
             
-            # Activate the selected STA's and create beams if the AP is active
-            if self.ap.active[ap]:
-                self.sta.active[self.link[ap]] = np.ones(K, dtype=bool)
+            # Limita a K elementos para o snapshot atual
+            selected_stas = self.link[ap][:K]
+            self.link[ap] = selected_stas
+            
+            # Activate the selected STAs and create beams
+            if self.ap.active[ap] and len(selected_stas) > 0:
+                self.sta.active[selected_stas] = True
                 
-                for sta in self.link[ap]:
+                for sta in selected_stas:
                     # Add a beam from the AP's antenna to the STA
                     self.ap.antenna[ap].add_beam(
                         self.ap_to_sta_phi[ap, sta],
@@ -373,7 +431,6 @@ class SystemWifi:
                     self.ap_to_sta_beam_rbs[sta] = len(
                         self.ap.antenna[ap].beams_list,
                     ) - 1
-    
 
 
 if __name__ == "__main__":
@@ -406,6 +463,7 @@ if __name__ == "__main__":
     rnd = np.random.RandomState(1)
     wifi = SystemWifi(wifi_param, wifi_ant_param, rnd, wifi_topology)
 
+    wifi.connect_wifi_sta_to_ap(wifi_param)
     """
     Plota o cenário 3D mostrando os Prédios, a posição dos APs e das STAs.
     """
@@ -442,6 +500,19 @@ if __name__ == "__main__":
     # STAs (Utilizadores - Círculos Azuis Menores)
     ax.scatter(wifi.sta.x, wifi.sta.y, wifi.sta.z, 
                 c='blue', marker='o', s=40, alpha=0.8, edgecolors='black', label='STAs (Utilizadores)')
+    
+    # 3. Desenhar os Links (Conexões Lógicas do BSS)
+    link_label_added = False
+    for ap_idx, sta_indices in wifi.link.items():
+        ap_x, ap_y, ap_z = wifi.ap.x[ap_idx], wifi.ap.y[ap_idx], wifi.ap.z[ap_idx]
+        
+        for sta_idx in sta_indices:
+            sta_x, sta_y, sta_z = wifi.sta.x[sta_idx], wifi.sta.y[sta_idx], wifi.sta.z[sta_idx]
+            
+            ax.plot([ap_x, sta_x], [ap_y, sta_y], [ap_z, sta_z], 
+                    color='green', linewidth=1.0, alpha=0.5,
+                    label='BSS Link' if not link_label_added else "")
+            link_label_added = True
     
     # Configurando os rótulos e título
     ax.set_title("Distribuição Espacial 3D: Prédios, APs e STAs", fontsize=14)

@@ -110,12 +110,13 @@ class TopologyIndoorBuilding(Topology):
         out_floors = np.zeros(num_nodes, dtype=int)
         out_building_id = np.zeros(num_nodes, dtype=int)
         
-        itu_probs = np.array([0.2466, 0.2036, 0.1405, 0.1127, 0.0919, 
-                              0.0752, 0.0556, 0.0388, 0.0241, 0.0110])
-        
         # Parâmetros de Colisão
-        min_dist = self.parameters.min_dist_nodes_indoor # Distância mínima aceitável entre dois nós (em metros)
-        MAX_RETRIES = 100 # Limite de tentativas para não causar um "loop infinito"
+        min_dist = self.parameters.min_dist_nodes_indoor
+        MAX_RETRIES = 100
+        
+        # Parâmetro da distribuição Binomial
+        floor_p = 0.5 
+        MAX_ALLOWED_FLOORS = 10
                               
         for i in range(num_nodes):
             placed = False
@@ -124,37 +125,39 @@ class TopologyIndoorBuilding(Topology):
             while not placed and retries < MAX_RETRIES:
                 retries += 1
                 
-                # 1. Sorteia o Prédio e as Coordenadas
+                # 1. Sorteia o Prédio e as Coordenadas XY
                 b = rng_state.choice(self.buildings)
                 temp_x = rng_state.uniform(b.x_min, b.x_max)
                 temp_y = rng_state.uniform(b.y_min, b.y_max)
                 
-                # 2. Sorteia o Andar
-                floors_available = min(b.floors, len(itu_probs))
-                building_pmf = itu_probs[:floors_available] / np.sum(itu_probs[:floors_available])
+                # 2. Sorteia o Andar usando Distribuição Binomial limitando a 10 andares
+                available_floors = min(b.floors, MAX_ALLOWED_FLOORS)
                 
-                rng_floor = DiscreteAliasUrn(building_pmf, random_state=rng_state)
-                temp_floor = rng_floor.rvs(size=1)[0]
+                if available_floors > 1:
+                    # Distribuição Binomial: n é o número máximo de sucessos (andares - 1)
+                    temp_floor = rng_state.binomial(n=available_floors - 1, p=floor_p)
+                else:
+                    temp_floor = 0
+                
+                # Coordenada Z do UE (chão do andar + 1.5m de altura do equipamento)
                 temp_z = (temp_floor * b.floor_height) + 1.5
                 
                 # 3. VERIFICAÇÃO DE SOBREPOSIÇÃO 3D
                 if i == 0:
-                    overlap = False # O primeiro nó nunca colide
+                    overlap = False 
                 else:
-                    # Calcula a distância 3D entre a posição temporária e TODOS os nós já posicionados
-                    # O NumPy faz isto numa fração de milissegundo de forma vetorizada
+                    # NumPy Vectorization para calcular distâncias simultaneamente
                     dx = out_x[:i] - temp_x
                     dy = out_y[:i] - temp_y
                     dz = out_z[:i] - temp_z
                     distances = np.sqrt(dx**2 + dy**2 + dz**2)
                     
-                    # Se alguma das distâncias for menor que 2 metros, há colisão!
                     if np.any(distances < min_dist):
                         overlap = True
                     else:
                         overlap = False
                 
-                # 4. Se o espaço estiver livre, guardamos os dados e avançamos para o próximo nó
+                # 4. Grava os dados caso o espaço esteja livre
                 if not overlap:
                     out_x[i] = temp_x
                     out_y[i] = temp_y
@@ -163,8 +166,7 @@ class TopologyIndoorBuilding(Topology):
                     out_building_id[i] = b.build_id
                     placed = True
             
-            # Se tentou 100 vezes e falhou (ex: prédio pequeno demais para tanta gente),
-            # aceitamos a última posição gerada e mostramos um aviso no terminal.
+            # Condição de Falha após MAX_RETRIES
             if not placed:
                 out_x[i] = temp_x
                 out_y[i] = temp_y

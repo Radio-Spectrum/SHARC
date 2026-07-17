@@ -11,6 +11,7 @@ import sys
 import math
 
 from sharc.support.enumerations import StationType
+from sharc.support.geodesy import lla_to_ecef as _lla_to_ecef, rot_ecef_to_enu as _rot_ecef_to_enu
 from sharc.parameters.parameters import Parameters
 from sharc.parameters.imt.parameters_imt import ParametersImt
 from sharc.parameters.imt.parameters_antenna_imt import ParametersAntennaImt
@@ -2124,51 +2125,3 @@ if __name__ == '__main__':
 
     # fig.tight_layout()
     fig.show()
-
-
-_WGS84_A  = 6378137.0                 # semi-major axis [m]
-_WGS84_F  = 1.0 / 298.257223563
-_WGS84_E2 = _WGS84_F * (2.0 - _WGS84_F)
-
-def _lla_to_ecef(lat_deg, lon_deg, h_m):
-    """Vectorized geodetic (deg,deg,m) -> ECEF XYZ (m) on WGS-84."""
-    lat = np.radians(np.asarray(lat_deg, dtype=float))
-    lon = np.radians(np.asarray(lon_deg, dtype=float))
-    h   = np.asarray(h_m, dtype=float)
-
-    sl, cl = np.sin(lat), np.cos(lat)
-    sb, cb = np.sin(lon), np.cos(lon)
-
-    N = _WGS84_A / np.sqrt(1.0 - _WGS84_E2 * sl * sl)
-    X = (N + h) * cl * cb
-    Y = (N + h) * cl * sb
-    Z = (N * (1.0 - _WGS84_E2) + h) * sl
-    return X, Y, Z
-
-def _rot_ecef_to_enu(lat_deg, lon_deg):
-    """
-    Vectorized rotation matrices R (N,3,3) that map v_ecef -> [E,N,U] at each (lat,lon).
-    Rows are the ENU basis vectors.
-    """
-    lat = np.radians(np.asarray(lat_deg, dtype=float))
-    lon = np.radians(np.asarray(lon_deg, dtype=float))
-    sl, cl = np.sin(lat), np.cos(lat)
-    sb, cb = np.sin(lon), np.cos(lon)
-
-    # Each R has rows [east; north; up]
-    # east  = [-sin(lon),  cos(lon), 0]
-    # north = [-sin(lat)cos(lon), -sin(lat)sin(lon), cos(lat)]
-    # up    = [ cos(lat)cos(lon),  cos(lat)sin(lon), sin(lat)]
-    R = np.empty((lat.shape[0], 3, 3), dtype=float)
-    R[:, 0, 0] = -sb
-    R[:, 0, 1] =  cb
-    R[:, 0, 2] =  0.0
-
-    R[:, 1, 0] = -sl * cb
-    R[:, 1, 1] = -sl * sb
-    R[:, 1, 2] =  cl
-
-    R[:, 2, 0] =  cl * cb
-    R[:, 2, 1] =  cl * sb
-    R[:, 2, 2] =  sl
-    return R

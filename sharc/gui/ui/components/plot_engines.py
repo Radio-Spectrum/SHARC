@@ -17,11 +17,6 @@ try:
 except ImportError:
     pass
 
-try:
-    import plotly.graph_objects as go
-except ImportError:
-    pass
-
 from utils import (
     # Type coercers
     _safe_float, _safe_int, _coerce_float, _coerce_int, _coerce_str,
@@ -38,7 +33,7 @@ from utils import (
     # Geometry helpers
     _approx_hex_cluster_centers, _antenna_gain_db_batch,
     # Optional lib flags
-    HAS_PLOTLY, HAS_PYSHP, HAS_GEOPANDAS,
+    HAS_PYSHP, HAS_GEOPANDAS,
     # SHARC core classes
     HAS_SHARC_CORE,
     TopologyCountries, ParametersCountries,
@@ -58,8 +53,10 @@ except ImportError:
 
 class PlotEnginesMixin:
     """
-    Fornece as lógicas de renderização para o PreviewTab (Matplotlib QtAgg & Plotly HTML).
-    Essa classe presume estar rodando como Mixin no escopo de um QWidget.
+    Fornece a lógica de renderização Matplotlib (motor secundário/fallback)
+    para o PreviewTab — o motor primário é o CesiumJS (core/cesium_bridge.py,
+    web/cesium_preview/). Essa classe presume estar rodando como Mixin no
+    escopo de um QWidget.
     """
 
     def _draw_preview(self):
@@ -86,17 +83,31 @@ class PlotEnginesMixin:
 
         print(f"[PreviewTab] Drawing {topo_type} using {engine}")
 
-        # [PYSIDE6 FIX] Troca de visibilidade dos widgets embutidos
-        if engine == "plotly" and HAS_PLOTLY:
+        # [PYSIDE6 FIX] Troca de visibilidade dos widgets embutidos.
+        # CesiumJS is the primary engine; Matplotlib is the secondary/
+        # fallback one (e.g. no WebEngine, no vendored Cesium build, or the
+        # user explicitly picked it) — see CESIUMJS_MIGRATION_PLAN.md.
+        if engine == "cesium" and getattr(self, "_cesium_embed", None) is not None:
             self.canvas3d.hide()
-            self._plotly_embed.show()
-            self._draw_preview_plotly(topo_type, data)
-        else:
-            self._plotly_embed.hide()
-            self.canvas3d.show()
-            self._draw_preview_matplotlib(topo_type, data)
+            self._cesium_embed.show()
+            # No SceneGraph built here: CesiumSpikeWidget.request_scene()
+            # triggers the page to call back into self._cesium_scene_provider
+            # (core/cesium_bridge.py), which builds its own SceneGraph from
+            # the *current* YAML/app state at that moment.
+            self._cesium_embed.request_scene(topo_type)
+            return
 
-    def _draw_preview_matplotlib(self, topo_type: str, data: Dict[str, Any]):
+        if getattr(self, "_cesium_embed", None) is not None:
+            self._cesium_embed.hide()
+        self.canvas3d.show()
+
+        # Scene Builder: a single SceneGraph built from the real SHARC engine
+        # objects (see core/scene_builder.py and
+        # CESIUMJS_MIGRATION_PLAN.md, Fase 1).
+        scene = self._build_scene_graph(topo_type, data)
+        self._draw_preview_matplotlib(topo_type, data, scene)
+
+    def _draw_preview_matplotlib(self, topo_type: str, data: Dict[str, Any], scene=None):
         self.ax3d.cla()
 
         # --- Dark theme styling ---
@@ -111,11 +122,14 @@ class PlotEnginesMixin:
 
         is_global = topo_type in GLOBAL_PREVIEW_TYPES
 
+        if scene is None:
+            scene = self._build_scene_graph(topo_type, data)
+
         try:
             if is_global:
-                self._draw_global_matplotlib(topo_type, data)
+                self._draw_global_matplotlib(topo_type, data, scene)
             else:
-                self._draw_local_matplotlib(topo_type, data)
+                self._draw_local_matplotlib(topo_type, data, scene)
         except Exception as e:
             traceback.print_exc()
             self.ax3d.text2D(
@@ -143,15 +157,17 @@ class PlotEnginesMixin:
         self.fig3d.tight_layout(pad=1.0)
         self.canvas3d.draw_idle()
 
-    def _draw_local_matplotlib(self, topo_type: str, data: Dict[str, Any]):
+    def _draw_local_matplotlib(self, topo_type: str, data: Dict[str, Any], scene=None):
         bs_height = _coerce_float(_yaml_first(data, ("imt.base_station.height_m",
                                   "imt.bs.height_m", "imt.bs_height", "bs_height", "general.bs_height"), None), 30.0)
         if hasattr(self.app, "bs_height"):
             val = self.app.bs_height.get() if hasattr(self.app.bs_height, 'get') else self.app.bs_height
             bs_height = _safe_float(val, bs_height)
 
-        xs, ys, azs, hex_centers, hex_radius, draw_hex = self._compute_local_geometry(
-            topo_type, data)
+        if scene is None:
+            scene = self._build_scene_graph(topo_type, data)
+        xs, ys, azs = scene.local.xs, scene.local.ys, scene.local.azimuths
+        hex_centers, hex_radius, draw_hex = scene.local.hex_centers, scene.local.hex_radius, scene.local.draw_hex
 
         if not xs:
             xs, ys = [0.0], [0.0]
@@ -164,8 +180,8 @@ class PlotEnginesMixin:
         # ============================================================
         # INDOOR topology
         # ============================================================
-        if topo_type == "INDOOR" and self._indoor_topo is not None:
-            topo = self._indoor_topo
+        if topo_type == "INDOOR" and scene.local.indoor_topo is not None:
+            topo = scene.local.indoor_topo
             b_w, b_d, b_h = topo.b_w, topo.b_d, topo.b_h
             num_cells = topo.num_cells
             cell_radius = topo.cell_radius
@@ -211,8 +227,8 @@ class PlotEnginesMixin:
         # ============================================================
         # NTN topology
         # ============================================================
-        if topo_type == "NTN" and self._ntn_topo is not None:
-            topo = self._ntn_topo
+        if topo_type == "NTN" and scene.local.ntn_topo is not None:
+            topo = scene.local.ntn_topo
             sc = 1000.0
             cr_km = topo.cell_radius / sc
             first_hex = True
@@ -454,7 +470,7 @@ class PlotEnginesMixin:
                 self.ax3d.quiver(x0, y0, bs_height, vx, vy, vz, color="red")
             set_equal_3d(self.ax3d)
 
-    def _draw_global_matplotlib(self, topo_type: str, data: Dict[str, Any]):
+    def _draw_global_matplotlib(self, topo_type: str, data: Dict[str, Any], scene=None):
         a = WGS84_A
         b = WGS84_A * (1.0 - WGS84_F)  # WGS84 polar radius
         u = np.linspace(0, 2 * np.pi, 60)
@@ -467,9 +483,13 @@ class PlotEnginesMixin:
         Z = b * np.outer(np.ones_like(u), np.cos(v))
 
         # Resolve satellite/earth-station positions up-front so the satellite
-        # antenna can colour the globe with its gain pattern (parity with the
-        # plotly engine, which previously was the only one to show the heatmap).
-        sx, sy, sz, ex, ey, ez, sat_obj = self._get_global_positions(data)
+        # antenna can colour the globe with its gain pattern.
+        if scene is None:
+            scene = self._build_scene_graph(topo_type, data)
+        g = scene.global_
+        sx, sy, sz = g.satellite_x, g.satellite_y, g.satellite_z
+        ex, ey, ez = g.earth_station_x, g.earth_station_y, g.earth_station_z
+        sat_obj = g.satellite_obj
 
         facecolors = None
         if self.app.var_show_gainmap.get() and sat_obj is not None:
@@ -496,7 +516,7 @@ class PlotEnginesMixin:
             self._draw_borders_mpl()
 
         if topo_type == "Macro_countries":
-            bs_lats, bs_lons = self._compute_macro_countries_bs(data)
+            bs_lats, bs_lons = g.country_bs_lats, g.country_bs_lons
 
             bs_x, bs_y, bs_z = lla_to_ecef(bs_lats, bs_lons, 0)
             offset = 1.005
@@ -517,251 +537,6 @@ class PlotEnginesMixin:
         self.ax3d.set_zlim(-limit, limit)
         self.ax3d.set_box_aspect([1, 1, 1])
 
-    def _draw_preview_plotly(self, topo_type: str, data: Dict[str, Any]):
-        if not HAS_PLOTLY:
-            return
-
-        fig = go.Figure()
-        is_global = topo_type in GLOBAL_PREVIEW_TYPES
-
-        try:
-            if is_global:
-                self._draw_global_plotly(fig, topo_type, data)
-            else:
-                self._draw_local_plotly(fig, topo_type, data)
-        except Exception as e:
-            traceback.print_exc()
-            fig.add_annotation(text=f"Error: {e}", showarrow=False)
-
-        fig.update_layout(showlegend=True, legend=dict(x=0, y=1))
-        self._plotly_last_fig = fig
-        self._plotly_embed.set_figure(fig, open_external=self.app.open_plotly_external.get())
-
-    def _draw_local_plotly(self, fig: "go.Figure", topo_type: str, data: Dict[str, Any]):
-        bs_height = _coerce_float(_yaml_first(data, ("imt.base_station.height_m", "imt.bs.height_m", "imt.bs_height", "bs_height", "general.bs_height"), None), 30.0)
-        if hasattr(self.app, "bs_height"):
-            val = self.app.bs_height.get() if hasattr(self.app.bs_height, 'get') else self.app.bs_height
-            bs_height = _safe_float(val, bs_height)
-            
-        xs, ys, azs, hex_centers, hex_radius, draw_hex = self._compute_local_geometry(topo_type, data)
-
-        ue_height = _coerce_float(_yaml_first(data, ("imt.ue.height", "ue_height"), None), 1.5)
-        if hasattr(self.app, "ue_height"):
-            val = self.app.ue_height.get() if hasattr(self.app.ue_height, 'get') else self.app.ue_height
-            ue_height = _safe_float(val, ue_height)
-
-        if topo_type == "INDOOR" and self._indoor_topo is not None:
-            topo = self._indoor_topo
-            b_w, b_d, b_h = topo.b_w, topo.b_d, topo.b_h
-            num_cells = topo.num_cells
-            cell_radius = topo.cell_radius
-            num_floors = topo.num_floors
-            n_total_bs = len(topo.x)
-            bs_per_floor = max(1, n_total_bs // max(1, num_floors))
-
-            bld_x, bld_y, bld_z = [], [], []
-            for b_idx in range(bs_per_floor // max(1, num_cells)):
-                floor_i = b_idx * num_cells
-                if floor_i >= len(topo.x): break
-                x_b = topo.x[floor_i] - cell_radius
-                y_b = topo.y[floor_i] - b_d / 2
-                for f in range(num_floors):
-                    z0, z1 = f * b_h, (f + 1) * b_h
-                    corners = [(x_b, y_b), (x_b+b_w, y_b), (x_b+b_w, y_b+b_d), (x_b, y_b+b_d), (x_b, y_b)]
-                    for cx, cy in corners: bld_x.append(cx); bld_y.append(cy); bld_z.append(z0)
-                    bld_x.append(None); bld_y.append(None); bld_z.append(None)
-                    for cx, cy in corners: bld_x.append(cx); bld_y.append(cy); bld_z.append(z1)
-                    bld_x.append(None); bld_y.append(None); bld_z.append(None)
-                    for cx, cy in corners[:4]:
-                        bld_x.extend([cx, cx, None]); bld_y.extend([cy, cy, None]); bld_z.extend([z0, z1, None])
-
-            fig.add_trace(go.Scatter3d(x=bld_x, y=bld_y, z=bld_z, mode="lines", line=dict(color="sienna", width=2), name="Buildings"))
-            heights = list(topo.height) if hasattr(topo, "height") and len(topo.height) > 0 else [bs_height]*len(xs)
-            fig.add_trace(go.Scatter3d(x=xs, y=ys, z=heights, mode="markers", marker=dict(size=4, color="blue", symbol="square"), name="Indoor BS"))
-            
-            n_ue = min(len(xs) * 3, 60)
-            if n_ue > 0:
-                ue_xs = [xs[i % len(xs)] + np.random.uniform(-cell_radius, cell_radius) for i in range(n_ue)]
-                ue_ys = [ys[i % len(ys)] + np.random.uniform(-b_d/2, b_d/2) for i in range(n_ue)]
-                ue_zs = [heights[i % len(heights)] - np.random.uniform(0, b_h*0.8) for i in range(n_ue)]
-                fig.add_trace(go.Scatter3d(x=ue_xs, y=ue_ys, z=ue_zs, mode="markers", marker=dict(size=2, color="red"), name="UE (sample)", opacity=0.6))
-                
-            return
-
-        if topo_type == "NTN" and self._ntn_topo is not None:
-            topo = self._ntn_topo
-            sc = 1000.0
-            cr_km = topo.cell_radius / sc
-            hex_x, hex_y, hex_z = [], [], []
-            for x, y in zip(topo.x / sc, topo.y / sc):
-                angs = np.linspace(0, 2*np.pi, 7)
-                hx = list(x + cr_km * np.cos(angs))
-                hy = list(y + cr_km * np.sin(angs))
-                hex_x.extend(hx + [None]); hex_y.extend(hy + [None]); hex_z.extend([0]*7 + [None])
-
-            fig.add_trace(go.Scatter3d(x=hex_x, y=hex_y, z=hex_z, mode="lines", line=dict(color="gray", width=2), name="Sector Cells"))
-            fig.add_trace(go.Scatter3d(x=list(topo.x/sc), y=list(topo.y/sc), z=[0]*len(topo.x), mode="markers", marker=dict(size=5, color="black", symbol="diamond"), name="Anchor Points"))
-            sx, sy, sz = topo.space_station_x/sc, topo.space_station_y/sc, topo.space_station_z/sc
-            fig.add_trace(go.Scatter3d(x=[sx], y=[sy], z=[sz], mode="markers", marker=dict(size=8, color="red", symbol="diamond"), name=f"Satellite (el={np.degrees(topo.bs_elevation):.0f}°)"))
-            fig.add_trace(go.Scatter3d(x=[sx, sx], y=[sy, sy], z=[0, sz], mode="lines", line=dict(color="blue", width=3), name=f"Height = {sz:.0f} km"))
-            fig.add_trace(go.Scatter3d(x=[0, sx], y=[0, sy], z=[0, sz], mode="lines", line=dict(color="green", width=3, dash="dash"), name=f"Slant = {topo.bs_radius/sc:.0f} km"))
-            
-            n_ue = min(len(topo.x)*5, 80)
-            if n_ue > 0:
-                ue_x = [topo.x[i%len(topo.x)]/sc + np.random.uniform(-cr_km*0.8, cr_km*0.8) for i in range(n_ue)]
-                ue_y = [topo.y[i%len(topo.y)]/sc + np.random.uniform(-cr_km*0.8, cr_km*0.8) for i in range(n_ue)]
-                fig.add_trace(go.Scatter3d(x=ue_x, y=ue_y, z=[0]*n_ue, mode="markers", marker=dict(size=2, color="red"), name="UE (sample)", opacity=0.5))
-                
-            fig.update_layout(scene=dict(xaxis_title="x [km]", yaxis_title="y [km]", zaxis_title="z [km]"))
-            return
-
-        if draw_hex and hex_centers:
-            hex_x, hex_y, hex_z = [], [], []
-            for cx, cy in hex_centers:
-                pts = self._hexagon_points(cx, cy, hex_radius, rotation_deg=30)
-                pts = np.vstack([pts, pts[0]])
-                hex_x.extend(pts[:, 0]); hex_x.append(None)
-                hex_y.extend(pts[:, 1]); hex_y.append(None)
-                hex_z.extend([0]*len(pts)); hex_z.append(None)
-
-            fig.add_trace(go.Scatter3d(x=hex_x, y=hex_y, z=hex_z, mode="lines", line=dict(color="lightgray", width=2), name="Grid / Cells"))
-
-        color = "blue"
-        if topo_type == "HOTSPOT": color = "green"
-        elif topo_type == "SINGLE_EARTH_STATION": color = "red"
-
-        fig.add_trace(go.Scatter3d(x=xs, y=ys, z=[bs_height]*len(xs), mode="markers", marker=dict(size=5, color=color), name=f"{topo_type.replace('_', ' ').title()} BS"))
-
-        post_x, post_y, post_z = [], [], []
-        for x, y in zip(xs, ys):
-            post_x.extend([x, x, None]); post_y.extend([y, y, None]); post_z.extend([0, bs_height, None])
-
-        fig.add_trace(go.Scatter3d(x=post_x, y=post_y, z=post_z, mode="lines", line=dict(color=color, width=3), showlegend=False))
-
-        sec_radius = hex_radius * 0.8 if hex_radius > 0 else 50.0
-        if topo_type not in ("SINGLE_EARTH_STATION", "MSS_D2D"):
-            for x, y, az in zip(xs, ys, azs):
-                self._add_wedge_plotly(fig, x, y, sec_radius, az, bs_height, color)
-
-        if topo_type not in ("SINGLE_EARTH_STATION", "MSS_D2D"):
-            val = getattr(self.app, "ue_k", None)
-            ue_k = _safe_int(val.get() if hasattr(val, 'get') else val, 3)
-            ue_radius = hex_radius * 0.9 if hex_radius > 0 else sec_radius * 0.9
-            if topo_type == "HOTSPOT":
-                val_h = getattr(self.app, "hotspot_max_dist_ue", None)
-                ue_radius = _safe_float(val_h.get() if hasattr(val_h, 'get') else val_h, 50.0)
-            unique_bs = list(set(zip(xs, ys)))
-            n_ue = min(len(unique_bs) * max(ue_k, 1), 120)
-            ue_xs, ue_ys = [], []
-            for i in range(n_ue):
-                bx, by = unique_bs[i % len(unique_bs)]
-                ang = np.random.uniform(0, 2*np.pi)
-                r = np.random.uniform(0, ue_radius)
-                ue_xs.append(bx + r*np.cos(ang))
-                ue_ys.append(by + r*np.sin(ang))
-            if ue_xs:
-                fig.add_trace(go.Scatter3d(x=ue_xs, y=ue_ys, z=[ue_height]*len(ue_xs), mode="markers", marker=dict(size=2, color="red"), name=f"UE (K={ue_k})", opacity=0.6))
-
-        if topo_type == "MSS_D2D":
-            fig.add_trace(go.Scatter3d(x=xs[:1], y=ys[:1], z=[ue_height], mode="markers", marker=dict(size=6, color="green", symbol="diamond"), name="Device 1"))
-            if len(xs) > 1:
-                fig.add_trace(go.Scatter3d(x=xs[1:2], y=ys[1:2], z=[ue_height], mode="markers", marker=dict(size=6, color="purple", symbol="diamond"), name="Device 2"))
-                fig.add_trace(go.Scatter3d(x=[xs[0], xs[1]], y=[ys[0], ys[1]], z=[ue_height]*2, mode="lines", line=dict(color="orange", width=4, dash="dash"), name="D2D Link"))
-
-        if str(self.app.var_system.get()) == "SINGLE_EARTH_STATION":
-            mode_var = getattr(self.app, "se_loc_type", None)
-            mode = str(mode_var.get() if hasattr(mode_var, "get") else "FIXED").strip()
-
-            if mode == "FIXED":
-                vx = getattr(self.app, "se_loc_fixed_x", None)
-                x0 = _safe_float(vx.get() if hasattr(vx, 'get') else vx, 0.0)
-                vy = getattr(self.app, "se_loc_fixed_y", None)
-                y0 = _safe_float(vy.get() if hasattr(vy, 'get') else vy, 0.0)
-
-                fig.add_trace(go.Scatter3d(x=[x0], y=[y0], z=[bs_height], mode="markers", marker=dict(size=6, color="red"), name="Single Earth Station"))
-            elif mode == "UNIFORM_DIST":
-                vmin = getattr(self.app, "se_loc_ud_min_dist_to_center", None)
-                rmin = _safe_float(vmin.get() if hasattr(vmin, 'get') else vmin, 10)
-                vmax = getattr(self.app, "se_loc_ud_max_dist_to_center", None)
-                rmax = _safe_float(vmax.get() if hasattr(vmax, 'get') else vmax, 100)
-
-                ang = np.random.uniform(0, 2*np.pi)
-                r = np.random.uniform(rmin, rmax)
-                x0, y0 = r*np.cos(ang), r*np.sin(ang)
-
-                fig.add_trace(go.Scatter3d(x=[x0], y=[y0], z=[bs_height], mode="markers", marker=dict(size=6, color="red"), name="Single Earth Station"))
-                th = np.linspace(0, 2*np.pi, 100)
-                fig.add_trace(go.Scatter3d(x=rmin*np.cos(th), y=rmin*np.sin(th), z=[bs_height]*len(th), mode="lines", line=dict(color="red", dash="dot"), name="min radius"))
-                fig.add_trace(go.Scatter3d(x=rmax*np.cos(th), y=rmax*np.sin(th), z=[bs_height]*len(th), mode="lines", line=dict(color="red", dash="dot"), name="max radius"))
-        fig.update_layout(scene=dict(aspectmode="data"))
-
-    def _draw_global_plotly(self, fig: "go.Figure", topo_type: str, data: Dict[str, Any]):
-        Re = WGS84_A
-        b = WGS84_A * (1.0 - WGS84_F)  # WGS84 polar radius
-        u = np.linspace(0, 2*np.pi, 80)
-        v = np.linspace(0, np.pi, 40)
-        X = Re * np.outer(np.cos(u), np.sin(v))
-        Y = Re * np.outer(np.sin(u), np.sin(v))
-        # True WGS84 ellipsoid so georeferenced surface points sit on the globe.
-        Z = b * np.outer(np.ones_like(u), np.cos(v))
-
-        if topo_type == "Macro_countries":
-            fig.add_trace(go.Surface(
-                x=X, y=Y, z=Z, surfacecolor=np.zeros_like(Z),
-                colorscale=[[0, "lightblue"], [1, "lightblue"]],
-                opacity=0.3, showscale=False, name="Earth Surface"
-            ))
-
-            if self.app.show_borders.get():
-                self._draw_borders_plotly(fig)
-
-            bs_lats, bs_lons = self._compute_macro_countries_bs(data)
-
-            bs_x, bs_y, bs_z = lla_to_ecef(bs_lats, bs_lons, 0)
-            offset = 1.005
-            fig.add_trace(go.Scatter3d(
-                x=np.asarray(bs_x) * offset, y=np.asarray(bs_y) * offset, z=np.asarray(bs_z) * offset,
-                mode="markers", marker=dict(size=3, color="cyan", symbol="diamond"), name=f"BS ({len(bs_lats)})"
-            ))
-
-        sx, sy, sz, ex, ey, ez, sat_obj = self._get_global_positions(data)
-
-        surface_color = None
-        cmin, cmax = None, None
-
-        if self.app.var_show_gainmap.get() and sat_obj:
-            ant = getattr(sat_obj, "antenna", None)
-            if ant:
-                vmin = float(self.app.var_gain_vmin.get())
-                vmax = float(self.app.var_gain_vmax.get())
-                surface_color = self._compute_gain_surface(sx, sy, sz, ant, X, Y, Z, vmin, vmax)
-                cmin, cmax = vmin, vmax
-
-        fig.add_trace(go.Surface(
-            x=X, y=Y, z=Z,
-            surfacecolor=surface_color if surface_color is not None else np.zeros_like(Z),
-            colorscale="Turbo" if surface_color is not None else [[0, "lightblue"], [1, "lightblue"]],
-            cmin=cmin, cmax=cmax,
-            opacity=0.7 if surface_color is not None else 0.3,
-            showscale=bool(surface_color is not None),
-            name="Earth Surface"
-        ))
-
-        if self.app.show_borders.get():
-            self._draw_borders_plotly(fig)
-
-        fig.add_trace(go.Scatter3d(x=[sx], y=[sy], z=[sz], mode="markers", marker=dict(size=6, color="purple"), name="Satellite"))
-        fig.add_trace(go.Scatter3d(x=[ex], y=[ey], z=[ez], mode="markers", marker=dict(size=5, color="blue"), name="Earth Station"))
-        fig.add_trace(go.Scatter3d(x=[sx, ex], y=[sy, ey], z=[sz, ez], mode="lines", line=dict(color="purple", dash="dash", width=2), name="Link Path"))
-
-        if self.app.show_beamwidth.get():
-            bw = self._determine_beamwidth(sat_obj)
-            fp_pts = self._compute_footprint_boundary(sx, sy, sz, bw)
-            if fp_pts is not None:
-                fig.add_trace(go.Scatter3d(x=fp_pts[:, 0], y=fp_pts[:, 1], z=fp_pts[:, 2], mode="lines", line=dict(color="magenta", width=4), name=f"Footprint ({bw:.1f}°)"))
-
-        fig.update_layout(scene=dict(aspectmode="data"))
-
     def _sharc_data_dir(self) -> str:
         """Absolute path to the SHARC package root (…/sharc), used to locate the
         bundled shapefile / SEDAC raster. This file lives at
@@ -775,9 +550,8 @@ class PlotEnginesMixin:
         the real SHARC ``TopologyCountries`` engine, with a per-parameter cache
         and a deterministic random fallback.
 
-        Shared by the matplotlib and plotly global renderers so both show
-        identical station placement (previously this logic was duplicated and
-        could drift between the two engines).
+        Shared by the Matplotlib and CesiumJS global renderers (via
+        core/scene_builder.py) so both show identical station placement.
         """
         countries_str = _get_countries_text(self.app, "Brazil")
         num_bs_val = _safe_int(_get_imt_value(self.app, "topo_num_bs"), 50)
@@ -984,37 +758,16 @@ class PlotEnginesMixin:
         if fp is not None:
             self.ax3d.plot(fp[:, 0], fp[:, 1], fp[:, 2], color="magenta", lw=1.5, label="Footprint")
 
-    def _draw_borders_plotly(self, fig):
-        coords = self._get_border_coords()
-        for lat, lon, is_selected in coords:
-            x, y, z = lla_to_ecef(lat, lon, 0.0)
-            norm = np.sqrt(x*x + y*y + z*z)
-            scale = (WGS84_A * 1.001) / norm
-            color = "lime" if is_selected else "white"
-            width = 3 if is_selected else 1
-            fig.add_trace(go.Scatter3d(
-                x=x*scale, y=y*scale, z=z*scale,
-                mode="lines", line=dict(color=color, width=width), showlegend=False
-            ))
-
-    def _add_wedge_plotly(self, fig, x, y, r, az, z, color):
-        th0, th1 = np.radians(az - 30), np.radians(az + 30)
-        ths = np.linspace(th0, th1, 10)
-        px = [x] + [x + r*math.cos(t) for t in ths] + [x]
-        py = [y] + [y + r*math.sin(t) for t in ths] + [y]
-        pz = [z] * len(px)
-        fig.add_trace(go.Scatter3d(x=px, y=py, z=pz, mode="lines", line=dict(color=color, width=2), showlegend=False))
-
     def _hexagon_points(self, x, y, r, rotation_deg=0):
         angles = np.linspace(np.radians(rotation_deg), np.radians(rotation_deg+360), 7)[:-1]
         return np.column_stack([x + r * np.cos(angles), y + r * np.sin(angles)])
 
     def _save_image(self):
-        if self.app.plot_engine.get() == "plotly":
+        if self.app.plot_engine.get() == "cesium":
             QMessageBox.information(
                 self, "Save Image",
-                "For Plotly, please use the 'camera' icon in the plot toolbar \n"
-                "or open in browser and save from there."
+                "Image capture for the CesiumJS engine isn't implemented yet "
+                "(see CESIUMJS_MIGRATION_PLAN.md). Switch to Matplotlib to save a PNG."
             )
             return
 

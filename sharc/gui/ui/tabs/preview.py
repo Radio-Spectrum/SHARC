@@ -1,21 +1,18 @@
 from __future__ import annotations
 
 import os
-import tempfile
-import webbrowser
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, Optional
 
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QRadioButton, 
-    QCheckBox, QLineEdit, QLabel, QGroupBox, QScrollArea, QTextEdit, 
-    QDialog, QMessageBox
+    QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QRadioButton,
+    QCheckBox, QLineEdit, QLabel, QGroupBox, QScrollArea, QTextEdit,
+    QDialog
 )
-from PySide6.QtCore import Qt, QUrl
+from PySide6.QtCore import Qt
 
 import matplotlib
 matplotlib.use("QtAgg") # MUDANÇA CRÍTICA: Backend Qt nativo
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
-import matplotlib.pyplot as plt
 
 # --- Import do Motor Chromium (PySide6-WebEngine) ---
 try:
@@ -24,10 +21,26 @@ try:
 except ImportError:
     HAS_WEBENGINE = False
 
+# --- CesiumJS engine (motor primário — ver CESIUMJS_MIGRATION_PLAN.md) ---
+# Requires QtWebEngine *and* the vendored Cesium static build, which is not
+# committed to git (see .gitignore) — fetched locally per
+# web/cesium_preview/local_server.py's module docstring. Matplotlib remains
+# available as a secondary/fallback engine when either is missing.
+HAS_CESIUM = False
+if HAS_WEBENGINE:
+    try:
+        from web.cesium_preview.spike_widget import CesiumSpikeWidget
+        from web.cesium_preview.local_server import _WEB_ROOT as _CESIUM_WEB_ROOT
+        HAS_CESIUM = os.path.isdir(os.path.join(_CESIUM_WEB_ROOT, "vendor", "cesium"))
+    except ImportError:
+        HAS_CESIUM = False
+
 # --- Core SHARC Imports (Preservados) ---
-from utils import build_yaml_text, HAS_PLOTLY
+from utils import build_yaml_text
 from core.state import SharcVar
 from core.geometry_3d import Geometry3DMixin
+from core.scene_builder import SceneBuilderMixin
+from core.cesium_bridge import CesiumBridgeMixin
 from ui.components.plot_engines import PlotEnginesMixin
 
 from ui.tabs.assets.preview_tab.preview_detection import (
@@ -40,62 +53,15 @@ from ui.tabs.assets.preview_tab.preview_catalog import (
     update_supported_catalog as _update_supported_catalog_fn,
 )
 
-try:
-    import plotly.graph_objects as go
-except ImportError:
-    go = None
-
-# ---------------------------------------------------------------------------
-# Plotly Embed (PySide6 WebEngine)
-# ---------------------------------------------------------------------------
-class PlotlyEmbed(QWidget):
-    """
-    Embeds Plotly figure natively in PySide6 using QWebEngineView.
-    """
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.main_layout = QVBoxLayout(self)
-        self.main_layout.setContentsMargins(0, 0, 0, 0)
-        self._last_html_path = None
-
-        if HAS_WEBENGINE:
-            self.webview = QWebEngineView()
-            self.main_layout.addWidget(self.webview)
-        else:
-            lbl = QLabel("Plotly embed requires 'PySide6-WebEngine'.\n"
-                         "Install: pip install PySide6-WebEngine\n"
-                         "Using external browser instead.")
-            lbl.setStyleSheet("color: #ffcccc;")
-            self.main_layout.addWidget(lbl)
-
-    def set_figure(self, fig: "go.Figure", open_external: bool = False):
-        if not HAS_PLOTLY:
-            return
-
-        html = fig.to_html(include_plotlyjs="cdn", full_html=True)
-        fd, path = tempfile.mkstemp(prefix="sharc_preview_", suffix=".html")
-        os.close(fd)
-        with open(path, "w", encoding="utf-8") as f:
-            f.write(html)
-        self._last_html_path = path
-
-        if HAS_WEBENGINE:
-            self.webview.setUrl(QUrl.fromLocalFile(path))
-
-        if open_external:
-            self.open_in_browser()
-
-    def open_in_browser(self):
-        if self._last_html_path:
-            webbrowser.open(self._last_html_path)
-
 # ---------------------------------------------------------------------------
 # Preview Tab Principal
 # ---------------------------------------------------------------------------
-class PreviewTab(QWidget, Geometry3DMixin, PlotEnginesMixin):
+class PreviewTab(QWidget, Geometry3DMixin, SceneBuilderMixin, CesiumBridgeMixin, PlotEnginesMixin):
     """
     Main Preview Tab Logic for PySide6.
-    Supports Matplotlib (Canvas3D) and Plotly (Native WebEngine Chromium).
+    CesiumJS (3D Globe) is the primary rendering engine; Matplotlib (Canvas3D)
+    is the secondary/fallback engine (no WebEngine, no vendored Cesium build,
+    or explicitly selected by the user).
     """
 
     def __init__(self, app: Any, parent_frame=None):
@@ -106,15 +72,13 @@ class PreviewTab(QWidget, Geometry3DMixin, PlotEnginesMixin):
         if not hasattr(self.app, "show_borders"):
             self.app.show_borders = SharcVar(True, bool)
         if not hasattr(self.app, "plot_engine"):
-            self.app.plot_engine = SharcVar("matplotlib", str)
+            self.app.plot_engine = SharcVar("cesium" if HAS_CESIUM else "matplotlib", str)
         if not hasattr(self.app, "show_beamwidth"):
             self.app.show_beamwidth = SharcVar(True, bool)
         if not hasattr(self.app, "var_auto_beamwidth"):
             self.app.var_auto_beamwidth = SharcVar(True, bool)
         if not hasattr(self.app, "var_beamwidth_deg"):
             self.app.var_beamwidth_deg = SharcVar("2.0", str)
-        if not hasattr(self.app, "open_plotly_external"):
-            self.app.open_plotly_external = SharcVar(False, bool)
         if not hasattr(self.app, "var_show_gainmap"):
             self.app.var_show_gainmap = SharcVar(False, bool)
         if not hasattr(self.app, "var_gain_vmin"):
@@ -122,8 +86,7 @@ class PreviewTab(QWidget, Geometry3DMixin, PlotEnginesMixin):
         if not hasattr(self.app, "var_gain_vmax"):
             self.app.var_gain_vmax = SharcVar("50", str)
 
-        self._plotly_embed: Optional[PlotlyEmbed] = None
-        self._plotly_last_fig: Optional["go.Figure"] = None
+        self._cesium_embed: Optional["CesiumSpikeWidget"] = None
 
         self._build_ui()
 
@@ -142,20 +105,29 @@ class PreviewTab(QWidget, Geometry3DMixin, PlotEnginesMixin):
         self._lbl_scenario.setStyleSheet("color: #2196F3; font-weight: bold; font-size: 14px;")
         left_layout.addWidget(self._lbl_scenario)
 
-        # Matplotlib 3D Canvas
+        # CesiumJS Embed (motor primário — ver CESIUMJS_MIGRATION_PLAN.md) —
+        # dados reais do cenário via self._cesium_scene_provider
+        # (core/cesium_bridge.py), não topologias de demonstração.
+        if HAS_CESIUM:
+            self._cesium_embed = CesiumSpikeWidget(
+                scene_provider=self._cesium_scene_provider, embedded=True)
+            left_layout.addWidget(self._cesium_embed)
+
+        # Matplotlib 3D Canvas (motor secundário/fallback)
         from matplotlib.figure import Figure
         self.fig3d = Figure(figsize=(6, 6), facecolor="#1a1a2e")
         self.ax3d = self.fig3d.add_subplot(111, projection="3d")
         self.canvas3d = FigureCanvasQTAgg(self.fig3d)
-        
+
         # Conecta o zoom ao scroll do mouse pelo backend do matplotlib
         self.fig3d.canvas.mpl_connect('scroll_event', self._on_scroll_3d)
         left_layout.addWidget(self.canvas3d)
 
-        # Plotly HTML Embed
-        self._plotly_embed = PlotlyEmbed()
-        self._plotly_embed.hide()
-        left_layout.addWidget(self._plotly_embed)
+        # _draw_preview() (called via self.refresh() below) sets the
+        # correct initial visibility based on self.app.plot_engine.
+        if self._cesium_embed is not None:
+            self._cesium_embed.hide()
+        self.canvas3d.hide()
 
         main_layout.addWidget(left_panel, stretch=7)
 
@@ -178,28 +150,31 @@ class PreviewTab(QWidget, Geometry3DMixin, PlotEnginesMixin):
         frm_engine = QGroupBox("Plot Engine")
         l_engine = QVBoxLayout(frm_engine)
         
-        rb_mpl = QRadioButton("Matplotlib (3D)")
-        rb_plt = QRadioButton("Plotly (Interactive)")
-        cb_ext = QCheckBox("Auto-open browser")
-        
-        # Binding do radio button ao SharcVar (Mpl)
+        rb_cesium = QRadioButton("CesiumJS (3D Globe)")
+        rb_mpl = QRadioButton("Matplotlib (3D) — secondary")
+
+        # Binding do radio button ao SharcVar
+        def _set_cesium(): self.app.plot_engine.set("cesium"); self._draw_preview()
         def _set_mpl(): self.app.plot_engine.set("matplotlib"); self._draw_preview()
-        def _set_plt(): self.app.plot_engine.set("plotly"); self._draw_preview()
-        
+
+        rb_cesium.clicked.connect(_set_cesium)
         rb_mpl.clicked.connect(_set_mpl)
-        rb_plt.clicked.connect(_set_plt)
-        
-        if self.app.plot_engine.get() == "plotly":
-            rb_plt.setChecked(True)
+
+        if not HAS_CESIUM:
+            rb_cesium.setEnabled(False)
+            rb_cesium.setToolTip(
+                "Requires PySide6-WebEngine and the vendored CesiumJS build "
+                "(see sharc/gui/web/cesium_preview/local_server.py's docstring)."
+            )
+
+        engine = self.app.plot_engine.get()
+        if engine == "cesium" and HAS_CESIUM:
+            rb_cesium.setChecked(True)
         else:
             rb_mpl.setChecked(True)
 
-        self.app.open_plotly_external.value_changed.connect(cb_ext.setChecked)
-        cb_ext.toggled.connect(self.app.open_plotly_external.set)
-
+        l_engine.addWidget(rb_cesium)
         l_engine.addWidget(rb_mpl)
-        l_engine.addWidget(rb_plt)
-        l_engine.addWidget(cb_ext)
         right_layout.addWidget(frm_engine)
 
         # --- 3. Display Options ---
@@ -285,10 +260,6 @@ class PreviewTab(QWidget, Geometry3DMixin, PlotEnginesMixin):
         f_zoom.addWidget(btn_z_out)
         f_zoom.addWidget(btn_save)
         l_tools.addLayout(f_zoom)
-
-        btn_open_br = QPushButton("🌐 Open Plotly in Browser")
-        btn_open_br.clicked.connect(self._open_plotly)
-        l_tools.addWidget(btn_open_br)
 
         right_layout.addWidget(frm_tools)
 
@@ -409,16 +380,6 @@ class PreviewTab(QWidget, Geometry3DMixin, PlotEnginesMixin):
 
     def _detect_topology_type(self, data: Dict[str, Any]) -> str:
         return _detect_topology_type_fn(data, self.app)
-
-    def _open_plotly(self):
-        if not HAS_PLOTLY:
-            QMessageBox.critical(self, "Error", "Plotly is not installed.")
-            return
-
-        if self._plotly_last_fig:
-            self._plotly_embed.set_figure(self._plotly_last_fig, open_external=True)
-        else:
-            self._plotly_embed.open_in_browser()
 
     def _on_scroll_3d(self, event):
         """Captura scroll do mouse no Matplotlib nativamente."""

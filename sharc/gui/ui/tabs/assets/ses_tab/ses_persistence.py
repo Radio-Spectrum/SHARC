@@ -1,11 +1,10 @@
 import json
-from tkinter import filedialog, messagebox
 from pathlib import Path
-
+from PySide6.QtWidgets import QFileDialog, QMessageBox
 
 class SESPersistence:
     """
-    Handles saving and loading the Single Earth Station configuration.
+    Handles saving and loading the Single Earth Station configuration in PySide6.
     """
 
     @staticmethod
@@ -41,12 +40,8 @@ class SESPersistence:
                 "gain": g(app.se_ant_gain),
                 "diameter": g(app.se_ant_diameter),
                 "envelope_gain": g(app.se_ant_envelope_gain),
-
-                # S.672
                 "antenna_3db": g(app.se_ant_3db),
                 "antenna_l_s": g(app.se_ant_l_s),
-
-                # F1245
                 "f1245_gain": g(app.se_ant_f1245_gain),
                 "f1245_diameter": g(app.se_ant_f1245_diameter),
                 "f1245_frequency": g(app.se_ant_f1245_frequency),
@@ -81,16 +76,13 @@ class SESPersistence:
         s(app.se_tx_power_density, cfg.get("tx_power_density"))
         s(app.se_height, cfg.get("height"))
 
-        # Geometry
         geom = cfg.get("geometry", {})
         loc = geom.get("location", {})
         s(app.se_loc_type, loc.get("type"))
         s(app.se_loc_fixed_x, loc.get("fixed", {}).get("x"))
         s(app.se_loc_fixed_y, loc.get("fixed", {}).get("y"))
-        s(app.se_loc_cell_min_dist_to_bs, loc.get(
-            "cell", {}).get("min_dist_to_bs"))
-        s(app.se_loc_network_min_dist_to_bs, loc.get(
-            "network", {}).get("min_dist_to_bs"))
+        s(app.se_loc_cell_min_dist_to_bs, loc.get("cell", {}).get("min_dist_to_bs"))
+        s(app.se_loc_network_min_dist_to_bs, loc.get("network", {}).get("min_dist_to_bs"))
         ud = loc.get("uniform_dist", {})
         s(app.se_loc_ud_min_dist_to_center, ud.get("min_dist_to_center"))
         s(app.se_loc_ud_max_dist_to_center, ud.get("max_dist_to_center"))
@@ -107,20 +99,17 @@ class SESPersistence:
         s(app.se_el_ud_min, el.get("uniform_dist", {}).get("min"))
         s(app.se_el_ud_max, el.get("uniform_dist", {}).get("max"))
 
-        # Antenna
         ant = cfg.get("antenna", {})
         s(app.se_ant_pattern, ant.get("pattern"))
         s(app.se_ant_gain, ant.get("gain"))
         s(app.se_ant_diameter, ant.get("diameter"))
         s(app.se_ant_envelope_gain, ant.get("envelope_gain"))
-        # NEW
         s(app.se_ant_3db, ant.get("antenna_3db"))
         s(app.se_ant_l_s, ant.get("antenna_l_s"))
-
         s(app.se_ant_f1245_gain, ant.get("f1245_gain"))
         s(app.se_ant_f1245_diameter, ant.get("f1245_diameter"))
         s(app.se_ant_f1245_frequency, ant.get("f1245_frequency"))
-        # Channel
+
         s(app.se_channel_model, cfg.get("channel_model"))
         p = cfg.get("p452", {})
         s(app.p452_atmospheric_pressure, p.get("atmospheric_pressure"))
@@ -139,41 +128,34 @@ class SESPersistence:
         app.p452_is_terrain.set(bool(p.get("is_terrain", False)))
 
     @staticmethod
-    def save_to_file(app):
+    def save_to_file(app, parent_widget=None):
         try:
-            fpath = filedialog.asksaveasfilename(
-                title="Save Earth Station Config",
-                defaultextension=".json",
-                filetypes=[("JSON", "*.json")]
+            fpath, _ = QFileDialog.getSaveFileName(
+                parent_widget, "Save Earth Station Config", "", "JSON (*.json)"
             )
             if fpath:
-                # 1. Coleta a configuração original
                 config_data = SESPersistence.collect_config(app)
-
-                # 2. Cria o cabeçalho e mescla com os dados
-                # Desta forma, "config_type" fica no topo do arquivo JSON
                 final_data = {"config_type": "SES"}
                 final_data.update(config_data)
 
                 with open(fpath, "w", encoding="utf-8") as f:
                     json.dump(final_data, f, indent=2)
 
-                messagebox.showinfo("Config", f"Saved to:\n{fpath}")
+                QMessageBox.information(parent_widget, "Config", f"Saved to:\n{fpath}")
         except Exception as e:
-            messagebox.showerror("Error", str(e))
+            QMessageBox.critical(parent_widget, "Error", str(e))
 
     @staticmethod
-    def load_from_file(app, refresh_callback=None):
+    def load_from_file(app, refresh_callback=None, parent_widget=None):
         try:
-            fpath = filedialog.askopenfilename(
-                title="Load Earth Station Config", filetypes=[("JSON", "*.json")]
+            fpath, _ = QFileDialog.getOpenFileName(
+                parent_widget, "Load Earth Station Config", "", "JSON (*.json)"
             )
             if fpath:
                 with open(fpath, "r", encoding="utf-8") as f:
                     SESPersistence.apply_config(app, json.load(f))
                 if refresh_callback:
                     refresh_callback()
-                messagebox.showinfo(
-                    "Config", "Configuration loaded successfully.")
+                QMessageBox.information(parent_widget, "Config", "Configuration loaded successfully.")
         except Exception as e:
-            messagebox.showerror("Error", str(e))
+            QMessageBox.critical(parent_widget, "Error", str(e))

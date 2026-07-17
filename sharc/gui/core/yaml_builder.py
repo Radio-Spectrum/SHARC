@@ -623,4 +623,67 @@ def build_yaml_structure(app_state):
 
         result["single_earth_station"] = single_earth_station
 
+    elif system_type == "HAPS":
+        result["haps"] = {
+            "frequency": 27250.0,
+            "bandwidth": 200.0,
+            "antenna_gain": 28.1,
+            "eirp_density": 4.4,
+            "tx_power_density": -83.7,
+            "altitude": 20000.0,
+            "lat_deg": 0.0,
+            "elevation": 270.0,
+            "azimuth": 0.0,
+            "antenna_pattern": "ITU-R F.1891",
+            "earth_station_alt_m": 0.0,
+            "earth_station_lat_deg": 0.0,
+            "earth_station_long_diff_deg": 0.0,
+            "season": "SUMMER",
+            "acs": 30.0,
+            "channel_model": "P619",
+            "antenna_l_n": -25.0
+        }
+
+    elif system_type == "MSS_SS":
+        import math
+        result["mss_ss"] = {
+            "is_space_to_earth": True,
+            "frequency": 2110.0,
+            "bandwidth": 20.0,
+            "spectral_mask": "3GPP E-UTRA",
+            "spurious_emissions": -13.0,
+            "adjacent_ch_leak_ratio": 45.0,
+            "altitude": 1200000.0,
+            "cell_radius": 45000.0,
+            "intersite_distance": 45000.0 * math.sqrt(3),
+            "tx_power_density": 40.0,
+            "antenna_gain": 30.0,
+            "azimuth": 45.0,
+            "elevation": 90.0,
+            "num_sectors": 7,
+            "antenna_pattern": "ITU-R-S.1528-LEO",
+            "season": "SUMMER",
+            "channel_model": "P619"
+        }
+
+    elif system_type == "MSS_D2D":
+        import math
+        result["mss_d2d"] = {
+            "is_space_to_earth": True,
+            "name": "Default",
+            "frequency": 2110.0,
+            "bandwidth": 5.0,
+            "beams_load_factor": 1.0,
+            "adjacent_ch_emissions": "OFF",
+            "spectral_mask": "MSS",
+            "spurious_emissions": -13.0,
+            "adjacent_ch_leak_ratio": 45.0,
+            "cell_radius": 19000.0,
+            "intersite_distance": 19000.0 * math.sqrt(3),
+            "tx_power_density": 40.0,
+            "num_sectors": 19,
+            "antenna_pattern": "ITU-R-S.1528-Taylor",
+            "channel_model": "P619"
+        }
+
     return result

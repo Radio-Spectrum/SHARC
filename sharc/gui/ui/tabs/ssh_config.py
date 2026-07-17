@@ -1,15 +1,13 @@
 import json
-import tkinter as tk
-from tkinter import ttk, filedialog, messagebox
+import os
+from pathlib import Path
 
-# Optional ttkbootstrap support (keeps consistent with main.py)
-try:
-    import ttkbootstrap as tb
-    HAS_BOOTSTRAP = True
-except Exception:
-    tb = None
-    HAS_BOOTSTRAP = False
-
+from PySide6.QtWidgets import (
+    QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QGroupBox, 
+    QLabel, QLineEdit, QPushButton, QCheckBox, QPlainTextEdit, 
+    QFileDialog, QMessageBox, QFrame, QScrollArea
+)
+from PySide6.QtCore import Qt, QTimer, Slot
 
 def _safe_read_json(path: str) -> dict:
     try:
@@ -18,26 +16,22 @@ def _safe_read_json(path: str) -> dict:
     except Exception:
         return {}
 
-
 def _safe_write_json(path: str, data: dict) -> None:
     with open(path, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2, ensure_ascii=False)
 
-
-class SSHTunnelTab(ttk.Frame):
+class SSHTunnelTab(QWidget):
     """
-    SSH / Tunnel configuration tab.
+    SSH / Tunnel configuration tab in PySide6.
 
     - Uses app.runner_manager as backend component (RunnerManager from ssh_runner.py).
     - Save/Load config via JSON chosen by the user.
     - Does NOT store password.
-    - Shows a live log box by tee-ing RunnerManager.log_callback (thread-safe via after()).
+    - Shows a live log box by tee-ing RunnerManager.log_callback (thread-safe via QTimer).
     """
 
-    def __init__(self, app, parent):
-        super().__init__(parent)
-
-        self.pack(fill="both", expand=True)
+    def __init__(self, app, parent_frame=None):
+        super().__init__(parent_frame)
 
         self.app = app
         self.runner = getattr(app, "runner_manager", None)
@@ -45,227 +39,196 @@ class SSHTunnelTab(ttk.Frame):
             raise RuntimeError("SSHTunnelTab: app.runner_manager not found.")
 
         # Keep last opened/saved config file path
-        self._config_file_path = tk.StringVar(value="")
+        self._config_file_path = ""
 
         # --- log box state ---
         self._orig_log_callback = None
-        self._log_autoscroll = tk.BooleanVar(value=True)
-
-        # UI vars
-        self.ssh_host = tk.StringVar(value="")
-        self.ssh_port = tk.IntVar(value=22)
-        self.ssh_user = tk.StringVar(value="")
-        self.ssh_password = tk.StringVar(value="")  # not persisted
-        self.ssh_key_path = tk.StringVar(value="")
-
-        self.bastion_host = tk.StringVar(value="")
-        self.bastion_user = tk.StringVar(value="")
-        self.bastion_port = tk.IntVar(value=22)
-
-        self.internal_ip = tk.StringVar(value="")
-        self.internal_port = tk.IntVar(value=22)
-        self.local_port = tk.IntVar(value=2222)
-
-        self.tunnel_key_path = tk.StringVar(value="")
 
         self._build_ui()
         self._install_logger_tee()
         self._refresh_status_labels()
 
-        # Restore callback if this widget is destroyed/reloaded
-        self.bind("<Destroy>", self._on_destroy, add="+")
-
     # ==========================================================
     # UI
     # ==========================================================
     def _build_ui(self):
-        Frame = tb.Frame if (HAS_BOOTSTRAP and tb is not None) else ttk.Frame
-        LabelFrame = tb.Labelframe if (
-            HAS_BOOTSTRAP and tb is not None) else ttk.LabelFrame
-        Button = tb.Button if (
-            HAS_BOOTSTRAP and tb is not None) else ttk.Button
-        Label = tb.Label if (HAS_BOOTSTRAP and tb is not None) else ttk.Label
-        Entry = tb.Entry if (HAS_BOOTSTRAP and tb is not None) else ttk.Entry
-        Sep = tb.Separator if (
-            HAS_BOOTSTRAP and tb is not None) else ttk.Separator
-        Checkbutton = tb.Checkbutton if (
-            HAS_BOOTSTRAP and tb is not None) else ttk.Checkbutton
-
-        root = Frame(self)
-        root.pack(fill="both", expand=True, padx=18, pady=18)
+        main_layout = QVBoxLayout(self)
 
         # Header row
-        top = Frame(root)
-        top.pack(fill="x", pady=(0, 10))
+        top_layout = QHBoxLayout()
+        lbl_title = QLabel("SSH / Tunnel")
+        lbl_title.setStyleSheet("font-size: 14pt; font-weight: bold;")
+        top_layout.addWidget(lbl_title)
+        top_layout.addStretch()
 
-        Label(top, text="SSH / Tunnel",
-              font=("Segoe UI", 14, "bold")).pack(side="left")
+        btn_load = QPushButton("Load Config (.json)")
+        btn_load.clicked.connect(self._on_load_clicked)
+        btn_save = QPushButton("Save Config (.json)")
+        btn_save.clicked.connect(self._on_save_clicked)
+        
+        top_layout.addWidget(btn_load)
+        top_layout.addWidget(btn_save)
+        main_layout.addLayout(top_layout)
 
-        btns_top = Frame(top)
-        btns_top.pack(side="right")
-
-        Button(btns_top, text="Load Config (.json)",
-               command=self._on_load_clicked).pack(side="left", padx=6)
-        Button(btns_top, text="Save Config (.json)",
-               command=self._on_save_clicked).pack(side="left", padx=6)
-
-        Sep(root, orient="horizontal").pack(fill="x", pady=(0, 12))
+        line = QFrame()
+        line.setFrameShape(QFrame.HLine)
+        line.setFrameShadow(QFrame.Sunken)
+        main_layout.addWidget(line)
 
         # Config path display
-        path_row = Frame(root)
-        path_row.pack(fill="x", pady=(0, 10))
-        Label(path_row, text="Config file:", font=(
-            "Segoe UI", 9, "bold")).pack(side="left")
-        self.lbl_cfg_path = Label(
-            path_row, textvariable=self._config_file_path, font=("Consolas", 9))
-        self.lbl_cfg_path.pack(side="left", padx=(8, 0))
+        path_layout = QHBoxLayout()
+        lbl_cfg = QLabel("Config file:")
+        lbl_cfg.setStyleSheet("font-weight: bold;")
+        self.lbl_cfg_path = QLabel("")
+        self.lbl_cfg_path.setStyleSheet("font-family: Consolas;")
+        
+        path_layout.addWidget(lbl_cfg)
+        path_layout.addWidget(self.lbl_cfg_path)
+        path_layout.addStretch()
+        main_layout.addLayout(path_layout)
 
         # Status row
-        status_row = Frame(root)
-        status_row.pack(fill="x", pady=(0, 12))
+        status_layout = QHBoxLayout()
+        self.lbl_ssh = QLabel("SSH: --")
+        self.lbl_ssh.setStyleSheet("font-family: Consolas;")
+        self.lbl_tun = QLabel("Tunnel: --")
+        self.lbl_tun.setStyleSheet("font-family: Consolas;")
+        
+        status_layout.addWidget(self.lbl_ssh)
+        status_layout.addWidget(self.lbl_tun)
+        status_layout.addStretch()
+        main_layout.addLayout(status_layout)
 
-        self.lbl_ssh = Label(status_row, text="SSH: --", font=("Consolas", 10))
-        self.lbl_ssh.pack(side="left", padx=(0, 15))
-
-        self.lbl_tun = Label(status_row, text="Tunnel: --",
-                             font=("Consolas", 10))
-        self.lbl_tun.pack(side="left")
+        # Scrollable Content Area (to avoid layout crushing on small screens)
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setFrameShape(QFrame.NoFrame)
+        scroll_content = QWidget()
+        scroll_layout = QVBoxLayout(scroll_content)
 
         # SSH frame
-        ssh_box = LabelFrame(
-            root, text="SSH Connection (direct or via tunnel)")
-        ssh_box.pack(fill="x", pady=10)
+        ssh_box = QGroupBox("SSH Connection (direct or via tunnel)")
+        ssh_grid = QGridLayout(ssh_box)
 
-        r = 0
-        Label(ssh_box, text="Host").grid(
-            row=r, column=0, sticky="w", padx=(10, 4), pady=6)
-        Entry(ssh_box, textvariable=self.ssh_host, width=28).grid(
-            row=r, column=1, sticky="we", pady=6)
+        ssh_grid.addWidget(QLabel("Host"), 0, 0)
+        self.e_ssh_host = QLineEdit()
+        ssh_grid.addWidget(self.e_ssh_host, 0, 1)
 
-        Label(ssh_box, text="Port").grid(
-            row=r, column=2, sticky="w", padx=(10, 4), pady=6)
-        Entry(ssh_box, textvariable=self.ssh_port, width=8).grid(
-            row=r, column=3, sticky="w", pady=6)
+        ssh_grid.addWidget(QLabel("Port"), 0, 2)
+        self.e_ssh_port = QLineEdit("22")
+        self.e_ssh_port.setFixedWidth(60)
+        ssh_grid.addWidget(self.e_ssh_port, 0, 3)
 
-        r += 1
-        Label(ssh_box, text="User").grid(
-            row=r, column=0, sticky="w", padx=(10, 4), pady=6)
-        Entry(ssh_box, textvariable=self.ssh_user, width=28).grid(
-            row=r, column=1, sticky="we", pady=6)
+        ssh_grid.addWidget(QLabel("User"), 1, 0)
+        self.e_ssh_user = QLineEdit()
+        ssh_grid.addWidget(self.e_ssh_user, 1, 1)
 
-        Label(ssh_box, text="Password").grid(
-            row=r, column=2, sticky="w", padx=(10, 4), pady=6)
-        Entry(ssh_box, textvariable=self.ssh_password, show="*",
-              width=16).grid(row=r, column=3, sticky="w", pady=6)
+        ssh_grid.addWidget(QLabel("Password"), 1, 2)
+        self.e_ssh_password = QLineEdit()
+        self.e_ssh_password.setEchoMode(QLineEdit.Password)
+        ssh_grid.addWidget(self.e_ssh_password, 1, 3)
 
-        r += 1
-        Label(ssh_box, text="SSH Key").grid(
-            row=r, column=0, sticky="w", padx=(10, 4), pady=6)
-        Entry(ssh_box, textvariable=self.ssh_key_path).grid(
-            row=r, column=1, columnspan=2, sticky="we", pady=6)
-        Button(ssh_box, text="Browse", command=self._pick_ssh_key).grid(
-            row=r, column=3, sticky="w", pady=6)
+        ssh_grid.addWidget(QLabel("SSH Key"), 2, 0)
+        self.e_ssh_key = QLineEdit()
+        ssh_grid.addWidget(self.e_ssh_key, 2, 1, 1, 2)
+        
+        btn_pick_ssh = QPushButton("Browse")
+        btn_pick_ssh.clicked.connect(self._pick_ssh_key)
+        ssh_grid.addWidget(btn_pick_ssh, 2, 3)
 
-        r += 1
-        actions = Frame(ssh_box)
-        actions.grid(row=r, column=0, columnspan=4,
-                     sticky="w", padx=10, pady=(8, 10))
+        ssh_actions = QHBoxLayout()
+        btn_conn_pass = QPushButton("Connect (Password)")
+        btn_conn_pass.clicked.connect(self._connect_password)
+        btn_conn_key = QPushButton("Connect (Key)")
+        btn_conn_key.clicked.connect(self._connect_key)
+        btn_disc = QPushButton("Disconnect")
+        btn_disc.clicked.connect(self._disconnect)
+        
+        ssh_actions.addWidget(btn_conn_pass)
+        ssh_actions.addWidget(btn_conn_key)
+        ssh_actions.addWidget(btn_disc)
+        ssh_actions.addStretch()
+        ssh_grid.addLayout(ssh_actions, 3, 0, 1, 4)
 
-        Button(actions, text="Connect (Password)",
-               command=self._connect_password).pack(side="left", padx=(0, 6))
-        Button(actions, text="Connect (Key)", command=self._connect_key).pack(
-            side="left", padx=(0, 6))
-        Button(actions, text="Disconnect",
-               command=self._disconnect).pack(side="left")
-
-        ssh_box.grid_columnconfigure(1, weight=1)
+        scroll_layout.addWidget(ssh_box)
 
         # Tunnel frame
-        tun_box = LabelFrame(root, text="SSH Tunnel (Local Port Forward)")
-        tun_box.pack(fill="x", pady=10)
+        tun_box = QGroupBox("SSH Tunnel (Local Port Forward)")
+        tun_grid = QGridLayout(tun_box)
 
-        r = 0
-        Label(tun_box, text="Bastion Host").grid(
-            row=r, column=0, sticky="w", padx=(10, 4), pady=6)
-        Entry(tun_box, textvariable=self.bastion_host, width=28).grid(
-            row=r, column=1, sticky="we", pady=6)
+        tun_grid.addWidget(QLabel("Bastion Host"), 0, 0)
+        self.e_bastion_host = QLineEdit()
+        tun_grid.addWidget(self.e_bastion_host, 0, 1)
 
-        Label(tun_box, text="User").grid(
-            row=r, column=2, sticky="w", padx=(10, 4), pady=6)
-        Entry(tun_box, textvariable=self.bastion_user, width=20).grid(
-            row=r, column=3, sticky="w", pady=6)
+        tun_grid.addWidget(QLabel("User"), 0, 2)
+        self.e_bastion_user = QLineEdit()
+        tun_grid.addWidget(self.e_bastion_user, 0, 3)
 
-        Label(tun_box, text="Port").grid(
-            row=r, column=4, sticky="w", padx=(10, 4), pady=6)
-        Entry(tun_box, textvariable=self.bastion_port, width=8).grid(
-            row=r, column=5, sticky="w", pady=6)
+        tun_grid.addWidget(QLabel("Port"), 0, 4)
+        self.e_bastion_port = QLineEdit("22")
+        self.e_bastion_port.setFixedWidth(60)
+        tun_grid.addWidget(self.e_bastion_port, 0, 5)
 
-        r += 1
-        Label(tun_box, text="Internal IP").grid(
-            row=r, column=0, sticky="w", padx=(10, 4), pady=6)
-        Entry(tun_box, textvariable=self.internal_ip, width=28).grid(
-            row=r, column=1, sticky="we", pady=6)
+        tun_grid.addWidget(QLabel("Internal IP"), 1, 0)
+        self.e_internal_ip = QLineEdit()
+        tun_grid.addWidget(self.e_internal_ip, 1, 1)
 
-        Label(tun_box, text="Internal Port").grid(
-            row=r, column=2, sticky="w", padx=(10, 4), pady=6)
-        Entry(tun_box, textvariable=self.internal_port, width=8).grid(
-            row=r, column=3, sticky="w", pady=6)
+        tun_grid.addWidget(QLabel("Internal Port"), 1, 2)
+        self.e_internal_port = QLineEdit("22")
+        self.e_internal_port.setFixedWidth(60)
+        tun_grid.addWidget(self.e_internal_port, 1, 3)
 
-        Label(tun_box, text="Local Port").grid(
-            row=r, column=4, sticky="w", padx=(10, 4), pady=6)
-        Entry(tun_box, textvariable=self.local_port, width=8).grid(
-            row=r, column=5, sticky="w", pady=6)
+        tun_grid.addWidget(QLabel("Local Port"), 1, 4)
+        self.e_local_port = QLineEdit("2222")
+        self.e_local_port.setFixedWidth(60)
+        tun_grid.addWidget(self.e_local_port, 1, 5)
 
-        r += 1
-        Label(tun_box, text="Tunnel SSH Key").grid(
-            row=r, column=0, sticky="w", padx=(10, 4), pady=6)
-        Entry(tun_box, textvariable=self.tunnel_key_path).grid(
-            row=r, column=1, columnspan=4, sticky="we", pady=6)
-        Button(tun_box, text="Browse", command=self._pick_tunnel_key).grid(
-            row=r, column=5, sticky="w", pady=6)
+        tun_grid.addWidget(QLabel("Tunnel SSH Key"), 2, 0)
+        self.e_tunnel_key = QLineEdit()
+        tun_grid.addWidget(self.e_tunnel_key, 2, 1, 1, 4)
+        
+        btn_pick_tun = QPushButton("Browse")
+        btn_pick_tun.clicked.connect(self._pick_tunnel_key)
+        tun_grid.addWidget(btn_pick_tun, 2, 5)
 
-        r += 1
-        actions2 = Frame(tun_box)
-        actions2.grid(row=r, column=0, columnspan=6,
-                      sticky="w", padx=10, pady=(8, 10))
+        tun_actions = QHBoxLayout()
+        btn_open_tun = QPushButton("Open Tunnel")
+        btn_open_tun.clicked.connect(self._open_tunnel)
+        btn_close_tun = QPushButton("Close Tunnel")
+        btn_close_tun.clicked.connect(self._close_tunnel)
+        
+        tun_actions.addWidget(btn_open_tun)
+        tun_actions.addWidget(btn_close_tun)
+        tun_actions.addStretch()
+        tun_grid.addLayout(tun_actions, 3, 0, 1, 6)
 
-        Button(actions2, text="Open Tunnel", command=self._open_tunnel).pack(
-            side="left", padx=(0, 6))
-        Button(actions2, text="Close Tunnel",
-               command=self._close_tunnel).pack(side="left")
-
-        tun_box.grid_columnconfigure(1, weight=1)
+        scroll_layout.addWidget(tun_box)
 
         # ======================================================
         # LOG BOX
         # ======================================================
-        log_box = LabelFrame(root, text="System Logs (ssh_runner)")
-        log_box.pack(fill="both", expand=True, pady=(12, 0))
+        log_box = QGroupBox("System Logs (ssh_runner)")
+        log_layout = QVBoxLayout(log_box)
 
-        log_controls = Frame(log_box)
-        log_controls.pack(fill="x", padx=10, pady=(8, 6))
+        log_controls = QHBoxLayout()
+        btn_clear_log = QPushButton("Clear")
+        btn_clear_log.clicked.connect(self._clear_log_box)
+        self.cb_autoscroll = QCheckBox("Auto-scroll")
+        self.cb_autoscroll.setChecked(True)
+        
+        log_controls.addWidget(btn_clear_log)
+        log_controls.addWidget(self.cb_autoscroll)
+        log_controls.addStretch()
+        log_layout.addLayout(log_controls)
 
-        Button(log_controls, text="Clear",
-               command=self._clear_log_box).pack(side="left")
-        Checkbutton(log_controls, text="Auto-scroll",
-                    variable=self._log_autoscroll).pack(side="left", padx=10)
+        self.txt_log = QPlainTextEdit()
+        self.txt_log.setReadOnly(True)
+        self.txt_log.setStyleSheet("font-family: Consolas; font-size: 9pt;")
+        log_layout.addWidget(self.txt_log)
 
-        text_frame = Frame(log_box)
-        text_frame.pack(fill="both", expand=True, padx=10, pady=(0, 10))
-
-        self._log_text = tk.Text(
-            text_frame,
-            height=12,
-            wrap="word",
-            state="disabled",
-            font=("Consolas", 9)
-        )
-        self._log_text.pack(side="left", fill="both", expand=True)
-
-        sb = ttk.Scrollbar(text_frame, orient="vertical",
-                           command=self._log_text.yview)
-        sb.pack(side="right", fill="y")
-        self._log_text.configure(yscrollcommand=sb.set)
+        scroll_layout.addWidget(log_box)
+        scroll_area.setWidget(scroll_content)
+        main_layout.addWidget(scroll_area)
 
     # ==========================================================
     # Logger tee (RunnerManager.log_callback)
@@ -302,45 +265,33 @@ class SSHTunnelTab(ttk.Frame):
                 pass
             self._orig_log_callback = None
 
-    def _on_destroy(self, event=None):
-        try:
-            if event is not None and event.widget is not self:
-                return
-        except Exception:
-            pass
+    def closeEvent(self, event):
         self._restore_logger()
+        super().closeEvent(event)
 
     def _append_log_box(self, msg: str):
-        if not hasattr(self, "_log_text") or self._log_text is None:
+        if not hasattr(self, "txt_log") or self.txt_log is None:
             return
         if msg is None:
             return
-        s = str(msg)
-        if not s.endswith("\n"):
-            s += "\n"
+        s = str(msg).rstrip()
 
         def _ui_write():
             try:
-                self._log_text.configure(state="normal")
-                self._log_text.insert("end", s)
-                if self._log_autoscroll.get():
-                    self._log_text.see("end")
-                self._log_text.configure(state="disabled")
+                self.txt_log.appendPlainText(s)
+                if self.cb_autoscroll.isChecked():
+                    sb = self.txt_log.verticalScrollBar()
+                    sb.setValue(sb.maximum())
             except Exception:
                 pass
 
-        try:
-            self.after(0, _ui_write)
-        except Exception:
-            pass
+        QTimer.singleShot(0, _ui_write)
 
     def _clear_log_box(self):
-        if not hasattr(self, "_log_text") or self._log_text is None:
+        if not hasattr(self, "txt_log") or self.txt_log is None:
             return
         try:
-            self._log_text.configure(state="normal")
-            self._log_text.delete("1.0", "end")
-            self._log_text.configure(state="disabled")
+            self.txt_log.clear()
         except Exception:
             pass
 
@@ -348,22 +299,25 @@ class SSHTunnelTab(ttk.Frame):
     # JSON Config (ask user where to save / which file to open)
     # ==========================================================
     def _collect_config_dict(self) -> dict:
-        # NOTE: password intentionally excluded
+        def safe_int(v, default):
+            try: return int(v)
+            except: return default
+            
         return {
             "ssh": {
-                "host": self.ssh_host.get().strip(),
-                "port": int(self.ssh_port.get()),
-                "user": self.ssh_user.get().strip(),
-                "key_path": self.ssh_key_path.get().strip(),
+                "host": self.e_ssh_host.text().strip(),
+                "port": safe_int(self.e_ssh_port.text(), 22),
+                "user": self.e_ssh_user.text().strip(),
+                "key_path": self.e_ssh_key.text().strip(),
             },
             "tunnel": {
-                "bastion_host": self.bastion_host.get().strip(),
-                "bastion_user": self.bastion_user.get().strip(),
-                "bastion_port": int(self.bastion_port.get()),
-                "internal_ip": self.internal_ip.get().strip(),
-                "internal_port": int(self.internal_port.get()),
-                "local_port": int(self.local_port.get()),
-                "key_path": self.tunnel_key_path.get().strip(),
+                "bastion_host": self.e_bastion_host.text().strip(),
+                "bastion_user": self.e_bastion_user.text().strip(),
+                "bastion_port": safe_int(self.e_bastion_port.text(), 22),
+                "internal_ip": self.e_internal_ip.text().strip(),
+                "internal_port": safe_int(self.e_internal_port.text(), 22),
+                "local_port": safe_int(self.e_local_port.text(), 2222),
+                "key_path": self.e_tunnel_key.text().strip(),
             }
         }
 
@@ -371,32 +325,23 @@ class SSHTunnelTab(ttk.Frame):
         ssh = cfg.get("ssh", {}) if isinstance(cfg, dict) else {}
         tun = cfg.get("tunnel", {}) if isinstance(cfg, dict) else {}
 
-        self.ssh_host.set(ssh.get("host", ""))
-        self.ssh_port.set(int(ssh.get("port", 22)))
-        self.ssh_user.set(ssh.get("user", ""))
-        self.ssh_key_path.set(ssh.get("key_path", ""))
+        self.e_ssh_host.setText(str(ssh.get("host", "")))
+        self.e_ssh_port.setText(str(ssh.get("port", "22")))
+        self.e_ssh_user.setText(str(ssh.get("user", "")))
+        self.e_ssh_key.setText(str(ssh.get("key_path", "")))
 
-        self.bastion_host.set(tun.get("bastion_host", ""))
-        self.bastion_user.set(tun.get("bastion_user", ""))
-        self.bastion_port.set(int(tun.get("bastion_port", 22)))
-        self.internal_ip.set(tun.get("internal_ip", ""))
-        self.internal_port.set(int(tun.get("internal_port", 22)))
-        self.local_port.set(int(tun.get("local_port", 2222)))
-        self.tunnel_key_path.set(tun.get("key_path", ""))
+        self.e_bastion_host.setText(str(tun.get("bastion_host", "")))
+        self.e_bastion_user.setText(str(tun.get("bastion_user", "")))
+        self.e_bastion_port.setText(str(tun.get("bastion_port", "22")))
+        self.e_internal_ip.setText(str(tun.get("internal_ip", "")))
+        self.e_internal_port.setText(str(tun.get("internal_port", "22")))
+        self.e_local_port.setText(str(tun.get("local_port", "2222")))
+        self.e_tunnel_key.setText(str(tun.get("key_path", "")))
 
     def _on_save_clicked(self):
-        initdir = None
-        try:
-            if self._config_file_path.get():
-                initdir = str(self._config_file_path.get())
-        except Exception:
-            initdir = None
-
-        path = filedialog.asksaveasfilename(
-            title="Save SSH/Tunnel config",
-            defaultextension=".json",
-            filetypes=[("JSON files", "*.json"), ("All files", "*.*")],
-            initialfile="ssh_config.json"
+        initdir = self._config_file_path if self._config_file_path else ""
+        path, _ = QFileDialog.getSaveFileName(
+            self, "Save SSH/Tunnel config", initdir or "ssh_config.json", "JSON Files (*.json);;All Files (*)"
         )
         if not path:
             return
@@ -404,15 +349,15 @@ class SSHTunnelTab(ttk.Frame):
         try:
             data = self._collect_config_dict()
             _safe_write_json(path, data)
-            self._config_file_path.set(path)
+            self._config_file_path = path
+            self.lbl_cfg_path.setText(path)
             self._append_log_box(f"[CFG] Saved JSON config: {path}")
         except Exception as e:
-            messagebox.showerror("Save Error", str(e))
+            QMessageBox.critical(self, "Save Error", str(e))
 
     def _on_load_clicked(self):
-        path = filedialog.askopenfilename(
-            title="Load SSH/Tunnel config",
-            filetypes=[("JSON files", "*.json"), ("All files", "*.*")]
+        path, _ = QFileDialog.getOpenFileName(
+            self, "Load SSH/Tunnel config", "", "JSON Files (*.json);;All Files (*)"
         )
         if not path:
             return
@@ -420,24 +365,25 @@ class SSHTunnelTab(ttk.Frame):
         try:
             cfg = _safe_read_json(path)
             self._apply_config_dict(cfg)
-            self._config_file_path.set(path)
+            self._config_file_path = path
+            self.lbl_cfg_path.setText(path)
             self._append_log_box(f"[CFG] Loaded JSON config: {path}")
             self._refresh_status_labels()
         except Exception as e:
-            messagebox.showerror("Load Error", str(e))
+            QMessageBox.critical(self, "Load Error", str(e))
 
     # ==========================================================
     # Pickers
     # ==========================================================
     def _pick_ssh_key(self):
-        p = filedialog.askopenfilename(title="Select SSH Private Key")
+        p, _ = QFileDialog.getOpenFileName(self, "Select SSH Private Key")
         if p:
-            self.ssh_key_path.set(p)
+            self.e_ssh_key.setText(p)
 
     def _pick_tunnel_key(self):
-        p = filedialog.askopenfilename(title="Select Tunnel SSH Private Key")
+        p, _ = QFileDialog.getOpenFileName(self, "Select Tunnel SSH Private Key")
         if p:
-            self.tunnel_key_path.set(p)
+            self.e_tunnel_key.setText(p)
 
     # ==========================================================
     # Actions (use RunnerManager from ssh_runner.py)
@@ -445,33 +391,32 @@ class SSHTunnelTab(ttk.Frame):
     def _connect_password(self):
         try:
             self.runner.connect_ssh_password(
-                host=self.ssh_host.get().strip(),
-                user=self.ssh_user.get().strip(),
-                port=int(self.ssh_port.get()),
-                password=self.ssh_password.get(),
+                host=self.e_ssh_host.text().strip(),
+                user=self.e_ssh_user.text().strip(),
+                port=int(self.e_ssh_port.text() or 22),
+                password=self.e_ssh_password.text(),
             )
             self._refresh_status_labels()
         except Exception as e:
-            messagebox.showerror("SSH Error", str(e))
+            QMessageBox.critical(self, "SSH Error", str(e))
             self._refresh_status_labels()
 
     def _connect_key(self):
         try:
-            key_path = self.ssh_key_path.get().strip()
+            key_path = self.e_ssh_key.text().strip()
             if not key_path:
-                messagebox.showwarning(
-                    "Missing key", "Select an SSH key file first.")
+                QMessageBox.warning(self, "Missing key", "Select an SSH key file first.")
                 return
 
             self.runner.connect_ssh_key(
-                host=self.ssh_host.get().strip(),
-                user=self.ssh_user.get().strip(),
-                port=int(self.ssh_port.get()),
+                host=self.e_ssh_host.text().strip(),
+                user=self.e_ssh_user.text().strip(),
+                port=int(self.e_ssh_port.text() or 22),
                 key_path=key_path,
             )
             self._refresh_status_labels()
         except Exception as e:
-            messagebox.showerror("SSH Error", str(e))
+            QMessageBox.critical(self, "SSH Error", str(e))
             self._refresh_status_labels()
 
     def _disconnect(self):
@@ -483,24 +428,23 @@ class SSHTunnelTab(ttk.Frame):
 
     def _open_tunnel(self):
         try:
-            key_path = self.tunnel_key_path.get().strip()
+            key_path = self.e_tunnel_key.text().strip()
             if not key_path:
-                messagebox.showwarning(
-                    "Missing key", "Select a tunnel SSH key file first.")
+                QMessageBox.warning(self, "Missing key", "Select a tunnel SSH key file first.")
                 return
 
             self.runner.create_tunnel(
-                bastion_host=self.bastion_host.get().strip(),
-                bastion_user=self.bastion_user.get().strip(),
-                bastion_port=int(self.bastion_port.get()),
-                int_ip=self.internal_ip.get().strip(),
-                int_port=int(self.internal_port.get()),
-                loc_port=int(self.local_port.get()),
+                bastion_host=self.e_bastion_host.text().strip(),
+                bastion_user=self.e_bastion_user.text().strip(),
+                bastion_port=int(self.e_bastion_port.text() or 22),
+                int_ip=self.e_internal_ip.text().strip(),
+                int_port=int(self.e_internal_port.text() or 22),
+                loc_port=int(self.e_local_port.text() or 2222),
                 key_path=key_path,
             )
             self._refresh_status_labels()
         except Exception as e:
-            messagebox.showerror("Tunnel Error", str(e))
+            QMessageBox.critical(self, "Tunnel Error", str(e))
             self._refresh_status_labels()
 
     def _close_tunnel(self):
@@ -521,18 +465,20 @@ class SSHTunnelTab(ttk.Frame):
         tun_txt = "Tunnel: Active" if tun_ok else "Tunnel: Closed"
 
         try:
-            self.lbl_ssh.configure(text=ssh_txt)
-            self.lbl_tun.configure(text=tun_txt)
+            self.lbl_ssh.setText(ssh_txt)
+            self.lbl_tun.setText(tun_txt)
         except Exception:
             pass
 
         if hasattr(self.app, "ssh_status"):
             try:
+                # Se app.ssh_status for SharcVar (ou similar que possui set())
                 self.app.ssh_status.set(ssh_txt)
-            except Exception:
-                pass
+            except AttributeError:
+                self.app.ssh_status = ssh_txt
+                
         if hasattr(self.app, "tunnel_status"):
             try:
                 self.app.tunnel_status.set(tun_txt)
-            except Exception:
-                pass
+            except AttributeError:
+                self.app.tunnel_status = tun_txt

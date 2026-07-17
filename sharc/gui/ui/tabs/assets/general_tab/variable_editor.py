@@ -1,16 +1,19 @@
-import tkinter as tk
-from tkinter import filedialog, messagebox
-import ttkbootstrap as ttk
-from pathlib import Path
+import os
 import ast
 import csv
-import os
+from pathlib import Path
+from PySide6.QtWidgets import (
+    QDialog, QVBoxLayout, QHBoxLayout, QGridLayout, QGroupBox, 
+    QLabel, QLineEdit, QPushButton, QRadioButton, QScrollArea, 
+    QWidget, QFileDialog, QMessageBox, QButtonGroup, QFrame
+)
+from PySide6.QtCore import Qt, Slot
 
 # Ajuste os imports conforme a estrutura do seu projeto
 from ui.tabs.assets.general_tab.general_tools import parse_list_safe, generate_sequence, format_number
 
 
-class VariableEditor(tk.Toplevel):
+class VariableEditor(QDialog):
     """
     A dialog window to edit Tag <-> Value mappings.
     Features:
@@ -22,12 +25,12 @@ class VariableEditor(tk.Toplevel):
 
     def __init__(self, parent, var_key, tags_raw, vals_raw, on_save_callback):
         super().__init__(parent)
-        self.title(f"Edit Variable: {var_key}")
-        self.geometry("800x650")
-        self.transient(parent)
+        self.setWindowTitle(f"Edit Variable: {var_key}")
+        self.resize(800, 650)
+        self.setModal(True)
 
         self.on_save = on_save_callback
-        self.rows = []  # Stores (Entry_Tag, Entry_Value, Button_Browse) tuples
+        self.rows = []  # Stores (QLineEdit_Tag, QLineEdit_Value, QPushButton_Browse) tuples
 
         # Initial Data
         self.tags_list = parse_list_safe(tags_raw, [])
@@ -40,343 +43,263 @@ class VariableEditor(tk.Toplevel):
                 initial_mode = "FILE"
                 break
 
-        self.var_mode = tk.StringVar(value=initial_mode)  # "VALUE" or "FILE"
-
-        # UI Components placeholders
-        self.frm_auto = None
-        self.btns_frame = None
-
-        self._build_ui(var_key)
+        self._build_ui(var_key, initial_mode)
         self._populate_initial_rows()
-
-        # Apply initial visibility and validation
         self._toggle_mode_ui()
 
-    def _build_ui(self, var_key):
-        # --- Header ---
-        top = ttk.Frame(self)
-        top.pack(fill="x", padx=10, pady=(10, 6))
+    def _build_ui(self, var_key, initial_mode):
+        main_layout = QVBoxLayout(self)
 
+        # --- Header ---
+        top_frame = QWidget()
+        top_layout = QVBoxLayout(top_frame)
+        top_layout.setContentsMargins(0, 0, 0, 0)
+        
         # Row 1: Name
-        r1 = ttk.Frame(top)
-        r1.pack(fill="x")
-        ttk.Label(r1, text="Variable Name:").pack(side="left")
-        self.e_var = ttk.Entry(r1, width=24)
-        self.e_var.insert(0, str(var_key))
-        self.e_var.pack(side="left", padx=(6, 0))
-        ttk.Label(r1, text="(use {name} in paths)",
-                  foreground="gray").pack(side="left", padx=10)
+        r1_layout = QHBoxLayout()
+        r1_layout.addWidget(QLabel("Variable Name:"))
+        self.e_var = QLineEdit(str(var_key))
+        r1_layout.addWidget(self.e_var)
+        lbl_hint = QLabel("(use {name} in paths)")
+        lbl_hint.setStyleSheet("color: gray;")
+        r1_layout.addWidget(lbl_hint)
+        r1_layout.addStretch()
+        top_layout.addLayout(r1_layout)
 
         # Row 2: Type Selection (Mode)
-        r2 = ttk.Labelframe(top, text="Variable Type / Validation Mode")
-        r2.pack(fill="x", pady=(10, 0))
+        r2_group = QGroupBox("Variable Type / Validation Mode")
+        r2_layout = QHBoxLayout(r2_group)
+        
+        self.mode_group = QButtonGroup(self)
+        self.rb_value = QRadioButton("Logical Value (Numeric Check)")
+        self.rb_file = QRadioButton("File Path (Existence Check)")
+        
+        self.mode_group.addButton(self.rb_value, 0)
+        self.mode_group.addButton(self.rb_file, 1)
+        
+        if initial_mode == "FILE":
+            self.rb_file.setChecked(True)
+        else:
+            self.rb_value.setChecked(True)
+            
+        self.mode_group.buttonClicked.connect(self._toggle_mode_ui)
+        
+        r2_layout.addWidget(self.rb_value)
+        r2_layout.addWidget(self.rb_file)
+        r2_layout.addStretch()
+        top_layout.addWidget(r2_group)
 
-        ttk.Radiobutton(r2, text="Logical Value (Numeric Check)", variable=self.var_mode,
-                        value="VALUE", command=self._toggle_mode_ui).pack(side="left", padx=10, pady=5)
-
-        ttk.Radiobutton(r2, text="File Path (Existence Check)", variable=self.var_mode,
-                        value="FILE", command=self._toggle_mode_ui).pack(side="left", padx=10, pady=5)
+        main_layout.addWidget(top_frame)
 
         # --- Scrollable List Area ---
-        frm_list = ttk.Labelframe(self, text="Mapping (Tag -> Value)")
-        frm_list.pack(fill="both", expand=True, padx=10, pady=6)
-
-        canvas = tk.Canvas(frm_list)
-        scrollbar = ttk.Scrollbar(
-            frm_list, orient="vertical", command=canvas.yview)
-        self.scroll_frame = ttk.Frame(canvas)
-
-        self.scroll_frame.bind(
-            "<Configure>",
-            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
-        )
-        canvas.create_window((0, 0), window=self.scroll_frame, anchor="nw")
-        canvas.configure(yscrollcommand=scrollbar.set)
-
-        canvas.pack(side="left", fill="both", expand=True)
-        scrollbar.pack(side="right", fill="y")
-        self.canvas = canvas
-
-        # Column Headers
-        self.lbl_col_tag = ttk.Label(self.scroll_frame, text="Tag (Key)")
-        self.lbl_col_tag.grid(row=0, column=0, sticky="w", padx=5)
-
-        self.lbl_col_val = ttk.Label(self.scroll_frame, text="Value")
-        self.lbl_col_val.grid(row=0, column=1, sticky="w", padx=5)
-
-        ttk.Label(self.scroll_frame, text="").grid(
-            row=0, column=2, sticky="w", padx=0)
+        list_group = QGroupBox("Mapping (Tag -> Value)")
+        list_layout = QVBoxLayout(list_group)
+        
+        self.scroll_area = QScrollArea()
+        self.scroll_area.setWidgetResizable(True)
+        self.scroll_widget = QWidget()
+        self.scroll_layout = QGridLayout(self.scroll_widget)
+        self.scroll_layout.setAlignment(Qt.AlignTop)
+        
+        # Headers
+        self.lbl_col_tag = QLabel("Tag (Key)")
+        self.lbl_col_val = QLabel("Value")
+        self.scroll_layout.addWidget(self.lbl_col_tag, 0, 0)
+        self.scroll_layout.addWidget(self.lbl_col_val, 0, 1)
+        
+        self.scroll_area.setWidget(self.scroll_widget)
+        list_layout.addWidget(self.scroll_area)
+        
+        main_layout.addWidget(list_group, 1) # Expandible
 
         # --- Action Buttons ---
-        actions = ttk.Frame(self)
-        actions.pack(fill="x", padx=10, pady=(0, 6))
+        actions_layout = QHBoxLayout()
+        
+        btn_add = QPushButton("+ Add Row")
+        btn_add.clicked.connect(lambda: self._add_row_ui("", ""))
+        btn_remove = QPushButton("- Remove Last")
+        btn_remove.clicked.connect(self._remove_last_row)
+        
+        actions_layout.addWidget(btn_add)
+        actions_layout.addWidget(btn_remove)
+        
+        line = QFrame()
+        line.setFrameShape(QFrame.VLine)
+        line.setFrameShadow(QFrame.Sunken)
+        actions_layout.addWidget(line)
+        
+        btn_bulk = QPushButton("Import Files...")
+        btn_bulk.clicked.connect(self._pick_files_bulk)
+        btn_import = QPushButton("Import CSV")
+        btn_import.clicked.connect(self._import_csv)
+        btn_export = QPushButton("Export CSV")
+        btn_export.clicked.connect(self._export_csv)
+        
+        actions_layout.addWidget(btn_bulk)
+        actions_layout.addWidget(btn_import)
+        actions_layout.addWidget(btn_export)
+        actions_layout.addStretch()
+        
+        main_layout.addLayout(actions_layout)
 
-        # Left side: Manipulation
-        ttk.Button(actions, text="+ Add Row",
-                   command=lambda: self._add_row_ui("", "")).pack(side="left")
-        ttk.Button(actions, text="- Remove Last",
-                   command=self._remove_last_row).pack(side="left", padx=5)
+        # --- Auto-Generation Section ---
+        self._build_auto_gen_ui(main_layout)
 
-        ttk.Separator(actions, orient="vertical").pack(
-            side="left", fill="y", padx=10)
+        # --- Bottom Buttons ---
+        btns_layout = QHBoxLayout()
+        btn_ok = QPushButton("OK")
+        btn_ok.clicked.connect(self._on_ok)
+        btn_cancel = QPushButton("Cancel")
+        btn_cancel.clicked.connect(self.reject)
+        
+        lbl_legend = QLabel("* Red text indicates invalid value/path")
+        lbl_legend.setStyleSheet("color: red; font-size: 11px;")
+        
+        btns_layout.addWidget(btn_ok)
+        btns_layout.addWidget(btn_cancel)
+        btns_layout.addStretch()
+        btns_layout.addWidget(lbl_legend)
+        
+        main_layout.addLayout(btns_layout)
 
-        # Middle: Files & CSV
-        self.btn_bulk = ttk.Button(
-            actions, text="Import Files...", command=self._pick_files_bulk)
-        self.btn_bulk.pack(side="left", padx=2)
+    def _build_auto_gen_ui(self, main_layout):
+        self.frm_auto = QGroupBox("Generate Values Automatically (Numeric)")
+        auto_layout = QVBoxLayout(self.frm_auto)
+        
+        row_mode = QHBoxLayout()
+        self.gen_group = QButtonGroup(self)
+        self.rb_step = QRadioButton("Start/End/Step")
+        self.rb_npts = QRadioButton("Start/End/N Points")
+        self.rb_step.setChecked(True)
+        self.gen_group.addButton(self.rb_step, 0)
+        self.gen_group.addButton(self.rb_npts, 1)
+        self.gen_group.buttonClicked.connect(self._update_gen_labels)
+        
+        row_mode.addWidget(self.rb_step)
+        row_mode.addWidget(self.rb_npts)
+        row_mode.addStretch()
+        auto_layout.addLayout(row_mode)
+        
+        row_params = QHBoxLayout()
+        row_params.addWidget(QLabel("Start:"))
+        self.e_start = QLineEdit()
+        self.e_start.setFixedWidth(80)
+        row_params.addWidget(self.e_start)
+        
+        row_params.addWidget(QLabel("End:"))
+        self.e_end = QLineEdit()
+        self.e_end.setFixedWidth(80)
+        row_params.addWidget(self.e_end)
+        
+        self.lbl_param = QLabel("Step:")
+        row_params.addWidget(self.lbl_param)
+        self.e_param = QLineEdit()
+        self.e_param.setFixedWidth(80)
+        row_params.addWidget(self.e_param)
+        
+        row_params.addWidget(QLabel("Base Tag:"))
+        self.e_tagbase = QLineEdit("V")
+        self.e_tagbase.setFixedWidth(80)
+        row_params.addWidget(self.e_tagbase)
+        
+        row_params.addStretch()
+        btn_gen = QPushButton("Generate and Replace")
+        btn_gen.clicked.connect(self._generate_values)
+        row_params.addWidget(btn_gen)
+        
+        auto_layout.addLayout(row_params)
+        main_layout.addWidget(self.frm_auto)
 
-        ttk.Button(actions, text="Import CSV",
-                   command=self._import_csv).pack(side="left", padx=2)
-        ttk.Button(actions, text="Export CSV",
-                   command=self._export_csv).pack(side="left", padx=2)
-
-        # --- Auto-Generation Section (Built but visibility controlled later) ---
-        self._build_auto_gen_ui()
-
-        # --- Bottom Buttons (Saved to reference for ordering) ---
-        self.btns_frame = ttk.Frame(self)
-        self.btns_frame.pack(fill="x", padx=10, pady=10)
-        ttk.Button(self.btns_frame, text="OK",
-                   command=self._on_ok).pack(side="left")
-        ttk.Button(self.btns_frame, text="Cancel", command=self.destroy).pack(
-            side="left", padx=10)
-
-        # Legend for validation
-        ttk.Label(self.btns_frame, text="* Red text indicates invalid value/path",
-                  foreground="red", font=("Arial", 8)).pack(side="right")
-
-    def _build_auto_gen_ui(self):
-        """Constructs the Auto-Generation frame."""
-        self.frm_auto = ttk.Labelframe(
-            self, text="Generate Values Automatically (Numeric)")
-        # We don't pack it here immediately to avoid order issues,
-        # it will be packed in _toggle_mode_ui
-
-        self.gen_mode = tk.StringVar(value="STEP")
-
-        rowm = ttk.Frame(self.frm_auto)
-        rowm.pack(fill="x", pady=2)
-        ttk.Radiobutton(rowm, text="Start/End/Step", variable=self.gen_mode,
-                        value="STEP", command=self._update_gen_labels).pack(side="left")
-        ttk.Radiobutton(rowm, text="Start/End/N Points", variable=self.gen_mode,
-                        value="NPTS", command=self._update_gen_labels).pack(side="left", padx=15)
-
-        rowa = ttk.Frame(self.frm_auto)
-        rowa.pack(fill="x", pady=4)
-
-        ttk.Label(rowa, text="Start:").pack(side="left")
-        self.e_start = ttk.Entry(rowa, width=8)
-        self.e_start.pack(side="left", padx=2)
-
-        ttk.Label(rowa, text="End:").pack(side="left", padx=(10, 0))
-        self.e_end = ttk.Entry(rowa, width=8)
-        self.e_end.pack(side="left", padx=2)
-
-        self.lbl_param = ttk.Label(rowa, text="Step:")
-        self.lbl_param.pack(side="left", padx=(10, 0))
-        self.e_param = ttk.Entry(rowa, width=8)
-        self.e_param.pack(side="left", padx=2)
-
-        ttk.Label(rowa, text="Base Tag:").pack(side="left", padx=(15, 0))
-        self.e_tagbase = ttk.Entry(rowa, width=8)
-        self.e_tagbase.pack(side="left", padx=2)
-        self.e_tagbase.insert(0, "V")
-
-        ttk.Button(self.frm_auto, text="Generate and Replace",
-                   command=self._generate_values).pack(anchor="e", padx=5, pady=2)
-
-    # --- UI Logic Methods ---
-
+    @Slot()
     def _toggle_mode_ui(self):
-        """Updates the UI, re-validates rows, and Hides/Shows generator based on mode."""
-        mode = self.var_mode.get()
-
-        # 1. Update Headers & Validation
-        if mode == "FILE":
-            self.lbl_col_val.config(text="File Path (Must exist)")
-            # Hide the numeric generator
-            self.frm_auto.pack_forget()
+        is_file = self.rb_file.isChecked()
+        
+        if is_file:
+            self.lbl_col_val.setText("File Path (Must exist)")
+            self.frm_auto.hide()
         else:
-            self.lbl_col_val.config(text="Value (Numeric)")
-            # Show the numeric generator (before the buttons)
-            self.frm_auto.pack(fill="x", padx=10, pady=(
-                6, 0), before=self.btns_frame)
+            self.lbl_col_val.setText("Value (Numeric)")
+            self.frm_auto.show()
 
-        # 2. Update Rows visibility
         for _, e_val, btn_browse in self.rows:
-            if mode == "FILE":
-                btn_browse.grid()
-            else:
-                btn_browse.grid_remove()
-
-            # Re-validate current value with new mode
+            btn_browse.setVisible(is_file)
             self._validate_entry(e_val)
 
-        self.canvas.configure(scrollregion=self.canvas.bbox("all"))
-
     def _add_row_ui(self, t="", v=""):
-        r = len(self.rows) + 1
+        row_idx = len(self.rows) + 1 # +1 accounts for header
 
-        e1 = ttk.Entry(self.scroll_frame, width=20)
-        e1.insert(0, str(t))
-
-        e2 = ttk.Entry(self.scroll_frame, width=55)
-        e2.insert(0, str(v))
-
-        # Bind validation event (KeyRelease triggers on every keystroke)
-        e2.bind('<KeyRelease>', lambda event,
-                entry=e2: self._validate_entry(entry))
-
-        # Browse Button
-        btn_browse = ttk.Button(self.scroll_frame, text="...", width=3,
-                                command=lambda entry=e2: self._browse_single_file(entry))
-
-        # Grid Layout
-        e1.grid(row=r, column=0, sticky="we", pady=2, padx=5)
-        e2.grid(row=r, column=1, sticky="we", pady=2, padx=5)
-        btn_browse.grid(row=r, column=2, sticky="w", pady=2, padx=(0, 5))
-
-        # Initial validation state
-        if self.var_mode.get() != "FILE":
-            btn_browse.grid_remove()
-
+        e1 = QLineEdit(str(t))
+        e2 = QLineEdit(str(v))
+        
+        e2.textChanged.connect(lambda text, entry=e2: self._validate_entry(entry))
+        
+        btn_browse = QPushButton("...")
+        btn_browse.setFixedWidth(30)
+        btn_browse.clicked.connect(lambda _, entry=e2: self._browse_single_file(entry))
+        
+        self.scroll_layout.addWidget(e1, row_idx, 0)
+        self.scroll_layout.addWidget(e2, row_idx, 1)
+        self.scroll_layout.addWidget(btn_browse, row_idx, 2)
+        
+        btn_browse.setVisible(self.rb_file.isChecked())
+        
         self.rows.append((e1, e2, btn_browse))
-        self._validate_entry(e2)  # Validate initial value
+        self._validate_entry(e2)
 
-        # Force update scroll
-        self.scroll_frame.update_idletasks()
-        self.canvas.configure(scrollregion=self.canvas.bbox("all"))
-
-    # --- Validation Logic ---
     def _validate_entry(self, entry_widget):
-        """Checks if value is valid based on mode. Changes text color."""
-        val = entry_widget.get().strip()
-        mode = self.var_mode.get()
+        val = entry_widget.text().strip()
+        is_file = self.rb_file.isChecked()
         is_valid = True
 
         if not val:
-            entry_widget.config(foreground="black")
+            entry_widget.setStyleSheet("")
             return
 
-        if mode == "VALUE":
+        if not is_file:
             try:
                 float(val)
-                is_valid = True
             except ValueError:
                 is_valid = False
-
-        elif mode == "FILE":
-            # Allow placeholders like {var} or check file existence
-            if "{" in val and "}" in val:
-                is_valid = True
-            else:
-                # Check path (removing quotes if user pasted them)
+        else:
+            if "{" not in val or "}" not in val:
                 clean_path = val.strip('"').strip("'")
                 is_valid = os.path.exists(clean_path)
 
-        color = "black" if is_valid else "red"
-        entry_widget.config(foreground=color)
-
-    # --- CSV Import / Export ---
-    # (Existing CSV methods unchanged - kept for brevity unless requested)
-    def _export_csv(self):
-        f_path = filedialog.asksaveasfilename(
-            defaultextension=".csv",
-            filetypes=[("CSV Files", "*.csv"), ("All Files", "*.*")],
-            title="Export to CSV", parent=self
-        )
-        if not f_path:
-            return
-        try:
-            with open(f_path, mode='w', newline='', encoding='utf-8') as f:
-                writer = csv.writer(f)
-                writer.writerow(["Tag", "Value"])
-                for e1, e2, _ in self.rows:
-                    if e1.get().strip() or e2.get().strip():
-                        writer.writerow([e1.get().strip(), e2.get().strip()])
-            messagebox.showinfo(
-                "Success", "CSV exported successfully.", parent=self)
-        except Exception as e:
-            messagebox.showerror(
-                "Error", f"Failed to export CSV:\n{e}", parent=self)
-
-    def _import_csv(self):
-        f_path = filedialog.askopenfilename(
-            filetypes=[("CSV Files", "*.csv"), ("All Files", "*.*")],
-            title="Import CSV", parent=self
-        )
-        if not f_path:
-            return
-        if messagebox.askyesno("Confirm", "Replace current rows?", parent=self):
-            try:
-                with open(f_path, mode='r', newline='', encoding='utf-8') as f:
-                    data = list(csv.reader(
-                        f, csv.Sniffer().sniff(f.read(1024))))
-                    f.seek(0)
-                self._clear_rows()
-                for row in data:
-                    if len(row) >= 2:
-                        self._add_row_ui(row[0], row[1])
-            except Exception as e:
-                messagebox.showerror(
-                    "Error", f"Failed to import:\n{e}", parent=self)
-
-    # --- File Picking Logic (UPDATED) ---
+        color = "" if is_valid else "color: red;"
+        entry_widget.setStyleSheet(color)
 
     def _browse_single_file(self, entry_widget):
-        f = filedialog.askopenfilename(title="Select File", parent=self)
+        f, _ = QFileDialog.getOpenFileName(self, "Select File")
         if f:
-            entry_widget.delete(0, tk.END)
-            entry_widget.insert(0, f)
+            entry_widget.setText(f)
             self._validate_entry(entry_widget)
 
     def _pick_files_bulk(self):
-        """
-        Allows selecting multiple parameter files (JSON/YAML) or standard files.
-        Auto-populates Tag with filename and Value with path.
-        """
-        # Improved filters to find presets easily
-        file_types = [
-            ("Parameter Files", "*.json *.yaml *.yml"),
-            ("JSON Configuration", "*.json"),
-            ("YAML Configuration", "*.yaml *.yml"),
-            ("All Files", "*.*")
-        ]
-
-        files = filedialog.askopenfilenames(
-            title="Select Parameter Files",
-            filetypes=file_types,
-            parent=self
+        files, _ = QFileDialog.getOpenFileNames(
+            self, "Select Parameter Files", "", 
+            "Parameter Files (*.json *.yaml *.yml);;All Files (*.*)"
         )
         if not files:
             return
 
-        # 1. Force FILE mode
-        self.var_mode.set("FILE")
+        self.rb_file.setChecked(True)
         self._toggle_mode_ui()
+        self._clear_rows()
 
-        # 2. Clear existing (optional, usually better for bulk import)
-        if not self.rows:
-            self._clear_rows()
-
-        # 3. Populate
         for f in files:
             f_path = Path(f)
-            # Tag = filename without extension (e.g., 'imt_urban')
-            tag_name = f_path.stem
-            # Value = Absolute path
-            val_path = f_path.as_posix()
-
-            self._add_row_ui(tag_name, val_path)
+            self._add_row_ui(f_path.stem, f_path.as_posix())
 
     def _remove_last_row(self):
         if not self.rows:
             return
         e1, e2, btn = self.rows.pop()
-        e1.destroy()
-        e2.destroy()
-        btn.destroy()
-        self.canvas.configure(scrollregion=self.canvas.bbox("all"))
+        self.scroll_layout.removeWidget(e1)
+        self.scroll_layout.removeWidget(e2)
+        self.scroll_layout.removeWidget(btn)
+        e1.deleteLater()
+        e2.deleteLater()
+        btn.deleteLater()
 
     def _clear_rows(self):
         while self.rows:
@@ -389,45 +312,72 @@ class VariableEditor(tk.Toplevel):
         for t, v in zip(t_list, v_list):
             self._add_row_ui(t, v)
 
-    # --- Auto Gen Logic ---
-
+    @Slot()
     def _update_gen_labels(self):
-        self.lbl_param.config(
-            text="Step:" if self.gen_mode.get() == "STEP" else "N Points:")
+        self.lbl_param.setText("Step:" if self.rb_step.isChecked() else "N Points:")
 
     def _generate_values(self):
         try:
-            s = float(self.e_start.get())
-            e = float(self.e_end.get())
-            p = float(self.e_param.get())
+            s = float(self.e_start.text())
+            e = float(self.e_end.text())
+            p = float(self.e_param.text())
         except ValueError:
-            messagebox.showerror(
-                "Error", "Please fill Start, End and Step/N with numbers.", parent=self)
+            QMessageBox.critical(self, "Error", "Please fill Start, End and Step/N with numbers.")
             return
 
-        vals = generate_sequence(s, e, p, self.gen_mode.get())
-        tag_base = self.e_tagbase.get()
+        mode = "STEP" if self.rb_step.isChecked() else "NPTS"
+        vals = generate_sequence(s, e, p, mode)
+        tag_base = self.e_tagbase.text()
 
-        self.var_mode.set("VALUE")
+        self.rb_value.setChecked(True)
         self._toggle_mode_ui()
-
         self._clear_rows()
         for i, v in enumerate(vals, 1):
             self._add_row_ui(f"{tag_base}{i}", format_number(v))
 
+    def _export_csv(self):
+        f_path, _ = QFileDialog.getSaveFileName(self, "Export to CSV", "", "CSV Files (*.csv);;All Files (*.*)")
+        if not f_path:
+            return
+        try:
+            with open(f_path, mode='w', newline='', encoding='utf-8') as f:
+                writer = csv.writer(f)
+                writer.writerow(["Tag", "Value"])
+                for e1, e2, _ in self.rows:
+                    if e1.text().strip() or e2.text().strip():
+                        writer.writerow([e1.text().strip(), e2.text().strip()])
+            QMessageBox.information(self, "Success", "CSV exported successfully.")
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to export CSV:\n{e}")
+
+    def _import_csv(self):
+        f_path, _ = QFileDialog.getOpenFileName(self, "Import CSV", "", "CSV Files (*.csv);;All Files (*.*)")
+        if not f_path:
+            return
+        if QMessageBox.question(self, "Confirm", "Replace current rows?") == QMessageBox.Yes:
+            try:
+                with open(f_path, mode='r', newline='', encoding='utf-8') as f:
+                    data = list(csv.reader(f, csv.Sniffer().sniff(f.read(1024))))
+                self._clear_rows()
+                for row in data:
+                    if len(row) >= 2:
+                        self._add_row_ui(row[0], row[1])
+            except Exception as e:
+                QMessageBox.critical(self, "Error", f"Failed to import:\n{e}")
+
     def _on_ok(self):
         tags_out = []
         vals_out = []
-        is_file_mode = (self.var_mode.get() == "FILE")
+        is_file_mode = self.rb_file.isChecked()
         has_invalid = False
 
         for e1, e2, _ in self.rows:
-            t_val = e1.get().strip()
-            v_val = e2.get().strip()
+            t_val = e1.text().strip()
+            v_val = e2.text().strip()
             if not t_val and not v_val:
                 continue
 
-            if e2.cget("foreground") == "red":
+            if "color: red" in e2.styleSheet():
                 has_invalid = True
 
             tags_out.append(t_val)
@@ -441,19 +391,17 @@ class VariableEditor(tk.Toplevel):
                     vals_out.append(v_val)
 
         if has_invalid:
-            if not messagebox.askyesno("Warning", "Some values appear invalid (red). Save anyway?", parent=self):
+            if QMessageBox.question(self, "Warning", "Some values appear invalid (red). Save anyway?") != QMessageBox.Yes:
                 return
 
         if not tags_out:
-            messagebox.showwarning(
-                "Warning", "List cannot be empty.", parent=self)
+            QMessageBox.warning(self, "Warning", "List cannot be empty.")
             return
 
-        new_name = self.e_var.get().strip()
+        new_name = self.e_var.text().strip()
         if not new_name:
-            messagebox.showwarning(
-                "Error", "Variable name is required.", parent=self)
+            QMessageBox.warning(self, "Error", "Variable name is required.")
             return
 
         self.on_save(new_name, tags_out, vals_out)
-        self.destroy()
+        self.accept()

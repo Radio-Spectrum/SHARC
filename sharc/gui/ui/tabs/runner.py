@@ -1,11 +1,14 @@
-import tkinter as tk
-from tkinter import ttk, filedialog, messagebox
 import os
 import threading
 from datetime import datetime
 import shlex
 
-from utils import CollapsibleFrame
+from PySide6.QtWidgets import (
+    QWidget, QDialog, QVBoxLayout, QHBoxLayout, QTextEdit, 
+    QMessageBox, QFileDialog, QScrollArea, QFrame, QLabel, QGroupBox, QGridLayout, QProgressBar
+)
+from PySide6.QtCore import Qt, QTimer
+from PySide6.QtGui import QClipboard, QGuiApplication
 
 # ---------------------------------------------------------------------------
 # Modular sub-modules (extracted for maintainability)
@@ -20,15 +23,20 @@ from ui.tabs.assets.runner_tab.runner_actions import (
 
 from ui.components.remote_browser import RemoteBrowserMixin
 
-class RunnerTab(RemoteBrowserMixin):
+
+class RunnerTab(QWidget, RemoteBrowserMixin):
 
     # =========================================================
     # Lifecycle
     # =========================================================
-    def __init__(self, app, parent_frame):
+    def __init__(self, app, parent_frame=None):
+        super().__init__(parent_frame)
         self.app = app
-        self.host_frame = parent_frame
-        self.frame = parent_frame  # will be replaced by scrollable content frame
+        self.host_frame = self
+        
+        # O runner_ui_builder.py espera tab.frame, vamos criar um QVBoxLayout no host_frame
+        self.main_layout = QVBoxLayout(self)
+        self.main_layout.setContentsMargins(0, 0, 0, 0)
 
         self.manager = getattr(app, "runner_manager", None)
 
@@ -42,335 +50,32 @@ class RunnerTab(RemoteBrowserMixin):
 
         # schedule window state
         self._schedule_win = None
-        self._schedule_canvas = None
-        self._schedule_body = None
-        self._schedule_window_id = None
+        self._schedule_layout = None
 
         self._build_ui()
+        
+        # Adicionar o frame construído pelo runner_ui_builder ao layout desta aba
+        self.main_layout.addWidget(self.frame)
+        
         self._install_manager_callbacks()
 
         # inicial
         self._toggle_mode_ui()
-        self.frame.after(500, self._scan_yaml_files)
+        QTimer.singleShot(500, self._scan_yaml_files)
 
-    # =========================================================
-    # Scroll container
-    # =========================================================
-
-    # Scroll container no longer needed here as main.py provides ScrolledFrame
-
-# =========================================================
-    # UI
-    # =========================================================
     def _build_ui(self):
-        # A partir daqui, todos os widgets serão criados dentro do frame "scrollável" provido pela Main
-        self.frame = ttk.Frame(self.host_frame)
-        self.frame.pack(fill="both", expand=True)
-
-        # =========================================================
-        # EXECUTION MODE
-        # =========================================================
-        self.frm_mode = ttk.LabelFrame(self.frame, text="Execution Mode")
-        self.frm_mode.pack(fill="x", pady=5, padx=5)
-
-        ttk.Radiobutton(
-            self.frm_mode,
-            text="Local",
-            value="LOCAL",
-            variable=self.app.var_run_mode,
-            command=self._toggle_mode_ui,
-        ).pack(side="left", padx=10)
-
-        ttk.Radiobutton(
-            self.frm_mode,
-            text="Remote (SSH)",
-            value="SSH",
-            variable=self.app.var_run_mode,
-            command=self._toggle_mode_ui,
-        ).pack(side="left", padx=10)
-
-        # =========================================================
-        # REMOTE SCHEDULER HEADER (somente SSH)
-        # =========================================================
-        self.frm_remote = ttk.LabelFrame(
-            self.frame, text="Remote Scheduler (SSH)")
-        # pack controlado em _toggle_mode_ui
-
-        row = ttk.Frame(self.frm_remote)
-        row.pack(fill="x", padx=8, pady=(6, 6))
-
-        # Status vindo do app (atualizado pelo ssh_config tab)
-        ttk.Label(row, text="SSH:", font=(
-            "Segoe UI", 9, "bold")).pack(side="left")
-        ttk.Label(row, textvariable=self.app.ssh_status).pack(
-            side="left", padx=(4, 14))
-
-        if hasattr(self.app, "tunnel_status"):
-            ttk.Label(row, text="Tunnel:", font=(
-                "Segoe UI", 9, "bold")).pack(side="left")
-            ttk.Label(row, textvariable=self.app.tunnel_status).pack(
-                side="left", padx=(4, 14))
-
-        # Host summary (se existir variáveis no app)
-        self._lbl_host_summary = ttk.Label(row, text="")
-        self._lbl_host_summary.pack(side="left", padx=(0, 14))
-
-        # Branch controls (mantém, pois é parte do workflow remoto)
-        ttk.Label(row, text="Branch:", font=(
-            "Segoe UI", 9, "bold")).pack(side="left")
-        self.cmb_git_branch = ttk.Combobox(
-            row,
-            textvariable=self.app.var_git_branch,
-            state="readonly",
-            width=18,
-        )
-        self.cmb_git_branch.pack(side="left", padx=(6, 6))
-
-        ttk.Button(row, text="Checkout", command=self._on_force_checkout_clicked).pack(
-            side="left", padx=(0, 8))
-        # Monitor menu (top/htop)
-        self.btn_monitor = ttk.Menubutton(row, text="Monitor")
-        self._monitor_menu = tk.Menu(self.btn_monitor, tearoff=False)
-        self._monitor_menu.add_command(
-            label="top (snapshot)", command=self._open_top_window)
-        self.btn_monitor.configure(menu=self._monitor_menu)
-        self.btn_monitor.pack(side="left", padx=(0, 8))
-        ttk.Button(row, text="Refresh branches",
-                   command=self._refresh_branches).pack(side="left")
-
-        # Remote directory (continua no Runner, pois é parte do scheduler/listagem)
-        row2 = ttk.Frame(self.frm_remote)
-        row2.pack(fill="x", padx=8, pady=(0, 8))
-
-        ttk.Label(row2, text="Remote YAML Dir:", font=(
-            "Segoe UI", 9, "bold")).pack(side="left")
-        ttk.Entry(row2, textvariable=self.app.ssh_remote_dir).pack(
-            side="left", fill="x", expand=True, padx=6)
-        ttk.Button(row2, text="List Remote YAMLs", command=self._scan_yaml_files).pack(
-            side="left", padx=(0, 6))
-
-        ttk.Button(row2, text="Upload Local YAMLs", command=self._upload_local_yaml_files).pack(
-            side="left", padx=(0, 6))
-        ttk.Button(row2, text="Upload YAML Folder", command=self._upload_yaml_folder).pack(
-            side="left", padx=(0, 6))
-
-        # =========================================================
-        # REMOTE PATHS (Project dir + main_cli) - somente SSH
-        # =========================================================
-        self.frm_remote_paths = CollapsibleFrame(
-            self.frm_remote, text="Remote Paths", expanded=False)
-        self.frm_remote_paths.pack(fill="x", expand=False, padx=8, pady=(0, 8))
-
-        rp = ttk.Frame(self.frm_remote_paths.sub_frame)
-        rp.pack(fill="x", padx=6, pady=(6, 6))
-
-        self.var_remote_project_dir = tk.StringVar(value=getattr(
-            self.manager, "remote_base_dir", "") if self.manager else "")
-        self.var_remote_main_cli = tk.StringVar(value=getattr(
-            self.manager, "remote_main_cli_rel", "sharc/main_cli.py") if self.manager else "sharc/main_cli.py")
-
-        ttk.Label(rp, text="Project Dir:", font=("Segoe UI", 9, "bold")).grid(
-            row=0, column=0, sticky="w")
-        ttk.Entry(rp, textvariable=self.var_remote_project_dir).grid(
-            row=0, column=1, sticky="ew", padx=(6, 6))
-        ttk.Button(rp, text="Apply", command=self._apply_remote_paths).grid(
-            row=0, column=2, padx=(0, 6))
-
-        ttk.Label(rp, text="main_cli:", font=("Segoe UI", 9, "bold")
-                  ).grid(row=1, column=0, sticky="w", pady=(6, 0))
-        ttk.Entry(rp, textvariable=self.var_remote_main_cli).grid(
-            row=1, column=1, sticky="ew", padx=(6, 6), pady=(6, 0))
-
-        ttk.Button(
-            rp,
-            text="Apply",
-            command=lambda: (self._apply_remote_paths(),
-                             self._auto_detect_remote_paths())
-        ).grid(row=1, column=2, columnspan=2, padx=(0, 6), pady=(6, 0))
-
-        rp.columnconfigure(1, weight=1)
-
-        # =========================================================
-        # REMOTE FILE BROWSER (somente SSH)
-        # =========================================================
-        self.frm_browser = CollapsibleFrame(
-            self.frm_remote, text="Remote File Browser", expanded=True)
-        self.frm_browser.pack(fill="both", expand=False, padx=8, pady=(0, 8))
-
-        br_top = ttk.Frame(self.frm_browser.sub_frame)
-        br_top.pack(fill="x", padx=6, pady=(6, 4))
-
-        self.var_remote_browse_dir = tk.StringVar(
-            value=self.app.ssh_remote_dir.get().strip() or "~")
-
-        ttk.Label(br_top, text="Path:", font=(
-            "Segoe UI", 9, "bold")).pack(side="left")
-        ttk.Entry(br_top, textvariable=self.var_remote_browse_dir).pack(
-            side="left", fill="x", expand=True, padx=(6, 6))
-        ttk.Button(br_top, text="Up", command=self._remote_browse_up).pack(
-            side="left", padx=(0, 6))
-        ttk.Button(br_top, text="Refresh", command=self._remote_browse_refresh).pack(
-            side="left", padx=(0, 6))
-        ttk.Button(br_top, text="Set YAML Dir",
-                   command=self._remote_browse_set_as_yaml_dir).pack(side="left")
-
-        br_mid = ttk.Frame(self.frm_browser.sub_frame)
-        br_mid.pack(fill="both", expand=True, padx=6, pady=(0, 6))
-
-        bcols = ("name", "type", "size", "mtime")
-        self.tree_remote = ttk.Treeview(
-            br_mid, columns=bcols, show="headings", height=10)
-        self.tree_remote.heading("name", text="Name")
-        self.tree_remote.heading("type", text="Type")
-        self.tree_remote.heading("size", text="Size")
-        self.tree_remote.heading("mtime", text="Modified")
-        self.tree_remote.column("name", width=360)
-        self.tree_remote.column("type", width=90, anchor="center")
-        self.tree_remote.column("size", width=110, anchor="e")
-        self.tree_remote.column("mtime", width=160, anchor="center")
-
-        sb_br = ttk.Scrollbar(br_mid, orient="vertical",
-                              command=self.tree_remote.yview)
-        self.tree_remote.configure(yscroll=sb_br.set)
-        self.tree_remote.pack(side="left", fill="both", expand=True)
-        sb_br.pack(side="right", fill="y")
-
-        self.tree_remote.bind(
-            "<Double-1>", self._remote_browse_on_double_click, add="+")
-
-        self._remote_menu = tk.Menu(self.frame, tearoff=False)
-        self._remote_menu.add_command(
-            label="Copy remote path", command=self._remote_browse_copy_path)
-        self._remote_menu.add_command(
-            label="Set as Remote YAML Dir", command=self._remote_browse_set_as_yaml_dir)
-        self._remote_menu.add_command(
-            label="Set as Remote Project Dir", command=self._remote_browse_set_as_project_dir)
-        self._remote_menu.add_command(
-            label="Set as Remote main_cli (this file)", command=self._remote_browse_set_as_main_cli)
-        self._remote_menu.add_separator()
-        self._remote_menu.add_command(
-            label="Preview (head)", command=lambda: self._remote_browse_preview(mode="head"))
-        self._remote_menu.add_command(
-            label="Preview (tail)", command=lambda: self._remote_browse_preview(mode="tail"))
-        self.tree_remote.bind(
-            "<Button-3>", self._remote_browse_right_click, add="+")
-
-        # =========================================================
-        # PROTECTED REMOTE RUNS (tmux resume)
-        # =========================================================
-        self.frm_runs = CollapsibleFrame(
-            self.frm_remote, text="Protected Runs (tmux)", expanded=False)
-        self.frm_runs.pack(fill="x", padx=8, pady=(0, 8))
-
-        rr = ttk.Frame(self.frm_runs.sub_frame)
-        rr.pack(fill="x", padx=6, pady=6)
-
-        ttk.Button(rr, text="List Runs", command=self._list_remote_runs).pack(
-            side="left", padx=(0, 8))
-
-        ttk.Label(rr, text="Run:", font=(
-            "Segoe UI", 9, "bold")).pack(side="left")
-        self._run_pick = tk.StringVar(value="")
-        self.cmb_runs = ttk.Combobox(
-            rr, textvariable=self._run_pick, state="readonly", width=38)
-        self.cmb_runs.pack(side="left", padx=(6, 8), fill="x", expand=True)
-
-        ttk.Button(rr, text="Resume", command=self._resume_selected_run).pack(
-            side="left", padx=(0, 8))
-        ttk.Button(rr, text="Open tmux attach hint",
-                   command=self._tmux_attach_hint).pack(side="left", padx=(0, 8))
-        ttk.Button(rr, text="Schedule", command=self._open_schedule_window).pack(side="left", padx=(0, 8))
-        ttk.Button(rr, text="Clear tmux", command=self._clear_tmux_sessions).pack(side="left")
-
-# =========================================================
-        # EXECUTION CONTROLS (vale para os dois modos)
-        # =========================================================
-        frm_exec = ttk.Frame(self.frame)
-        frm_exec.pack(fill="x", pady=5, padx=5)
-
-        ttk.Label(frm_exec, text="YAML Folder").pack(side="left")
-        ttk.Entry(frm_exec, textvariable=self.app.run_folder).pack(
-            side="left", fill="x", expand=True, padx=5)
-        ttk.Button(frm_exec, text="Browse",
-                   command=self._pick_folder).pack(side="left")
-        ttk.Button(frm_exec, text="Refresh", command=self._scan_yaml_files).pack(
-            side="left", padx=5)
-
-        ttk.Label(frm_exec, text="Workers:").pack(side="left", padx=(15, 5))
-        tk.Spinbox(frm_exec, from_=1, to=32, width=3,
-                   textvariable=self.app.var_max_workers).pack(side="left")
-
-        ttk.Button(frm_exec, text="Run Selected",
-                   command=self._run_selected_ui).pack(side="right", padx=5)
-        ttk.Button(frm_exec, text="Stop",
-                   command=self._stop_selected_ui).pack(side="right")
-
-        # =========================================================
-        # TREEVIEW (JOBS/SCHEDULE)
-        # =========================================================
-        frm_tree = ttk.Frame(self.frame)
-        frm_tree.pack(fill="both", expand=True, padx=5, pady=2)
-
-        # schedule columns (superset do local)
-        cols = ("yaml", "status", "snap", "pct",
-                "eta", "branch", "location", "host")
-        self.tree = ttk.Treeview(
-            frm_tree, columns=cols, show="headings", height=10)
-
-        self.tree.heading("yaml", text="YAML File")
-        self.tree.heading("status", text="Status")
-        self.tree.heading("snap", text="Snapshot")
-        self.tree.heading("pct", text="%")
-        self.tree.heading("eta", text="ETA")
-        self.tree.heading("branch", text="Branch")
-        self.tree.heading("location", text="Location")
-        self.tree.heading("host", text="Host")
-
-        self.tree.column("yaml", width=320)
-        self.tree.column("status", width=160)
-        self.tree.column("snap", width=90, anchor="center")
-        self.tree.column("pct", width=70, anchor="e")
-        self.tree.column("eta", width=90, anchor="center")
-        self.tree.column("branch", width=140)
-        self.tree.column("location", width=260)
-        self.tree.column("host", width=180)
-
-        sb = ttk.Scrollbar(frm_tree, orient="vertical",
-                           command=self.tree.yview)
-        self.tree.configure(yscroll=sb.set)
-
-        self.tree.pack(side="left", fill="both", expand=True)
-        sb.pack(side="right", fill="y")
-
-        # Context menu básico
-        self._menu = tk.Menu(self.frame, tearoff=False)
-        self._menu.add_command(label="Open containing folder (local only)",
-                               command=self._open_local_containing_folder)
-        self._menu.add_command(
-            label="Copy path", command=self._copy_selected_path)
-        self.tree.bind("<Button-3>", self._on_tree_right_click, add="+")
-
-        # =========================================================
-        # LOG WINDOW
-        # =========================================================
-        frm_log = CollapsibleFrame(self.frame, text="Execution Log", expanded=False)
-        frm_log.pack(fill="both", expand=True, padx=5, pady=5)
-
-        self.txt_log = tk.Text(
-            frm_log.sub_frame, height=12, state="disabled", font=("Consolas", 9))
-        sb_log = ttk.Scrollbar(frm_log.sub_frame, orient="vertical",
-                               command=self.txt_log.yview)
-        self.txt_log.configure(yscroll=sb_log.set)
-
-        self.txt_log.pack(side="left", fill="both", expand=True)
-        sb_log.pack(side="right", fill="y")
+        build_runner_ui(self)
 
     def _toggle_mode_ui(self, *_):
-        mode = self.app.var_run_mode.get()
+        mode = "LOCAL" if self.rb_local.isChecked() else "SSH"
 
-        # remote scheduler header
+        # remote scheduler header and components
         if mode == "SSH":
-            self.frm_remote.pack(fill="x", pady=5, padx=5, after=self.frm_mode)
+            self.frm_remote.setVisible(True)
+            if hasattr(self, "frm_remote_paths"): self.frm_remote_paths.setVisible(True)
+            if hasattr(self, "frm_browser"): self.frm_browser.setVisible(True)
+            if hasattr(self, "frm_runs"): self.frm_runs.setVisible(True)
+            
             self._refresh_remote_summary()
             self._refresh_branches(auto=True)
             try:
@@ -378,162 +83,102 @@ class RunnerTab(RemoteBrowserMixin):
             except Exception:
                 pass
         else:
-            try:
-                self.frm_remote.pack_forget()
-            except Exception:
-                pass
+            self.frm_remote.setVisible(False)
+            if hasattr(self, "frm_remote_paths"): self.frm_remote_paths.setVisible(False)
+            if hasattr(self, "frm_browser"): self.frm_browser.setVisible(False)
+            if hasattr(self, "frm_runs"): self.frm_runs.setVisible(False)
 
-        # tree columns visibility hint (não dá pra esconder colunas fácil no ttk.Treeview)
-        # mas podemos ajustar headers/widths para "simular"
         self._apply_tree_layout_for_mode(mode)
-
         self._append_log(f"[UI] Mode set to: {mode}")
 
     def _apply_tree_layout_for_mode(self, mode: str):
-        # Local: deixa branch/location/host mais estreito para não poluir
         if mode == "LOCAL":
-            self.tree.column("branch", width=90)
-            self.tree.column("location", width=180)
-            self.tree.column("host", width=0, stretch=False)
-            self.tree.heading("host", text="")
+            self.tree.setColumnWidth(5, 90) # branch
+            self.tree.setColumnWidth(6, 180) # location
+            self.tree.setColumnHidden(7, True) # host
         else:
-            self.tree.column("branch", width=140)
-            self.tree.column("location", width=260)
-            self.tree.column("host", width=180, stretch=True)
-            self.tree.heading("host", text="Host")
+            self.tree.setColumnWidth(5, 140)
+            self.tree.setColumnWidth(6, 260)
+            self.tree.setColumnHidden(7, False)
+            self.tree.setColumnWidth(7, 180)
 
     # =========================================================
     # Manager callback wiring (TEE)
     # =========================================================
     def _install_manager_callbacks(self):
-        if not self.manager:
-            self._append_log("[WARN] runner_manager not found on app.")
-            return
-
-        # --- LOG TEE ---
-        orig_log = getattr(self.manager, "log_callback", None)
-        self._orig_log_callback = orig_log if callable(orig_log) else None
-
-        def _log_tee(msg: str):
-            # keep original
-            try:
-                if callable(self._orig_log_callback):
-                    self._orig_log_callback(msg)
-            except Exception:
-                pass
-            # mirror here
-            self._append_log(msg)
-
-        self.manager.log_callback = _log_tee
-
-        # --- UPDATE ROW TEE ---
-        orig_upd = getattr(self.manager, "update_row_callback", None)
-        self._orig_update_row_callback = orig_upd if callable(
-            orig_upd) else None
-
-        def _upd_tee(data: dict):
-            # keep original
-            try:
-                if callable(self._orig_update_row_callback):
-                    self._orig_update_row_callback(data)
-            except Exception:
-                pass
-            # update local UI
-            self._update_tree_row(data)
-
-        self.manager.update_row_callback = _upd_tee
-
-        self._append_log(
-            "[OK] Runner tab attached (tee) to runner_manager callbacks.")
+        # In PySide6, callbacks from background threads must be routed through 
+        # a thread-safe mechanism like queue/Signals. main.py already does this 
+        # by initializing RunnerManager with `_safe_log` and `_safe_update_row`
+        # which enqueue to `line_q`, and then calls the below UI methods safely.
+        pass
 
     # =========================================================
     # Thread-safe UI writers
     # =========================================================
     def _append_log(self, message):
-        if not hasattr(self, "txt_log") or not self.txt_log.winfo_exists():
-            return
+        if not hasattr(self, "txt_log"): return
 
-        def _write():
-            try:
-                self.txt_log.configure(state="normal")
-                msg = str(message) if message is not None else ""
-                if msg and not msg.endswith("\n"):
-                    msg += "\n"
-                self.txt_log.insert("end", msg)
-                self.txt_log.see("end")
-                self.txt_log.configure(state="disabled")
-            except Exception:
-                pass
-
-        self.frame.after(0, _write)
+        try:
+            msg = str(message) if message is not None else ""
+            if msg and not msg.endswith("\n"):
+                msg += "\n"
+            self.txt_log.appendPlainText(msg.strip())
+        except Exception:
+            pass
 
     def _update_tree_row(self, data):
-        """
-        data: dict with keys {iid, status, snap, pct, eta, branch, location, host}
-        manager pode mandar só parte disso.
-        """
-        if not hasattr(self, "tree") or not self.tree.winfo_exists():
-            return
+        if not hasattr(self, "tree"): return
 
-        def _upd():
-            try:
-                iid = data.get("iid")
-                if not iid:
-                    return
-                if not self.tree.exists(iid):
-                    return
+        try:
+            iid = data.get("iid")
+            if not iid: return
+            
+            existing_item = None
+            for i in range(self.tree.topLevelItemCount()):
+                item = self.tree.topLevelItem(i)
+                if item.data(0, Qt.UserRole) == iid:
+                    existing_item = item
+                    break
+                    
+            if not existing_item: return
 
-                # compat (colunas antigas)
-                if "status" in data:
-                    self.tree.set(iid, "status", data["status"])
-                if "snap" in data:
-                    self.tree.set(iid, "snap", data["snap"])
-                if "pct" in data:
-                    self.tree.set(iid, "pct", data["pct"])
-                if "eta" in data:
-                    self.tree.set(iid, "eta", data["eta"])
+            if "status" in data: existing_item.setText(1, data["status"])
+            if "snap" in data: existing_item.setText(2, data["snap"])
+            if "pct" in data: existing_item.setText(3, data["pct"])
+            if "eta" in data: existing_item.setText(4, data["eta"])
+            if "branch" in data: existing_item.setText(5, data["branch"])
+            if "location" in data: existing_item.setText(6, data["location"])
+            if "host" in data: existing_item.setText(7, data["host"])
 
-                # novas colunas do schedule
-                if "branch" in data:
-                    self.tree.set(iid, "branch", data["branch"])
-                if "location" in data:
-                    self.tree.set(iid, "location", data["location"])
-                if "host" in data:
-                    self.tree.set(iid, "host", data["host"])
-
-                # registrar no schedule interno
-                job = self._jobs.get(iid, {})
-                job.update({k: v for k, v in data.items() if k != "iid"})
-                self._jobs[iid] = job
-                if getattr(self, '_schedule_win', None) and self._schedule_win.winfo_exists():
-                    self._render_schedule_cards()
-            except Exception:
-                pass
-
-        self.frame.after(0, _upd)
+            job = self._jobs.get(iid, {})
+            job.update({k: v for k, v in data.items() if k != "iid"})
+            self._jobs[iid] = job
+            
+            if getattr(self, '_schedule_win', None) and self._schedule_win.isVisible():
+                self._render_schedule_cards()
+        except Exception:
+            pass
 
     # =========================================================
     # Helpers: Remote summary / branches
     # =========================================================
     def _refresh_remote_summary(self):
-        # tenta puxar host/user do app se existirem
         host = getattr(self.app, "ssh_host", None)
         user = getattr(self.app, "ssh_user", None)
 
-        h = host.get().strip() if hasattr(host, "get") else ""
-        u = user.get().strip() if hasattr(user, "get") else ""
+        h = host.text().strip() if hasattr(host, "text") else getattr(host, "get", lambda: "")().strip()
+        u = user.text().strip() if hasattr(user, "text") else getattr(user, "get", lambda: "")().strip()
         if u and h:
-            self._lbl_host_summary.configure(text=f"{u}@{h}")
+            self._lbl_host_summary.setText(f"{u}@{h}")
         elif h:
-            self._lbl_host_summary.configure(text=h)
+            self._lbl_host_summary.setText(h)
         else:
-            self._lbl_host_summary.configure(text="")
+            self._lbl_host_summary.setText("")
 
     def _refresh_branches(self, auto: bool = False):
         if not self.manager or not getattr(self.manager, "ssh_connected", False):
             if not auto:
-                messagebox.showinfo(
-                    "SSH", "Not connected. Connect via SSH tab first.")
+                QMessageBox.information(self, "SSH", "Not connected. Connect via SSH tab first.")
             return
 
         def _thread():
@@ -541,16 +186,13 @@ class RunnerTab(RemoteBrowserMixin):
                 if hasattr(self.manager, "get_git_branches"):
                     branches = self.manager.get_git_branches()
                 else:
-                    # Backward compatible: older RunnerManager may not have get_git_branches
                     base = getattr(self.manager, "remote_base_dir", "").strip()
                     if hasattr(self.manager, "exec_command_output") and base:
-                        out = self.manager.exec_command_output(
-                            f"cd {shlex.quote(base)} && git branch -a")
+                        out = self.manager.exec_command_output(f"cd {shlex.quote(base)} && git branch -a")
                         bset = set()
                         for line in out.splitlines():
                             line = line.strip().replace("*", "").strip()
-                            if not line or "->" in line:
-                                continue
+                            if not line or "->" in line: continue
                             if line.startswith("remotes/origin/"):
                                 line = line.replace("remotes/origin/", "")
                             bset.add(line)
@@ -563,13 +205,14 @@ class RunnerTab(RemoteBrowserMixin):
 
             def _apply():
                 try:
-                    self.cmb_git_branch["values"] = branches
-                    if branches and (not self.app.var_git_branch.get()):
-                        self.cmb_git_branch.current(0)
+                    self.cmb_git_branch.clear()
+                    self.cmb_git_branch.addItems(branches)
+                    if branches:
+                        self.cmb_git_branch.setCurrentIndex(0)
                 except Exception:
                     pass
 
-            self.frame.after(0, _apply)
+            QTimer.singleShot(0, _apply)
 
         threading.Thread(target=_thread, daemon=True).start()
 
@@ -577,182 +220,40 @@ class RunnerTab(RemoteBrowserMixin):
     # File picking / scan
     # =========================================================
     def _pick_folder(self):
-        path = filedialog.askdirectory(initialdir=self.app.run_folder.get())
+        path = QFileDialog.getExistingDirectory(self, "Select YAML Folder", self.e_run_folder.text())
         if path:
-            self.app.run_folder.set(path)
+            self.e_run_folder.setText(path)
             self._scan_yaml_files()
 
     def _scan_yaml_files(self):
-        # limpa tree mas mantém _jobs (schedule) — assim “histórico” pode ser reusado se quiser.
-        try:
-            self.tree.delete(*self.tree.get_children())
-        except Exception:
-            pass
+        _scan_yaml_files_impl(self)
 
-        mode = self.app.var_run_mode.get()
-        self._append_log(f"[SCAN] Scanning files in mode: {mode}...")
-
-        if mode == "LOCAL":
-            folder = self.app.run_folder.get()
-            if os.path.isdir(folder):
-                files = [f for f in os.listdir(
-                    folder) if f.lower().endswith((".yaml", ".yml"))]
-                files.sort()
-                for f in files:
-                    full_path = os.path.join(folder, f)
-                    self._insert_job_row(
-                        iid=full_path,
-                        yaml_name=f,
-                        status="Ready",
-                        snap="0/--",
-                        pct="0",
-                        eta="--",
-                        branch="(local)",
-                        location=folder,
-                        host="local",
-                    )
-            else:
-                self._append_log(f"[ERR] Local folder not found: {folder}")
-
-        elif mode == "SSH":
-            if self.manager and getattr(self.manager, "ssh_connected", False):
-                remote_dir = self.app.ssh_remote_dir.get().strip()
-                try:
-                    files = self.manager.list_remote_files(remote_dir)
-                    for f in files:
-                        fname = os.path.basename(f)
-                        self._insert_job_row(
-                            iid=f,
-                            yaml_name=fname,
-                            status="Ready",
-                            snap="0/--",
-                            pct="0",
-                            eta="--",
-                            branch=self.app.var_git_branch.get() or "",
-                            location=remote_dir,
-                            host=self._current_host_label(),
-                        )
-                except Exception as e:
-                    self._append_log(f"[ERR] Error listing remote files: {e}")
-            else:
-                self._append_log(
-                    "[SSH] Not connected. Connect via SSH tab first.")
-
-    def _insert_job_row(
-        self,
-        iid: str,
-        yaml_name: str,
-        status: str,
-        snap: str,
-        pct: str,
-        eta: str,
-        branch: str,
-        location: str,
-        host: str,
-    ):
-        # registra no schedule interno
-        self._jobs[iid] = {
-            "yaml": yaml_name,
-            "status": status,
-            "snap": snap,
-            "pct": pct,
-            "eta": eta,
-            "branch": branch,
-            "location": location,
-            "host": host,
-            "seen_at": datetime.now().isoformat(timespec="seconds"),
-        }
-
-        try:
-            self.tree.insert(
-                "",
-                "end",
-                iid=iid,
-                values=(yaml_name, status, snap, pct,
-                        eta, branch, location, host),
-            )
-        except Exception:
-            # iid duplicado, tenta update
-            try:
-                if self.tree.exists(iid):
-                    self.tree.item(iid, values=(
-                        yaml_name, status, snap, pct, eta, branch, location, host))
-            except Exception:
-                pass
+    def _insert_job_row(self, iid: str, yaml_name: str, status: str, snap: str, pct: str, eta: str, branch: str, location: str, host: str):
+        _insert_job_row_impl(self, iid, yaml_name, status, snap, pct, eta, branch, location, host)
 
     def _current_host_label(self) -> str:
         host = getattr(self.app, "ssh_host", None)
         user = getattr(self.app, "ssh_user", None)
-        h = host.get().strip() if hasattr(host, "get") else ""
-        u = user.get().strip() if hasattr(user, "get") else ""
-        if u and h:
-            return f"{u}@{h}"
+        h = host.text().strip() if hasattr(host, "text") else getattr(host, "get", lambda: "")().strip()
+        u = user.text().strip() if hasattr(user, "text") else getattr(user, "get", lambda: "")().strip()
+        if u and h: return f"{u}@{h}"
         return h or "remote"
 
     # =========================================================
     # Run/Stop
     # =========================================================
     def _run_selected_ui(self):
-        if not self.manager:
-            messagebox.showerror("Runner", "runner_manager not found.")
-            return
-
-        sel = self.tree.selection()
-        if not sel:
-            messagebox.showwarning("Runner", "Select files to run.")
-            return
-
-        mode = self.app.var_run_mode.get()
-        workers = int(self.app.var_max_workers.get())
-        files = list(sel)
-
-        self._append_log(
-            f"[RUN] Starting {len(files)} simulation(s) in {mode} mode (workers={workers})...")
-
-        # marca como queued no schedule
-        for iid in files:
-            try:
-                self.tree.set(iid, "status", "Queued")
-                branch = self.app.var_git_branch.get() or self.tree.set(iid, "branch")
-                self.tree.set(iid, "branch", branch)
-                self.tree.set(iid, "host", self._current_host_label())
-                job = self._jobs.get(iid, {})
-                job.update({"status": "Queued", "branch": branch, "host": self._current_host_label()})
-                self._jobs[iid] = job
-            except Exception:
-                pass
-
-        if mode == "SSH":
-            # Files must be remote paths
-            self.manager.run_remote_parallel(files, workers)
-        else:
-            self.manager.run_local_parallel(files, workers)
+        _run_selected_impl(self)
 
     def _stop_selected_ui(self):
-        if not self.manager:
-            return
-        sel = self.tree.selection()
-        if not sel:
-            return
-        self._append_log(f"[STOP] Stopping {len(sel)} process(es)...")
-        self.manager.stop_simulations(list(sel))
-
-        for iid in sel:
-            try:
-                self.tree.set(iid, "status", "Stopped")
-            except Exception:
-                pass
+        _stop_selected_impl(self)
 
     # =========================================================
     # Remote-only actions
-
+    # =========================================================
     def _list_remote_runs(self):
-        """
-        List persisted tmux-backed runs on remote and populate the combobox.
-        """
         if not self.manager or not getattr(self.manager, "ssh_connected", False):
-            messagebox.showinfo(
-                "SSH", "Not connected. Connect via SSH tab first.")
+            QMessageBox.information(self, "SSH", "Not connected. Connect via SSH tab first.")
             return
 
         def _thread():
@@ -762,9 +263,8 @@ class RunnerTab(RemoteBrowserMixin):
                 runs = []
                 self._append_log(f"[REMOTE] list_remote_runs error: {e}")
 
-            # Build display list and mapping
             items = []
-            self._runs_map = {}  # display -> meta
+            self._runs_map = {}
             for r in runs:
                 ru = r.get("run_uuid", "")
                 rp = r.get("remote_path", "")
@@ -778,69 +278,58 @@ class RunnerTab(RemoteBrowserMixin):
 
             def _apply():
                 try:
-                    self.cmb_runs["values"] = items
+                    self.cmb_runs.clear()
+                    self.cmb_runs.addItems(items)
                     if items:
-                        self.cmb_runs.current(0)
+                        self.cmb_runs.setCurrentIndex(0)
                     self._append_log(f"[REMOTE] Found {len(items)} persisted run(s).")
-                    if getattr(self, "_schedule_win", None) and self._schedule_win.winfo_exists():
+                    if getattr(self, "_schedule_win", None) and self._schedule_win.isVisible():
                         self._render_schedule_cards()
                 except Exception:
                     pass
 
-            self.frame.after(0, _apply)
+            QTimer.singleShot(0, _apply)
 
         threading.Thread(target=_thread, daemon=True).start()
 
     def _resume_selected_run(self):
-        """
-        Resume a selected tmux run by tailing its remote log and updating the job row.
-        """
         if not self.manager or not getattr(self.manager, "ssh_connected", False):
-            messagebox.showinfo(
-                "SSH", "Not connected. Connect via SSH tab first.")
+            QMessageBox.information(self, "SSH", "Not connected. Connect via SSH tab first.")
             return
 
-        disp = self._run_pick.get().strip()
+        disp = self.cmb_runs.currentText().strip()
         meta = getattr(self, "_runs_map", {}).get(disp) if disp else None
         if not meta:
-            messagebox.showwarning("Resume", "Select a run first (List Runs).")
+            QMessageBox.warning(self, "Resume", "Select a run first (List Runs).")
             return
 
         run_uuid = meta.get("run_uuid")
         remote_path = meta.get("remote_path", "")
         if not run_uuid:
-            messagebox.showerror(
-                "Resume", "Invalid run metadata (missing run_uuid).")
+            QMessageBox.critical(self, "Resume", "Invalid run metadata (missing run_uuid).")
             return
 
-        # Ensure a row exists for this resumed run (use run_uuid as iid)
         iid = f"run:{run_uuid}"
-        if not self.tree.exists(iid):
-            yaml_name = os.path.basename(
-                remote_path) if remote_path else f"run_{run_uuid[:8]}.yaml"
+        existing_item = None
+        for i in range(self.tree.topLevelItemCount()):
+            item = self.tree.topLevelItem(i)
+            if item.data(0, Qt.UserRole) == iid:
+                existing_item = item
+                break
+                
+        if not existing_item:
+            yaml_name = os.path.basename(remote_path) if remote_path else f"run_{run_uuid[:8]}.yaml"
             self._insert_job_row(
-                iid=iid,
-                yaml_name=yaml_name,
-                status="Resuming...",
-                snap="0/--",
-                pct="--",
-                eta="--",
-                branch=self.app.var_git_branch.get() or "",
-                location="(remote persisted)",
-                host=self._current_host_label(),
+                iid=iid, yaml_name=yaml_name, status="Resuming...", snap="0/--", pct="--", eta="--",
+                branch=self.cmb_git_branch.currentText() or "", location="(remote persisted)", host=self._current_host_label(),
             )
         else:
-            try:
-                self.tree.set(iid, "status", "Resuming...")
-            except Exception:
-                pass
+            existing_item.setText(1, "Resuming...")
 
-        self._append_log(
-            f"[REMOTE] Resuming run_uuid={run_uuid} (iid={iid})...")
+        self._append_log(f"[REMOTE] Resuming run_uuid={run_uuid} (iid={iid})...")
 
         def _thread():
             try:
-                # tail + parse happens inside manager; it will call update_row_callback
                 self.manager.resume_remote_run(run_uuid, tree_id=iid)
             except Exception as e:
                 self._append_log(f"[REMOTE] resume error: {e}")
@@ -848,257 +337,190 @@ class RunnerTab(RemoteBrowserMixin):
         threading.Thread(target=_thread, daemon=True).start()
 
     def _tmux_attach_hint(self):
-        """
-        Shows a manual tmux attach hint in log for the selected run.
-        """
-        disp = self._run_pick.get().strip()
+        disp = self.cmb_runs.currentText().strip()
         meta = getattr(self, "_runs_map", {}).get(disp) if disp else None
-        if not meta:
-            return
+        if not meta: return
         run_uuid = meta.get("run_uuid")
-        if not run_uuid:
-            return
-        # Session is sharc_<8> in ssh_runner
+        if not run_uuid: return
         sess = meta.get("session") or f"sharc_{run_uuid[:8]}"
-        self._append_log(
-            f"[TMUX] Manual attach on remote: tmux attach -t {sess}")
+        self._append_log(f"[TMUX] Manual attach on remote: tmux attach -t {sess}")
 
-    # =========================================================
     def _on_force_checkout_clicked(self):
         if not self.manager or not getattr(self.manager, "ssh_connected", False):
-            messagebox.showerror(
-                "Git Checkout", "SSH Not Connected (connect via SSH tab).")
+            QMessageBox.critical(self, "Git Checkout", "SSH Not Connected (connect via SSH tab).")
             return
 
-        branch = self.app.var_git_branch.get()
-        if not branch:
-            return
+        branch = self.cmb_git_branch.currentText()
+        if not branch: return
 
-        if messagebox.askyesno(
-            "Git Checkout",
-            f"Force checkout remote to '{branch}'?\nThis will discard changes.",
-        ):
+        if QMessageBox.question(self, "Git Checkout", f"Force checkout remote to '{branch}'?\nThis will discard changes.") == QMessageBox.Yes:
             try:
                 self.manager.git_force_checkout(branch)
                 self._append_log(f"[GIT] Force checkout -> {branch}")
             except Exception as e:
                 self._append_log(f"[GIT] Error: {e}")
+
     # =========================================================
     # Monitor (top/htop snapshots)
     # =========================================================
-
     def _open_top_window(self):
-        """Open a snapshot window running `top` on the remote host."""
         if not self.manager or not getattr(self.manager, "ssh_connected", False):
-            messagebox.showerror(
-                "Error", "SSH Not Connected (connect via SSH tab).")
+            QMessageBox.critical(self, "Error", "SSH Not Connected (connect via SSH tab).")
             return
-        self._open_monitor_snapshot(
-            cmd="top -b -n 1", title="Remote TOP Snapshot")
+        self._open_monitor_snapshot(cmd="top -b -n 1", title="Remote TOP Snapshot")
 
     def _open_htop_window(self):
-        """Open a snapshot window running `htop` (fallback to top) on the remote host."""
         if not self.manager or not getattr(self.manager, "ssh_connected", False):
-            messagebox.showerror(
-                "Error", "SSH Not Connected (connect via SSH tab).")
+            QMessageBox.critical(self, "Error", "SSH Not Connected (connect via SSH tab).")
             return
-        self._open_monitor_snapshot(
-            cmd="(htop -b -n 1 2>/dev/null || top -b -n 1)",
-            title="Remote HTOP Snapshot",
-        )
+        self._open_monitor_snapshot(cmd="(htop -b -n 1 2>/dev/null || top -b -n 1)", title="Remote HTOP Snapshot")
 
     def _open_monitor_snapshot(self, cmd: str, title: str):
-        win = tk.Toplevel(self.frame)
-        win.title(title)
-        win.geometry("900x600")
-
-        txt = tk.Text(win, bg="black", fg="#00FF00", font=("Consolas", 9))
-        txt.pack(fill="both", expand=True)
-
+        win = QDialog(self)
+        win.setWindowTitle(title)
+        win.resize(900, 600)
+        
+        layout = QVBoxLayout(win)
+        txt = QTextEdit()
+        txt.setStyleSheet("background-color: black; color: #00FF00; font-family: Consolas; font-size: 9pt;")
+        txt.setReadOnly(True)
+        layout.addWidget(txt)
+        
         def _refresh():
-            if not win.winfo_exists():
-                return
+            if not win.isVisible(): return
             try:
                 out = self.manager.exec_command_output(cmd)
             except Exception as e:
                 out = f"Error: {e}"
-
-            txt.configure(state="normal")
-            txt.delete("1.0", "end")
-            txt.insert("end", out or "")
-            txt.configure(state="disabled")
-            win.after(3000, _refresh)
-
+            txt.setPlainText(out or "")
+            QTimer.singleShot(3000, _refresh)
+            
+        win.show()
         _refresh()
 
     # =========================================================
     # Remote Paths apply / autodetect
     # =========================================================
     def _apply_remote_paths(self):
-        if not self.manager:
-            return
-        base_dir = (self.var_remote_project_dir.get() or "").strip()
-        main_cli = (self.var_remote_main_cli.get() or "").strip()
+        if not self.manager: return
+        base_dir = self.e_remote_project_dir.text().strip()
+        main_cli = self.e_remote_main_cli.text().strip()
         runs_dir = getattr(self.manager, "remote_runs_dir", None)
         try:
             if hasattr(self.manager, "set_remote_paths"):
                 self.manager.set_remote_paths(
-                    base_dir=base_dir or None,
-                    main_cli=main_cli or None,
-                    runs_dir=runs_dir,
+                    base_dir=base_dir or None, main_cli=main_cli or None, runs_dir=runs_dir
                 )
             else:
-                if base_dir:
-                    self.manager.remote_base_dir = base_dir
-                if main_cli:
-                    self.manager.remote_main_cli_rel = main_cli
+                if base_dir: self.manager.remote_base_dir = base_dir
+                if main_cli: self.manager.remote_main_cli_rel = main_cli
 
-            self._append_log(
-                f"[REMOTE] Paths updated: base='{getattr(self.manager, 'remote_base_dir', '')}', "
-                f"main_cli='{getattr(self.manager, 'remote_main_cli_rel', '')}'"
-            )
+            self._append_log(f"[REMOTE] Paths updated: base='{getattr(self.manager, 'remote_base_dir', '')}', main_cli='{getattr(self.manager, 'remote_main_cli_rel', '')}'")
         except Exception as e:
             self._append_log(f"[REMOTE] Failed to apply paths: {e}")
 
     def _auto_detect_remote_paths(self):
         if not self.manager or not getattr(self.manager, "ssh_connected", False):
-            messagebox.showerror(
-                "Error", "SSH Not Connected (connect via SSH tab).")
+            QMessageBox.critical(self, "Error", "SSH Not Connected (connect via SSH tab).")
             return
 
         def _thread():
             try:
-                info = (
-                    self.manager.detect_remote_sharc_paths()
-                    if hasattr(self.manager, "detect_remote_sharc_paths")
-                    else {}
-                )
+                info = self.manager.detect_remote_sharc_paths() if hasattr(self.manager, "detect_remote_sharc_paths") else {}
             except Exception as e:
                 info = {"error": str(e)}
 
             def _apply():
                 if "error" in info:
-                    self._append_log(
-                        f"[REMOTE] Auto-detect error: {info['error']}")
+                    self._append_log(f"[REMOTE] Auto-detect error: {info['error']}")
                     return
                 bd = info.get("remote_base_dir")
                 mc = info.get("remote_main_cli_rel")
-                if bd:
-                    self.var_remote_project_dir.set(bd)
-                if mc:
-                    self.var_remote_main_cli.set(mc)
+                if bd: self.e_remote_project_dir.setText(bd)
+                if mc: self.e_remote_main_cli.setText(mc)
                 self._apply_remote_paths()
 
-            self.frame.after(0, _apply)
+            QTimer.singleShot(0, _apply)
 
         threading.Thread(target=_thread, daemon=True).start()
 
     # =========================================================
     # Tree context menu
     # =========================================================
-    def _on_tree_right_click(self, event):
-        try:
-            iid = self.tree.identify_row(event.y)
-            if iid:
-                self.tree.selection_set(iid)
-                self._menu.tk_popup(event.x_root, event.y_root)
-        finally:
-            try:
-                self._menu.grab_release()
-            except Exception:
-                pass
+    def _on_tree_right_click(self, pos):
+        item = self.tree.itemAt(pos)
+        if item:
+            self._menu.exec_(self.tree.mapToGlobal(pos))
 
     def _copy_selected_path(self):
-        sel = self.tree.selection()
-        if not sel:
-            return
-        path = sel[0]
+        sel = self.tree.selectedItems()
+        if not sel: return
+        path = sel[0].data(0, Qt.UserRole)
         try:
-            self.frame.clipboard_clear()
-            self.frame.clipboard_append(path)
+            QGuiApplication.clipboard().setText(path)
             self._append_log(f"[CLIP] Copied: {path}")
         except Exception:
             pass
 
     def _open_local_containing_folder(self):
-        sel = self.tree.selection()
-        if not sel:
-            return
-        path = sel[0]
-        if self.app.var_run_mode.get() != "LOCAL":
-            messagebox.showinfo("Open folder", "Local-only action.")
+        sel = self.tree.selectedItems()
+        if not sel: return
+        path = sel[0].data(0, Qt.UserRole)
+        if not self.rb_local.isChecked():
+            QMessageBox.information(self, "Open folder", "Local-only action.")
             return
         try:
             folder = os.path.dirname(path)
             if os.path.isdir(folder):
-                os.startfile(folder)  # Windows
+                os.startfile(folder)
         except Exception as e:
-            messagebox.showerror("Open folder", str(e))
+            QMessageBox.critical(self, "Open folder", str(e))
 
     def _upload_local_yaml_files(self):
-        """Select one or more local YAML files and upload them to the remote YAML directory."""
-        if self.app.var_run_mode.get() != "SSH":
-            messagebox.showinfo(
-                "Upload YAMLs", "Switch to Remote (SSH) mode first.")
+        if not self.rb_ssh.isChecked():
+            QMessageBox.information(self, "Upload YAMLs", "Switch to Remote (SSH) mode first.")
             return
         if not self.manager or not getattr(self.manager, "ssh_connected", False):
-            messagebox.showinfo(
-                "Upload YAMLs", "SSH not connected. Connect via SSH tab first.")
+            QMessageBox.information(self, "Upload YAMLs", "SSH not connected. Connect via SSH tab first.")
             return
 
-        remote_dir = (self.app.ssh_remote_dir.get() or "").strip()
+        remote_dir = self.e_remote_dir.text().strip()
         if not remote_dir:
-            messagebox.showerror("Upload YAMLs", "Remote YAML Dir is empty.")
+            QMessageBox.critical(self, "Upload YAMLs", "Remote YAML Dir is empty.")
             return
 
-        paths = filedialog.askopenfilenames(
-            title="Select YAML files to upload",
-            filetypes=[("YAML files", "*.yaml *.yml"), ("All files", "*.*")]
-        )
-        if not paths:
-            return
+        paths, _ = QFileDialog.getOpenFileNames(self, "Select YAML files to upload", "", "YAML files (*.yaml *.yml);;All files (*.*)")
+        if not paths: return
 
         def _thread():
             try:
-                if not hasattr(self.manager, "upload_yaml_files"):
-                    raise AttributeError(
-                        "RunnerManager has no upload_yaml_files()")
-                uploaded = self.manager.upload_yaml_files(
-                    list(paths), remote_dir, overwrite=True)
-                self._append_log(
-                    f"[SFTP] Uploaded {len(uploaded)} file(s) to {remote_dir}")
-                # Refresh remote listing
+                uploaded = self.manager.upload_yaml_files(list(paths), remote_dir, overwrite=True)
+                self._append_log(f"[SFTP] Uploaded {len(uploaded)} file(s) to {remote_dir}")
                 self._scan_yaml_files()
             except Exception as e:
                 self._append_log(f"[SFTP] Upload failed: {e}")
-                messagebox.showerror("Upload YAMLs", str(e))
+                QTimer.singleShot(0, lambda: QMessageBox.critical(self, "Upload YAMLs", str(e)))
 
         threading.Thread(target=_thread, daemon=True).start()
 
     def _upload_yaml_folder(self):
-        """Upload all .yaml/.yml files from the local YAML folder (run_folder) to remote YAML dir."""
-        if self.app.var_run_mode.get() != "SSH":
-            messagebox.showinfo("Upload YAML Folder",
-                                "Switch to Remote (SSH) mode first.")
+        if not self.rb_ssh.isChecked():
+            QMessageBox.information(self, "Upload YAML Folder", "Switch to Remote (SSH) mode first.")
             return
         if not self.manager or not getattr(self.manager, "ssh_connected", False):
-            messagebox.showinfo("Upload YAML Folder",
-                                "SSH not connected. Connect via SSH tab first.")
+            QMessageBox.information(self, "Upload YAML Folder", "SSH not connected. Connect via SSH tab first.")
             return
 
-        local_dir = (self.app.run_folder.get() or "").strip()
+        local_dir = self.e_run_folder.text().strip()
         if not local_dir or not os.path.isdir(local_dir):
-            messagebox.showerror("Upload YAML Folder",
-                                 "Local YAML Folder is invalid.")
+            QMessageBox.critical(self, "Upload YAML Folder", "Local YAML Folder is invalid.")
             return
 
-        remote_dir = (self.app.ssh_remote_dir.get() or "").strip()
+        remote_dir = self.e_remote_dir.text().strip()
         if not remote_dir:
-            messagebox.showerror("Upload YAML Folder",
-                                 "Remote YAML Dir is empty.")
+            QMessageBox.critical(self, "Upload YAML Folder", "Remote YAML Dir is empty.")
             return
 
-        # collect yaml files
         local_paths = []
         try:
             for name in os.listdir(local_dir):
@@ -1106,34 +528,27 @@ class RunnerTab(RemoteBrowserMixin):
                 if low.endswith(".yaml") or low.endswith(".yml"):
                     local_paths.append(os.path.join(local_dir, name))
         except Exception as e:
-            messagebox.showerror("Upload YAML Folder", str(e))
+            QMessageBox.critical(self, "Upload YAML Folder", str(e))
             return
 
         if not local_paths:
-            messagebox.showinfo(
-                "Upload YAML Folder", "No .yaml/.yml files found in the selected folder.")
+            QMessageBox.information(self, "Upload YAML Folder", "No .yaml/.yml files found in the selected folder.")
             return
 
         def _thread():
             try:
-                if not hasattr(self.manager, "upload_yaml_files"):
-                    raise AttributeError(
-                        "RunnerManager has no upload_yaml_files()")
-                uploaded = self.manager.upload_yaml_files(
-                    local_paths, remote_dir, overwrite=True)
-                self._append_log(
-                    f"[SFTP] Uploaded {len(uploaded)} file(s) to {remote_dir}")
+                uploaded = self.manager.upload_yaml_files(local_paths, remote_dir, overwrite=True)
+                self._append_log(f"[SFTP] Uploaded {len(uploaded)} file(s) to {remote_dir}")
                 self._scan_yaml_files()
             except Exception as e:
                 self._append_log(f"[SFTP] Upload failed: {e}")
-                messagebox.showerror("Upload YAML Folder", str(e))
+                QTimer.singleShot(0, lambda: QMessageBox.critical(self, "Upload YAML Folder", str(e)))
 
         threading.Thread(target=_thread, daemon=True).start()
 
-
     def _clear_tmux_sessions(self):
         if not self.manager or not getattr(self.manager, "ssh_connected", False):
-            messagebox.showinfo("SSH", "Not connected. Connect via SSH tab first.")
+            QMessageBox.information(self, "SSH", "Not connected. Connect via SSH tab first.")
             return
 
         def _thread():
@@ -1152,40 +567,41 @@ class RunnerTab(RemoteBrowserMixin):
         threading.Thread(target=_thread, daemon=True).start()
 
     def _open_schedule_window(self):
-        if getattr(self, "_schedule_win", None) and self._schedule_win.winfo_exists():
-            self._schedule_win.deiconify()
-            self._schedule_win.lift()
+        if getattr(self, "_schedule_win", None) and self._schedule_win.isVisible():
+            self._schedule_win.activateWindow()
+            self._schedule_win.raise_()
             self._render_schedule_cards()
             return
 
-        win = tk.Toplevel(self.frame)
-        self._schedule_win = win
-        win.title("Simulation Schedule")
-        win.geometry("980x680")
+        self._schedule_win = QDialog(self)
+        self._schedule_win.setWindowTitle("Simulation Schedule")
+        self._schedule_win.resize(980, 680)
 
-        top = ttk.Frame(win)
-        top.pack(fill="x", padx=10, pady=10)
-        ttk.Label(top, text="Simulation Schedule", font=("Segoe UI", 12, "bold")).pack(side="left")
-        ttk.Button(top, text="Refresh", command=self._refresh_schedule_window).pack(side="right")
+        main_layout = QVBoxLayout(self._schedule_win)
+        
+        top = QHBoxLayout()
+        lbl = QLabel("Simulation Schedule")
+        lbl.setStyleSheet("font-family: 'Segoe UI'; font-size: 12pt; font-weight: bold;")
+        top.addWidget(lbl)
+        top.addStretch()
+        btn_refresh = QPushButton("Refresh")
+        btn_refresh.clicked.connect(self._refresh_schedule_window)
+        top.addWidget(btn_refresh)
+        
+        main_layout.addLayout(top)
 
-        container = ttk.Frame(win)
-        container.pack(fill="both", expand=True, padx=10, pady=(0, 10))
-
-        canvas = tk.Canvas(container, highlightthickness=0)
-        vsb = ttk.Scrollbar(container, orient="vertical", command=canvas.yview)
-        body = ttk.Frame(canvas)
-        body.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")), add="+")
-        window_id = canvas.create_window((0, 0), window=body, anchor="nw")
-        canvas.configure(yscrollcommand=vsb.set)
-        canvas.pack(side="left", fill="both", expand=True)
-        vsb.pack(side="right", fill="y")
-        canvas.bind("<Configure>", lambda e: canvas.itemconfigure(window_id, width=e.width), add="+")
-
-        self._schedule_canvas = canvas
-        self._schedule_body = body
-        self._schedule_window_id = window_id
-
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setFrameShape(QFrame.NoFrame)
+        
+        content = QWidget()
+        self._schedule_layout = QGridLayout(content)
+        scroll_area.setWidget(content)
+        
+        main_layout.addWidget(scroll_area)
+        
         self._render_schedule_cards()
+        self._schedule_win.show()
 
     def _refresh_schedule_window(self):
         try:
@@ -1195,15 +611,14 @@ class RunnerTab(RemoteBrowserMixin):
         self._render_schedule_cards()
 
     def _render_schedule_cards(self):
-        body = getattr(self, "_schedule_body", None)
-        if not body or not body.winfo_exists():
-            return
+        layout = getattr(self, "_schedule_layout", None)
+        if not layout: return
 
-        for child in body.winfo_children():
-            try:
-                child.destroy()
-            except Exception:
-                pass
+        # Clear layout
+        while layout.count():
+            child = layout.takeAt(0)
+            if child.widget():
+                child.widget().deleteLater()
 
         jobs = []
         for iid, meta in (self._jobs or {}).items():
@@ -1225,49 +640,46 @@ class RunnerTab(RemoteBrowserMixin):
                 "snap": r.get("snap") or "0/--",
                 "pct": r.get("pct") or ("100.0%" if final_status == "Completed" else ("0.0%" if r.get("session_alive") else "--")),
                 "eta": r.get("eta") or ("--" if state != "running" else "Calc..."),
-                "branch": self.app.var_git_branch.get() or "",
+                "branch": self.cmb_git_branch.currentText() or "",
                 "location": r.get("remote_path", ""),
                 "host": self._current_host_label(),
             })
 
         if not jobs:
-            ttk.Label(body, text="No simulations found.").pack(anchor="w", padx=6, pady=6)
+            layout.addWidget(QLabel("No simulations found."), 0, 0)
             return
 
         def pct_value(v):
             try:
-                if isinstance(v, str):
-                    v = v.strip().replace('%','')
+                if isinstance(v, str): v = v.strip().replace('%','')
                 return max(0.0, min(100.0, float(v)))
             except Exception:
                 return 0.0
 
         cols = 3
         for index, job in enumerate(jobs):
-            card = ttk.LabelFrame(body, text=job.get("yaml") or "Simulation")
+            card = QGroupBox(job.get("yaml") or "Simulation")
+            card_layout = QHBoxLayout(card)
+            
+            p = pct_value(job.get("pct", 0))
+            prog = QProgressBar()
+            prog.setValue(int(p))
+            prog.setFormat(f"{p:.1f}%")
+            prog.setFixedSize(120, 20)
+            card_layout.addWidget(prog)
+            
+            info_layout = QVBoxLayout()
+            info_layout.addWidget(QLabel(f"<b>Status:</b> {job.get('status','--')}"))
+            info_layout.addWidget(QLabel(f"Snapshots: {job.get('snap','--')}"))
+            info_layout.addWidget(QLabel(f"ETA: {job.get('eta','--')}"))
+            info_layout.addWidget(QLabel(f"Host: {job.get('host','--')}"))
+            
+            lbl_loc = QLabel(f"Location: {job.get('location','--')}")
+            lbl_loc.setWordWrap(True)
+            info_layout.addWidget(lbl_loc)
+            
+            card_layout.addLayout(info_layout)
+            
             r = index // cols
             c = index % cols
-            card.grid(row=r, column=c, sticky="nsew", padx=8, pady=8)
-            body.grid_columnconfigure(c, weight=1)
-
-            inner = ttk.Frame(card)
-            inner.pack(fill="both", expand=True, padx=8, pady=8)
-
-            ring = tk.Canvas(inner, width=120, height=120, highlightthickness=0)
-            ring.grid(row=0, column=0, rowspan=4, padx=(0, 12), pady=4)
-            ring.create_oval(10, 10, 110, 110, outline="#d9d9d9", width=8)
-            p = pct_value(job.get("pct", 0))
-            if p > 0:
-                ring.create_arc(10, 10, 110, 110, start=90, extent=-(p/100.0)*360.0, style="arc", width=8, outline="#4a90e2")
-            ring.create_text(60, 60, text=f"{p:.1f}%", font=("Segoe UI", 11, "bold"))
-
-            ttk.Label(inner, text=f"Status: {job.get('status','--')}", font=("Segoe UI", 10, "bold")).grid(row=0, column=1, sticky="w")
-            ttk.Label(inner, text=f"Snapshots: {job.get('snap','--')}").grid(row=1, column=1, sticky="w", pady=(4, 0))
-            ttk.Label(inner, text=f"ETA: {job.get('eta','--')}").grid(row=2, column=1, sticky="w", pady=(4, 0))
-            ttk.Label(inner, text=f"Host: {job.get('host','--')}").grid(row=3, column=1, sticky="w", pady=(4, 0))
-            ttk.Label(inner, text=f"Location: {job.get('location','--')}", wraplength=320).grid(row=4, column=0, columnspan=2, sticky="w", pady=(8, 0))
-
-        try:
-            body.update_idletasks()
-        except Exception:
-            pass
+            layout.addWidget(card, r, c)

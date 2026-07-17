@@ -20,8 +20,10 @@ import traceback
 from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
-import tkinter as tk
-from tkinter import ttk
+from PySide6.QtWidgets import (
+    QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QFrame, QGridLayout
+)
+from PySide6.QtCore import Qt
 
 # ============================================================================
 # CONFIG CONSTANTS
@@ -509,66 +511,53 @@ def _normalize_raster_encoding(value: Any) -> str:
 # ============================================================================
 
 
-def add_row_three(parent, r, items):
-    """
-    Cria uma linha de widgets organizados em pares (Label, Widget) dentro de um grid.
-    Útil para formulários de 3 colunas de dados (6 colunas de grid).
 
-    :param parent: O widget pai (ex: ttk.Frame)
-    :param r: O índice da linha (row) no grid
-    :param items: Lista de tuplas [("Label Texto", WidgetObject), ...]
-    """
-    col = 0
-    for (txt, w) in items:
-        lbl = ttk.Label(parent, text=txt)
-        lbl.grid(row=r, column=col, sticky="e", padx=(0, 6), pady=2)
-
-        w.grid(row=r, column=col + 1, sticky="we", pady=2)
-
-        parent.grid_columnconfigure(col + 1, weight=1)
-        col += 2
-
-    while col < 6:
-        parent.grid_columnconfigure(col, weight=1)
-        col += 1
 
 # ============================================================================
 # EXTENDED UI WIDGETS
 # ============================================================================
 
 
-class CollapsibleFrame(ttk.Frame):
+class CollapsibleFrame(QFrame):
     """
     Um frame expansível/retrátil (estilo accordion) para agrupar opções.
     Para adicionar widgets, coloque-os dentro de `self.sub_frame`.
     """
-    def __init__(self, parent, text="", expanded=False, *args, **kwargs):
-        super().__init__(parent, *args, **kwargs)
-
-        self.show = tk.BooleanVar(value=expanded)
+    def __init__(self, parent=None, text="", expanded=False):
+        super().__init__(parent)
+        self.setFrameShape(QFrame.StyledPanel)
+        
+        self.is_expanded = expanded
         self._text = text
 
-        self.title_frame = ttk.Frame(self)
-        self.title_frame.pack(fill="x", expand=False)
+        self.main_layout = QVBoxLayout(self)
+        self.main_layout.setContentsMargins(5, 5, 5, 5)
 
-        self.toggle_button = ttk.Checkbutton(
-            self.title_frame, width=3, text="-" if expanded else "+",
-            command=self.toggle, variable=self.show, style="Toolbutton"
-        )
-        self.toggle_button.pack(side="left")
+        self.title_frame = QWidget()
+        self.title_layout = QHBoxLayout(self.title_frame)
+        self.title_layout.setContentsMargins(0, 0, 0, 0)
 
-        self.title_label = ttk.Label(self.title_frame, text=self._text, font=("Segoe UI", 9, "bold"))
-        self.title_label.pack(side="left", fill="x", expand=True, padx=5)
+        self.toggle_button = QPushButton("-" if expanded else "+")
+        self.toggle_button.setFixedWidth(30)
+        self.toggle_button.clicked.connect(self.toggle)
+        self.title_layout.addWidget(self.toggle_button)
 
-        self.sub_frame = ttk.Frame(self)
+        self.title_label = QLabel(self._text)
+        self.title_label.setStyleSheet("font-family: 'Segoe UI'; font-size: 9pt; font-weight: bold;")
+        self.title_layout.addWidget(self.title_label)
+        self.title_layout.addStretch()
 
-        if expanded:
-            self.sub_frame.pack(fill="both", expand=True, pady=2, padx=5)
+        self.main_layout.addWidget(self.title_frame)
+
+        self.sub_frame = QWidget()
+        self.sub_layout = QVBoxLayout(self.sub_frame)
+        self.sub_layout.setContentsMargins(5, 5, 5, 5)
+
+        self.main_layout.addWidget(self.sub_frame)
+
+        self.sub_frame.setVisible(self.is_expanded)
 
     def toggle(self):
-        if self.show.get():
-            self.sub_frame.pack(fill="both", expand=True, pady=2, padx=5)
-            self.toggle_button.configure(text="-")
-        else:
-            self.sub_frame.pack_forget()
-            self.toggle_button.configure(text="+")
+        self.is_expanded = not self.is_expanded
+        self.sub_frame.setVisible(self.is_expanded)
+        self.toggle_button.setText("-" if self.is_expanded else "+")

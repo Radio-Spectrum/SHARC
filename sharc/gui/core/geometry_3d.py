@@ -251,7 +251,6 @@ class Geometry3DMixin:
         ex, ey, ez = lla_to_ecef(es_lat, es_lon, es_alt)
 
         sat_obj = None
-        sx, sy, sz = None, None, None
 
         if HAS_SHARC_CORE and StationFactory and ParametersSingleSpaceStation:
             try:
@@ -276,14 +275,18 @@ class Geometry3DMixin:
                 except:
                     pass
 
+                # sat_obj is used ONLY for the antenna object (gain map /
+                # beamwidth). Its .x/.y/.z are in a local ENU frame centred on
+                # the reference earth station, NOT the ECEF frame used to draw
+                # the globe, so they must never be used for positioning here.
                 sat_obj = StationFactory.generate_single_space_station(p_ss)
-                sx, sy, sz = float(sat_obj.x[0]), float(
-                    sat_obj.y[0]), float(sat_obj.z[0])
             except Exception:
-                pass
+                sat_obj = None
 
-        if sx is None:
-            sx, sy, sz = lla_to_ecef(ss_lat, ss_lon, ss_alt)
+        # Position the satellite in the SAME ECEF frame as the globe and the
+        # earth station, derived directly from geodetic lat/lon/alt. This keeps
+        # the sub-satellite point, link line and footprint geometrically correct.
+        sx, sy, sz = lla_to_ecef(ss_lat, ss_lon, ss_alt)
 
         return sx, sy, sz, ex, ey, ez, sat_obj
 

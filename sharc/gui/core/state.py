@@ -1,7 +1,8 @@
-import tkinter as tk
 from pathlib import Path
 import sys
 from functools import lru_cache
+
+from PySide6.QtCore import QObject, Signal
 
 # --- Attempt to import DEFAULTS ---
 try:
@@ -20,7 +21,6 @@ except ImportError:
 
 # --- GLOBAL PROJECT LOCATION FUNCTION ---
 
-
 @lru_cache(maxsize=1)
 def get_sharc_root() -> Path:
     try:
@@ -38,47 +38,63 @@ def get_sharc_root() -> Path:
     return current_path.parent
 
 
-class AppState:
+# --- PYSIDE6 VARIABLE WRAPPER ---
+
+class SharcVar(QObject):
     """
-    Class responsible solely for initializing and storing the application state (Tkinter variables).
+    Substituto direto para tk.StringVar e tk.BooleanVar.
+    Mantém a interface .get() e .set() para não quebrar as abas existentes,
+    mas usa Signals do Qt para notificar mudanças de estado.
+    """
+    # Emite o novo valor sempre que ele for alterado
+    value_changed = Signal(object)
+
+    def __init__(self, value, var_type=str):
+        super().__init__()
+        self._type = var_type
+        self._value = self._convert(value)
+
+    def _convert(self, val):
+        """Aplica a mesma lógica de conversão do Tkinter original."""
+        try:
+            if self._type == bool:
+                # Handle "True"/"False" strings and 1/0 integers
+                if isinstance(val, str):
+                    return val.lower() in ('true', '1', 'yes', 'on')
+                return bool(val)
+            else:
+                # CRÍTICO: Tudo o que não for bool (int, float, str) vira string.
+                # Isso permite que o usuário digite "{my_var}" em um campo numérico.
+                return str(val) if val is not None else ""
+        except (ValueError, TypeError) as e:
+            print(f"ERROR: Failed to cast value '{val}'. Using empty string.")
+            return ""
+
+    def get(self):
+        return self._value
+
+    def set(self, value):
+        new_val = self._convert(value)
+        if self._value != new_val:
+            self._value = new_val
+            self.value_changed.emit(self._value)
+
+
+class AppState(QObject):
+    """
+    Class responsible solely for initializing and storing the application state (PySide6 variables).
     """
 
     def __init__(self):
-        try:
-            if not tk._default_root:
-                pass
-        except:
-            pass
-
+        super().__init__()
         self.project_root = get_sharc_root()
-
         self._create_vars()
 
-    def _add(self, value, var_type=str):
+    def _add(self, value, var_type=str) -> SharcVar:
         """
-        Helper to create variables.
-        CRITICAL CHANGE: int and float are now created as StringVar to allow 
-        variable injection (e.g., "{frequency}") in the UI.
+        Helper to create variables. Retorna a nossa nova classe wrapper baseada em QObject.
         """
-        try:
-            if var_type == bool:
-                # Handle "True"/"False" strings and 1/0 integers
-                if isinstance(value, str):
-                    val = value.lower() in ('true', '1', 'yes', 'on')
-                else:
-                    val = bool(value)
-                return tk.BooleanVar(value=val)
-
-            else:
-                # EVERYTHING else (int, float, str) becomes StringVar.
-                # This allows the user to type "{my_var}" into a numeric field.
-                # Conversion to number happens only during YAML generation.
-                return tk.StringVar(value=str(value) if value is not None else "")
-
-        except (ValueError, TypeError) as e:
-            print(
-                f"ERROR: Failed to cast value '{value}'. Using empty string.")
-            return tk.StringVar(value="")
+        return SharcVar(value, var_type)
 
     def _create_vars(self):
         """Initializes all state variables grouped by functional area."""
@@ -260,7 +276,7 @@ class AppState:
         # --- SINGLE EARTH STATION (Victim) ---
         # =========================================================
 
-        # NOTE: All floats now use _add(val, float) which returns StringVar internally
+        # NOTE: All floats now use _add(val, float) which returns SharcVar internally
 
         self.se_frequency = self._add(3800.0, float)
         self.se_bandwidth = self._add(100.0, float)

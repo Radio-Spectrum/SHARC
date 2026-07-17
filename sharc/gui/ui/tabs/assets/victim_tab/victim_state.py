@@ -1,15 +1,18 @@
-import tkinter as tk
-from tkinter import filedialog, messagebox
 import json
 import os
+from PySide6.QtCore import QObject
+from PySide6.QtWidgets import QFileDialog, QMessageBox
 
+# Import the SharcVar from your newly refactored state.py
+from core.state import SharcVar
 
-class VictimStateManager:
+class VictimStateManager(QObject):
     """
-    Gerencia as variáveis Tkinter para a aba Victim (Single Space Station).
+    Gerencia as variáveis para a aba Victim (Single Space Station) usando PySide6.
     """
 
-    def __init__(self, json_filename="victim_defaults.json"):
+    def __init__(self, json_filename="victim_defaults.json", parent=None):
+        super().__init__(parent)
         self.vars = {}
 
         # Caminho relativo à pasta assets
@@ -19,9 +22,9 @@ class VictimStateManager:
         self._load_from_defaults()
 
     def get(self, key):
-        """Retorna a variável Tkinter correspondente à chave."""
+        """Retorna o SharcVar correspondente à chave."""
         if key not in self.vars:
-            self.vars[key] = tk.StringVar()
+            self.vars[key] = SharcVar("")
         return self.vars[key]
 
     def _load_from_defaults(self):
@@ -38,32 +41,25 @@ class VictimStateManager:
             print(f"Erro ao ler JSON Victim: {e}")
 
     def _create_var(self, key, value):
-        if isinstance(value, bool):
-            var = tk.BooleanVar(value=value)
-        elif isinstance(value, (int, float)):
-            var = tk.DoubleVar(value=value)
-        else:
-            var = tk.StringVar(value=str(value))
-        self.vars[key] = var
+        # A própria classe SharcVar cuida da conversão de tipos permitindo tags como "{var}"
+        self.vars[key] = SharcVar(value)
 
-    def save_to_file(self):
+    def save_to_file(self, parent_widget=None):
         data = {k: v.get() for k, v in self.vars.items()}
 
-        path = filedialog.asksaveasfilename(
-            defaultextension=".json",
-            filetypes=[("JSON", "*.json")],
-            initialfile="victim_config.json"
+        path, _ = QFileDialog.getSaveFileName(
+            parent_widget, "Salvar Victim Config", "victim_config.json", "JSON (*.json)"
         )
         if path:
             try:
                 with open(path, "w", encoding="utf-8") as f:
                     json.dump(data, f, indent=2)
-                messagebox.showinfo("Sucesso", f"Salvo em:\n{path}")
+                QMessageBox.information(parent_widget, "Sucesso", f"Salvo em:\n{path}")
             except Exception as e:
-                messagebox.showerror("Erro", str(e))
+                QMessageBox.critical(parent_widget, "Erro", str(e))
 
-    def load_from_file(self, callback_after_load=None):
-        path = filedialog.askopenfilename(filetypes=[("JSON", "*.json")])
+    def load_from_file(self, callback_after_load=None, parent_widget=None):
+        path, _ = QFileDialog.getOpenFileName(parent_widget, "Carregar Victim Config", "", "JSON (*.json)")
         if not path:
             return
 
@@ -73,14 +69,11 @@ class VictimStateManager:
 
             for key, val in data.items():
                 if key in self.vars:
-                    try:
-                        self.vars[key].set(val)
-                    except:
-                        pass
+                    self.vars[key].set(val)
 
             if callback_after_load:
                 callback_after_load()
 
-            messagebox.showinfo("Sucesso", "Configuração carregada.")
+            QMessageBox.information(parent_widget, "Sucesso", "Configuração carregada.")
         except Exception as e:
-            messagebox.showerror("Erro", str(e))
+            QMessageBox.critical(parent_widget, "Erro", str(e))

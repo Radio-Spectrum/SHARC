@@ -1,193 +1,185 @@
-import tkinter as tk
-from tkinter import ttk
-from utils import add_row_three
-from ui.tabs.assets.ses_tab.ses_pattern_controller import *
+from PySide6.QtWidgets import (
+    QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QGroupBox, 
+    QLabel, QStackedWidget, QComboBox, QCheckBox
+)
+from PySide6.QtCore import Qt
 
+from ui.tabs.assets.imt_tab.imt_tools import IMTUIHelper as H
+from ui.tabs.assets.ses_tab.ses_pattern_controller import (
+    LOC_TYPES, AZ_EL_TYPES, SUPPORTED_ANTENNA_PATTERNS, DIAMETER_PATTERNS, CHANNEL_MODELS
+)
 
 class SESBasicSection:
     @staticmethod
-    def build(parent, app):
-        frm = ttk.LabelFrame(parent, text="Basic Parameters")
-        frm.pack(fill="x", padx=2, pady=4)
+    def build(parent_layout, app):
+        frm = QGroupBox("Basic Parameters")
+        layout = QGridLayout(frm)
 
-        add_row_three(frm, 0, [
-            ("frequency [MHz]", ttk.Entry(
-                frm, textvariable=app.se_frequency, width=12)),
-            ("bandwidth [MHz]", ttk.Entry(
-                frm, textvariable=app.se_bandwidth, width=12)),
-            ("noise_temperature [K]", ttk.Entry(
-                frm, textvariable=app.se_noise_temperature, width=12)),
+        H.add_grid_row(layout, 0, [
+            ("frequency [MHz]", H.create_field(app.se_frequency)),
+            ("bandwidth [MHz]", H.create_field(app.se_bandwidth)),
+            ("noise_temperature [K]", H.create_field(app.se_noise_temperature)),
         ])
-        add_row_three(frm, 1, [
-            ("adjacent_ch_reception", ttk.Combobox(frm, textvariable=app.se_adjacent_ch_reception,
-             values=["ACS", "OFF"], width=12, state="readonly")),
-            ("adjacent_ch_selectivity [dB]", ttk.Entry(
-                frm, textvariable=app.se_adjacent_ch_selectivity, width=12)),
-            ("adjacent_ch_emissions", ttk.Combobox(frm, textvariable=app.se_adjacent_ch_emissions,
-             values=["ACLR", "SPECTRAL_MASK", "OFF"], width=14, state="readonly")),
+        H.add_grid_row(layout, 1, [
+            ("adjacent_ch_reception", H.create_field(app.se_adjacent_ch_reception, QComboBox, ["ACS", "OFF"])),
+            ("adjacent_ch_selectivity [dB]", H.create_field(app.se_adjacent_ch_selectivity)),
+            ("adjacent_ch_emissions", H.create_field(app.se_adjacent_ch_emissions, QComboBox, ["ACLR", "SPECTRAL_MASK", "OFF"])),
         ])
-        add_row_three(frm, 2, [
-            ("adjacent_ch_leak_ratio [dB]", ttk.Entry(
-                frm, textvariable=app.se_adjacent_ch_leak_ratio, width=12)),
-            ("spectral_mask", ttk.Entry(
-                frm, textvariable=app.se_spectral_mask, width=18)),
-            ("spurious_emissions [dBm/MHz]", ttk.Entry(frm,
-             textvariable=app.se_spurious_emissions, width=14)),
+        H.add_grid_row(layout, 2, [
+            ("adjacent_ch_leak_ratio [dB]", H.create_field(app.se_adjacent_ch_leak_ratio)),
+            ("spectral_mask", H.create_field(app.se_spectral_mask)),
+            ("spurious_emissions [dBm/MHz]", H.create_field(app.se_spurious_emissions)),
         ])
-        add_row_three(frm, 3, [
-            ("tx_power_density [dBW/Hz]", ttk.Entry(frm,
-             textvariable=app.se_tx_power_density, width=14)),
-            ("height [m]", ttk.Entry(
-                frm, textvariable=app.se_height, width=12)),
-            ("polarization_loss [dB] (opt.)", ttk.Entry(
-                frm, textvariable=app.se_polarization_loss, width=12)),
+        H.add_grid_row(layout, 3, [
+            ("tx_power_density [dBW/Hz]", H.create_field(app.se_tx_power_density)),
+            ("height [m]", H.create_field(app.se_height)),
+            ("polarization_loss [dB] (opt.)", H.create_field(app.se_polarization_loss)),
         ])
+        parent_layout.addWidget(frm)
 
 
 class SESGeometrySection:
-    def __init__(self, parent, app):
+    def __init__(self, parent_layout, app):
         self.app = app
-        self.frame = ttk.LabelFrame(parent, text="Geometry")
-        self.frame.pack(fill="x", padx=2, pady=4)
+        self.frame = QGroupBox("Geometry")
+        self.main_layout = QVBoxLayout(self.frame)
 
         self._build_location_ui()
         self._build_pointing_ui()
+        
+        parent_layout.addWidget(self.frame)
 
     def _build_location_ui(self):
-        box = ttk.LabelFrame(self.frame, text="Location")
-        box.pack(fill="x", padx=2, pady=(6, 6))
+        box = QGroupBox("Location")
+        l = QVBoxLayout(box)
 
-        add_row_three(box, 0, [
-            ("location.type", ttk.Combobox(box, textvariable=self.app.se_loc_type,
-             values=LOC_TYPES, width=14, state="readonly")),
-            ("", ttk.Label(box, text="")), ("", ttk.Label(box, text="")),
-        ])
+        row_type = QHBoxLayout()
+        row_type.addWidget(QLabel("location.type"))
+        row_type.addWidget(H.create_field(self.app.se_loc_type, QComboBox, LOC_TYPES))
+        row_type.addStretch()
+        l.addLayout(row_type)
 
+        self.loc_stack = QStackedWidget()
+        l.addWidget(self.loc_stack)
         self.loc_frames = {}
-        # Fixed
-        f_fix = ttk.Frame(box)
-        add_row_three(f_fix, 0, [("x [m]", ttk.Entry(f_fix, textvariable=self.app.se_loc_fixed_x, width=12)), ("y [m]", ttk.Entry(
-            f_fix, textvariable=self.app.se_loc_fixed_y, width=12)), ("", ttk.Label(f_fix, text=""))])
+
+        # FIXED
+        f_fix = QWidget()
+        l_fix = QGridLayout(f_fix)
+        H.add_grid_row(l_fix, 0, [("x [m]", H.create_field(self.app.se_loc_fixed_x)), ("y [m]", H.create_field(self.app.se_loc_fixed_y)), ("", None)])
         self.loc_frames["FIXED"] = f_fix
+        self.loc_stack.addWidget(f_fix)
 
-        # Cell
-        f_cell = ttk.Frame(box)
-        add_row_three(f_cell, 0, [("cell.min_dist_to_bs [m]", ttk.Entry(
-            f_cell, textvariable=self.app.se_loc_cell_min_dist_to_bs, width=14)), ("", ttk.Label(f_cell, text="")), ("", ttk.Label(f_cell, text=""))])
+        # CELL
+        f_cell = QWidget()
+        l_cell = QGridLayout(f_cell)
+        H.add_grid_row(l_cell, 0, [("cell.min_dist_to_bs [m]", H.create_field(self.app.se_loc_cell_min_dist_to_bs)), ("", None), ("", None)])
         self.loc_frames["CELL"] = f_cell
+        self.loc_stack.addWidget(f_cell)
 
-        # Network
-        f_net = ttk.Frame(box)
-        add_row_three(f_net, 0, [("network.min_dist_to_bs [m]", ttk.Entry(
-            f_net, textvariable=self.app.se_loc_network_min_dist_to_bs, width=14)), ("", ttk.Label(f_net, text="")), ("", ttk.Label(f_net, text=""))])
+        # NETWORK
+        f_net = QWidget()
+        l_net = QGridLayout(f_net)
+        H.add_grid_row(l_net, 0, [("network.min_dist_to_bs [m]", H.create_field(self.app.se_loc_network_min_dist_to_bs)), ("", None), ("", None)])
         self.loc_frames["NETWORK"] = f_net
+        self.loc_stack.addWidget(f_net)
 
-        # Uniform
-        f_ud = ttk.Frame(box)
-        add_row_three(f_ud, 0, [("min_dist_to_center [m]", ttk.Entry(f_ud, textvariable=self.app.se_loc_ud_min_dist_to_center, width=18)), (
-            "max_dist_to_center [m]", ttk.Entry(f_ud, textvariable=self.app.se_loc_ud_max_dist_to_center, width=18)), ("", ttk.Label(f_ud, text=""))])
+        # UNIFORM_DIST
+        f_ud = QWidget()
+        l_ud = QGridLayout(f_ud)
+        H.add_grid_row(l_ud, 0, [("min_dist_to_center [m]", H.create_field(self.app.se_loc_ud_min_dist_to_center)), ("max_dist_to_center [m]", H.create_field(self.app.se_loc_ud_max_dist_to_center)), ("", None)])
         self.loc_frames["UNIFORM_DIST"] = f_ud
+        self.loc_stack.addWidget(f_ud)
+        
+        self.empty_loc = QWidget()
+        self.loc_stack.addWidget(self.empty_loc)
 
-        # Pack all hidden initially
-        for f in self.loc_frames.values():
-            f.grid(row=1, column=0, columnspan=6, sticky="ew", pady=(6, 0))
-            f.grid_remove()
-
-        self.app.se_loc_type.trace_add("write", self.refresh_location)
+        self.app.se_loc_type.value_changed.connect(self.refresh_location)
+        self.main_layout.addWidget(box)
 
     def _build_pointing_ui(self):
+        box = QGroupBox("Antenna Pointing (Azimuth / Elevation)")
+        l = QHBoxLayout(box)
 
-        box = ttk.LabelFrame(
-            self.frame, text="Antenna Pointing (Azimuth / Elevation)")
-        box.pack(fill="x", padx=2, pady=(0, 6))
+        c_az = QGroupBox("Azimuth")
+        c_el = QGroupBox("Elevation")
+        l.addWidget(c_az)
+        l.addWidget(c_el)
 
-        c_az = ttk.LabelFrame(box, text="Azimuth")
-        c_el = ttk.LabelFrame(box, text="Elevation")
-        c_az.grid(row=0, column=0, sticky="nsew", padx=2, pady=2)
-        c_el.grid(row=0, column=1, sticky="nsew", padx=2, pady=2)
-        box.columnconfigure(0, weight=1)
-        box.columnconfigure(1, weight=1)
+        self.az_frames, self.az_hint, self.az_stack = self._build_angle_col(
+            c_az, self.app.se_az_type, self.app.se_az_fixed, self.app.se_az_ud_min, self.app.se_az_ud_max)
+        self.app.se_az_type.value_changed.connect(self.refresh_az)
 
-        # Azimuth Logic
-        self.az_frames = {}
-        self.az_hint = None
-        self._build_angle_col(c_az, self.app.se_az_type, self.app.se_az_fixed,
-                              self.app.se_az_ud_min, self.app.se_az_ud_max,
-                              self.az_frames, is_az=True)
-        self.app.se_az_type.trace_add("write", self.refresh_az)
+        self.el_frames, self.el_hint, self.el_stack = self._build_angle_col(
+            c_el, self.app.se_el_type, self.app.se_el_fixed, self.app.se_el_ud_min, self.app.se_el_ud_max)
+        self.app.se_el_type.value_changed.connect(self.refresh_el)
 
-        # Elevation Logic
-        self.el_frames = {}
-        self.el_hint = None
-        self._build_angle_col(c_el, self.app.se_el_type, self.app.se_el_fixed,
-                              self.app.se_el_ud_min, self.app.se_el_ud_max,
-                              self.el_frames, is_az=False)
-        self.app.se_el_type.trace_add("write", self.refresh_el)
+        self.main_layout.addWidget(box)
 
-    def _build_angle_col(self, parent, var_type, var_fixed, var_min, var_max, frame_dict, is_az):
-        ttk.Label(parent, text="type").grid(
-            row=0, column=0, sticky="w", padx=4)
-        ttk.Combobox(parent, textvariable=var_type, values=AZ_EL_TYPES, width=22,
-                     state="readonly").grid(row=0, column=1, sticky="w", padx=4)
+    def _build_angle_col(self, parent, var_type, var_fixed, var_min, var_max):
+        l = QVBoxLayout(parent)
+        
+        row_type = QHBoxLayout()
+        row_type.addWidget(QLabel("type"))
+        row_type.addWidget(H.create_field(var_type, QComboBox, AZ_EL_TYPES))
+        l.addLayout(row_type)
+
+        stack = QStackedWidget()
+        l.addWidget(stack)
+        frames = {}
 
         # Fixed
-        f_fix = ttk.Frame(parent)
-        f_fix.grid(row=1, column=0, columnspan=2, sticky="ew", pady=6)
-        ttk.Label(f_fix, text="fixed [deg]").pack(side="left")
-        ttk.Entry(f_fix, textvariable=var_fixed,
-                  width=12).pack(side="left", padx=4)
-        frame_dict["FIXED"] = f_fix
+        f_fix = QWidget()
+        l_fix = QHBoxLayout(f_fix)
+        l_fix.setContentsMargins(0,0,0,0)
+        l_fix.addWidget(QLabel("fixed [deg]"))
+        l_fix.addWidget(H.create_field(var_fixed))
+        l_fix.addStretch()
+        frames["FIXED"] = f_fix
+        stack.addWidget(f_fix)
 
         # Uniform
-        f_ud = ttk.Frame(parent)
-        f_ud.grid(row=1, column=0, columnspan=2, sticky="ew", pady=6)
-        ttk.Label(f_ud, text="min").pack(side="left")
-        ttk.Entry(f_ud, textvariable=var_min,
-                  width=8).pack(side="left", padx=2)
-        ttk.Label(f_ud, text="max").pack(side="left", padx=(4, 0))
-        ttk.Entry(f_ud, textvariable=var_max,
-                  width=8).pack(side="left", padx=2)
-        frame_dict["UNIFORM_DIST"] = f_ud
+        f_ud = QWidget()
+        l_ud = QHBoxLayout(f_ud)
+        l_ud.setContentsMargins(0,0,0,0)
+        l_ud.addWidget(QLabel("min"))
+        l_ud.addWidget(H.create_field(var_min))
+        l_ud.addWidget(QLabel("max"))
+        l_ud.addWidget(H.create_field(var_max))
+        frames["UNIFORM_DIST"] = f_ud
+        stack.addWidget(f_ud)
 
         # Hint
-        lbl = ttk.Label(parent, text="(Automatic)", foreground="#555")
-        lbl.grid(row=2, column=0, columnspan=2, sticky="w", pady=6)
-        if is_az:
-            self.az_hint = lbl
-        else:
-            self.el_hint = lbl
+        hint = QLabel("(Automatic)")
+        hint.setStyleSheet("color: #555;")
+        stack.addWidget(hint)
+        
+        empty = QWidget()
+        stack.addWidget(empty)
+        stack.setCurrentWidget(empty)
 
-        # Initial Hide
-        f_fix.grid_remove()
-        f_ud.grid_remove()
-        lbl.grid_remove()
+        return frames, hint, stack
 
     def refresh_location(self, *args):
-        t = (self.app.se_loc_type.get() or "").strip()
-        for f in self.loc_frames.values():
-            f.grid_remove()
+        t = str(self.app.se_loc_type.get() or "").strip()
         if t in self.loc_frames:
-            self.loc_frames[t].grid()
+            self.loc_stack.setCurrentWidget(self.loc_frames[t])
+        else:
+            self.loc_stack.setCurrentWidget(self.empty_loc)
 
     def refresh_az(self, *args):
-        t = (self.app.se_az_type.get() or "").strip()
-        for f in self.az_frames.values():
-            f.grid_remove()
-        self.az_hint.grid_remove()
+        t = str(self.app.se_az_type.get() or "").strip()
         if t in self.az_frames:
-            self.az_frames[t].grid()
+            self.az_stack.setCurrentWidget(self.az_frames[t])
         elif t == "POINTING_AT_IMT_CENTER":
-            self.az_hint.grid()
+            self.az_stack.setCurrentWidget(self.az_hint)
 
     def refresh_el(self, *args):
-        t = (self.app.se_el_type.get() or "").strip()
-        for f in self.el_frames.values():
-            f.grid_remove()
-        self.el_hint.grid_remove()
+        t = str(self.app.se_el_type.get() or "").strip()
         if t in self.el_frames:
-            self.el_frames[t].grid()
+            self.el_stack.setCurrentWidget(self.el_frames[t])
         elif t == "POINTING_AT_IMT_CENTER":
-            self.el_hint.grid()
+            self.el_stack.setCurrentWidget(self.el_hint)
 
     def refresh_all(self):
         self.refresh_location()
@@ -196,125 +188,120 @@ class SESGeometrySection:
 
 
 class SESAntennaSection:
-    def __init__(self, parent, app):
+    def __init__(self, parent_layout, app):
         self.app = app
-        self.frame = ttk.LabelFrame(
-            parent, text="Antenna (Pattern + Parameters)")
-        self.frame.pack(fill="x", padx=2, pady=4)
+        self.frame = QGroupBox("Antenna (Pattern + Parameters)")
+        self.main_layout = QVBoxLayout(self.frame)
 
-        add_row_three(self.frame, 0, [
-            ("antenna.pattern", ttk.Combobox(self.frame, textvariable=app.se_ant_pattern,
-             values=SUPPORTED_ANTENNA_PATTERNS, width=28, state="readonly")),
-            ("antenna.gain [dBi]", ttk.Entry(
-                self.frame, textvariable=app.se_ant_gain, width=12)), ("", ttk.Label(self.frame, text="")),
+        grid = QGridLayout()
+        H.add_grid_row(grid, 0, [
+            ("antenna.pattern", H.create_field(app.se_ant_pattern, QComboBox, SUPPORTED_ANTENNA_PATTERNS)),
+            ("antenna.gain [dBi]", H.create_field(app.se_ant_gain)),
+            ("", None)
         ])
+        self.main_layout.addLayout(grid)
 
+        self.stack = QStackedWidget()
+        self.main_layout.addWidget(self.stack)
         self.frames = {}
 
         # Diameter-based
-        f_diam = ttk.Frame(self.frame)
-        add_row_three(f_diam, 0, [("diameter [m]", ttk.Entry(f_diam, textvariable=app.se_ant_diameter, width=12)), (
-            "", ttk.Label(f_diam, text="(freq & gain from system)")), ("", ttk.Label(f_diam, text=""))])
+        f_diam = QWidget()
+        l_diam = QGridLayout(f_diam)
+        H.add_grid_row(l_diam, 0, [("diameter [m]", H.create_field(app.se_ant_diameter)), ("", QLabel("(freq & gain from system)")), ("", None)])
         self.frames["DIAM"] = f_diam
+        self.stack.addWidget(f_diam)
 
         # Envelope
-        f_env = ttk.Frame(self.frame)
-        add_row_three(f_env, 0, [("envelope_gain [dB]", ttk.Entry(
-            f_env, textvariable=app.se_ant_envelope_gain, width=12)), ("", ttk.Label(f_env, text="")), ("", ttk.Label(f_env, text=""))])
+        f_env = QWidget()
+        l_env = QGridLayout(f_env)
+        H.add_grid_row(l_env, 0, [("envelope_gain [dB]", H.create_field(app.se_ant_envelope_gain)), ("", None), ("", None)])
         self.frames["MODIFIED ITU-R S.465"] = f_env
+        self.stack.addWidget(f_env)
 
         # S.672
-        f_s672 = ttk.Frame(self.frame)
-        add_row_three(f_s672, 0, [("antenna_3_dB [deg]", ttk.Entry(f_s672, textvariable=app.se_ant_3db, width=12)), (
-            "antenna_l_s [dB] (opt.)", ttk.Entry(f_s672, textvariable=app.se_ant_l_s, width=12)), ("", ttk.Label(f_s672, text=""))])
+        f_s672 = QWidget()
+        l_s672 = QGridLayout(f_s672)
+        H.add_grid_row(l_s672, 0, [("antenna_3_dB [deg]", H.create_field(app.se_ant_3db)), ("antenna_l_s [dB] (opt.)", H.create_field(app.se_ant_l_s)), ("", None)])
         self.frames["ITU-R S.672"] = f_s672
+        self.stack.addWidget(f_s672)
 
         # F1245
-        f_f1245 = ttk.Frame(self.frame)
-        add_row_three(f_f1245, 0, [("gain (F1245) [dB]", ttk.Entry(f_f1245, textvariable=app.se_ant_f1245_gain, width=12)), ("diameter [m]", ttk.Entry(
-            f_f1245, textvariable=app.se_ant_f1245_diameter, width=12)), ("frequency [MHz]", ttk.Entry(f_f1245, textvariable=app.se_ant_f1245_frequency, width=12))])
+        f_f1245 = QWidget()
+        l_f1245 = QGridLayout(f_f1245)
+        H.add_grid_row(l_f1245, 0, [("gain (F1245) [dB]", H.create_field(app.se_ant_f1245_gain)), ("diameter [m]", H.create_field(app.se_ant_f1245_diameter)), ("frequency [MHz]", H.create_field(app.se_ant_f1245_frequency))])
         self.frames["ITU-R F.1245_fs"] = f_f1245
+        self.stack.addWidget(f_f1245)
 
-        # Hint
-        self.hint = ttk.Label(
-            self.frame, text="Select a pattern to view specific parameters.")
+        self.hint = QLabel("Select a pattern to view specific parameters.")
+        self.stack.addWidget(self.hint)
 
-        for f in self.frames.values():
-            f.grid(row=1, column=0, columnspan=6, sticky="ew", pady=(6, 0))
-            f.grid_remove()
-        self.hint.grid(row=1, column=0, sticky="w", pady=6)
-        self.hint.grid_remove()
-
-        self.app.se_ant_pattern.trace_add("write", self.refresh)
+        self.app.se_ant_pattern.value_changed.connect(self.refresh)
+        parent_layout.addWidget(self.frame)
 
     def refresh(self, *args):
-        pat = (self.app.se_ant_pattern.get() or "").strip()
-        for f in self.frames.values():
-            f.grid_remove()
-        self.hint.grid_remove()
-
+        pat = str(self.app.se_ant_pattern.get() or "").strip()
         if not pat:
-            self.hint.grid()
+            self.stack.setCurrentWidget(self.hint)
         elif pat in DIAMETER_PATTERNS:
-            self.frames["DIAM"].grid()
+            self.stack.setCurrentWidget(self.frames["DIAM"])
         elif pat in self.frames:
-            self.frames[pat].grid()
+            self.stack.setCurrentWidget(self.frames[pat])
         else:
-            self.hint.grid()
+            self.stack.setCurrentWidget(self.hint)
 
 
 class SESChannelSection:
-    def __init__(self, parent, app):
+    def __init__(self, parent_layout, app):
         self.app = app
-        self.frame = ttk.LabelFrame(parent, text="Channel Model")
-        self.frame.pack(fill="x", padx=2, pady=4)
+        self.frame = QGroupBox("Channel Model")
+        self.main_layout = QVBoxLayout(self.frame)
 
-        add_row_three(self.frame, 0, [
-            ("channel_model", ttk.Combobox(self.frame, textvariable=app.se_channel_model,
-             values=CHANNEL_MODELS, width=10, state="readonly")),
-            ("", ttk.Label(self.frame, text="")
-             ), ("", ttk.Label(self.frame, text=""))
+        grid = QGridLayout()
+        H.add_grid_row(grid, 0, [
+            ("channel_model", H.create_field(app.se_channel_model, QComboBox, CHANNEL_MODELS)),
+            ("", None), ("", None)
         ])
+        self.main_layout.addLayout(grid)
 
         # P.452 Frame
-        self.p452_box = ttk.LabelFrame(self.frame, text="P452 Parameters")
-        self.p452_box.grid(row=1, column=0, columnspan=6,
-                           sticky="ew", padx=2, pady=(6, 2))
+        self.p452_box = QGroupBox("P452 Parameters")
+        l_p452 = QGridLayout(self.p452_box)
 
-        add_row_three(self.p452_box, 0, [("atmospheric_pressure [hPa]", ttk.Entry(self.p452_box, textvariable=app.p452_atmospheric_pressure, width=12)), ("air_temperature [K]", ttk.Entry(
-            self.p452_box, textvariable=app.p452_air_temperature, width=12)), ("p_452 [%]", ttk.Entry(self.p452_box, textvariable=app.p452_percentage_p, width=12))])
-        add_row_three(self.p452_box, 1, [("N0", ttk.Entry(self.p452_box, textvariable=app.p452_N0, width=12)), ("delta_N", ttk.Entry(
-            self.p452_box, textvariable=app.p452_delta_N, width=12)), ("polarization", ttk.Entry(self.p452_box, textvariable=app.p452_polarization, width=12))])
-        add_row_three(self.p452_box, 2, [("Dct [km]", ttk.Entry(self.p452_box, textvariable=app.p452_Dct, width=12)), (
-            "Dcr [km]", ttk.Entry(self.p452_box, textvariable=app.p452_Dcr, width=12)), ("", ttk.Label(self.p452_box, text=""))])
-        add_row_three(self.p452_box, 3, [("Hte [m]", ttk.Entry(self.p452_box, textvariable=app.p452_Hte, width=12, state="readonly")), ("Hre [m]", ttk.Entry(
-            self.p452_box, textvariable=app.p452_Hre, width=12, state="readonly")), ("clutter_loss", ttk.Checkbutton(self.p452_box, variable=app.p452_clutter_loss))])
+        H.add_grid_row(l_p452, 0, [("atmospheric_pressure [hPa]", H.create_field(app.p452_atmospheric_pressure)), ("air_temperature [K]", H.create_field(app.p452_air_temperature)), ("p_452 [%]", H.create_field(app.p452_percentage_p))])
+        H.add_grid_row(l_p452, 1, [("N0", H.create_field(app.p452_N0)), ("delta_N", H.create_field(app.p452_delta_N)), ("polarization", H.create_field(app.p452_polarization))])
+        H.add_grid_row(l_p452, 2, [("Dct [km]", H.create_field(app.p452_Dct)), ("Dcr [km]", H.create_field(app.p452_Dcr)), ("", None)])
+        
+        # Read-only heights
+        hte = H.create_field(app.p452_Hte)
+        hte.setReadOnly(True)
+        hre = H.create_field(app.p452_Hre)
+        hre.setReadOnly(True)
+        H.add_grid_row(l_p452, 3, [("Hte [m] (auto)", hte), ("Hre [m] (auto)", hre), ("clutter_loss", H.create_field(app.p452_clutter_loss, QCheckBox))])
 
-        self.clutter_row = ttk.Frame(self.p452_box)
-        self.clutter_row.grid(row=4, column=0, columnspan=6,
-                              sticky="ew", pady=(2, 0))
-        self.clutter_row.columnconfigure(0, weight=1)
-        ttk.Label(self.clutter_row, text="clutter_type").grid(
-            row=0, column=1, sticky="e", padx=4)
-        ttk.Combobox(self.clutter_row, textvariable=app.p452_clutter_type, values=[
-                     "one_end", "both_ends"], width=12, state="readonly").grid(row=0, column=2, sticky="w", padx=4)
+        self.clutter_row = QWidget()
+        l_clut = QHBoxLayout(self.clutter_row)
+        l_clut.setContentsMargins(0,0,0,0)
+        l_clut.addWidget(QLabel("clutter_type"))
+        l_clut.addWidget(H.create_field(app.p452_clutter_type, QComboBox, ["one_end", "both_ends"]))
+        l_clut.addStretch()
+        l_p452.addWidget(self.clutter_row, 4, 0, 1, 6)
 
-        add_row_three(self.p452_box, 5, [("tx_lat [deg]", ttk.Entry(self.p452_box, textvariable=app.p452_tx_lat, width=12)), ("rx_lat [deg]", ttk.Entry(
-            self.p452_box, textvariable=app.p452_rx_lat, width=12)), ("is_terrain", ttk.Checkbutton(self.p452_box, variable=app.p452_is_terrain))])
+        H.add_grid_row(l_p452, 5, [("tx_lat [deg]", H.create_field(app.p452_tx_lat)), ("rx_lat [deg]", H.create_field(app.p452_rx_lat)), ("is_terrain", H.create_field(app.p452_is_terrain, QCheckBox))])
 
-        self.app.se_channel_model.trace_add("write", self.refresh)
-        self.app.p452_clutter_loss.trace_add("write", self.refresh_clutter)
+        self.main_layout.addWidget(self.p452_box)
+
+        self.app.se_channel_model.value_changed.connect(self.refresh)
+        self.app.p452_clutter_loss.value_changed.connect(self.refresh_clutter)
+        
+        parent_layout.addWidget(self.frame)
 
     def refresh(self, *args):
-        if (self.app.se_channel_model.get() or "").strip() == "P452":
-            self.p452_box.grid()
-        else:
-            self.p452_box.grid_remove()
+        is_p452 = str(self.app.se_channel_model.get() or "").strip() == "P452"
+        self.p452_box.setVisible(is_p452)
         self.refresh_clutter()
 
     def refresh_clutter(self, *args):
-        is_p452 = (self.app.se_channel_model.get() or "").strip() == "P452"
-        if is_p452 and bool(self.app.p452_clutter_loss.get()):
-            self.clutter_row.grid()
-        else:
-            self.clutter_row.grid_remove()
+        is_p452 = str(self.app.se_channel_model.get() or "").strip() == "P452"
+        has_clutter = str(self.app.p452_clutter_loss.get()).lower() in ("true", "1")
+        self.clutter_row.setVisible(is_p452 and has_clutter)

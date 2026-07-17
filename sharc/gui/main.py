@@ -1,179 +1,238 @@
-import tkinter as tk
-from tkinter import ttk, messagebox, filedialog
-import tkinter.font as tkfont
-import queue
+import sys
 import os
-import itertools
-import ast
 import yaml
+import queue
 import subprocess
 import platform
+import tempfile
 
-# Try to use modern visual style
-try:
-    import ttkbootstrap as tb
-    from ttkbootstrap.constants import *
-    from ttkbootstrap.widgets import Meter, ToastNotification, ToolTip
-    # Replace ttkbootstrap ScrolledFrame since it only supports vertical scrolling
-    HAS_BOOTSTRAP = True
-except ImportError:
-    HAS_BOOTSTRAP = False
-    tb = None
-    Meter = ToastNotification = ToolTip = None
-    print("CRITICAL ERROR: Install 'pip install ttkbootstrap' to see the modern visual style.")
+from PySide6.QtWidgets import (
+    QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
+    QPushButton, QLabel, QFrame, QScrollArea, QStackedWidget,
+    QMenuBar, QMenu, QProgressBar, QMessageBox, QFileDialog, QSizePolicy,
+    QInputDialog, QGraphicsDropShadowEffect
+)
+from PySide6.QtCore import Qt, QTimer, Slot, Signal, QUrl, QSize
+from PySide6.QtGui import QFont, QAction, QClipboard, QCursor, QDesktopServices, QActionGroup, QColor
+import qtawesome as qta
 
 # --- Local and Core Imports ---
 from utils import build_yaml_text
 from managers import RunnerManager
 from core.state import AppState, get_sharc_root
-
-# IMPORTE DO BOM E VELHO BUILDER
 from core.yaml_builder import build_yaml_structure
-
-# CRITICAL IMPORT: Import the module to access the live 'SIMULATION_STATUS' variable
 from managers import ssh_runner
 
 # Import Tabs
 from ui.tabs import (
-    GeneralTab, IMTTab, VictimTab,
-    PreviewTab, RunnerTab, ResultsTab, SingleEarthStationTab
+    GeneralTab, IMTTab, VictimTab, PreviewTab,
+    RunnerTab, ResultsTab, SingleEarthStationTab
 )
-
-# NEW: SSH/Tunnel tab
 from ui.tabs.ssh_config import SSHTunnelTab
 
 PROJECT_ROOT = get_sharc_root()
 
+# ==========================================================
+# DESIGN SYSTEM — palette tokens
+# ==========================================================
+# Uma única fonte de verdade para cores. O QSS e todos os
+# ícones (qtawesome) derivam daqui, então nada "destoa":
+# input, card, painel e fundo formam uma escala tonal coerente.
+#
+# Escala de elevação (dark):
+#   bg_app  <  bg_panel  <  bg_card  <  bg_input
+# O input é SEMPRE o tom mais claro do contexto — ele se lê
+# como "campo" em vez de parecer um buraco recortado no fundo.
+THEMES = {
+    "dark": {
+        # Surfaces (escala de elevação)
+        "bg_app":        "#0B0E14",   # fundo geral (deep graphite)
+        "bg_panel":      "#10141D",   # sidebar / header / status bar
+        "bg_card":       "#141926",   # group boxes, HUD, cartões
+        "bg_input":      "#1B2230",   # campos de texto (mais claro que o card)
+        "bg_input_focus":"#1F2837",
+        "bg_hover":      "#1A202E",
+        "bg_console":    "#0D1017",   # logs / terminal (única superfície "funda")
 
-class ResponsiveTabFrame(ttk.Frame):
+        # Strokes
+        "border":        "#242C3D",
+        "border_strong": "#313C52",
+        "border_soft":   "#1B212E",
+
+        # Text
+        "text_primary":  "#E8ECF4",
+        "text_secondary":"#9AA4B8",
+        "text_muted":    "#5D6778",
+        "text_faint":    "#454E60",
+
+        # Accent (ciano de instrumentação, calibrado — não neon)
+        "accent":        "#3AC8E8",
+        "accent_strong": "#6FDCF5",
+        "accent_dim":    "#1E8FAC",
+        "accent_deep":   "#136477",
+        "accent_soft":   "#12283A",   # fundo de seleção / item ativo
+        "accent_text_on":"#03181E",   # texto sobre o accent
+
+        # Semantics
+        "success":       "#3DDC97",
+        "warn":          "#F5B841",
+        "danger":        "#F16A6A",
+
+        # Chrome
+        "scrollbar":     "#2B3446",
+        "scrollbar_hover":"#3A4763",
+        "selection_bg":  "#1E5A6E",
+        "selection_fg":  "#EAFBFF",
+
+        # Icons
+        "icon":          "#8E99AF",
+        "icon_active":   "#3AC8E8",
+        "icon_muted":    "#4A5568",
+        "icon_on_accent":"#03181E",
+    },
+    "light": {
+        "bg_app":        "#EDF0F4",
+        "bg_panel":      "#F8FAFC",
+        "bg_card":       "#FFFFFF",
+        "bg_input":      "#F2F5F9",   # levemente rebaixado dentro do card branco
+        "bg_input_focus":"#FFFFFF",
+        "bg_hover":      "#E8EDF3",
+        "bg_console":    "#101520",   # console continua escuro (leitura de log)
+
+        "border":        "#D5DCE6",
+        "border_strong": "#B9C3D2",
+        "border_soft":   "#E3E8EF",
+
+        "text_primary":  "#171E2B",
+        "text_secondary":"#525E72",
+        "text_muted":    "#8A94A6",
+        "text_faint":    "#B4BCC9",
+
+        "accent":        "#0E6E9E",
+        "accent_strong": "#1287C0",
+        "accent_dim":    "#0A5679",
+        "accent_deep":   "#083F59",
+        "accent_soft":   "#DDEDF6",
+        "accent_text_on":"#FFFFFF",
+
+        "success":       "#188A5E",
+        "warn":          "#B07C14",
+        "danger":        "#C24545",
+
+        "scrollbar":     "#C4CCD8",
+        "scrollbar_hover":"#9FABBD",
+        "selection_bg":  "#BFE0F0",
+        "selection_fg":  "#0B2B3C",
+
+        "icon":          "#5F6B80",
+        "icon_active":   "#0E6E9E",
+        "icon_muted":    "#A6AFBF",
+        "icon_on_accent":"#FFFFFF",
+    },
+}
+
+# Tipografia — pilha coerente por função
+FONT_UI   = "'Segoe UI Variable Text', 'Segoe UI', 'Inter', 'Roboto', sans-serif"
+FONT_MONO = "'Cascadia Mono', 'JetBrains Mono', 'Consolas', 'DejaVu Sans Mono', monospace"
+
+
+def theme_tokens(theme: str) -> dict:
+    return THEMES.get(theme, THEMES["dark"])
+
+
+# ==========================================================
+# ICON ASSET FACTORY
+# ==========================================================
+# O stylesheet do Qt precisa de arquivos de imagem reais para
+# indicadores (setas de combobox, checkboxes, radios, spinbox).
+# Renderizamos um set coerente a partir da MESMA família de
+# glifos usada no resto da UI (Material Design Icons), com as
+# cores do tema — é isso que elimina o visual "Qt genérico".
+_ICON_ASSET_DIR = os.path.join(tempfile.gettempdir(), "sharc_gui_assets")
+
+
+def _render_icon_asset(glyph: str, filename: str, color: str, size: int = 18) -> str:
+    os.makedirs(_ICON_ASSET_DIR, exist_ok=True)
+    path = os.path.join(_ICON_ASSET_DIR, filename)
+    try:
+        pixmap = qta.icon(glyph, color=color).pixmap(QSize(size, size))
+        pixmap.save(path, "PNG")
+    except Exception:
+        pass
+    return path.replace("\\", "/")
+
+
+def generate_theme_icon_assets(theme: str) -> dict:
+    """Renderiza o set de indicadores (chevrons, checks, radios, spin) para o tema."""
+    t = theme_tokens(theme)
+    fg     = t["icon"]
+    accent = t["accent"]
+    muted  = t["icon_muted"]
+
+    return {
+        "chevron_down":  _render_icon_asset("mdi.chevron-down",  f"chevron_down_{theme}.png",  fg),
+        "chevron_up":    _render_icon_asset("mdi.chevron-up",    f"chevron_up_{theme}.png",    fg),
+        "spin_up":       _render_icon_asset("mdi.menu-up",       f"spin_up_{theme}.png",       fg, 14),
+        "spin_down":     _render_icon_asset("mdi.menu-down",     f"spin_down_{theme}.png",     fg, 14),
+        "check_on":      _render_icon_asset("mdi.checkbox-marked",        f"check_on_{theme}.png",  accent, 20),
+        "check_off":     _render_icon_asset("mdi.checkbox-blank-outline", f"check_off_{theme}.png", muted, 20),
+        "check_dis":     _render_icon_asset("mdi.checkbox-blank-outline", f"check_dis_{theme}.png", t["text_faint"], 20),
+        "radio_on":      _render_icon_asset("mdi.radiobox-marked",        f"radio_on_{theme}.png",  accent, 20),
+        "radio_off":     _render_icon_asset("mdi.radiobox-blank",         f"radio_off_{theme}.png", muted, 20),
+        "branch_closed": _render_icon_asset("mdi.chevron-right", f"branch_closed_{theme}.png", fg, 14),
+        "branch_open":   _render_icon_asset("mdi.chevron-down",  f"branch_open_{theme}.png",   fg, 14),
+    }
+
+
+class ResponsiveScrollArea(QScrollArea):
     """
-    A professional full-axis scrollable container.
-    Fixes the Tkinter infinite layout loop that occurred previously 
-    by persisting elegant scrollbars, accommodating any resolution safely.
+    QScrollArea transparente: o conteúdo das abas herda o fundo
+    da aplicação em vez de pintar um retângulo destoante.
     """
-    def __init__(self, master, **kwargs):
-        super().__init__(master, **kwargs)
-        
-        bg_color = "SystemButtonFace"
-        if HAS_BOOTSTRAP:
-            try:
-                bg_color = tb.Style().colors.bg
-            except:
-                pass
-                
-        # Persistent scrollbars prevent infinite layout thrashing
-        self.v_scroll = ttk.Scrollbar(self, orient="vertical")
-        self.v_scroll.pack(side="right", fill="y")
-        
-        self.h_scroll = ttk.Scrollbar(self, orient="horizontal")
-        self.h_scroll.pack(side="bottom", fill="x")
-        
-        self.canvas = tk.Canvas(self, highlightthickness=0, borderwidth=0, bg=bg_color)
-        self.canvas.pack(side="left", fill="both", expand=True)
-        
-        self.canvas.configure(yscrollcommand=self.v_scroll.set, xscrollcommand=self.h_scroll.set)
-        self.v_scroll.configure(command=self.canvas.yview)
-        self.h_scroll.configure(command=self.canvas.xview)
-        
-        self.container = ttk.Frame(self.canvas)
-        self.canvas_window = self.canvas.create_window((0, 0), window=self.container, anchor="nw")
-        
-        self.container.bind("<Configure>", self._on_frame_configure)
-        self.canvas.bind("<Configure>", self._on_canvas_configure)
-        
-        self.bind_all("<MouseWheel>", self._on_mousewheel)
-
-    def _on_frame_configure(self, event=None):
-        self.canvas.configure(scrollregion=self.canvas.bbox("all"))
-
-    def _on_canvas_configure(self, event):
-        req_width = self.container.winfo_reqwidth()
-        req_height = self.container.winfo_reqheight()
-        
-        w = max(req_width, event.width)
-        h = max(req_height, event.height)
-        self.canvas.itemconfig(self.canvas_window, width=w, height=h)
-
-    def _on_mousewheel(self, event):
-        try:
-            x, y = self.winfo_pointerxy()
-            widget = self.winfo_containing(x, y)
-            is_child = False
-            cur = widget
-            while cur:
-                if cur == self:
-                    is_child = True
-                    break
-                cur = cur.master
-            
-            if is_child:
-                if event.delta > 0:
-                    self.canvas.yview_scroll(-1, "units")
-                elif event.delta < 0:
-                    self.canvas.yview_scroll(1, "units")
-        except:
-            pass
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWidgetResizable(True)
+        self.setFrameShape(QFrame.NoFrame)
+        self.viewport().setAutoFillBackground(False)
 
 
-class App(tb.Window if HAS_BOOTSTRAP else tk.Tk):
+class App(QMainWindow):
     """
-    SHARC GUI:
-    - Preserves original functionality (tabs, YAML build/snapshot, batch generation, preview, runner, HUD monitoring)
-    - Visual upgrades: consistent sidebar/HUD backgrounds (no white boxes), professional HUD card, toolbar,
-      macOS menubar support, Settings menu (theme + resolution).
+    SHARC GUI — PySide6:
+    - Gerenciamento de janelas via QStackedWidget.
+    - Layouts fluidos com QVBoxLayout/QHBoxLayout.
+    - Timers assíncronos com QTimer.
+    - Tema e ícones dirigidos por tokens (THEMES).
     """
 
     def __init__(self, defer_ui_init: bool = False):
-        # 1. Theme Configuration
-        self._theme_name = "cosmo"
-        if HAS_BOOTSTRAP:
-            super().__init__(themename=self._theme_name)  # keep the "blue" feel
-        else:
-            super().__init__()
+        super().__init__()
 
-        self.title("SHARC – SHARing and Compatibility")
-        
-        # 1.1 Resolution Adaptation: Adjust initial size based on screen dimensions
-        try:
-            sw = self.winfo_screenwidth()
-            sh = self.winfo_screenheight()
-            
-            # Initial size: 85% of screen
-            target_w = int(sw * 0.85)
-            target_h = int(sh * 0.85)
-            
-            # Cap maximum initial size
-            target_w = min(1440, max(800, target_w))
-            target_h = min(900, max(600, target_h))
-            
-            # If screen is very small, use most of it
-            if sw <= 1024 or sh <= 768:
-                target_w = int(sw * 0.95)
-                target_h = int(sh * 0.90)
-                
-            self.geometry(f"{target_w}x{target_h}")
-        except Exception:
-            self.geometry("1024x768")
+        self._current_theme = "dark"
 
-        # Dynamically set minsize based on screen (prevent clipping on small screens natively)
-        try:
-            min_w = min(800, self.winfo_screenwidth() - 50)
-            min_h = min(600, self.winfo_screenheight() - 50)
-            self.minsize(min_w, min_h)
-        except:
-            self.minsize(800, 600)
+        self.setWindowTitle("SHARC – SHARing and Compatibility")
+        self.setWindowIcon(qta.icon('mdi.satellite-variant',
+                                    color=theme_tokens(self._current_theme)["accent"]))
+
+        # 1. Resolution Adaptation
+        screen = QApplication.primaryScreen().geometry()
+        target_w = int(screen.width() * 0.85)
+        target_h = int(screen.height() * 0.85)
+
+        target_w = min(1440, max(800, target_w))
+        target_h = min(900, max(600, target_h))
+
+        self.resize(target_w, target_h)
+        self.setMinimumSize(800, 600)
 
         # 2. Initialize State Variables
         self.state_model = AppState()
-        # Inject state model attributes into App (self) so SES tab can access app.var_x
         self.__dict__.update(self.state_model.__dict__)
 
-        # Set default system if empty
         if not self.var_system.get():
             self.var_system.set("SINGLE_EARTH_STATION")
 
-        self.main_cli_path = tk.StringVar(
-            value=os.path.join(PROJECT_ROOT / "main_cli.py"))
+        self.main_cli_path = self.state_model._add(os.path.join(PROJECT_ROOT, "sharc_cli.py"))
 
         # 3. Backend and Queues
         self.line_q = queue.Queue()
@@ -184,820 +243,756 @@ class App(tb.Window if HAS_BOOTSTRAP else tk.Tk):
 
         # Page Control
         self.current_key = None
-        self.current_frame = None
-        self.frames = {}
         self.nav_buttons = {}
 
+        # (key, label, class, icon, section)
         self.pages_config = [
-            ("general", "General", GeneralTab, "⚙"),
-            ("imt", "IMT", IMTTab, "📡"),
-            ("victim", "Single Space Station", VictimTab, "🛰"),
-            ("station", "Single Earth Station", SingleEarthStationTab, "🛰"),
-            ("preview", "Preview", PreviewTab, "👁"),
-            ("ssh", "SSH Connection", SSHTunnelTab, "🔐"),
-            ("runner", "Execution Runner", RunnerTab, "🚀"),
-            ("results", "Results", ResultsTab, "📊"),
+            ("general", "General Settings",   GeneralTab,            "mdi.tune-variant",        "configuration"),
+            ("imt",     "IMT System",         IMTTab,                "mdi.access-point-network","configuration"),
+            ("victim",  "Space Station",      VictimTab,             "mdi.satellite-variant",   "configuration"),
+            ("station", "Earth Station",      SingleEarthStationTab, "mdi.satellite-uplink",    "configuration"),
+            ("preview", "Topology Preview",   PreviewTab,            "mdi.radar",               "operations"),
+            ("ssh",     "SSH Connection",     SSHTunnelTab,          "mdi.lan-connect",         "operations"),
+            ("runner",  "Execution Engine",   RunnerTab,             "mdi.console-line",        "operations"),
+            ("results", "Analysis & Results", ResultsTab,            "mdi.chart-bell-curve-cumulative", "operations"),
         ]
+        self._section_titles = {
+            "configuration": "CONFIGURATION",
+            "operations":    "OPERATIONS",
+        }
 
         # UX flags
         self._sidebar_visible = True
-        self._theme_is_dark = False
-
-        # Settings vars (menubar radio entries)
-        self._theme_var = tk.StringVar(value=self._theme_name)
-        self._size_var = tk.StringVar(value="800x600")
 
         self._ui_initialized = False
         if not defer_ui_init:
             self.initialize_ui()
 
+    # Conveniência: tokens do tema atual
+    @property
+    def tk(self) -> dict:
+        return theme_tokens(getattr(self, "_current_theme", "dark"))
+
     def initialize_ui(self):
-        """Build the full interface once the root window is ready."""
         if self._ui_initialized:
             return
 
         # 4. Interface Construction
-        self._setup_custom_styles()
-        self._build_menubar()     # ✅ macOS-safe menubar (goes to top bar on mac)
         self._build_layout()
-
-        # Initialize pages and establish Data Connections (Crucial for General Tab)
+        self._build_menubar()
         self._init_pages()
 
-        # 5. Logic: Observe changes in System Type
-        self.var_system.trace_add("write", self._on_system_changed)
+        # 5. Timers
+        self.log_timer = QTimer(self)
+        self.log_timer.timeout.connect(self._drain_log_queue)
+        self.log_timer.start(100)
 
-        # 6. Start Loop for Logs
-        self.after(100, self._drain_log_queue)
+        self.hud_timer = QTimer(self)
+        self.hud_timer.timeout.connect(self.monitor_simulation_status)
+        self.hud_timer.start(5000)
 
-        # 7. Start Loop for Simulation Status (HUD)
-        self.monitor_simulation_status()
+        # Callbacks
+        self.var_system.value_changed.connect(self._on_system_changed)
 
-        # Force initial sidebar refresh
         self._refresh_sidebar_items()
+        self._switch_page("general", "General Settings")
 
-        # Select initial page
-        self._switch_page("general")
+        QTimer.singleShot(800, self._show_welcome_toast)
+        QTimer.singleShot(1000, self._disable_strict_validation)
 
-        # Show welcome toast
-        self.after(800, self._show_welcome_toast)
-
-        self.after(1000, self._disable_strict_validation)
         self._ui_initialized = True
 
-    def _setup_custom_styles(self):
-        """Define styles for the theme (visual upgrades, preserving behavior)."""
-        if not HAS_BOOTSTRAP:
-            return
-
-        style = tb.Style()
-        colors = style.colors
-
-        # Base fonts (keep original, but nicer defaults)
-        base_font = ("Segoe UI", 10)
-        header_font = ("Segoe UI", 22, "bold")
-        style.configure(".", font=base_font)
-
-        # Nav button style
-        self._theme_is_dark = self._theme_name in ("darkly", "cyborg", "superhero", "solar")
-        brand_color = colors.light if self._theme_is_dark else "#2C3E50"
-
-        # Initialize missing theme color attributes
-        self._sidebar_bg = colors.bg
-        self._card_bg = colors.bg
-        self._muted = colors.secondary
-
-        # "Blue" brand label (as in original)
-        style.configure("Brand.TLabel", font=header_font, foreground=brand_color, background=self._sidebar_bg)
-        style.configure("SubBrand.TLabel", font=("Segoe UI", 9, "bold"), foreground=self._muted, background=self._sidebar_bg)
-        style.configure(
-            "Nav.TButton",
-            font=("Segoe UI", 11),
-            anchor="w",
-            padding=(20, 12)
-        )
-        # Softer hover (optional)
-        try:
-            style.map("Nav.TButton", background=[
-                      ("active", "#e9ecef"), ("pressed", "#dee2de")])
-        except Exception:
-            pass
-
-        # HUD Card: consistent background to avoid "white boxes" feeling
-        style.configure("HudCard.TFrame",
-                        background=self._card_bg, relief="flat")
-        style.configure(
-            "HudTitle.TLabel",
-            font=("Segoe UI", 9, "bold"),
-            background=self._card_bg,
-            foreground=self._muted
-        )
-        style.configure(
-            "HudValue.TLabel",
-            font=("Consolas", 10, "bold"),
-            background=self._card_bg,
-            foreground="#2C3E50"
-        )
-        style.configure(
-            "HudLabel.TLabel",
-            font=("Segoe UI", 8),
-            background=self._card_bg,
-            foreground="#7F8C8D"
-        )
-
-        # Toolbar (header quick actions)
-        style.configure("Toolbar.TFrame", background=colors.bg)
-        style.configure("Toolbar.TButton", padding=(
-            10, 6), font=("Segoe UI", 10))
-
     # ==========================================================
-    # MENUBAR (macOS-safe) + Settings
+    # LAYOUT PRINCIPAL
     # ==========================================================
-    def _build_menubar(self):
-        # Create ALWAYS (do not depend on ttkbootstrap)
-        menubar = tk.Menu(self)
+    def _build_layout(self):
+        central_widget = QWidget()
+        central_widget.setObjectName("AppRoot")
+        self.setCentralWidget(central_widget)
+        self.main_layout = QHBoxLayout(central_widget)
+        self.main_layout.setContentsMargins(0, 0, 0, 0)
+        self.main_layout.setSpacing(0)
 
-        # macOS integration: Apple menu and Cmd+Q
-        try:
-            if self.tk.call("tk", "windowingsystem") == "aqua":
-                appmenu = tk.Menu(menubar, name="apple", tearoff=0)
-                menubar.add_cascade(menu=appmenu)
-                appmenu.add_command(label="About SHARC",
-                                    command=self._about_dialog)
-                appmenu.add_separator()
-                appmenu.add_command(label="Quit SHARC",
-                                    command=self.destroy, accelerator="⌘Q")
-                try:
-                    self.createcommand("tk::mac::Quit", self.destroy)
-                except Exception:
-                    pass
-                self.bind_all("<Command-q>", lambda e: self.destroy())
-        except Exception:
-            pass
+        # --- A. Sidebar (Left) ---
+        self.sidebar = QFrame()
+        self.sidebar.setFixedWidth(248)
+        self.sidebar.setObjectName("Sidebar")
+        self.sidebar_layout = QVBoxLayout(self.sidebar)
+        self.sidebar_layout.setContentsMargins(14, 18, 14, 16)
+        self.sidebar_layout.setSpacing(0)
 
-        # File
-        m_file = tk.Menu(menubar, tearoff=0)
-        m_file.add_command(label="Save Snapshot (Current State)...",
-                           command=self.save_yaml_dialog_multicombos)
-        m_file.add_command(label="Batch Generate (from Table)",
-                           command=self._proxy_batch_generate)
-        m_file.add_separator()
-        m_file.add_command(label="Export Current YAML As...",
-                           command=self._export_current_yaml_as)
-        m_file.add_command(label="Copy Current YAML to Clipboard",
-                           command=self._copy_current_yaml_to_clipboard)
-        m_file.add_separator()
-        m_file.add_command(label="Open YAML Folder",
-                           command=self._open_yaml_folder)
-        m_file.add_command(label="Open Results Folder",
-                           command=self._open_results_folder)
-        m_file.add_separator()
-        m_file.add_command(label="Exit", command=self.destroy)
-        menubar.add_cascade(label="File", menu=m_file)
+        self._build_sidebar_header()
 
-        # Edit
-        m_edit = tk.Menu(menubar, tearoff=0)
-        m_edit.add_command(label="Clear Runner Log",
-                           command=self._clear_runner_log)
-        m_edit.add_separator()
-        m_edit.add_command(label="Refresh Preview",
-                           command=self._refresh_preview)
-        menubar.add_cascade(label="Edit", menu=m_edit)
+        # Container de navegação (com labels de seção)
+        self.nav_layout = QVBoxLayout()
+        self.nav_layout.setSpacing(2)
+        self.sidebar_layout.addLayout(self.nav_layout)
+        self.sidebar_layout.addStretch()
 
-        # View
-        m_view = tk.Menu(menubar, tearoff=0)
-        m_view.add_command(label="Toggle Theme (Light/Dark)",
-                           command=self._toggle_theme_safely)
-        m_view.add_separator()
-        m_view.add_command(label="Toggle Sidebar",
-                           command=self._toggle_sidebar)
-        m_view.add_command(label="Toggle Simulation Tray",
-                           command=self._toggle_simulation_tray)
-        menubar.add_cascade(label="View", menu=m_view)
+        self._build_system_monitor()
+        self._build_sidebar_footer()
 
-        # Settings (NEW): Theme + Resolution
-        m_settings = tk.Menu(menubar, tearoff=0)
+        # --- Área Direita (Content + Header + Footer) ---
+        right_container = QWidget()
+        right_container.setObjectName("ContentColumn")
+        right_layout = QVBoxLayout(right_container)
+        right_layout.setContentsMargins(0, 0, 0, 0)
+        right_layout.setSpacing(0)
 
-        # Theme submenu
-        m_theme = tk.Menu(m_settings, tearoff=0)
-        # Keep the list small and reliable across ttkbootstrap versions
-        themes = [
-            ("Cosmo (Blue)", "cosmo"),
-            ("Flatly", "flatly"),
-            ("Minty", "minty"),
-            ("Litera", "litera")
-        ]
+        # B. Header Bar
+        self.header = QFrame()
+        self.header.setFixedHeight(64)
+        self.header.setObjectName("HeaderBar")
+        header_layout = QHBoxLayout(self.header)
+        header_layout.setContentsMargins(24, 0, 20, 0)
+        header_layout.setSpacing(14)
 
-        for label, theme_name in themes:
-            m_theme.add_radiobutton(
-                label=label,
-                variable=self._theme_var,
-                value=theme_name,
-                command=self._apply_theme_from_settings
-            )
-        m_settings.add_cascade(label="Theme", menu=m_theme)
+        # Bloco de título: eyebrow + título do módulo
+        title_col = QWidget()
+        title_col_layout = QVBoxLayout(title_col)
+        title_col_layout.setContentsMargins(0, 0, 0, 0)
+        title_col_layout.setSpacing(1)
 
-        # Resolution submenu
-        m_res = tk.Menu(m_settings, tearoff=0)
-        sizes = [
-            "800x600",
-            "1024x768",
-            "1280x720",
-            "1366x768",
-            "1440x900",
-            "1600x900",
-            "1920x1080",
-        ]
-        for s in sizes:
-            m_res.add_radiobutton(
-                label=s,
-                variable=self._size_var,
-                value=s,
-                command=self._apply_resolution_from_settings
-            )
-        m_res.add_separator()
-        m_res.add_command(
-            label="Custom…", command=self._open_custom_resolution_dialog)
-        m_settings.add_cascade(label="Resolution", menu=m_res)
+        self.lbl_page_eyebrow = QLabel("ACTIVE MODULE")
+        self.lbl_page_eyebrow.setObjectName("PageEyebrow")
 
-        menubar.add_cascade(label="Settings", menu=m_settings)
+        self.lbl_page_title = QLabel("DASHBOARD")
+        self.lbl_page_title.setObjectName("PageTitle")
 
-        # Window (dynamic)
-        self._m_window = tk.Menu(
-            menubar, tearoff=0, postcommand=self._rebuild_window_menu)
-        menubar.add_cascade(label="Window", menu=self._m_window)
+        title_col_layout.addWidget(self.lbl_page_eyebrow)
+        title_col_layout.addWidget(self.lbl_page_title)
+        header_layout.addWidget(title_col)
 
-        # Help
-        m_help = tk.Menu(menubar, tearoff=0)
-        m_help.add_command(label="About SHARC", command=self._about_dialog)
-        menubar.add_cascade(label="Help", menu=m_help)
+        header_layout.addStretch()
 
-        # Attach
-        self.config(menu=menubar)
-        self._menubar = menubar
+        # Chip de status do sistema (dot + label)
+        self.status_chip = QFrame()
+        self.status_chip.setObjectName("StatusChip")
+        chip_layout = QHBoxLayout(self.status_chip)
+        chip_layout.setContentsMargins(10, 4, 12, 4)
+        chip_layout.setSpacing(7)
 
-    def _rebuild_window_menu(self):
-        if not hasattr(self, "_m_window"):
-            return
-        self._m_window.delete(0, "end")
-        visible = self._get_visible_page_keys()
-        for key, label, _, _ in self.pages_config:
-            if key in visible:
-                self._m_window.add_command(
-                    label=label,
-                    command=lambda k=key, l=label: self._switch_page(k, l)
+        self.lbl_header_status_dot = QLabel()
+        self.lbl_header_status_dot.setObjectName("StatusDot")
+        self.lbl_header_status_dot.setFixedSize(10, 10)
+        chip_layout.addWidget(self.lbl_header_status_dot)
+
+        self.lbl_header_status_text = QLabel("NOMINAL")
+        self.lbl_header_status_text.setObjectName("StatusChipText")
+        chip_layout.addWidget(self.lbl_header_status_text)
+        header_layout.addWidget(self.status_chip)
+
+        self.btn_theme_toggle = QPushButton()
+        self.btn_theme_toggle.setObjectName("IconButton")
+        self.btn_theme_toggle.setIconSize(QSize(19, 19))
+        self.btn_theme_toggle.setFixedSize(36, 36)
+        self.btn_theme_toggle.setCursor(QCursor(Qt.PointingHandCursor))
+        self.btn_theme_toggle.setToolTip("Toggle Light / Dark Theme")
+        self.btn_theme_toggle.clicked.connect(self._toggle_theme_safely)
+        header_layout.addWidget(self.btn_theme_toggle)
+
+        self.btn_gen_main = QPushButton("  Actions")
+        self.btn_gen_main.setIconSize(QSize(18, 18))
+        self.btn_gen_main.setObjectName("ActionBtn")
+        self.btn_gen_main.setCursor(QCursor(Qt.PointingHandCursor))
+        gen_menu = QMenu(self)
+        self._act_batch_menu = gen_menu.addAction("Batch Generate (from Table)", self._proxy_batch_generate)
+        gen_menu.addSeparator()
+        self._act_save_menu = gen_menu.addAction("Save Current State (Snapshot)", self.save_yaml_dialog_multicombos)
+        self.btn_gen_main.setMenu(gen_menu)
+        header_layout.addWidget(self.btn_gen_main)
+
+        self.header_accent_strip = QFrame()
+        self.header_accent_strip.setObjectName("HeaderAccentStrip")
+        self.header_accent_strip.setFixedHeight(2)
+
+        # C. Content Area (QStackedWidget)
+        self.stacked_widget = QStackedWidget()
+        self.stacked_widget.setObjectName("PageStack")
+
+        # D. Status Bar (telemetria)
+        self.status_bar = QFrame()
+        self.status_bar.setFixedHeight(28)
+        self.status_bar.setObjectName("StatusBar")
+        status_layout = QHBoxLayout(self.status_bar)
+        status_layout.setContentsMargins(14, 0, 14, 0)
+        status_layout.setSpacing(10)
+
+        self.lbl_status_icon = QLabel()
+        self.lbl_status_icon.setFixedSize(14, 14)
+        status_layout.addWidget(self.lbl_status_icon)
+
+        self.lbl_status_msg = QLabel("Ready.")
+        self.lbl_status_msg.setObjectName("StatusMsg")
+        status_layout.addWidget(self.lbl_status_msg)
+        status_layout.addStretch()
+
+        self.lbl_tun_status = QLabel("TUNNEL · INACTIVE")
+        self.lbl_tun_status.setObjectName("StatusPill")
+        self.lbl_ssh_status = QLabel("SSH · DISCONNECTED")
+        self.lbl_ssh_status.setObjectName("StatusPill")
+        status_layout.addWidget(self.lbl_tun_status)
+        status_layout.addWidget(self.lbl_ssh_status)
+
+        # Montando a área direita
+        right_layout.addWidget(self.header)
+        right_layout.addWidget(self.header_accent_strip)
+        right_layout.addWidget(self.stacked_widget)
+        right_layout.addWidget(self.status_bar)
+
+        # Adicionando ao layout principal
+        self.main_layout.addWidget(self.sidebar)
+        self.main_layout.addWidget(right_container)
+
+        # Pinta os ícones do chrome com as cores do tema atual
+        self._refresh_chrome_icons()
+
+    def _build_sidebar_header(self):
+        brand_row = QWidget()
+        brand_row_layout = QHBoxLayout(brand_row)
+        brand_row_layout.setContentsMargins(4, 0, 0, 0)
+        brand_row_layout.setSpacing(10)
+
+        self.lbl_brand_icon = QLabel()
+        self.lbl_brand_icon.setObjectName("BrandIcon")
+        self.lbl_brand_icon.setFixedSize(34, 34)
+
+        brand_text_col = QWidget()
+        brand_text_layout = QVBoxLayout(brand_text_col)
+        brand_text_layout.setContentsMargins(0, 0, 0, 0)
+        brand_text_layout.setSpacing(0)
+
+        lbl_brand = QLabel("SHARC")
+        lbl_brand.setObjectName("BrandLabel")
+
+        lbl_sub = QLabel("SHARing and Compatibility")
+        lbl_sub.setObjectName("SubBrandLabel")
+
+        brand_text_layout.addWidget(lbl_brand)
+        brand_text_layout.addWidget(lbl_sub)
+
+        brand_row_layout.addWidget(self.lbl_brand_icon)
+        brand_row_layout.addWidget(brand_text_col)
+        brand_row_layout.addStretch()
+
+        self.sidebar_layout.addWidget(brand_row)
+
+        divider = QFrame()
+        divider.setObjectName("SidebarDivider")
+        divider.setFixedHeight(1)
+        self.sidebar_layout.addSpacing(16)
+        self.sidebar_layout.addWidget(divider)
+        self.sidebar_layout.addSpacing(10)
+
+    def _make_nav_section_label(self, text: str) -> QLabel:
+        lbl = QLabel(text)
+        lbl.setObjectName("NavSectionLabel")
+        return lbl
+
+    def _build_system_monitor(self):
+        # HUD de telemetria no rodapé da sidebar
+        self.hud_frame = QFrame()
+        self.hud_frame.setObjectName("SystemMonitorCard")
+        hud_layout = QVBoxLayout(self.hud_frame)
+        hud_layout.setContentsMargins(14, 12, 14, 12)
+        hud_layout.setSpacing(8)
+
+        title_row = QHBoxLayout()
+        title_row.setSpacing(7)
+        self.lbl_hud_pulse_icon = QLabel()
+        self.lbl_hud_pulse_icon.setFixedSize(15, 15)
+        lbl_title = QLabel("SYSTEM MONITOR")
+        lbl_title.setObjectName("HUDTitle")
+        title_row.addWidget(self.lbl_hud_pulse_icon)
+        title_row.addWidget(lbl_title)
+        title_row.addStretch()
+        hud_layout.addLayout(title_row)
+
+        self.sys_meter = QProgressBar()
+        self.sys_meter.setValue(0)
+        self.sys_meter.setFixedHeight(6)
+        self.sys_meter.setTextVisible(False)
+        self.sys_meter.setObjectName("HUDProgress")
+        hud_layout.addWidget(self.sys_meter)
+
+        stats_layout = QHBoxLayout()
+
+        self.lbl_hud_snaps = QLabel("SNAPS 0/0")
+        self.lbl_hud_snaps.setObjectName("HUDStat")
+
+        self.lbl_hud_eta = QLabel("ETA --:--:--")
+        self.lbl_hud_eta.setObjectName("HUDStat")
+
+        stats_layout.addWidget(self.lbl_hud_snaps)
+        stats_layout.addStretch()
+        stats_layout.addWidget(self.lbl_hud_eta)
+
+        hud_layout.addLayout(stats_layout)
+
+        self.tray_button = QPushButton("  Active Threads")
+        self.tray_button.setObjectName("HUDTrayButton")
+        self.tray_button.setCursor(QCursor(Qt.PointingHandCursor))
+        self.tray_button.clicked.connect(self._toggle_simulation_tray)
+        hud_layout.addWidget(self.tray_button)
+
+        self.tray_frame = QFrame()
+        self.tray_frame.setObjectName("HUDTrayFrame")
+        self.tray_frame.setVisible(False)
+        self.tray_layout = QVBoxLayout(self.tray_frame)
+        self.tray_layout.setContentsMargins(0, 6, 0, 0)
+        self.tray_layout.setSpacing(6)
+        hud_layout.addWidget(self.tray_frame)
+
+        self.thread_widgets = {}
+
+        self.sidebar_layout.addWidget(self.hud_frame)
+
+    def _build_sidebar_footer(self):
+        self.sidebar_layout.addSpacing(10)
+        footer = QLabel("SHARC · SHARing and Compatibility")
+        footer.setObjectName("SidebarFooter")
+        footer.setAlignment(Qt.AlignHCenter)
+        self.sidebar_layout.addWidget(footer)
+
+    def _init_pages(self):
+        """Inicializa as abas, agrupadas por seção na sidebar."""
+        current_section = None
+        for key, label, Cls, icon, section in self.pages_config:
+
+            try:
+                page_instance = Cls(self)
+            except TypeError:
+                page_instance = QWidget()
+                l = QVBoxLayout(page_instance)
+                l.addWidget(QLabel(f"Placeholder para {label}"))
+
+            setattr(self, f"tab_{key}", page_instance)
+
+            if key not in ["results", "preview"]:
+                scroll = ResponsiveScrollArea()
+                scroll.setWidget(page_instance)
+                self.stacked_widget.addWidget(scroll)
+            else:
+                self.stacked_widget.addWidget(page_instance)
+
+            # Label de seção (eyebrow) quando muda o grupo
+            if section != current_section:
+                current_section = section
+                if self.nav_layout.count() > 0:
+                    self.nav_layout.addSpacing(10)
+                self.nav_layout.addWidget(
+                    self._make_nav_section_label(self._section_titles.get(section, section.upper()))
                 )
 
-    def _apply_theme_from_settings(self):
-        if not HAS_BOOTSTRAP:
-            return
-        theme = self._theme_var.get().strip() or "cosmo"
-        self._set_theme(theme)
+            btn = QPushButton(f"  {label}")
+            btn.setIcon(qta.icon(icon, color=self.tk["icon"]))
+            btn.setIconSize(QSize(19, 19))
+            btn.setCursor(QCursor(Qt.PointingHandCursor))
+            btn.setObjectName("NavButton")
+
+            btn.clicked.connect(lambda checked=False, k=key, l=label: self._switch_page(k, l))
+
+            self.nav_layout.addWidget(btn)
+            self.nav_buttons[key] = btn
+
+    @Slot(str, str)
+    def _switch_page(self, key, label_text):
+        """Alterna a página visível no QStackedWidget."""
+        self.lbl_page_title.setText(label_text.upper())
+
+        index = next((i for i, cfg in enumerate(self.pages_config) if cfg[0] == key), 0)
+        self.stacked_widget.setCurrentIndex(index)
+        self.current_key = key
+
+        t = self.tk
+        for k, btn in self.nav_buttons.items():
+            icon_name = next(cfg[3] for cfg in self.pages_config if cfg[0] == k)
+            if k == key:
+                btn.setProperty("active", True)
+                btn.setIcon(qta.icon(icon_name, color=t["icon_active"]))
+            else:
+                btn.setProperty("active", False)
+                btn.setIcon(qta.icon(icon_name, color=t["icon"]))
+            btn.style().unpolish(btn)
+            btn.style().polish(btn)
+
+    def _space_ui_systems(self):
+        return {
+            "SINGLE_SPACE_STATION",
+            "HAPS",
+            "MSS_SS",
+            "MSS_D2D",
+            "MSS_DC",
+            "FSS_SS",
+            "EESS_SS",
+            "METSAT_SS",
+            "RNS",
+        }
+
+    def _earth_ui_systems(self):
+        return {
+            "SINGLE_EARTH_STATION",
+            "FS",
+            "FSS_ES",
+            "RAS",
+        }
+
+    @Slot(object)
+    def _on_system_changed(self, _=None):
+        self._refresh_sidebar_items()
+
+    def _get_visible_page_keys(self):
+        sys_type = self.var_system.get()
+        visible = set()
+        for key, label, _, _, _ in self.pages_config:
+            should_show = True
+            if sys_type in self._earth_ui_systems():
+                if key == "victim":
+                    should_show = False
+                if key == "station":
+                    should_show = True
+            elif sys_type in self._space_ui_systems():
+                if key == "station":
+                    should_show = False
+                if key == "victim":
+                    should_show = True
+            else:
+                if key == "victim":
+                    should_show = False
+            if should_show:
+                visible.add(key)
+        return visible
+
+    def _refresh_sidebar_items(self):
+        visible = self._get_visible_page_keys()
+        for key, btn in self.nav_buttons.items():
+            btn.setVisible(key in visible)
+
+    def _show_welcome_toast(self):
+        self.lbl_status_msg.setText("System Ready.")
+
+    def _disable_strict_validation(self):
+        print(">> UI Ready: SHARC ready!")
+
+    # ==========================================================
+    # MENUBAR (Mac e Windows nativos)
+    # ==========================================================
+    def _build_menubar(self):
+        menubar = self.menuBar()
+
+        # --- File ---
+        m_file = menubar.addMenu("File")
+
+        act_save = QAction("Save Snapshot (Current State)...", self)
+        act_save.triggered.connect(self.save_yaml_dialog_multicombos)
+        m_file.addAction(act_save)
+
+        act_batch = QAction("Batch Generate (from Table)", self)
+        act_batch.triggered.connect(self._proxy_batch_generate)
+        m_file.addAction(act_batch)
+
+        m_file.addSeparator()
+
+        act_export = QAction("Export Current YAML As...", self)
+        act_export.triggered.connect(self._export_current_yaml_as)
+        m_file.addAction(act_export)
+
+        act_copy = QAction("Copy Current YAML to Clipboard", self)
+        act_copy.triggered.connect(self._copy_current_yaml_to_clipboard)
+        m_file.addAction(act_copy)
+
+        m_file.addSeparator()
+
+        act_open_yaml = QAction("Open YAML Folder", self)
+        act_open_yaml.triggered.connect(self._open_yaml_folder)
+        m_file.addAction(act_open_yaml)
+
+        act_open_results = QAction("Open Results Folder", self)
+        act_open_results.triggered.connect(self._open_results_folder)
+        m_file.addAction(act_open_results)
+
+        m_file.addSeparator()
+
+        act_exit = QAction("Exit", self)
+        act_exit.setShortcut("Ctrl+Q")
+        act_exit.triggered.connect(self.close)
+        m_file.addAction(act_exit)
+
+        # --- Edit ---
+        m_edit = menubar.addMenu("Edit")
+        act_clear_log = QAction("Clear Runner Log", self)
+        act_clear_log.triggered.connect(self._clear_runner_log)
+        m_edit.addAction(act_clear_log)
+        m_edit.addSeparator()
+        act_refresh_preview = QAction("Refresh Preview", self)
+        act_refresh_preview.triggered.connect(self._refresh_preview)
+        m_edit.addAction(act_refresh_preview)
+
+        # --- View ---
+        m_view = menubar.addMenu("View")
+        act_toggle_theme = QAction("Toggle Theme (Light/Dark)", self)
+        act_toggle_theme.triggered.connect(self._toggle_theme_safely)
+        m_view.addAction(act_toggle_theme)
+        m_view.addSeparator()
+        act_toggle_sidebar = QAction("Toggle Sidebar", self)
+        act_toggle_sidebar.triggered.connect(self._toggle_sidebar)
+        m_view.addAction(act_toggle_sidebar)
+
+        act_toggle_tray = QAction("Toggle Simulation Tray", self)
+        act_toggle_tray.triggered.connect(self._toggle_simulation_tray)
+        m_view.addAction(act_toggle_tray)
+
+        # --- Settings ---
+        m_settings = menubar.addMenu("Settings")
+
+        m_res = m_settings.addMenu("Resolution")
+        res_group = QActionGroup(self)
+        sizes = [
+            "800x600", "1024x768", "1280x720",
+            "1366x768", "1440x900", "1600x900", "1920x1080"
+        ]
+        for s in sizes:
+            act = QAction(s, self)
+            act.setCheckable(True)
+            act.triggered.connect(lambda checked=False, r=s: self._apply_resolution_from_settings(r))
+            res_group.addAction(act)
+            m_res.addAction(act)
+
+        m_res.addSeparator()
+        act_custom_res = QAction("Custom...", self)
+        act_custom_res.triggered.connect(self._open_custom_resolution_dialog)
+        m_res.addAction(act_custom_res)
+
+        # --- Help ---
+        m_help = menubar.addMenu("Help")
+        act_about = QAction("About SHARC", self)
+        act_about.triggered.connect(self._about_dialog)
+        m_help.addAction(act_about)
+
+    # ==========================================================
+    # THEME ENGINE
+    # ==========================================================
+    def _refresh_chrome_icons(self):
+        """Repinta todos os ícones do chrome (sidebar, header, HUD, status bar)
+        com as cores do tema atual — nada de hex hardcoded espalhado."""
+        t = self.tk
+
+        self.setWindowIcon(qta.icon('mdi.satellite-variant', color=t["accent"]))
+
+        if hasattr(self, "lbl_brand_icon"):
+            self.lbl_brand_icon.setPixmap(
+                qta.icon('mdi.orbit-variant', color=t["accent"]).pixmap(QSize(30, 30)))
+
+        if hasattr(self, "lbl_header_status_dot"):
+            self.lbl_header_status_dot.setPixmap(
+                qta.icon('mdi.circle', color=t["success"]).pixmap(QSize(9, 9)))
+
+        if hasattr(self, "btn_theme_toggle"):
+            self.btn_theme_toggle.setIcon(
+                qta.icon('mdi.theme-light-dark', color=t["icon"]))
+
+        if hasattr(self, "btn_gen_main"):
+            self.btn_gen_main.setIcon(
+                qta.icon('mdi.play-circle-outline', color=t["accent_text_on"]))
+            menu = self.btn_gen_main.menu()
+            if menu is not None:
+                if hasattr(self, "_act_batch_menu"):
+                    self._act_batch_menu.setIcon(qta.icon('mdi.table-large', color=t["icon"]))
+                if hasattr(self, "_act_save_menu"):
+                    self._act_save_menu.setIcon(qta.icon('mdi.content-save-outline', color=t["icon"]))
+
+        if hasattr(self, "lbl_hud_pulse_icon"):
+            self.lbl_hud_pulse_icon.setPixmap(
+                qta.icon('mdi.pulse', color=t["accent"]).pixmap(QSize(14, 14)))
+
+        if hasattr(self, "lbl_status_icon"):
+            self.lbl_status_icon.setPixmap(
+                qta.icon('mdi.information-outline', color=t["text_muted"]).pixmap(QSize(12, 12)))
+
+        if hasattr(self, "tray_button"):
+            chevron = 'mdi.chevron-up' if getattr(self, 'tray_frame', None) and self.tray_frame.isVisible() else 'mdi.chevron-down'
+            self.tray_button.setIcon(qta.icon(chevron, color=t["accent"]))
+
+    def _apply_theme(self, theme: str):
+        self._current_theme = theme
+        app = QApplication.instance()
+        if app:
+            app.setStyleSheet(build_stylesheet(theme))
+        self._refresh_chrome_icons()
+        # Repinta ícones de navegação com estado ativo correto
+        if self.current_key:
+            self._switch_page(self.current_key, self.lbl_page_title.text())
+
+    # ==========================================================
+    # LÓGICAS DE SISTEMA E SLOTS
+    # ==========================================================
+    def _about_dialog(self):
+        QMessageBox.information(
+            self, "About SHARC",
+            "SHARC – SHARing and Compatibility\nGUI Manager\n\n©"
+        )
+
+    # --- Menu Actions ---
+    def _open_yaml_folder(self):
+        path = getattr(self.state_model, 'var_yaml_dir', None)
+        path = path.get() if path else ""
+        if os.path.isdir(path):
+            QDesktopServices.openUrl(QUrl.fromLocalFile(path))
+        else:
+            QDesktopServices.openUrl(QUrl.fromLocalFile(os.getcwd()))
+
+    def _open_results_folder(self):
+        log_dir = os.path.join(PROJECT_ROOT, "logs")
+        if not os.path.exists(log_dir):
+            os.makedirs(log_dir, exist_ok=True)
+        QDesktopServices.openUrl(QUrl.fromLocalFile(log_dir))
+
+    def _clear_runner_log(self):
+        if hasattr(self, 'tab_runner') and hasattr(self.tab_runner, 'text_log'):
+            self.tab_runner.text_log.clear()
+
+    def _refresh_preview(self):
+        if hasattr(self, 'tab_preview') and hasattr(self.tab_preview, '_draw_preview'):
+            self.tab_preview._draw_preview()
 
     def _toggle_theme_safely(self):
-        """Toggle theme without destroying widgets/tabs (safe)."""
-        if not HAS_BOOTSTRAP:
-            return
-        # Just toggle between cosmo and darkly for predictability
-        if self._theme_name != "darkly":
-            self._set_theme("darkly")
-            self._theme_var.set("darkly")
-        else:
-            self._set_theme("cosmo")
-            self._theme_var.set("cosmo")
+        new_theme = 'light' if getattr(self, '_current_theme', 'dark') == 'dark' else 'dark'
+        self._apply_theme(new_theme)
 
-    def _set_theme(self, theme_name: str):
-        """Apply a ttkbootstrap theme safely."""
-        if not HAS_BOOTSTRAP:
-            return
-        try:
-            style = tb.Style()
-            style.theme_use(theme_name)
-            self._theme_name = theme_name
-            self._theme_is_dark = theme_name in (
-                "darkly", "cyborg", "superhero", "solar")
-            self._setup_custom_styles()
-        except Exception as e:
-            # Fall back to cosmo if theme not found
-            try:
-                style = tb.Style()
-                style.theme_use("cosmo")
-                self._theme_name = "cosmo"
-                self._theme_var.set("cosmo")
-                self._setup_custom_styles()
-            except Exception:
-                pass
+    def _toggle_sidebar(self):
+        self.sidebar.setVisible(not self.sidebar.isVisible())
 
-    def _apply_resolution_from_settings(self):
-        s = (self._size_var.get() or "").strip().lower()
-        if "x" not in s:
+    def _toggle_simulation_tray(self):
+        if not hasattr(self, "tray_frame"):
             return
-        try:
-            w_str, h_str = s.split("x", 1)
-            w = int(w_str.strip())
-            h = int(h_str.strip())
-            self._set_resolution(w, h)
-        except Exception:
-            return
+        is_visible = self.tray_frame.isVisible()
+        self.tray_frame.setVisible(not is_visible)
+        chevron = 'mdi.chevron-up' if not is_visible else 'mdi.chevron-down'
+        self.tray_button.setText("  Active Threads")
+        self.tray_button.setIcon(qta.icon(chevron, color=self.tk["accent"]))
 
-    def _set_resolution(self, w: int, h: int):
-        """Set window geometry. Keeps original minsize(800x600) to preserve layout guarantees."""
+    def _apply_resolution_from_settings(self, res_str):
         try:
-            # If user selects smaller than minsize, Tk will clamp to minsize.
-            self.geometry(f"{w}x{h}")
+            w, h = map(int, res_str.split('x'))
+            self.resize(w, h)
         except Exception:
             pass
 
     def _open_custom_resolution_dialog(self):
-        """Simple custom resolution dialog (Width x Height)."""
-        win = tk.Toplevel(self)
-        win.title("Custom Resolution")
-        win.resizable(False, False)
-
-        # mac-friendly: keep on top, and place near main window
-        try:
-            win.transient(self)
-            win.grab_set()
-        except Exception:
-            pass
-
-        frm = ttk.Frame(win, padding=12)
-        frm.pack(fill="both", expand=True)
-
-        ttk.Label(frm, text="Width").grid(row=0, column=0, sticky="w")
-        ent_w = ttk.Entry(frm, width=10)
-        ent_w.grid(row=0, column=1, padx=(8, 0))
-        ttk.Label(frm, text="Height").grid(
-            row=1, column=0, sticky="w", pady=(8, 0))
-        ent_h = ttk.Entry(frm, width=10)
-        ent_h.grid(row=1, column=1, padx=(8, 0), pady=(8, 0))
-
-        # Prefill from current geometry
-        try:
-            geo = self.winfo_geometry()  # e.g. "800x600+10+10"
-            size = geo.split("+", 1)[0]
-            cw, ch = size.split("x")
-            ent_w.insert(0, cw)
-            ent_h.insert(0, ch)
-        except Exception:
-            ent_w.insert(0, "1280")
-            ent_h.insert(0, "720")
-
-        def apply():
-            try:
-                w = int(ent_w.get().strip())
-                h = int(ent_h.get().strip())
-                if w < 200 or h < 200:
-                    messagebox.showwarning(
-                        "Invalid size", "Please choose a larger size.")
-                    return
-                self._set_resolution(w, h)
-                self._size_var.set(f"{w}x{h}")
-                win.destroy()
-            except Exception:
-                messagebox.showerror(
-                    "Invalid input", "Width/Height must be integers.")
-
-        btns = ttk.Frame(frm)
-        btns.grid(row=2, column=0, columnspan=2, pady=(12, 0), sticky="e")
-        ttk.Button(btns, text="Cancel", command=win.destroy).pack(side="right")
-        ttk.Button(btns, text="Apply", command=apply).pack(
-            side="right", padx=(0, 8))
-
-    def _build_layout(self):
-        """Layout: Sidebar (Left) + Content (Right)."""
-        self.grid_columnconfigure(1, weight=1)
-        self.grid_rowconfigure(1, weight=1)
-
-        # --- A. Sidebar (Left) ---
-        self.sidebar = (tb.Frame(self, bootstyle="bg")
-                        if HAS_BOOTSTRAP else ttk.Frame(self))
-        self.sidebar.grid(row=0, column=0, rowspan=3, sticky="nsew")
-        self._build_sidebar_header()
-
-        # Try to use ScrolledFrame from ttkbootstrap for the sidebar if it exists
-        try:
-            from ttkbootstrap.scrolled import ScrolledFrame
-            self.menu_frame = ScrolledFrame(self.sidebar, bootstyle="bg", autohide=True)
-        except Exception:
-            self.menu_frame = ttk.Frame(self.sidebar)
-            
-        self.menu_frame.pack(fill="both", expand=True, pady=10)
-
-        # Monitor/HUD at the bottom of the sidebar
-        self._build_system_monitor()
-
-        # --- B. Header Bar (Top Right) ---
-        self.header = (tb.Frame(self, bootstyle="bg-white", height=70)
-                       if HAS_BOOTSTRAP else ttk.Frame(self, height=70))
-        self.header.grid(row=0, column=1, sticky="ew")
-        self._build_header_content()
-        if HAS_BOOTSTRAP:
-            tb.Separator(self.header, orient="horizontal",
-                         bootstyle="secondary").pack(side="bottom", fill="x")
-        else:
-            ttk.Separator(self.header, orient="horizontal").pack(
-                side="bottom", fill="x")
-
-        # --- C. Content Area (Center Right) ---
-        self.content_area = (tb.Frame(self, padding=25)
-                             if HAS_BOOTSTRAP else ttk.Frame(self, padding=25))
-        self.content_area.grid(row=1, column=1, sticky="nsew")
-
-        # --- D. Status Bar (Bottom Right) ---
-        self.status_bar = (tb.Frame(self, bootstyle="primary")
-                           if HAS_BOOTSTRAP else ttk.Frame(self))
-        self.status_bar.grid(row=2, column=1, sticky="ew")
-        self._build_footer_content()
-
-    def _toggle_sidebar(self):
-        if not hasattr(self, "sidebar"):
-            return
-        if self._sidebar_visible:
-            self.sidebar.grid_forget()
-            self._sidebar_visible = False
-        else:
-            self.sidebar.grid(row=0, column=0, rowspan=3, sticky="nsew")
-            self._sidebar_visible = True
-
-    def _build_sidebar_header(self):
-        if not HAS_BOOTSTRAP:
-            frame = ttk.Frame(self.sidebar)
-            frame.pack(fill="x", pady=(30, 10), padx=20)
-            ttk.Label(frame, text="SHARC").pack(anchor="w")
-            ttk.Label(frame, text="SIMULATION MANAGER").pack(anchor="w")
-            ttk.Separator(self.sidebar, orient="horizontal").pack(
-                fill="x", padx=20, pady=15)
-            return
-
-        frame = tb.Frame(self.sidebar, bootstyle="bg")
-        frame.pack(fill="x", pady=(30, 10), padx=20)
-
-        lbl = tb.Label(frame, text="SHARC", style="Brand.TLabel")
-        lbl.pack(anchor="w")
-
-        sub = tb.Label(
-            frame,
-            text="SIMULATION MANAGER",
-            style="SubBrand.TLabel"
-        )
-        sub.pack(anchor="w")
-
-        tb.Separator(self.sidebar, bootstyle="secondary").pack(
-            fill="x", padx=20, pady=15)
-
-    def _build_system_monitor(self):
-        """Builds the Circular Meter, the Status HUD, and the Retractable Tray (professional card)."""
-        if not HAS_BOOTSTRAP:
-            monitor_frame = ttk.Frame(self.sidebar, padding=15)
-            monitor_frame.pack(side="bottom", fill="x", pady=10)
-            ttk.Label(monitor_frame, text="Global Progress").pack(
-                anchor="center")
-            return
-
-        monitor_frame = tb.Frame(self.sidebar, bootstyle="bg", padding=12)
-        monitor_frame.pack(side="bottom", fill="x", pady=10)
-
-        # HUD CARD (key fix for background artifacts)
-        card = tb.Frame(monitor_frame, style="HudCard.TFrame",
-                        padding=10, relief="flat", borderwidth=0)
-        card.pack(fill="x")
-
-        tb.Label(card, text="Global Progress", style="HudTitle.TLabel").pack(
-            anchor="center", pady=(0, 5))
-
-        # --- Retractable Tray for Active Threads ---
-        self.tray_button = tb.Button(
-            card,
-            text="▼ Active Simulations ▼",
-            bootstyle="secondary-link",
-            command=self._toggle_simulation_tray
-        )
-        self.tray_button.pack(anchor="center", pady=(0, 5))
-
-        # Tray container (starts hidden)
-        self.tray_frame = tb.Frame(card, style="HudCard.TFrame")
-        self.tray_visible = False
-        self.thread_widgets = {}  # Dictionary to manage individual widgets
-
-        # 1. Circular Meter
-        self.sys_meter = Meter(
-            card,
-            metersize=130,
-            padding=10,
-            amountused=0,
-            metertype="full",
-            subtext="0.0%",
-            textright="",
-            textfont=("Segoe UI", 12, "bold"),
-            subtextfont=("Segoe UI", 8),
-            showtext=False,
-            interactive=False,
-            bootstyle="success",
-            stripethickness=4
-        )
-        self.sys_meter.pack(anchor="center", pady=(5, 10))
-
-        # FIX: Force Meter to draw with the sidebar background instead of default TFrame (white box fix)
-        _orig_draw = getattr(self.sys_meter, "_draw_meter", None) or getattr(self.sys_meter, "draw_meter", None)
-        if _orig_draw:
-            def _patched_draw(*args, **kwargs):
-                style = tb.Style()
-                orig_bg = style.lookup("TFrame", "background")
-                style.configure("TFrame", background=self._card_bg)
-                try:
-                    _orig_draw(*args, **kwargs)
-                    # Ensure the internal canvas also uses the exact color
-                    if hasattr(self.sys_meter, "indicator"):
-                        self.sys_meter.indicator.configure(background=self._card_bg)
-                finally:
-                    style.configure("TFrame", background=orig_bg)
-            
-            if hasattr(self.sys_meter, "_draw_meter"):
-                self.sys_meter._draw_meter = _patched_draw
-                self.after(50, self.sys_meter._draw_meter)  # apply initial draw override
-            else:
-                self.sys_meter.draw_meter = _patched_draw
-                self.after(50, self.sys_meter.draw_meter)
-
-        # 2. HUD Container (Snapshots and ETA)
-        self.hud_frame = tb.Frame(card, style="HudCard.TFrame")
-        self.hud_frame.pack(fill="x", pady=5)
-
-        self.hud_frame.columnconfigure(0, weight=1)
-        self.hud_frame.columnconfigure(1, weight=1)
-        self.hud_frame.columnconfigure(2, weight=1)
-
-        f_snaps = tb.Frame(self.hud_frame, style="HudCard.TFrame")
-        f_snaps.grid(row=0, column=0, sticky="ew")
-        tb.Label(f_snaps, text="SNAPSHOTS",
-                 style="HudLabel.TLabel").pack(anchor="center")
-        self.lbl_hud_snaps = tb.Label(
-            f_snaps, text="0 / 0", style="HudValue.TLabel")
-        self.lbl_hud_snaps.pack(anchor="center")
-
-        ttk.Separator(self.hud_frame, orient="vertical").grid(
-            row=0, column=1, sticky="ns", padx=8)
-
-        f_eta = tb.Frame(self.hud_frame, style="HudCard.TFrame")
-        f_eta.grid(row=0, column=2, sticky="ew")
-        tb.Label(f_eta, text="ETA", style="HudLabel.TLabel").pack(
-            anchor="center")
-        self.lbl_hud_eta = tb.Label(
-            f_eta, text="--:--:--", style="HudValue.TLabel")
-        self.lbl_hud_eta.pack(anchor="center")
-
-    def _toggle_simulation_tray(self):
-        """Shows or hides the ongoing simulations tray."""
-        if not HAS_BOOTSTRAP:
-            return
-        if self.tray_visible:
-            self.tray_frame.pack_forget()
-            self.tray_button.configure(text="▼ Active Simulations ▼")
-            self.tray_visible = False
-        else:
-            self.tray_frame.pack(before=self.sys_meter, fill="x", pady=(0, 10))
-            self.tray_button.configure(text="▲ Hide Simulations ▲")
-            self.tray_visible = True
-
-    def _build_header_content(self):
-        """Header with Title + Toolbar + Global Generate button (original preserved)."""
-        if not HAS_BOOTSTRAP:
-            self.lbl_page_title = ttk.Label(self.header, text="Dashboard")
-            self.lbl_page_title.pack(side="left", padx=30, pady=20)
-            return
-
-        # Left title
-        self.lbl_page_title = tb.Label(self.header, text="Dashboard",
-                                       font=("Segoe UI", 18), foreground="#2C3E50")
-        self.lbl_page_title.pack(side="left", padx=(30, 10), pady=20)
-
-        # Toolbar (requested): quick actions, doesn't replace original generate menu
-        self._build_toolbar()
-
-        # Global Generate Button (Cascade Style) - original behavior
-        self.btn_gen_main = tb.Menubutton(
-            self.header,
-            text="⚡ GENERATE",
-            bootstyle="success",
-            width=20
-        )
-        self.btn_gen_main.pack(side="right", padx=30)
-
-        self.menu_gen_main = tk.Menu(self.btn_gen_main, tearoff=0)
-        self.btn_gen_main.configure(menu=self.menu_gen_main)
-
-        self.menu_gen_main.add_command(
-            label="🚀 Batch Generate (from Table)",
-            command=self._proxy_batch_generate
-        )
-        self.menu_gen_main.add_separator()
-        self.menu_gen_main.add_command(
-            label="💾 Save Current State (Snapshot)",
-            command=self.save_yaml_dialog_multicombos
-        )
-
-        ToolTip(self.btn_gen_main,
-                text="Generate YAML configuration files (Batch or Single Snapshot).")
-
-    def _build_toolbar(self):
-        """Compact toolbar in header. Pure UI shortcuts to existing features."""
-        if not HAS_BOOTSTRAP:
-            return
-
-        bar = tb.Frame(self.header, style="Toolbar.TFrame")
-        bar.pack(side="right", padx=(0, 10), pady=16)
-
-    def _build_footer_content(self):
-        if not HAS_BOOTSTRAP:
-            ttk.Label(self.status_bar, text="Ready.").pack(
-                side="left", padx=20)
-            return
-
-        # SSH Status
-        f_ssh = tb.Frame(self.status_bar, bootstyle="primary", padding=(15, 5))
-        f_ssh.pack(side="right", fill="y")
-        tb.Label(f_ssh, textvariable=self.ssh_status, font=("Consolas", 9, "bold"),
-                 bootstyle="inverse-primary").pack()
-
-        tb.Label(self.status_bar, text="|",
-                 bootstyle="inverse-primary").pack(side="right")
-
-        # Tunnel Status
-        f_tun = tb.Frame(self.status_bar, bootstyle="primary", padding=(15, 5))
-        f_tun.pack(side="right", fill="y")
-        tb.Label(f_tun, textvariable=self.tunnel_status, font=("Consolas", 9),
-                 bootstyle="inverse-primary").pack()
-
-        # Log Message
-        self.lbl_status_msg = tb.Label(self.status_bar, text="Ready.", font=("Segoe UI", 9),
-                                       bootstyle="inverse-primary")
-        self.lbl_status_msg.pack(side="left", padx=20)
-
-    def _refresh_preview(self):
-        logic = getattr(self, "tab_preview", None)
-        if logic:
-            if hasattr(logic, "refresh"):
-                logic.refresh()
-            elif hasattr(logic, "update_plot"):
-                logic.update_plot()
-
-    def _about_dialog(self):
-        messagebox.showinfo(
-            "About SHARC",
-            "SHARC – SHARing and Compatibility\nGUI Manager\n\n© ANATEL / Project Contributors"
-        )
-
-    def _open_folder_crossplatform(self, folder: str):
-        try:
-            if not folder or not os.path.isdir(folder):
-                messagebox.showwarning(
-                    "Folder not found", f"Folder does not exist:\n{folder}")
-                return
-            system = platform.system().lower()
-            if "windows" in system:
-                os.startfile(folder)  # noqa
-            elif "darwin" in system:
-                subprocess.Popen(["open", folder])
-            else:
-                subprocess.Popen(["xdg-open", folder])
-        except Exception as e:
-            messagebox.showerror("Error", f"Failed to open folder:\n{e}")
-
-    def _open_yaml_folder(self):
-        folder = self.var_yaml_dir.get() or os.getcwd()
-        self._open_folder_crossplatform(folder)
-
-    def _open_results_folder(self):
-        guess = str(PROJECT_ROOT / "results")
-        if not os.path.isdir(guess):
-            guess = os.getcwd()
-        self._open_folder_crossplatform(guess)
+        text, ok = QInputDialog.getText(self, "Custom Resolution", "Enter resolution (e.g. 1024x768):")
+        if ok and text:
+            self._apply_resolution_from_settings(text)
 
     def _export_current_yaml_as(self):
-        init = self.var_yaml_dir.get() or os.getcwd()
-        path = filedialog.asksaveasfilename(
-            title="Export Current YAML",
-            defaultextension=".yaml",
-            initialdir=init,
-            initialfile=(self.var_prefix.get() or "snapshot") + ".yaml"
+        init_dir = os.getcwd()
+        path, _ = QFileDialog.getSaveFileName(
+            self, "Export Current YAML",
+            os.path.join(init_dir, "snapshot.yaml"),
+            "YAML Files (*.yaml);;All Files (*)"
         )
         if not path:
             return
         try:
             data = self.current_yaml_dict()
             with open(path, "w", encoding="utf-8") as f:
-                yaml.dump(data, f, default_flow_style=False,
-                          sort_keys=False, allow_unicode=True)
-            self.var_yaml_dir.set(os.path.dirname(path))
-            self._show_success_toast("Exported YAML successfully.")
+                yaml.dump(data, f, default_flow_style=False, sort_keys=False)
+            QMessageBox.information(self, "Success", "Exported YAML successfully.")
         except Exception as e:
-            messagebox.showerror("Error", f"Failed to export YAML:\n{e}")
+            QMessageBox.critical(self, "Error", f"Failed to export YAML:\n{e}")
 
     def _copy_current_yaml_to_clipboard(self):
         try:
             data = self.current_yaml_dict()
-            yaml_text = yaml.dump(
-                data, default_flow_style=False, sort_keys=False, allow_unicode=True)
-            self.clipboard_clear()
-            self.clipboard_append(yaml_text)
-            self._show_success_toast("YAML copied to clipboard.")
+            yaml_text = yaml.dump(data, default_flow_style=False, sort_keys=False)
+
+            clipboard = QApplication.clipboard()
+            clipboard.setText(yaml_text)
+
+            QMessageBox.information(self, "Success", "YAML copied to clipboard.")
         except Exception as e:
-            messagebox.showerror("Error", f"Failed to copy YAML:\n{e}")
+            QMessageBox.critical(self, "Error", f"Failed to copy YAML:\n{e}")
 
-    def _clear_runner_log(self):
-        try:
-            if hasattr(self, "tab_runner") and hasattr(self.tab_runner, "txt_log"):
-                w = self.tab_runner.txt_log
-                w.configure(state="normal")
-                w.delete("1.0", "end")
-                w.configure(state="disabled")
-            if hasattr(self, "lbl_status_msg"):
-                self.lbl_status_msg.config(text="Runner log cleared.")
-        except Exception as e:
-            messagebox.showerror("Error", f"Failed to clear log:\n{e}")
+    def save_yaml_dialog_multicombos(self):
+        path, _ = QFileDialog.getSaveFileName(
+            self, "Save Snapshot", "snapshot.yaml", "YAML Files (*.yaml)"
+        )
+        if path:
+            try:
+                data = build_yaml_structure(self)
+                with open(path, 'w', encoding='utf-8') as f:
+                    yaml.dump(data, f, default_flow_style=False, sort_keys=False)
+                QMessageBox.information(self, "Success", f"Snapshot saved to:\n{path}")
+            except Exception as e:
+                QMessageBox.critical(self, "Error", f"Failed to save snapshot:\n{e}")
 
-    def _show_welcome_toast(self):
-        if not HAS_BOOTSTRAP:
-            return
-        ToastNotification(
-            title="SHARC", message="System Ready.\nTheme: Cosmo Light",
-            duration=3000, bootstyle="light", position=(40, 60, "ne")
-        ).show_toast()
+    def _proxy_batch_generate(self):
+        if hasattr(self, 'tab_general'):
+            self.tab_general.save_yaml_to_yamldir()
+        else:
+            QMessageBox.critical(self, "Error", "General Tab not available.")
 
-    def _show_success_toast(self, msg):
-        if not HAS_BOOTSTRAP:
-            return
-        ToastNotification(
-            title="Success", message=msg, duration=3000,
-            bootstyle="success", position=(40, 60, "ne")
-        ).show_toast()
+    def current_yaml_dict(self) -> dict:
+        return build_yaml_structure(self)
 
-    def _safe_log(self, msg): self.line_q.put(("log", msg))
-    def _safe_update_row(self, data): self.line_q.put(("row", data))
+    # --- Worker Communication ---
+    def _safe_log(self, msg):
+        self.line_q.put(("log", msg))
 
+    def _safe_update_row(self, data):
+        self.line_q.put(("row", data))
+
+    @Slot()
     def _drain_log_queue(self):
+        """Conectado ao self.log_timer para rodar sem travar a UI."""
         try:
             for _ in range(50):
+                if self.line_q.empty():
+                    break
                 item = self.line_q.get_nowait()
                 msg, payload = item
                 if msg == "log":
                     clean = payload.strip()
                     if clean:
-                        self.lbl_status_msg.config(text=clean[:120])
-                    if hasattr(self.tab_runner, 'txt_log'):
-                        w = self.tab_runner.txt_log
-                        w.configure(state="normal")
-                        w.insert("end", payload +
-                                 ("\n" if not payload.endswith("\n") else ""))
-                        w.see("end")
-                        w.configure(state="disabled")
+                        self.lbl_status_msg.setText(clean[:120])
+                    if hasattr(self, 'tab_runner') and hasattr(self.tab_runner, '_append_log'):
+                        self.tab_runner._append_log(clean)
                 elif msg == "row":
-                    if hasattr(self.tab_runner, 'tree'):
-                        tree = self.tab_runner.tree
-                        iid = payload.get("iid")
-                        if iid and tree.exists(iid):
-                            cur = list(tree.item(iid, "values"))
-                            if payload["status"] is not None:
-                                cur[1] = payload["status"]
-                            if payload["pct"] is not None:
-                                cur[3] = payload["pct"]
-                            tree.item(iid, values=cur)
-        except:
+                    if hasattr(self, 'tab_runner') and hasattr(self.tab_runner, '_update_tree_row'):
+                        self.tab_runner._update_tree_row(payload)
+        except queue.Empty:
             pass
-        self.after(100, self._drain_log_queue)
 
+    @Slot()
     def monitor_simulation_status(self):
-        """Monitors global simulation progress via ssh_runner module."""
+        """Conectado ao self.hud_timer (a cada 5s)."""
         try:
             raw_data = getattr(ssh_runner, "SIMULATION_STATUS", {})
-
             if not raw_data or not isinstance(raw_data, dict):
-                if HAS_BOOTSTRAP and hasattr(self, "sys_meter"):
-                    self.sys_meter.configure(amountused=0, subtext="0.0%")
+                self.sys_meter.setValue(0)
+                self.sys_meter.setFormat("0%")
                 if hasattr(self, "lbl_hud_snaps"):
-                    self.lbl_hud_snaps.configure(text="0 / 0")
+                    self.lbl_hud_snaps.setText("SNAPS 0/0")
                 if hasattr(self, "lbl_hud_eta"):
-                    self.lbl_hud_eta.configure(text="--:--:--")
+                    self.lbl_hud_eta.setText("ETA --:--:--")
                 if hasattr(self, "thread_widgets"):
                     for t, w in list(self.thread_widgets.items()):
                         try:
-                            w['row'].destroy()
+                            w['row'].deleteLater()
                         except Exception:
                             pass
                     self.thread_widgets.clear()
-                self.after(5000, self.monitor_simulation_status)
                 return
 
             percentages = []
             total_done_snaps = 0
             total_max_snaps = 0
             etas = []
+
             current_threads = set(raw_data.keys())
             existing_threads = set(self.thread_widgets.keys())
 
             for t in existing_threads - current_threads:
-                self.thread_widgets[t]['row'].destroy()
+                self.thread_widgets[t]['row'].deleteLater()
                 del self.thread_widgets[t]
 
             for key, val in raw_data.items():
@@ -1023,324 +1018,840 @@ class App(tb.Window if HAS_BOOTSTRAP else tk.Tk):
                         etas.append(eta_str)
 
                     if key not in self.thread_widgets:
-                        row = tb.Frame(self.tray_frame, style="HudCard.TFrame")
-                        row.pack(fill="x", pady=4)
-                        header_frame = tb.Frame(row, style="HudCard.TFrame")
-                        header_frame.pack(fill="x")
+                        row = QFrame()
+                        row_layout = QVBoxLayout(row)
+                        row_layout.setContentsMargins(0, 2, 0, 2)
+                        row_layout.setSpacing(2)
 
-                        short_name = str(key).split("/")[-1]
-                        lbl_name = tb.Label(
-                            header_frame,
-                            text=short_name[:20],
-                            font=("Segoe UI", 8, "bold"),
-                            style="HudValue.TLabel"
-                        )
-                        lbl_name.pack(side="left")
+                        header_frame = QFrame()
+                        header_layout = QHBoxLayout(header_frame)
+                        header_layout.setContentsMargins(0, 0, 0, 0)
 
-                        lbl_eta = tb.Label(
-                            header_frame,
-                            text=eta_str or "--:--",
-                            font=("Consolas", 8),
-                            style="HudLabel.TLabel"
-                        )
-                        lbl_eta.pack(side="right")
+                        short_name = str(key).split("/")[-1][:20]
+                        lbl_name = QLabel(short_name)
+                        lbl_name.setObjectName("HUDThreadName")
+                        header_layout.addWidget(lbl_name)
 
-                        pb = tb.Progressbar(
-                            row, bootstyle="success-striped", maximum=100)
-                        pb.pack(fill="x", pady=(2, 0))
+                        header_layout.addStretch()
+
+                        lbl_eta = QLabel(eta_str or "--:--")
+                        lbl_eta.setObjectName("HUDThreadEta")
+                        header_layout.addWidget(lbl_eta)
+
+                        row_layout.addWidget(header_frame)
+
+                        pb = QProgressBar()
+                        pb.setValue(int(clean_pct))
+                        pb.setFixedHeight(4)
+                        pb.setTextVisible(False)
+                        pb.setObjectName("MiniProgress")
+                        row_layout.addWidget(pb)
+
+                        self.tray_layout.addWidget(row)
 
                         self.thread_widgets[key] = {
                             'row': row, 'lbl_eta': lbl_eta, 'pb': pb, 'lbl_name': lbl_name
                         }
                     else:
                         w = self.thread_widgets[key]
-                        w['lbl_eta'].configure(text=eta_str or "--:--")
-                        w['pb']['value'] = clean_pct
+                        w['lbl_eta'].setText(eta_str or "--:--")
+                        w['pb'].setValue(int(clean_pct))
 
             avg_pct = sum(percentages) / len(percentages) if percentages else 0
-            snaps_text = f"{total_done_snaps} / {total_max_snaps}" if total_max_snaps > 0 else "0 / 0"
-            final_eta = max(etas) if etas else "--:--:--"
+            snaps_text = f"SNAPS {total_done_snaps}/{total_max_snaps}" if total_max_snaps > 0 else "SNAPS 0/0"
+            final_eta = f"ETA {max(etas)}" if etas else "ETA --:--:--"
 
-            self.sys_meter.configure(amountused=int(
-                avg_pct) if avg_pct > 0 else 0, subtext=f"{avg_pct:.1f}%")
-            self.lbl_hud_snaps.configure(text=snaps_text)
-            self.lbl_hud_eta.configure(text=final_eta)
+            self.sys_meter.setValue(int(avg_pct))
+            self.sys_meter.setFormat(f"{avg_pct:.1f}%")
+            self.lbl_hud_snaps.setText(snaps_text)
+            self.lbl_hud_eta.setText(final_eta)
 
         except Exception as e:
             print(f"HUD Update Error: {e}")
 
-        self.after(5000, self.monitor_simulation_status)
 
-    def _init_pages(self):
-        """Initializes all tabs and establishes data connections."""
-        # Get the actual frame to place buttons (if ScrolledFrame is used)
-        btn_parent = getattr(self.menu_frame, "container", self.menu_frame)
+# ==========================================================
+# STYLESHEET — folha única dirigida por tokens
+# ==========================================================
+def build_stylesheet(theme: str) -> str:
+    """
+    Folha de estilo completa e autossuficiente (sem qdarktheme).
 
-        for key, label, Cls, icon in self.pages_config:
-            btn = tb.Button(
-                btn_parent,
-                text=f"  {icon}   {label}",
-                style="Nav.TButton",
-                bootstyle="secondary-link",
-                command=lambda k=key, l=label: self._switch_page(k, l)
-            )
-            self.nav_buttons[key] = btn
-            
-            # The 'results' and 'preview' tabs contain interactive dynamic Plots 
-            # and PanedWindows that MUST natively shrink/expand to the window bounds.
-            # Wrapping them in a Canvas (ResponsiveTabFrame) causes them to indefinitely 
-            # overflow the screen horizontally and hide sidebars (PanedWindow sash issues).
-            if key in ["results", "preview"]:
-                container = ttk.Frame(self.content_area)
-                content_parent = container
-            else:
-                if HAS_BOOTSTRAP:
-                    container = ResponsiveTabFrame(self.content_area)
-                    content_parent = container.container
-                else:
-                    container = ttk.Frame(self.content_area)
-                    content_parent = container
+    Arquitetura de fundo — a correção das "caixas destoando":
+      1. Todo QWidget é TRANSPARENTE por padrão e herda a superfície
+         em que está apoiado. Nenhum container pinta um retângulo
+         de cor errada dentro de um card.
+      2. Somente janelas top-level, popups e superfícies nomeadas
+         (Sidebar, HeaderBar, cards, inputs) pintam fundo.
+      3. Inputs são o degrau tonal ACIMA da superfície onde vivem,
+         com borda de 1px consistente — leem-se como campos,
+         não como buracos.
+    """
+    t = theme_tokens(theme)
+    icons = generate_theme_icon_assets(theme)
+    is_dark = theme == "dark"
 
-            self.frames[key] = container
-            instance = Cls(self, content_parent)
-            setattr(self, f"tab_{key}", instance)
+    action_grad_top    = t["accent_strong"] if is_dark else t["accent_strong"]
+    action_grad_bottom = t["accent_dim"]
 
-        if hasattr(self, 'tab_general'):
+    return f"""
+    /* ============================================================
+       GLOBAL — base transparente + tipografia
+       ============================================================ */
+    * {{
+        font-family: {FONT_UI};
+        outline: none;
+    }}
 
-            def get_imt_live_data():
-                data = {}
-                if hasattr(self, 'tab_imt'):
-                    if hasattr(self.tab_imt, 'state') and hasattr(self.tab_imt.state, 'vars'):
-                        for k, v in self.tab_imt.state.vars.items():
-                            try:
-                                data[k] = v.get()
-                            except:
-                                pass
-                    if hasattr(self.tab_imt, 'topo_section') and self.tab_imt.topo_section:
-                        if hasattr(self.tab_imt.topo_section, 'get_countries_text'):
-                            data['countries_text'] = self.tab_imt.topo_section.get_countries_text(
-                            )
-                return data
+    QWidget {{
+        color: {t['text_primary']};
+        background-color: transparent;
+        selection-background-color: {t['selection_bg']};
+        selection-color: {t['selection_fg']};
+    }}
 
-            def get_system_live_data():
-                data = {}
-                sys_mode = self.var_system.get()
-                objs_to_scan = [self]
+    /* Superfícies raiz — as únicas que pintam o fundo do app */
+    QMainWindow,
+    QDialog,
+    QMessageBox,
+    QInputDialog,
+    QColorDialog,
+    QFontDialog,
+    QFileDialog {{
+        background-color: {t['bg_app']};
+    }}
+    QStackedWidget#PageStack {{
+        background-color: {t['bg_app']};
+    }}
 
-                if sys_mode in self._space_ui_systems():
-                    if hasattr(self, 'tab_victim'):
-                        objs_to_scan.append(self.tab_victim)
-                elif sys_mode in self._earth_ui_systems():
-                    if hasattr(self, 'tab_station'):
-                        objs_to_scan.append(self.tab_station)
+    /* ScrollAreas transparentes: o conteúdo das abas assenta
+       diretamente no fundo do app */
+    QScrollArea {{
+        background: transparent;
+        border: none;
+    }}
+    QScrollArea > QWidget > QWidget {{
+        background: transparent;
+    }}
+    QScrollArea > QWidget > QScrollBar {{
+        background: transparent;
+    }}
+    QAbstractScrollArea::corner {{
+        background: transparent;
+        border: none;
+    }}
 
-                for target_obj in objs_to_scan:
-                    if not target_obj:
-                        continue
+    QToolTip {{
+        background-color: {t['bg_card'] if is_dark else t['text_primary']};
+        color: {t['text_primary'] if is_dark else '#FFFFFF'};
+        border: 1px solid {t['border_strong'] if is_dark else t['accent_dim']};
+        padding: 6px 10px;
+        border-radius: 4px;
+        font-size: 11px;
+    }}
 
-                    sources = [
-                        getattr(target_obj, 'vars', {}),
-                        getattr(getattr(target_obj, 'state', None), 'vars', {})
-                    ]
-                    for src in sources:
-                        if isinstance(src, dict):
-                            for k, v in src.items():
-                                try:
-                                    data[k] = v.get()
-                                except:
-                                    data[k] = v
+    /* ============================================================
+       MENU BAR / MENUS
+       ============================================================ */
+    QMenuBar {{
+        background-color: {t['bg_panel']};
+        color: {t['text_secondary']};
+        border-bottom: 1px solid {t['border_soft']};
+        padding: 3px 6px;
+        font-size: 12px;
+    }}
+    QMenuBar::item {{
+        background: transparent;
+        padding: 5px 11px;
+        border-radius: 5px;
+        color: {t['text_secondary']};
+    }}
+    QMenuBar::item:selected {{
+        background-color: {t['bg_hover']};
+        color: {t['text_primary']};
+    }}
+    QMenuBar::item:pressed {{
+        background-color: {t['accent_soft']};
+        color: {t['accent']};
+    }}
+    QMenu {{
+        background-color: {t['bg_card']};
+        color: {t['text_primary']};
+        border: 1px solid {t['border_strong']};
+        border-radius: 8px;
+        padding: 6px;
+    }}
+    QMenu::item {{
+        padding: 7px 26px 7px 12px;
+        border-radius: 5px;
+        font-size: 12px;
+        background: transparent;
+    }}
+    QMenu::item:selected {{
+        background-color: {t['accent_soft']};
+        color: {t['accent'] if is_dark else t['accent_dim']};
+    }}
+    QMenu::item:disabled {{
+        color: {t['text_faint']};
+    }}
+    QMenu::separator {{
+        height: 1px;
+        background: {t['border']};
+        margin: 6px 6px;
+    }}
+    QMenu::icon {{
+        padding-left: 8px;
+    }}
 
-                    for attr_name in dir(target_obj):
-                        if attr_name.startswith("_"):
-                            continue
-                        if attr_name.startswith(("imt_", "topo_", "bs_", "ue_", "ul_", "dl_", "ch_", "shadowing")):
-                            continue
+    /* ============================================================
+       SIDEBAR
+       ============================================================ */
+    QFrame#Sidebar {{
+        background-color: {t['bg_panel']};
+        border-right: 1px solid {t['border_soft']};
+    }}
+    QFrame#SidebarDivider {{
+        background-color: {t['border_soft']};
+        border: none;
+        max-height: 1px;
+    }}
 
-                        try:
-                            val = getattr(target_obj, attr_name)
-                            if isinstance(val, (tk.StringVar, tk.DoubleVar, tk.IntVar, tk.BooleanVar)):
-                                data[attr_name] = val.get()
-                            elif isinstance(val, (list, dict, int, float, str, bool)):
-                                if not callable(val):
-                                    data[attr_name] = val
-                        except:
-                            pass
+    QLabel#BrandLabel {{
+        font-family: {FONT_MONO};
+        font-size: 21px;
+        font-weight: 700;
+        letter-spacing: 4px;
+        color: {t['text_primary']};
+    }}
+    QLabel#SubBrandLabel {{
+        font-family: {FONT_MONO};
+        font-size: 8px;
+        font-weight: 600;
+        letter-spacing: 2px;
+        color: {t['accent_dim'] if is_dark else t['text_muted']};
+    }}
 
-                return data
+    QLabel#NavSectionLabel {{
+        font-family: {FONT_MONO};
+        font-size: 9px;
+        font-weight: 700;
+        letter-spacing: 2px;
+        color: {t['text_faint']};
+        padding: 6px 12px 4px 12px;
+    }}
 
-            self.tab_general.register_data_collector(get_imt_live_data)
-            self.tab_general.register_data_collector(get_system_live_data)
+    QPushButton#NavButton {{
+        text-align: left;
+        padding: 10px 12px;
+        font-size: 13px;
+        background: transparent;
+        color: {t['text_secondary']};
+        border: none;
+        border-left: 3px solid transparent;
+        border-radius: 7px;
+    }}
+    QPushButton#NavButton:hover {{
+        background-color: {t['bg_hover']};
+        color: {t['text_primary']};
+    }}
+    QPushButton#NavButton[active="true"] {{
+        background-color: {t['accent_soft']};
+        color: {t['text_primary'] if is_dark else t['accent_deep']};
+        border-left: 3px solid {t['accent']};
+        border-top-left-radius: 2px;
+        border-bottom-left-radius: 2px;
+        font-weight: 600;
+    }}
 
-    def _space_ui_systems(self):
-        return {
-            "SINGLE_SPACE_STATION",
-            "HAPS",
-            "MSS_SS",
-            "MSS_D2D",
-            "MSS_DC",
-            "FSS_SS",
-            "EESS_SS",
-            "METSAT_SS",
-            "RNS",
-        }
+    QLabel#SidebarFooter {{
+        font-family: {FONT_MONO};
+        font-size: 8px;
+        letter-spacing: 1.5px;
+        color: {t['text_faint']};
+    }}
 
-    def _earth_ui_systems(self):
-        return {
-            "SINGLE_EARTH_STATION",
-            "FS",
-            "FSS_ES",
-            "RAS",
-        }
+    /* ============================================================
+       SYSTEM MONITOR (HUD)
+       ============================================================ */
+    QFrame#SystemMonitorCard {{
+        background-color: {t['bg_card']};
+        border: 1px solid {t['border']};
+        border-radius: 10px;
+    }}
+    QLabel#HUDTitle {{
+        font-family: {FONT_MONO};
+        font-size: 9px;
+        font-weight: 700;
+        letter-spacing: 2px;
+        color: {t['text_secondary']};
+    }}
+    QLabel#HUDStat {{
+        font-family: {FONT_MONO};
+        font-size: 10px;
+        font-weight: 600;
+        letter-spacing: 0.5px;
+        color: {t['text_primary']};
+    }}
+    QLabel#HUDThreadName {{
+        font-size: 10px;
+        font-weight: 600;
+        color: {t['text_primary']};
+    }}
+    QLabel#HUDThreadEta {{
+        font-family: {FONT_MONO};
+        font-size: 10px;
+        color: {t['text_secondary']};
+    }}
+    QPushButton#HUDTrayButton {{
+        background: transparent;
+        color: {t['accent'] if is_dark else t['accent_dim']};
+        font-weight: 600;
+        font-size: 11px;
+        border: none;
+        text-align: left;
+        padding: 4px 0px;
+    }}
+    QPushButton#HUDTrayButton:hover {{
+        color: {t['accent_strong']};
+    }}
 
-    def _on_system_changed(self, *args):
-        self._refresh_sidebar_items()
+    /* ============================================================
+       HEADER
+       ============================================================ */
+    QFrame#HeaderBar {{
+        background-color: {t['bg_panel']};
+        border-bottom: 1px solid {t['border_soft']};
+    }}
+    QFrame#HeaderAccentStrip {{
+        border: none;
+        background-color: qlineargradient(
+            x1:0, y1:0, x2:1, y2:0,
+            stop:0 {t['accent']}, stop:0.35 {t['accent_dim']}, stop:1 transparent
+        );
+    }}
+    QLabel#PageEyebrow {{
+        font-family: {FONT_MONO};
+        font-size: 8px;
+        font-weight: 700;
+        letter-spacing: 2.5px;
+        color: {t['accent_dim'] if is_dark else t['text_muted']};
+    }}
+    QLabel#PageTitle {{
+        font-size: 17px;
+        font-weight: 600;
+        letter-spacing: 1.5px;
+        color: {t['text_primary']};
+    }}
 
-    def _get_visible_page_keys(self):
-        sys_type = self.var_system.get()
-        visible = set()
-        for key, label, _, _ in self.pages_config:
-            should_show = True
-            if sys_type in self._earth_ui_systems():
-                if key == "victim":
-                    should_show = False
-                if key == "station":
-                    should_show = True
-            elif sys_type in self._space_ui_systems():
-                if key == "station":
-                    should_show = False
-                if key == "victim":
-                    should_show = True
-            else:
-                if key == "victim":
-                    should_show = False
-            if should_show:
-                visible.add(key)
-        return visible
+    QFrame#StatusChip {{
+        background-color: {t['bg_card']};
+        border: 1px solid {t['border']};
+        border-radius: 12px;
+    }}
+    QLabel#StatusChipText {{
+        font-family: {FONT_MONO};
+        font-size: 9px;
+        font-weight: 700;
+        letter-spacing: 1.5px;
+        color: {t['success']};
+    }}
 
-    def _refresh_sidebar_items(self):
-        sys_type = self.var_system.get()
-        for btn in self.nav_buttons.values():
-            btn.pack_forget()
+    QPushButton#IconButton {{
+        background-color: transparent;
+        border: 1px solid transparent;
+        border-radius: 9px;
+        padding: 0px;
+    }}
+    QPushButton#IconButton:hover {{
+        background-color: {t['bg_hover']};
+        border: 1px solid {t['border']};
+    }}
+    QPushButton#IconButton:pressed {{
+        background-color: {t['accent_soft']};
+    }}
 
-        for key, label, _, _ in self.pages_config:
-            should_show = True
-            if sys_type in self._earth_ui_systems():
-                if key == "victim":
-                    should_show = False
-                if key == "station":
-                    should_show = True
-            elif sys_type in self._space_ui_systems():
-                if key == "station":
-                    should_show = False
-                if key == "victim":
-                    should_show = True
-            else:
-                if key == "victim":
-                    should_show = False
+    QPushButton#ActionBtn {{
+        background-color: qlineargradient(
+            x1:0, y1:0, x2:0, y2:1,
+            stop:0 {action_grad_top}, stop:1 {action_grad_bottom}
+        );
+        color: {t['accent_text_on']};
+        font-weight: 700;
+        font-size: 12px;
+        letter-spacing: 1px;
+        padding: 9px 20px;
+        border-radius: 7px;
+        border: 1px solid {t['accent_dim']};
+    }}
+    QPushButton#ActionBtn:hover {{
+        background-color: qlineargradient(
+            x1:0, y1:0, x2:0, y2:1,
+            stop:0 {t['accent_strong']}, stop:1 {t['accent']}
+        );
+    }}
+    QPushButton#ActionBtn:pressed {{
+        background-color: {t['accent_dim']};
+    }}
+    QPushButton#ActionBtn::menu-indicator {{
+        image: none;
+    }}
 
-            if should_show:
-                self.nav_buttons[key].pack(fill="x", pady=2, padx=10)
+    /* ============================================================
+       STATUS BAR (telemetria)
+       ============================================================ */
+    QFrame#StatusBar {{
+        background-color: {t['bg_panel']};
+        border-top: 1px solid {t['border_soft']};
+    }}
+    QLabel#StatusMsg {{
+        font-family: {FONT_MONO};
+        font-size: 10px;
+        color: {t['text_secondary']};
+    }}
+    QLabel#StatusPill {{
+        font-family: {FONT_MONO};
+        font-size: 8px;
+        font-weight: 700;
+        letter-spacing: 1px;
+        color: {t['text_muted']};
+        background-color: {t['bg_card']};
+        border: 1px solid {t['border']};
+        border-radius: 8px;
+        padding: 2px 9px;
+    }}
 
-        if self.current_key and not self.nav_buttons[self.current_key].winfo_ismapped():
-            self._switch_page("general")
+    /* ============================================================
+       BOTÕES GENÉRICOS
+       ============================================================ */
+    QPushButton {{
+        background-color: {t['bg_input']};
+        color: {t['text_primary']};
+        border: 1px solid {t['border_strong']};
+        border-radius: 6px;
+        padding: 7px 14px;
+        font-size: 12px;
+    }}
+    QPushButton:hover {{
+        background-color: {t['bg_hover'] if is_dark else '#FFFFFF'};
+        border: 1px solid {t['accent_dim']};
+    }}
+    QPushButton:pressed {{
+        background-color: {t['accent_soft']};
+    }}
+    QPushButton:disabled {{
+        color: {t['text_faint']};
+        background-color: {t['bg_card']};
+        border: 1px solid {t['border_soft']};
+    }}
+    QPushButton:focus {{
+        border: 1px solid {t['accent']};
+    }}
 
-    def _switch_page(self, key, label_text=None):
-        if hasattr(self, 'tab_imt') and hasattr(self.tab_imt, 'txt_countries'):
-            try:
-                raw_txt = self.tab_imt.txt_countries.get("1.0", "end").strip()
-                if raw_txt and hasattr(self, 'topo_countries'):
-                    self.topo_countries.set(raw_txt)
-            except:
-                pass
+    QToolButton {{
+        background-color: transparent;
+        border: 1px solid transparent;
+        border-radius: 6px;
+        padding: 4px;
+        color: {t['text_secondary']};
+    }}
+    QToolButton:hover {{
+        background-color: {t['bg_hover']};
+        border: 1px solid {t['border']};
+    }}
+    QToolButton:pressed {{
+        background-color: {t['accent_soft']};
+    }}
 
-        if label_text:
-            self.lbl_page_title.config(text=label_text)
-        elif key == "general":
-            self.lbl_page_title.config(text="General Settings")
+    /* ============================================================
+       PROGRESS BARS
+       ============================================================ */
+    QProgressBar {{
+        border: 1px solid {t['border']};
+        background: {t['bg_app'] if is_dark else t['bg_input']};
+        border-radius: 4px;
+        text-align: center;
+        font-family: {FONT_MONO};
+        font-size: 10px;
+        color: {t['text_secondary']};
+    }}
+    QProgressBar::chunk {{
+        background-color: qlineargradient(
+            x1:0, y1:0, x2:1, y2:0,
+            stop:0 {t['accent_dim']}, stop:1 {t['accent']}
+        );
+        border-radius: 3px;
+    }}
+    QProgressBar#HUDProgress, QProgressBar#MiniProgress {{
+        border: none;
+        background: {t['bg_app'] if is_dark else t['border_soft']};
+        border-radius: 3px;
+        color: transparent;
+    }}
+    QProgressBar#HUDProgress::chunk, QProgressBar#MiniProgress::chunk {{
+        background-color: qlineargradient(
+            x1:0, y1:0, x2:1, y2:0,
+            stop:0 {t['accent_dim']}, stop:1 {t['accent']}
+        );
+        border-radius: 3px;
+    }}
 
-        if self.current_frame:
-            self.current_frame.pack_forget()
+    /* ============================================================
+       INPUTS — um degrau tonal acima da superfície onde vivem
+       ============================================================ */
+    QLineEdit, QComboBox, QDoubleSpinBox, QSpinBox,
+    QDateEdit, QTimeEdit, QDateTimeEdit, QAbstractSpinBox {{
+        background-color: {t['bg_input']};
+        border: 1px solid {t['border_strong']};
+        border-radius: 6px;
+        padding: 6px 10px;
+        min-height: 18px;
+        color: {t['text_primary']};
+        font-size: 12px;
+    }}
+    QLineEdit:hover, QComboBox:hover, QDoubleSpinBox:hover,
+    QSpinBox:hover, QDateEdit:hover, QTimeEdit:hover {{
+        border: 1px solid {t['scrollbar_hover']};
+        background-color: {t['bg_input_focus']};
+    }}
+    QLineEdit:focus, QComboBox:focus, QDoubleSpinBox:focus,
+    QSpinBox:focus, QDateEdit:focus, QTimeEdit:focus {{
+        border: 1px solid {t['accent']};
+        background-color: {t['bg_input_focus']};
+    }}
+    QLineEdit:disabled, QComboBox:disabled, QDoubleSpinBox:disabled,
+    QSpinBox:disabled, QDateEdit:disabled, QTimeEdit:disabled {{
+        color: {t['text_faint']};
+        background-color: {t['bg_card']};
+        border: 1px solid {t['border_soft']};
+    }}
+    QLineEdit[readOnly="true"] {{
+        background-color: {t['bg_card']};
+        color: {t['text_secondary']};
+    }}
+    QLineEdit::placeholder {{
+        color: {t['text_muted']};
+    }}
 
-        for k, btn in self.nav_buttons.items():
-            btn.configure(bootstyle="primary" if k ==
-                          key else "secondary-link")
+    QComboBox::drop-down {{
+        border: none;
+        border-left: 1px solid {t['border']};
+        width: 26px;
+        border-top-right-radius: 6px;
+        border-bottom-right-radius: 6px;
+    }}
+    QComboBox::down-arrow {{
+        image: url({icons['chevron_down']});
+        width: 13px;
+        height: 13px;
+    }}
+    QComboBox QAbstractItemView {{
+        background-color: {t['bg_card']};
+        border: 1px solid {t['border_strong']};
+        border-radius: 8px;
+        selection-background-color: {t['accent_soft']};
+        selection-color: {t['accent'] if is_dark else t['accent_deep']};
+        color: {t['text_primary']};
+        outline: none;
+        padding: 4px;
+    }}
 
-        self.current_frame = self.frames[key]
-        self.current_frame.pack(fill="both", expand=True)
-        self.current_key = key
+    QSpinBox::up-button, QDoubleSpinBox::up-button,
+    QDateEdit::up-button, QTimeEdit::up-button {{
+        subcontrol-origin: border;
+        subcontrol-position: top right;
+        width: 18px;
+        border-left: 1px solid {t['border']};
+        border-bottom: 1px solid {t['border']};
+        border-top-right-radius: 6px;
+        background-color: transparent;
+    }}
+    QSpinBox::down-button, QDoubleSpinBox::down-button,
+    QDateEdit::down-button, QTimeEdit::down-button {{
+        subcontrol-origin: border;
+        subcontrol-position: bottom right;
+        width: 18px;
+        border-left: 1px solid {t['border']};
+        border-bottom-right-radius: 6px;
+        background-color: transparent;
+    }}
+    QSpinBox::up-button:hover, QDoubleSpinBox::up-button:hover,
+    QSpinBox::down-button:hover, QDoubleSpinBox::down-button:hover {{
+        background-color: {t['bg_hover']};
+    }}
+    QSpinBox::up-arrow, QDoubleSpinBox::up-arrow,
+    QDateEdit::up-arrow, QTimeEdit::up-arrow {{
+        image: url({icons['spin_up']});
+        width: 11px; height: 11px;
+    }}
+    QSpinBox::down-arrow, QDoubleSpinBox::down-arrow,
+    QDateEdit::down-arrow, QTimeEdit::down-arrow {{
+        image: url({icons['spin_down']});
+        width: 11px; height: 11px;
+    }}
 
-        if key == "preview":
-            logic = getattr(self, f"tab_{key}", None)
-            if logic:
-                if hasattr(logic, "refresh"):
-                    logic.refresh()
-                elif hasattr(logic, "update_plot"):
-                    logic.update_plot()
+    /* Áreas de texto / logs */
+    QTextEdit, QPlainTextEdit {{
+        background-color: {t['bg_input']};
+        border: 1px solid {t['border_strong']};
+        border-radius: 6px;
+        padding: 6px;
+        color: {t['text_primary']};
+    }}
+    QTextEdit:focus, QPlainTextEdit:focus {{
+        border: 1px solid {t['accent']};
+    }}
+    QTextEdit#ConsoleLog, QPlainTextEdit#ConsoleLog {{
+        background-color: {t['bg_console']};
+        color: #C6E8D8;
+        font-family: {FONT_MONO};
+        font-size: 11px;
+        border: 1px solid {t['border']};
+        border-radius: 8px;
+    }}
 
-    def current_yaml_dict(self) -> dict:
-        """
-        Generates the current configuration dictionary (Snapshot).
-        Required by PreviewTab to display the YAML.
-        Uses the live GeneralTab builder so preview and batch generation stay aligned.
-        """
-        return build_yaml_structure(self)
+    /* ============================================================
+       CHECKBOX / RADIO
+       ============================================================ */
+    QCheckBox, QRadioButton {{
+        color: {t['text_secondary']};
+        spacing: 8px;
+        padding: 2px 0px;
+        background: transparent;
+    }}
+    QCheckBox:hover, QRadioButton:hover {{
+        color: {t['text_primary']};
+    }}
+    QCheckBox:disabled, QRadioButton:disabled {{
+        color: {t['text_faint']};
+    }}
+    QCheckBox::indicator, QRadioButton::indicator {{
+        width: 18px;
+        height: 18px;
+    }}
+    QCheckBox::indicator:unchecked {{ image: url({icons['check_off']}); }}
+    QCheckBox::indicator:checked   {{ image: url({icons['check_on']}); }}
+    QCheckBox::indicator:disabled  {{ image: url({icons['check_dis']}); }}
+    QRadioButton::indicator:unchecked {{ image: url({icons['radio_off']}); }}
+    QRadioButton::indicator:checked   {{ image: url({icons['radio_on']}); }}
 
-    def _proxy_batch_generate(self):
-        """Calls batch generation (from variable table) on GeneralTab."""
-        if hasattr(self, 'tab_general'):
-            self.tab_general.save_yaml_to_yamldir()
-        else:
-            messagebox.showerror("Error", "General Tab not available.")
+    /* ============================================================
+       GROUP BOX — cards de parâmetros
+       ============================================================ */
+    QGroupBox {{
+        border: 1px solid {t['border']};
+        border-radius: 10px;
+        margin-top: 18px;
+        padding-top: 14px;
+        background-color: {t['bg_card']};
+        font-weight: 600;
+        font-size: 12px;
+        color: {t['text_secondary']};
+    }}
+    QGroupBox::title {{
+        subcontrol-origin: margin;
+        subcontrol-position: top left;
+        left: 12px;
+        padding: 2px 8px;
+        background-color: {t['bg_app']};
+        border: 1px solid {t['border']};
+        border-radius: 5px;
+        font-family: {FONT_MONO};
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 1.5px;
+        color: {t['accent'] if is_dark else t['accent_dim']};
+    }}
 
-    def save_yaml_dialog_multicombos(self):
-        """
-        SNAPSHOT: Uses build_yaml_structure (old robust method) to save single state.
-        """
-        init = self.var_yaml_dir.get() or os.getcwd()
-        path = filedialog.asksaveasfilename(
-            title="Save Snapshot",
-            defaultextension=".yaml",
-            initialdir=init,
-            initialfile=(self.var_prefix.get() or "snapshot") + ".yaml"
-        )
-        if path:
-            try:
-                data = build_yaml_structure(self)
-                with open(path, 'w', encoding='utf-8') as f:
-                    yaml.dump(data, f, default_flow_style=False,
-                              sort_keys=False)
-                self.var_yaml_dir.set(os.path.dirname(path))
-                messagebox.showinfo("Success", f"Snapshot saved to:\n{path}")
-            except Exception as e:
-                messagebox.showerror("Error", f"Failed to save snapshot:\n{e}")
+    /* ============================================================
+       TABS (QTabWidget dentro das páginas)
+       ============================================================ */
+    QTabWidget::pane {{
+        border: 1px solid {t['border']};
+        border-radius: 8px;
+        background-color: {t['bg_card']};
+        top: -1px;
+    }}
+    QTabBar::tab {{
+        background: transparent;
+        color: {t['text_secondary']};
+        padding: 8px 16px;
+        margin-right: 4px;
+        border: 1px solid transparent;
+        border-top-left-radius: 7px;
+        border-top-right-radius: 7px;
+        font-size: 12px;
+    }}
+    QTabBar::tab:hover {{
+        color: {t['text_primary']};
+        background-color: {t['bg_hover']};
+    }}
+    QTabBar::tab:selected {{
+        color: {t['accent'] if is_dark else t['accent_deep']};
+        background-color: {t['bg_card']};
+        border: 1px solid {t['border']};
+        border-bottom: 1px solid {t['bg_card']};
+        font-weight: 600;
+    }}
 
-    def _deep_format(self, obj, combo):
-        """Helper for string formatting, kept for compatibility."""
-        if isinstance(obj, dict):
-            return {k: self._deep_format(v, combo) for k, v in obj.items()}
-        if isinstance(obj, list):
-            return [self._deep_format(v, combo) for v in obj]
-        if isinstance(obj, str):
-            try:
-                return obj.format(**combo)
-            except:
-                return obj
-        return obj
+    /* ============================================================
+       TABLES / TREES / LISTS
+       ============================================================ */
+    QTableWidget, QTableView {{
+        background-color: {t['bg_card']};
+        alternate-background-color: {t['bg_panel']};
+        border: 1px solid {t['border']};
+        border-radius: 8px;
+        color: {t['text_primary']};
+        gridline-color: {t['border_soft']};
+        selection-background-color: {t['accent_soft']};
+        selection-color: {t['accent'] if is_dark else t['accent_deep']};
+    }}
+    QHeaderView {{
+        background-color: transparent;
+        border: none;
+    }}
+    QHeaderView::section {{
+        background-color: {t['bg_panel']};
+        color: {t['text_secondary']};
+        padding: 7px 9px;
+        border: none;
+        border-right: 1px solid {t['border_soft']};
+        border-bottom: 1px solid {t['border']};
+        font-family: {FONT_MONO};
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 1px;
+    }}
+    QTableCornerButton::section {{
+        background-color: {t['bg_panel']};
+        border: none;
+        border-bottom: 1px solid {t['border']};
+        border-right: 1px solid {t['border_soft']};
+    }}
 
-    def _disable_strict_validation(self):
-        def _recursive_clean(widget):
-            try:
-                if isinstance(widget, (tk.Entry, ttk.Entry)):
-                    widget.configure(validate="none")
-            except Exception:
-                pass
-            for child in widget.winfo_children():
-                _recursive_clean(child)
+    QTreeView, QTreeWidget, QListView, QListWidget {{
+        background-color: {t['bg_card']};
+        alternate-background-color: {t['bg_panel']};
+        border: 1px solid {t['border']};
+        border-radius: 8px;
+        color: {t['text_primary']};
+        outline: none;
+    }}
+    QTreeView::item, QTreeWidget::item, QListView::item, QListWidget::item {{
+        padding: 4px 2px;
+        border-radius: 4px;
+    }}
+    QTreeView::item:hover, QTreeWidget::item:hover,
+    QListView::item:hover, QListWidget::item:hover {{
+        background-color: {t['bg_hover']};
+    }}
+    QTreeView::item:selected, QTreeWidget::item:selected,
+    QListView::item:selected, QListWidget::item:selected {{
+        background-color: {t['accent_soft']};
+        color: {t['accent'] if is_dark else t['accent_deep']};
+    }}
+    QTreeView::branch:has-children:!has-siblings:closed,
+    QTreeView::branch:closed:has-children:has-siblings {{
+        image: url({icons['branch_closed']});
+    }}
+    QTreeView::branch:open:has-children:!has-siblings,
+    QTreeView::branch:open:has-children:has-siblings {{
+        image: url({icons['branch_open']});
+    }}
 
-        _recursive_clean(self)
-        print(">> UI Ready: SHARC ready!")
+    /* ============================================================
+       SCROLLBARS
+       ============================================================ */
+    QScrollBar:vertical {{
+        background: transparent;
+        width: 10px;
+        margin: 2px;
+    }}
+    QScrollBar::handle:vertical {{
+        background: {t['scrollbar']};
+        min-height: 30px;
+        border-radius: 5px;
+    }}
+    QScrollBar::handle:vertical:hover {{ background: {t['scrollbar_hover']}; }}
+    QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{ height: 0px; }}
+    QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {{ background: none; }}
+
+    QScrollBar:horizontal {{
+        background: transparent;
+        height: 10px;
+        margin: 2px;
+    }}
+    QScrollBar::handle:horizontal {{
+        background: {t['scrollbar']};
+        min-width: 30px;
+        border-radius: 5px;
+    }}
+    QScrollBar::handle:horizontal:hover {{ background: {t['scrollbar_hover']}; }}
+    QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {{ width: 0px; }}
+    QScrollBar::add-page:horizontal, QScrollBar::sub-page:horizontal {{ background: none; }}
+
+    /* ============================================================
+       SLIDER / SPLITTER / MISC
+       ============================================================ */
+    QSlider::groove:horizontal {{
+        height: 4px;
+        background: {t['border']};
+        border-radius: 2px;
+    }}
+    QSlider::sub-page:horizontal {{
+        background: {t['accent_dim']};
+        border-radius: 2px;
+    }}
+    QSlider::handle:horizontal {{
+        background: {t['accent']};
+        width: 14px; height: 14px;
+        margin: -5px 0;
+        border-radius: 7px;
+        border: 2px solid {t['bg_panel']};
+    }}
+
+    QSplitter::handle {{
+        background-color: {t['border_soft']};
+    }}
+    QSplitter::handle:hover {{
+        background-color: {t['accent_dim']};
+    }}
+
+    QStatusBar {{
+        background-color: {t['bg_panel']};
+        color: {t['text_secondary']};
+        border-top: 1px solid {t['border_soft']};
+    }}
+
+    QMessageBox QLabel, QInputDialog QLabel {{
+        color: {t['text_primary']};
+        background: transparent;
+    }}
+
+    QLabel {{
+        background: transparent;
+    }}
+    QLabel:disabled {{
+        color: {t['text_faint']};
+    }}
+    """
+
+
+# Alias de compatibilidade (código externo pode importar o nome antigo)
+def get_sharc_qss(theme: str) -> str:
+    return build_stylesheet(theme)
 
 
 if __name__ == "__main__":
-    app = App()
-    app.mainloop()
+    # Renderização consistente entre plataformas: o estilo Fusion
+    # respeita 100% do QSS (nada de widgets nativos "vazando" no tema)
+    app = QApplication(sys.argv)
+    app.setStyle("Fusion")
+    app.setFont(QFont("Segoe UI", 10))
+
+    # Tema escuro por padrão — folha única, sem dependências externas
+    app.setStyleSheet(build_stylesheet("dark"))
+
+    window = App()
+    window.show()
+    sys.exit(app.exec())

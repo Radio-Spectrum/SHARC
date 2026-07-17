@@ -1,15 +1,9 @@
 """
 preview_catalog.py – Simulation-summary and supported-catalog helpers for the Preview Tab.
-
 Extracted from PreviewTab so they can be tested and reused independently.
-
-Public API:
-    update_sim_summary(self_obj, data)             -> str   (returns the text)
-    update_supported_catalog(self_obj, topo_type, sys_type)  -> None
 """
 
 from __future__ import annotations
-
 from typing import Any, Dict, Optional, Tuple
 
 from utils import (
@@ -24,17 +18,8 @@ from ui.tabs.assets.preview_tab.preview_detection import (
     detect_system_type,
 )
 
-
 def update_sim_summary(self_obj: Any, data: Dict[str, Any]) -> str:
-    """Build a human-readable summary of the current simulation configuration.
-
-    Args:
-        self_obj: The PreviewTab instance (for access to ``app`` and ``txt_summary``).
-        data:     The current YAML configuration dict (from :func:`get_current_yaml`).
-
-    Returns:
-        The summary text string (also written to ``self_obj.txt_summary`` when present).
-    """
+    """Build a human-readable summary of the current simulation configuration."""
     app = self_obj.app
 
     def v(paths: Tuple[str, ...], attr: Optional[str] = None, default: str = "—") -> str:
@@ -87,7 +72,6 @@ def update_sim_summary(self_obj: Any, data: Dict[str, Any]) -> str:
     lines.append(f"Snapshots: {snaps}")
     lines.append(f"Seed     : {seed}")
 
-    # Topology-specific info
     if topo == "INDOOR":
         lines.append("")
         lines.append("━━━ INDOOR ━━━")
@@ -107,32 +91,25 @@ def update_sim_summary(self_obj: Any, data: Dict[str, Any]) -> str:
         lines.append("━━━ MSS-DC TOPOLOGY ━━━")
         lines.append(f"Beam R   : {v(('imt.topology.mss_dc.beam_radius',), None)} m")
         lines.append(f"Beams    : {v(('imt.topology.mss_dc.num_beams',), None)}")
-        lines.append(
-            f"Countries: {list_v(('imt.topology.mss_dc.sat_is_active_if.lat_long_inside_country.country_names', 'imt.topology.mss_dc.beam_positioning.service_grid.country_names'))}"
-        )
+        lines.append(f"Countries: {list_v(('imt.topology.mss_dc.sat_is_active_if.lat_long_inside_country.country_names', 'imt.topology.mss_dc.beam_positioning.service_grid.country_names'))}")
     elif topo == "Macro_countries":
         lines.append("")
         lines.append("━━━ COUNTRIES ━━━")
         lines.append(f"Num BS   : {v(('imt.topology.macro_countries.num_bs',), 'topo_num_bs')}")
         lines.append(f"Cell R   : {v(('imt.topology.macro_countries.cell_radius',), 'topo_cell_radius')} m")
-        countries = v(("imt.topology.macro_countries.countries",), "topo_countries")
-        lines.append(f"Countries: {countries}")
+        lines.append(f"Countries: {v(('imt.topology.macro_countries.countries',), 'topo_countries')}")
 
     if sys_type == "SINGLE_EARTH_STATION":
         lines.append("")
         lines.append("━━━ EARTH STATION ━━━")
-        loc = v(("single_earth_station.geometry.location.type",), "se_loc_type")
-        lines.append(f"Location : {loc}")
+        lines.append(f"Location : {v(('single_earth_station.geometry.location.type',), 'se_loc_type')}")
         lines.append(f"ES Height: {v(('single_earth_station.geometry.height',), 'se_height')} m")
         lines.append(f"Freq     : {v(('single_earth_station.frequency',), 'se_frequency')} MHz")
     elif sys_type == "SINGLE_SPACE_STATION":
         lines.append("")
         lines.append("━━━ SPACE STATION ━━━")
         lines.append(f"Altitude : {v(('single_space_station.geometry.altitude',), 'v_alt')} m")
-        lines.append(
-            f"Lat/Lon  : {v(('single_space_station.geometry.location.fixed.lat_deg',), 'v_fix_lat')}"
-            f" / {v(('single_space_station.geometry.location.fixed.long_deg',), 'v_fix_lon')}"
-        )
+        lines.append(f"Lat/Lon  : {v(('single_space_station.geometry.location.fixed.lat_deg',), 'v_fix_lat')} / {v(('single_space_station.geometry.location.fixed.long_deg',), 'v_fix_lon')}")
         lines.append(f"Freq     : {v(('single_space_station.frequency',), 'v_freq')} MHz")
     elif sys_type == "HAPS":
         lines.append("")
@@ -163,26 +140,14 @@ def update_sim_summary(self_obj: Any, data: Dict[str, Any]) -> str:
 
     text = "\n".join(lines)
 
+    # Substituto direto PySide6 para .configure(state="normal") e delete/insert do Tkinter
     if hasattr(self_obj, "txt_summary"):
-        self_obj.txt_summary.configure(state="normal")
-        self_obj.txt_summary.delete("1.0", "end")
-        self_obj.txt_summary.insert("1.0", text)
-        self_obj.txt_summary.configure(state="disabled")
+        self_obj.txt_summary.setPlainText(text)
 
     return text
 
 
 def update_supported_catalog(self_obj: Any, topo_type: str, sys_type: str) -> None:
-    """Populate ``self_obj.txt_catalog`` with the supported topology / system types.
-
-    The currently-active *topo_type* and *sys_type* are highlighted with a
-    ``>`` prefix so the user can quickly see where they are in the catalog.
-
-    Args:
-        self_obj:  The PreviewTab instance (needs ``txt_catalog`` attribute).
-        topo_type: The currently-detected topology type string.
-        sys_type:  The currently-detected system type string.
-    """
     lines = ["Topologies"]
     for name in SUPPORTED_TOPOLOGY_TYPES:
         prefix = ">" if name == topo_type else " "
@@ -197,7 +162,4 @@ def update_supported_catalog(self_obj: Any, topo_type: str, sys_type: str) -> No
     text = "\n".join(lines)
 
     if hasattr(self_obj, "txt_catalog"):
-        self_obj.txt_catalog.configure(state="normal")
-        self_obj.txt_catalog.delete("1.0", "end")
-        self_obj.txt_catalog.insert("1.0", text)
-        self_obj.txt_catalog.configure(state="disabled")
+        self_obj.txt_catalog.setPlainText(text)

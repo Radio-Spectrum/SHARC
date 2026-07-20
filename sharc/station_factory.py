@@ -61,6 +61,7 @@ from sharc.topology.topology import Topology
 from sharc.topology.topology_ntn import TopologyNTN
 from sharc.topology.topology_macrocell import TopologyMacrocell
 from sharc.topology.topology_imt_mss_dc import TopologyImtMssDc
+from sharc.topology.topology_ue_countries import TopologyUECountries, ParametersUECountries
 from sharc.mask.spectral_mask_3gpp import SpectralMask3Gpp
 from sharc.mask.spectral_mask_mss import SpectralMaskMSS
 from sharc.support.sharc_geom import CoordinateSystem
@@ -117,6 +118,16 @@ class StationFactory(object):
                 elev=topology.elevation
             )
             imt_base_stations.is_space_station = True
+        elif param.topology.type == "MACRO_COUNTRIES":
+            imt_base_stations.geom.set_global_coords(
+                topology.x,
+                topology.y,
+                topology.z,
+                elev=-param_ant.downtilt * np.ones(num_bs)
+            )
+            imt_base_stations.latitude = topology.lats
+            imt_base_stations.longitude = topology.lons
+            imt_base_stations.height = param.bs.height * np.ones(num_bs)
         else:
             if topology.determines_local_geometry:
                 imt_base_stations.geom = topology.get_bs_geometry()
@@ -468,6 +479,27 @@ class StationFactory(object):
                 elev=ue_elevs,
             )
 
+        elif param.ue.distribution_type.upper() == "MACRO_COUNTRIES":
+            UE_params = ParametersUECountries()
+            UE_params.num_ue_per_bs = num_ue_per_bs
+            UE_params.sector_half_bw_deg = azimuth_range[0]   # half beamwidth for UE sector (e.g., 30 => 60° total)
+            UE_params.min_dist_from_bs = param.minimum_separation_distance_bs_ue    # optional guard radius near BS (meters)
+            UE_params.ue_height_m = param.ue.height
+            ue_topo = TopologyUECountries(topology, UE_params, random_number_gen=random_number_gen)
+            ue_topo.calculate_coordinates()
+            ue_x = ue_topo.x
+            ue_y = ue_topo.y
+            ue_z = ue_topo.z - param.ue.height
+
+            imt_ue.geom.set_global_coords(
+                np.array(ue_x),
+                np.array(ue_y),
+                np.array(ue_z) + param.ue.height,
+                azim=azimuth + ue_topo.azimuth,
+                elev=elevation + ue_topo.ue_elevation_deg
+            )
+            imt_ue.latitude = ue_topo.latitude
+            imt_ue.longitude = ue_topo.longitude
         else:
             sys.stderr.write(
                 "ERROR\nInvalid UE distribution type: " +
@@ -475,11 +507,14 @@ class StationFactory(object):
             )
             sys.exit(1)
 
-        imt_ue.geom.set_local_coords(
-            np.array(ue_x),
-            np.array(ue_y),
-            np.array(ue_z) + param.ue.height,
-        )
+        if param.ue.distribution_type.upper() != "MACRO_COUNTRIES":
+            imt_ue.geom.set_local_coords(
+                np.array(ue_x),
+                np.array(ue_y),
+                np.array(ue_z) + param.ue.height,
+            )
+
+        imt_ue.height = param.ue.height * np.ones(num_ue)
 
         imt_ue.active = np.zeros(num_ue, dtype=bool)
         imt_ue.indoor = random_number_gen.random_sample(

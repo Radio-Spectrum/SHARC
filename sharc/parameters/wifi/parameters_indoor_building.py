@@ -25,14 +25,14 @@ class ParametersIndoorBuilding(ParametersBase):
     # Number of cells per floor
     #num_cells: int = 3
     # Number of floors per building
-    num_floors: int = 1
+    num_floors: int = 10
     # Percentage of indoor UE's [0, 1]
     #sta_indoor_percent: int = .95
     # Building class: "TRADITIONAL" or "THERMALLY_EFFICIENT"
     building_class: str = "TRADITIONAL"
 
-    buildings_per_cell: int = 3
+    buildings_per_cell: int = 1
     min_dist_bs: float = 20.0
     min_dist_nodes_indoor: float = 2.0
 
-    num_aps: int = 30
+    num_aps: int = 100

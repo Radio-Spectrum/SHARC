@@ -194,7 +194,7 @@ imt:
                 #                           = 15, for M.2292
                 # default: element_max_g = 5, for M.2101
                 #                           = -3, for M.2292
-                element_max_g: -3
+                element_max_g: -4
                 ###########################################################################
                 # BS/UE horizontal 3dB beamwidth of single element [degrees]
                 element_phi_3db: 90

@@ -20,7 +20,7 @@ general:
     overwrite_output: TRUE
     ###########################################################################
     # output destination folder - this is relative SHARC/sharc directory
-    output_dir  : campaigns/huaweii_fspl_indoor/output/LF100
+    output_dir  : campaigns/huaweii_fspl_indoor/output/LF90
     ###########################################################################
     # output folder prefix
     output_dir_prefix  : output_IMT_WIFI

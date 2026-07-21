@@ -272,7 +272,7 @@ wifi:
             ###########################################################################
             # Inter-site distance in hotspot network topology [m]
             intersite_distance: 321
-            num_aps: 30
+            num_aps: 100
             min_dist_bs: 20.0
             min_dist_nodes_indoor: 2.0 
             buildings_per_cell: 3

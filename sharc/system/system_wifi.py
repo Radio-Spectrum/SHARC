@@ -22,7 +22,7 @@ class SystemWifi:
         self.parameters = param
         self.parameters_antenna = param_ant_ap
         self.topology = topology
-        self.topology.calculate_coordinates()
+        self.topology.calculate_coordinates(random_number_gen)
         self.num_aps = self.topology.num_base_stations
         self.num_sta = self.num_aps * self.parameters.sta.k * self.parameters.sta.k_m
 
@@ -219,7 +219,7 @@ class SystemWifi:
                     # calculate UE position in x-y coordinates
                     x = radius[idx] * np.cos(np.radians(theta))
                     y = radius[idx] * np.sin(np.radians(theta))
-                    z = np.zeros_like(x)
+                    z = sta_height[idx]
                     x, y, z = self.topology.transform_ue_xyz(
                         ap, x, y, z
                     )
@@ -242,7 +242,7 @@ class SystemWifi:
 
         wifi_sta.x = np.array(sta_x)
         wifi_sta.y = np.array(sta_y)
-        wifi_sta.z = np.full(self.num_sta, self.parameters.sta.height)  
+        wifi_sta.z = np.array(sta_z) 
         wifi_sta.height = wifi_sta.z
 
 
@@ -341,42 +341,25 @@ class SystemWifi:
     
     def connect_wifi_sta_to_ap(self, parameters: ParametersWifiSystem):
         """
-        Associa dinamicamente as STAs aos APs com base na menor distância efetiva.
-        Aplica penalidades espaciais caso a STA e o AP estejam em prédios ou andares diferentes.
+        Vincula estaticamente cada STA ao AP que a gerou (sem recálculo por
+        distância).
+
+        `generate_stas` já constrói cada STA herdando `building_id`/`floor`
+        diretamente do AP correspondente (via `np.repeat`), em blocos
+        contíguos de `num_sta_per_ap` STAs por AP: a STA de índice `i` já
+        "pertence" ao AP `i // num_sta_per_ap` desde a geração. Este método
+        apenas materializa esse agrupamento em `self.link`.
+
+        Não há recálculo de distância nem checagem de prédio/andar aqui: se um
+        dia o critério de geração das STAs mudar (por exemplo, permitir andar
+        diferente do AP), este método precisa mudar junto.
         """
-        # 1. Broadcasting para cálculo da Distância Euclidiana 3D
-        # As matrizes resultantes terão shape (num_aps, num_sta)
-        dx = self.ap.x[:, np.newaxis] - self.sta.x[np.newaxis, :]
-        dy = self.ap.y[:, np.newaxis] - self.sta.y[np.newaxis, :]
-        dz = self.ap.z[:, np.newaxis] - self.sta.z[np.newaxis, :]
-        
-        dist_3d = np.sqrt(dx**2 + dy**2 + dz**2)
-        
-        # 2. Inicializar matriz de penalidades físicas
-        penalty = np.zeros_like(dist_3d)
-        
-        # Se for um cenário INDOOR_BUILDING, aplica penalidades de estrutura
-        if self.parameters.topology.type == "INDOOR_BUILDING":
-            # Penalidade de Prédio Diferente (Simula perda de penetração de fachada)
-            b_ap = self.ap.building_id[:, np.newaxis]
-            b_sta = self.sta.building_id[np.newaxis, :]
-            penalty += np.where(b_ap == b_sta, 0.0, 1000.0) # Adiciona 1km de distância virtual
-            
-            # Penalidade de Andar Diferente (Simula Floor Penetration Loss - ITU-R P.1238)
-            f_ap = self.ap.floor[:, np.newaxis]
-            f_sta = self.sta.floor[np.newaxis, :]
-            penalty += np.abs(f_ap - f_sta) * 50.0 # Adiciona 50m de distância virtual por andar
-        
-        # 3. Distância Efetiva = FSL Proxy + Perdas Físicas Representadas em Metros
-        effective_dist = dist_3d + penalty
-        
-        # 4. Índice do AP de Menor Custo (Max RSSI) para cada STA
-        best_ap_indices = np.argmin(effective_dist, axis=0)
-        
-        # 5. Atualizar Estrutura de Link
-        self.link = {ap: [] for ap in range(self.num_aps)}
-        for sta_idx, ap_idx in enumerate(best_ap_indices):
-            self.link[ap_idx].append(sta_idx)
+        num_sta_per_ap = parameters.sta.k * parameters.sta.k_m
+        ap_active = np.where(self.ap.active)[0]
+        for ap in ap_active:
+            start = ap * num_sta_per_ap
+            end = start + num_sta_per_ap
+            self.link[ap] = list(range(start, end))
 
     def select_sta(self, random_number_gen: np.random.RandomState):
         """
@@ -433,6 +416,7 @@ class SystemWifi:
                     ) - 1
 
 
+
 if __name__ == "__main__":
     from sharc.parameters.wifi.parameters_indoor_building import ParametersIndoorBuilding
     from sharc.parameters.parameters import Parameters
@@ -458,12 +442,25 @@ if __name__ == "__main__":
 
     # 2. Passar a Topologia IMT para a Topologia Indoor
     wifi_topology = TopologyIndoorBuilding(t_param, imt_topology)
-    wifi_topology.calculate_coordinates()
 
-    rnd = np.random.RandomState(1)
+    rnd = np.random.RandomState()
     wifi = SystemWifi(wifi_param, wifi_ant_param, rnd, wifi_topology)
 
     wifi.connect_wifi_sta_to_ap(wifi_param)
+    mismatches = []
+    for ap_idx, sta_indices in wifi.link.items():
+        ap_floor = wifi.ap.floor[ap_idx]
+        ap_building = wifi.ap.building_id[ap_idx]
+        for sta_idx in sta_indices:
+            sta_floor = wifi.sta.floor[sta_idx]
+            sta_building = wifi.sta.building_id[sta_idx]
+            if sta_floor != ap_floor or sta_building != ap_building:
+                mismatches.append((ap_idx, sta_idx, ap_floor, sta_floor, ap_building, sta_building))
+
+    print(f"Total de links: {sum(len(v) for v in wifi.link.values())}")
+    print(f"Links com andar/prédio diferente: {len(mismatches)}")
+    for m in mismatches:
+        print(f"AP {m[0]} (andar {m[2]}, préd {m[4]}) -> STA {m[1]} (andar {m[3]}, préd {m[5]})")
     """
     Plota o cenário 3D mostrando os Prédios, a posição dos APs e das STAs.
     """
@@ -528,10 +525,10 @@ if __name__ == "__main__":
     all_y = np.concatenate((wifi.ap.y, wifi.sta.y))
     all_z = np.concatenate((wifi.ap.z, wifi.sta.z))
 
-    x_min = np.min(all_x) - 10 # Margem visual
-    x_max = np.max(all_x) + 10
-    y_min = np.min(all_y) - 10
-    y_max = np.max(all_y) + 10
+    x_min = np.min(all_x)
+    x_max = np.max(all_x)
+    y_min = np.min(all_y)
+    y_max = np.max(all_y)
     
     # Extraímos todas as alturas únicas onde há algum equipamento (AP ou STA)
     alturas_andares = np.unique(all_z)
@@ -543,7 +540,7 @@ if __name__ == "__main__":
                 color='blue', linestyle=':', alpha=0.3, linewidth=1.0)
 
     # Ajusta o ângulo de visão para uma boa perspetiva isométrica
-    ax.view_init(elev=25, azim=-45)
+    #ax.view_init(elev=25, azim=-45)
     
     plt.legend()
     plt.show()

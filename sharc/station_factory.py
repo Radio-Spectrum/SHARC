@@ -125,6 +125,7 @@ class StationFactory(object):
                 topology.z,
                 elev=-param_ant.downtilt * np.ones(num_bs)
             )
+            imt_base_stations.geom.set_geodetic_coords(topology.lats, topology.lons)
             imt_base_stations.latitude = topology.lats
             imt_base_stations.longitude = topology.lons
             imt_base_stations.height = param.bs.height * np.ones(num_bs)
@@ -498,6 +499,7 @@ class StationFactory(object):
                 azim=azimuth + ue_topo.azimuth,
                 elev=elevation + ue_topo.ue_elevation_deg
             )
+            imt_ue.geom.set_geodetic_coords(ue_topo.latitude, ue_topo.longitude)
             imt_ue.latitude = ue_topo.latitude
             imt_ue.longitude = ue_topo.longitude
         else:

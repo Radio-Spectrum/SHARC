@@ -28,7 +28,7 @@ def readonly_properties(*fields):
 @readonly_properties(
     "x_global", "y_global", "z_global",
     "pointn_azim_global", "pointn_elev_global",
-    "num_geometries"
+    "num_geometries", "latitude", "longitude",
 )
 class GlobalGeometry(ABC):
     """
@@ -44,6 +44,12 @@ class GlobalGeometry(ABC):
 
     intersite_dist: float
 
+    # Geodetic reference (degrees) of x/y/z_global when these are true ECEF
+    # coordinates (e.g. multi-country/global topologies). None means
+    # x/y/z_global are a flat, local Cartesian system.
+    latitude: np.ndarray
+    longitude: np.ndarray
+
     def setup(
         self,
         num_geometries,
@@ -58,6 +64,22 @@ class GlobalGeometry(ABC):
         self._pointn_elev_global = np.empty(num_geometries)
 
         self._num_geometries = num_geometries
+        self._latitude = None
+        self._longitude = None
+
+    def set_geodetic_coords(self, latitude=None, longitude=None):
+        """Set the geodetic latitude/longitude (degrees) backing x/y/z_global.
+
+        When set, x/y/z_global are assumed to be true ECEF coordinates and
+        `get_global_pointing_vector_to` will rotate line-of-sight vectors
+        into each station's local ENU frame before computing phi/theta.
+        If left unset (None), x/y/z_global are assumed to already be a flat,
+        local Cartesian system and no rotation is applied.
+        """
+        if latitude is not None:
+            self._latitude = latitude
+        if longitude is not None:
+            self._longitude = longitude
 
     def set_global_coords(
         self,
@@ -253,6 +275,35 @@ class GlobalGeometry(ABC):
             phi, theta (phi is calculated with respect to x counter-clockwise and
             theta is calculated with respect to z counter-clockwise).
         """
+        if self.latitude is not None:
+            # x/y/z_global are true ECEF: rotate the LOS vectors into each
+            # self-station's local ENU frame before measuring phi/theta,
+            # otherwise angles would be expressed in the ECEF frame instead
+            # of the station's local horizon.
+            dx = other.x_global[np.newaxis, :] - self.x_global[:, np.newaxis]
+            dy = other.y_global[np.newaxis, :] - self.y_global[:, np.newaxis]
+            dz = other.z_global[np.newaxis, :] - self.z_global[:, np.newaxis]
+            v_ecef = np.stack([dx, dy, dz], axis=-1)  # (N,M,3)
+            dist = np.linalg.norm(v_ecef, axis=-1)
+            dist_safe = np.where(dist == 0.0, 1.0, dist)
+
+            enu = ENUReferenceFrame(
+                lat=self.latitude,
+                lon=self.longitude,
+                alt=np.zeros_like(self.latitude),
+            )
+            R = enu.from_ecef.rot.as_matrix()  # (N,3,3) ECEF->ENU rotation
+
+            v_enu = np.einsum('nij,nmj->nmi', R, v_ecef)  # (N,M,3) = [E,N,U]
+            east = v_enu[..., 0]
+            north = v_enu[..., 1]
+            up = v_enu[..., 2]
+
+            phi = np.degrees(np.arctan2(north, east))
+            cos_theta = np.clip(up / dist_safe, -1.0, 1.0)
+            theta = np.degrees(np.arccos(cos_theta))
+
+            return phi, theta
 
         # malloc
         dx = (other.x_global - self.x_global[:, np.newaxis]).astype(np.float64)

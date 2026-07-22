@@ -20,7 +20,7 @@ class TestTopologyUECountries(unittest.TestCase):
         )
         cs = CoordinateSystem()
         cs.set_reference(-15.0, -47.0, 1000.0)
-        
+
         # Instantiate and mock the coordinates instead of loading a shapefile
         bs_topo = TopologyCountries(params_bs, cs)
         bs_topo.num_base_stations = 3
@@ -29,14 +29,14 @@ class TestTopologyUECountries(unittest.TestCase):
         bs_topo.lons = np.array([-47.0, -47.1, -46.9])
         bs_topo.height = np.array([18.0, 18.0, 18.0])
         bs_topo.azimuth = np.array([0.0, 120.0, -120.0])
-        
+
         # Calculate ECEF coordinates for BS
         from sharc.satellite.utils.sat_utils import lla2ecef
         x, y, z = lla2ecef(bs_topo.lats, bs_topo.lons, bs_topo.height)
         bs_topo.x = x
         bs_topo.y = y
         bs_topo.z = z
-        
+
         # Create UE topology parameters
         ue_params = ParametersUECountries(
             num_ue_per_bs=5,
@@ -44,10 +44,10 @@ class TestTopologyUECountries(unittest.TestCase):
             min_dist_from_bs=10.0,
             ue_height_m=1.5,
         )
-        
+
         ue_topo = TopologyUECountries(bs_topo, ue_params, np.random.RandomState(42))
         ue_topo.calculate_coordinates()
-        
+
         # Verify sizes
         self.assertEqual(ue_topo.num_base_stations, 15)
         self.assertEqual(len(ue_topo.x), 15)
@@ -55,7 +55,7 @@ class TestTopologyUECountries(unittest.TestCase):
         self.assertEqual(len(ue_topo.z), 15)
         self.assertEqual(len(ue_topo.latitude), 15)
         self.assertEqual(len(ue_topo.longitude), 15)
-        
+
         # Verify distance from BS is within [min_dist_from_bs, cell_radius]
         for i in range(3):
             bs_x, bs_y, bs_z = bs_topo.x[i], bs_topo.y[i], bs_topo.z[i]

@@ -13,6 +13,7 @@ from sharc.support.sharc_geom import CoordinateSystem
 WGS84_A = 6378137.0
 WGS84_F = 1.0 / 298.257223563
 
+
 @dataclass
 class ParametersUECountries:
     """UE placement parameters (per BS)."""
@@ -77,11 +78,10 @@ class TopologyUECountries(Topology):
         latitude = np.empty(total_ue, dtype=float)
         longitude = np.empty(total_ue, dtype=float)
         height = np.empty(total_ue, dtype=float)
-        elev = np.empty(total_ue, dtype=float)
 
         half_bw = float(self.params.sector_half_bw_deg)
         h_mu = float(self.params.ue_height_m)
-        idx = 0;
+        idx = 0
         for i in range(nb):
             # Radius ~ uniform in area within [R_guard, R]
             u = self.rng.rand(ue_per_bs)
@@ -90,14 +90,14 @@ class TopologyUECountries(Topology):
             # Angle around BS azimuth
             center = float(self.bs_topology.azimuth[i])
             theta = np.deg2rad(center + self.rng.uniform(half_bw, -half_bw, size=ue_per_bs))
-            
+
             cs = CoordinateSystem()
             cs.set_reference(self.bs_topology.lats[i], self.bs_topology.lons[i], 0.0)
 
             # Local offsets (meters)
             x_local = r * np.cos(theta)
             y_local = r * np.sin(theta)
-            
+
             # Convert BS ECEF to ENU
             v_enu = cs.ecef2enu(self.bs_topology.x[i], self.bs_topology.y[i], self.bs_topology.z[i])
 
@@ -160,42 +160,43 @@ class TopologyUECountries(Topology):
     @staticmethod
     def ecef_to_lla(X, Y, Z, a=WGS84_A, f=WGS84_F):
         import numpy as _np
-        e2  = f * (2.0 - f)
-        b   = a * (1.0 - f)
-        ep2 = (a*a - b*b) / (b*b)
+        e2 = f * (2.0 - f)
+        b = a * (1.0 - f)
+        ep2 = (a * a - b * b) / (b * b)
 
         X = _np.asarray(X, dtype=float)
         Y = _np.asarray(Y, dtype=float)
         Z = _np.asarray(Z, dtype=float)
 
         lon = _np.arctan2(Y, X)
-        p   = _np.hypot(X, Y)
+        p = _np.hypot(X, Y)
         lat = _np.zeros_like(Z)
-        h   = _np.zeros_like(Z)
+        h = _np.zeros_like(Z)
 
         mask = (p > 0)
         if _np.any(mask):
-            Xg, Yg, Zg = X[mask], Y[mask], Z[mask]
+            Zg = Z[mask]
             pg = p[mask]
             theta = _np.arctan2(a * Zg, b * pg)
             st, ct = _np.sin(theta), _np.cos(theta)
             lat_g = _np.arctan2(Zg + ep2 * b * st**3, pg - e2 * a * ct**3)
             sl = _np.sin(lat_g)
-            N  = a / _np.sqrt(1.0 - e2 * sl * sl)
+            N = a / _np.sqrt(1.0 - e2 * sl * sl)
             h_g = pg / _np.cos(lat_g) - N
             lat[mask] = lat_g
-            h[mask]   = h_g
+            h[mask] = h_g
 
         pole = ~mask
         if _np.any(pole):
             Zp = Z[pole]
             lat[pole] = _np.sign(Zp) * (_np.pi / 2.0)
-            h[pole]   = _np.abs(Zp) - b
+            h[pole] = _np.abs(Zp) - b
 
         lat_deg = _np.degrees(lat)
         lon_deg = _np.degrees(lon)
         lon_deg = (lon_deg + 180.0) % 360.0 - 180.0
         return lat_deg, lon_deg, h
+
 
 # ----------------------- Example usage -----------------------
 # ----------------------- MAIN -----------------------
@@ -395,7 +396,7 @@ if __name__ == "__main__":
     ax_bar.set_title("BS per country")
     if total_bs > 0:
         for y, (name, v) in enumerate(zip(countries_sorted, values_sorted)):
-            ax_bar.text(v, y, f" {v:,}  ({v/total_bs:.1%})", va="center", ha="left", fontsize=9)
+            ax_bar.text(v, y, f" {v:,}  ({v / total_bs:.1%})", va="center", ha="left", fontsize=9)
     ax_bar.margins(x=0.10)
     for label in ax_bar.get_yticklabels():
         label.set_fontsize(9)

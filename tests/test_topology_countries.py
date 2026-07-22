@@ -256,6 +256,8 @@ class TestTransformUeXyz(unittest.TestCase):
         self.assertEqual(x, 1010.0)
         self.assertEqual(y, 2020.0)
         self.assertEqual(z, 3030.0)
+
+
 class TestResolveAsset(unittest.TestCase):
     """Tests for TopologyCountries._resolve_asset."""
 
@@ -279,7 +281,7 @@ class TestResolveAsset(unittest.TestCase):
         from pathlib import Path
         import sharc
         from unittest.mock import patch
-        
+
         rel_path = "sharc/topology/map/ne_110m_admin_0_countries.shp"
         with patch.object(sharc, "__file__", None):
             result = TopologyCountries._resolve_asset(rel_path)

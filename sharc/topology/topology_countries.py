@@ -33,8 +33,8 @@ from sharc.parameters.imt.parameters_countries_imt import ParametersCountries
 from sharc.support.sharc_geom import CoordinateSystem
 import sharc
 
-_WGS84_A  = 6378137.0                 # semi-major axis [m]
-_WGS84_F  = 1.0 / 298.257223563
+_WGS84_A = 6378137.0                  # semi-major axis [m]
+_WGS84_F = 1.0 / 298.257223563
 _WGS84_E2 = _WGS84_F * (2.0 - _WGS84_F)
 
 # ----------------------- Topology -----------------------
@@ -72,10 +72,8 @@ class TopologyCountries(Topology):
         self.azimuth = np.empty(0, dtype=float)
         self.num_base_stations: int = 0
 
-
-
     def calculate_coordinates(self,
-                            random_number_gen: np.random.RandomState | None = None) -> "TopologyCountries":
+                               random_number_gen: np.random.RandomState | None = None) -> "TopologyCountries":
         # Load country polygons (WGS84)
         params = self.params
         self.cell_radius = params.cell_radius
@@ -235,13 +233,14 @@ class TopologyCountries(Topology):
         self.elevation = np.zeros(self.num_base_stations)
 
         return self
+
     # ---------- helpers ----------
     @staticmethod
     def _lla_to_ecef(lat_deg, lon_deg, height):
         """Vectorized geodetic (deg,deg,m) -> ECEF XYZ (m) on WGS-84."""
         lat = np.radians(np.asarray(lat_deg, dtype=float))
         lon = np.radians(np.asarray(lon_deg, dtype=float))
-        h   = np.asarray(height, dtype=float)
+        h = np.asarray(height, dtype=float)
 
         sl, cl = np.sin(lat), np.cos(lat)
         sb, cb = np.sin(lon), np.cos(lon)
@@ -317,7 +316,7 @@ class TopologyCountries(Topology):
         try:
             with open(act_path, "rb") as f:
                 buf = f.read()
-            pal = np.frombuffer(buf[:256*3], dtype=np.uint8).reshape(256, 3)
+            pal = np.frombuffer(buf[:256 * 3], dtype=np.uint8).reshape(256, 3)
             whiteish = np.where((pal >= (255 - tol)).all(axis=1))[0]
             nd = set(index_nodata)
             nd.update(int(i) for i in whiteish.tolist())
@@ -461,7 +460,6 @@ class TopologyCountries(Topology):
         pop_sums: Dict[str, float] = {}
 
         with rasterio.open(raster_path) as src:
-            band_dtype = src.dtypes[0] if hasattr(src, "dtypes") else None
             for name, poly in country_polys.items():
                 try:
                     # filled=False -> outside polygon is mask=True (not 0)
@@ -672,7 +670,7 @@ class TopologyCountries(Topology):
         # if it has "/sharc/", get the suffix from the LAST occurrence
         j = low.rfind("/sharc/")
         if j != -1:
-            s = s[j+1:]  # "sharc/..."
+            s = s[j + 1:]  # "sharc/..."
 
         path = Path(s)
 
@@ -689,6 +687,8 @@ class TopologyCountries(Topology):
             path = sharc_root / path
 
         return path
+
+
 # For convenience if someone imports TopologyCountry by mistake
 TopologyCountry = TopologyCountries
 
@@ -732,10 +732,10 @@ if __name__ == "__main__":
     countries_americas = [
         # South America
         "Brazil",
-        #"Uruguay","Argentina", "Paraguay", "Chile", "Peru","Bolivia", "Ecuador",
-        #"Colombia", "Venezuela", "Suriname", "Guyana"
+        # "Uruguay","Argentina", "Paraguay", "Chile", "Peru","Bolivia", "Ecuador",
+        # "Colombia", "Venezuela", "Suriname", "Guyana"
     ]
-    #countries_americas = [
+    # countries_americas = [
     #    # Europe
     #    "Albania", "Austria", "Belgium", "Bosnia and Herzegovina",
     #    "Bulgaria", "Croatia", "Cyprus", "Czechia", "Denmark", "Estonia",
@@ -769,8 +769,6 @@ if __name__ == "__main__":
     #    "Uzbekistan",
     # ]
 
-
-
     # NEW: pick a distribution band (choose ONE of the two options below)
     # Option A: use named band
 
@@ -779,7 +777,6 @@ if __name__ == "__main__":
     # dist_density_max = 10000.0
 
     # ============ Build topology ============
-
 
     params = ParametersCountries(
         country_names=countries_americas,
@@ -801,7 +798,7 @@ if __name__ == "__main__":
     coord_sys.set_reference(-15.793889, -47.882778, 0.0)
     rng = np.random.RandomState(rng_seed)
     topo = TopologyCountries(params, coord_sys, random_number_gen=rng).calculate_coordinates(random_number_gen=rng)
-    
+
     # ============ Figure: Map (left) + BS-per-country (right) ============
     fig = plt.figure(figsize=(14, 9))
     gs = fig.add_gridspec(1, 2, width_ratios=[2.2, 1.0], wspace=0.22)
@@ -912,7 +909,7 @@ if __name__ == "__main__":
     # Annotate counts and percentages
     if total_bs > 0:
         for y, (name, v) in enumerate(zip(countries_sorted, values_sorted)):
-            ax_bar.text(v, y, f" {v:,}  ({v/total_bs:.1%})", va="center", ha="left", fontsize=9)
+            ax_bar.text(v, y, f" {v:,}  ({v / total_bs:.1%})", va="center", ha="left", fontsize=9)
 
     ax_bar.margins(x=0.10)
     for label in ax_bar.get_yticklabels():

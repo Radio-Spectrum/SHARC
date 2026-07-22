@@ -6,6 +6,7 @@ from sharc.parameters.parameters_base import ParametersBase
 from pathlib import Path
 import os
 
+
 @dataclass
 class ParametersCountries(ParametersBase):
     """
@@ -27,7 +28,7 @@ class ParametersCountries(ParametersBase):
     """
     country_names: List[str] = field(
         default_factory=lambda: ["Brazil", "Argentina"]
-    )   
+    )
     num_bs_total: int = 1000
     cell_radius: float = 400
     fixed_azimuth: Optional[float] = None
@@ -73,7 +74,7 @@ class ParametersCountries(ParametersBase):
     def validate(self, ctx: str = "") -> None:
         """Validates the fields and raises ValueError if anything is inconsistent."""
         prefix = f"{ctx}: " if ctx else ""
-        
+
         if not isinstance(self.country_names, list) or len(self.country_names) == 0:
             raise ValueError(f"{prefix}country_names must be a non-empty list of country names.")
 
@@ -85,11 +86,11 @@ class ParametersCountries(ParametersBase):
         if self.bs_per_country is not None:
             if not isinstance(self.bs_per_country, dict) or len(self.bs_per_country) == 0:
                 raise ValueError(f"{prefix}bs_per_country, if defined, must be a dict mapping country->integer >=0.")
-            
+
             unknown = [k for k in self.bs_per_country.keys() if k not in self.country_names]
             if unknown:
                 raise ValueError(f"{prefix}bs_per_country contains countries not listed in country_names: {unknown}")
-            
+
             bad = {k: v for k, v in self.bs_per_country.items() if (not isinstance(v, int)) or v < 0}
             if bad:
                 raise ValueError(f"{prefix}bs_per_country values must be integers >=0: {bad}")

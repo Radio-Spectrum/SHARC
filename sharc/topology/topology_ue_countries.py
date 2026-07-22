@@ -54,6 +54,7 @@ class TopologyUECountries(Topology):
         self.longitude = None          # flag placeholder
 
     def calculate_coordinates(self):
+        """Sample and store UE positions around the BS topology."""
         # Ensure BS topology exists
         if getattr(self.bs_topology, "num_base_stations", 0) <= 0 or \
            getattr(self.bs_topology, "x", None) is None:
@@ -159,6 +160,7 @@ class TopologyUECountries(Topology):
 
     @staticmethod
     def ecef_to_lla(X, Y, Z, a=WGS84_A, f=WGS84_F):
+        """Convert ECEF coordinates to geodetic latitude/longitude/altitude."""
         import numpy as _np
         e2 = f * (2.0 - f)
         b = a * (1.0 - f)

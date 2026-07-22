@@ -180,6 +180,7 @@ class TestRandomPointsInPolygon(unittest.TestCase):
     """Tests for TopologyCountries._random_points_in_polygon."""
 
     def setUp(self):
+        """Create a TopologyCountries instance for Brazil."""
         params = ParametersCountries(country_names=["Brazil"])
         cs = CoordinateSystem()
         cs.set_reference(0, 0, 0)
@@ -262,15 +263,18 @@ class TestResolveAsset(unittest.TestCase):
     """Tests for TopologyCountries._resolve_asset."""
 
     def test_absolute_path(self):
+        """An absolute path should be returned unchanged."""
         from pathlib import Path
         p = Path("/tmp/test_file.shp")
         result = TopologyCountries._resolve_asset(p)
         self.assertEqual(result, p)
 
     def test_none_path(self):
+        """A None path should resolve to None."""
         self.assertIsNone(TopologyCountries._resolve_asset(None))
 
     def test_relative_path(self):
+        """A relative path should resolve to an existing absolute path."""
         from pathlib import Path
         rel_path = "sharc/topology/map/ne_110m_admin_0_countries.shp"
         result = TopologyCountries._resolve_asset(rel_path)
@@ -278,6 +282,7 @@ class TestResolveAsset(unittest.TestCase):
         self.assertTrue(result.exists())
 
     def test_relative_path_sharc_file_none(self):
+        """A relative path should still resolve when sharc.__file__ is None."""
         from pathlib import Path
         import sharc
         from unittest.mock import patch

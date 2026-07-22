@@ -74,6 +74,7 @@ class TopologyCountries(Topology):
 
     def calculate_coordinates(self,
                                random_number_gen: np.random.RandomState | None = None) -> "TopologyCountries":
+        """Sample and store BS positions across the configured countries."""
         # Load country polygons (WGS84)
         params = self.params
         self.cell_radius = params.cell_radius
@@ -652,6 +653,7 @@ class TopologyCountries(Topology):
 
     # API used by StationFactory.generate_imt_ue_outdoor
     def transform_ue_xyz(self, bs_idx: int, x_local, y_local, z_local):
+        """Convert UE-local coordinates to simulation coordinates for a BS."""
         return (self.x[bs_idx] + x_local,
                 self.y[bs_idx] + y_local,
                 self.z[bs_idx] + z_local)

@@ -61,9 +61,14 @@ from sharc.topology.topology import Topology
 from sharc.topology.topology_ntn import TopologyNTN
 from sharc.topology.topology_macrocell import TopologyMacrocell
 from sharc.topology.topology_imt_mss_dc import TopologyImtMssDc
+from sharc.topology.topology_UE_countries import (
+    ParametersUECountries, TopologyUECountries,
+)
 from sharc.mask.spectral_mask_3gpp import SpectralMask3Gpp
+from sharc.mask.spectral_mask_imt2030 import SpectralMaskImt2030
 from sharc.mask.spectral_mask_mss import SpectralMaskMSS
 from sharc.support.sharc_geom import CoordinateSystem
+from sharc.support.sharc_geom_countries import lla_to_local_enu
 from sharc.support.sharc_utils import wrap2_180
 
 
@@ -117,6 +122,26 @@ class StationFactory(object):
                 elev=topology.elevation
             )
             imt_base_stations.is_space_station = True
+        elif param.topology.type == "Macro_countries":
+            # Database-driven topology: the topology already provides the
+            # base station positions in the local ENU plane (x, y in meters
+            # relative to the reference point, z as the antenna height).
+            if topology.determines_local_geometry:
+                imt_base_stations.geom = topology.get_bs_geometry()
+
+            if param.database.from_db_antenna_params:
+                db_imt_antenna_params = param.database.db_imt_antenna_params
+                elevation = -np.array(
+                    [p.downtilt for p in db_imt_antenna_params])
+            else:
+                elevation = -param_ant.downtilt * np.ones(num_bs)
+
+            imt_base_stations.geom.set_local_coords(
+                topology.x,
+                topology.y,
+                topology.z,
+                elev=elevation,
+            )
         else:
             if topology.determines_local_geometry:
                 imt_base_stations.geom = topology.get_bs_geometry()
@@ -137,7 +162,24 @@ class StationFactory(object):
         imt_base_stations.active = random_number_gen.rand(
             num_bs,
         ) < param.bs.load_probability
-        imt_base_stations.tx_power = param.bs.conducted_power * np.ones(num_bs)
+        if param.database.database_loaded:
+            # Database-driven topologies carry a per-base-station transmit
+            # power (the power control step in the downlink simulation reads
+            # this per-BS array).
+            if param.database.from_db_antenna_params:
+                db_imt_antenna_params = param.database.db_imt_antenna_params
+                total_power = np.array(
+                    [p.tx_power for p in db_imt_antenna_params])
+                imt_base_stations.tx_power = \
+                    total_power - 10 * math.log10(param.ue.k)
+            else:
+                bs_power_gain = 10 * math.log10(
+                    param_ant.n_rows * param_ant.n_columns)
+                imt_base_stations.tx_power = \
+                    param.bs.conducted_power * np.ones(num_bs) + \
+                    bs_power_gain - 10 * math.log10(param.ue.k)
+        else:
+            imt_base_stations.tx_power = param.bs.conducted_power * np.ones(num_bs)
         imt_base_stations.rx_power = dict(
             [(bs, -500 * np.ones(param.ue.k)) for bs in range(num_bs)],
         )
@@ -170,12 +212,21 @@ class StationFactory(object):
 
         # TODO: transform BS to local coord system before creating antenna
 
-        imt_base_stations.antenna = AntennaFactory.create_n_antennas(
-            param.bs.antenna,
-            imt_base_stations.geom.pointn_azim_global,
-            imt_base_stations.geom.pointn_elev_global,
-            num_bs
-        )
+        if param.database.database_loaded and param.database.from_db_antenna_params:
+            imt_base_stations.antenna = AntennaFactory.create_n_antennas_from_db(
+                param.bs.antenna,
+                param.database.db_imt_antenna_params,
+                imt_base_stations.geom.pointn_azim_global,
+                imt_base_stations.geom.pointn_elev_global,
+                num_bs
+            )
+        else:
+            imt_base_stations.antenna = AntennaFactory.create_n_antennas(
+                param.bs.antenna,
+                imt_base_stations.geom.pointn_azim_global,
+                imt_base_stations.geom.pointn_elev_global,
+                num_bs
+            )
 
         # imt_base_stations.antenna = [AntennaOmni(0) for bs in range(num_bs)]
         imt_base_stations.bandwidth = param.bandwidth * np.ones(num_bs)
@@ -198,6 +249,15 @@ class StationFactory(object):
                 param.frequency,
                 param.bandwidth,
                 param.spurious_emissions,
+            )
+        elif param.spectral_mask == "IMT-2030":
+            imt_base_stations.spectral_mask = SpectralMaskImt2030(
+                StationType.IMT_BS,
+                param.frequency,
+                param.bandwidth,
+                param.spurious_emissions,
+                param.category,
+                scenario=param.topology.type,
             )
         elif param.spectral_mask == "MSS":
             imt_base_stations.spectral_mask = SpectralMaskMSS(
@@ -253,6 +313,7 @@ class StationFactory(object):
         param: ParametersRas,
         random_number_gen: np.random.RandomState,
         topology: Topology,
+        coordinate_system: CoordinateSystem = None,
     ) -> StationManager:
         """Generate a Radio Astronomy Station (RAS) as a single earth station.
 
@@ -264,6 +325,8 @@ class StationFactory(object):
             Random number generator instance.
         topology : Topology
             Topology object containing station positions.
+        coordinate_system : CoordinateSystem, optional
+            Reference used when the station location type is FIXED_GEO.
 
         Returns
         -------
@@ -272,7 +335,7 @@ class StationFactory(object):
         """
         return StationFactory.generate_single_earth_station(
             param, random_number_gen,
-            StationType.RAS, topology
+            StationType.RAS, topology, coordinate_system
         )
 
     @staticmethod
@@ -468,6 +531,31 @@ class StationFactory(object):
                 elev=ue_elevs,
             )
 
+        elif param.ue.distribution_type.upper() == "MACRO_COUNTRIES":
+            # UEs are placed inside the sector of each geo-referenced BS, on
+            # the same local plane TopologyCountries resolves the BSs into
+            ue_params = ParametersUECountries()
+            ue_params.num_ue_per_bs = num_ue_per_bs
+            # half beamwidth of the UE sector (e.g. 60 => 120 deg total)
+            ue_params.sector_half_bw_deg = np.max(np.abs(azimuth_range))
+            ue_params.min_dist_from_bs = param.minimum_separation_distance_bs_ue
+            ue_params.ue_height_m = param.ue.height
+            ue_topo = TopologyUECountries(
+                topology, ue_params, random_number_gen,
+            ).calculate_coordinates()
+
+            ue_x = ue_topo.x
+            ue_y = ue_topo.y
+            # the UE height is added back for every distribution type below
+            ue_z = np.zeros_like(ue_topo.x)
+
+            imt_ue.geom.set_local_coords(
+                # ue_topo.azimuth is the bearing from the BS to the UE, so the
+                # UE points back at the station serving it
+                azim=(azimuth + ue_topo.azimuth + 180) % 360,
+                elev=elevation + ue_topo.ue_elevation_deg,
+            )
+
         else:
             sys.stderr.write(
                 "ERROR\nInvalid UE distribution type: " +
@@ -519,6 +607,15 @@ class StationFactory(object):
                 param.frequency,
                 param.bandwidth,
                 param.spurious_emissions,
+            )
+        elif param.spectral_mask == "IMT-2030":
+            imt_ue.spectral_mask = SpectralMaskImt2030(
+                StationType.IMT_UE,
+                param.frequency,
+                param.bandwidth,
+                param.spurious_emissions,
+                param.category,
+                scenario=param.topology.type,
             )
         else:
             raise ValueError(f"Invalid spectral mask {param.spectral_mask}")
@@ -703,6 +800,15 @@ class StationFactory(object):
                 param.bandwidth,
                 param.spurious_emissions,
             )
+        elif param.spectral_mask == "IMT-2030":
+            imt_ue.spectral_mask = SpectralMaskImt2030(
+                StationType.IMT_UE,
+                param.frequency,
+                param.bandwidth,
+                param.spurious_emissions,
+                param.category,
+                scenario=param.topology.type,
+            )
 
         imt_ue.spectral_mask.set_mask()
 
@@ -751,13 +857,15 @@ class StationFactory(object):
                 parameters.single_earth_station,
                 random_number_gen,
                 StationType.SINGLE_EARTH_STATION,
-                topology)
+                topology,
+                coordinate_system)
         elif parameters.general.system == "SINGLE_SPACE_STATION":
             return StationFactory.generate_single_space_station(
                 parameters.single_space_station)
         elif parameters.general.system == "RAS":
             return StationFactory.generate_ras_station(
-                parameters.ras, random_number_gen, topology)
+                parameters.ras, random_number_gen, topology,
+                coordinate_system)
         elif parameters.general.system == "FSS_SS":
             return StationFactory.generate_fss_space_station(parameters.fss_ss)
         elif parameters.general.system == "FS":
@@ -831,6 +939,10 @@ class StationFactory(object):
                 np.arctan2(py - space_station.geom.y_global, px - space_station.geom.x_global))
         elif param.geometry.azimuth.type == "FIXED":
             azim = param.geometry.azimuth.fixed
+        elif param.geometry.azimuth.type == "RANDOM_RANGE":
+            lo = param.geometry.azimuth.min
+            hi = param.geometry.azimuth.max
+            azim = lo + (hi - lo) * np.random.rand()
         else:
             raise ValueError(
                 f"Did not recognize azimuth type of {
@@ -863,6 +975,10 @@ class StationFactory(object):
             elev = gnd_elev
         elif param.geometry.elevation.type == "FIXED":
             elev = param.geometry.elevation.fixed
+        elif param.geometry.elevation.type == "RANDOM_RANGE":
+            lo = param.geometry.elevation.min
+            hi = param.geometry.elevation.max
+            elev = lo + (hi - lo) * np.random.rand()
         else:
             raise ValueError(
                 f"Did not recognize elevation type of {
@@ -1127,6 +1243,7 @@ class StationFactory(object):
         random_number_gen: np.random.RandomState,
         station_type=StationType.SINGLE_EARTH_STATION,
         topology=None,
+        coordinate_system: CoordinateSystem = None,
     ):
         """Generate a single earth station with the given parameters.
 
@@ -1140,6 +1257,9 @@ class StationFactory(object):
             Type of the station (default is SINGLE_EARTH_STATION).
         topology : Topology, optional
             Topology object containing station positions.
+        coordinate_system : CoordinateSystem, optional
+            Reference used to place the station when its location type is
+            FIXED_GEO. Required only for that location type.
 
         Returns
         -------
@@ -1157,6 +1277,31 @@ class StationFactory(object):
                 y = np.array(
                     [param.geometry.location.fixed.y],
                 )
+            case "FIXED_GEO":
+                # The station is given in geodetic coordinates, so it is placed
+                # on the same local plane the geo-referenced topologies use:
+                # East/North offsets from the simulation reference point.
+                if coordinate_system is None or coordinate_system.ref_lat is None:
+                    raise ValueError(
+                        "Single-ES location type FIXED_GEO requires a coordinate system"
+                        " reference. Set imt.topology.central_latitude,"
+                        " central_longitude and central_altitude."
+                    )
+                fixed_geo = param.geometry.location.fixed_geo
+                # height above the ellipsoid: terrain altitude, when known,
+                # plus the antenna height above ground
+                ellipsoid_height = param.geometry.height
+                if fixed_geo.altitude is not None:
+                    ellipsoid_height += fixed_geo.altitude
+                east, north, _ = lla_to_local_enu(
+                    fixed_geo.latitude,
+                    fixed_geo.longitude,
+                    ellipsoid_height,
+                    coordinate_system.ref_lat,
+                    coordinate_system.ref_long,
+                )
+                x = np.array([east])
+                y = np.array([north])
             case "CELL":
                 x, y, _, _ = StationFactory.get_random_position(
                     1, topology, random_number_gen,

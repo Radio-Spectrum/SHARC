@@ -15,7 +15,11 @@ from sharc.antenna.antenna_s1855 import AntennaS1855
 from sharc.antenna.antenna_f1245_fs import Antenna_f1245_fs
 from sharc.antenna.antenna_s1528 import AntennaS1528, AntennaS1528Leo, AntennaS1528Taylor
 from sharc.antenna.antenna_beamforming_imt import AntennaBeamformingImt
+from sharc.antenna.antenna_ra_m2319 import AntennaRA_M2319
+from sharc.parameters.database.parameters_database_imt_antenna import AntennaParamsFromFile
 
+from dataclasses import replace
+from typing import List
 import numpy as np
 
 
@@ -52,6 +56,8 @@ class AntennaFactory():
                 return AntennaS1855(antenna_params.itu_r_s_1855)
             case "ITU-R F.1245_fs":
                 return Antenna_f1245_fs(antenna_params.itu_r_f_1245_fs)
+            case "RA_M2319":
+                return AntennaRA_M2319(antenna_params.itu_ra_m2319)
             case "ITU-R Reg. RR. Appendice 7 Annex 3":
                 return AntennaReg_RR_A7_3(antenna_params.itu_reg_rr_a7_3)
             case "MSS Adjacent":
@@ -97,5 +103,45 @@ class AntennaFactory():
             antennas[:] = AntennaFactory.create_antenna(
                 antenna_params, None, None,
             )
+
+        return antennas
+
+    @staticmethod
+    def create_n_antennas_from_db(
+        ref_antenna_params: ParametersAntenna,
+        db_antenna_params: List[AntennaParamsFromFile],
+        azimuth: np.ndarray | float,
+        elevation: np.ndarray | float,
+        n_stations: int,
+    ):
+        """
+        Creates many antennas based on the parameters read from the database
+        table. Used only when database.from_db_antenna_params is True.
+
+        NOTE: this path was ported from the database feature branch and has not
+        been numerically validated against feat/dataset's antenna parameter
+        structure; validate before relying on from_db_antenna_params.
+        """
+        antennas = np.empty((n_stations,), dtype=Antenna)
+        assert n_stations == len(azimuth)
+        assert n_stations == len(elevation)
+        assert n_stations == len(db_antenna_params)
+
+        for i in range(n_stations):
+            ant_params_io = ref_antenna_params.array.get_antenna_parameters()
+            ant_params_in_subarray = replace(
+                ant_params_io.subarray,
+                n_rows=db_antenna_params[i].sub_num_rows,
+            )
+            ant_params_in = replace(
+                ant_params_io,
+                element_max_g=db_antenna_params[i].element_max_g,
+                n_rows=db_antenna_params[i].n_rows,
+                n_columns=db_antenna_params[i].n_columns,
+                downtilt=db_antenna_params[i].downtilt,
+                subarray=ant_params_in_subarray,
+            )
+            antennas[i] = AntennaBeamformingImt(
+                ant_params_in, azimuth[i], elevation[i])
 
         return antennas

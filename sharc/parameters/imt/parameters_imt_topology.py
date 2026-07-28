@@ -9,6 +9,7 @@ from sharc.parameters.imt.parameters_ntn import ParametersNTN
 from sharc.parameters.imt.parameters_imt_mss_dc import ParametersImtMssDc
 from sharc.parameters.imt.parameters_single_bs import ParametersSingleBS
 from sharc.parameters.imt.parameters_spherical_sampling_from_grid import ParametersSamplingFromSphericalGrid
+from sharc.parameters.imt.parameters_Countries_imt import ParametersCountries
 
 
 @dataclass
@@ -20,7 +21,7 @@ class ParametersImtTopology(ParametersBase):
 
     type: typing.Literal[
         "MACROCELL", "HOTSPOT", "INDOOR", "SINGLE_BS", "NTN", "MSS_DC",
-        "SAMPLING_FROM_SPHERICAL_GRID"
+        "SAMPLING_FROM_SPHERICAL_GRID", "Macro_countries"
     ] = "MACROCELL"
 
     # these parameters are needed in case the other system requires coordinate
@@ -36,6 +37,7 @@ class ParametersImtTopology(ParametersBase):
     ntn: ParametersNTN = field(default_factory=ParametersNTN)
     mss_dc: ParametersImtMssDc = field(default_factory=ParametersImtMssDc)
     sampling_from_spherical_grid: ParametersSamplingFromSphericalGrid = field(default_factory=ParametersSamplingFromSphericalGrid)
+    macrocell_countries: ParametersCountries = field(default_factory=ParametersCountries)
 
     def validate(self, ctx):
         """
@@ -65,6 +67,8 @@ class ParametersImtTopology(ParametersBase):
                 self.mss_dc.validate(f"{ctx}.mss_dc")
             case "SAMPLING_FROM_SPHERICAL_GRID":
                 self.sampling_from_spherical_grid.validate(f"{ctx}.sampling_from_spherical_grid")
+            case "Macro_countries":
+                pass
             case _:
                 raise NotImplementedError(
                     f"{ctx}.type == '{

@@ -20,6 +20,7 @@ from sharc.propagation.propagation_umi import PropagationUMi
 from sharc.propagation.propagation_abg import PropagationABG
 from sharc.propagation.propagation_clear_air_452 import PropagationClearAir
 from sharc.propagation.propagation_tvro import PropagationTvro
+from sharc.propagation.propagation_p528 import PropagationP528
 from sharc.propagation.propagation_indoor import PropagationIndoor
 from sharc.propagation.propagation_hdfss import PropagationHDFSS
 
@@ -97,6 +98,9 @@ class PropagationFactory(object):
         elif channel_model == "P452":
             return PropagationClearAir(
                 random_number_gen, param_system.param_p452)
+        elif channel_model == "P528":
+            # P.528 aeronautical / air-ground point-to-point model
+            return PropagationP528(random_number_gen)
         elif channel_model == "TVRO-URBAN":
             return PropagationTvro(random_number_gen, "URBAN")
         elif channel_model == "TVRO-SUBURBAN":

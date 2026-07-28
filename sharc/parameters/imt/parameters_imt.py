@@ -9,7 +9,7 @@ from sharc.parameters.parameters_p619 import ParametersP619
 from sharc.parameters.imt.parameters_antenna_imt import ParametersAntennaImt
 from sharc.parameters.parameters_antenna import ParametersAntenna
 from sharc.parameters.imt.parameters_imt_topology import ParametersImtTopology
-
+from sharc.parameters.database.parameters_database import Database
 
 @dataclass
 class ParametersImt(ParametersBase):
@@ -43,6 +43,9 @@ class ParametersImt(ParametersBase):
 
     # Spectral mask used for the IMT system when adjacent_ch_emissions is set to "SPECTRAL_MASK"
     spectral_mask: str = "IMT-2020"
+
+    # BS category (e.g. "CatA"/"CatB") used by the IMT-2030 spectral mask
+    category: str = "CatA"
 
     @dataclass
     class ParametersBS(ParametersBase):
@@ -153,6 +156,9 @@ class ParametersImt(ParametersBase):
     los_adjustment_factor: float = 18.0
     shadowing: bool = True
 
+    # Database
+    database: Database = field(default_factory=Database, init=False)
+
     def load_parameters_from_file(self, config_file: str):
         """Load the parameters from file an run a sanity check
 
@@ -168,7 +174,7 @@ class ParametersImt(ParametersBase):
         """
         super().load_parameters_from_file(config_file)
 
-        if self.spectral_mask not in ["IMT-2020", "3GPP E-UTRA", "MSS"]:
+        if self.spectral_mask not in ["IMT-2020", "3GPP E-UTRA", "MSS", "IMT-2030"]:
             raise ValueError(
                 f"""ParametersImt: Inavlid Spectral Mask Name {
                     self.spectral_mask}""", )

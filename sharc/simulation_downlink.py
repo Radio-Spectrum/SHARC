@@ -51,6 +51,23 @@ class SimulationDownlink(Simulation):
 
         random_number_gen = np.random.RandomState(seed)
 
+        # Database-driven topologies: point the database to the subset (chunk)
+        # of base stations corresponding to this snapshot. The full base is
+        # partitioned into num_subsets chunks and each chunk is simulated for a
+        # block of consecutive snapshots (num_snapshots was multiplied by
+        # num_subsets in the Parameters, so there are num_snapshots // num_subsets
+        # snapshots per subset). The subset index therefore stays constant
+        # across those snapshots before advancing to the next chunk.
+        if self.parameters.database.database_loaded:
+            n_subsets = self.parameters.database.num_subsets
+            snaps_per_subset = max(
+                1, self.parameters.general.num_snapshots // n_subsets)
+            # snapshot_number is 1-indexed (see Model.snapshot)
+            chunk_i = min(
+                (int(snapshot_number) - 1) // snaps_per_subset,
+                n_subsets - 1)
+            self.parameters.database.point_to_ith_subset(chunk_i)
+
         # In case of hotspots, base stations coordinates have to be calculated
         # on every snapshot. Anyway, let topology decide whether to calculate
         # or not
@@ -142,30 +159,46 @@ class SimulationDownlink(Simulation):
         *args : tuple
             Positional arguments (unused).
         **kwargs : dict
-            Keyword arguments (unused).
+            Keyword arguments, must include 'snapshot_number'.
         """
+        # samples are only flushed every 10 snapshots during the run, so the
+        # remaining ones have to be written here -- otherwise a run whose
+        # snapshot count is not a multiple of 10 silently loses its tail (and
+        # a run shorter than 10 snapshots writes no results at all)
+        super().finalize(*args, **kwargs)
         self.notify_observers(source=__name__, results=self.results)
 
     def power_control(self):
         """
         Apply downlink power control algorithm to distribute power among selected UEs.
         """
-        # Currently, the maximum transmit power of the base station is equaly
-        # divided among the selected UEs
-        total_power = self.parameters.imt.bs.conducted_power \
-            + self.bs_power_gain
-        tx_power = total_power - 10 * math.log10(self.parameters.imt.ue.k)
-        # calculate transmit powers to have a structure such as
-        # {bs_1: [pwr_1, pwr_2,...], ...}, where bs_1 is the base station id,
-        # pwr_1 is the transmit power from bs_1 to ue_1, pwr_2 is the transmit
-        # power from bs_1 to ue_2, etc
         bs_active = np.where(self.bs.active)[0]
-        self.bs.tx_power = dict(
-            [(bs, tx_power * np.ones(self.parameters.imt.ue.k)) for bs in bs_active])
+        if self.parameters.database.database_loaded:
+            # Database-driven topologies carry a per-base-station transmit power
+            # (set during BS generation from the database). Each beam of a BS
+            # radiates that station's power.
+            tx_power = np.copy(self.bs.tx_power)
+            self.bs.tx_power = dict(
+                [(bs, tx_power[bs] * np.ones(self.parameters.imt.ue.k))
+                 for bs in bs_active],
+            )
+            if self.adjacent_channel:
+                self.bs.spectral_mask.set_mask(p_tx=tx_power)
+        else:
+            # Currently, the maximum transmit power of the base station is
+            # equaly divided among the selected UEs
+            total_power = self.parameters.imt.bs.conducted_power \
+                + self.bs_power_gain
+            tx_power = total_power - 10 * math.log10(self.parameters.imt.ue.k)
+            # calculate transmit powers to have a structure such as
+            # {bs_1: [pwr_1, pwr_2,...], ...}, where bs_1 is the base station
+            # id, pwr_1 is the transmit power from bs_1 to ue_1, etc
+            self.bs.tx_power = dict(
+                [(bs, tx_power * np.ones(self.parameters.imt.ue.k)) for bs in bs_active])
 
-        # Update the spectral mask
-        if self.adjacent_channel:
-            self.bs.spectral_mask.set_mask(p_tx=total_power)
+            # Update the spectral mask
+            if self.adjacent_channel:
+                self.bs.spectral_mask.set_mask(p_tx=total_power)
 
     def calculate_sinr(self):
         """

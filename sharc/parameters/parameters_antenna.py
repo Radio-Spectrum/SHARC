@@ -2,7 +2,9 @@ from sharc.parameters.parameters_base import ParametersBase
 from sharc.parameters.parameters_antenna_with_diameter import ParametersAntennaWithDiameter
 from sharc.parameters.parameters_antenna_with_envelope_gain import ParametersAntennaWithEnvelopeGain
 from sharc.parameters.antenna.parameters_antenna_s1528 import ParametersAntennaS1528
+from sharc.antenna.antenna_ra_m2319 import ParametersRA
 from sharc.parameters.antenna.parameters_antenna_s672 import ParametersAntennaS672
+from sharc.parameters.antenna.parameters_antenna_f1245_fs import ParametersAntennaF1245FS
 from sharc.parameters.antenna.parameters_antenna_with_freq import ParametersAntennaWithFreq
 from sharc.parameters.imt.parameters_antenna_imt import ParametersAntennaImt
 
@@ -31,7 +33,8 @@ class ParametersAntenna(ParametersBase):
         "ITU-R-S.1528-Section1.2",
         "ITU-R-S.1528-LEO",
         "MSS Adjacent",
-        "ITU-R F.1245_fs"]
+        "ITU-R F.1245_fs",
+        "RA_M2319"]
 
     # chosen antenna radiation pattern
     pattern: typing.Literal["OMNI",
@@ -48,7 +51,8 @@ class ParametersAntenna(ParametersBase):
                             "ITU-R-S.1528-Section1.2",
                             "ITU-R-S.1528-LEO",
                             "MSS Adjacent",
-                            "ITU-R F.1245_fs"] = None
+                            "ITU-R F.1245_fs",
+                            "RA_M2319"] = None
 
     # antenna gain [dBi]
     gain: float = None
@@ -94,12 +98,16 @@ class ParametersAntenna(ParametersBase):
         default_factory=ParametersAntennaS1528,
     )
 
+    itu_ra_m2319: ParametersRA = field(
+        default_factory=ParametersRA,
+    )
+
     itu_r_s_672: ParametersAntennaS672 = field(
         default_factory=ParametersAntennaS672,
     )
 
-    itu_r_f_1245_fs: ParametersAntennaWithDiameter = field(
-        default_factory=ParametersAntennaWithDiameter,
+    itu_r_f_1245_fs: ParametersAntennaF1245FS = field(
+        default_factory=ParametersAntennaF1245FS,
     )
 
     def set_external_parameters(self, **kwargs):
@@ -124,6 +132,11 @@ class ParametersAntenna(ParametersBase):
 
             if "antenna_gain" in dir(param):
                 param.antenna_gain = self.gain
+
+            # some patterns name their peak gain simply "gain". Those may
+            # override the antenna gain, so only fall back when unset
+            if "gain" in dir(param) and getattr(param, "gain", None) is None:
+                param.gain = self.gain
 
     def load_parameters_from_file(self, config_file):
         """
@@ -208,6 +221,8 @@ class ParametersAntenna(ParametersBase):
                 self.mss_adjacent.validate(f"{ctx}.mss_adjacent")
             case "ITU-R F.1245_fs":
                 self.itu_r_f_1245_fs.validate(f"{ctx}.itu_r_f_1245_fs")
+            case "RA_M2319":
+                pass
             case _:
                 raise NotImplementedError(
                     "ParametersAntenna.validate does not implement this antenna validation!", )

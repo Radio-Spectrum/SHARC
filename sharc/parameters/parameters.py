@@ -22,6 +22,7 @@ from sharc.parameters.parameters_single_earth_station import ParametersSingleEar
 from sharc.parameters.parameters_mss_ss import ParametersMssSs
 from sharc.parameters.parameters_mss_d2d import ParametersMssD2d
 from sharc.parameters.parameters_single_space_station import ParametersSingleSpaceStation
+from sharc.parameters.database.parameters_database import ParametersDatabase
 
 
 class Parameters(object):
@@ -46,6 +47,7 @@ class Parameters(object):
         self.metsat_ss = ParametersMetSatSS()
         self.mss_ss = ParametersMssSs()
         self.mss_d2d = ParametersMssD2d()
+        self.database = ParametersDatabase()
 
     def set_file_name(self, file_name: str):
         """sets the configuration file name
@@ -125,6 +127,28 @@ class Parameters(object):
         # MSS_D2d
         #######################################################################
         self.mss_d2d.load_parameters_from_file(self.file_name)
+
+        #######################################################################
+        # Database
+        #######################################################################
+        self.database.load_parameters_from_file(self.file_name)
+        if self.database.use_real_terrain and self.database.from_db_topology_countries:
+            lat = self.single_earth_station.geometry.location.fixed_geo.latitude
+            lon = self.single_earth_station.geometry.location.fixed_geo.longitude
+            # expand the bbox to include the SES point
+            self.database.expand_bounding_box_to_point(lat, lon)
+            # Precompute ITU 452 path loss
+            self.database.compute_path_losses_p452(
+                lat, lon, self.imt.frequency / 1000.0, self.single_earth_station.param_p452,
+            )
+            if self.single_earth_station.param_p452.override_from_db:
+                self.single_earth_station.param_p452.database = self.database
+
+        # Connect imt parameters to the database
+        self.imt.database = self.database
+        self.general.num_snapshots = self.general.num_snapshots * self.database.num_subsets
+        # Connect topology_countries to database
+        self.imt.topology.macrocell_countries.database = self.database
 
         self.single_space_station.load_parameters_from_file(self.file_name)
 

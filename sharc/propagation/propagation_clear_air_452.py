@@ -1527,6 +1527,22 @@ class PropagationClearAir(Propagation):
             Return an array station_a.num_stations x station_b.num_stations with the path loss
             between each station
         """
+        if self.model_params.override_from_db and self.model_params.database is not None \
+                and self.model_params.database.database_loaded:
+            # The losses were precomputed once per database station against the
+            # reference point, over the real terrain profile. sta_b holds those
+            # stations, in the same order as the current database subset.
+            losses = self.model_params.database.database.database_df[
+                "path_loss_p452"
+            ].to_numpy()
+            if len(losses) != path.sta_b.num_stations:
+                raise ValueError(
+                    "P.452 override_from_db: the database subset has "
+                    f"{len(losses)} stations but the propagation path has "
+                    f"{path.sta_b.num_stations}. They must match."
+                )
+            return path.from_masked_mtx(path.sta_b_to_masked(losses))
+
         masked_distance = path.mtx_to_masked(path.sta_a.geom.get_3d_distance_to(
             path.sta_b.geom,
         )) * (1e-3)  # P.452 expects Kms
@@ -1613,14 +1629,42 @@ class PropagationClearAir(Propagation):
         rx_gain = np.ravel(rx_gain)
 
         # Modify the path according to Section 4.5.4, Step 1  and compute clutter losses
-        # consider no obstacles profile
-        profile_length = 100
         num_dists = distance.size
-        d = np.empty([num_dists, profile_length])
-        for ii in range(num_dists):
-            d[ii, :] = np.linspace(0, np.ravel(distance)[ii], profile_length)
+        flat_distance = np.ravel(distance)
 
-        h = np.zeros(d.shape)
+        # A real terrain profile may be supplied by the caller through
+        # model_params.terrain_d / terrain_h (e.g. sampled from the adaptive
+        # mesh by ParametersDatabase.compute_path_losses_p452). When it is,
+        # the diffraction calculation must run over it -- ignoring it silently
+        # reduces the loss by several dB, since the path becomes obstacle free.
+        terrain_d = getattr(self.model_params, "terrain_d", None)
+        terrain_h = getattr(self.model_params, "terrain_h", None)
+        use_profile = (
+            terrain_d is not None
+            and terrain_h is not None
+            and len(terrain_d) > 1
+            and len(terrain_h) == len(terrain_d)
+        )
+
+        if use_profile:
+            profile_d = np.asarray(terrain_d, dtype=float)
+            profile_h = np.asarray(terrain_h, dtype=float)
+            profile_length = profile_d.size
+
+            d = np.empty([num_dists, profile_length])
+            h = np.empty([num_dists, profile_length])
+            for ii in range(num_dists):
+                # the profile is normalized to each link's own length
+                d[ii, :] = profile_d * (flat_distance[ii] / profile_d[-1])
+                h[ii, :] = profile_h
+        else:
+            # consider no obstacles profile
+            profile_length = 100
+            d = np.empty([num_dists, profile_length])
+            for ii in range(num_dists):
+                d[ii, :] = np.linspace(0, flat_distance[ii], profile_length)
+
+            h = np.zeros(d.shape)
 
         ha_t = []
         ha_r = []

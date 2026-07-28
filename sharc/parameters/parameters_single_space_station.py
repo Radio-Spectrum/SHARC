@@ -4,6 +4,7 @@ import typing
 from sharc.parameters.parameters_base import ParametersBase
 from sharc.parameters.parameters_antenna import ParametersAntenna
 from sharc.parameters.parameters_p619 import ParametersP619
+from sharc.parameters.parameter_p528 import ParametersP528
 
 
 @dataclass
@@ -14,6 +15,7 @@ class ParametersSingleSpaceStation(ParametersBase):
     section_name: str = "single_space_station"
     nested_parameters_enabled: bool = True
     is_space_to_earth: bool = True
+    is_global_coordinate_system: bool = False
 
     # Sensor center frequency [MHz]
     frequency: float = None  # Center frequency of the sensor in MHz
@@ -24,7 +26,14 @@ class ParametersSingleSpaceStation(ParametersBase):
     # System receive noise temperature [K]
     noise_temperature: float = None
 
+    # Adjacent channel emission type [dB]
+    # Adjacent Interference filter reception used when this system
+    # is victim. Possible values is ACS and OFF
+    adjacent_ch_reception: typing.Literal[
+        "ACS", "OFF"
+    ] = "OFF"
     # Adjacent channel selectivity [dB]
+    
     adjacent_ch_selectivity: float = None
 
     # Peak transmit power spectral density (clear sky) [dBW/Hz]
@@ -47,6 +56,7 @@ class ParametersSingleSpaceStation(ParametersBase):
     param_p619: ParametersP619 = field(default_factory=ParametersP619)
     # TODO: remove season from system parameter and put it as p619 parameter
     season: typing.Literal["WINTER", "SUMMER"] = "SUMMER"
+    param_p528: ParametersP528 = field(default_factory=ParametersP528)
 
     @dataclass
     class SpaceStationGeometry(ParametersBase):
@@ -70,10 +80,12 @@ class ParametersSingleSpaceStation(ParametersBase):
             """
             Defines pointing parameters for the space station geometry.
             """
-            __EXISTING_TYPES = ["FIXED", "POINTING_AT_IMT", "POINTING_AT_LAT_LONG_ALT"]
-            type: typing.Literal["FIXED", "POINTING_AT_IMT", "POINTING_AT_LAT_LONG_ALT"] = None
+            __EXISTING_TYPES = ["FIXED", "POINTING_AT_IMT", "POINTING_AT_LAT_LONG_ALT", "RANDOM_RANGE"]
+            type: typing.Literal["FIXED", "POINTING_AT_IMT", "POINTING_AT_LAT_LONG_ALT", "RANDOM_RANGE"] = None
             fixed: float = None
-
+            min: float = None
+            max: float = None
+            
             def validate(self, ctx):
                 """
                 Validate the PointingParam parameters for correctness.
@@ -91,7 +103,16 @@ class ParametersSingleSpaceStation(ParametersBase):
                                 self.fixed,
                                 float):
                             raise ValueError(f"{ctx}.fixed should be a number")
+                    case "RANDOM_RANGE":
+                        if not isinstance(
+                                self.min,
+                                int) and not isinstance(
+                                self.min,
+                                float):
+                            raise ValueError(f"{ctx}.fixed should be a number")
                     case "POINTING_AT_IMT":
+                        pass
+                    case "POINTING_AT_LAT_LONG_ALT":
                         pass
                     case _:
                         raise NotImplementedError(
@@ -166,7 +187,8 @@ class ParametersSingleSpaceStation(ParametersBase):
         super().load_parameters_from_file(config_file)
 
         self.propagate_parameters()
-
+        if self.param_p528:
+            self.param_p528.load_from_parameters(self)
         # this should be done by validating this parameters only if it is the selected system on the general section
         # TODO: make this better by changing the Parameters class itself
         should_validate = any(
@@ -214,7 +236,7 @@ class ParametersSingleSpaceStation(ParametersBase):
                 f"{ctx}.season needs to be either 'WINTER' or 'SUMMER'",
             )
 
-        if self.channel_model not in ["FSPL", "P619"]:
+        if self.channel_model not in ["FSPL", "P619", "P528"]:
             raise ValueError(
                 f"{ctx}.channel_model" +
                 "needs to be in ['FSPL', 'P619']",

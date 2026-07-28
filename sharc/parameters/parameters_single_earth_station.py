@@ -16,6 +16,7 @@ class ParametersSingleEarthStation(ParametersBase):
     """
     section_name: str = "single_earth_station"
     nested_parameters_enabled: bool = True
+    is_global_coordinate_system: bool = False
 
     # for when other system needs it
     central_latitude: float = None
@@ -94,8 +95,8 @@ class ParametersSingleEarthStation(ParametersBase):
         class FixedOrUniformDist(ParametersBase):
             """Represents a value that can be fixed or uniformly distributed."""
 
-            __EXISTING_TYPES = ["UNIFORM_DIST", "FIXED"]
-            type: typing.Literal["UNIFORM_DIST", "FIXED"] = None
+            __EXISTING_TYPES = ["UNIFORM_DIST", "FIXED", "POINTING_AT_IMT_CENTER"]
+            type: typing.Literal["UNIFORM_DIST", "FIXED", "POINTING_AT_IMT_CENTER"] = None
             fixed: float = None
 
             @dataclass
@@ -147,6 +148,8 @@ class ParametersSingleEarthStation(ParametersBase):
                                 self.fixed,
                                 float):
                             raise ValueError(f"{ctx}.fixed should be a number")
+                    case "POINTING_AT_IMT_CENTER":
+                        pass
                     case _:
                         raise NotImplementedError(
                             f"Validation for {ctx}.type = {
@@ -161,10 +164,10 @@ class ParametersSingleEarthStation(ParametersBase):
         class Location(ParametersBase):
             """Represents a location that can be fixed, cell-based, network-based, or uniformly distributed."""
 
-            __EXISTING_TYPES = ["FIXED", "CELL", "NETWORK", "UNIFORM_DIST"]
+            __EXISTING_TYPES = ["FIXED", "CELL", "NETWORK", "UNIFORM_DIST", "FIXED_GEO"]
             type: typing.Literal[
                 "FIXED", "CELL",
-                "NETWORK", "UNIFORM_DIST",
+                "NETWORK", "UNIFORM_DIST", "FIXED_GEO"
             ] = None
 
             @dataclass
@@ -232,6 +235,22 @@ class ParametersSingleEarthStation(ParametersBase):
                             f"{ctx}.max_dist_to_center needs to be a number",
                         )
 
+            @dataclass
+            class LocationFixedGeo(ParametersBase):
+                """Fixed geographic location with latitude, longitude, and optional altitude."""
+                latitude: float = None
+                longitude: float = None
+                altitude: float = None
+
+                def validate(self, ctx):
+                    """Validate the geographic coordinates."""
+                    if not isinstance(self.latitude, (int, float)):
+                        raise ValueError(f"{ctx}.latitude needs to be a number")
+                    if not isinstance(self.longitude, (int, float)):
+                        raise ValueError(f"{ctx}.longitude needs to be a number")
+                    if self.altitude is not None and not isinstance(self.altitude, (int, float)):
+                        raise ValueError(f"{ctx}.altitude needs to be a number")
+
             fixed: LocationFixed = field(default_factory=LocationFixed)
             cell: LocationDistributed = field(
                 default_factory=LocationDistributed,
@@ -242,6 +261,7 @@ class ParametersSingleEarthStation(ParametersBase):
             uniform_dist: LocationDistributedWithinCircle = field(
                 default_factory=LocationDistributedWithinCircle,
             )
+            fixed_geo: LocationFixedGeo = field(default_factory=LocationFixedGeo)
 
             def validate(self, ctx):
                 """
@@ -256,10 +276,13 @@ class ParametersSingleEarthStation(ParametersBase):
                         self.network.validate(f"{ctx}.network")
                     case "UNIFORM_DIST":
                         self.uniform_dist.validate(f"{ctx}.uniform_dist")
+                    case "FIXED_GEO":
+                        self.fixed_geo.validate(f"{ctx}.fixed_geo")
                     case _:
                         raise NotImplementedError(
                             f"ParametersSingleEarthStation.Location.type = {
-                                self.type} has no validation implemented!", )
+                                self.type} has no validation implemented!", 
+                                )
 
         location: Location = field(default_factory=Location)
 

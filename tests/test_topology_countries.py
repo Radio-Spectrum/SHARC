@@ -12,69 +12,9 @@ import numpy as np
 import numpy.testing as npt
 from shapely.geometry import box, Polygon, MultiPolygon
 
-from sharc.topology.topology_countries import TopologyCountries, _WGS84_A, _WGS84_E2, _WGS84_F
+from sharc.topology.topology_countries import TopologyCountries
 from sharc.parameters.imt.parameters_countries_imt import ParametersCountries
 from sharc.support.sharc_geom import CoordinateSystem
-
-
-class TestLlaToEcef(unittest.TestCase):
-    """Tests for TopologyCountries._lla_to_ecef (static)."""
-
-    def test_equator_greenwich(self):
-        """(0°, 0°, 0m) should give X ≈ semi-major-axis, Y ≈ 0, Z ≈ 0."""
-        X, Y, Z = TopologyCountries._lla_to_ecef(0.0, 0.0, 0.0)
-        npt.assert_allclose(X, _WGS84_A, rtol=1e-8)
-        npt.assert_allclose(Y, 0.0, atol=1e-4)
-        npt.assert_allclose(Z, 0.0, atol=1e-4)
-
-    def test_equator_90_east(self):
-        """(0°, 90°, 0m) should give X ≈ 0, Y ≈ semi-major-axis, Z ≈ 0."""
-        X, Y, Z = TopologyCountries._lla_to_ecef(0.0, 90.0, 0.0)
-        npt.assert_allclose(X, 0.0, atol=1e-4)
-        npt.assert_allclose(Y, _WGS84_A, rtol=1e-8)
-        npt.assert_allclose(Z, 0.0, atol=1e-4)
-
-    def test_north_pole(self):
-        """(90°, 0°, 0m) should give X ≈ 0, Y ≈ 0, Z ≈ semi-minor-axis."""
-        X, Y, Z = TopologyCountries._lla_to_ecef(90.0, 0.0, 0.0)
-        b = _WGS84_A * (1.0 - _WGS84_F)
-        npt.assert_allclose(X, 0.0, atol=1e-4)
-        npt.assert_allclose(Y, 0.0, atol=1e-4)
-        npt.assert_allclose(Z, b, rtol=1e-6)
-
-    def test_south_pole(self):
-        """(−90°, 0°, 0m) should give Z ≈ −semi-minor-axis."""
-        X, Y, Z = TopologyCountries._lla_to_ecef(-90.0, 0.0, 0.0)
-        b = _WGS84_A * (1.0 - _WGS84_F)
-        npt.assert_allclose(Z, -b, rtol=1e-6)
-
-    def test_with_height(self):
-        """Height adds to the radial distance."""
-        h = 1000.0  # 1 km
-        X0, Y0, Z0 = TopologyCountries._lla_to_ecef(0.0, 0.0, 0.0)
-        Xh, Yh, Zh = TopologyCountries._lla_to_ecef(0.0, 0.0, h)
-        self.assertGreater(float(Xh), float(X0))
-        npt.assert_allclose(float(Xh) - float(X0), h, rtol=1e-3)
-
-    def test_vectorized(self):
-        """Array inputs produce array outputs with correct shape."""
-        lat = np.array([0.0, 45.0, -23.5])
-        lon = np.array([0.0, 90.0, -46.6])
-        h = np.array([0.0, 100.0, 800.0])
-        X, Y, Z = TopologyCountries._lla_to_ecef(lat, lon, h)
-        self.assertEqual(X.shape, (3,))
-        self.assertEqual(Y.shape, (3,))
-        self.assertEqual(Z.shape, (3,))
-
-    def test_magnitude_is_earth_radius(self):
-        """At sea level, |ECEF| should be close to Earth radius."""
-        lat = np.array([0.0, 30.0, 60.0, -45.0])
-        lon = np.array([0.0, 45.0, -120.0, 170.0])
-        h = np.zeros(4)
-        X, Y, Z = TopologyCountries._lla_to_ecef(lat, lon, h)
-        mag = np.sqrt(X**2 + Y**2 + Z**2)
-        for m in mag:
-            self.assertAlmostEqual(m, _WGS84_A, delta=25000)  # within ~25km of semi-major
 
 
 class TestGetDensityRange(unittest.TestCase):
@@ -118,9 +58,8 @@ class TestGetDensityRange(unittest.TestCase):
 
     def test_invalid_density_range(self):
         """dist_density_max <= dist_density_min should raise ValueError."""
-        t = self._make_topology(dist_density_min=500, dist_density_max=100)
         with self.assertRaises(ValueError):
-            t._get_density_range()
+            self._make_topology(dist_density_min=500, dist_density_max=100)
 
 
 class TestRowAreasKm2(unittest.TestCase):

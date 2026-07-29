@@ -57,17 +57,16 @@ class PropagationUMa(Propagation):
         is_intra_imt = path.sta_a.is_imt_station() and path.sta_b.is_imt_station()
 
         if wrap_around_enabled and is_intra_imt:
+            if path.sta_a.geom.uses_local_coords or path.sta_b.geom.uses_local_coords:
+                raise NotImplementedError(
+                    "Wrap around for systems with local coordinate"
+                    "system has not been implemented"
+                )
             distances_2d, distances_3d, _, _ = \
                 path.sta_a.geom.get_global_dist_angles_wrap_around(path.sta_b.geom)
         else:
             distances_2d = path.sta_a.geom.get_local_distance_to(path.sta_b.geom)
             distances_3d = path.sta_a.geom.get_3d_distance_to(path.sta_b.geom)
-
-        if path.sta_a.geom.uses_local_coords or path.sta_b.geom.uses_local_coords:
-            raise NotImplementedError(
-                "UMa currently assumes stations z == height. "
-                "If stations has local coords != global coords, this probably isn't true"
-            )
 
         mskd_distances_3d = path.mtx_to_masked(distances_3d)
         mskd_distances_2d = path.mtx_to_masked(distances_2d)

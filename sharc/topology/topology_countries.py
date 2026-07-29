@@ -21,6 +21,7 @@ Requires: numpy, geopandas, shapely, rasterio (only if using population_raster).
 from pathlib import Path
 from dataclasses import dataclass, field
 from typing import List, Dict, Optional, Tuple
+from sharc.support.geometry import SimulatorGeometry, ENUReferenceFrame
 
 import numpy as np
 import geopandas as gpd
@@ -51,7 +52,10 @@ class TopologyCountries(Topology):
                  params: ParametersCountries,
                  coordinate_system: CoordinateSystem,
                  random_number_gen: np.random.RandomState | None = None):
-        super().__init__(intersite_distance=0.0, cell_radius=params.cell_radius)
+        super().__init__(
+            intersite_distance=0.0, cell_radius=params.cell_radius,
+            determines_local_geometry=True
+        )
         self.params = params
         self.coordinate_system = coordinate_system
         self.rng = random_number_gen if random_number_gen is not None \
@@ -72,14 +76,8 @@ class TopologyCountries(Topology):
         self.azimuth = np.empty(0, dtype=float)
         self.num_base_stations: int = 0
 
-    def calculate_coordinates(self,
-                               random_number_gen: np.random.RandomState | None = None) -> "TopologyCountries":
-        """Sample and store BS positions across the configured countries."""
-        # Load country polygons (WGS84)
-        params = self.params
-        self.cell_radius = params.cell_radius
-        self.height = params.height
-
+        ################
+        # LOAD environment once
         p = self._resolve_asset(params.shapefile_path)
         ne = self._load_countries_gdf(str(p) if p is not None else None)
 
@@ -89,7 +87,7 @@ class TopologyCountries(Topology):
         has_name = "name" in ne.columns
         has_admin = "ADMIN" in ne.columns
 
-        polys_by_country: Dict[str, MultiPolygon | Polygon] = {}
+        self.polys_by_country: Dict[str, MultiPolygon | Polygon] = {}
         areas: Dict[str, float] = {}
 
         for name in params.country_names:
@@ -111,21 +109,20 @@ class TopologyCountries(Topology):
             if self.params.mask_inland_water:
                 geom = self._subtract_lakes(geom)
 
-            polys_by_country[name] = geom
+            self.polys_by_country[name] = geom
             areas[name] = float(geom.area)
 
         # Optional: extend index_nodata with "white-ish" bins from ACT
-        effective_index_nodata = self._extend_index_nodata_with_white(
+        self.effective_index_nodata = self._extend_index_nodata_with_white(
             self.params.index_nodata, self.params.act_colormap_path, tol=3
         )
 
         # NEW: resolve density band once
-        density_range = self._get_density_range()
+        self.density_range = self._get_density_range()
 
         # -------- Decide how many BS per country --------
         if params.bs_per_country:
-            counts = dict(params.bs_per_country)
-
+            self.counts = dict(params.bs_per_country)
         else:
             if params.num_bs_total is None:
                 raise ValueError("Provide either 'bs_per_country' or 'num_bs_total'.")
@@ -136,7 +133,7 @@ class TopologyCountries(Topology):
             if params.population_raster:
                 # Population-based allocation (physical totals; no gamma here)
                 pop_sums = self._country_population_sums(
-                    {n: polys_by_country[n] for n in params.country_names},
+                    {n: self.polys_by_country[n] for n in params.country_names},
                     params.population_raster,
                     params.raster_encoding,
                     params.pixel_area_method,
@@ -145,84 +142,77 @@ class TopologyCountries(Topology):
                     sedac_mode=params.sedac_palette_mode,
                     sedac_min=params.sedac_min,
                     sedac_max=params.sedac_max,
-                    index_nodata=effective_index_nodata,
-                    density_range=density_range,  # NEW
+                    index_nodata=self.effective_index_nodata,
+                    density_range=self.density_range,  # NEW
                 )
                 total_pop = sum(pop_sums.values())
                 if total_pop > 0:
                     shares = {n: pop_sums[n] / total_pop for n in params.country_names}
-                    counts = {n: int(np.floor(shares[n] * params.num_bs_total))
+                    self.counts = {n: int(np.floor(shares[n] * params.num_bs_total))
                               for n in params.country_names}
                     # fix rounding to hit total exactly
-                    deficit = params.num_bs_total - sum(counts.values())
+                    deficit = params.num_bs_total - sum(self.counts.values())
                     if deficit > 0:
                         frac_list = sorted(shares.items(), key=lambda x: x[1], reverse=True)
                         for i in range(deficit):
-                            counts[frac_list[i % len(frac_list)][0]] += 1
+                            self.counts[frac_list[i % len(frac_list)][0]] += 1
                 else:
                     # fallback to area-based if population sums are zero
                     total_area = sum(areas.values())
-                    counts = {n: int(np.floor((areas[n] / total_area) * params.num_bs_total))
+                    self.counts = {n: int(np.floor((areas[n] / total_area) * params.num_bs_total))
                               for n in params.country_names}
-                    deficit = params.num_bs_total - sum(counts.values())
+                    deficit = params.num_bs_total - sum(self.counts.values())
                     if deficit > 0:
                         fracs = sorted(areas.items(), key=lambda x: x[1], reverse=True)
                         for i in range(deficit):
-                            counts[fracs[i % len(fracs)][0]] += 1
+                            self.counts[fracs[i % len(fracs)][0]] += 1
             else:
                 # No raster provided: area-based
                 total_area = sum(areas.values())
-                counts = {n: int(np.floor((areas[n] / total_area) * params.num_bs_total))
+                self.counts = {n: int(np.floor((areas[n] / total_area) * params.num_bs_total))
                           for n in params.country_names}
-                deficit = params.num_bs_total - sum(counts.values())
+                deficit = params.num_bs_total - sum(self.counts.values())
                 if deficit > 0:
                     fracs = sorted(areas.items(), key=lambda x: x[1], reverse=True)
                     for i in range(deficit):
-                        counts[fracs[i % len(fracs)][0]] += 1
+                        self.counts[fracs[i % len(fracs)][0]] += 1
 
-        # -------- Generate BS positions --------
-        lons, lats, country_ix = [], [], []
-        for name in params.country_names:
-            n = int(counts.get(name, 0))
-            if n <= 0:
-                continue
-
-            if params.population_raster:
-                pts_lon, pts_lat = self._sample_points_from_population(
-                    polys_by_country[name],
-                    n,
-                    params.population_raster,
-                    params.raster_encoding,
-                    params.pixel_area_method,
-                    params.min_density_threshold,
-                    params.density_exponent,
-                    params.sedac_palette_mode,
-                    params.sedac_min,
-                    params.sedac_max,
-                    effective_index_nodata,
-                    density_range=density_range,  # NEW
-                )
-            else:
-                pts_lon, pts_lat = self._random_points_in_polygon(polys_by_country[name], n)
-
-            lons.extend(pts_lon)
-            lats.extend(pts_lat)
-            country_ix.extend([name] * n)
-
-        self.num_base_stations = len(lons)
-        if self.num_base_stations == 0:
-            raise RuntimeError("TopologyCountries created zero base stations. Check inputs.")
+    def calculate_coordinates(
+        self,
+        random_number_gen: np.random.RandomState | None = None
+    ) -> "TopologyCountries":
+        """Sample and store BS positions across the configured countries."""
+        # Load country polygons (WGS84)
+        params = self.params
+        lons, lats = self._sample_bs_at_countries()
 
         # Save geodetic positions (for plotting)
         self.lons = np.array(lons)
         self.lats = np.array(lats)
-        self.country_index = np.array(country_ix)
-        self.height = np.ones(self.num_base_stations) * self.height
-        # Convert to transformed Cartesian (simulation coordinates)
-        x, y, z = self._lla_to_ecef(self.lats, self.lons, self.height)
-        self.x = np.array(x)
-        self.y = np.array(y)
-        self.z = np.array(z)
+        self.height = np.ones(self.num_base_stations) * params.height
+
+        self.bs_geometry = SimulatorGeometry(
+            self.num_base_stations,
+            uses_local_coords=True,
+            global_cs=ENUReferenceFrame(
+                lat=self.coordinate_system.ref_lat,
+                lon=self.coordinate_system.ref_long,
+                alt=self.coordinate_system.ref_alt,
+            ),
+        )
+
+        self.bs_geometry.set_local_reference_frame(
+            ENUReferenceFrame(
+                lat=self.lats,
+                lon=self.lons,
+                alt=np.zeros_like(self.lats),
+            )
+        )
+
+        # This is local coordinate definition
+        self.x = np.zeros_like(self.lats)
+        self.y = np.zeros_like(self.lats)
+        self.z = np.zeros_like(self.lats)
 
         # Azimuth assignment
         if params.fixed_azimuth is not None:
@@ -230,28 +220,81 @@ class TopologyCountries(Topology):
         else:
             self.azimuth = self.rng.uniform(-180.0, 180.0, size=self.num_base_stations)
 
-        # Placeholders for StationFactory expectations
-        self.elevation = np.zeros(self.num_base_stations)
+        self.bs_geometry.set_local_coords(
+            self.x,
+            self.y,
+            self.z,
+            self.azimuth,
+        )
 
         return self
 
+    # important logic:
+    def _sample_bs_at_countries(self) -> (np.ndarray, np.ndarray):
+        """
+        Returns (lons, lats) of BS
+        """
+        # -------- Generate BS positions --------
+        lons, lats, country_ix = [], [], []
+        for name in self.params.country_names:
+            n = int(self.counts.get(name, 0))
+            if n <= 0:
+                continue
+
+            if self.params.population_raster:
+                pts_lon, pts_lat = self._sample_points_from_population(
+                    self.polys_by_country[name],
+                    n,
+                    self.params.population_raster,
+                    self.params.raster_encoding,
+                    self.params.pixel_area_method,
+                    self.params.min_density_threshold,
+                    self.params.density_exponent,
+                    self.params.sedac_palette_mode,
+                    self.params.sedac_min,
+                    self.params.sedac_max,
+                    self.effective_index_nodata,
+                    density_range=self.density_range,  # NEW
+                )
+            else:
+                pts_lon, pts_lat = self._random_points_in_polygon(self.polys_by_country[name], n)
+
+            lons.extend(pts_lon)
+            lats.extend(pts_lat)
+            country_ix.extend([name] * n)
+
+        self.country_index = np.array(country_ix)
+        self.num_base_stations = len(lons)
+
+        if self.num_base_stations == 0:
+            raise RuntimeError("TopologyCountries created zero base stations. Check inputs.")
+
+        return lons, lats
+
+    # interface with station_factory
+    def get_bs_geometry(self) -> SimulatorGeometry:
+        """Returns BS pre-built SimulatorGeometry
+        """
+        return self.bs_geometry
+
+    def get_ue_geometry(self, ue_k: int) -> SimulatorGeometry:
+        """Returns UE pre-built SimulatorGeometry
+        """
+        ue_geom = SimulatorGeometry(
+            self.num_base_stations * ue_k,
+            self.num_base_stations * ue_k,
+            self.bs_geometry.global_reference_frame,
+        )
+        ue_geom.set_local_reference_frame(
+            ENUReferenceFrame(
+                lat=np.repeat(self.lats, ue_k),
+                lon=np.repeat(self.lons, ue_k),
+                alt=np.repeat(np.zeros_like(self.lons), ue_k),
+            )
+        )
+        return ue_geom
+
     # ---------- helpers ----------
-    @staticmethod
-    def _lla_to_ecef(lat_deg, lon_deg, height):
-        """Vectorized geodetic (deg,deg,m) -> ECEF XYZ (m) on WGS-84."""
-        lat = np.radians(np.asarray(lat_deg, dtype=float))
-        lon = np.radians(np.asarray(lon_deg, dtype=float))
-        h = np.asarray(height, dtype=float)
-
-        sl, cl = np.sin(lat), np.cos(lat)
-        sb, cb = np.sin(lon), np.cos(lon)
-
-        N = _WGS84_A / np.sqrt(1.0 - _WGS84_E2 * sl * sl)
-        X = (N + h) * cl * cb
-        Y = (N + h) * cl * sb
-        Z = (N * (1.0 - _WGS84_E2) + h) * sl
-        return X, Y, Z
-
     def _load_countries_gdf(self, shapefile_path: Optional[str]) -> gpd.GeoDataFrame:
         if shapefile_path:
             gdf = gpd.read_file(shapefile_path)
@@ -691,10 +734,6 @@ class TopologyCountries(Topology):
         return path
 
 
-# For convenience if someone imports TopologyCountry by mistake
-TopologyCountry = TopologyCountries
-
-
 # ----------------------- MAIN -----------------------
 if __name__ == "__main__":
     import numpy as np
@@ -711,8 +750,8 @@ if __name__ == "__main__":
     shapefile_path = Path.cwd() / "sharc" / "topology" / "map" / "ne_110m_admin_0_countries.shp"
 
     # Population raster (set to None to sample uniformly by area)
-    population_raster_path = Path.cwd() / "sharc" / "topology" / "map" / "SEDAC_map2.tiff"
-    population_raster_path = Path.cwd() / "sharc" / "topology" / "map" / "gpw_v4_population_density_rev11_2020_2pt5_min.tif"
+    population_raster_path = Path.cwd() / "sharc" / "topology" / "map" / "SEDAC_map2.TIFF"
+    # population_raster_path = Path.cwd() / "sharc" / "topology" / "map" / "gpw_v4_population_density_rev11_2020_2pt5_min.tif"
 
     # Raster type:
     #   "density" = people per km² (e.g., GPWv4 density GeoTIFF)

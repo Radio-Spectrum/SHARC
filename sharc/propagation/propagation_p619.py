@@ -471,7 +471,7 @@ class PropagationP619(Propagation):
             raise ValueError(error_message)
 
         atmospheric_gasses_loss = self._get_atmospheric_gasses_loss(
-            frequency_MHz=freq_set,
+            frequency_MHz=freq_set.item(),
             # FIXME: mean of apparent elevation????
             apparent_elevation=np.mean(elevation["apparent"]),
         )

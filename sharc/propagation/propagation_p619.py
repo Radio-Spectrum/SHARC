@@ -595,7 +595,7 @@ if __name__ == '__main__':
                 has_lookup_table = False
 
     plt.figure()
-    plt.semilogy(apparent_elevation, loss_false, label='No Table')
+    plt.semilogy(apparent_elevation, loss_true, label='With Table')
 
     plt.grid(True)
     plt.xlabel("apparent elevation (deg)")

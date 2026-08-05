@@ -830,7 +830,7 @@ class Simulation(ABC, Observable):
 
         # Calculate gains
         gains = np.zeros(phi.shape)
-        if station_1.station_type is StationType.IMT_BS and not station_2.is_imt_station() and not station_2.is_wifi_station():
+        if station_1.station_type is StationType.IMT_BS and not station_2.is_imt_station():
             off_axis_angle = station_1.get_off_axis_angle(station_2)
             for k in station_1_active:
                 for b in range(
@@ -860,6 +860,16 @@ class Simulation(ABC, Observable):
                     ],
                     beams_l=beams_idx,
                     co_channel=c_channel,
+                )
+
+        elif station_1.is_wifi_station():
+            off_axis_angle = station_1.get_off_axis_angle(station_2)
+            for k in station_1_active:
+                # O WiFi não usa beamforming complexo do IMT, então não passamos beams_l
+                gains[k, station_2_active] = station_1.antenna[k].calculate_gain(
+                    off_axis_angle_vec=off_axis_angle[k, station_2_active],
+                    phi_vec=phi[k, station_2_active],
+                    theta_vec=theta[k, station_2_active]
                 )
 
         elif station_1.station_type is StationType.RNS:

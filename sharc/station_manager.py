@@ -353,6 +353,13 @@ class StationManager(object):
             return False
         
     def is_wifi_station(self) -> bool:
+        """Return whether this station manager represents WiFi stations.
+        
+        Returns
+        -------
+        bool
+            True if this station manager is WiFi (WIFI_APS or WIFI_STA), False otherwise.
+        """
         
         if self.station_type is StationType.WIFI_APS or self.station_type is StationType.WIFI_STA:
             return True

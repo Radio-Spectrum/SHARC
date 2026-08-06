@@ -94,8 +94,8 @@ class SimulationDownlink(Simulation):
 
         if self.parameters.general.system == "WIFI":
             self.system.connect_wifi_sta_to_ap(self.parameters.wifi)
-            #self.system.run_csma_ca_scheduling(random_number_gen)
-            self.system.select_sta(random_number_gen)
+            self.system.run_csma_ca_scheduling(random_number_gen)
+            #self.system.select_sta(random_number_gen)
             self.power_control_wifi()
 
             self.coupling_loss_wifi = self.calculate_intra_wifi_coupling_loss(

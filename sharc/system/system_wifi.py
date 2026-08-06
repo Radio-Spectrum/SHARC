@@ -365,6 +365,13 @@ class SystemWifi:
         """
         Select UP TO K STAs randomly from all the STAs linked to one AP as “chosen”
         STAs. These chosen STAs will be scheduled during this snapshot.
+
+        Note: AP and STA antennas are omnidirectional (AntennaOmni) - there's
+        no beamforming, so there's no concept of "beam" to register/track.
+        We still compute phi/theta (used elsewhere for pointing-based
+        gain/off-axis-angle calculations), but we no longer call add_beam()
+        or populate ap_to_sta_beam_rbs, since omni gain doesn't depend on
+        beam index.
         """
         # Calculate distances and angles between Access Points (APs) and Stations (STAs)
         if self.wrap_around_enabled:
@@ -379,7 +386,7 @@ class SystemWifi:
 
         # Get all currently active Access Points
         ap_active = np.where(self.ap.active)[0]
-        
+
         # Iterate over each active Access Point
         for ap in ap_active:
             if not self.link[ap]:
@@ -388,32 +395,14 @@ class SystemWifi:
             # Shuffle the STAs to guarantee random selection
             random_number_gen.shuffle(self.link[ap])
             K = self.parameters.sta.k
-            
+
             # Limita a K elementos para o snapshot atual
             selected_stas = self.link[ap][:K]
             self.link[ap] = selected_stas
-            
-            # Activate the selected STAs and create beams
+
+            # Activate the selected STAs (no beams to add - omni antenna)
             if self.ap.active[ap] and len(selected_stas) > 0:
                 self.sta.active[selected_stas] = True
-                
-                for sta in selected_stas:
-                    # Add a beam from the AP's antenna to the STA
-                    self.ap.antenna[ap].add_beam(
-                        self.ap_to_sta_phi[ap, sta],
-                        self.ap_to_sta_theta[ap, sta],
-                    )
-                    
-                    # Add a corresponding beam from the STA's antenna back to the AP
-                    self.sta.antenna[sta].add_beam(
-                        self.ap_to_sta_phi[ap, sta] - 180,
-                        180 - self.ap_to_sta_theta[ap, sta],
-                    )
-                    
-                    # Set beam resource block group for the STA
-                    self.ap_to_sta_beam_rbs[sta] = len(
-                        self.ap.antenna[ap].beams_list,
-                    ) - 1
 
 
 

@@ -20,6 +20,7 @@ class ParametersAntenna(ParametersBase):
         "OMNI",
         "HibleoX",
         "ITU-R F.699",
+        "ITU-R S.672",
         "ITU-R S.465",
         "ITU-R S.580",
         "MODIFIED ITU-R S.465",
@@ -165,7 +166,7 @@ class ParametersAntenna(ParametersBase):
 
         if self.pattern not in self.__SUPPORTED_ANTENNA_PATTERNS:
             raise ValueError(
-                f"Invalid {ctx}.pattern. It should be one of: {
+                f"Invalid {ctx}.pattern='{self.pattern}'. It should be one of: {
                     self.__SUPPORTED_ANTENNA_PATTERNS}.", )
 
         match self.pattern:
@@ -202,7 +203,7 @@ class ParametersAntenna(ParametersBase):
                 self.itu_r_s_1528.validate(f"{ctx}.itu_r_s_1528")
             case "ITU-R-S.1528-LEO":
                 self.itu_r_s_1528.validate(f"{ctx}.itu_r_s_1528")
-            case "ITU-R-S.672":
+            case "ITU-R S.672":
                 self.itu_r_s_672.validate(f"{ctx}.itu_r_s_672")
             case "MSS Adjacent":
                 self.mss_adjacent.validate(f"{ctx}.mss_adjacent")

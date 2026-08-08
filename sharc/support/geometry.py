@@ -2,7 +2,7 @@
 # from sharc.satellite.utils.sat_utils import lla2ecef
 
 from sharc.satellite.ngso.constants import EARTH_RADIUS_M
-from sharc.support.sharc_geom import cartesian_to_polar, polar_to_cartesian
+from sharc.support.sharc_geom import cartesian_to_polar, polar_to_cartesian, CoordinateSystem
 import scipy
 import numpy as np
 from dataclasses import dataclass
@@ -547,6 +547,14 @@ class ENUReferenceFrame(ReferenceFrame):
         )
         return ecef2local
 
+    @staticmethod
+    def from_coordinate_system(cs: CoordinateSystem):
+        return ENUReferenceFrame(
+            lat=cs.ref_lat,
+            lon=cs.ref_long,
+            alt=cs.ref_alt,
+        )
+
 
 class DWNReferenceFrame(ENUReferenceFrame):
     """
@@ -922,7 +930,7 @@ def plot_geom(
     fig: "go.Figure",
     geom: SimulatorGeometry,
     scatter_params: dict = {},
-    plot_pointing=False,
+    pointing_arrow_size=0
 ):
     """Adds a given SimulatorGeometry to a plotly figure
     considering global coordinates
@@ -943,10 +951,10 @@ def plot_geom(
         )
     )
 
-    if plot_pointing:
+    if pointing_arrow_size > 0.:
         from sharc.support.sharc_geom import polar_to_cartesian
         # Plot beam boresight vectors
-        boresight_length = 100 * 1e3  # Length of the boresight vectors for visualization
+        boresight_length = pointing_arrow_size  # Length of the boresight vectors for visualization
         boresight_x, boresight_y, boresight_z = polar_to_cartesian(
             boresight_length,
             geom.pointn_azim_global,

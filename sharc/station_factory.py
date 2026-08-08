@@ -13,6 +13,8 @@ import math
 from sharc.support.geometry import (
     DWNReferenceFrame, ENUReferenceFrame
 )
+from sharc.support.geometry import SimulatorGeometry
+from sharc.topology.topology_factory import TopologyFactory
 from sharc.support.enumerations import StationType
 from sharc.parameters.parameters import Parameters
 from sharc.parameters.imt.parameters_imt import ParametersImt
@@ -314,10 +316,6 @@ class StationFactory(object):
         ue_y = list()
         ue_z = list()
 
-        imt_ue.geom.set_local_coords(
-            z=param.ue.height * np.ones(num_ue)
-        )
-
         # TODO: Sanitaze the azimuth_range parameter
         azimuth_range = param.ue.azimuth_range
         if (not isinstance(azimuth_range, tuple)) or len(azimuth_range) != 2:
@@ -474,12 +472,11 @@ class StationFactory(object):
             )
             sys.exit(1)
 
-        if param.ue.distribution_type.upper() != "MACRO_COUNTRIES":
-            imt_ue.geom.set_local_coords(
-                np.array(ue_x),
-                np.array(ue_y),
-                np.array(ue_z) + param.ue.height,
-            )
+        imt_ue.geom.set_local_coords(
+            np.array(ue_x),
+            np.array(ue_y),
+            np.array(ue_z) + param.ue.height,
+        )
 
         imt_ue.height = param.ue.height * np.ones(num_ue)
 
@@ -756,7 +753,9 @@ class StationFactory(object):
                 topology)
         elif parameters.general.system == "SINGLE_SPACE_STATION":
             return StationFactory.generate_single_space_station(
-                parameters.single_space_station)
+                parameters.single_space_station,
+                coordinate_system
+            )
         elif parameters.general.system == "RAS":
             return StationFactory.generate_ras_station(
                 parameters.ras, random_number_gen, topology)
@@ -785,7 +784,8 @@ class StationFactory(object):
     @staticmethod
     def generate_single_space_station(
             param: ParametersSingleSpaceStation,
-        ):
+            simulator_coordinate_system: CoordinateSystem | None = None
+    ):
         """Create a single space station (satellite) based on the provided parameters.
 
         Parameters
@@ -802,35 +802,67 @@ class StationFactory(object):
         space_station.station_type = StationType.SINGLE_SPACE_STATION
         space_station.is_space_station = True
 
-        coord_sys = CoordinateSystem()
-        coord_sys.set_reference(
-            param.geometry.es_lat_deg,
-            param.geometry.es_long_deg,
-            param.geometry.es_altitude,
+        if simulator_coordinate_system is None:
+            simulator_coordinate_system = CoordinateSystem()
+            simulator_coordinate_system.set_reference(
+                param.geometry.es_lat_deg,
+                param.geometry.es_long_deg,
+                param.geometry.es_altitude,
+            )
+        es_frame = ENUReferenceFrame(
+            lat=param.geometry.es_lat_deg,
+            lon=param.geometry.es_long_deg,
+            alt=param.geometry.es_altitude,
         )
-        x, y, z = coord_sys.lla2enu(
-            param.geometry.location.fixed.lat_deg,
-            param.geometry.location.fixed.long_deg,
-            param.geometry.altitude,
+        ss_frame = DWNReferenceFrame(
+            lat=param.geometry.location.fixed.lat_deg,
+            lon=param.geometry.location.fixed.long_deg,
+            alt=param.geometry.altitude,
         )
-        space_station.geom.set_global_coords(
-            np.atleast_1d(x),
-            np.atleast_1d(y),
-            np.atleast_1d(z),
+        ss_geom = SimulatorGeometry(
+            1, True,
+            ENUReferenceFrame.from_coordinate_system(simulator_coordinate_system)
+        )
+        space_station.geom = ss_geom
+        ss_geom.set_local_reference_frame(ss_frame)
+        ss_geom.set_local_coords(
+            np.zeros(1), np.zeros(1), np.zeros(1), np.zeros(1), np.zeros(1)
         )
 
-        if param.geometry.azimuth.type == "POINTING_AT_IMT":
-            azim = np.rad2deg(
-                np.arctan2(-space_station.geom.y_global, -space_station.geom.x_global))
-        elif param.geometry.azimuth.type == "POINTING_AT_LAT_LONG_ALT":
-            px, py, pz = coord_sys.lla2enu(
-                param.geometry.pointing_at_lat,
-                param.geometry.pointing_at_long,
-                param.geometry.pointing_at_alt,
+        es_geom = SimulatorGeometry(
+            1, True,
+            ENUReferenceFrame.from_coordinate_system(simulator_coordinate_system)
+        )
+        es_geom.set_local_reference_frame(es_frame)
+        es_geom.set_local_coords(
+            np.zeros(1), np.zeros(1), np.zeros(1), np.zeros(1), np.zeros(1)
+        )
+        # for POINTING_AT_LAT_LONG_ALT:
+        if "POINTING_AT_LAT_LONG_ALT" in [
+            param.geometry.azimuth.type, param.geometry.elevation.type
+        ]:
+            some_location_geom = SimulatorGeometry(
+                1, True,
+                ENUReferenceFrame.from_coordinate_system(simulator_coordinate_system)
+            )
+            some_location_geom.set_local_reference_frame(
+                ENUReferenceFrame(
+                    lat=param.geometry.pointing_at_lat,
+                    lon=param.geometry.pointing_at_long,
+                    alt=param.geometry.pointing_at_alt,
+                )
+            )
+            some_location_geom.set_local_coords(
+                np.zeros(1), np.zeros(1), np.zeros(1)
+            )
+            pointing_at_azim, pointing_at_elev = ss_geom.get_global_pointing_vector_to(
+                some_location_geom
             )
 
-            azim = np.rad2deg(
-                np.arctan2(py - space_station.geom.y_global, px - space_station.geom.x_global))
+        if param.geometry.azimuth.type == "POINTING_AT_IMT":
+            azim, _ = ss_geom.get_global_pointing_vector_to(es_geom)
+        elif param.geometry.azimuth.type == "POINTING_AT_LAT_LONG_ALT":
+            azim = pointing_at_azim
         elif param.geometry.azimuth.type == "FIXED":
             azim = param.geometry.azimuth.fixed
         else:
@@ -839,30 +871,9 @@ class StationFactory(object):
                     param.geometry.azimuth.type}")
 
         if param.geometry.elevation.type == "POINTING_AT_IMT":
-            gnd_elev = np.rad2deg(
-                np.arctan2(
-                    space_station.geom.z_global,
-                    np.sqrt(
-                        space_station.geom.y_global *
-                        space_station.geom.y_global +
-                        space_station.geom.x_global *
-                        space_station.geom.x_global)))
-            elev = -gnd_elev
+            _, elev = ss_geom.get_global_pointing_vector_to(es_geom)
         elif param.geometry.elevation.type == "POINTING_AT_LAT_LONG_ALT":
-            px, py, pz = coord_sys.lla2enu(
-                param.geometry.pointing_at_lat,
-                param.geometry.pointing_at_long,
-                param.geometry.pointing_at_alt,
-            )
-            dy = py - space_station.geom.y_global
-            dx = px - space_station.geom.x_global
-            dz = pz - space_station.geom.z_global
-
-            gnd_elev = np.rad2deg(
-                np.arctan2(
-                    dz,
-                    np.sqrt(dy * dy + dx * dx)))
-            elev = gnd_elev
+            elev = pointing_at_elev
         elif param.geometry.elevation.type == "FIXED":
             elev = param.geometry.elevation.fixed
         else:
@@ -871,8 +882,10 @@ class StationFactory(object):
                     param.geometry.elevation.type}")
 
         space_station.geom.set_global_coords(
-            azim=np.atleast_1d(azim),
-            elev=np.atleast_1d(elev),
+            azim=np.ravel(azim),
+            # conversion from (0, 180.) with 0. == z_up
+            # to (-90., 90.) with 90. == z_up
+            elev=90. - np.ravel(elev),
         )
 
         space_station.active = np.array([True])
@@ -2056,9 +2069,36 @@ if __name__ == '__main__':
         parameters,
         coordinate_system
     )
+    from pathlib import Path
+    param_file = Path("./test_params.yaml").resolve()
+    parameters = Parameters()
+    parameters.set_file_name(param_file)
+    parameters.read_params()
+    coordinate_system = CoordinateSystem()
+    coordinate_system.set_reference(
+        parameters.single_space_station.geometry.es_lat_deg,
+        parameters.single_space_station.geometry.es_long_deg,
+        parameters.single_space_station.geometry.es_altitude,
+    )
+    topology = TopologyFactory.createTopology(
+        parameters, coordinate_system
+    )
 
     topology.calculate_coordinates(rand_gen)
     topology.calculate_coordinates(rand_gen)
+
+    # parameters = ParametersImt()
+    # parameters.ue.k = 1
+    # parameters.ue.k_m = 1
+    # parameters.ue.azimuth_range = (-180, 180)
+    # parameters.ue.distribution_distance = "UNIFORM"
+    # parameters.ue.distribution_type = "ANGLE_AND_DISTANCE"
+    # parameters.ue.distribution_azimuth = "NORMAL"
+    # parameters.ue.height = 1.5
+    # parameters.ue.indoor_percent = 0
+    # parameters.bandwidth = 10
+    # parameters.frequency = 10
+    # parameters.ue.noise_figure = 0
 
     imt_ue = StationFactory.generate_imt_ue_outdoor(
         parameters.imt,
@@ -2091,18 +2131,33 @@ if __name__ == '__main__':
 
     from sharc.support.geometry import plot_geom
     plot_geom(fig, imt_ue.geom)
-    plot_geom(fig, imt_bs.geom, {"marker": dict(size=2, color='blue', opacity=1)})
-    plot_geom(fig, system.geom, {"marker": dict(size=1.5, color='green', opacity=0.5)})
+    plot_geom(
+        fig, imt_bs.geom,
+        {"marker": dict(size=2, color='blue', opacity=1)},
+        pointing_arrow_size=100 * 1e3,
+    )
+    plot_geom(
+        fig, system.geom,
+        {
+            "marker": dict(
+                size=3,
+                color='green',
+                opacity=1
+            )
+        },
+        pointing_arrow_size=100 * 1e5,
+    )
 
     # Maintain axis proportions
-    fig.update_layout(scene_aspectmode='data')
+    fig.update_layout(scene_aspectmode='cube')
 
     # ref_x = imt_ue.geom.x_global[11]
     # ref_y = imt_ue.geom.y_global[11]
     # ref_z = imt_ue.geom.z_global[11]
     # range_scale = 1000
 
-    range_scale = 5000
+    # range_scale = 5000
+    range_scale = 500000
     ref_x = 0
     ref_y = 0
     ref_z = 0

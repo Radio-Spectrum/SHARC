@@ -91,6 +91,13 @@ class Simulation(ABC, Observable):
                 self.parameters.imt.topology.central_longitude,
                 self.parameters.imt.topology.central_altitude,
             )
+        elif self.parameters.imt.topology.type == "MACRO_COUNTRIES":
+            # NOTE: if MACRO_COUNTRIES, it's assumed that the imt does
+            # not have a determined fixed center
+            # and so we arbitrarily set it to any valid value:
+            coordinate_system.set_reference(
+                0., 0., 0.,
+            )
 
         self.coordinate_system = coordinate_system
 

@@ -35,6 +35,7 @@ class ParametersCountries(ParametersBase):
     countries_shapefile: Optional[str] = None
     population_raster: Optional[str] = None
     height: float = 18
+    rng_seed: float = 122
 
     raster_encoding: Literal["density", "indexed"] = "indexed"
     sedac_palette_mode: Literal["log", "linear"] = "log"

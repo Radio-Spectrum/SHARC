@@ -316,8 +316,8 @@ class PropagationP619(Propagation):
         params: Parameters,
         frequency: float,
         path: PropagationPath,
-        station_a_gains=None,
-        station_b_gains=None,
+        station_a_gains,
+        station_b_gains,
     ) -> np.array:
         """Wrapper for the get_loss function that satisfies the ABS class interface
 

@@ -59,7 +59,7 @@ class TopologyCountries(Topology):
         self.params = params
         self.coordinate_system = coordinate_system
         self.rng = random_number_gen if random_number_gen is not None \
-                   else np.random.RandomState()
+                   else np.random.RandomState(self.params.rng_seed)
 
         # Buffers (will be filled in calculate_coordinates)
         self.countries: List[str] = list(params.country_names)

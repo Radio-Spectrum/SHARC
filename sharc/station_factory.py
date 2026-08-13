@@ -2049,28 +2049,28 @@ if __name__ == '__main__':
     # )
     from pathlib import Path
     SHARC_ROOT_DIR = Path(__file__).parent.parent
-    param_file = (
-        SHARC_ROOT_DIR
-        # / ".."
-        # / "input"
-        / "params.yaml"
-    )
+    # param_file = (
+    #     SHARC_ROOT_DIR
+    #     # / ".."
+    #     # / "input"
+    #     / "params.yaml"
+    # )
 
-    param_file = param_file.resolve()
-    print("File at:")
-    print(f"  '{param_file}'")
+    # param_file = param_file.resolve()
+    # print("File at:")
+    # print(f"  '{param_file}'")
 
-    parameters = Parameters()
-    parameters.set_file_name(param_file)
-    parameters.read_params()
+    # parameters = Parameters()
+    # parameters.set_file_name(param_file)
+    # parameters.read_params()
 
-    from sharc.topology.topology_factory import TopologyFactory
-    topology = TopologyFactory.createTopology(
-        parameters,
-        coordinate_system
-    )
+    # from sharc.topology.topology_factory import TopologyFactory
+    # topology = TopologyFactory.createTopology(
+    #     parameters,
+    #     coordinate_system
+    # )
     from pathlib import Path
-    param_file = Path("./test_params.yaml").resolve()
+    param_file = Path("./test_params2.yaml").resolve()
     parameters = Parameters()
     parameters.set_file_name(param_file)
     parameters.read_params()

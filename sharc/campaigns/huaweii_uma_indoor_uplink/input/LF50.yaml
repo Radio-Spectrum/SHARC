@@ -10,10 +10,6 @@ general:
     system: "WIFI"
     ###########################################################################
     # Compatibility scenario (co-channel and/or adjacent channel interference)
-    # >>> ALTERADO: desligamos o co-channel para isolar o efeito do canal
-    # adjacente. Se quiser rodar os dois simultaneamente, basta colocar TRUE
-    # aqui também (nesse caso, cuidado: se as bandas voltarem a se sobrepor,
-    # o resultado de adjacent channel deixa de fazer sentido).
     enable_cochannel: TRUE
     enable_adjacent_channel: FALSE
     ###########################################################################
@@ -24,17 +20,13 @@ general:
     overwrite_output: TRUE
     ###########################################################################
     # output destination folder - this is relative SHARC/sharc directory
-    output_dir  : campaigns/huaweii_fspl/output/LF20
+    output_dir  : campaigns/huaweii_uma_indoor_uplink/output/LF50
     ###########################################################################
     # output folder prefix
-    # >>> ALTERADO: prefixo diferente para não misturar com a rodada co-channel
-    output_dir_prefix  : output_IMT_WIFI_ADJ
+    output_dir_prefix  : output_IMT_WIFI
 imt:
-    minimum_separation_distance_bs_ue: 0              # Minimum 2D distance between BS and UE [m]
+    minimum_separation_distance_bs_ue: 35              # Minimum 2D distance between BS and UE [m]
     interfered_with: FALSE                           # TRUE = IMT is victim; FALSE = IMT is interferer
-    # >>> ALTERADO: frequência da IMT mantida em 7000 MHz. Com 80 MHz de banda,
-    # a IMT ocupa a faixa [6960, 7040] MHz. O WIFI foi deslocado (ver abaixo)
-    # para ficar logo acima, sem sobreposição -> canal adjacente de verdade.
     frequency: 7000                              # IMT center frequency [MHz]
     bandwidth: 80                                    # Total IMT bandwidth [MHz]
     rb_bandwidth: 0.180                               # Resource Block bandwidth [MHz]
@@ -43,17 +35,7 @@ imt:
     spurious_emissions: -15                         # Spurious emission level [dBm/MHz]
     guard_band_ratio: 0.1                             # Ratio of total bandwidth used as guard band
     channel_model: UMa                          # Channel model: FSPL, CI, UMa, UMi, etc.
-    shadowing: TRUE
-    ###########################################################################
-    # >>> NOVO: modelo de emissão fora da banda da BS (interferência BS->WIFI)
-    # SPECTRAL_MASK usa a máscara "3GPP E-UTRA" já definida acima.
-    # Se preferir o modelo ACLR (mais simples, um único número), troque para
-    # "ACLR" e use o valor em imt.bs.adjacent_ch_leak_ratio.
-    adjacent_ch_emissions: SPECTRAL_MASK
-    ###########################################################################
-    # >>> NOVO: modelo de recepção da UE no canal adjacente (interferência
-    # WIFI->UE), via ACS (Adjacent Channel Selectivity)
-    adjacent_ch_reception: ACS
+    shadowing: TRUE  
     ###########################################################################
     # Topology Type. Possible values are "MACROCELL", "HOTSPOT", "SINGLE_BS"
     # "INDOOR", "MSS_DC"
@@ -63,12 +45,14 @@ imt:
             intersite_distance: 450
             wrap_around: true
             num_clusters: 1
+       
+    adjacent_antenna_model: BEAMFORMING
     bs:
         ###########################################################################
         # The load probability (or activity factor) models the statistical
         # variation of the network load by defining the number of fully loaded
         # base stations that are simultaneously transmitting
-        load_probability: 0.2
+        load_probability: 0.5
         ###########################################################################
         # Conducted power per antenna element [dBm/bandwidth]
         conducted_power: 22.0
@@ -85,12 +69,6 @@ imt:
         ###########################################################################
         # Adjacent channel selectivity
         adjacent_ch_selectivity: 46.0
-        ###########################################################################
-        # >>> NOVO: ACLR da BS [dB] - usado apenas se
-        # imt.adjacent_ch_emissions == ACLR. Valor ilustrativo (típico para
-        # eNB/gNB categoria wide-area); ajuste conforme a referência do seu
-        # estudo (ex.: 3GPP TS 38.104 / TS 36.104).
-        adjacent_ch_leak_ratio: 45.0
         ###########################################################################
         # Base Station Antenna parameters:
         antenna:
@@ -179,7 +157,7 @@ imt:
                     # Sub array eletrical downtilt [deg]
                     eletrical_downtilt: 3.0
     ue:
-        k: 1
+        k: 3
         k_m: 1
         indoor_percent: 70.0
         distribution_type: UNIFORM_IN_CELL
@@ -193,12 +171,7 @@ imt:
         height: 1.5
         noise_figure: 9
         ohmic_loss: 2
-        body_loss: 0
-        ###########################################################################
-        # >>> NOVO: ACS da UE [dB] - usado quando imt.adjacent_ch_reception == ACS
-        # (interferência WIFI->UE via canal adjacente). Valor ilustrativo,
-        # confira a referência do seu estudo (ex.: 3GPP TS 38.101 / 36.101).
-        adjacent_ch_selectivity: 33.0
+        body_loss: 4
         antenna:
             array:
                 ###########################################################################
@@ -266,14 +239,7 @@ imt:
 
 wifi:
     ###########################################################################
-    # >>> ALTERADO: WIFI deslocado para ficar logo acima da banda IMT.
-    # IMT ocupa [6960, 7040] MHz (centro 7000, banda 80).
-    # WIFI com centro em 7080 e banda 80 ocupa [7040, 7120] MHz.
-    # As bandas ficam encostadas (adjacentes), sem sobreposição -> weights=0
-    # no cálculo de co-channel, e o modelo de canal adjacente passa a ser
-    # o único responsável pela interferência entre os dois sistemas.
-    # Se quiser uma "guard band" (mais realista), aumente ainda mais essa
-    # frequência (ex.: 7090, 7100...).
+    # Sensor center frequency [MHz]
     frequency: 7000
     ###########################################################################
     # Sensor bandwidth [MHz]
@@ -312,6 +278,7 @@ wifi:
             min_dist_bs: 20.0
             min_dist_nodes_indoor: 2.0 
             buildings_per_cell: 3
+    
     # Base station parameters
     ap:
         ###########################################################################
@@ -400,3 +367,4 @@ wifi:
                 ###########################################################################
                 # BS/UE number of columns in antenna array
                 n_columns: 1
+

@@ -436,6 +436,13 @@ if __name__ == "__main__":
     wifi = SystemWifi(wifi_param, wifi_ant_param, rnd, wifi_topology)
 
     wifi.connect_wifi_sta_to_ap(wifi_param)
+
+    # Roda a contenção CSMA/CA e a seleção de STAs, para que wifi.ap.active /
+    # wifi.sta.active reflitam quem realmente "venceu" o canal nesse
+    # snapshot (e não só quem tinha intenção de transmitir via load_probability)
+    wifi.run_csma_ca_scheduling(rnd)
+    #wifi.select_sta(rnd)
+
     mismatches = []
     for ap_idx, sta_indices in wifi.link.items():
         ap_floor = wifi.ap.floor[ap_idx]
@@ -477,15 +484,39 @@ if __name__ == "__main__":
         draw_building_3d(ax, b)
 
     # ==========================================================
-    # 2. Plotando os APs e as STAs
+    # 2. Plotando os APs e as STAs, separados por status ativo/inativo
     # ==========================================================
-    # APs (Roteadores - Triângulos Vermelhos Grandes)
-    ax.scatter(wifi.ap.x, wifi.ap.y, wifi.ap.z, 
-                c='red', marker='^', s=120, alpha=1.0, edgecolors='black', label='APs (Roteadores)')
-    
-    # STAs (Utilizadores - Círculos Azuis Menores)
-    ax.scatter(wifi.sta.x, wifi.sta.y, wifi.sta.z, 
-                c='blue', marker='o', s=40, alpha=0.8, edgecolors='black', label='STAs (Utilizadores)')
+    ap_active_idx = np.where(wifi.ap.active)[0]
+    ap_inactive_idx = np.where(~wifi.ap.active)[0]
+    sta_active_idx = np.where(wifi.sta.active)[0]
+    sta_inactive_idx = np.where(~wifi.sta.active)[0]
+
+    n_ap_active, n_ap_total = len(ap_active_idx), wifi.num_aps
+    n_sta_active, n_sta_total = len(sta_active_idx), wifi.num_sta
+
+    # APs ativos (vermelho forte) e inativos (cinza claro)
+    ax.scatter(
+        wifi.ap.x[ap_active_idx], wifi.ap.y[ap_active_idx], wifi.ap.z[ap_active_idx],
+        c='red', marker='^', s=120, alpha=1.0, edgecolors='black',
+        label=f'APs ativos ({n_ap_active}/{n_ap_total})',
+    )
+    ax.scatter(
+        wifi.ap.x[ap_inactive_idx], wifi.ap.y[ap_inactive_idx], wifi.ap.z[ap_inactive_idx],
+        c='lightgray', marker='^', s=120, alpha=0.4, edgecolors='gray',
+        label=f'APs inativos ({n_ap_total - n_ap_active}/{n_ap_total})',
+    )
+
+    # STAs ativas (azul forte) e inativas (cinza claro)
+    ax.scatter(
+        wifi.sta.x[sta_active_idx], wifi.sta.y[sta_active_idx], wifi.sta.z[sta_active_idx],
+        c='blue', marker='o', s=40, alpha=0.9, edgecolors='black',
+        label=f'STAs ativas ({n_sta_active}/{n_sta_total})',
+    )
+    ax.scatter(
+        wifi.sta.x[sta_inactive_idx], wifi.sta.y[sta_inactive_idx], wifi.sta.z[sta_inactive_idx],
+        c='whitesmoke', marker='o', s=40, alpha=0.3, edgecolors='gray',
+        label=f'STAs inativas ({n_sta_total - n_sta_active}/{n_sta_total})',
+    )
     
     # 3. Desenhar os Links (Conexões Lógicas do BSS)
     link_label_added = False
@@ -501,10 +532,25 @@ if __name__ == "__main__":
             link_label_added = True
     
     # Configurando os rótulos e título
-    ax.set_title("Distribuição Espacial 3D: Prédios, APs e STAs", fontsize=14)
+    ax.set_title(
+        f"Distribuição Espacial 3D: Prédios, APs e STAs\n"
+        f"APs ativos: {n_ap_active}/{n_ap_total}  |  STAs ativas: {n_sta_active}/{n_sta_total}",
+        fontsize=14,
+    )
     ax.set_xlabel("Eixo X (metros)")
     ax.set_ylabel("Eixo Y (metros)")
     ax.set_zlabel("Eixo Z / Altura (metros)")
+
+    # Caixa de texto com o resumo das contagens, fixa no canto do gráfico
+    resumo = (
+        f"APs:  {n_ap_active} ativos / {n_ap_total - n_ap_active} inativos (total {n_ap_total})\n"
+        f"STAs: {n_sta_active} ativos / {n_sta_total - n_sta_active} inativos (total {n_sta_total})"
+    )
+    ax.text2D(
+        0.02, 0.98, resumo, transform=ax.transAxes,
+        fontsize=10, verticalalignment='top',
+        bbox=dict(boxstyle='round', facecolor='white', alpha=0.8),
+    )
     
     # ==========================================================
     # 3. Adicionando as linhas tracejadas das alturas dos andares

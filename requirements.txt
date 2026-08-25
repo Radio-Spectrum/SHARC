@@ -100,3 +100,4 @@ urllib3==2.2.1
 virtualenv==20.25.1
 wcwidth==0.2.13
 wrapt==1.16.0
+rasterio==1.4.4

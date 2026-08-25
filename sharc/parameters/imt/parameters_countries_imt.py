@@ -32,6 +32,7 @@ class ParametersCountries(ParametersBase):
     num_bs_total: int = 1000
     cell_radius: float = 400
     fixed_azimuth: Optional[float] = None
+    rng_seed: int = 1
     countries_shapefile: Optional[str] = None
     population_raster: Optional[str] = None
     height: float = 18

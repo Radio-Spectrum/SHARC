@@ -49,7 +49,6 @@ from sharc.antenna.antenna_rs1861_9b import AntennaRS1861_9B
 from sharc.antenna.antenna_rs1861_9c import AntennaRS1861_9C
 from sharc.antenna.antenna_rs2043 import AntennaRS2043
 from sharc.antenna.antenna_s465 import AntennaS465
-from sharc.antenna.antenna_array import AntennaArray
 from sharc.antenna.antenna_rra7_3 import AntennaReg_RR_A7_3
 from sharc.antenna.antenna_modified_s465 import AntennaModifiedS465
 from sharc.antenna.antenna_s580 import AntennaS580
@@ -1830,6 +1829,7 @@ class StationFactory(object):
 
         for i in range(mss_d2d.num_stations):
             if params.antenna.pattern == "ARRAY2":
+                from sharc.antenna.antenna_array import AntennaArray
                 antenna_pattern = AntennaArray(
                     params.antenna.array,
                     mss_d2d.geom.global2local.take(i)

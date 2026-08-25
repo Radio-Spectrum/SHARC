@@ -119,7 +119,6 @@ class ParametersAntenna(ParametersBase):
             param = getattr(self, attr_name)
 
             for k, v in kwargs.items():
-                # we only set if not already set
                 if k in dir(param) and getattr(param, k, None) is None:
                     setattr(param, k, v)
 

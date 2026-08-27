@@ -1,18 +1,9 @@
-// SHARC Preview — CesiumJS spike (Fase 2/3 of CESIUMJS_MIGRATION_PLAN.md).
-//
-// Proves that CesiumJS can render fully offline (no Cesium Ion, no CDN, no
-// network) inside a Qt QWebEngineView, that a QWebChannel Python<->JS round
-// trip works, and (Fase 3, first step) that real SHARC engine geometry
-// (TopologyMacrocell, via demo_scene.py) can be rendered — not just
-// hand-picked demo coordinates.
+// SHARC Preview — CesiumJS (Fase 2/3+ of CESIUMJS_MIGRATION_PLAN.md).
 
 const statusEl = document.getElementById("status");
 const isEmbedded = new URLSearchParams(window.location.search).get("embedded") === "1";
 
 if (isEmbedded) {
-  // Embedded in the real Preview tab: Python drives what's rendered
-  // (PreviewTab._refresh_cesium calls requestScene() directly), so the
-  // manual topology dropdown would just be confusing/redundant here.
   document.getElementById("topoPicker").style.display = "none";
 }
 
@@ -25,28 +16,18 @@ window.addEventListener("error", function (event) {
   setStatus("JS ERROR: " + event.message);
 });
 
-setStatus("creating viewer (offline mode: no Ion, no imagery CDN)…");
+setStatus("creating viewer (offline mode)…");
 
-// Offline world basemap: a plain equirectangular JPEG rasterized from the
-// Natural Earth 110m countries shapefile already bundled with SHARC
-// (sharc/topology/map/, public domain) — see
-// tools/run_cesium_spike.py's sibling generator. No Ion, no network.
-//
-// NOTE: passing a provider via the Viewer's `imageryProvider` option is a
-// no-op in this Cesium version (it only suppresses the default Ion layer) —
-// the provider must be wrapped in an ImageryLayer and passed as `baseLayer`.
 const worldBasemap = new Cesium.SingleTileImageryProvider({
   url: "./assets/world_basemap.jpg",
-  tileWidth: 2048,
-  tileHeight: 1024,
+  tileWidth: 4096,
+  tileHeight: 2048,
   rectangle: Cesium.Rectangle.MAX_VALUE,
 });
 
 let viewer;
 try {
   viewer = new Cesium.Viewer("cesiumContainer", {
-    // No Ion services of any kind: no world terrain, no geocoder/
-    // base-layer-picker (both are Ion/Bing-backed by default).
     baseLayer: new Cesium.ImageryLayer(worldBasemap),
     terrainProvider: new Cesium.EllipsoidTerrainProvider(),
     baseLayerPicker: false,
@@ -66,28 +47,168 @@ try {
   throw e;
 }
 
-// Flat, evenly-lit globe for now (no day/night shading) so the sphere is
-// unambiguously visible regardless of the current real-world date/time —
-// lighting can come back once real data makes it useful.
 viewer.scene.globe.enableLighting = false;
-viewer.scene.globe.baseColor = Cesium.Color.fromCssColorString("#4a90d9");
+viewer.scene.globe.baseColor = Cesium.Color.fromCssColorString("#1a3a5c");
 viewer.scene.skyAtmosphere.show = true;
-viewer.scene.backgroundColor = Cesium.Color.fromCssColorString("#0b0e1a");
+viewer.scene.backgroundColor = Cesium.Color.fromCssColorString("#070b14");
+viewer.scene.globe.showGroundAtmosphere = true;
 
-// setView (synchronous, immediate) instead of flyTo(duration: 0) — flyTo
-// expects a real animation duration and can no-op or behave oddly at 0.
-// This is just the fallback view before (or if) real scene data arrives.
 viewer.camera.setView({
   destination: Cesium.Cartesian3.fromDegrees(-47.0, -15.0, 25000000),
 });
 
-// --- Fase 3: render a SceneGraph that came from the real SHARC engine
-// (TopologyMacrocell/Hotspot/SingleBaseStation/Indoor, via
-// PyBridge.get_scene(topology_type) — see demo_scene.py), instead of
-// hand-picked demo coordinates. Positions are in a local ENU frame
-// (meters); `reference` anchors that frame to a real lat/lon so Cesium's
-// own eastNorthUpToFixedFrame can place it on the globe — no coordinate
-// math is re-implemented here. ---
+// ═══════════════════════════════════════════════════════════════════
+// Reference layers (cities + graticule) — kept in separate DataSources
+// so they persist across topology switches (viewer.entities.removeAll
+// only clears the default entity collection).
+// ═══════════════════════════════════════════════════════════════════
+
+const cityDataSource = new Cesium.CustomDataSource("cities");
+viewer.dataSources.add(cityDataSource);
+
+const graticuleDataSource = new Cesium.CustomDataSource("graticule");
+viewer.dataSources.add(graticuleDataSource);
+
+const WORLD_CITIES = [
+  // Americas
+  { name: "New York", lat: 40.71, lon: -74.01 },
+  { name: "Los Angeles", lat: 34.05, lon: -118.24 },
+  { name: "Chicago", lat: 41.88, lon: -87.63 },
+  { name: "Mexico City", lat: 19.43, lon: -99.13 },
+  { name: "Toronto", lat: 43.65, lon: -79.38 },
+  { name: "São Paulo", lat: -23.55, lon: -46.63 },
+  { name: "Rio de Janeiro", lat: -22.91, lon: -43.17 },
+  { name: "Brasília", lat: -15.79, lon: -47.88 },
+  { name: "Buenos Aires", lat: -34.60, lon: -58.38 },
+  { name: "Lima", lat: -12.05, lon: -77.04 },
+  { name: "Bogotá", lat: 4.71, lon: -74.07 },
+  { name: "Santiago", lat: -33.45, lon: -70.67 },
+  // Europe
+  { name: "London", lat: 51.51, lon: -0.13 },
+  { name: "Paris", lat: 48.86, lon: 2.35 },
+  { name: "Berlin", lat: 52.52, lon: 13.41 },
+  { name: "Madrid", lat: 40.42, lon: -3.70 },
+  { name: "Rome", lat: 41.90, lon: 12.50 },
+  { name: "Moscow", lat: 55.76, lon: 37.62 },
+  { name: "Istanbul", lat: 41.01, lon: 28.98 },
+  { name: "Lisbon", lat: 38.72, lon: -9.14 },
+  // Africa
+  { name: "Cairo", lat: 30.04, lon: 31.24 },
+  { name: "Lagos", lat: 6.52, lon: 3.38 },
+  { name: "Johannesburg", lat: -26.20, lon: 28.05 },
+  { name: "Nairobi", lat: -1.29, lon: 36.82 },
+  { name: "Cape Town", lat: -33.93, lon: 18.42 },
+  // Asia
+  { name: "Tokyo", lat: 35.68, lon: 139.69 },
+  { name: "Beijing", lat: 39.90, lon: 116.40 },
+  { name: "Shanghai", lat: 31.23, lon: 121.47 },
+  { name: "Mumbai", lat: 19.08, lon: 72.88 },
+  { name: "Delhi", lat: 28.61, lon: 77.21 },
+  { name: "Seoul", lat: 37.57, lon: 126.98 },
+  { name: "Singapore", lat: 1.35, lon: 103.82 },
+  { name: "Dubai", lat: 25.20, lon: 55.27 },
+  { name: "Bangkok", lat: 13.76, lon: 100.50 },
+  { name: "Jakarta", lat: -6.21, lon: 106.85 },
+  { name: "Tehran", lat: 35.69, lon: 51.39 },
+  // Oceania
+  { name: "Sydney", lat: -33.87, lon: 151.21 },
+  { name: "Melbourne", lat: -37.81, lon: 144.96 },
+  { name: "Auckland", lat: -36.85, lon: 174.76 },
+];
+
+(function addCityLabels() {
+  const cityColor = Cesium.Color.fromCssColorString("#ffd54f");
+  const cityOutline = Cesium.Color.fromCssColorString("#c68400");
+  for (const city of WORLD_CITIES) {
+    cityDataSource.entities.add({
+      position: Cesium.Cartesian3.fromDegrees(city.lon, city.lat, 0),
+      label: {
+        text: city.name,
+        font: "bold 11px 'Segoe UI', Arial, sans-serif",
+        fillColor: Cesium.Color.WHITE.withAlpha(0.95),
+        outlineColor: Cesium.Color.BLACK.withAlpha(0.8),
+        outlineWidth: 3,
+        style: Cesium.LabelStyle.FILL_AND_OUTLINE,
+        verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
+        pixelOffset: new Cesium.Cartesian2(0, -8),
+        distanceDisplayCondition: new Cesium.DistanceDisplayCondition(0, 25000000),
+        scaleByDistance: new Cesium.NearFarScalar(500000, 1.0, 20000000, 0.45),
+        disableDepthTestDistance: Number.POSITIVE_INFINITY,
+      },
+      point: {
+        pixelSize: 5,
+        color: cityColor,
+        outlineColor: cityOutline,
+        outlineWidth: 1.5,
+        distanceDisplayCondition: new Cesium.DistanceDisplayCondition(0, 25000000),
+        disableDepthTestDistance: Number.POSITIVE_INFINITY,
+      },
+    });
+  }
+})();
+
+(function addGraticule() {
+  const gridColor = Cesium.Color.WHITE.withAlpha(0.08);
+  const majorGridColor = Cesium.Color.WHITE.withAlpha(0.15);
+  // Latitude lines
+  for (let lat = -60; lat <= 60; lat += 30) {
+    const positions = [];
+    for (let lon = -180; lon <= 180; lon += 3) {
+      positions.push(Cesium.Cartesian3.fromDegrees(lon, lat, 100));
+    }
+    graticuleDataSource.entities.add({
+      polyline: {
+        positions,
+        width: lat === 0 ? 1.5 : 1,
+        material: lat === 0 ? majorGridColor : gridColor,
+      },
+    });
+  }
+  // Longitude lines
+  for (let lon = -180; lon < 180; lon += 30) {
+    const positions = [];
+    for (let lat = -85; lat <= 85; lat += 3) {
+      positions.push(Cesium.Cartesian3.fromDegrees(lon, lat, 100));
+    }
+    graticuleDataSource.entities.add({
+      polyline: {
+        positions,
+        width: lon === 0 ? 1.5 : 1,
+        material: lon === 0 ? majorGridColor : gridColor,
+      },
+    });
+  }
+})();
+
+// ═══════════════════════════════════════════════════════════════════
+// Color palette — cohesive scheme for all topology renderers
+// ═══════════════════════════════════════════════════════════════════
+
+const C = {
+  bs:          Cesium.Color.fromCssColorString("#4fc3f7"),   // light blue
+  bsOutline:   Cesium.Color.WHITE,
+  ue:          Cesium.Color.fromCssColorString("#ef5350"),   // warm red
+  hex:         Cesium.Color.fromCssColorString("#7986cb"),   // indigo
+  sector:      Cesium.Color.fromCssColorString("#4fc3f7"),   // cyan
+  beam:        Cesium.Color.fromCssColorString("#ffd54f"),   // amber
+  mast:        Cesium.Color.fromCssColorString("#90a4ae"),   // steel
+  satellite:   Cesium.Color.fromCssColorString("#ff1744"),   // vivid red
+  station:     Cesium.Color.fromCssColorString("#00e5ff"),   // electric cyan
+  footprint:   Cesium.Color.fromCssColorString("#e040fb"),   // magenta
+  link:        Cesium.Color.fromCssColorString("#ffab00"),   // amber
+  building:    Cesium.Color.fromCssColorString("#d4a574"),   // sandstone
+  buildingOut: Cesium.Color.fromCssColorString("#8a6d3b"),   // dark wood
+  ntnAnchor:   Cesium.Color.fromCssColorString("#b0bec5"),   // blue-grey
+  d2dA:        Cesium.Color.fromCssColorString("#66bb6a"),   // green
+  d2dB:        Cesium.Color.fromCssColorString("#ab47bc"),   // purple
+  borderSel:   Cesium.Color.fromCssColorString("#76ff03"),   // lime
+  borderDef:   Cesium.Color.WHITE.withAlpha(0.5),
+  countryBs:   Cesium.Color.fromCssColorString("#4fc3f7"),
+};
+
+// ═══════════════════════════════════════════════════════════════════
+// ENU helpers (local → world coordinate transform)
+// ═══════════════════════════════════════════════════════════════════
 
 function makeEnuHelpers(reference) {
   const origin = Cesium.Cartesian3.fromDegrees(reference.lon_deg, reference.lat_deg, reference.alt_m);
@@ -101,13 +222,9 @@ function makeEnuHelpers(reference) {
   };
 }
 
-// --- Scenario-modeling helpers (Fase 5: melhor fidelidade geométrica) ---
-//
-// Same "direction vector + two perpendicular basis vectors" technique
-// core/cesium_bridge.py's _footprint_boundary_lla / demo_scene.py's
-// _footprint_boundary_lla already use for the satellite footprint circle —
-// applied here in the local ENU (east/north/up) frame instead of ECEF, to
-// draw a real 3D antenna beam cone instead of a single pointing line.
+// ═══════════════════════════════════════════════════════════════════
+// Geometry helpers (beam cone, sector wedge)
+// ═══════════════════════════════════════════════════════════════════
 
 function unit3(v) {
   const n = Math.hypot(v[0], v[1], v[2]);
@@ -118,9 +235,6 @@ function cross3(a, b) {
   return [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
 }
 
-// Filled polygon for one sector's horizontal coverage wedge (ground-
-// projected), matching PlotEnginesMixin._add_wedge_outline3d_mpl's
-// half-beamwidth convention (30 deg either side of the azimuth).
 function sectorWedgePositions(toWorld, bx, by, z, azDeg, radius, halfBwDeg = 30, segments = 16) {
   const positions = [toWorld(bx, by, z)];
   const az0 = Cesium.Math.toRadians(azDeg - halfBwDeg);
@@ -133,10 +247,6 @@ function sectorWedgePositions(toWorld, bx, by, z, azDeg, radius, halfBwDeg = 30,
   return positions;
 }
 
-// 3D antenna beam cone (apex at the BS/antenna, pointing along azimuth +
-// downtilt) — a wireframe of radial lines plus a translucent base cap, so
-// the antenna's real pointing direction and beamwidth are visible in 3D,
-// not just a flat line.
 function beamConePositions(bx, by, bz, azDeg, downtiltDeg, length, halfAngleDeg = 12, segments = 24) {
   const az = Cesium.Math.toRadians(azDeg);
   const dt = Cesium.Math.toRadians(downtiltDeg);
@@ -167,24 +277,82 @@ function addBeamCone(toWorld, entities, bx, by, bz, azDeg, downtiltDeg, length, 
   const apexWorld = toWorld(apex[0], apex[1], apex[2]);
   const baseWorld = base.map((p) => toWorld(p[0], p[1], p[2]));
 
-  // Translucent cap (the "flashlight beam" silhouette).
   entities.add({
     polygon: {
       hierarchy: baseWorld,
-      material: color.withAlpha(0.18),
+      material: color.withAlpha(0.2),
       outline: false,
       perPositionHeight: true,
     },
   });
-  // A handful of radial lines from apex to the base circle, so the cone
-  // shape reads clearly even from angles where the cap is edge-on.
   const radialStep = Math.max(1, Math.floor(base.length / 8));
   for (let i = 0; i < base.length; i += radialStep) {
     entities.add({
-      polyline: { positions: [apexWorld, baseWorld[i]], width: 1, material: color.withAlpha(0.5) },
+      polyline: { positions: [apexWorld, baseWorld[i]], width: 1, material: color.withAlpha(0.55) },
     });
   }
 }
+
+// ═══════════════════════════════════════════════════════════════════
+// Gain Map (antenna heatmap) — turbo colormap + rectangle entities
+// ═══════════════════════════════════════════════════════════════════
+
+const TURBO_STOPS = [
+  [0.00, 0.19, 0.07, 0.23],
+  [0.07, 0.23, 0.17, 0.45],
+  [0.15, 0.25, 0.39, 0.76],
+  [0.22, 0.18, 0.53, 0.90],
+  [0.30, 0.11, 0.73, 0.80],
+  [0.37, 0.20, 0.83, 0.63],
+  [0.45, 0.36, 0.91, 0.44],
+  [0.52, 0.57, 0.96, 0.33],
+  [0.60, 0.78, 0.94, 0.20],
+  [0.67, 0.92, 0.85, 0.14],
+  [0.75, 0.98, 0.70, 0.12],
+  [0.82, 0.99, 0.53, 0.13],
+  [0.90, 0.87, 0.30, 0.12],
+  [1.00, 0.64, 0.12, 0.11],
+];
+
+function turboColor(t) {
+  t = Math.max(0, Math.min(1, t));
+  let lo = 0;
+  for (let i = 0; i < TURBO_STOPS.length - 1; i++) {
+    if (t >= TURBO_STOPS[i][0] && t <= TURBO_STOPS[i + 1][0]) { lo = i; break; }
+  }
+  const hi = Math.min(lo + 1, TURBO_STOPS.length - 1);
+  const range = TURBO_STOPS[hi][0] - TURBO_STOPS[lo][0];
+  const f = range > 0 ? (t - TURBO_STOPS[lo][0]) / range : 0;
+  return new Cesium.Color(
+    TURBO_STOPS[lo][1] + f * (TURBO_STOPS[hi][1] - TURBO_STOPS[lo][1]),
+    TURBO_STOPS[lo][2] + f * (TURBO_STOPS[hi][2] - TURBO_STOPS[lo][2]),
+    TURBO_STOPS[lo][3] + f * (TURBO_STOPS[hi][3] - TURBO_STOPS[lo][3]),
+    0.55
+  );
+}
+
+function renderGainMap(scene) {
+  if (!scene.gain_map || !scene.gain_map.cells || scene.gain_map.cells.length === 0) return;
+  const step = scene.gain_map.step || 2.0;
+  const half = step / 2.0;
+  for (const cell of scene.gain_map.cells) {
+    viewer.entities.add({
+      rectangle: {
+        coordinates: Cesium.Rectangle.fromDegrees(
+          cell.lon - half, cell.lat - half,
+          cell.lon + half, cell.lat + half
+        ),
+        material: turboColor(cell.v),
+        outline: false,
+        height: 0,
+      },
+    });
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Topology renderers
+// ═══════════════════════════════════════════════════════════════════
 
 function renderHexSectorScene(scene) {
   const { toWorld } = makeEnuHelpers(scene.reference);
@@ -192,9 +360,7 @@ function renderHexSectorScene(scene) {
   const ueHeightM = scene.ue_height_m;
   const arrowLenM = scene.hex_radius_m * 0.6;
 
-  // Hex cell outlines — one 6-vertex loop per site, matching
-  // PlotEnginesMixin._hexagon_points (radius = hex_radius_m, 30 deg
-  // rotation) so the honeycomb layout matches the legacy renderers.
+  // Hex cells
   for (const hc of scene.hex_centers) {
     const positions = [];
     for (let i = 0; i <= 6; i++) {
@@ -208,67 +374,70 @@ function renderHexSectorScene(scene) {
       );
     }
     viewer.entities.add({
-      polyline: { positions, width: 1, material: Cesium.Color.SLATEBLUE.withAlpha(0.6) },
+      polyline: { positions, width: 1.5, material: C.hex.withAlpha(0.5) },
+    });
+    // Subtle hex fill
+    viewer.entities.add({
+      polygon: {
+        hierarchy: positions,
+        material: C.hex.withAlpha(0.04),
+        outline: false,
+      },
     });
   }
 
-  // Base stations: mast (ground -> antenna height), sector coverage wedge
-  // (filled, horizontal) and a real 3D antenna beam cone (azimuth +
-  // downtilt + beamwidth) instead of a single pointing line.
+  // Base stations
   const sectorRadius = Math.max(scene.hex_radius_m * 0.85, arrowLenM);
   for (const bs of scene.base_stations) {
     const groundPos = toWorld(bs.x, bs.y, 0);
     const worldPos = toWorld(bs.x, bs.y, bsHeightM);
 
+    // Mast
     viewer.entities.add({
-      polyline: { positions: [groundPos, worldPos], width: 2, material: Cesium.Color.fromCssColorString("#8a94a8") },
+      polyline: { positions: [groundPos, worldPos], width: 2, material: C.mast },
     });
+    // Antenna point
     viewer.entities.add({
       position: worldPos,
-      point: { pixelSize: 6, color: Cesium.Color.CYAN, outlineColor: Cesium.Color.WHITE, outlineWidth: 1 },
+      point: { pixelSize: 7, color: C.bs, outlineColor: C.bsOutline, outlineWidth: 1 },
     });
 
+    // Sector wedge
     viewer.entities.add({
       polygon: {
         hierarchy: sectorWedgePositions(toWorld, bs.x, bs.y, bsHeightM, bs.azimuth_deg, sectorRadius),
-        material: Cesium.Color.CYAN.withAlpha(0.12),
+        material: C.sector.withAlpha(0.1),
         outline: true,
-        outlineColor: Cesium.Color.CYAN.withAlpha(0.5),
+        outlineColor: C.sector.withAlpha(0.45),
         perPositionHeight: true,
       },
     });
 
+    // Beam cone
     addBeamCone(
       toWorld, viewer.entities, bs.x, bs.y, bsHeightM,
-      bs.azimuth_deg, scene.downtilt_deg, arrowLenM, Cesium.Color.ORANGE
+      bs.azimuth_deg, scene.downtilt_deg, arrowLenM, C.beam
     );
   }
 
-  // UE (illustrative scatter, deterministically seeded — see
-  // demo_scene.py).
+  // UE scatter
   for (const ue of scene.ue_positions) {
     viewer.entities.add({
       position: toWorld(ue.x, ue.y, ueHeightM),
-      point: { pixelSize: 3, color: Cesium.Color.fromCssColorString("#ff6b6b").withAlpha(0.85) },
+      point: { pixelSize: 3.5, color: C.ue.withAlpha(0.8) },
     });
   }
 
   viewer.zoomTo(viewer.entities);
   setStatus(
-    `rendered real ${scene.topology_type} scene from SHARC engine: ` +
-      `${scene.base_stations.length} BS/sectors, ${scene.hex_centers.length} cells, ` +
-      `${scene.ue_positions.length} UE`
+    `${scene.topology_type}: ${scene.base_stations.length} BS, ` +
+      `${scene.hex_centers.length} cells, ${scene.ue_positions.length} UE`
   );
 }
 
 function renderIndoorScene(scene) {
   const { toWorld, orientation } = makeEnuHelpers(scene.reference);
 
-  // Buildings as extruded boxes. Box dimensions are in the entity's own
-  // local frame, so giving every building the same ENU orientation
-  // (derived from the single scene reference point) is a fine
-  // approximation at this scale (a handful of buildings within a few
-  // hundred meters of each other).
   for (const b of scene.buildings) {
     const totalHeight = b.floor_height * b.num_floors;
     const centerWorld = toWorld(b.x0 + b.width / 2, b.y0 + b.depth / 2, totalHeight / 2);
@@ -277,93 +446,132 @@ function renderIndoorScene(scene) {
       orientation,
       box: {
         dimensions: new Cesium.Cartesian3(b.width, b.depth, totalHeight),
-        material: Cesium.Color.fromCssColorString("#d4a574").withAlpha(0.55),
+        material: C.building.withAlpha(0.5),
         outline: true,
-        outlineColor: Cesium.Color.fromCssColorString("#8a6d3b"),
+        outlineColor: C.buildingOut,
       },
     });
+    // Floor lines
+    for (let f = 1; f < b.num_floors; f++) {
+      const fz = b.floor_height * f;
+      const corners = [
+        toWorld(b.x0, b.y0, fz), toWorld(b.x0 + b.width, b.y0, fz),
+        toWorld(b.x0 + b.width, b.y0 + b.depth, fz), toWorld(b.x0, b.y0 + b.depth, fz),
+        toWorld(b.x0, b.y0, fz),
+      ];
+      viewer.entities.add({
+        polyline: { positions: corners, width: 1, material: C.buildingOut.withAlpha(0.3) },
+      });
+    }
   }
 
   for (const bs of scene.base_stations) {
     viewer.entities.add({
       position: toWorld(bs.x, bs.y, bs.z),
-      point: { pixelSize: 6, color: Cesium.Color.BLUE, outlineColor: Cesium.Color.WHITE, outlineWidth: 1 },
+      point: { pixelSize: 6, color: C.bs, outlineColor: C.bsOutline, outlineWidth: 1 },
     });
   }
 
   for (const ue of scene.ue_positions) {
     viewer.entities.add({
       position: toWorld(ue.x, ue.y, ue.z),
-      point: { pixelSize: 3, color: Cesium.Color.fromCssColorString("#ff6b6b").withAlpha(0.85) },
+      point: { pixelSize: 3.5, color: C.ue.withAlpha(0.8) },
     });
   }
 
   viewer.zoomTo(viewer.entities);
   setStatus(
-    `rendered real ${scene.topology_type} scene from SHARC engine: ` +
-      `${scene.buildings.length} buildings, ${scene.base_stations.length} BS, ` +
+    `INDOOR: ${scene.buildings.length} buildings, ${scene.base_stations.length} BS, ` +
       `${scene.ue_positions.length} UE`
   );
 }
 
 function renderSingleSpaceStationScene(scene) {
-  // Genuinely global coordinates — no local ENU anchor here. Cesium places
-  // lat/lon/alt directly; this is the scene type Cesium is actually built
-  // for (versus the ENU-anchor trick used for terrestrial topologies,
-  // which don't have real-world coordinates of their own).
   const sat = scene.satellite;
   const es = scene.earth_station;
+  const isMacroCountries = scene.topology_type === "Macro_countries";
   const satWorld = Cesium.Cartesian3.fromDegrees(sat.lon_deg, sat.lat_deg, sat.alt_m);
   const esWorld = Cesium.Cartesian3.fromDegrees(es.lon_deg, es.lat_deg, es.alt_m);
 
+  // Gain map (heatmap) — rendered first so it sits under other elements
+  renderGainMap(scene);
+
+  // Satellite
   viewer.entities.add({
     name: "Satellite",
     position: satWorld,
-    point: { pixelSize: 10, color: Cesium.Color.RED, outlineColor: Cesium.Color.WHITE, outlineWidth: 1 },
-  });
-  viewer.entities.add({
-    name: "Earth station",
-    position: esWorld,
-    point: { pixelSize: 8, color: Cesium.Color.CYAN, outlineColor: Cesium.Color.WHITE, outlineWidth: 1 },
-  });
-  viewer.entities.add({
-    polyline: { positions: [satWorld, esWorld], width: 2, material: Cesium.Color.ORANGE.withAlpha(0.8) },
+    point: { pixelSize: 14, color: C.satellite, outlineColor: Cesium.Color.WHITE, outlineWidth: 2 },
+    label: {
+      text: "SAT",
+      font: "bold 13px 'Segoe UI', Arial, sans-serif",
+      fillColor: C.satellite,
+      outlineColor: Cesium.Color.BLACK,
+      outlineWidth: 3,
+      style: Cesium.LabelStyle.FILL_AND_OUTLINE,
+      verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
+      pixelOffset: new Cesium.Cartesian2(0, -16),
+      disableDepthTestDistance: Number.POSITIVE_INFINITY,
+    },
   });
 
+  if (!isMacroCountries) {
+    // Earth station (only for non-Macro_countries)
+    viewer.entities.add({
+      name: "Earth Station",
+      position: esWorld,
+      point: { pixelSize: 10, color: C.station, outlineColor: Cesium.Color.WHITE, outlineWidth: 2 },
+      label: {
+        text: "ES",
+        font: "bold 11px 'Segoe UI', Arial, sans-serif",
+        fillColor: C.station,
+        outlineColor: Cesium.Color.BLACK,
+        outlineWidth: 3,
+        style: Cesium.LabelStyle.FILL_AND_OUTLINE,
+        verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
+        pixelOffset: new Cesium.Cartesian2(0, -12),
+        disableDepthTestDistance: Number.POSITIVE_INFINITY,
+      },
+    });
+    // Link line SAT → ES (straight 3D line, not geodesic)
+    viewer.entities.add({
+      polyline: {
+        positions: [satWorld, esWorld], width: 2.5,
+        material: C.link.withAlpha(0.85),
+        arcType: Cesium.ArcType.NONE,
+      },
+    });
+  }
+
+  // Footprint
   if (scene.footprint && scene.footprint.length > 1) {
     const footprintPositions = Cesium.Cartesian3.fromDegreesArray(
       scene.footprint.flatMap((p) => [p.lon_deg, p.lat_deg])
     );
     viewer.entities.add({
-      polyline: { positions: footprintPositions, width: 3, material: Cesium.Color.MAGENTA },
+      polyline: { positions: footprintPositions, width: 3, material: C.footprint },
     });
-    // Filled illuminated area (not just the boundary outline) — the actual
-    // patch of Earth the antenna's beamwidth covers.
     viewer.entities.add({
       polygon: {
         hierarchy: new Cesium.PolygonHierarchy(footprintPositions),
-        material: Cesium.Color.MAGENTA.withAlpha(0.12),
+        material: C.footprint.withAlpha(0.1),
         outline: false,
       },
     });
-    // Beam volume: a handful of lines from the satellite down to its own
-    // footprint boundary, so the cone connecting satellite -> illuminated
-    // area is visible (not just an outline floating on the globe).
-    const beamStep = Math.max(1, Math.floor(footprintPositions.length / 12));
+    // Beam volume lines — straight in 3D space
+    const beamStep = Math.max(1, Math.floor(footprintPositions.length / 16));
     for (let i = 0; i < footprintPositions.length; i += beamStep) {
       viewer.entities.add({
         polyline: {
           positions: [satWorld, footprintPositions[i]],
           width: 1,
-          material: Cesium.Color.MAGENTA.withAlpha(0.25),
+          material: C.footprint.withAlpha(0.2),
+          arcType: Cesium.ArcType.NONE,
         },
       });
     }
   }
 
-  // Country borders (Natural Earth 110m, same shapefile the Matplotlib
-  // renderer uses — see core/cesium_bridge.py: _borders_dict). Only present
-  // when "Show country borders" is checked.
+  // Country borders
   if (scene.borders && scene.borders.length > 0) {
     for (const b of scene.borders) {
       if (b.lat_deg.length < 2) continue;
@@ -374,34 +582,54 @@ function renderSingleSpaceStationScene(scene) {
         polyline: {
           positions,
           width: b.selected ? 2.5 : 1,
-          material: b.selected ? Cesium.Color.LIME : Cesium.Color.WHITE.withAlpha(0.6),
+          material: b.selected ? C.borderSel : C.borderDef,
         },
       });
     }
   }
 
-  // Macro_countries also comes through here (same global scene shape as
-  // SINGLE_SPACE_STATION — satellite/earth_station/footprint — plus this).
+  // Country BS (Macro_countries) — larger dots + triangle markers
   if (scene.country_bs && scene.country_bs.length > 0) {
     for (const bs of scene.country_bs) {
       viewer.entities.add({
-        position: Cesium.Cartesian3.fromDegrees(bs.lon_deg, bs.lat_deg),
-        point: { pixelSize: 4, color: Cesium.Color.fromCssColorString("#4fc3f7").withAlpha(0.9) },
+        position: Cesium.Cartesian3.fromDegrees(bs.lon_deg, bs.lat_deg, 0),
+        point: { pixelSize: 6, color: C.countryBs, outlineColor: Cesium.Color.WHITE, outlineWidth: 1 },
+      });
+    }
+    // Link lines from satellite to BS centroid area
+    if (scene.bs_centroid) {
+      const centroidWorld = Cesium.Cartesian3.fromDegrees(scene.bs_centroid.lon_deg, scene.bs_centroid.lat_deg, 0);
+      viewer.entities.add({
+        polyline: {
+          positions: [satWorld, centroidWorld], width: 2.5,
+          material: new Cesium.PolylineDashMaterialProperty({ color: C.link }),
+          arcType: Cesium.ArcType.NONE,
+        },
+      });
+      viewer.entities.add({
+        position: centroidWorld,
+        point: { pixelSize: 8, color: C.link, outlineColor: Cesium.Color.WHITE, outlineWidth: 1.5 },
+        label: {
+          text: `${scene.country_bs.length} BS`,
+          font: "bold 11px 'Segoe UI', Arial, sans-serif",
+          fillColor: C.link,
+          outlineColor: Cesium.Color.BLACK, outlineWidth: 3,
+          style: Cesium.LabelStyle.FILL_AND_OUTLINE,
+          verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
+          pixelOffset: new Cesium.Cartesian2(0, -12),
+          disableDepthTestDistance: Number.POSITIVE_INFINITY,
+        },
       });
     }
   }
 
   viewer.zoomTo(viewer.entities);
   let statusMsg =
-    `rendered real ${scene.topology_type} scene from SHARC engine: ` +
-    `satellite at (${sat.lat_deg.toFixed(1)}, ${sat.lon_deg.toFixed(1)}), ` +
-    `footprint with ${scene.footprint.length} pts`;
-  if (scene.country_bs) {
-    statusMsg += `, ${scene.country_bs.length} country BS`;
-  }
-  if (scene.borders) {
-    statusMsg += `, ${scene.borders.length} border rings`;
-  }
+    `${scene.topology_type}: satellite (${sat.lat_deg.toFixed(1)}°, ${sat.lon_deg.toFixed(1)}°), ` +
+    `footprint ${scene.footprint.length} pts`;
+  if (scene.country_bs) statusMsg += `, ${scene.country_bs.length} BS`;
+  if (scene.borders) statusMsg += `, ${scene.borders.length} borders`;
+  if (scene.gain_map) statusMsg += `, gain map ${scene.gain_map.cells.length} cells`;
   setStatus(statusMsg);
 }
 
@@ -410,14 +638,24 @@ function renderD2DScene(scene) {
   const z = scene.ue_height_m;
   const devices = scene.devices;
 
-  const colors = [Cesium.Color.fromCssColorString("#66bb6a"), Cesium.Color.fromCssColorString("#ab47bc")];
+  const colors = [C.d2dA, C.d2dB];
   const worldPositions = devices.map((d) => toWorld(d.x, d.y, z));
 
   worldPositions.forEach((pos, i) => {
     viewer.entities.add({
       name: `Device ${i + 1}`,
       position: pos,
-      point: { pixelSize: 9, color: colors[i % colors.length], outlineColor: Cesium.Color.WHITE, outlineWidth: 1 },
+      point: { pixelSize: 10, color: colors[i % colors.length], outlineColor: Cesium.Color.WHITE, outlineWidth: 1.5 },
+      label: {
+        text: `D${i + 1}`,
+        font: "bold 11px 'Segoe UI', Arial, sans-serif",
+        fillColor: colors[i % colors.length],
+        outlineColor: Cesium.Color.BLACK,
+        outlineWidth: 3,
+        style: Cesium.LabelStyle.FILL_AND_OUTLINE,
+        verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
+        pixelOffset: new Cesium.Cartesian2(0, -12),
+      },
     });
   });
 
@@ -426,39 +664,79 @@ function renderD2DScene(scene) {
       polyline: {
         positions: worldPositions,
         width: 3,
-        material: new Cesium.PolylineDashMaterialProperty({ color: Cesium.Color.ORANGE }),
+        material: new Cesium.PolylineDashMaterialProperty({ color: C.link }),
       },
     });
   }
 
   viewer.zoomTo(viewer.entities);
-  setStatus(`rendered real MSS_D2D scene from SHARC engine: ${devices.length} devices`);
+  setStatus(`MSS_D2D: ${devices.length} devices`);
 }
 
 function renderSingleStationScene(scene) {
   const { toWorld } = makeEnuHelpers(scene.reference);
   const s = scene.station;
   const worldPos = toWorld(s.x, s.y, s.z);
+  const groundPos = toWorld(s.x, s.y, 0);
 
+  // Mast / pedestal
+  viewer.entities.add({
+    polyline: { positions: [groundPos, worldPos], width: 3, material: C.mast },
+  });
+
+  // Station point — cyan (C.station), distinct from satellite red
   viewer.entities.add({
     name: "Single Earth Station",
     position: worldPos,
-    point: { pixelSize: 10, color: Cesium.Color.RED, outlineColor: Cesium.Color.WHITE, outlineWidth: 1 },
+    point: { pixelSize: 14, color: C.station, outlineColor: Cesium.Color.WHITE, outlineWidth: 2.5 },
+    label: {
+      text: "ES",
+      font: "bold 13px 'Segoe UI', Arial, sans-serif",
+      fillColor: C.station,
+      outlineColor: Cesium.Color.BLACK,
+      outlineWidth: 3,
+      style: Cesium.LabelStyle.FILL_AND_OUTLINE,
+      verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
+      pixelOffset: new Cesium.Cartesian2(0, -16),
+    },
   });
+
+  // Coverage / reception circle on the ground
+  const coverageRadius = Math.max(50, s.z * 3);
+  const circleSegments = 36;
+  const circlePositions = [];
+  for (let i = 0; i <= circleSegments; i++) {
+    const ang = (2 * Math.PI * i) / circleSegments;
+    circlePositions.push(toWorld(s.x + coverageRadius * Math.cos(ang), s.y + coverageRadius * Math.sin(ang), 0));
+  }
+  viewer.entities.add({
+    polyline: { positions: circlePositions, width: 1.5, material: C.station.withAlpha(0.4) },
+  });
+  viewer.entities.add({
+    polygon: {
+      hierarchy: circlePositions,
+      material: C.station.withAlpha(0.06),
+      outline: false,
+    },
+  });
+
+  // Antenna pointing direction (elevation cone toward sky)
+  const elDeg = scene.antenna_elevation_deg || 25;
+  const azDeg = scene.antenna_azimuth_deg || 0;
+  const coneLen = coverageRadius * 1.5;
+  addBeamCone(toWorld, viewer.entities, s.x, s.y, s.z, azDeg, -elDeg, coneLen,
+    Cesium.Color.fromCssColorString("#4dd0e1"), 15);
 
   viewer.zoomTo(viewer.entities);
   setStatus(
-    `rendered real ${scene.topology_type} scene from SHARC engine: ` +
-      `station at local (${s.x.toFixed(0)}, ${s.y.toFixed(0)}) m`
+    `SINGLE_EARTH_STATION: at (${s.x.toFixed(0)}, ${s.y.toFixed(0)}) m, el=${elDeg.toFixed(0)}°`
   );
 }
 
 function renderNtnScene(scene) {
   const { toWorld } = makeEnuHelpers(scene.reference);
 
-  // Hex cell outline around each anchor point (same tessellation as
-  // renderHexSectorScene, radius = cell_radius) — matches the legacy
-  // Matplotlib/Plotly NTN renderer's "Sector Cells" hexagons.
+  // Hex cells around anchor points
   for (const ap of scene.anchor_points) {
     const positions = [];
     for (let i = 0; i <= 6; i++) {
@@ -468,14 +746,18 @@ function renderNtnScene(scene) {
       );
     }
     viewer.entities.add({
-      polyline: { positions, width: 1, material: Cesium.Color.SLATEBLUE.withAlpha(0.6) },
+      polyline: { positions, width: 1.5, material: C.hex.withAlpha(0.5) },
+    });
+    viewer.entities.add({
+      polygon: { hierarchy: positions, material: C.hex.withAlpha(0.04), outline: false },
     });
     viewer.entities.add({
       position: toWorld(ap.x, ap.y, 0),
-      point: { pixelSize: 5, color: Cesium.Color.LIGHTGRAY, outlineColor: Cesium.Color.BLACK, outlineWidth: 1 },
+      point: { pixelSize: 5, color: C.ntnAnchor, outlineColor: Cesium.Color.BLACK, outlineWidth: 1 },
     });
   }
 
+  // Satellite
   const satLocal = scene.satellite;
   const satWorld = toWorld(satLocal.x, satLocal.y, satLocal.z);
   const groundBelowSat = toWorld(satLocal.x, satLocal.y, 0);
@@ -484,31 +766,50 @@ function renderNtnScene(scene) {
   viewer.entities.add({
     name: `Satellite (el=${scene.elevation_deg.toFixed(0)}°)`,
     position: satWorld,
-    point: { pixelSize: 10, color: Cesium.Color.fromCssColorString("#ff5252"), outlineColor: Cesium.Color.WHITE, outlineWidth: 1 },
-  });
-  viewer.entities.add({
-    polyline: { positions: [groundBelowSat, satWorld], width: 2, material: Cesium.Color.fromCssColorString("#4fc3f7") },
-  });
-  viewer.entities.add({
-    polyline: {
-      positions: [originWorld, satWorld], width: 2,
-      material: new Cesium.PolylineDashMaterialProperty({ color: Cesium.Color.GREEN }),
+    point: { pixelSize: 12, color: C.satellite, outlineColor: Cesium.Color.WHITE, outlineWidth: 2 },
+    label: {
+      text: `SAT  el=${scene.elevation_deg.toFixed(0)}°`,
+      font: "bold 11px 'Segoe UI', Arial, sans-serif",
+      fillColor: C.satellite,
+      outlineColor: Cesium.Color.BLACK,
+      outlineWidth: 3,
+      style: Cesium.LabelStyle.FILL_AND_OUTLINE,
+      verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
+      pixelOffset: new Cesium.Cartesian2(0, -14),
+      disableDepthTestDistance: Number.POSITIVE_INFINITY,
     },
   });
 
+  // Vertical projection line
+  viewer.entities.add({
+    polyline: { positions: [groundBelowSat, satWorld], width: 2, material: C.station.withAlpha(0.7) },
+  });
+  // Slant range line
+  viewer.entities.add({
+    polyline: {
+      positions: [originWorld, satWorld], width: 2,
+      material: new Cesium.PolylineDashMaterialProperty({ color: Cesium.Color.fromCssColorString("#69f0ae") }),
+    },
+  });
+
+  // UE
   for (const ue of scene.ue_positions) {
     viewer.entities.add({
       position: toWorld(ue.x, ue.y, 0),
-      point: { pixelSize: 3, color: Cesium.Color.fromCssColorString("#ff6b6b").withAlpha(0.85) },
+      point: { pixelSize: 3.5, color: C.ue.withAlpha(0.8) },
     });
   }
 
   viewer.zoomTo(viewer.entities);
   setStatus(
-    `rendered real NTN scene from SHARC engine: ${scene.anchor_points.length} anchors, ` +
-      `slant range ${(scene.slant_range_m / 1000).toFixed(0)} km, ${scene.ue_positions.length} UE`
+    `NTN: ${scene.anchor_points.length} anchors, ` +
+      `slant ${(scene.slant_range_m / 1000).toFixed(0)} km, ${scene.ue_positions.length} UE`
   );
 }
+
+// ═══════════════════════════════════════════════════════════════════
+// Scene dispatcher + QWebChannel bridge
+// ═══════════════════════════════════════════════════════════════════
 
 function renderScene(scene) {
   viewer.entities.removeAll();
@@ -516,13 +817,6 @@ function renderScene(scene) {
     setStatus("scene error: " + scene.error);
     return;
   }
-  // Structural dispatch (by shape, not by an ever-growing name list) — the
-  // Python side (core/cesium_bridge.py) produces one of four distinct
-  // shapes regardless of which of the 15 SHARC topology/system types was
-  // requested (MACROCELL, HOTSPOT, ..., EESS_SS, METSAT_SS, FSS_SS, ...).
-  // Any global topology (satellite + earth station, real lat/lon/alt —
-  // SINGLE_SPACE_STATION, Macro_countries, EESS_SS, METSAT_SS, FSS_SS, ...)
-  // has a `satellite` key; that alone is enough to route it correctly.
   if (scene.buildings !== undefined) {
     renderIndoorScene(scene);
   } else if (scene.anchor_points !== undefined) {
@@ -540,12 +834,12 @@ function renderScene(scene) {
 
 function requestScene(topologyType) {
   if (!window.pyBridge) return;
-  setStatus(`requesting real ${topologyType} scene…`);
+  setStatus(`loading ${topologyType}…`);
   window.pyBridge.get_scene(topologyType, function (json) {
     try {
       renderScene(JSON.parse(json));
     } catch (e) {
-      setStatus("FAILED to render scene: " + e);
+      setStatus("render failed: " + e);
     }
   });
 }
@@ -554,35 +848,25 @@ document.getElementById("topoSelect").addEventListener("change", function (event
   requestScene(event.target.value);
 });
 
-// Cesium defaults to continuous rendering, which is what we want while
-// getting the spike visually right. requestRenderMode (see the
-// performance section of CESIUMJS_MIGRATION_PLAN.md) is a later
-// optimization, deliberately not enabled here yet.
 viewer.scene.requestRender();
+setStatus("viewer ready — offline");
 
-setStatus("viewer ready, offline (no network requests made)");
-
-// --- QWebChannel bridge: proves Python <-> JS round trip works without any
-// server-side push mechanism yet (that comes with the Interaction Layer,
-// Fase 5). ---
 if (typeof qt !== "undefined" && qt.webChannelTransport) {
   new QWebChannel(qt.webChannelTransport, function (channel) {
     const pyBridge = channel.objects.pyBridge;
     if (!pyBridge) {
-      setStatus("viewer ready (no pyBridge object registered)");
+      setStatus("viewer ready (no pyBridge)");
       return;
     }
     window.pyBridge = pyBridge;
     pyBridge.pong.connect(function (message) {
-      setStatus("pong from Python: " + message);
+      setStatus("pong: " + message);
     });
-    setStatus("viewer ready, QWebChannel connected");
+    setStatus("connected — waiting for scene");
     if (!isEmbedded) {
-      // Embedded mode: Python calls CesiumSpikeWidget.request_scene(...)
-      // once the real scenario/topology is known — no default to guess here.
       requestScene(document.getElementById("topoSelect").value);
     }
   });
 } else {
-  setStatus("viewer ready (qwebchannel transport not available — opened outside Qt?)");
+  setStatus("viewer ready (no QWebChannel — standalone browser?)");
 }

@@ -51,7 +51,10 @@ DOWNTILT_DEG = 6.0
 UE_PER_SITE = 6
 UE_RNG_SEED = 42
 
-SUPPORTED_TOPOLOGIES = ("MACROCELL", "HOTSPOT", "SINGLE_BS", "INDOOR", "NTN", "SINGLE_SPACE_STATION")
+SUPPORTED_TOPOLOGIES = (
+    "MACROCELL", "HOTSPOT", "SINGLE_BS", "INDOOR", "NTN",
+    "SINGLE_EARTH_STATION", "SINGLE_SPACE_STATION", "Macro_countries", "MSS_D2D",
+)
 
 # Demo GEO satellite + earth station lat/lon/alt (Fase 4 start — no YAML
 # scenario is loaded in this standalone spike, so these are illustrative
@@ -303,18 +306,72 @@ def build_indoor_scene() -> Dict[str, Any]:
     }
 
 
+def build_single_earth_station_scene() -> Dict[str, Any]:
+    """Single earth station on the ground — local ENU frame."""
+    return {
+        "topology_type": "SINGLE_EARTH_STATION",
+        "reference": _reference(),
+        "bs_height_m": BS_HEIGHT_M,
+        "station": {"x": 0.0, "y": 0.0, "z": BS_HEIGHT_M},
+        "antenna_elevation_deg": 25.0,
+        "antenna_azimuth_deg": 0.0,
+    }
+
+
+def build_macro_countries_scene() -> Dict[str, Any]:
+    """Macro_countries demo: satellite + scattered BS in country area."""
+    sx, sy, sz = lla_to_ecef(DEMO_SAT_LAT_DEG, DEMO_SAT_LON_DEG, DEMO_SAT_ALT_M)
+    footprint = _footprint_boundary_lla(float(sx), float(sy), float(sz), DEMO_BEAMWIDTH_DEG)
+
+    rng = np.random.RandomState(UE_RNG_SEED)
+    n_bs = 50
+    bs_lats = -15.0 + rng.uniform(-12, 12, n_bs)
+    bs_lons = -47.0 + rng.uniform(-18, 18, n_bs)
+
+    return {
+        "topology_type": "Macro_countries",
+        "satellite": {"lat_deg": DEMO_SAT_LAT_DEG, "lon_deg": DEMO_SAT_LON_DEG, "alt_m": DEMO_SAT_ALT_M},
+        "earth_station": {"lat_deg": DEMO_ES_LAT_DEG, "lon_deg": DEMO_ES_LON_DEG, "alt_m": DEMO_ES_ALT_M},
+        "beamwidth_deg": DEMO_BEAMWIDTH_DEG,
+        "footprint": footprint,
+        "country_bs": [
+            {"lat_deg": float(lat), "lon_deg": float(lon)}
+            for lat, lon in zip(bs_lats, bs_lons)
+        ],
+        "bs_centroid": {
+            "lat_deg": float(np.mean(bs_lats)),
+            "lon_deg": float(np.mean(bs_lons)),
+        },
+    }
+
+
+def build_mss_d2d_scene() -> Dict[str, Any]:
+    """MSS D2D demo: two devices with a link."""
+    return {
+        "topology_type": "MSS_D2D",
+        "reference": _reference(),
+        "ue_height_m": UE_HEIGHT_M,
+        "devices": [{"x": 0.0, "y": 0.0}, {"x": 200.0, "y": 100.0}],
+    }
+
+
 _BUILDERS = {
     "MACROCELL": build_macrocell_scene,
     "HOTSPOT": build_hotspot_scene,
     "SINGLE_BS": build_single_bs_scene,
     "INDOOR": build_indoor_scene,
     "NTN": build_ntn_scene,
+    "SINGLE_EARTH_STATION": build_single_earth_station_scene,
     "SINGLE_SPACE_STATION": build_single_space_station_scene,
+    "Macro_countries": build_macro_countries_scene,
+    "MSS_D2D": build_mss_d2d_scene,
 }
 
 
 def build_scene(topology_type: str) -> Dict[str, Any]:
-    builder = _BUILDERS.get(topology_type.upper())
+    builder = _BUILDERS.get(topology_type)
+    if builder is None:
+        builder = _BUILDERS.get(topology_type.upper())
     if builder is None:
         raise ValueError(f"Unsupported topology_type for spike: {topology_type!r}")
     return builder()

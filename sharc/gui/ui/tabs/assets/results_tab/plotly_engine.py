@@ -155,7 +155,7 @@ class PlotlyPlotter:
                     else:
                         fig.add_hline(y=val, line_dash="dash", line_color=color,
                                       annotation_text=crit.get("label"), row=r, col=c)
-                except:
+                except (ValueError, TypeError):
                     pass
 
             # Axes and Ticks Logic

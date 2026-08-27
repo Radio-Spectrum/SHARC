@@ -257,12 +257,12 @@ class Geometry3DMixin:
                 p_ss = ParametersSingleSpaceStation()
                 try:
                     p_ss.geometry.altitude = ss_alt
-                except:
+                except (AttributeError, TypeError, ValueError):
                     pass
                 try:
                     p_ss.geometry.location.fixed.lat_deg = ss_lat
                     p_ss.geometry.location.fixed.long_deg = ss_lon
-                except:
+                except (AttributeError, TypeError, ValueError):
                     pass
 
                 pat_name = _coerce_str(_yaml_first(data, ("single_space_station.antenna.pattern",
@@ -272,7 +272,7 @@ class Geometry3DMixin:
                         getattr(self.app, "sat_pattern", pat_name), pat_name)
                 try:
                     p_ss.antenna.pattern = pat_name
-                except:
+                except (AttributeError, TypeError, ValueError):
                     pass
 
                 # sat_obj is used ONLY for the antenna object (gain map /

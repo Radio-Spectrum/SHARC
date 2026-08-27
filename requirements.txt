@@ -102,4 +102,6 @@ wcwidth==0.2.13
 wrapt==1.16.0
 rasterio==1.4.4
 paramiko==4.0.0
-ttkbootstrap==1.19.2
+PySide6>=6.6
+PySide6-WebEngine>=6.6
+QtAwesome>=1.3

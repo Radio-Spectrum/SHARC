@@ -301,7 +301,7 @@ class SSHTunnelTab(QWidget):
     def _collect_config_dict(self) -> dict:
         def safe_int(v, default):
             try: return int(v)
-            except: return default
+            except (ValueError, TypeError): return default
             
         return {
             "ssh": {

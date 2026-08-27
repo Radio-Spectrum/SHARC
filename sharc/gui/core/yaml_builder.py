@@ -21,12 +21,12 @@ def _num_or_str(s):
     if '.' not in s_str and 'e' not in s_str.lower():
         try:
             return int(s_str)
-        except:
+        except (ValueError, TypeError):
             pass
 
     try:
         return float(s_str)
-    except:
+    except (ValueError, TypeError):
         return s_str
 
 
@@ -40,7 +40,7 @@ def _get_var(app_state, tab_name, var_name):
         tab = getattr(app_state, f"tab_{tab_name}")
         tk_var = tab.state.get(var_name)
         return tk_var.get()
-    except:
+    except (AttributeError, KeyError, TypeError):
         pass
 
     try:
@@ -48,7 +48,7 @@ def _get_var(app_state, tab_name, var_name):
         if hasattr(tk_var, "get"):
             return tk_var.get()
         return tk_var
-    except:
+    except AttributeError:
         return None
 
 
@@ -266,7 +266,7 @@ def build_yaml_structure(app_state):
     if topo_type == "Macro_countries":
         try:
             raw_txt = _get_countries_text(app_state)
-        except:
+        except (AttributeError, TypeError):
             raw_txt = str(g_imt("topo_countries") or "")
 
         country_names = [c.strip() for c in raw_txt.splitlines() if c.strip()]
@@ -319,7 +319,7 @@ def build_yaml_structure(app_state):
         try:
             sbs_az = [float(x.strip())
                       for x in az_text.split(",")] if az_text else None
-        except:
+        except (ValueError, TypeError):
             sbs_az = az_text
 
         single_bs = {

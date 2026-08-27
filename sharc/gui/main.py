@@ -227,7 +227,6 @@ class App(QMainWindow):
 
         # 2. Initialize State Variables
         self.state_model = AppState()
-        self.__dict__.update(self.state_model.__dict__)
 
         if not self.var_system.get():
             self.var_system.set("SINGLE_EARTH_STATION")
@@ -268,7 +267,12 @@ class App(QMainWindow):
         if not defer_ui_init:
             self.initialize_ui()
 
-    # Conveniência: tokens do tema atual
+    def __getattr__(self, name):
+        state = self.__dict__.get("state_model")
+        if state is not None and hasattr(state, name):
+            return getattr(state, name)
+        raise AttributeError(f"'{type(self).__name__}' has no attribute '{name}'")
+
     @property
     def tk(self) -> dict:
         return theme_tokens(getattr(self, "_current_theme", "dark"))
@@ -1000,7 +1004,7 @@ class App(QMainWindow):
                     pct_str = val.get('pct', '0%')
                     try:
                         clean_pct = float(pct_str.replace('%', '').strip())
-                    except:
+                    except (ValueError, TypeError):
                         clean_pct = 0.0
                     percentages.append(clean_pct)
 
@@ -1010,7 +1014,7 @@ class App(QMainWindow):
                             done, total = snap_str.split('/')
                             total_done_snaps += int(done)
                             total_max_snaps += int(total)
-                        except:
+                        except (ValueError, TypeError):
                             pass
 
                     eta_str = val.get('eta', '')

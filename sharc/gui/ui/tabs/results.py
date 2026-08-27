@@ -846,7 +846,7 @@ class ResultsTab(QWidget):
                     val = float(crit["val"])
                     if "Vertical" in crit["type"]: fig.add_vline(x=val, line_dash="dash", line_color=crit.get("color", "red"), annotation_text=crit.get("label"), row=r, col=c)
                     else: fig.add_hline(y=val, line_dash="dash", line_color=crit.get("color", "red"), annotation_text=crit.get("label"), row=r, col=c)
-                except: pass
+                except (ValueError, TypeError): pass
 
             xaxis_params = dict(title_text=cfg.get("x_label") or field, type="log" if cfg["x_log"] else "linear", showgrid=True)
             yaxis_params = dict(title_text=cfg.get("y_label") or f"Prob ({cfg['mode']})", type="log" if cfg["y_log"] else "linear", showgrid=True)

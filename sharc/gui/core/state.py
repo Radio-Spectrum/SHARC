@@ -55,19 +55,27 @@ class SharcVar(QObject):
         self._value = self._convert(value)
 
     def _convert(self, val):
-        """Aplica a mesma lógica de conversão do Tkinter original."""
+        """Converts val to the declared type (bool, int, float, or str)."""
         try:
             if self._type == bool:
-                # Handle "True"/"False" strings and 1/0 integers
                 if isinstance(val, str):
                     return val.lower() in ('true', '1', 'yes', 'on')
                 return bool(val)
+            elif self._type == int:
+                if val is None or (isinstance(val, str) and not val.strip()):
+                    return 0
+                return int(float(val))
+            elif self._type == float:
+                if val is None or (isinstance(val, str) and not val.strip()):
+                    return 0.0
+                return float(val)
             else:
-                # CRÍTICO: Tudo o que não for bool (int, float, str) vira string.
-                # Isso permite que o usuário digite "{my_var}" em um campo numérico.
                 return str(val) if val is not None else ""
-        except (ValueError, TypeError) as e:
-            print(f"ERROR: Failed to cast value '{val}'. Using empty string.")
+        except (ValueError, TypeError):
+            if self._type == int:
+                return 0
+            if self._type == float:
+                return 0.0
             return ""
 
     def get(self):

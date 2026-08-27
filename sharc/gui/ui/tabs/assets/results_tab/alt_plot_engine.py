@@ -119,14 +119,14 @@ class MatplotlibPlotter:
                 if xmin != "" and xmax != "": ax.set_xlim(left=float(xmin), right=float(xmax))
                 elif xmin != "": ax.set_xlim(left=float(xmin))
                 elif xmax != "": ax.set_xlim(right=float(xmax))
-            except: pass
+            except (ValueError, TypeError): pass
 
             try:
                 ymin, ymax = cfg.get("y_min", ""), cfg.get("y_max", "")
                 if ymin != "" and ymax != "": ax.set_ylim(bottom=float(ymin), top=float(ymax))
                 elif ymin != "": ax.set_ylim(bottom=float(ymin))
                 elif ymax != "": ax.set_ylim(top=float(ymax))
-            except: pass
+            except (ValueError, TypeError): pass
 
             try:
                 xstep = float(cfg.get("x_step", ""))
@@ -134,7 +134,7 @@ class MatplotlibPlotter:
                     ax.xaxis.set_major_locator(ticker.MultipleLocator(xstep))
                     if not cfg.get("x_log") and xstep < 1.0:
                          ax.xaxis.set_major_formatter(ticker.PercentFormatter(xmax=1.0))
-            except: pass
+            except (ValueError, TypeError): pass
 
             try:
                 ystep = float(cfg.get("y_step", ""))
@@ -142,7 +142,7 @@ class MatplotlibPlotter:
                     ax.yaxis.set_major_locator(ticker.MultipleLocator(ystep))
                     if not cfg.get("y_log") and ystep < 1.0:
                         ax.yaxis.set_major_formatter(ticker.PercentFormatter(xmax=1.0))
-            except: pass
+            except (ValueError, TypeError): pass
 
             if has_data and i == 0:
                 ax.legend(fontsize=8, loc='best')

@@ -14,6 +14,7 @@ from PySide6.QtWidgets import (
     QTableWidget, QTableWidgetItem, QMenu, QFileDialog, QMessageBox, QHeaderView
 )
 from PySide6.QtCore import Qt, Slot
+import qtawesome as qta
 
 # --- Core Imports ---
 from core.yaml_builder import build_yaml_structure
@@ -312,11 +313,12 @@ class GeneralTab(QWidget):
 
         # --- Top Toolbar ---
         toolbar_layout = QHBoxLayout()
-        self.btn_files = QPushButton("📁 File Operations (Presets)")
-        
+        self.btn_files = QPushButton("File Operations (Presets)")
+        self.btn_files.setIcon(qta.icon('mdi.folder-outline'))
+
         self.menu_files = QMenu(self)
-        self.menu_files.addAction("💾 Save Current Preset (.json)", self.save_config)
-        self.menu_files.addAction("📂 Load Preset (.json)", self.load_config)
+        self.menu_files.addAction(qta.icon('mdi.content-save'), "Save Current Preset (.json)", self.save_config)
+        self.menu_files.addAction(qta.icon('mdi.folder-open'), "Load Preset (.json)", self.load_config)
         self.btn_files.setMenu(self.menu_files)
         
         toolbar_layout.addWidget(self.btn_files)
@@ -396,9 +398,11 @@ class GeneralTab(QWidget):
         var_tools = QHBoxLayout()
         btn_add_var = QPushButton("+ Add Variable")
         btn_add_var.clicked.connect(self._var_add)
-        btn_edit_var = QPushButton("✎ Edit")
+        btn_edit_var = QPushButton("Edit")
+        btn_edit_var.setIcon(qta.icon('mdi.pencil-outline'))
         btn_edit_var.clicked.connect(self._var_edit)
-        btn_rm_var = QPushButton("🗑 Remove")
+        btn_rm_var = QPushButton("Remove")
+        btn_rm_var.setIcon(qta.icon('mdi.delete-outline'))
         btn_rm_var.clicked.connect(self._var_remove)
         
         var_tools.addWidget(btn_add_var)
@@ -418,11 +422,12 @@ class GeneralTab(QWidget):
 
         # --- Bottom Generation ---
         bot_layout = QHBoxLayout()
-        self.btn_actions = QPushButton("⚡ ACTIONS / GENERATION")
+        self.btn_actions = QPushButton("ACTIONS / GENERATION")
+        self.btn_actions.setIcon(qta.icon('mdi.lightning-bolt'))
         self.btn_actions.setStyleSheet("background-color: #28a745; color: white; font-weight: bold; padding: 6px;")
-        
+
         self.menu_actions = QMenu(self)
-        self.menu_actions.addAction("🚀 Batch Generate (from Table Variables)", self.save_yaml_to_yamldir)
+        self.menu_actions.addAction(qta.icon('mdi.rocket-launch'), "Batch Generate (from Table Variables)", self.save_yaml_to_yamldir)
         self.btn_actions.setMenu(self.menu_actions)
         
         bot_layout.addWidget(self.btn_actions)

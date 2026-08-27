@@ -6,6 +6,7 @@ from PySide6.QtWidgets import (
     QMenu, QScrollArea, QMessageBox, QFileDialog, QFrame
 )
 from PySide6.QtCore import Qt
+import qtawesome as qta
 
 from ui.tabs.assets.imt_tab.imt_state import IMTStateManager
 from ui.tabs.assets.imt_tab.imt_sections import IMTSections
@@ -20,7 +21,6 @@ class IMTTab(QWidget):
         super().__init__(parent_frame)
         self.app = app
         
-        # O IMTStateManager usa QObject e SharcVar agora
         self.state = IMTStateManager()
         self.topo_section = None
 
@@ -29,14 +29,15 @@ class IMTTab(QWidget):
     def _build_ui(self):
         main_layout = QVBoxLayout(self)
 
-        # 1. Toolbar Superior
+        # Top Toolbar
         toolbar_layout = QHBoxLayout()
-        self.btn_files = QPushButton("📁 File Operations (Presets)")
+        self.btn_files = QPushButton("File Operations (Presets)")
+        self.btn_files.setIcon(qta.icon('mdi.folder-outline'))
         self.btn_files.setStyleSheet("background-color: #007bff; color: white; font-weight: bold; padding: 6px;")
-        
+
         self.menu_files = QMenu(self)
-        self.menu_files.addAction("💾 Save IMT Preset (.json)", self.save_config)
-        self.menu_files.addAction("📂 Load IMT Preset (.json)", self.load_config)
+        self.menu_files.addAction(qta.icon('mdi.content-save'), "Save IMT Preset (.json)", self.save_config)
+        self.menu_files.addAction(qta.icon('mdi.folder-open'), "Load IMT Preset (.json)", self.load_config)
         self.btn_files.setMenu(self.menu_files)
         
         toolbar_layout.addWidget(self.btn_files)
@@ -48,13 +49,13 @@ class IMTTab(QWidget):
         line.setFrameShadow(QFrame.Sunken)
         main_layout.addWidget(line)
 
-        # 2. Área de Rolagem Vertical Nativa
+        # Vertical Scroll Area
         self.scroll_area = QScrollArea()
         self.scroll_area.setWidgetResizable(True)
         self.inner_widget = QWidget()
         self.inner_layout = QVBoxLayout(self.inner_widget)
 
-        # 3. Construção das Seções na Área Interna
+        # Build sections inside the scroll area
         IMTSections.build_general(self.inner_layout, self.state)
         self.topo_section = IMTTopologySection(self.inner_layout, self.state)
         IMTSections.build_bs(self.inner_layout, self.state)
@@ -68,7 +69,7 @@ class IMTTab(QWidget):
     def save_config(self):
         data = {"config_type": "IMT"}
 
-        # Coleta das variáveis
+        # Collect variables
         if hasattr(self.state, 'vars'):
             for key, var in self.state.vars.items():
                 try:

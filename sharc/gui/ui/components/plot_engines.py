@@ -53,10 +53,10 @@ except ImportError:
 
 class PlotEnginesMixin:
     """
-    Fornece a lógica de renderização Matplotlib (motor secundário/fallback)
-    para o PreviewTab — o motor primário é o CesiumJS (core/cesium_bridge.py,
-    web/cesium_preview/). Essa classe presume estar rodando como Mixin no
-    escopo de um QWidget.
+    Provides Matplotlib rendering logic (secondary/fallback engine) for the
+    PreviewTab. The primary engine is CesiumJS (core/cesium_bridge.py,
+    web/cesium_preview/). This class assumes it runs as a Mixin within a
+    QWidget scope.
     """
 
     def _draw_preview(self):
@@ -69,7 +69,7 @@ class PlotEnginesMixin:
         self._update_sim_summary()
         self._update_supported_catalog(topo_type, sys_type)
         
-        scenario_label = f"🎯 {topo_type}"
+        scenario_label = f"{topo_type}"
         if sys_type:
             scenario_label += f"  |  System: {sys_type}"
         link = _coerce_str(getattr(self.app, "var_imt_link", ""), "")
@@ -83,7 +83,7 @@ class PlotEnginesMixin:
 
         print(f"[PreviewTab] Drawing {topo_type} using {engine}")
 
-        # [PYSIDE6 FIX] Troca de visibilidade dos widgets embutidos.
+        # [PYSIDE6 FIX] Toggle visibility of embedded widgets.
         # CesiumJS is the primary engine; Matplotlib is the secondary/
         # fallback one (e.g. no WebEngine, no vendored Cesium build, or the
         # user explicitly picked it) — see CESIUMJS_MIGRATION_PLAN.md.

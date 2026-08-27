@@ -42,11 +42,10 @@ def get_sharc_root() -> Path:
 
 class SharcVar(QObject):
     """
-    Substituto direto para tk.StringVar e tk.BooleanVar.
-    Mantém a interface .get() e .set() para não quebrar as abas existentes,
-    mas usa Signals do Qt para notificar mudanças de estado.
+    Drop-in replacement for tk.StringVar and tk.BooleanVar.
+    Keeps the .get()/.set() interface for compatibility with existing tabs,
+    but uses Qt Signals to notify state changes.
     """
-    # Emite o novo valor sempre que ele for alterado
     value_changed = Signal(object)
 
     def __init__(self, value, var_type=str):
@@ -422,4 +421,4 @@ class AppState(QObject):
         self.tunnel_local_port = self._add(
             DEFAULTS.get("tunnel_local_port", 8080), int)
         self.tunnel_key_path = self._add(DEFAULTS.get("tunnel_key_path", ""))
-        self.tunnel_status = self._add("🔴 Inactive Tunnel")
+        self.tunnel_status = self._add("Inactive Tunnel")

@@ -2,9 +2,10 @@ import json
 from pathlib import Path
 
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QPushButton, 
+    QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
     QMenu, QScrollArea, QMessageBox, QFileDialog, QFrame
 )
+import qtawesome as qta
 
 from ui.tabs.assets.victim_tab.victim_state import VictimStateManager
 from ui.tabs.assets.victim_tab.victim_sections import (
@@ -33,12 +34,13 @@ class VictimTab(QWidget):
 
         # 1. Top Toolbar
         toolbar_layout = QHBoxLayout()
-        self.btn_files = QPushButton("📁 File Operations (Presets)")
+        self.btn_files = QPushButton("File Operations (Presets)")
+        self.btn_files.setIcon(qta.icon('mdi.folder-outline'))
         self.btn_files.setStyleSheet("background-color: #007bff; color: white; font-weight: bold; padding: 6px;")
-        
+
         self.menu_files = QMenu(self)
-        self.menu_files.addAction("💾 Save SSS Preset (.json)", self.save_config)
-        self.menu_files.addAction("📂 Load SSS Preset (.json)", self.load_config)
+        self.menu_files.addAction(qta.icon('mdi.content-save'), "Save SSS Preset (.json)", self.save_config)
+        self.menu_files.addAction(qta.icon('mdi.folder-open'), "Load SSS Preset (.json)", self.load_config)
         self.btn_files.setMenu(self.menu_files)
         
         toolbar_layout.addWidget(self.btn_files)

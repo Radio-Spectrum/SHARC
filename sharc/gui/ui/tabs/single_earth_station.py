@@ -1,7 +1,8 @@
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QPushButton, 
+    QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
     QMenu, QScrollArea, QFrame, QMessageBox
 )
+import qtawesome as qta
 
 from ui.tabs.assets.ses_tab.ses_sections import (
     SESBasicSection, SESGeometrySection, SESAntennaSection, SESChannelSection
@@ -30,12 +31,13 @@ class SingleEarthStationTab(QWidget):
 
         # 1. Top Toolbar
         toolbar_layout = QHBoxLayout()
-        self.btn_files = QPushButton("📁 File Operations (Presets)")
+        self.btn_files = QPushButton("File Operations (Presets)")
+        self.btn_files.setIcon(qta.icon('mdi.folder-outline'))
         self.btn_files.setStyleSheet("background-color: #007bff; color: white; font-weight: bold; padding: 6px;")
-        
+
         self.menu_files = QMenu(self)
-        self.menu_files.addAction("💾 Save SES Config", self.save_config)
-        self.menu_files.addAction("📂 Load SES Config", self.load_config)
+        self.menu_files.addAction(qta.icon('mdi.content-save'), "Save SES Config", self.save_config)
+        self.menu_files.addAction(qta.icon('mdi.folder-open'), "Load SES Config", self.load_config)
         self.btn_files.setMenu(self.menu_files)
         
         toolbar_layout.addWidget(self.btn_files)
@@ -88,7 +90,7 @@ class SingleEarthStationTab(QWidget):
                 else:
                     self.app.p452_Hte.set(self.app.ue_height.get())
 
-        # Conecta todos os gatilhos possíveis que afetam as alturas no P.452
+        # Connect all triggers that affect P.452 heights
         if hasattr(self.app, 'se_height'):
             self.app.se_height.value_changed.connect(_sync)
         if hasattr(self.app, 'var_imt_link'):

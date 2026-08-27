@@ -51,7 +51,7 @@ def build_runner_ui(tab) -> None:
     content_layout.addWidget(tab.frm_mode)
 
     # =========================================================
-    # REMOTE SCHEDULER HEADER (somente SSH)
+    # REMOTE SCHEDULER HEADER (SSH only)
     # =========================================================
     tab.frm_remote = QGroupBox("Remote Scheduler (SSH)")
     rem_layout = QVBoxLayout(tab.frm_remote)
@@ -76,7 +76,7 @@ def build_runner_ui(tab) -> None:
     btn_checkout.clicked.connect(tab._on_force_checkout_clicked)
     row1.addWidget(btn_checkout)
     
-    tab.btn_monitor = QPushButton("Monitor ▼")
+    tab.btn_monitor = QPushButton("Monitor")
     tab._monitor_menu = QMenu(tab.btn_monitor)
     tab._monitor_menu.addAction("top (snapshot)", tab._open_top_window)
     tab.btn_monitor.setMenu(tab._monitor_menu)

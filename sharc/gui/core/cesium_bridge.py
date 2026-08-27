@@ -68,6 +68,83 @@ def _footprint_boundary_lla(sx: float, sy: float, sz: float, bw_deg: float, n: i
 class CesiumBridgeMixin:
     """Converts this tab's real :class:`SceneGraph` into Cesium-ready JSON."""
 
+    def _compute_gain_map_cesium(self, glob, vmin_db: float, vmax_db: float,
+                                  beamwidth_deg: float = None,
+                                  grid_step_deg: float = 2.0) -> dict | None:
+        """Compute antenna gain on a lat/lon grid for CesiumJS heatmap."""
+        from utils import lla_to_ecef
+
+        S = np.array([glob.satellite_x, glob.satellite_y, glob.satellite_z])
+        rs = float(np.linalg.norm(S))
+        if rs < WGS84_A:
+            return None
+
+        ant = None
+        if glob.satellite_obj is not None:
+            ant = getattr(glob.satellite_obj, "antenna", None)
+            if isinstance(ant, list) and ant:
+                ant = ant[0]
+
+        sub_lat = glob.satellite_lat_deg
+        sub_lon = glob.satellite_lon_deg
+
+        earth_ang = math.degrees(math.asin(min(1.0, WGS84_A / rs)))
+        extent = min(earth_ang * 1.5, 80.0)
+
+        lat_min = max(-85, sub_lat - extent)
+        lat_max = min(85, sub_lat + extent)
+        lon_min = sub_lon - extent
+        lon_max = sub_lon + extent
+
+        lats = np.arange(lat_min, lat_max + grid_step_deg, grid_step_deg)
+        lons = np.arange(lon_min, lon_max + grid_step_deg, grid_step_deg)
+
+        lon_grid, lat_grid = np.meshgrid(lons, lats)
+        lat_flat = lat_grid.ravel()
+        lon_flat = lon_grid.ravel()
+
+        px, py, pz = lla_to_ecef(lat_flat, lon_flat, np.zeros_like(lat_flat))
+        P = np.column_stack((px, py, pz))
+
+        u_bore = _unit(-S)
+        D = P - S
+        d_norms = np.linalg.norm(D, axis=1)
+        d_norms[d_norms == 0] = 1.0
+        D_unit = D / d_norms[:, np.newaxis]
+
+        dots = np.dot(D_unit, u_bore)
+        dots = np.clip(dots, -1.0, 1.0)
+        angles_deg = np.degrees(np.arccos(dots))
+
+        if ant is not None:
+            from utils import _antenna_gain_db_batch
+            gains = _antenna_gain_db_batch(ant, angles_deg)
+            gains = np.nan_to_num(gains, nan=vmin_db)
+        else:
+            bw = beamwidth_deg or 8.7
+            half_bw = max(bw / 2.0, 0.1)
+            gains = vmax_db - (angles_deg / half_bw) ** 2 * (vmax_db - vmin_db)
+
+        gains = np.clip(gains, vmin_db, vmax_db)
+
+        gain_range = vmax_db - vmin_db
+        norm = (gains - vmin_db) / gain_range if gain_range > 0 else np.zeros_like(gains)
+        norm = np.clip(norm, 0.0, 1.0)
+
+        cells = []
+        for i in range(len(lat_flat)):
+            if norm[i] < 0.01:
+                continue
+            cells.append({
+                "lat": round(float(lat_flat[i]), 2),
+                "lon": round(float(lon_flat[i]), 2),
+                "v": round(float(norm[i]), 3),
+            })
+
+        if not cells:
+            return None
+        return {"cells": cells, "step": grid_step_deg, "vmin": vmin_db, "vmax": vmax_db}
+
     def _reference_dict(self, local) -> Dict[str, float]:
         return {
             "lat_deg": local.reference_lat_deg,
@@ -188,11 +265,18 @@ class CesiumBridgeMixin:
             vy = getattr(self.app, "se_loc_fixed_y", None)
             y0 = _safe_float(vy.get() if hasattr(vy, "get") else vy, 0.0)
 
+        el_var = getattr(self.app, "se_elevation", None)
+        elevation_deg = _safe_float(el_var.get() if hasattr(el_var, "get") else el_var, 25.0)
+        az_var = getattr(self.app, "se_azimuth", None)
+        azimuth_deg = _safe_float(az_var.get() if hasattr(az_var, "get") else az_var, 0.0)
+
         return {
             "topology_type": "SINGLE_EARTH_STATION",
             "reference": self._reference_dict(local),
             "bs_height_m": local.bs_height_m,
             "station": {"x": float(x0), "y": float(y0), "z": float(local.bs_height_m)},
+            "antenna_elevation_deg": elevation_deg,
+            "antenna_azimuth_deg": azimuth_deg,
         }
 
     def _ntn_scene_dict(self, local) -> Dict[str, Any]:
@@ -263,10 +347,28 @@ class CesiumBridgeMixin:
             scene["borders"] = self._borders_dict()
 
         if topo_type == "Macro_countries" and glob.country_bs_lats is not None:
+            bs_lats = glob.country_bs_lats
+            bs_lons = glob.country_bs_lons
             scene["country_bs"] = [
                 {"lat_deg": float(lat), "lon_deg": float(lon)}
-                for lat, lon in zip(glob.country_bs_lats, glob.country_bs_lons)
+                for lat, lon in zip(bs_lats, bs_lons)
             ]
+            if len(bs_lats) > 0:
+                scene["bs_centroid"] = {
+                    "lat_deg": float(np.mean(bs_lats)),
+                    "lon_deg": float(np.mean(bs_lons)),
+                }
+
+        if self.app.var_show_gainmap.get():
+            try:
+                vmin = float(self.app.var_gain_vmin.get())
+                vmax = float(self.app.var_gain_vmax.get())
+                gain_map = self._compute_gain_map_cesium(
+                    glob, vmin, vmax, beamwidth_deg=beamwidth)
+                if gain_map:
+                    scene["gain_map"] = gain_map
+            except Exception:
+                pass
 
         return scene
 

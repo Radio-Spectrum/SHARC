@@ -6,6 +6,8 @@ from typing import Any, Dict, Optional, Tuple
 
 import numpy as np
 
+import os
+
 from utils import (
     # Type-safe coercers
     _safe_float, _safe_int, _coerce_float, _coerce_int, _coerce_str,
@@ -24,7 +26,22 @@ from utils import (
     TopologyIndoor, TopologyNTN,
     ParametersHotspot, ParametersIndoor,
     StationFactory, ParametersSingleSpaceStation,
+    # Geo data flags and classes
+    HAS_PYSHP, HAS_GEOPANDAS,
+    TopologyCountries, ParametersCountries,
+    _get_imt_value, _get_countries_text, _parse_country_names,
+    _normalize_raster_encoding,
 )
+
+try:
+    import shapefile as pyshp
+except ImportError:
+    pyshp = None
+
+try:
+    import geopandas as gpd
+except ImportError:
+    gpd = None
 
 class Geometry3DMixin:
     def _compute_local_geometry(self, topo_type: str, data: Dict[str, Any]):
@@ -360,4 +377,199 @@ class Geometry3DMixin:
         gains = np.clip(gains, vmin, vmax)
 
         return gains.reshape(orig_shape)
+
+    def _sharc_data_dir(self):
+        return os.path.dirname(os.path.dirname(os.path.dirname(
+            os.path.abspath(__file__))))
+
+    def _get_border_coords(self):
+        coords = []
+        tc_var = getattr(self.app, "topo_countries", None)
+        tc_val = str(tc_var.get() if hasattr(tc_var, 'get') else tc_var)
+        selected_names = [c.strip().lower() for c in tc_val.split(",") if c.strip()]
+
+        paths_to_try = []
+        path_shp_var = getattr(self.app, "path_shp", None)
+        path_shp_val = str(path_shp_var.get() if hasattr(path_shp_var, 'get') else path_shp_var)
+
+        if path_shp_val:
+            paths_to_try.append(path_shp_val.strip())
+
+        try:
+            base_dir = self._sharc_data_dir()
+            paths_to_try.extend([
+                os.path.join(base_dir, "topology", "map",
+                             "ne_110m_admin_0_countries.shp"),
+                os.path.join(base_dir, "data", "countries",
+                             "ne_110m_admin_0_countries.shp"),
+            ])
+        except Exception:
+            pass
+
+        def _is_selected(record_vals):
+            for val in record_vals:
+                if str(val).lower() in selected_names:
+                    return True
+            return False
+
+        if HAS_PYSHP and pyshp is not None:
+            for p in paths_to_try:
+                if os.path.exists(p):
+                    try:
+                        r = pyshp.Reader(p)
+                        for sr in r.shapeRecords():
+                            is_sel = _is_selected(sr.record)
+                            if sr.shape.points:
+                                lons, lats = zip(*sr.shape.points)
+                                coords.append((np.array(lats),
+                                               np.array(lons), is_sel))
+                        if coords:
+                            return coords
+                    except Exception:
+                        pass
+
+        if HAS_GEOPANDAS and gpd is not None:
+            for p in paths_to_try:
+                if os.path.exists(p):
+                    try:
+                        gdf = gpd.read_file(p)
+                        name_cols = [c for c in gdf.columns
+                                     if c in ["ADMIN", "name", "NAME",
+                                              "admin", "Country",
+                                              "SOVEREIGNT"]]
+                        for _idx, row in gdf.iterrows():
+                            is_sel = (any(str(row[c]).lower() in selected_names
+                                         for c in name_cols)
+                                      if name_cols else False)
+                            geom = row.geometry
+                            if geom is None:
+                                continue
+                            if geom.geom_type == 'Polygon':
+                                lons, lats = geom.exterior.coords.xy
+                                coords.append((np.array(lats),
+                                               np.array(lons), is_sel))
+                            elif geom.geom_type == 'MultiPolygon':
+                                for poly in geom.geoms:
+                                    lons, lats = poly.exterior.coords.xy
+                                    coords.append((np.array(lats),
+                                                   np.array(lons), is_sel))
+                        if coords:
+                            return coords
+                    except Exception:
+                        pass
+
+        return coords
+
+    def _compute_macro_countries_bs(self, data):
+        countries_str = _get_countries_text(self.app, "Brazil")
+        num_bs_val = _safe_int(
+            _get_imt_value(self.app, "topo_num_bs"), 50)
+        raster_encoding = _normalize_raster_encoding(
+            _get_imt_value(self.app, "topo_raster_enc", "uniform"))
+        raster_path_ui = _coerce_str(
+            _get_imt_value(self.app, "path_raster", ""), "")
+        cache_key = "|".join([
+            countries_str, str(num_bs_val), raster_encoding, raster_path_ui,
+            _coerce_str(_get_imt_value(self.app, "topo_dist_type", ""), ""),
+            _coerce_str(
+                _get_imt_value(self.app, "topo_min_density_threshold", ""),
+                ""),
+            _coerce_str(
+                _get_imt_value(self.app, "topo_density_exponent", ""), ""),
+            _coerce_str(
+                _get_imt_value(self.app, "topo_sedac_palette_mode", ""), ""),
+            _coerce_str(
+                _get_imt_value(self.app, "topo_sedac_min", ""), ""),
+            _coerce_str(
+                _get_imt_value(self.app, "topo_sedac_max", ""), ""),
+        ])
+
+        bs_lats = getattr(self.app, "_mc_bs_lats", None)
+        bs_lons = getattr(self.app, "_mc_bs_lons", None)
+        last_key = getattr(self.app, "_mc_cache_key", None)
+        if bs_lats is not None and bs_lons is not None and last_key == cache_key:
+            return bs_lats, bs_lons
+
+        try:
+            if TopologyCountries is None or ParametersCountries is None:
+                raise ImportError(
+                    "TopologyCountries/ParametersCountries not available")
+
+            param_c = ParametersCountries()
+            names = _parse_country_names(countries_str)
+            param_c.country_names = names if names else ["Brazil"]
+            param_c.num_bs_total = num_bs_val
+            param_c.rng_seed = _safe_int(
+                _get_imt_value(self.app, "topo_rng"), param_c.rng_seed)
+            param_c.cell_radius = _safe_float(
+                _get_imt_value(self.app, "topo_cell_radius"),
+                param_c.cell_radius)
+            param_c.dist_type = (_coerce_str(
+                _get_imt_value(self.app, "topo_dist_type", ""), "") or None)
+            param_c.raster_encoding = (
+                raster_encoding if raster_encoding != "uniform" else "indexed")
+            param_c.sedac_palette_mode = _coerce_str(
+                _get_imt_value(self.app, "topo_sedac_palette_mode", ""),
+                param_c.sedac_palette_mode)
+            param_c.sedac_min = _safe_float(
+                _get_imt_value(self.app, "topo_sedac_min"), param_c.sedac_min)
+            param_c.sedac_max = _safe_float(
+                _get_imt_value(self.app, "topo_sedac_max"), param_c.sedac_max)
+            param_c.min_density_threshold = _safe_float(
+                _get_imt_value(self.app, "topo_min_density_threshold"),
+                param_c.min_density_threshold)
+            param_c.density_exponent = _safe_float(
+                _get_imt_value(self.app, "topo_density_exponent"),
+                param_c.density_exponent)
+
+            base_dir = self._sharc_data_dir()
+            shp_path = os.path.join(
+                base_dir, "topology", "map",
+                "ne_110m_admin_0_countries.shp")
+            act_path = os.path.join(
+                base_dir, "topology", "map", "sedac_pop.act")
+            ras_candidates = [
+                os.path.join(base_dir, "topology", "map",
+                             "SEDAC_map2.TIFF"),
+                os.path.join(base_dir, "topology", "map",
+                             "SEDAC_map2.tiff"),
+            ]
+            ras_path = next(
+                (p for p in ras_candidates if os.path.exists(p)),
+                ras_candidates[0])
+
+            shp_path_ui = _coerce_str(
+                _get_imt_value(self.app, "path_shp", ""), "")
+            if shp_path_ui:
+                param_c.shapefile_path = shp_path_ui
+            elif os.path.exists(shp_path):
+                param_c.shapefile_path = shp_path
+            if raster_encoding != "uniform":
+                if raster_path_ui:
+                    param_c.population_raster = raster_path_ui
+                elif os.path.exists(ras_path):
+                    param_c.population_raster = ras_path
+            else:
+                param_c.population_raster = None
+            if os.path.exists(act_path):
+                param_c.act_colormap_path = act_path
+
+            topo = TopologyCountries(param_c, None)
+            topo.calculate_coordinates()
+            bs_lats, bs_lons = topo.lats, topo.lons
+        except Exception as e:
+            print(f"[PreviewTab] TopologyCountries failed: {e}")
+            n_bs = num_bs_val
+            center_lat = _safe_float(
+                _get_imt_value(self.app, "topo_center_lat"), -15.0)
+            center_lon = _safe_float(
+                _get_imt_value(self.app, "topo_center_lon"), -47.0)
+            rng = np.random.RandomState(42)
+            bs_lats = center_lat + rng.uniform(-15, 15, n_bs)
+            bs_lons = center_lon + rng.uniform(-20, 20, n_bs)
+
+        self.app._mc_bs_lats = bs_lats
+        self.app._mc_bs_lons = bs_lons
+        self.app._mc_cache_key = cache_key
+        return bs_lats, bs_lons
 

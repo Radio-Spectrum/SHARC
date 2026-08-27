@@ -302,10 +302,38 @@ class PreviewTab(QWidget, Geometry3DMixin, SceneBuilderMixin, CesiumBridgeMixin)
     def _detect_topology_type(self, data: Dict[str, Any]) -> str:
         return _detect_topology_type_fn(data, self.app)
 
+    def _resolve_preview_type(self, topo_type: str, sys_type: str) -> str:
+        """Pick the scene type to render.
+
+        System types that correspond to a dedicated global renderer
+        (satellite/earth-station/HAPS) take priority over the IMT
+        topology whenever they differ — otherwise a user who switches
+        ``general.system`` to SINGLE_SPACE_STATION still sees MACROCELL.
+        """
+        SYSTEM_OVERRIDES = {
+            "SINGLE_SPACE_STATION", "SINGLE_EARTH_STATION",
+            "HAPS", "MSS_SS", "MSS_D2D", "MSS_DC",
+            "EESS_SS", "METSAT_SS", "FSS_SS",
+        }
+        if sys_type in SYSTEM_OVERRIDES and topo_type not in (
+            "Macro_countries", "NTN", "INDOOR",
+            sys_type,
+        ):
+            return sys_type
+        return topo_type
+
     def _draw_preview(self):
-        if self._cesium_embed is not None and hasattr(self, '_cesium_scene_provider'):
+        data = self._current_yaml()
+        topo_type = self._detect_topology_type(data)
+        sys_type = self._detect_system_type(data)
+        scene_type = self._resolve_preview_type(topo_type, sys_type)
+
+        self._update_sim_summary()
+        self._update_supported_catalog(topo_type, sys_type)
+
+        if self._cesium_embed is not None:
             self._cesium_embed.show()
             try:
-                self._cesium_embed.refresh_scene()
-            except Exception:
-                pass
+                self._cesium_embed.request_scene(scene_type)
+            except Exception as e:
+                print(f"[PreviewTab] CesiumJS render failed: {e}")

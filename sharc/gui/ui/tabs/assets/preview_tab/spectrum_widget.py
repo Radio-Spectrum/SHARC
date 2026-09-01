@@ -279,70 +279,110 @@ class SpectrumWidget(QWidget):
     # ── Signal wiring ──────────────────────────────────────────────
 
     def _connect_signals(self):
-        """Listen to every SharcVar that affects the spectrum view."""
-        watched = [
-            "imt_freq", "imt_bw", "imt_spec_mask", "imt_spurious",
-            "imt_guard_ratio", "bs_power",
+        """Listen to every SharcVar that affects the spectrum view.
+
+        IMT and Victim tabs own their own state managers with separate
+        SharcVar instances.  We must watch those *in addition* to the
+        AppState-level vars (which cover General and Earth-Station tabs).
+        """
+        # AppState-level vars (General tab + Earth Station tab)
+        app_watched = [
             "var_system", "var_imt_link", "var_adj", "var_coch",
             "se_frequency", "se_bandwidth", "se_noise_temperature",
             "se_ant_gain",
-            "v_freq", "v_bw", "v_ant_gain", "v_tnoise", "v_alt",
         ]
-        for name in watched:
+        for name in app_watched:
             var = getattr(self.app, name, None)
             if var is not None and hasattr(var, "value_changed"):
                 var.value_changed.connect(self.schedule_render)
+
+        # IMT tab state manager vars
+        imt_watched = [
+            "imt_freq", "imt_bw", "imt_spec_mask", "imt_spurious",
+            "imt_guard_ratio", "bs_power",
+        ]
+        try:
+            imt_vars = self.app.tab_imt.state.vars
+            for name in imt_watched:
+                var = imt_vars.get(name)
+                if var is not None and hasattr(var, "value_changed"):
+                    var.value_changed.connect(self.schedule_render)
+        except AttributeError:
+            pass
+
+        # Victim tab state manager vars
+        victim_watched = [
+            "v_freq", "v_bw", "v_ant_gain", "v_tnoise", "v_alt",
+        ]
+        try:
+            victim_vars = self.app.tab_victim.state.vars
+            for name in victim_watched:
+                var = victim_vars.get(name)
+                if var is not None and hasattr(var, "value_changed"):
+                    var.value_changed.connect(self.schedule_render)
+        except AttributeError:
+            pass
 
     def schedule_render(self, _=None):
         self._debounce_timer.start(self._DEBOUNCE_MS)
 
     # ── Data extraction from GUI state ─────────────────────────────
 
+    def _get_tab_var(self, tab_name: str, var_name: str, default: Any = None) -> Any:
+        """Read a var from a tab's state manager, falling back to AppState."""
+        try:
+            tab = getattr(self.app, f"tab_{tab_name}")
+            var = tab.state.get(var_name)
+            return var.get()
+        except (AttributeError, KeyError, TypeError):
+            pass
+        var = getattr(self.app, var_name, None)
+        if var is not None and hasattr(var, "get"):
+            return var.get()
+        return default
+
     def _read_state(self) -> Dict[str, Any]:
-        """Pull all needed values from the app's SharcVars."""
-        def _f(name, default=0.0):
-            v = getattr(self.app, name, None)
-            if v is None:
-                return default
-            raw = v.get()
+        """Pull all needed values from the correct state sources."""
+        def _f(tab, name, default=0.0):
+            raw = self._get_tab_var(tab, name, default)
             try:
                 return float(raw)
             except (ValueError, TypeError):
                 return default
 
-        def _s(name, default=""):
-            v = getattr(self.app, name, None)
-            return v.get() if v is not None else default
+        def _s(tab, name, default=""):
+            val = self._get_tab_var(tab, name, default)
+            return val if val is not None else default
 
-        system = _s("var_system", "SINGLE_SPACE_STATION")
-        imt_link = _s("var_imt_link", "DOWNLINK")
+        system = _s("general", "var_system", "SINGLE_SPACE_STATION")
+        imt_link = _s("general", "var_imt_link", "DOWNLINK")
 
-        imt_freq = _f("imt_freq", 8150)
-        imt_bw = max(_f("imt_bw", 100), 0.01)
-        mask_type = _s("imt_spec_mask", "IMT-2020")
-        spurious = _f("imt_spurious", -13)
-        guard_ratio = _f("imt_guard_ratio", 0.1)
-        bs_power = _f("bs_power", 22)
+        imt_freq = _f("imt", "imt_freq", 8150)
+        imt_bw = max(_f("imt", "imt_bw", 100), 0.01)
+        mask_type = _s("imt", "imt_spec_mask", "IMT-2020")
+        spurious = _f("imt", "imt_spurious", -13)
+        guard_ratio = _f("imt", "imt_guard_ratio", 0.1)
+        bs_power = _f("imt", "bs_power", 22)
 
         is_earth_station = "EARTH" in system.upper()
 
         if is_earth_station:
-            victim_freq = _f("se_frequency", 3800)
-            victim_bw = max(_f("se_bandwidth", 100), 0.01)
-            victim_gain = _f("se_ant_gain", 30)
-            victim_noise_temp = max(_f("se_noise_temperature", 290), 1)
+            victim_freq = _f("station", "se_frequency", 3800)
+            victim_bw = max(_f("station", "se_bandwidth", 100), 0.01)
+            victim_gain = _f("station", "se_ant_gain", 30)
+            victim_noise_temp = max(_f("station", "se_noise_temperature", 290), 1)
         else:
-            victim_freq = _f("v_freq", 8150)
-            victim_bw = max(_f("v_bw", 40), 0.01)
-            victim_gain = _f("v_ant_gain", 30)
-            victim_noise_temp = max(_f("v_tnoise", 500), 1)
+            victim_freq = _f("victim", "v_freq", 8150)
+            victim_bw = max(_f("victim", "v_bw", 40), 0.01)
+            victim_gain = _f("victim", "v_ant_gain", 30)
+            victim_noise_temp = max(_f("victim", "v_tnoise", 500), 1)
 
         victim_label = _SYSTEM_LABELS.get(system, system.replace("_", " ").title())
 
         if is_earth_station:
             dist_km = 1.0
         else:
-            alt_m = _f("v_alt", 35786000)
+            alt_m = _f("victim", "v_alt", 35786000)
             dist_km = max(alt_m / 1000.0, 0.001)
 
         return {

@@ -608,6 +608,9 @@ class App(QMainWindow):
         self.stacked_widget.setCurrentIndex(index)
         self.current_key = key
 
+        if key == "preview" and hasattr(self, "tab_preview"):
+            self.tab_preview.refresh()
+
         t = self.tk
         for k, btn in self.nav_buttons.items():
             icon_name = next(cfg[3] for cfg in self.pages_config if cfg[0] == k)

@@ -6,7 +6,7 @@ from typing import Any, Dict, Optional
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
     QCheckBox, QLineEdit, QLabel, QGroupBox, QScrollArea, QTextEdit,
-    QDialog
+    QDialog, QTabWidget
 )
 from PySide6.QtCore import Qt
 
@@ -40,6 +40,7 @@ from ui.tabs.assets.preview_tab.preview_catalog import (
     update_sim_summary as _update_sim_summary_fn,
     update_supported_catalog as _update_supported_catalog_fn,
 )
+from ui.tabs.assets.preview_tab.spectrum_widget import SpectrumWidget
 
 # ---------------------------------------------------------------------------
 # Preview Tab Principal
@@ -78,21 +79,25 @@ class PreviewTab(QWidget, Geometry3DMixin, SceneBuilderMixin, CesiumBridgeMixin)
         main_layout = QHBoxLayout(self)
 
         # ═══════════════════════════════════════════════
-        # LEFT PANEL (CesiumJS Globe)
+        # LEFT PANEL — tabbed: 3D Globe + Spectrum
         # ═══════════════════════════════════════════════
-        left_panel = QWidget()
-        left_layout = QVBoxLayout(left_panel)
-        left_layout.setContentsMargins(0, 0, 0, 0)
+        self._left_tabs = QTabWidget()
+        self._left_tabs.setDocumentMode(True)
+
+        # ── Tab 1: 3D Globe ──
+        globe_page = QWidget()
+        globe_layout = QVBoxLayout(globe_page)
+        globe_layout.setContentsMargins(0, 0, 0, 0)
 
         self._lbl_scenario = QLabel("Scenario Preview")
         self._lbl_scenario.setAlignment(Qt.AlignCenter)
         self._lbl_scenario.setObjectName("PageTitle")
-        left_layout.addWidget(self._lbl_scenario)
+        globe_layout.addWidget(self._lbl_scenario)
 
         if HAS_CESIUM:
             self._cesium_embed = CesiumSpikeWidget(
                 scene_provider=self._cesium_scene_provider, embedded=True)
-            left_layout.addWidget(self._cesium_embed)
+            globe_layout.addWidget(self._cesium_embed)
         else:
             lbl_no_cesium = QLabel(
                 "CesiumJS not available.\n\n"
@@ -101,9 +106,15 @@ class PreviewTab(QWidget, Geometry3DMixin, SceneBuilderMixin, CesiumBridgeMixin)
             )
             lbl_no_cesium.setAlignment(Qt.AlignCenter)
             lbl_no_cesium.setObjectName("StatusMsg")
-            left_layout.addWidget(lbl_no_cesium)
+            globe_layout.addWidget(lbl_no_cesium)
 
-        main_layout.addWidget(left_panel, stretch=7)
+        self._left_tabs.addTab(globe_page, "3D Globe")
+
+        # ── Tab 2: Spectrum & Link Budget ──
+        self._spectrum_widget = SpectrumWidget(self.app)
+        self._left_tabs.addTab(self._spectrum_widget, "Spectrum & Link Budget")
+
+        main_layout.addWidget(self._left_tabs, stretch=7)
 
         # ═══════════════════════════════════════════════
         # RIGHT SIDEBAR (Controls & Summaries)
@@ -270,6 +281,8 @@ class PreviewTab(QWidget, Geometry3DMixin, SceneBuilderMixin, CesiumBridgeMixin)
         self._update_yaml_preview()
         self._update_sim_summary()
         self._draw_preview()
+        if hasattr(self, "_spectrum_widget"):
+            self._spectrum_widget.schedule_render()
 
     def _pop_out_yaml(self):
         self._update_yaml_preview()

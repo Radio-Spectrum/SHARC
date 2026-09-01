@@ -244,26 +244,46 @@ class Geometry3DMixin:
                                "space_station.geometry.location.fixed.long_deg", "satellite.lon_deg", "general.satellite.lon_deg"), None), 0.0)
         ss_alt = _coerce_float(_yaml_first(data, ("single_space_station.geometry.altitude",
                                "space_station.geometry.altitude", "satellite.altitude_m", "general.satellite.altitude_m"), None), 35786e3)
-        es_lat = _coerce_float(_yaml_first(data, ("single_earth_station.geometry.location.fixed.lat_deg",
-                               "earth_station.geometry.location.fixed.lat_deg", "earth_station.lat_deg", "general.earth_station.lat_deg"), None), 0.0)
-        es_lon = _coerce_float(_yaml_first(data, ("single_earth_station.geometry.location.fixed.long_deg",
-                               "earth_station.geometry.location.fixed.long_deg", "earth_station.lon_deg", "general.earth_station.lon_deg"), None), 0.0)
-        es_alt = _coerce_float(_yaml_first(data, ("single_earth_station.geometry.altitude", "earth_station.geometry.altitude",
-                               "earth_station.altitude_m", "general.earth_station.altitude_m"), None), 0.0)
+        es_lat = _coerce_float(_yaml_first(data, (
+            "single_space_station.geometry.es_lat_deg",
+            "single_earth_station.geometry.location.fixed.lat_deg",
+            "earth_station.geometry.location.fixed.lat_deg",
+            "earth_station.lat_deg",
+            "general.earth_station.lat_deg"), None), 0.0)
+        es_lon = _coerce_float(_yaml_first(data, (
+            "single_space_station.geometry.es_long_deg",
+            "single_earth_station.geometry.location.fixed.long_deg",
+            "earth_station.geometry.location.fixed.long_deg",
+            "earth_station.lon_deg",
+            "general.earth_station.lon_deg"), None), 0.0)
+        es_alt = _coerce_float(_yaml_first(data, (
+            "single_space_station.geometry.es_altitude",
+            "single_earth_station.geometry.altitude",
+            "earth_station.geometry.altitude",
+            "earth_station.altitude_m",
+            "general.earth_station.altitude_m"), None), 0.0)
 
-        # App fallbacks (older GUI vars)
-        if hasattr(self.app, "v_fix_lat"):
-            ss_lat = _safe_float(getattr(self.app, "v_fix_lat", None), ss_lat)
-        if hasattr(self.app, "v_fix_lon"):
-            ss_lon = _safe_float(getattr(self.app, "v_fix_lon", None), ss_lon)
-        if hasattr(self.app, "v_alt"):
-            ss_alt = _safe_float(getattr(self.app, "v_alt", None), ss_alt)
-        if hasattr(self.app, "v_es_lat"):
-            es_lat = _safe_float(getattr(self.app, "v_es_lat", None), es_lat)
-        if hasattr(self.app, "v_es_lon"):
-            es_lon = _safe_float(getattr(self.app, "v_es_lon", None), es_lon)
-        if hasattr(self.app, "v_es_alt"):
-            es_alt = _safe_float(getattr(self.app, "v_es_alt", None), es_alt)
+        _get_app_var = getattr(self, "_resolve_victim_var", None)
+        if _get_app_var is None:
+            def _get_app_var(name, fallback):
+                tab = getattr(self.app, "tab_victim", None)
+                if tab is not None:
+                    state = getattr(tab, "state", None)
+                    if state is not None:
+                        try:
+                            return _safe_float(state.get(name), fallback)
+                        except (KeyError, AttributeError):
+                            pass
+                if hasattr(self.app, name):
+                    return _safe_float(getattr(self.app, name, None), fallback)
+                return fallback
+
+        ss_lat = _get_app_var("v_fix_lat", ss_lat)
+        ss_lon = _get_app_var("v_fix_lon", ss_lon)
+        ss_alt = _get_app_var("v_alt", ss_alt)
+        es_lat = _get_app_var("v_es_lat", es_lat)
+        es_lon = _get_app_var("v_es_lon", es_lon)
+        es_alt = _get_app_var("v_es_alt", es_alt)
 
         ex, ey, ez = lla_to_ecef(es_lat, es_lon, es_alt)
 

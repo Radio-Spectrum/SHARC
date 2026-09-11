@@ -4,10 +4,10 @@ general:
   system: SINGLE_SPACE_STATION
   enable_cochannel: true
   enable_adjacent_channel: false  # co-canal apenas, como em Base.yaml (RA modelado na mesma frequencia)
-  seed: 150
+  seed: 102
   overwrite_output: false
   output_dir: campaigns/09_Guarulhos/output_dl/
-  output_dir_prefix: out_put
+  output_dir_prefix: 6G_array_8_approach_1000m_h15_dt10
 imt:
   minimum_separation_distance_bs_ue: 35
   interfered_with: false
@@ -18,7 +18,7 @@ imt:
   spurious_emissions: -30 # CatB de 1 GHz a 26 GHz
   adjacent_ch_emissions: SPECTRAL_MASK # conferir se é a que se estabelece na Table 3-2/3, mas acho que não importa, certo?
   adjacent_antenna_model: SINGLE_ELEMENT # Como funciona isso?
-  guard_band_ratio: 0.1 
+  guard_band_ratio: 0.1
   topology:
     type: HOTSPOT
     hotspot:
@@ -31,7 +31,7 @@ imt:
   bs:
     load_probability: 0.5
     conducted_power: 33.97
-    height: 18
+    height: 15
     noise_figure: 11 # 6, 11, 14 dB for wide, medium, local area BS
     ohmic_loss: 0  #1.8 of table 10 and Note 1
     antenna:
@@ -40,12 +40,12 @@ imt:
         element_pattern: M2101
         minimum_array_gain: -200
         horizontal_beamsteering_range: !!python/tuple
-        - -60.0
-        - 60.0
+          - -60.0
+          - 60.0
         vertical_beamsteering_range: !!python/tuple
-        - 90.0
-        - 100.0
-        downtilt: 6
+          - 90.0
+          - 100.0
+        downtilt: 10
         element_max_g: 3.65
         element_phi_3db: 90
         element_theta_3db: 65
@@ -104,7 +104,7 @@ single_space_station:
     time_percentage: RANDOM
     polarization: 1
   geometry:
-    altitude: 10
+    altitude: 52.41
     es_altitude: 0
     es_lat_deg: -60
     es_long_deg: -15
@@ -119,8 +119,8 @@ single_space_station:
     location:
       type: FIXED
       fixed:
-        lat_deg: 0
-        long_deg: -103.3
+        lat_deg: -59.910017
+        long_deg: -15.053899
   antenna:
     pattern: RA_M2319
     gain: 0

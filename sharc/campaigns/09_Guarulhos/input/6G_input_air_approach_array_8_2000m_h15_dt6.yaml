@@ -1,5 +1,5 @@
 general:
-  num_snapshots: 2500  # mesmo valor da campanha de 3.65 GHz
+  num_snapshots: 10000  # 4x a campanha de 3.65 GHz (2500); viavel apos a otimizacao do simulador
   imt_link: DOWNLINK
   system: SINGLE_SPACE_STATION
   enable_cochannel: true

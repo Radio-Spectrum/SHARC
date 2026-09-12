@@ -18,6 +18,7 @@ from sharc.topology.topology_factory import TopologyFactory
 from sharc.support.sharc_geom import CoordinateSystem
 from sharc.parameters.parameters import Parameters
 from sharc.station_manager import StationManager
+from sharc.antenna.antenna_beamforming_imt import AntennaBeamformingImt
 from sharc.results import Results
 from sharc.propagation.propagation_factory import PropagationFactory
 from sharc.support.sharc_utils import wrap2_180, clip_angle
@@ -604,22 +605,28 @@ class Simulation(ABC, Observable):
         # Calculate gains
         gains = np.zeros(phi.shape)
         if station_1.station_type is StationType.IMT_BS and not station_2.is_imt_station():
-            off_axis_angle = station_1.get_off_axis_angle(station_2)
-            for k in station_1_active:
-                for b in range(
-                    k * self.parameters.imt.ue.k,
-                        (k + 1) * self.parameters.imt.ue.k):
-                    gains[b,
-                          station_2_active] = station_1.antenna[k].calculate_gain(phi_vec=phi[b,
-                                                                                              station_2_active],
-                                                                                  theta_vec=theta[b,
-                                                                                                  station_2_active,
-                                                                                                  ],
-                                                                                  beams_l=np.repeat(beams_idx[b],
-                                                                                                    len(station_2_active)),
-                                                                                  co_channel=c_channel,
-                                                                                  off_axis_angle_vec=off_axis_angle[k,
-                                                                                                                    station_2_active])
+            K = self.parameters.imt.ue.k
+            bs_antennas = [station_1.antenna[k] for k in station_1_active]
+            if all(isinstance(a, AntennaBeamformingImt) for a in bs_antennas):
+                # One row per (active BS, beam); all rows evaluated at once.
+                rows = (station_1_active[:, np.newaxis] * K +
+                        np.arange(K)[np.newaxis, :]).ravel()
+                ant_rows = [a for a in bs_antennas for _ in range(K)]
+                sel = np.ix_(rows, station_2_active)
+                gains[sel] = AntennaBeamformingImt.calculate_gain_batch(
+                    ant_rows, phi[sel], theta[sel], beams_idx[rows], c_channel,
+                )
+            else:
+                off_axis_angle = station_1.get_off_axis_angle(station_2)
+                for k in station_1_active:
+                    for b in range(k * K, (k + 1) * K):
+                        gains[b, station_2_active] = station_1.antenna[k].calculate_gain(
+                            phi_vec=phi[b, station_2_active],
+                            theta_vec=theta[b, station_2_active],
+                            beams_l=np.repeat(beams_idx[b], len(station_2_active)),
+                            co_channel=c_channel,
+                            off_axis_angle_vec=off_axis_angle[k, station_2_active],
+                        )
 
         elif station_1.station_type is StationType.IMT_UE and not station_2.is_imt_station():
             off_axis_angle = station_1.get_off_axis_angle(station_2)

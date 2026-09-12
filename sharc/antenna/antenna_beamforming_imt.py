@@ -242,6 +242,122 @@ class AntennaBeamformingImt(Antenna):
 
         return np.maximum(gains, self.minimum_array_gain)
 
+    @staticmethod
+    def calculate_gain_batch(
+        antennas,
+        phi: np.ndarray,
+        theta: np.ndarray,
+        beams_l: np.ndarray,
+        co_channel: bool = True,
+    ) -> np.ndarray:
+        """
+        Gain of many antennas at once, one stored beam per row.
+
+        Equivalent to calling ``antennas[i].calculate_gain(phi_vec=phi[i],
+        theta_vec=theta[i], beams_l=beams_l[i], co_channel=co_channel)`` for
+        every row, but with the coordinate rotation, element/subarray pattern
+        and array factor evaluated for all rows in single NumPy operations.
+        All antennas must share the same array parameters (same ``par``
+        object); otherwise the per-antenna loop is used.
+
+        Parameters
+        ----------
+        antennas : sequence of AntennaBeamformingImt, length N
+        phi, theta : (N, M) angles in the simulator coordinate system [deg]
+        beams_l : (N,) index of the stored beam to use for each row
+        co_channel : bool, co-channel (array pattern) or adjacent channel
+
+        Returns
+        -------
+        (N, M) gains [dBi]
+        """
+        phi = np.atleast_2d(np.asarray(phi, dtype=float))
+        theta = np.atleast_2d(np.asarray(theta, dtype=float))
+        beams_l = np.asarray(beams_l, dtype=int)
+        n_ant, n_dir = phi.shape
+        if n_ant == 0:
+            return np.zeros(phi.shape)
+
+        ref = antennas[0]
+        homogeneous = all(
+            isinstance(a, AntennaBeamformingImt) and a.param is ref.param
+            for a in antennas
+        )
+        if not homogeneous:
+            gains = np.zeros(phi.shape)
+            for i, ant in enumerate(antennas):
+                gains[i] = ant.calculate_gain(
+                    phi_vec=phi[i], theta_vec=theta[i],
+                    beams_l=np.repeat(beams_l[i], n_dir),
+                    co_channel=co_channel,
+                )
+            return gains
+
+        # Same resolution of the adjacent-channel model as calculate_gain
+        if not co_channel:
+            if ref.adjacent_antenna_model == "SINGLE_ELEMENT":
+                co_channel = False
+            elif ref.adjacent_antenna_model == "BEAMFORMING":
+                co_channel = True
+            else:
+                sys.stderr.write(
+                    "ERROR\nInvalid antenna pattern for adjacent channel calculations: " +
+                    ref.adjacent_antenna_model,
+                )
+                sys.exit(1)
+
+        if ref.constant_gain:
+            gains = ref.element.element_pattern(phi, theta)
+            if not co_channel:
+                gains = gains + ref.adj_correction_factor
+            return np.maximum(gains, ref.minimum_array_gain)
+
+        # ---- rotation to each antenna's local coordinates: (N,3,3)@(N,3,M)
+        rot = np.stack([a.rotation_mtx for a in antennas])
+        phi_rad = np.deg2rad(phi)
+        theta_rad = np.deg2rad(theta)
+        points = np.stack([
+            np.sin(theta_rad) * np.cos(phi_rad),
+            np.sin(theta_rad) * np.sin(phi_rad),
+            np.cos(theta_rad),
+        ], axis=1)                                          # (N, 3, M)
+        rotated = rot @ points                              # (N, 3, M)
+        lo_phi = np.rad2deg(np.arctan2(rotated[:, 1, :], rotated[:, 0, :]))
+        lo_theta = np.rad2deg(
+            np.arccos(np.clip(rotated[:, 2, :], -1.0, 1.0)),
+        )
+        lo_phi_f = lo_phi.ravel()
+        lo_theta_f = lo_theta.ravel()
+
+        if not co_channel:
+            gains = ref.element.element_pattern(lo_phi_f, lo_theta_f) \
+                + ref.adj_correction_factor
+            return np.maximum(gains.reshape(n_ant, n_dir), ref.minimum_array_gain)
+
+        if ref.subarray is None:
+            element_g = ref.element.element_pattern(lo_phi_f, lo_theta_f)
+        else:
+            element_g = ref.subarray.calculate_gain(lo_phi_f, lo_theta_f)
+
+        v_mtx = ref._super_position_matrix(lo_phi_f, lo_theta_f)   # (N*M, r, c)
+        w_rows = np.stack([
+            a.w_vec_list[b] for a, b in zip(antennas, beams_l)
+        ])                                                          # (N, r, c)
+        w_mtx = np.repeat(w_rows, n_dir, axis=0)                    # (N*M, r, c)
+        corr = np.repeat(
+            np.array([
+                a.co_correction_factor_list[b] for a, b in zip(antennas, beams_l)
+            ], dtype=float),
+            n_dir,
+        )
+
+        array_g = 10 * np.log10(
+            np.abs(np.sum(v_mtx * w_mtx, axis=(1, 2))) ** 2,
+        )
+        gains = (element_g + array_g + corr).reshape(n_ant, n_dir)
+
+        return np.maximum(gains, ref.minimum_array_gain)
+
     def reset_beams(self):
         """Reset beams lists
         """

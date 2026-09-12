@@ -146,6 +146,66 @@ class AntennaBeamformingImt(Antenna):
         else:
             self.co_correction_factor_list.append(0.0)
 
+    @staticmethod
+    def add_beams_batch(antennas, phi_etilt, theta_etilt):
+        """
+        Add one beam to each of many antennas at once.
+
+        Equivalent to ``antennas[i].add_beam(phi_etilt[i], theta_etilt[i])``
+        for every i, with the coordinate rotation and the weight matrices of
+        all beams computed in single NumPy operations. Antennas must share
+        the same array parameters; otherwise add_beam is called one by one.
+
+        Parameters
+        ----------
+        antennas : sequence of AntennaBeamformingImt, length N (may repeat)
+        phi_etilt, theta_etilt : (N,) beam directions, simulator coordinates
+        """
+        phi = np.asarray(phi_etilt, dtype=float).ravel()
+        theta = np.asarray(theta_etilt, dtype=float).ravel()
+        n = phi.size
+        if n == 0:
+            return
+
+        ref = antennas[0]
+        homogeneous = all(
+            isinstance(a, AntennaBeamformingImt) and a.param is ref.param
+            for a in antennas
+        )
+        if not homogeneous:
+            for a, p, t in zip(antennas, phi, theta):
+                a.add_beam(p, t)
+            return
+        if ref.constant_gain:
+            return
+
+        rot = np.stack([a.rotation_mtx for a in antennas])        # (N, 3, 3)
+        phi_rad = np.deg2rad(phi)
+        theta_rad = np.deg2rad(theta)
+        points = np.stack([
+            np.sin(theta_rad) * np.cos(phi_rad),
+            np.sin(theta_rad) * np.sin(phi_rad),
+            np.cos(theta_rad),
+        ], axis=1)[:, :, np.newaxis]                              # (N, 3, 1)
+        rotated = (rot @ points)[:, :, 0]                         # (N, 3)
+        lo_phi = np.rad2deg(np.arctan2(rotated[:, 1], rotated[:, 0]))
+        lo_theta = np.rad2deg(np.arccos(np.clip(rotated[:, 2], -1.0, 1.0)))
+
+        w_all = ref._weight_matrix(lo_phi, lo_theta - 90)         # (N, r, c)
+        if ref.normalize:
+            lin = (lo_phi / ref.resolution).astype(int)
+            col = (lo_theta / ref.resolution).astype(int)
+
+        for i, ant in enumerate(antennas):
+            ant.beams_list.append((float(lo_phi[i]), float(lo_theta[i] - 90)))
+            ant.w_vec_list.append(w_all[i])
+            if ref.normalize:
+                ant.co_correction_factor_list.append(
+                    ant.co_correction_factor[lin[i], col[i]],
+                )
+            else:
+                ant.co_correction_factor_list.append(0.0)
+
     def calculate_gain(self, *args, **kwargs) -> np.array:
         """
         Calculates the gain in the given direction.

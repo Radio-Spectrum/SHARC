@@ -428,37 +428,41 @@ class StationFactory(object):
                 )
                 sys.exit(1)
 
-            for bs in range(num_bs):
-                idx = [
-                    i for i in range(
-                        bs * num_ue_per_bs, bs * num_ue_per_bs + num_ue_per_bs,
+            # All UEs at once (UE i belongs to BS bs_of_ue[i]; the layout
+            # num_ue_per_bs consecutive UEs per BS is unchanged).
+            bs_of_ue = np.repeat(np.arange(num_bs), num_ue_per_bs)
+            # theta is the horizontal angle of the UE wrt the serving BS
+            theta = topology.azimuth[bs_of_ue] + angle
+            # calculate UE position in x-y coordinates (local to the BS)
+            x = radius * np.cos(np.radians(theta))
+            y = radius * np.sin(np.radians(theta))
+            z = np.zeros_like(x)
+            if type(topology).transform_ue_xyz is Topology.transform_ue_xyz:
+                # base-class transform is a translation by the BS position
+                x = x + topology.x[bs_of_ue]
+                y = y + topology.y[bs_of_ue]
+                z = z + topology.z[bs_of_ue]
+            else:
+                # topology-specific transform: keep the per-BS call
+                for bs in range(num_bs):
+                    sl = slice(bs * num_ue_per_bs, (bs + 1) * num_ue_per_bs)
+                    x[sl], y[sl], z[sl] = topology.transform_ue_xyz(
+                        bs, x[sl], y[sl], z[sl],
                     )
-                ]
-                # theta is the horizontal angle of the UE wrt the serving BS
-                theta = topology.azimuth[bs] + angle[idx]
-                # calculate UE position in x-y coordinates
-                x = radius[idx] * np.cos(np.radians(theta))
-                y = radius[idx] * np.sin(np.radians(theta))
-                z = np.zeros_like(x)
-                x, y, z = topology.transform_ue_xyz(
-                    bs, x, y, z
-                )
-                ue_x.extend(x)
-                ue_y.extend(y)
-                ue_z.extend(z)
+            ue_x, ue_y, ue_z = x, y, z
 
-                # calculate UE azimuth wrt serving BS
-                imt_ue.azimuth[idx] = (azimuth[idx] + theta + 180) % 360
+            # calculate UE azimuth wrt serving BS
+            imt_ue.azimuth = (azimuth + theta + 180) % 360
 
-                # calculate elevation angle
-                # psi is the vertical angle of the UE wrt the serving BS
-                distance = np.sqrt(
-                    (topology.x[bs] - x) ** 2 + (topology.y[bs] - y) ** 2,
-                )
-                psi = np.degrees(
-                    np.arctan((param.bs.height - param.ue.height) / distance),
-                )
-                imt_ue.elevation[idx] = elevation[idx] + psi
+            # calculate elevation angle
+            # psi is the vertical angle of the UE wrt the serving BS
+            distance = np.sqrt(
+                (topology.x[bs_of_ue] - x) ** 2 + (topology.y[bs_of_ue] - y) ** 2,
+            )
+            psi = np.degrees(
+                np.arctan((param.bs.height - param.ue.height) / distance),
+            )
+            imt_ue.elevation = elevation + psi
         elif param.ue.distribution_type.upper() == "MACRO_COUNTRIES":
             UE_params = ParametersUECountries()
             UE_params.num_ue_per_bs = num_ue_per_bs

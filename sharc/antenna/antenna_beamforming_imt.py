@@ -165,7 +165,6 @@ class AntennaBeamformingImt(Antenna):
 
         # If gain has to be calculated on the adjacent channel, then check whether
         # to use beamforming or single element pattern.
-        # Both options are explicitly written in order to improve readability
         if not co_channel:
             if self.adjacent_antenna_model == "SINGLE_ELEMENT":
                 co_channel = False
@@ -178,52 +177,48 @@ class AntennaBeamformingImt(Antenna):
                 )
                 sys.exit(1)
 
-        correction_factor_idx = None
-        if "beams_l" in kwargs.keys():
-            beams_l = np.asarray(kwargs["beams_l"], dtype=int)
-            correction_factor = self.co_correction_factor_list
-            correction_factor_idx = beams_l
-        else:
-            beams_l = -1 * np.ones_like(phi_vec)
-            if co_channel:
-                if self.normalize:
-                    lin_f = phi_vec / self.resolution
-                    col_f = theta_vec / self.resolution
-                    lin = lin_f.astype(int)
-                    col = col_f.astype(int)
-                    correction_factor = self.co_correction_factor[lin, col]
-                else:
-                    correction_factor = np.zeros_like(phi_vec)
-                correction_factor_idx = [
-                    i for i in range(len(correction_factor))
-                ]
-
         lo_phi_vec, lo_theta_vec = self.to_local_coord(phi_vec, theta_vec)
 
-        n_direct = len(lo_theta_vec)
+        # Adjacent channel with single element pattern: no array gain.
+        if not co_channel:
+            gains = self.element.element_pattern(lo_phi_vec, lo_theta_vec) \
+                + self.adj_correction_factor
+            return np.maximum(gains, self.minimum_array_gain)
 
-        gains = np.zeros(n_direct)
-
-        if co_channel:
-            for g in range(n_direct):
-                gains[g] = self._beam_gain(
-                    lo_phi_vec[g], lo_theta_vec[g],
-                    beams_l[g],
-                )\
-                    + correction_factor[correction_factor_idx[g]]
+        # ---- Co-channel: element/subarray gain + beamforming array gain ----
+        # All directions handled at once (no Python loop): the per-direction
+        # superposition/weight matrices are stacked into (G, n_rows, n_cols)
+        # and the array gain is the reduction over the array axes.
+        if self.subarray is None:
+            element_g = self.element.element_pattern(lo_phi_vec, lo_theta_vec)
         else:
-            for g in range(n_direct):
-                elem_g = self.element.element_pattern(
-                    lo_phi_vec[g],
-                    lo_theta_vec[g],
-                )
+            element_g = self.subarray.calculate_gain(lo_phi_vec, lo_theta_vec)
 
-                gains[g] = elem_g \
-                    + self.adj_correction_factor
+        v_mtx = self._super_position_matrix(lo_phi_vec, lo_theta_vec)
 
-        gains = np.maximum(gains, self.minimum_array_gain)
+        if "beams_l" in kwargs.keys():
+            # One output per direction; align beams_l to the number of
+            # directions (matches the previous per-direction loop, which was
+            # bounded by len(lo_phi_vec)).
+            n_direct = len(lo_phi_vec)
+            beams_l = np.asarray(kwargs["beams_l"], dtype=int)[:n_direct]
+            w_mtx = np.stack(self.w_vec_list)[beams_l]
+            correction_factor = np.asarray(self.co_correction_factor_list)[beams_l]
+        else:
+            w_mtx = self._weight_matrix(lo_phi_vec, lo_theta_vec - 90)
+            if self.normalize:
+                lin = (phi_vec / self.resolution).astype(int)
+                col = (theta_vec / self.resolution).astype(int)
+                correction_factor = self.co_correction_factor[lin, col]
+            else:
+                correction_factor = 0.0
 
-        return gains
+        array_g = 10 * np.log10(
+            np.abs(np.sum(v_mtx * w_mtx, axis=(1, 2))) ** 2,
+        )
+        gains = element_g + array_g + correction_factor
+
+        return np.maximum(gains, self.minimum_array_gain)
 
     def reset_beams(self):
         """Reset beams lists
@@ -287,6 +282,39 @@ class AntennaBeamformingImt(Antenna):
 
         return w_vec
 
+    def _super_position_matrix(self, phi, theta) -> np.array:
+        """Vectorized version of `_super_position_vector` over many directions.
+
+        Parameters
+        ----------
+            phi (np.array): azimuth angles [degrees], local coords, shape (G,)
+            theta (np.array): elevation angles [degrees], local coords, shape (G,)
+
+        Returns
+        -------
+            (G, n_rows, n_cols) complex array (one superposition matrix per direction)
+        """
+        r_phi = np.deg2rad(np.asarray(phi, dtype=float))[:, None, None]
+        r_theta = np.deg2rad(np.asarray(theta, dtype=float))[:, None, None]
+        n = np.arange(self.n_rows).reshape(1, self.n_rows, 1)
+        m = np.arange(self.n_cols).reshape(1, 1, self.n_cols)
+        exp_arg = n * self.dv * np.cos(r_theta) + \
+            m * self.dh * np.sin(r_theta) * np.sin(r_phi)
+        return np.exp(2 * np.pi * 1.0j * exp_arg)
+
+    def _weight_matrix(self, phi_tilt, theta_tilt) -> np.array:
+        """Vectorized version of `_weight_vector` over many directions.
+        Returns a (G, n_rows, n_cols) complex array.
+        """
+        r_phi = np.deg2rad(np.asarray(phi_tilt, dtype=float))[:, None, None]
+        r_theta = np.deg2rad(np.asarray(theta_tilt, dtype=float))[:, None, None]
+        n = np.arange(self.n_rows).reshape(1, self.n_rows, 1)
+        m = np.arange(self.n_cols).reshape(1, 1, self.n_cols)
+        exp_arg = n * self.dv * np.sin(r_theta) - \
+            m * self.dh * np.cos(r_theta) * np.sin(r_phi)
+        return (1 / np.sqrt(self.n_rows * self.n_cols)) * \
+            np.exp(2 * np.pi * 1.0j * exp_arg)
+
     def _beam_gain(self, phi: float, theta: float, beam=-1) -> float:
         """
         Calculates gain for a single beam in a given direction.
@@ -346,29 +374,21 @@ class AntennaBeamformingImt(Antenna):
             phi, theta in the antenna's coordinate system
         """
 
-        phi_rad = np.ravel(np.array([np.deg2rad(phi)]))
-        theta_rad = np.ravel(np.array([np.deg2rad(theta)]))
+        # Plain ndarrays (np.matrix is deprecated and much slower to build).
+        phi_rad = np.deg2rad(np.ravel(np.asarray(phi, dtype=float)))
+        theta_rad = np.deg2rad(np.ravel(np.asarray(theta, dtype=float)))
 
-        points = np.matrix([
+        points = np.vstack([
             np.sin(theta_rad) * np.cos(phi_rad),
             np.sin(theta_rad) * np.sin(phi_rad),
             np.cos(theta_rad),
-        ])
+        ])                                              # (3, G)
 
-        rotated_points = self.rotation_mtx * points
+        rotated_points = self.rotation_mtx @ points     # (3, G)
 
-        lo_phi = np.ravel(
-            np.asarray(
-                np.rad2deg(
-                    np.arctan2(rotated_points[1], rotated_points[0]),
-                ),
-            ),
-        )
-        lo_theta = np.ravel(
-            np.asarray(
-                np.rad2deg(np.arccos(rotated_points[2])),
-            ),
-        )
+        lo_phi = np.rad2deg(np.arctan2(rotated_points[1], rotated_points[0]))
+        # clip guards against |z| marginally > 1 from rounding
+        lo_theta = np.rad2deg(np.arccos(np.clip(rotated_points[2], -1.0, 1.0)))
 
         return lo_phi, lo_theta
 
@@ -377,17 +397,17 @@ class AntennaBeamformingImt(Antenna):
         alpha = np.deg2rad(self.azimuth)
         beta = np.deg2rad(self.elevation)
 
-        ry = np.matrix([
+        ry = np.array([
             [np.cos(beta), 0.0, np.sin(beta)],
             [0.0, 1.0, 0.0],
             [-np.sin(beta), 0.0, np.cos(beta)],
         ])
-        rz = np.matrix([
+        rz = np.array([
             [np.cos(alpha), -np.sin(alpha), 0.0],
             [np.sin(alpha), np.cos(alpha), 0.0],
             [0.0, 0.0, 1.0],
         ])
-        self.rotation_mtx = ry * np.transpose(rz)
+        self.rotation_mtx = ry @ rz.T
 
 ###############################################################################
 

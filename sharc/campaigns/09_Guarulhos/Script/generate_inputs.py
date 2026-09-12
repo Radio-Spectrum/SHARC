@@ -81,17 +81,17 @@ def parse_args():
     return p.parse_args()
 
 
-def main():
-    args = parse_args()
-    cfg = BAND_CONFIG[args.band]
-    rng = random.Random(cfg["rng_seed"])
-
+def make_yaml():
     yaml = YAML(typ="rt")
     yaml.preserve_quotes = True
     yaml.indent(mapping=2, sequence=4, offset=2)
+    return yaml
 
-    template_path = HERE / cfg["template"]
-    data = yaml.load(template_path.read_text(encoding="utf-8"))
+
+def load_template(cfg, yaml=None):
+    """Template da banda com arranjo, potencia e a flag do SINR interno aplicados."""
+    yaml = yaml or make_yaml()
+    data = yaml.load((HERE / cfg["template"]).read_text(encoding="utf-8"))
 
     # ---- arranjo / potencia da BS ----
     arr = data["imt"]["bs"]["antenna"]["array"]
@@ -111,8 +111,11 @@ def main():
                    comment="SINR interno da IMT nao entra no resultado do RA")
     else:
         imt["imt_dl_intra_sinr_calculation_disabled"] = True
+    return data
 
-    # ---- centro do grid (lido do template) ----
+
+def grid_center(data):
+    """(lat0, lon0, m/deg lat, m/deg lon) do centro da rede, lido do template."""
     geom = data["single_space_station"]["geometry"]
     lat0_deg = float(geom.get("es_lat_deg", 0.0))
     lon0_deg = float(geom.get("es_long_deg", 0.0))
@@ -120,6 +123,32 @@ def main():
     meters_per_deg_lon = 111_320.0 * math.cos(math.radians(lat0_deg))
     if meters_per_deg_lon <= 0:
         meters_per_deg_lon = 1.0
+    return lat0_deg, lon0_deg, meters_per_deg_lat, meters_per_deg_lon
+
+
+def place_aircraft(doc, x_m, y_m, alt_m, center):
+    """Posiciona o RA em (x, y) metros do centro da rede, na altitude alt_m."""
+    lat0_deg, lon0_deg, m_lat, m_lon = center
+    g = doc["single_space_station"]["geometry"]
+    fx = g["location"]["fixed"]
+    g["altitude"] = float(f"{alt_m:.2f}")
+    fx["lat_deg"] = float(f"{lat0_deg + y_m / m_lat:.6f}")
+    fx["long_deg"] = float(f"{lon0_deg + x_m / m_lon:.6f}")
+
+
+def approach_xy_alt(s_m):
+    """Posicao (x, y) e altitude na rampa para a distancia s_m ao centro da pista."""
+    return X0_M + APPROACH_SIGN * s_m, Y0_M, math.tan(math.radians(GLIDESLOPE_DEG)) * s_m
+
+
+def main():
+    args = parse_args()
+    cfg = BAND_CONFIG[args.band]
+    rng = random.Random(cfg["rng_seed"])
+
+    yaml = make_yaml()
+    data = load_template(cfg, yaml)
+    center = grid_center(data)
 
     OUT_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -138,26 +167,14 @@ def main():
 
     for bs_height in BS_HEIGHTS_M:
         for s_m in DISTANCES_M:
-            # altura do aviao na rampa
-            h_m = math.tan(math.radians(GLIDESLOPE_DEG)) * s_m
-
-            # posicao local (m) -> graus
-            x_m = X0_M + APPROACH_SIGN * s_m
-            y_m = Y0_M
-            lon_i = lon0_deg + x_m / meters_per_deg_lon
-            lat_i = lat0_deg + y_m / meters_per_deg_lat
+            x_m, y_m, h_m = approach_xy_alt(s_m)
 
             for downtilt_deg in DOWNTILT_DEG_LIST:
                 doc = deepcopy(data)
 
                 doc["imt"]["bs"]["height"] = bs_height
                 doc["imt"]["bs"]["antenna"]["array"]["downtilt"] = downtilt_deg
-
-                g = doc["single_space_station"]["geometry"]
-                fx = g["location"]["fixed"]
-                g["altitude"] = float(f"{h_m:.2f}")
-                fx["lat_deg"] = float(f"{lat_i:.6f}")
-                fx["long_deg"] = float(f"{lon_i:.6f}")
+                place_aircraft(doc, x_m, y_m, h_m, center)
 
                 doc["general"]["seed"] = rng.randint(0, 1000)
                 doc["general"]["output_dir"] = "campaigns/09_Guarulhos/output_dl/"

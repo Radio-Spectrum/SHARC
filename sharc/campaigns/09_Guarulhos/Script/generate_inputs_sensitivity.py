@@ -14,7 +14,7 @@ Grupos (um fator varia por vez; o resto e o caso de referencia):
            roll0: nadir fixo (-90) | roll10: -90..-80 | referencia ja e -90..-70
     level  voo nivelado sobre o centro da rede (x=y=0), altitudes em LEVEL_ALT_M
     load   probabilidade de carga da BS: 0.2 e 1.0 (referencia 0.5)
-    k      feixes/UEs por BS: 1 e 8 (referencia 4)
+    k      feixes/UEs por BS: 1, 2 e 8 (referencia 4)
 
 Nomes (nao casam com a regex `array_(\\d+)_approach_` do plot_results4):
     input/<prefixo>input_sens_<caso>_<D>m_h20_dt6.yaml   (aproximacao)
@@ -46,7 +46,7 @@ ROLL_CASES = [
 ]
 LEVEL_ALT_M = [100, 200, 300, 450, 600, 1000]
 LOAD_CASES = [("load02", 0.2), ("load10", 1.0)]
-K_CASES = [("k1", 1), ("k8", 8)]
+K_CASES = [("k1", 1), ("k2", 2), ("k8", 8)]
 
 ALL_GROUPS = ("arr", "roll", "level", "load", "k")
 

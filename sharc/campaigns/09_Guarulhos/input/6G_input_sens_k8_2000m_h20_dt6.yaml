@@ -4,7 +4,7 @@ general:
   system: SINGLE_SPACE_STATION
   enable_cochannel: true
   enable_adjacent_channel: false  # co-canal apenas, como em Base.yaml (RA modelado na mesma frequencia)
-  seed: 34
+  seed: 765
   overwrite_output: false
   output_dir: campaigns/09_Guarulhos/output_dl/
   output_dir_prefix: 6G_sens_k8_approach_2000m_h20_dt6

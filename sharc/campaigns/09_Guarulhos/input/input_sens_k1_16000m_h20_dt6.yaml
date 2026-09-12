@@ -4,7 +4,7 @@ general:
   system: SINGLE_SPACE_STATION
   enable_cochannel: true
   enable_adjacent_channel: false
-  seed: 213
+  seed: 687
   overwrite_output: false
   output_dir: campaigns/09_Guarulhos/output_dl/
   output_dir_prefix: sens_k1_approach_16000m_h20_dt6

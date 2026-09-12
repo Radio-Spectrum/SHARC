@@ -4,10 +4,10 @@ general:
   system: SINGLE_SPACE_STATION
   enable_cochannel: true
   enable_adjacent_channel: false  # co-canal apenas, como em Base.yaml (RA modelado na mesma frequencia)
-  seed: 490
+  seed: 988
   overwrite_output: false
   output_dir: campaigns/09_Guarulhos/output_dl/
-  output_dir_prefix: 6G_sens_k1_approach_1000m_h20_dt6
+  output_dir_prefix: 6G_sens_k2_approach_24000m_h20_dt6
 imt:
   minimum_separation_distance_bs_ue: 35
   interfered_with: false
@@ -63,7 +63,7 @@ imt:
           element_vert_spacing: 0.7 # Não está definido na tabela 10, como está na tabela 9 -> 0.7 após resunião com Frederico
           eletrical_downtilt: 3.0 # Idem.
   ue:
-    k: 1
+    k: 2
     k_m: 1
     indoor_percent: 70
     distribution_type: ANGLE_AND_DISTANCE
@@ -105,7 +105,7 @@ single_space_station:
     time_percentage: RANDOM
     polarization: 1
   geometry:
-    altitude: 52.41
+    altitude: 1257.79
     es_altitude: 0
     es_lat_deg: -60
     es_long_deg: -15
@@ -121,7 +121,7 @@ single_space_station:
       type: FIXED
       fixed:
         lat_deg: -59.910017
-        long_deg: -15.053899
+        long_deg: -15.467122
   antenna:
     pattern: RA_M2319
     gain: 0

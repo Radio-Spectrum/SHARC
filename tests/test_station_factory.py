@@ -143,7 +143,7 @@ class StationFactoryTest(unittest.TestCase):
                         ss.x**2 +
                         ss.y**2)))
 
-        space_station = StationFactory.generate_single_space_station(param)
+        space_station = StationFactory.generate_single_space_station(param, np.random.RandomState(1))
 
         # test if the maximum distance is close to the cell radius within a
         # 100km range
@@ -152,7 +152,7 @@ class StationFactoryTest(unittest.TestCase):
 
         param.geometry.es_lat_deg = max_gso_fov
 
-        space_station = StationFactory.generate_single_space_station(param)
+        space_station = StationFactory.generate_single_space_station(param, np.random.RandomState(1))
 
         npt.assert_almost_equal(get_ground_elevation(space_station), 0, 5)
         npt.assert_almost_equal(space_station.height, 0, 0)
@@ -160,7 +160,7 @@ class StationFactoryTest(unittest.TestCase):
         param.geometry.es_lat_deg = 0
         param.geometry.es_long_deg = max_gso_fov
 
-        space_station = StationFactory.generate_single_space_station(param)
+        space_station = StationFactory.generate_single_space_station(param, np.random.RandomState(1))
 
         npt.assert_almost_equal(get_ground_elevation(space_station), 0, 5)
         npt.assert_almost_equal(space_station.height, 0, 0)
@@ -168,7 +168,7 @@ class StationFactoryTest(unittest.TestCase):
         param.geometry.es_long_deg = 0
         param.geometry.location.fixed.lat_deg = max_gso_fov
 
-        space_station = StationFactory.generate_single_space_station(param)
+        space_station = StationFactory.generate_single_space_station(param, np.random.RandomState(1))
 
         npt.assert_almost_equal(get_ground_elevation(space_station), 0, 5)
         npt.assert_almost_equal(space_station.height, 0, 0)
@@ -176,7 +176,7 @@ class StationFactoryTest(unittest.TestCase):
         param.geometry.location.fixed.lat_deg = 0
         param.geometry.location.fixed.long_deg = max_gso_fov
 
-        space_station = StationFactory.generate_single_space_station(param)
+        space_station = StationFactory.generate_single_space_station(param, np.random.RandomState(1))
         npt.assert_almost_equal(get_ground_elevation(space_station), 0, 5)
         npt.assert_almost_equal(space_station.height, 0, 0)
 
@@ -215,7 +215,7 @@ class StationFactoryTest(unittest.TestCase):
         param.geometry.azimuth.type = "POINTING_AT_IMT"
         param.geometry.elevation.type = "POINTING_AT_IMT"
 
-        space_station = StationFactory.generate_single_space_station(param)
+        space_station = StationFactory.generate_single_space_station(param, np.random.RandomState(1))
 
         npt.assert_almost_equal(space_station.get_off_axis_angle(imt_center), 0, 5)
 
@@ -227,7 +227,7 @@ class StationFactoryTest(unittest.TestCase):
         param.geometry.pointing_at_long = 0
         param.geometry.pointing_at_alt = 1200
 
-        space_station = StationFactory.generate_single_space_station(param)
+        space_station = StationFactory.generate_single_space_station(param, np.random.RandomState(1))
 
         npt.assert_almost_equal(space_station.get_off_axis_angle(imt_center), 0, 5)
 
@@ -246,7 +246,7 @@ class StationFactoryTest(unittest.TestCase):
         param.geometry.pointing_at_long = 5
         param.geometry.pointing_at_alt = 1200
 
-        space_station = StationFactory.generate_single_space_station(param)
+        space_station = StationFactory.generate_single_space_station(param, np.random.RandomState(1))
 
         npt.assert_almost_equal(space_station.get_off_axis_angle(center_of_earth), 0, 5)
 

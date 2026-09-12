@@ -770,7 +770,7 @@ class StationFactory(object):
                 topology)
         elif parameters.general.system == "SINGLE_SPACE_STATION":
             return StationFactory.generate_single_space_station(
-                parameters.single_space_station)
+                parameters.single_space_station, random_number_gen)
         elif parameters.general.system == "RAS":
             return StationFactory.generate_ras_station(
                 parameters.ras, random_number_gen, topology)
@@ -799,6 +799,7 @@ class StationFactory(object):
     @staticmethod
     def generate_single_space_station(
             param: ParametersSingleSpaceStation,
+            random_number_gen: np.random.RandomState,
         ):
         """Create a single space station (satellite) based on the provided parameters.
 
@@ -806,6 +807,9 @@ class StationFactory(object):
         ----------
         param : ParametersSingleSpaceStation
             Parameters for the single space station.
+        random_number_gen : np.random.RandomState
+            Snapshot random generator, used for RANDOM_RANGE azimuth/elevation
+            so that runs are reproducible from the simulation seed.
 
         Returns
         -------
@@ -851,7 +855,7 @@ class StationFactory(object):
         elif param.geometry.azimuth.type in ("RANDOM_RANGE"):
             lo = getattr(param.geometry.azimuth, "min")
             hi = getattr(param.geometry.azimuth, "max")
-            space_station.azimuth  = np.atleast_1d(lo + (hi - lo) * np.random.rand(1))
+            space_station.azimuth  = np.atleast_1d(lo + (hi - lo) * random_number_gen.rand(1))
         else:
             raise ValueError(
                 f"Did not recognize azimuth type of {
@@ -887,7 +891,7 @@ class StationFactory(object):
         elif param.geometry.elevation.type in ("RANDOM_RANGE"):
             lo = getattr(param.geometry.elevation, "min")
             hi = getattr(param.geometry.elevation, "max")
-            space_station.elevation  = np.atleast_1d(lo + (hi - lo) * np.random.rand(1))
+            space_station.elevation  = np.atleast_1d(lo + (hi - lo) * random_number_gen.rand(1))
         else:
             raise ValueError(
                 f"Did not recognize elevation type of {

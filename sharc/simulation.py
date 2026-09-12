@@ -484,6 +484,15 @@ class Simulation(ABC, Observable):
 
         bs_active = np.where(self.bs.active)[0]
 
+        # UE beams are only read by the intra-IMT (BS<->UE) link budget. In
+        # downlink with IMT as the interferer and the intra-IMT SINR disabled
+        # they are never used, so skip creating them (one add_beam per link).
+        skip_ue_beams = (
+            self.parameters.general.imt_link.upper() == "DOWNLINK"
+            and not self.parameters.imt.interfered_with
+            and self.parameters.imt.imt_dl_intra_sinr_calculation_disabled
+        )
+
         assert np.all((-180 <= self.bs.azimuth) & (self.bs.azimuth <= 180)), "BS azimuth angles should be in [-180, 180] range"
         for bs in bs_active:
             # select K UE's among the ones that are connected to BS
@@ -522,10 +531,11 @@ class Simulation(ABC, Observable):
                     # explicitly setting it
 
                     # add beam to UE antennas
-                    self.ue.antenna[ue].add_beam(
-                        self.bs_to_ue_phi[bs, ue] - 180,
-                        180 - self.bs_to_ue_theta[bs, ue],
-                    )
+                    if not skip_ue_beams:
+                        self.ue.antenna[ue].add_beam(
+                            self.bs_to_ue_phi[bs, ue] - 180,
+                            180 - self.bs_to_ue_theta[bs, ue],
+                        )
                     # set beam resource block group
                     self.bs_to_ue_beam_rbs[ue] = len(
                         self.bs.antenna[bs].beams_list,

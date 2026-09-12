@@ -3,6 +3,7 @@ import os
 import sys
 import yaml
 import logging
+import logging.config
 import subprocess
 from pathlib import Path
 from datetime import datetime

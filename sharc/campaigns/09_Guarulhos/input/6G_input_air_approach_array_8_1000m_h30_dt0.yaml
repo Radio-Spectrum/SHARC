@@ -11,6 +11,7 @@ general:
 imt:
   minimum_separation_distance_bs_ue: 35
   interfered_with: false
+  imt_dl_intra_sinr_calculation_disabled: true # SINR interno da IMT nao entra no resultado do RA
   frequency: 6475 # A banda vai de 6 425 a 7 125, então pensei na faixa de 100 MHz mais próxima do início da banda
   bandwidth: 100
   rb_bandwidth: 0.18

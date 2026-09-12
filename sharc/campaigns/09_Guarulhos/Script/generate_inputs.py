@@ -13,7 +13,9 @@ Uso (a partir de qualquer pasta):
 Atencao: o runner (start_simulations_multi_thread.py) executa TODOS os .yaml
 que estiverem em input/. Deixe la apenas o lote que quer rodar.
 
-Nomes gerados (compatíveis com plot_results4.py):
+Todos os YAMLs saem com imt_dl_intra_sinr_calculation_disabled: true.
+
+Nomes gerados (compativeis com plot_results4.py):
     input/<prefixo>input_air_approach_array_8_<D>m_h<H>_dt<T>.yaml
     output_dir_prefix = <prefixo>array_8_approach_<D>m_h<H>_dt<T>
 """
@@ -97,6 +99,18 @@ def main():
     arr["n_columns"] = cfg["n_columns"]
     if cfg["conducted_power"] is not None:
         data["imt"]["bs"]["conducted_power"] = cfg["conducted_power"]
+
+    # ---- pula o SINR interno da rede IMT ----
+    # A interferencia no RA nao depende do SINR BS<->UE; pular esse bloco
+    # reduz o tempo por snapshot em ~5x (medido: 9.4 s -> 1.8 s). So deixam de
+    # ser gravados os CSVs internos da IMT (imt_dl_sinr, imt_dl_tput, ...).
+    imt = data["imt"]
+    if "imt_dl_intra_sinr_calculation_disabled" not in imt:
+        pos = list(imt.keys()).index("interfered_with") + 1
+        imt.insert(pos, "imt_dl_intra_sinr_calculation_disabled", True,
+                   comment="SINR interno da IMT nao entra no resultado do RA")
+    else:
+        imt["imt_dl_intra_sinr_calculation_disabled"] = True
 
     # ---- centro do grid (lido do template) ----
     geom = data["single_space_station"]["geometry"]

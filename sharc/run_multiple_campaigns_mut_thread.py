@@ -4,6 +4,10 @@ import sys
 import re
 from concurrent.futures import ThreadPoolExecutor
 
+# Máximo de simulações em paralelo. Limita o uso de CPU para evitar
+# saturar todos os núcleos e superaquecer a máquina.
+MAX_PARALLEL_SIMS = 18
+
 
 def run_command(param_file, main_cli_path):
     """
@@ -45,8 +49,8 @@ def run_campaign(campaign_name):
             f"No parameter files were found in {campaign_folder}"
         )
 
-    # Number of threads (adjust as needed)
-    num_threads = min(len(parameter_files), os.cpu_count())
+    # Number of threads: limitado por MAX_PARALLEL_SIMS para não usar todos os CPUs.
+    num_threads = min(len(parameter_files), os.cpu_count(), MAX_PARALLEL_SIMS)
 
     # Run the commands in parallel
     with ThreadPoolExecutor(max_workers=num_threads) as executor:

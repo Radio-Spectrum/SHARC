@@ -106,6 +106,17 @@ class AntennaBeamformingImt(Antenna):
             self.co_correction_factor = self.norm_data["correction_factor_co_channel"]
             self.resolution = self.norm_data["resolution"]
 
+        # A 1x1 array of a constant-gain element, without subarray or
+        # normalization, has the same gain in every direction and for any
+        # beam (array factor is exactly 0 dB). Beams need not be stored and
+        # one object can be shared between stations (see AntennaFactory).
+        self.constant_gain = (
+            self.n_rows == 1 and self.n_cols == 1
+            and isinstance(self.element, AntennaElementImtConst)
+            and self.subarray is None
+            and not self.normalize
+        )
+
     def add_beam(self, phi_etilt: float, theta_etilt: float):
         """
         Add new beam to antenna.
@@ -117,6 +128,9 @@ class AntennaBeamformingImt(Antenna):
             phi_etilt (float): azimuth electrical tilt angle [degrees]
             theta_etilt (float): elevation electrical tilt angle [degrees]
         """
+        if self.constant_gain:
+            # gain does not depend on the beam: nothing to store
+            return
         phi, theta = self.to_local_coord(phi_etilt, theta_etilt)
         self.beams_list.append(
             (np.ndarray.item(phi), np.ndarray.item(theta - 90)),
@@ -176,6 +190,14 @@ class AntennaBeamformingImt(Antenna):
                     self.adjacent_antenna_model,
                 )
                 sys.exit(1)
+
+        if self.constant_gain:
+            # Same value as the general path below (element + 0 dB array
+            # factor + 0 correction), without coordinates or beams.
+            gains = self.element.element_pattern(phi_vec, theta_vec)
+            if not co_channel:
+                gains = gains + self.adj_correction_factor
+            return np.maximum(gains, self.minimum_array_gain)
 
         lo_phi_vec, lo_theta_vec = self.to_local_coord(phi_vec, theta_vec)
 

@@ -11,6 +11,9 @@ RHO_SNAP = N_BS_SNAP / AREA_KM2
 DENSITIES = [1.0, 2.5, 5.0, 10.0]           # BS/km2
 K_OF = {rho: int(round(rho * AREA_KM2 / N_BS_SNAP)) for rho in DENSITIES}
 N_TRIALS = 20000
+# grade fina de K para o mapa de cor margem x densidade (so 4 percentis por K)
+K_LIST = [1, 2, 3, 5, 7, 10, 14, 18, 25, 36, 50, 71, 100, 142]
+E_SMALL = [0.5, 0.1, 0.01, 0.001]           # mediana, P90, P99, P99.9
 SEED = 20260913
 GLIDESLOPE_DEG = 3.0
 # grade de excedencia (P[X > Q] = e)
@@ -28,6 +31,9 @@ def load_samples(folder):
 
 def quantiles(x_dbm_agg):
     return np.round(np.percentile(x_dbm_agg, 100.0 * (1.0 - E_GRID)), 2).tolist()
+
+def q_small(x_agg):
+    return np.round(np.percentile(x_agg, [100.0 * (1.0 - e) for e in E_SMALL]), 2).tolist()
 
 def second_mc(x_dbm, k, rng):
     x_mw = 10.0 ** (x_dbm / 10.0)
@@ -64,6 +70,8 @@ for fo in folders:
     for rho in DENSITIES:
         q[str(rho)] = quantiles(second_mc(x, K_OF[rho], rng))
     meta["q"] = q
+    x_mw = 10.0 ** (x / 10.0)
+    meta["qk"] = {str(k): q_small(10*np.log10(rng.choice(x_mw, size=(N_TRIALS, k), replace=True).sum(axis=1))) for k in K_LIST}
     records.append(meta)
     raw[rid] = x
 
@@ -87,12 +95,19 @@ for key, bands in by_key.items():
                            # soma com filtro do RA ja aplicado (-4.85 dB e -13.4 dB) e sem filtro
                            "mix_f": quantiles(10*np.log10(agg_a*10**(-0.485) + agg_b*10**(-1.34))),
                            "mix_nf": quantiles(10*np.log10(agg_a + agg_b))}
+        qk = {}
+        sa = 10.0 ** (a / 10.0); sb = 10.0 ** (b / 10.0)
+        for k in K_LIST:
+            agg_a = rng.choice(sa, size=(N_TRIALS, k), replace=True).sum(axis=1)
+            agg_b = rng.choice(sb, size=(N_TRIALS, k), replace=True).sum(axis=1)
+            qk[str(k)] = {"mix_f": q_small(10*np.log10(agg_a*10**(-0.485) + agg_b*10**(-1.34))),
+                          "mix_nf": q_small(10*np.log10(agg_a + agg_b))}
         g, case, d, alt, h, dt = key
-        records.append(dict(group=g, case=case, dist_m=d, alt_m=alt, h=h, dt=dt, band="mix", id=f"mix_{bands['3.65']['id']}", n_snap=None, q=q))
+        records.append(dict(group=g, case=case, dist_m=d, alt_m=alt, h=h, dt=dt, band="mix", id=f"mix_{bands['3.65']['id']}", n_snap=None, q=q, qk=qk))
         n_mix += 1
 
 meta = dict(n_bs_snapshot=N_BS_SNAP, area_km2=AREA_KM2, rho_snapshot=round(RHO_SNAP, 4), densities=DENSITIES, k_of={str(k): v for k, v in K_OF.items()},
-            n_trials=N_TRIALS, seed=SEED, e_grid=E_GRID.tolist(), glideslope_deg=GLIDESLOPE_DEG,
+            n_trials=N_TRIALS, seed=SEED, e_grid=E_GRID.tolist(), k_list=K_LIST, e_small=E_SMALL, glideslope_deg=GLIDESLOPE_DEG,
             ra_filter_db={"3.65": -4.85, "6.475": -13.4},
             itm={"UC1": {"alt_ft": [200, 1000, 5000, 7500], "psd": [-39, -46, -54, -54]},
                  "UC2": {"alt_ft": [200, 1000, 2000], "psd": [-76, -86, -94]},

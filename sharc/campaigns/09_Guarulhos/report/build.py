@@ -1,16 +1,16 @@
 """Monta margens_ra_guarulhos.html: template.html + results.json (aggregate.py) + Plotly embutido.
 
-O Plotly (pacote basic, ~1 MB) fica dentro do HTML para a pagina abrir sem CDN, inclusive
+O Plotly (pacote cartesian, ~1.6 MB) fica dentro do HTML para a pagina abrir sem CDN, inclusive
 em visualizadores que bloqueiam scripts externos (celular, painel lateral). Se o arquivo
-plotly-basic.min.js nao existir na pasta, e baixado do cdnjs uma vez.
+plotly-cartesian.min.js nao existir na pasta, e baixado do cdnjs uma vez.
 """
 import os
 import urllib.request
 
 H = os.path.dirname(os.path.abspath(__file__))
 PLOTLY_VERSION = "2.35.0"
-PLOTLY_FILE = os.path.join(H, "plotly-basic.min.js")
-PLOTLY_URL = f"https://cdnjs.cloudflare.com/ajax/libs/plotly.js/{PLOTLY_VERSION}/plotly-basic.min.js"
+PLOTLY_FILE = os.path.join(H, "plotly-cartesian.min.js")
+PLOTLY_URL = f"https://cdnjs.cloudflare.com/ajax/libs/plotly.js/{PLOTLY_VERSION}/plotly-cartesian.min.js"
 
 if not os.path.exists(PLOTLY_FILE):
     print("baixando", PLOTLY_URL)

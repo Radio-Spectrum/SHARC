@@ -11,7 +11,7 @@
   --uc1:#2a78d6; --uc2:#eb6834; --uc3:#1baf7a;
   --o1:#86b6ef; --o2:#5598e7; --o3:#2a78d6; --o4:#184f95; --o5:#0d366b;
   --b365:#2a78d6; --b6475:#eb6834; --bmix:#1baf7a;
-  --grid:#e2e6e2; --plot-ink:#4f565c;
+  --grid:#e2e6e2; --plot-ink:#4f565c; --div-mid:#f0efec;
   --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
   --sans:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
   --serif:"IBM Plex Serif",Georgia,"Times New Roman",serif;
@@ -26,7 +26,7 @@
     --uc1:#3987e5; --uc2:#d95926; --uc3:#199e70;
     --o1:#9ec5f4; --o2:#6da7ec; --o3:#3987e5; --o4:#256abf; --o5:#184f95;
     --b365:#3987e5; --b6475:#d95926; --bmix:#199e70;
-    --grid:#2c3133; --plot-ink:#c1c7c4;
+    --grid:#2c3133; --plot-ink:#c1c7c4; --div-mid:#383835;
   }
 }
 :root[data-theme="dark"]{
@@ -38,7 +38,7 @@
   --uc1:#3987e5; --uc2:#d95926; --uc3:#199e70;
   --o1:#9ec5f4; --o2:#6da7ec; --o3:#3987e5; --o4:#256abf; --o5:#184f95;
   --b365:#3987e5; --b6475:#d95926; --bmix:#199e70;
-  --grid:#2c3133; --plot-ink:#c1c7c4;
+  --grid:#2c3133; --plot-ink:#c1c7c4; --div-mid:#383835;
 }
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.55;-webkit-font-smoothing:antialiased}
@@ -54,7 +54,6 @@ header.top{padding-block:36px 20px;border-bottom:1px solid var(--line);display:g
 .lede{max-width:66ch;color:var(--ink-2);margin-top:12px;font-size:16px}
 .stamp{font-family:var(--mono);font-size:12px;color:var(--ink-3);text-align:right;line-height:1.7}
 .stamp b{color:var(--ink-2);font-weight:500}
-/* controls */
 .controls{position:sticky;top:0;z-index:20;background:var(--bg);border-bottom:1px solid var(--line);padding-block:10px;display:flex;flex-wrap:wrap;gap:8px 22px;align-items:center}
 .ctl{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--ink-2)}
 .ctl label{font-weight:500;color:var(--ink)}
@@ -69,7 +68,6 @@ select:focus-visible,button:focus-visible,input:focus-visible{outline:2px solid 
 .switch input:checked{background:var(--accent)}
 .switch input:checked::after{left:18px}
 .ctl .hint{color:var(--ink-3);font-family:var(--mono);font-size:12px}
-/* layout */
 .page{display:grid;grid-template-columns:200px 1fr;gap:36px;margin-top:28px}
 nav.side{position:sticky;top:64px;align-self:start;font-size:13px}
 nav.side a{display:block;color:var(--ink-2);text-decoration:none;padding:5px 0 5px 12px;border-left:2px solid var(--line-soft)}
@@ -81,33 +79,33 @@ section:last-of-type{border-bottom:0}
 .sec-head .tag{font-family:var(--mono);font-size:12px;color:var(--ink-3)}
 .sec-note{max-width:70ch;color:var(--ink-2);margin-bottom:18px}
 .sec-note b{color:var(--ink);font-weight:600}
-/* summary */
 .summary{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:22px}
 .sumcard{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:14px 16px}
 .sumcard .band{font-family:var(--mono);font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3);display:flex;align-items:center;gap:8px}
 .dot{width:10px;height:10px;border-radius:50%;display:inline-block}
-.sumrow{display:grid;grid-template-columns:44px 1fr auto;align-items:baseline;gap:10px;padding-block:7px;border-top:1px solid var(--line-soft)}
+.sumrow{display:grid;grid-template-columns:44px 1fr auto;align-items:baseline;gap:10px;padding-block:8px;border-top:1px solid var(--line-soft)}
 .sumrow:first-of-type{border-top:0;margin-top:6px}
 .sumrow .uc{font-family:var(--mono);font-size:12px;color:var(--ink-2)}
-.sumrow .lbl{font-size:12.5px;color:var(--ink-3)}
+.sumrow .lbl{font-size:12.5px;color:var(--ink-3);line-height:1.45}
+.sumrow .lbl b{color:var(--ink-2);font-weight:500;font-family:var(--mono)}
 .sumrow .val{font-family:var(--mono);font-size:20px;font-weight:500;font-variant-numeric:tabular-nums}
 .val.neg{color:var(--bad)} .val.pos{color:var(--good)}
 .pill{display:inline-block;font-family:var(--mono);font-size:11px;padding:1px 7px;border-radius:10px;border:1px solid var(--line);color:var(--ink-2);vertical-align:middle}
 .pill.neg{background:var(--bad-soft);border-color:transparent;color:var(--bad)}
 .pill.pos{background:var(--good-soft);border-color:transparent;color:var(--good)}
-/* charts */
 .panels{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+.panels.four{grid-template-columns:repeat(4,1fr)}
 .panel{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:10px 6px 4px}
 .panel h3{padding:0 8px 2px;display:flex;align-items:center;gap:8px;font-size:14px}
 .panel .sub{font-size:12px;color:var(--ink-3);padding:0 8px 4px}
-.plot{width:100%;height:300px}
-.plot.tall{height:340px}
+.plot{width:100%;height:340px}
+.plot.hm{height:330px}
 .legend{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:12.5px;color:var(--ink-2);margin:10px 4px 4px}
 .legend span{display:inline-flex;align-items:center;gap:6px}
 .sw{width:18px;height:0;border-top:2px solid var(--ink);display:inline-block}
+.sw.bold{border-top-width:3px}
 .sw.dash{border-top-style:dashed} .sw.dot{border-top-style:dotted}
 .legend .note{color:var(--ink-3);font-family:var(--mono);font-size:12px}
-/* method */
 .method{display:grid;grid-template-columns:1fr;gap:18px}
 .method-tables{display:grid;grid-template-columns:1fr 1.4fr;gap:14px;align-items:start}
 .method ol{margin:0;padding-left:20px;color:var(--ink-2)}
@@ -127,7 +125,8 @@ table.tbl{border-collapse:collapse;width:100%;font-size:13px;font-variant-numeri
 .notes{columns:2;column-gap:32px;color:var(--ink-2);max-width:100%}
 .notes li{break-inside:avoid;margin-bottom:8px}
 .formula{font-family:var(--mono);font-size:13px;background:var(--surface-2);padding:10px 14px;border-radius:6px;color:var(--ink);overflow-x:auto;white-space:nowrap}
-@media (max-width:1000px){.page{grid-template-columns:1fr}nav.side{display:none}.panels{grid-template-columns:1fr}.method-tables{grid-template-columns:1fr}.summary{grid-template-columns:1fr}.notes{columns:1}header.top{grid-template-columns:1fr}.stamp{text-align:left}}
+#errbox{margin:12px 0;padding:10px 14px;border:1px solid var(--bad);border-radius:6px;color:var(--bad);font-family:var(--mono);font-size:12px;white-space:pre-wrap}
+@media (max-width:1000px){.page{grid-template-columns:1fr}nav.side{display:none}.panels,.panels.four{grid-template-columns:1fr}.method-tables{grid-template-columns:1fr}.summary{grid-template-columns:1fr}.notes{columns:1}header.top{grid-template-columns:1fr}.stamp{text-align:left}}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 
@@ -136,7 +135,7 @@ table.tbl{border-collapse:collapse;width:100%;font-size:13px;font-variant-numeri
   <div>
     <div class="eyebrow">Coexistência IMT × radioaltímetro · Aeroporto de Guarulhos</div>
     <h1>Margens do radioaltímetro na aproximação</h1>
-    <p class="lede">Interferência agregada da rede IMT em 3.65 GHz e 6.475 GHz sobre o radioaltímetro (RA) de uma aeronave na rampa de 3°, comparada com as máscaras de tolerância (ITM) das três categorias de uso. Margem positiva significa interferência abaixo do limite.</p>
+    <p class="lede">Interferência agregada da rede IMT em 3.65 GHz e 6.475 GHz sobre o radioaltímetro (RA) de uma aeronave na rampa de 3°, comparada com as máscaras de tolerância (ITM) das três categorias de uso. Os gráficos são perfis de descida: altitude em pés na vertical, margem em dB na horizontal. Margem positiva significa interferência abaixo do limite.</p>
   </div>
   <div class="stamp" id="stamp"></div>
 </header>
@@ -150,17 +149,17 @@ table.tbl{border-collapse:collapse;width:100%;font-size:13px;font-variant-numeri
   <div class="ctl"><span style="font-weight:500">Banda nos sweeps</span><div class="seg" id="bandseg" role="group" aria-label="Banda">
     <button type="button" data-band="3.65" aria-pressed="true">3.65 GHz</button><button type="button" data-band="6.475" aria-pressed="false">6.475 GHz</button><button type="button" data-band="mix" aria-pressed="false">3.65 + 6.475</button></div></div>
 </div>
+<div id="errbox" hidden></div>
 
-<div id="errbox" hidden style="margin:12px 0;padding:10px 14px;border:1px solid var(--bad);border-radius:6px;color:var(--bad);font-family:var(--mono);font-size:12px;white-space:pre-wrap"></div>
 <div class="page">
 <nav class="side" aria-label="Seções">
-  <a href="#resumo">Resumo</a><a href="#metodo">Método</a><a href="#ref">Caso de referência</a><a href="#geom">Altura e downtilt</a><a href="#dens">Densidade</a><a href="#arr">Arranjo</a><a href="#roll">Apontamento do RA</a><a href="#load">Carga</a><a href="#kb">Feixes por BS</a><a href="#level">Voo nivelado</a><a href="#ccdf">CCDF</a><a href="#tabela">Tabela</a><a href="#notas">Notas</a>
+  <a href="#resumo">Resumo</a><a href="#metodo">Método</a><a href="#ref">Caso de referência</a><a href="#dmax">Densidade máxima</a><a href="#geom">Altura e downtilt</a><a href="#dens">Densidade</a><a href="#arr">Arranjo</a><a href="#roll">Apontamento do RA</a><a href="#load">Carga</a><a href="#kb">Feixes por BS</a><a href="#level">Voo nivelado</a><a href="#ccdf">CCDF</a><a href="#tabela">Tabela</a><a href="#notas">Notas</a>
 </nav>
 <main>
 
 <section id="resumo">
   <div class="sec-head"><h2>Resumo</h2><span class="tag">caso de referência · BS 20 m · downtilt 6° · arranjo 8×8</span></div>
-  <p class="sec-note">Pior margem ao longo de toda a aproximação (52 m a 1677 m de altitude), para a densidade e o percentil escolhidos acima. A altitude entre parênteses é onde a pior margem ocorre.</p>
+  <p class="sec-note">Pior margem ao longo de toda a aproximação (172 ft a 5500 ft), para a densidade e o percentil escolhidos acima, e a maior densidade de BSs que ainda atende a ITM em toda a rampa.</p>
   <div class="summary" id="summary"></div>
   <div class="callout" id="callout"></div>
 </section>
@@ -171,9 +170,9 @@ table.tbl{border-collapse:collapse;width:100%;font-size:13px;font-variant-numeri
     <div>
       <ol>
         <li><b>SHARC</b>: para cada configuração, 10 000 snapshots de uma rede hotspot com <code>398</code> BSs (7 clusters × 19 sítios × 3 setores, ISD 4954.6 m, área hexagonal de <code>2827 km²</code>), carga 0.5, 4 feixes por BS, propagação ITU-R P.528 com porcentagem de tempo aleatória. Cada snapshot devolve a interferência agregada no RA em dBm/MHz. Semente reprodutível.</li>
-        <li><b>Segundo Monte Carlo</b>: uma rede mais densa é emulada somando, em potência, <code>K</code> snapshots independentes. Como a rede simulada tem <code>0.141 BS/km²</code>, a densidade alvo define K = ρ · 2827 / 398. São 20 000 trials por configuração e densidade.</li>
-        <li><b>Filtro do RA</b>: a resposta do filtro (24 dB/oitava fora de 4.2–4.4 GHz) vale <code>−4.85 dB</code> em 3.65 GHz e <code>−13.4 dB</code> em 6.475 GHz. Aplicada como offset, conforme a equação da interferência do artigo. Pode ser desligada na barra de controles para conferir a sensibilidade a essa hipótese.</li>
-        <li><b>Margem</b> = ITM(altitude, categoria) − I<sub>p</sub>, com I<sub>p</sub> o nível de interferência excedido com probabilidade 1−p (P99.9 por padrão). A ITM é interpolada linearmente na altitude em pés, com saturação nas bordas.</li>
+        <li><b>Segundo Monte Carlo</b>: uma rede mais densa é emulada somando, em potência, <code>K</code> snapshots independentes. Como a rede simulada tem <code>0.141 BS/km²</code>, a densidade alvo define K = ρ · 2827 / 398. São 20 000 trials por configuração e densidade; para o mapa de densidade máxima, 14 valores de K entre 1 e 142 (0.14 a 20 BS/km²).</li>
+        <li><b>Filtro do RA</b>: a resposta do filtro (24 dB/oitava fora de 4.2–4.4 GHz) vale <code>−4.85 dB</code> em 3.65 GHz e <code>−13.4 dB</code> em 6.475 GHz. Aplicada como offset, conforme a equação da interferência do artigo. Pode ser desligada na barra de controles.</li>
+        <li><b>Margem</b> = ITM(altitude, categoria) − I<sub>p</sub>, com I<sub>p</sub> o nível de interferência excedido com probabilidade 1−p (P99.9 por padrão). A ITM é interpolada linearmente na altitude em pés, com saturação nas bordas. Altitudes da rampa: distância ao centro da pista × tan 3°.</li>
       </ol>
       <div class="formula" style="margin-top:14px">margem(h) = ITM_UC(h) − [ 10·log10( Σ_{k=1..K} 10^{I_k/10} ) + ρ_f ]  ,  avaliado em P(excedência) = 1 − p</div>
     </div>
@@ -182,30 +181,37 @@ table.tbl{border-collapse:collapse;width:100%;font-size:13px;font-variant-numeri
       <div class="tblwrap"><table class="tbl"><thead><tr><th>ITM (dBm/MHz)</th><th class="num">200 ft</th><th class="num">1000 ft</th><th class="num">2000 ft</th><th class="num">5000 ft</th><th class="num">7500 ft</th></tr></thead><tbody id="itmtable"></tbody></table></div>
     </div>
     <div>
-      <p class="sec-note" style="margin-top:0;font-size:13px;max-width:90ch">Categoria 1: transporte comercial. Categoria 2: asa fixa regional, executiva e geral. Categoria 3: helicópteros. ITM em dBm/MHz no conector da antena do RA; a tolerância aperta com a altitude porque o eco do solo enfraquece.</p>
+      <p class="sec-note" style="margin-top:0;font-size:13px;max-width:90ch">Categoria 1: transporte comercial. Categoria 2: asa fixa regional, executiva e geral. Categoria 3: helicópteros. ITM em dBm/MHz no conector da antena do RA; a tolerância aperta com a altitude porque o eco do solo enfraquece. Os degraus da ITM (200, 1000, 2000 e 5000 ft) aparecem como linhas-guia nos perfis.</p>
     </div>
   </div>
 </section>
 
 <section id="ref">
-  <div class="sec-head"><h2>Caso de referência</h2><span class="tag">margem × altitude, três categorias, uma coluna por banda</span></div>
-  <p class="sec-note">Eixo horizontal em escala logarítmica de altitude na rampa; a distância ao centro da pista aparece no hover. Zona sombreada: margem negativa (violação da ITM).</p>
+  <div class="sec-head"><h2>Caso de referência</h2><span class="tag">perfil de descida · margem × altitude · três categorias · uma coluna por banda</span></div>
+  <p class="sec-note">A aeronave desce de cima para baixo no eixo vertical. A faixa sombreada à esquerda de zero é violação da ITM; o preenchimento entre a curva e o zero mostra quanto cada categoria sobra ou falta. O pior ponto de cada curva está anotado.</p>
   <div class="panels" id="refPanels"></div>
   <div class="legend" id="refLegend"></div>
   <div class="sec-head" style="margin-top:26px"><h3>Probabilidade de exceder a ITM</h3><span class="tag">P[I &gt; ITM] em cada altitude, escala log</span></div>
   <div class="panels" id="refProbPanels"></div>
 </section>
 
+<section id="dmax">
+  <div class="sec-head"><h2>Densidade máxima admissível</h2><span class="tag" id="dmaxTag"></span></div>
+  <p class="sec-note">Mapa de cor da margem no caso de referência: altitude na horizontal, densidade de BS na vertical (escala log, 0.14 a 20 BS/km²). A linha preta é a fronteira de margem zero: acima dela a rede viola a ITM. O gráfico à direita resume a fronteira para as três categorias; a densidade máxima admissível de cada categoria é o mínimo da curva ao longo da rampa.</p>
+  <div class="panels four" id="dmaxPanels"></div>
+  <div class="legend" id="dmaxLegend"></div>
+</section>
+
 <section id="geom">
   <div class="sec-head"><h2>Altura da BS e downtilt</h2><span class="tag" id="geomTag"></span></div>
-  <p class="sec-note">Sweep completo: 4 alturas × 3 downtilts, arranjo 8×8. Cor = altura da BS, traço = downtilt mecânico. Um painel por categoria.</p>
+  <p class="sec-note">Sweep completo: 4 alturas × 3 downtilts, arranjo 8×8. Cor = altura da BS, traço = downtilt mecânico; a referência (20 m, 6°) em traço grosso. Um painel por categoria.</p>
   <div class="panels" id="geomPanels"></div>
   <div class="legend" id="geomLegend"></div>
 </section>
 
 <section id="dens">
   <div class="sec-head"><h2>Densidade de BSs</h2><span class="tag" id="densTag"></span></div>
-  <p class="sec-note">Caso de referência com 1, 2.5, 5 e 10 BS/km² e a rede simulada sem agregação (0.14 BS/km²). Cada duplicação da densidade custa cerca de 3 dB de margem na mediana, e um pouco menos na cauda.</p>
+  <p class="sec-note">Caso de referência com 1, 2.5, 5 e 10 BS/km² e a rede simulada sem agregação (0.14 BS/km²). Cada duplicação da densidade custa cerca de 3 dB de margem na mediana e um pouco menos na cauda.</p>
   <div class="panels" id="densPanels"></div>
   <div class="legend" id="densLegend"></div>
 </section>
@@ -239,15 +245,15 @@ table.tbl{border-collapse:collapse;width:100%;font-size:13px;font-variant-numeri
 </section>
 
 <section id="level">
-  <div class="sec-head"><h2>Voo nivelado sobre a rede</h2><span class="tag">aeronave parada sobre o centro da grade, 100 a 1000 m</span></div>
-  <p class="sec-note">Cenário de espera ou arremetida: o RA fica sobre a região mais densa, a 10 km lateralmente da linha de aproximação. Aqui a altitude é a variável direta. Um painel por banda, três categorias.</p>
+  <div class="sec-head"><h2>Voo nivelado sobre a rede</h2><span class="tag">aeronave parada sobre o centro da grade, 330 a 3300 ft</span></div>
+  <p class="sec-note">Cenário de espera ou arremetida: o RA fica sobre a região mais densa, a 10 km lateralmente da linha de aproximação. Um painel por banda, três categorias.</p>
   <div class="panels" id="levelPanels"></div>
   <div class="legend" id="levelLegend"></div>
 </section>
 
 <section id="ccdf">
   <div class="sec-head"><h2>CCDF da interferência agregada</h2><span class="tag" id="ccdfTag"></span></div>
-  <p class="sec-note">Distribuição completa em três altitudes da rampa, com as três ITMs como linhas verticais. A leitura de margem acima corresponde à distância horizontal entre a curva no percentil escolhido e cada linha.</p>
+  <p class="sec-note">Distribuição completa em três altitudes da rampa, com as três ITMs como linhas verticais. A margem lida nos perfis é a distância horizontal entre a curva, no percentil escolhido, e cada linha.</p>
   <div class="panels" id="ccdfPanels"></div>
   <div class="legend" id="ccdfLegend"></div>
 </section>
@@ -257,20 +263,20 @@ table.tbl{border-collapse:collapse;width:100%;font-size:13px;font-variant-numeri
   <p class="sec-note">Pior margem ao longo da aproximação por configuração e categoria, na densidade, percentil e filtro escolhidos. Clique nos cabeçalhos para ordenar. Linha destacada: caso de referência.</p>
   <div class="tblwrap" style="max-height:520px;overflow:auto"><table class="tbl" id="tab"><thead><tr>
     <th class="sortable" data-k="band">Banda</th><th class="sortable" data-k="group">Grupo</th><th class="sortable" data-k="label">Configuração</th>
-    <th class="sortable num" data-k="m1">UC1 (dB)</th><th class="sortable num" data-k="m2">UC2 (dB)</th><th class="sortable num" data-k="m3">UC3 (dB)</th><th class="sortable num" data-k="alt">Altitude crítica (m)</th></tr></thead><tbody></tbody></table></div>
+    <th class="sortable num" data-k="m1">UC1 (dB)</th><th class="sortable num" data-k="m2">UC2 (dB)</th><th class="sortable num" data-k="m3">UC3 (dB)</th><th class="sortable num" data-k="alt">Altitude crítica UC2 (ft)</th></tr></thead><tbody></tbody></table></div>
 </section>
 
 <section id="notas">
   <div class="sec-head"><h2>Notas e ressalvas</h2></div>
   <ul class="notes">
-    <li><b>Ponto a 105 m (2 km da pista)</b>: nas duas bandas a interferência sobe cerca de 12 dB em relação às altitudes vizinhas. Como as posições dos hotspots são sorteadas por snapshot mas os sítios macro são fixos, o ponto da rampa deve cair perto de um sítio. Vale conferir a geometria antes de interpretar como resultado físico.</li>
+    <li><b>Ponto a 344 ft (105 m, 2 km da pista)</b>: nas duas bandas a interferência sobe cerca de 12 dB em relação às altitudes vizinhas. Como as posições dos hotspots são sorteadas por snapshot mas os sítios macro são fixos, o ponto da rampa deve cair perto de um sítio. Vale conferir a geometria antes de interpretar como resultado físico.</li>
     <li><b>Máscaras ITM</b>: valores em dBm/MHz vs altitude tomados dos scripts de pós-processamento anteriores. Confirmar no relatório da RTCA se correspondem à máscara de emissões fundamentais (então o filtro do RA já estaria embutido e não deve ser aplicado de novo) ou à de espúrios.</li>
-    <li><b>Densidade</b>: a soma de K snapshots emula K redes independentes sobrepostas na mesma área; a sombra e a porcentagem de tempo do P.528 são redesenhadas em cada snapshot, o que é coerente com BSs distintas. Não há correlação espacial entre as K cópias.</li>
+    <li><b>Densidade</b>: a soma de K snapshots emula K redes independentes sobrepostas na mesma área; a sombra e a porcentagem de tempo do P.528 são redesenhadas em cada snapshot, o que é coerente com BSs distintas. Não há correlação espacial entre as K cópias. A fronteira de margem zero é interpolada linearmente em log da densidade entre os K simulados.</li>
     <li><b>Área de referência</b>: 2827 km² é a área dos 133 hexágonos; o artigo descreve uma região circular de raio R<sub>s</sub>. Ajustar o texto ou o mapeamento de K para que coincidam.</li>
     <li><b>Padrão fora de banda do RA</b>: modelado como ganho em dBi igual ao ângulo em relação ao nadir (|φ−90°|). É uma aproximação grosseira; a rodada com o padrão em banda da M.2319 é a próxima sensibilidade natural.</li>
     <li><b>Cenário misto</b>: soma em potência das duas bandas com K snapshots cada, ou seja, ρ BS/km² de cada tecnologia colocalizadas independentemente. O filtro é aplicado por banda antes da soma.</li>
     <li><b>Percentil</b>: com 20 000 trials, P99.9 apoia-se nas 20 maiores amostras; use P99 quando comparar diferenças abaixo de 1 dB.</li>
-    <li><b>Reprodutibilidade</b>: todos os YAMLs estão versionados (<code>generate_inputs.py</code>, <code>generate_inputs_sensitivity.py</code>); o segundo Monte Carlo usa semente 20260913.</li>
+    <li><b>Reprodutibilidade</b>: todos os YAMLs estão versionados (<code>generate_inputs.py</code>, <code>generate_inputs_sensitivity.py</code>); o segundo Monte Carlo usa semente 20260913 (<code>report/aggregate.py</code>).</li>
   </ul>
 </section>
 </main>
@@ -279,42 +285,67 @@ table.tbl{border-collapse:collapse;width:100%;font-size:13px;font-variant-numeri
 
 <script>/*__PLOTLY__*/</script>
 <script>
-function showErr(where, e){ const b=document.getElementById("errbox"); b.hidden=false; b.textContent += `[${where}] ${e && e.message ? e.message : e}
-`; console.error(where, e); }
+function showErr(where, e){ const b=document.getElementById("errbox"); b.hidden=false; b.textContent += `[${where}] ${e && e.message ? e.message : e}\n`; console.error(where, e); }
 window.addEventListener("error", ev=>showErr("window", ev.error||ev.message));
 const DATA = /*__DATA__*/;
 const M = DATA.meta, R = DATA.records;
 const E = M.e_grid, LOGE = E.map(Math.log10);
 const UCS = ["UC1","UC2","UC3"];
 const UCNAME = {UC1:"Categoria 1 · transporte comercial", UC2:"Categoria 2 · aviação regional e geral", UC3:"Categoria 3 · helicópteros"};
+const UCSYM = {UC1:"circle", UC2:"square", UC3:"diamond"};
 const BANDNAME = {"3.65":"3.65 GHz","6.475":"6.475 GHz","mix":"3.65 + 6.475 GHz"};
+const FT = 3.28084;
 const ALTS = [...new Set(R.filter(r=>r.group==="main").map(r=>r.alt_m))].sort((a,b)=>a-b);
+const ALTS_FT = ALTS.map(a=>a*FT);
 const DIST_OF = {}; R.filter(r=>r.group==="main").forEach(r=>DIST_OF[r.alt_m]=r.dist_m);
+const K_LIST = M.k_list, RHO_OF_K = k => k*M.rho_snapshot;
+const ESMALL_IDX = {0.5:0, 0.1:1, 0.01:2, 0.001:3};
 
 const state = {rho:"5.0", p:0.001, filt:true, band:"3.65"};
 const css = k => getComputedStyle(document.documentElement).getPropertyValue(k).trim();
+const ftLabel = m => String(Math.round(m*FT));
 
 // ---- numerics --------------------------------------------------------------
-function interp(x, xs, ys){ // xs increasing
+function interp(x, xs, ys){
   if (x<=xs[0]) return ys[0]; if (x>=xs[xs.length-1]) return ys[ys.length-1];
   let i=1; while (xs[i]<x) i++;
   const t=(x-xs[i-1])/(xs[i]-xs[i-1]); return ys[i-1]+t*(ys[i]-ys[i-1]);
 }
-function itm(alt_m, uc){ const m=M.itm[uc]; return interp(alt_m*3.28084, m.alt_ft, m.psd); }
-function qArr(rec){ // quantile array (aligned with E) already including RA filter
+function itm(alt_m, uc){ const m=M.itm[uc]; return interp(alt_m*FT, m.alt_ft, m.psd); }
+function filtDb(band){ return state.filt ? (M.ra_filter_db[band]||0) : 0; }
+function qArr(rec){
   if (rec.band==="mix"){ const rho = state.rho==="snap" ? "1.0" : state.rho; return rec.q[rho][state.filt?"mix_f":"mix_nf"]; }
-  const q = rec.q[state.rho]; const f = state.filt ? M.ra_filter_db[rec.band] : 0;
+  const q = rec.q[state.rho]; const f = filtDb(rec.band);
   return f ? q.map(v=>v+f) : q;
 }
-function Qe(q, e){ return interp(Math.log10(e), LOGE, q); }           // level exceeded with prob e
-function pExceed(q, x){ // P[I > x]; q decreasing in e
-  if (x>=q[0]) return 1e-4*Math.pow(10, -(x-q[0])/10); // extrapolate below 1e-4 with a 1 dB/decade guess, clamp
+function Qe(q, e){ return interp(Math.log10(e), LOGE, q); }
+function pExceed(q, x){
+  if (x>=q[0]) return 1e-4*Math.pow(10, -(x-q[0])/10);
   if (x<=q[q.length-1]) return 1;
   let i=1; while (q[i]>x) i++;
   const t=(q[i-1]-x)/(q[i-1]-q[i]); return Math.pow(10, LOGE[i-1]+t*(LOGE[i]-LOGE[i-1]));
 }
 function margin(rec, uc){ return itm(rec.alt_m, uc) - Qe(qArr(rec), state.p); }
+// margem na grade fina de K (mapa de densidade): usa os 4 percentis guardados
+function marginK(rec, uc, k){
+  const qk = rec.qk[String(k)]; const i = ESMALL_IDX[state.p];
+  const I = rec.band==="mix" ? qk[state.filt?"mix_f":"mix_nf"][i] : qk[i] + filtDb(rec.band);
+  return itm(rec.alt_m, uc) - I;
+}
+// maior densidade com margem >= 0 (interpolacao em log rho); 0 = nenhuma; Infinity = todas
+function rhoMax(rec, uc){
+  const ms = K_LIST.map(k=>marginK(rec,uc,k));
+  if (ms[0] < 0) return 0;
+  for (let i=1;i<ms.length;i++){
+    if (ms[i] < 0){
+      const r0=Math.log10(RHO_OF_K(K_LIST[i-1])), r1=Math.log10(RHO_OF_K(K_LIST[i]));
+      const t = ms[i-1]/(ms[i-1]-ms[i]); return Math.pow(10, r0 + t*(r1-r0));
+    }
+  }
+  return Infinity;
+}
 const fmt = (v,d=1)=> (v>0?"+":"")+v.toFixed(d);
+const fmtRho = r => r===0 ? "< 0.14" : r===Infinity ? "> 20" : r.toFixed(r<1?2:1);
 
 // ---- selection helpers -----------------------------------------------------
 const main = (band,h,dt)=> R.filter(r=>r.group==="main"&&r.band===band&&r.h===h&&r.dt===dt).sort((a,b)=>a.alt_m-b.alt_m);
@@ -322,45 +353,60 @@ const sens = (band,cs)=> R.filter(r=>r.group!=="main"&&r.group!=="level"&&r.band
 const level = band => R.filter(r=>r.group==="level"&&r.band===band).sort((a,b)=>a.alt_m-b.alt_m);
 const REF = band => main(band,20,6);
 
-// ---- plotly ----------------------------------------------------------------
+// ---- plotly helpers --------------------------------------------------------
 function baseLayout(extra){
   const ink=css("--plot-ink"), grid=css("--grid");
-  return Object.assign({
+  const base = {
     paper_bgcolor:"rgba(0,0,0,0)", plot_bgcolor:"rgba(0,0,0,0)",
     font:{family:css("--sans"), size:12, color:ink},
-    margin:{l:48,r:10,t:8,b:44}, showlegend:false, hovermode:"closest",
+    margin:{l:58,r:14,t:10,b:44}, showlegend:false, hovermode:"closest",
     xaxis:{gridcolor:grid, zeroline:false, linecolor:grid, tickfont:{family:css("--mono"),size:11}},
     yaxis:{gridcolor:grid, zeroline:false, linecolor:grid, tickfont:{family:css("--mono"),size:11}},
     hoverlabel:{font:{family:css("--mono"),size:12}}
-  }, extra);
+  };
+  const out = Object.assign({}, base, extra);
+  out.xaxis = Object.assign({}, base.xaxis, extra.xaxis||{}); out.yaxis = Object.assign({}, base.yaxis, extra.yaxis||{});
+  return out;
 }
 const PCFG = {displayModeBar:false, responsive:true};
-function altAxis(){ return {type:"log", title:{text:"Altitude na rampa (m)",standoff:6}, tickvals:ALTS, ticktext:ALTS.map(a=>Math.round(a)+""), tickangle:-45, range:[Math.log10(45),Math.log10(1950)]}; }
-function marginAxis(vals){ const lo=Math.min(-5,...vals)-2, hi=Math.max(5,...vals)+2; return {title:{text:"Margem (dB)",standoff:4}, range:[lo,hi], zeroline:false}; }
-function negShape(lo){ return [{type:"rect",xref:"paper",x0:0,x1:1,yref:"y",y0:lo,y1:0,fillcolor:css("--bad-soft"),line:{width:0},layer:"below"},
-                               {type:"line",xref:"paper",x0:0,x1:1,yref:"y",y0:0,y1:0,line:{color:css("--bad"),width:1.2,dash:"dot"}}]; }
-function marginTrace(recs, uc, name, color, dash, extraHover){
-  const y = recs.map(r=>margin(r,uc));
-  return {x:recs.map(r=>r.alt_m), y, mode:"lines+markers", name,
-    line:{color,width:2,dash:dash||"solid"}, marker:{size:6,color, line:{color:css("--surface"),width:1.5}},
-    customdata:recs.map((r,i)=>[DIST_OF[r.alt_m]??"", r.alt_m, y[i]]),
-    hovertemplate:`<b>${name}</b><br>${uc} · %{customdata[1]:.0f} m · ${extraHover||"%{customdata[0]} m da pista"}<br>margem %{y:.1f} dB<extra></extra>`};
+function altAxisY(){ return {type:"log", title:{text:"Altitude (ft)",standoff:4}, tickvals:ALTS_FT, ticktext:ALTS.map(a=>ftLabel(a)), range:[Math.log10(150),Math.log10(6400)]}; }
+function marginAxisX(vals){ const lo=Math.min(-5,...vals)-3, hi=Math.max(5,...vals)+3; return {title:{text:"Margem em relação à ITM (dB)",standoff:6}, range:[lo,hi]}; }
+function guideShapes(lo){
+  const s=[{type:"rect",xref:"x",x0:lo,x1:0,yref:"paper",y0:0,y1:1,fillcolor:css("--bad-soft"),line:{width:0},layer:"below"},
+           {type:"line",xref:"x",x0:0,x1:0,yref:"paper",y0:0,y1:1,line:{color:css("--bad"),width:1.4}}];
+  [200,1000,2000,5000].forEach(ft=>s.push({type:"line",xref:"paper",x0:0,x1:1,yref:"y",y0:ft,y1:ft,line:{color:css("--ink-3"),width:1,dash:"dot"},layer:"below"}));
+  return s;
 }
-function panelHTML(id, title, sub, color){
-  return `<div class="panel"><h3>${color?`<span class="dot" style="background:${color}"></span>`:""}${title}</h3>${sub?`<div class="sub">${sub}</div>`:""}<div class="plot" id="${id}"></div></div>`;
+function guideAnnotations(){ return [200,1000,2000,5000].map(ft=>({xref:"paper",x:1,y:Math.log10(ft),yref:"y",text:`${ft} ft`,showarrow:false,xanchor:"right",yanchor:"bottom",font:{size:10,color:css("--ink-3"),family:css("--mono")}})); }
+function hexA(hex, a){ const h=hex.replace("#",""); const n=parseInt(h.length===3?h.split("").map(c=>c+c).join(""):h,16); return `rgba(${(n>>16)&255},${(n>>8)&255},${n&255},${a})`; }
+function marginTrace(recs, uc, name, color, opts={}){
+  const x = recs.map(r=>margin(r,uc)), y = recs.map(r=>r.alt_m*FT);
+  const t = {x, y, mode:"lines+markers", name, line:{color,width:opts.width||2,dash:opts.dash||"solid",shape:"spline",smoothing:.5},
+    marker:{size:opts.msize||6,color,symbol:UCSYM[uc]||"circle",line:{color:css("--surface"),width:1.5}}, opacity:opts.opacity??1,
+    customdata:recs.map((r,i)=>[DIST_OF[r.alt_m]??"", r.alt_m, x[i]]),
+    hovertemplate:`<b>${name}</b> · ${uc}<br>%{y:.0f} ft (%{customdata[1]:.0f} m)${opts.level?"":" · %{customdata[0]} m da pista"}<br>margem <b>%{x:.1f} dB</b><extra></extra>`};
+  if (opts.fill){ t.fill="tozerox"; t.fillcolor=hexA(color,.10); }
+  return t;
 }
-function ucPanels(containerId, prefix, subs){
-  document.getElementById(containerId).innerHTML = UCS.map((uc,i)=>panelHTML(`${prefix}_${uc}`, UCNAME[uc], subs?subs[i]:"", css(`--uc${i+1}`))).join("");
+function worstAnnotation(recs, uc, color){
+  let mn=Infinity, at=null; recs.forEach(r=>{const m=margin(r,uc); if(m<mn){mn=m;at=r.alt_m;}});
+  return {x:mn, y:Math.log10(at*FT), text:`<b>${fmt(mn)} dB</b>`, showarrow:true, arrowhead:0, arrowcolor:color, ax:mn<0?-34:34, ay:0, font:{size:11,color,family:css("--mono")}, bgcolor:css("--surface"), bordercolor:color, borderwidth:1, borderpad:2};
 }
-function drawMarginPanels(prefix, seriesFn){ // seriesFn(uc) -> traces
+function panelHTML(id, title, sub, color, cls){
+  return `<div class="panel"><h3>${color?`<span class="dot" style="background:${color}"></span>`:""}${title}</h3>${sub?`<div class="sub">${sub}</div>`:""}<div class="plot ${cls||""}" id="${id}"></div></div>`;
+}
+function ucPanels(containerId, prefix){
+  document.getElementById(containerId).innerHTML = UCS.map((uc,i)=>panelHTML(`${prefix}_${uc}`, UCNAME[uc], "", css(`--uc${i+1}`))).join("");
+}
+function drawMarginPanels(prefix, seriesFn){
   UCS.forEach(uc=>{
-    const traces = seriesFn(uc); const vals = traces.flatMap(t=>t.y);
-    const yax = marginAxis(vals);
-    Plotly.react(`${prefix}_${uc}`, traces, baseLayout({xaxis:Object.assign(altAxis(),{gridcolor:css("--grid")}), yaxis:Object.assign(yax,{gridcolor:css("--grid")}), shapes:negShape(yax.range[0])}), PCFG);
+    const traces = seriesFn(uc); const vals = traces.flatMap(t=>t.x);
+    const xax = marginAxisX(vals);
+    Plotly.react(`${prefix}_${uc}`, traces, baseLayout({xaxis:xax, yaxis:altAxisY(), shapes:guideShapes(xax.range[0])}), PCFG);
   });
 }
 function legendHTML(items, note){
-  return items.map(it=>`<span><i class="sw ${it.dash||""}" style="border-color:${it.color||css('--ink')}"></i>${it.label}</span>`).join("") + (note?`<span class="note">${note}</span>`:"");
+  return items.map(it=>`<span><i class="sw ${it.dash||""} ${it.bold?"bold":""}" style="border-color:${it.color||css('--ink')}"></i>${it.label}</span>`).join("") + (note?`<span class="note">${note}</span>`:"");
 }
 const ORD5 = ["--o1","--o2","--o3","--o4","--o5"];
 const ordColors = n => { const idx = n===2?[1,3]: n===3?[0,2,4]: n===4?[0,1,3,4]:[0,1,2,3,4]; return idx.slice(0,n).map(i=>css(ORD5[i])); };
@@ -369,52 +415,83 @@ const bandColor = b => css(b==="3.65"?"--b365": b==="6.475"?"--b6475":"--bmix");
 // ---- sections --------------------------------------------------------------
 function renderStamp(){
   const n = R.filter(r=>r.band!=="mix").length;
-  document.getElementById("stamp").innerHTML = `<b>${n}</b> simulações · <b>10 000</b> snapshots cada<br>2º Monte Carlo: <b>${M.n_trials.toLocaleString("pt-BR")}</b> trials<br>SHARC · branch RadiAlti_simulation · set/2026`;
+  document.getElementById("stamp").innerHTML = `<b>${n}</b> simulações · <b>10 000</b> snapshots cada<br>2º Monte Carlo: <b>${M.n_trials.toLocaleString("pt-BR")}</b> trials × 14 densidades<br>SHARC · branch RadiAlti_simulation · set/2026`;
+  const kmax = K_LIST[K_LIST.length-1];
   document.getElementById("ktable").innerHTML = [`<tr><td>rede simulada (${M.rho_snapshot} BS/km²)</td><td class="num">1</td><td class="num">${(M.rho_snapshot*0.5).toFixed(3)}</td></tr>`,
-    ...M.densities.map(d=>`<tr><td>${d} BS/km²</td><td class="num">${M.k_of[Number(d).toFixed(1)]}</td><td class="num">${(d*0.5).toFixed(2)}</td></tr>`)].join("");
+    ...M.densities.map(d=>`<tr><td>${d} BS/km²</td><td class="num">${M.k_of[Number(d).toFixed(1)]}</td><td class="num">${(d*0.5).toFixed(2)}</td></tr>`),
+    `<tr><td>topo do mapa (${RHO_OF_K(kmax).toFixed(1)} BS/km²)</td><td class="num">${kmax}</td><td class="num">${(RHO_OF_K(kmax)*0.5).toFixed(1)}</td></tr>`].join("");
   const fts=[200,1000,2000,5000,7500];
   document.getElementById("itmtable").innerHTML = UCS.map((uc,i)=>{ const m=M.itm[uc];
     return `<tr><td><span class="dot" style="background:${css(`--uc${i+1}`)};margin-right:6px"></span>${uc}</td>${fts.map(ft=>`<td class="num">${interp(ft,m.alt_ft,m.psd).toFixed(0)}</td>`).join("")}</tr>`;}).join("");
 }
 function renderSummary(){
-  const box = document.getElementById("summary"); let html=""; const worst={};
+  const box = document.getElementById("summary"); let html=""; const worst={}, rmax={};
   ["3.65","6.475","mix"].forEach(b=>{
     const recs = REF(b); const rows = UCS.map((uc,i)=>{
       let mn=Infinity, at=null; recs.forEach(r=>{const m=margin(r,uc); if(m<mn){mn=m;at=r.alt_m;}});
-      worst[b+uc]=mn;
-      return `<div class="sumrow"><span class="uc">${uc}</span><span class="lbl">pior margem <span class="pill ${mn<0?"neg":"pos"}">${mn<0?"viola":"atende"}</span><br>a ${Math.round(at)} m (${DIST_OF[at]/1000} km)</span><span class="val ${mn<0?"neg":"pos"}">${fmt(mn)} dB</span></div>`;}).join("");
+      const rm = Math.min(...recs.map(r=>rhoMax(r,uc)));
+      worst[b+uc]=mn; rmax[b+uc]=rm;
+      return `<div class="sumrow"><span class="uc">${uc}</span><span class="lbl">pior margem <span class="pill ${mn<0?"neg":"pos"}">${mn<0?"viola":"atende"}</span> a ${ftLabel(at)} ft (${DIST_OF[at]/1000} km)<br>densidade máx. admissível <b>${fmtRho(rm)} BS/km²</b></span><span class="val ${mn<0?"neg":"pos"}">${fmt(mn)} dB</span></div>`;}).join("");
     html += `<div class="sumcard"><div class="band"><span class="dot" style="background:${bandColor(b)}"></span>${BANDNAME[b]}</div>${rows}</div>`;
   });
   box.innerHTML = html;
   const rhoTxt = state.rho==="snap"? "a rede simulada (0.14 BS/km²)" : `${state.rho.replace(".0","")} BS/km²`;
   const pTxt = state.p===0.5?"na mediana":`em P${(100*(1-state.p)).toString().replace(".",",")}`;
   const v = (b,uc)=>fmt(worst[b+uc]);
-  document.getElementById("callout").innerHTML = `<b>Leitura</b> com ${rhoTxt}, ${pTxt}, filtro do RA ${state.filt?"ligado":"desligado"}: a Categoria 1 fica com ${v("3.65","UC1")} dB em 3.65 GHz e ${v("6.475","UC1")} dB em 6.475 GHz. As Categorias 2 e 3 têm pior margem de ${v("3.65","UC2")} / ${v("3.65","UC3")} dB em 3.65 GHz e ${v("6.475","UC2")} / ${v("6.475","UC3")} dB em 6.475 GHz. Com as duas redes colocalizadas, ${v("mix","UC2")} dB na Categoria 2. Cada duplicação da densidade tira cerca de 3 dB.`;
+  document.getElementById("callout").innerHTML = `<b>Leitura</b> com ${rhoTxt}, ${pTxt}, filtro do RA ${state.filt?"ligado":"desligado"}: a Categoria 1 fica com ${v("3.65","UC1")} dB em 3.65 GHz e ${v("6.475","UC1")} dB em 6.475 GHz e suporta ${fmtRho(rmax["3.65UC1"])} / ${fmtRho(rmax["6.475UC1"])} BS/km². As Categorias 2 e 3 têm pior margem de ${v("3.65","UC2")} / ${v("3.65","UC3")} dB em 3.65 GHz e ${v("6.475","UC2")} / ${v("6.475","UC3")} dB em 6.475 GHz; para atendê-las em toda a rampa a densidade teria de ficar em ${fmtRho(rmax["3.65UC2"])} BS/km² (3.65 GHz) e ${fmtRho(rmax["6.475UC2"])} BS/km² (6.475 GHz). Cada duplicação da densidade tira cerca de 3 dB.`;
 }
 function renderRef(){
   const bands=["3.65","6.475","mix"];
-  document.getElementById("refPanels").innerHTML = bands.map(b=>panelHTML(`ref_${b.replace(".","_")}`, BANDNAME[b], "margem × altitude, três categorias", bandColor(b))).join("");
+  document.getElementById("refPanels").innerHTML = bands.map(b=>panelHTML(`ref_${b.replace(".","_")}`, BANDNAME[b], "perfil de descida · margem × altitude", bandColor(b))).join("");
   bands.forEach(b=>{
-    const recs=REF(b); const traces=UCS.map((uc,i)=>marginTrace(recs,uc,uc,css(`--uc${i+1}`)));
-    const yax=marginAxis(traces.flatMap(t=>t.y));
-    Plotly.react(`ref_${b.replace(".","_")}`, traces, baseLayout({xaxis:altAxis(), yaxis:yax, shapes:negShape(yax.range[0])}), PCFG);
+    const recs=REF(b); const traces=UCS.map((uc,i)=>marginTrace(recs,uc,uc,css(`--uc${i+1}`),{fill:true,width:2.2}));
+    const xax=marginAxisX(traces.flatMap(t=>t.x));
+    Plotly.react(`ref_${b.replace(".","_")}`, traces, baseLayout({xaxis:xax, yaxis:altAxisY(), shapes:guideShapes(xax.range[0]), annotations:[...guideAnnotations(), ...UCS.map((uc,i)=>worstAnnotation(recs,uc,css(`--uc${i+1}`)))]}), PCFG);
   });
-  document.getElementById("refLegend").innerHTML = legendHTML(UCS.map((uc,i)=>({label:UCNAME[uc],color:css(`--uc${i+1}`)})), "zona sombreada: margem < 0");
-  document.getElementById("refProbPanels").innerHTML = bands.map(b=>panelHTML(`refp_${b.replace(".","_")}`, BANDNAME[b], "P[I > ITM]", bandColor(b))).join("");
+  document.getElementById("refLegend").innerHTML = legendHTML(UCS.map((uc,i)=>({label:UCNAME[uc],color:css(`--uc${i+1}`)})), "marcadores: ● UC1  ■ UC2  ◆ UC3 · pontilhado horizontal: degraus da ITM");
+  document.getElementById("refProbPanels").innerHTML = bands.map(b=>panelHTML(`refp_${b.replace(".","_")}`, BANDNAME[b], "P[I > ITM] × altitude", bandColor(b))).join("");
   bands.forEach(b=>{
     const recs=REF(b);
-    const traces=UCS.map((uc,i)=>({x:recs.map(r=>r.alt_m), y:recs.map(r=>Math.max(1e-5,pExceed(qArr(r), itm(r.alt_m,uc)))), mode:"lines+markers", name:uc,
-      line:{color:css(`--uc${i+1}`),width:2}, marker:{size:6,color:css(`--uc${i+1}`),line:{color:css("--surface"),width:1.5}},
-      hovertemplate:`<b>${uc}</b> · %{x:.0f} m<br>P[I &gt; ITM] = %{y:.2%}<extra></extra>`}));
-    Plotly.react(`refp_${b.replace(".","_")}`, traces, baseLayout({xaxis:altAxis(), yaxis:{type:"log",range:[-4.1,0.05],title:{text:"P[I > ITM]",standoff:4},tickvals:[1e-4,1e-3,1e-2,1e-1,1],ticktext:["0.01%","0.1%","1%","10%","100%"]}}), PCFG);
+    const traces=UCS.map((uc,i)=>({y:recs.map(r=>r.alt_m*FT), x:recs.map(r=>Math.max(1e-5,pExceed(qArr(r), itm(r.alt_m,uc)))), mode:"lines+markers", name:uc,
+      line:{color:css(`--uc${i+1}`),width:2,shape:"spline",smoothing:.5}, marker:{size:6,symbol:UCSYM[uc],color:css(`--uc${i+1}`),line:{color:css("--surface"),width:1.5}},
+      hovertemplate:`<b>${uc}</b> · %{y:.0f} ft<br>P[I &gt; ITM] = %{x:.2%}<extra></extra>`}));
+    Plotly.react(`refp_${b.replace(".","_")}`, traces, baseLayout({yaxis:altAxisY(), xaxis:{type:"log",range:[-4.1,0.05],title:{text:"P[I > ITM]",standoff:6},tickvals:[1e-4,1e-3,1e-2,1e-1,1],ticktext:["0.01%","0.1%","1%","10%","100%"]}}), PCFG);
   });
+}
+function renderDmax(){
+  const b=state.band; const recs=REF(b);
+  document.getElementById("dmaxTag").textContent = `${BANDNAME[b]} · referência · ${state.p===0.5?"mediana":"P"+(100*(1-state.p))} · filtro ${state.filt?"ligado":"desligado"}`;
+  const box=document.getElementById("dmaxPanels");
+  box.innerHTML = UCS.map((uc,i)=>panelHTML(`hm_${uc}`, `Categoria ${i+1}`, "margem (dB)", css(`--uc${i+1}`), "hm")).join("") + panelHTML("dmax_line","Fronteira das três categorias","maior ρ com margem ≥ 0","", "hm");
+  const xlab = recs.map(r=>ftLabel(r.alt_m)); const rhos = K_LIST.map(RHO_OF_K);
+  const zAll = UCS.map(uc=>K_LIST.map(k=>recs.map(r=>marginK(r,uc,k))));
+  const zmax = Math.max(...zAll.flat(2).map(Math.abs));
+  const colorscale=[[0,css("--bad")],[0.5,css("--div-mid")],[1,css("--uc1")]];
+  const clampRho = rm => rm===0 ? rhos[0]*0.8 : rm===Infinity ? rhos[rhos.length-1]*1.25 : rm;
+  UCS.forEach((uc,i)=>{
+    const z=zAll[i];
+    const front = recs.map(r=>clampRho(rhoMax(r,uc)));
+    const traces=[
+      {type:"heatmap", x:xlab, y:rhos, z, zmin:-zmax, zmax:zmax, colorscale, showscale:i===2, colorbar:{title:{text:"dB",side:"right"},thickness:10,len:.9,tickfont:{family:css("--mono"),size:10},outlinewidth:0},
+       hovertemplate:"%{x} ft · %{y:.2f} BS/km²<br>margem <b>%{z:.1f} dB</b><extra></extra>", xgap:1, ygap:1},
+      {type:"scatter", x:xlab, y:front, mode:"lines+markers", line:{color:css("--ink"),width:2.5,shape:"spline",smoothing:.5}, marker:{size:5,color:css("--ink")},
+       hovertemplate:"%{x} ft<br>densidade máx. <b>%{y:.2f} BS/km²</b><extra></extra>"}
+    ];
+    Plotly.react(`hm_${uc}`, traces, baseLayout({margin:{l:58,r:i===2?54:14,t:10,b:60}, xaxis:{type:"category",title:{text:"Altitude (ft)",standoff:6},tickangle:-45,gridcolor:"rgba(0,0,0,0)"}, yaxis:{type:"log",title:{text:"Densidade de BS (BS/km²)",standoff:4},range:[Math.log10(rhos[0]*0.75),Math.log10(rhos[rhos.length-1]*1.35)],gridcolor:"rgba(0,0,0,0)",tickvals:[0.2,0.5,1,2,5,10,20],ticktext:["0.2","0.5","1","2","5","10","20"]}}), PCFG);
+  });
+  const lines = UCS.map((uc,i)=>({x:recs.map(r=>r.alt_m*FT), y:recs.map(r=>clampRho(rhoMax(r,uc))), mode:"lines+markers", name:uc, line:{color:css(`--uc${i+1}`),width:2.2,shape:"spline",smoothing:.5}, marker:{size:6,symbol:UCSYM[uc],color:css(`--uc${i+1}`),line:{color:css("--surface"),width:1.5}},
+      hovertemplate:`<b>${uc}</b> · %{x:.0f} ft<br>densidade máx. <b>%{y:.2f} BS/km²</b><extra></extra>`}));
+  const shapes = M.densities.map(d=>({type:"line",xref:"paper",x0:0,x1:1,y0:d,y1:d,line:{color:css("--ink-3"),width:1,dash:"dot"},layer:"below"}));
+  Plotly.react("dmax_line", lines, baseLayout({margin:{l:58,r:14,t:10,b:60}, xaxis:{type:"log",title:{text:"Altitude (ft)",standoff:6},tickvals:ALTS_FT,ticktext:ALTS.map(ftLabel),tickangle:-45,range:[Math.log10(150),Math.log10(6400)]}, yaxis:{type:"log",title:{text:"Densidade máx. admissível (BS/km²)",standoff:4},range:[Math.log10(rhos[0]*0.75),Math.log10(rhos[rhos.length-1]*1.35)],tickvals:[0.2,0.5,1,2,5,10,20],ticktext:["0.2","0.5","1","2","5","10","20"]}, shapes,
+    annotations:M.densities.map(d=>({xref:"paper",x:0,y:Math.log10(d),yref:"y",text:`${d}`,showarrow:false,xanchor:"left",yanchor:"bottom",font:{size:10,color:css("--ink-3"),family:css("--mono")}}))}), PCFG);
+  document.getElementById("dmaxLegend").innerHTML = legendHTML([{label:"fronteira margem = 0",color:css("--ink"),bold:true}, ...UCS.map((uc,i)=>({label:UCNAME[uc],color:css(`--uc${i+1}`)}))], "pontos fora da grade (< 0.14 ou > 20 BS/km²) são desenhados nas bordas");
 }
 function renderGeom(){
   const b=state.band; document.getElementById("geomTag").textContent = BANDNAME[b]+" · 132 configurações";
   ucPanels("geomPanels","geom");
   const hs=[15,20,25,30], dts=[0,6,10], dash={0:"dot",6:"solid",10:"dash"}, cols=ordColors(4);
-  drawMarginPanels("geom", uc=> hs.flatMap((h,i)=>dts.map(dt=>marginTrace(main(b,h,dt),uc,`BS ${h} m · tilt ${dt}°`,cols[i],dash[dt]))));
-  document.getElementById("geomLegend").innerHTML = legendHTML([...hs.map((h,i)=>({label:`altura ${h} m`,color:cols[i]})), {label:"downtilt 0°",dash:"dot"},{label:"downtilt 6°"},{label:"downtilt 10°",dash:"dash"}]);
+  drawMarginPanels("geom", uc=> hs.flatMap((h,i)=>dts.map(dt=>{ const isRef=(h===20&&dt===6); return marginTrace(main(b,h,dt),uc,`BS ${h} m · tilt ${dt}°`,cols[i],{dash:dash[dt],width:isRef?3.4:1.2,msize:isRef?6:3,opacity:isRef?1:.55}); })));
+  document.getElementById("geomLegend").innerHTML = legendHTML([...hs.map((h,i)=>({label:`altura ${h} m`,color:cols[i]})), {label:"downtilt 0°",dash:"dot"},{label:"downtilt 6°"},{label:"downtilt 10°",dash:"dash"},{label:"referência 20 m / 6°",bold:true,color:cols[1]}]);
 }
 function withRho(fn, rho){ const save=state.rho; state.rho=rho; try{return fn();} finally{state.rho=save;} }
 function renderDens(){
@@ -422,20 +499,20 @@ function renderDens(){
   ucPanels("densPanels","dens");
   const rhos = b==="mix"? ["1.0","2.5","5.0","10.0"] : ["snap","1.0","2.5","5.0","10.0"]; const cols=ordColors(rhos.length);
   const lab = r=> r==="snap"?"0.14 BS/km² (rede simulada)":`${r.replace(".0","")} BS/km² · K=${M.k_of[r]}`;
-  drawMarginPanels("dens", uc=> rhos.map((r,i)=>withRho(()=>marginTrace(REF(b),uc,lab(r),cols[i]), r)));
-  document.getElementById("densLegend").innerHTML = legendHTML(rhos.map((r,i)=>({label:lab(r),color:cols[i]})), "o seletor de densidade no topo não afeta este painel");
+  drawMarginPanels("dens", uc=> rhos.map((r,i)=>withRho(()=>marginTrace(REF(b),uc,lab(r),cols[i],{width:r===state.rho?3.2:1.6}), r)));
+  document.getElementById("densLegend").innerHTML = legendHTML(rhos.map((r,i)=>({label:lab(r),color:cols[i],bold:r===state.rho})), "traço grosso: densidade escolhida no topo");
 }
-function sensSection(prefix, tagId, legendId, variants){ // variants: [{label, recs(band)->records, color, dash}]
+function sensSection(prefix, tagId, legendId, variants){
   const b=state.band; document.getElementById(tagId).textContent = BANDNAME[b];
   ucPanels(`${prefix}Panels`, prefix);
   const vs = variants.filter(v=>v.recs(b).length);
-  drawMarginPanels(prefix, uc=> vs.map(v=>marginTrace(v.recs(b),uc,v.label,v.color,v.dash)));
-  document.getElementById(legendId).innerHTML = legendHTML(vs.map(v=>({label:v.label,color:v.color,dash:v.dash})));
+  drawMarginPanels(prefix, uc=> vs.map(v=>marginTrace(v.recs(b),uc,v.label,v.color,{dash:v.dash,width:v.ref?3.2:1.8})));
+  document.getElementById(legendId).innerHTML = legendHTML(vs.map(v=>({label:v.label,color:v.color,dash:v.dash,bold:v.ref})), "traço grosso: referência");
 }
 function renderArr(){
   const c=[css("--uc1"),css("--uc2"),css("--uc3")];
   sensSection("arr","arrTag","arrLegend",[
-    {label:"8×8 (referência)", recs:b=>REF(b), color:c[0]},
+    {label:"8×8 (referência)", recs:b=>REF(b), color:c[0], ref:true},
     {label:"4×8 · 34.95 dBm", recs:b=>sens(b,"arr4x8"), color:c[1]},
     {label:"8×4 · 34.95 dBm", recs:b=>sens(b,"arr8x4"), color:c[2]},
     {label:"8×16 · 30.97 dBm", recs:b=>sens(b,"arr8x16"), color:c[1]},
@@ -445,13 +522,13 @@ function renderRoll(){ const c=ordColors(3);
   sensSection("roll","rollTag","rollLegend",[
     {label:"nadir fixo (sem rolagem)", recs:b=>sens(b,"roll0"), color:c[0]},
     {label:"−90° a −80° (até 10°)", recs:b=>sens(b,"roll10"), color:c[1]},
-    {label:"−90° a −70° (até 20°, referência)", recs:b=>REF(b), color:c[2]},
+    {label:"−90° a −70° (até 20°, referência)", recs:b=>REF(b), color:c[2], ref:true},
   ]);
 }
 function renderLoad(){ const c=ordColors(3);
   sensSection("load","loadTag","loadLegend",[
     {label:"carga 0.2", recs:b=>sens(b,"load02"), color:c[0]},
-    {label:"carga 0.5 (referência)", recs:b=>REF(b), color:c[1]},
+    {label:"carga 0.5 (referência)", recs:b=>REF(b), color:c[1], ref:true},
     {label:"carga 1.0", recs:b=>sens(b,"load10"), color:c[2]},
   ]);
 }
@@ -459,7 +536,7 @@ function renderK(){ const c=ordColors(4);
   sensSection("kb","kbTag","kbLegend",[
     {label:"K = 1", recs:b=>sens(b,"k1"), color:c[0]},
     {label:"K = 2", recs:b=>sens(b,"k2"), color:c[1]},
-    {label:"K = 4 (referência)", recs:b=>REF(b), color:c[2]},
+    {label:"K = 4 (referência)", recs:b=>REF(b), color:c[2], ref:true},
     {label:"K = 8", recs:b=>sens(b,"k8"), color:c[3]},
   ]);
 }
@@ -467,29 +544,29 @@ function renderLevel(){
   const bands=["3.65","6.475","mix"];
   document.getElementById("levelPanels").innerHTML = bands.map(b=>panelHTML(`lvl_${b.replace(".","_")}`, BANDNAME[b], "RA sobre o centro da rede", bandColor(b))).join("");
   bands.forEach(b=>{
-    const recs=level(b); const alts=recs.map(r=>r.alt_m);
-    const traces=UCS.map((uc,i)=>{ const t=marginTrace(recs,uc,uc,css(`--uc${i+1}`),"solid","sobre o centro da rede"); return t; });
-    const yax=marginAxis(traces.flatMap(t=>t.y));
-    Plotly.react(`lvl_${b.replace(".","_")}`, traces, baseLayout({xaxis:{type:"log",title:{text:"Altitude (m)",standoff:6},tickvals:alts,ticktext:alts.map(a=>a+""),range:[Math.log10(85),Math.log10(1200)]}, yaxis:yax, shapes:negShape(yax.range[0])}), PCFG);
+    const recs=level(b); const alts=recs.map(r=>r.alt_m*FT);
+    const traces=UCS.map((uc,i)=>marginTrace(recs,uc,uc,css(`--uc${i+1}`),{fill:true,width:2.2,level:true}));
+    const xax=marginAxisX(traces.flatMap(t=>t.x));
+    const shapes=guideShapes(xax.range[0]).filter(s=>s.type==="rect"||s.xref==="x"||[1000,2000].includes(s.y0));
+    Plotly.react(`lvl_${b.replace(".","_")}`, traces, baseLayout({xaxis:xax, yaxis:{type:"log",title:{text:"Altitude (ft)",standoff:4},tickvals:alts,ticktext:recs.map(r=>ftLabel(r.alt_m)),range:[Math.log10(280),Math.log10(3900)]}, shapes, annotations:UCS.map((uc,i)=>worstAnnotation(recs,uc,css(`--uc${i+1}`)))}), PCFG);
   });
   document.getElementById("levelLegend").innerHTML = legendHTML(UCS.map((uc,i)=>({label:UCNAME[uc],color:css(`--uc${i+1}`)})));
 }
 function renderCCDF(){
   const b=state.band; document.getElementById("ccdfTag").textContent = BANDNAME[b]+" · referência";
   const picks=[52.41, 419.26, 1677.05]; const recs=REF(b);
-  document.getElementById("ccdfPanels").innerHTML = picks.map((a,i)=>panelHTML(`ccdf_${i}`, `${Math.round(a)} m de altitude`, `${DIST_OF[a]/1000} km do centro da pista`)).join("");
+  document.getElementById("ccdfPanels").innerHTML = picks.map((a,i)=>panelHTML(`ccdf_${i}`, `${ftLabel(a)} ft`, `${Math.round(a)} m · ${DIST_OF[a]/1000} km do centro da pista`)).join("");
   picks.forEach((a,i)=>{
     const r=recs.find(x=>Math.abs(x.alt_m-a)<0.5); if(!r) return; const q=qArr(r);
-    const trace={x:q, y:E, mode:"lines", line:{color:bandColor(b),width:2}, hovertemplate:"I = %{x:.1f} dBm/MHz<br>P[I &gt; x] = %{y:.3%}<extra></extra>"};
+    const trace={x:q, y:E, mode:"lines", line:{color:bandColor(b),width:2.2}, fill:"tozeroy", fillcolor:hexA(bandColor(b),.08), hovertemplate:"I = %{x:.1f} dBm/MHz<br>P[I &gt; x] = %{y:.3%}<extra></extra>"};
     const shapes=UCS.map((uc,j)=>({type:"line",x0:itm(a,uc),x1:itm(a,uc),yref:"paper",y0:0,y1:1,line:{color:css(`--uc${j+1}`),width:1.5,dash:"dash"}}));
     const ann=UCS.map((uc,j)=>({x:itm(a,uc),y:1.02,yref:"paper",text:uc,showarrow:false,font:{size:11,color:css(`--uc${j+1}`),family:css("--mono")},xanchor:"center"}));
     const pline={type:"line",xref:"paper",x0:0,x1:1,y0:state.p,y1:state.p,line:{color:css("--ink-3"),width:1,dash:"dot"}};
     const xs=[...q, ...UCS.map(uc=>itm(a,uc))]; const lo=Math.floor(Math.min(...xs)/5)*5-3, hi=Math.ceil(Math.max(...xs)/5)*5+3;
-    Plotly.react(`ccdf_${i}`,[trace], baseLayout({margin:{l:52,r:10,t:20,b:44}, xaxis:{title:{text:"Interferência agregada (dBm/MHz)",standoff:6},range:[lo,hi]}, yaxis:{type:"log",range:[-4,0],title:{text:"P[I > x]",standoff:4},tickvals:[1e-4,1e-3,1e-2,1e-1,1],ticktext:["0.01%","0.1%","1%","10%","100%"]}, shapes:[...shapes,pline], annotations:ann}), PCFG);
+    Plotly.react(`ccdf_${i}`,[trace], baseLayout({margin:{l:58,r:14,t:22,b:44}, xaxis:{title:{text:"Interferência agregada (dBm/MHz)",standoff:6},range:[lo,hi]}, yaxis:{type:"log",range:[-4,0],title:{text:"P[I > x]",standoff:4},tickvals:[1e-4,1e-3,1e-2,1e-1,1],ticktext:["0.01%","0.1%","1%","10%","100%"]}, shapes:[...shapes,pline], annotations:ann}), PCFG);
   });
   document.getElementById("ccdfLegend").innerHTML = legendHTML([{label:`interferência agregada, ${BANDNAME[b]}`,color:bandColor(b)}, ...UCS.map((uc,j)=>({label:`ITM ${uc}`,color:css(`--uc${j+1}`),dash:"dash"})), {label:"percentil escolhido",color:css("--ink-3"),dash:"dot"}]);
 }
-// table
 const GROUPNAME={main:"sweep",arr:"arranjo",roll:"apontamento",load:"carga",k:"feixes",level:"nivelado"};
 let tabSort={k:"m2",dir:1};
 function tableRows(){
@@ -497,11 +574,11 @@ function tableRows(){
   return Object.entries(groups).map(([key,recs])=>{
     const r0=recs[0]; let label;
     if (r0.group==="main") label=`BS ${r0.h} m · tilt ${r0.dt}° · 8×8`;
-    else if (r0.group==="level") label="voo nivelado 100–1000 m";
+    else if (r0.group==="level") label="voo nivelado 330–3300 ft";
     else label = {arr4x8:"arranjo 4×8",arr8x4:"arranjo 8×4",arr8x16:"arranjo 8×16",roll0:"nadir fixo",roll10:"rolagem ≤10°",load02:"carga 0.2",load10:"carga 1.0",k1:"K = 1",k2:"K = 2",k8:"K = 8"}[r0.case]||r0.case;
     const ms=UCS.map(uc=>Math.min(...recs.map(r=>margin(r,uc))));
     let altc=null, mn=Infinity; recs.forEach(r=>{const m=margin(r,"UC2"); if(m<mn){mn=m;altc=r.alt_m;}});
-    return {band:r0.band,group:GROUPNAME[r0.group],label,m1:ms[0],m2:ms[1],m3:ms[2],alt:altc,ref:r0.group==="main"&&r0.h===20&&r0.dt===6};
+    return {band:r0.band,group:GROUPNAME[r0.group],label,m1:ms[0],m2:ms[1],m3:ms[2],alt:altc*FT,ref:r0.group==="main"&&r0.h===20&&r0.dt===6};
   });
 }
 function renderTable(){
@@ -514,17 +591,18 @@ document.querySelectorAll("#tab th.sortable").forEach(th=>th.addEventListener("c
 
 // ---- wiring ---------------------------------------------------------------
 function safe(name, fn){ try{ fn(); }catch(e){ showErr(name, e); } }
+const BAND_SECTIONS = [["densidade máxima",renderDmax],["altura/downtilt",renderGeom],["densidade",renderDens],["arranjo",renderArr],["apontamento",renderRoll],["carga",renderLoad],["feixes",renderK],["ccdf",renderCCDF]];
 function renderAll(){
   document.getElementById("khint").textContent = state.rho==="snap"? "K = 1" : `K = ${M.k_of[state.rho]} snapshots/trial`;
-  if (typeof Plotly === "undefined") showErr("plotly", "biblioteca Plotly não carregou (CDN bloqueado?)");
-  [["stamp",renderStamp],["resumo",renderSummary],["referência",renderRef],["altura/downtilt",renderGeom],["densidade",renderDens],["arranjo",renderArr],["apontamento",renderRoll],["carga",renderLoad],["feixes",renderK],["nivelado",renderLevel],["ccdf",renderCCDF],["tabela",renderTable]].forEach(([n,f])=>safe(n,f));
+  if (typeof Plotly === "undefined") showErr("plotly", "biblioteca Plotly não carregou");
+  [["stamp",renderStamp],["resumo",renderSummary],["referência",renderRef],...BAND_SECTIONS,["nivelado",renderLevel],["tabela",renderTable]].forEach(([n,f])=>safe(n,f));
 }
 document.getElementById("rho").addEventListener("change",e=>{state.rho=e.target.value; renderAll();});
 document.getElementById("pct").addEventListener("change",e=>{state.p=parseFloat(e.target.value); renderAll();});
 document.getElementById("filt").addEventListener("change",e=>{state.filt=e.target.checked; renderAll();});
 document.querySelectorAll("#bandseg button").forEach(btn=>btn.addEventListener("click",()=>{
   document.querySelectorAll("#bandseg button").forEach(b=>b.setAttribute("aria-pressed","false")); btn.setAttribute("aria-pressed","true");
-  state.band=btn.dataset.band; [["altura/downtilt",renderGeom],["densidade",renderDens],["arranjo",renderArr],["apontamento",renderRoll],["carga",renderLoad],["feixes",renderK],["ccdf",renderCCDF]].forEach(([n,f])=>safe(n,f));
+  state.band=btn.dataset.band; BAND_SECTIONS.forEach(([n,f])=>safe(n,f));
 }));
 try{ matchMedia("(prefers-color-scheme: dark)").addEventListener("change",renderAll); }catch(e){}
 new MutationObserver(renderAll).observe(document.documentElement,{attributes:true,attributeFilter:["data-theme"]});

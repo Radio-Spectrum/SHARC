@@ -26,7 +26,7 @@ H = os.path.dirname(os.path.abspath(__file__))
 INPUT = r"C:\Achiles\SHARC\sharc\campaigns\09_Guarulhos\input"
 YAML = {"3.65": "input_air_approach_array_8_8000m_h20_dt6.yaml", "6.475": "6G_input_air_approach_array_8_8000m_h20_dt6.yaml"}
 RA_FILTER = {"3.65": -4.85, "6.475": -13.4}
-ALTS_M = [52.41, 209.63, 628.89, 1677.05]            # 172, 688, 2063, 5502 ft
+ALTS_M = [round(math.tan(math.radians(3.0)) * s, 2) for s in [1000, 1500, 2000, 3000, 4000, 6000, 8000, 12000, 16000, 24000, 32000]]   # 11 pontos da rampa
 STEER_THETA = np.linspace(90.0, 100.0, 11)          # faixa vertical de steering (graus, 90 = horizonte)
 D_KM = np.concatenate([np.arange(0.05, 2.0, 0.05), np.arange(2.0, 45.01, 0.25)])   # rede limitada a 45 km de raio
 GRID_KM, GRID_STEP = 45.0, 0.15                     # grade 2D para disco/corredor

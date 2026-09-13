@@ -210,7 +210,7 @@ table.tbl{border-collapse:collapse;width:100%;font-size:13px;font-variant-numeri
   <p class="sec-note">Cálculo determinístico, sem Monte Carlo: aeronave parada num ponto da rampa, uma BS a 20 m em cada posição do plano, <b>setor apontado para a aeronave</b>, feixe varrido na faixa de steering e tomado o pior caso, todos os feixes alinhados, arranjo 8×8, downtilt 6°, P.528 mediano. É o envelope superior do que uma BS pode causar em função de onde está. Como o RA é isotrópico para o solo, o resultado depende só da distância horizontal até a projeção da aeronave.</p>
   <div class="ctl" style="margin-bottom:12px"><label for="ctAltSel">Aeronave em</label><select id="ctAltSel"></select><span class="hint" id="ctAltHint"></span></div>
   <div class="panels two" id="contribPanelsA"></div>
-  <div class="panels one" id="contribPanelsMap" style="margin-top:14px"></div>
+  <div class="panels two" id="contribPanelsMap" style="margin-top:14px"></div>
   <div class="legend" id="contribLegendA"></div>
   <div class="sec-head" style="margin-top:26px"><h3>Quanto uma zona de correção recupera</h3><span class="tag">rede uniforme de raio 45 km · remoção total das BSs dentro da zona</span></div>
   <p class="sec-note">Redução da interferência agregada ao desligar todas as BSs num disco ao redor da projeção da aeronave, ou num corredor ao longo do eixo de aproximação. A linha tracejada marca o déficit a 10 BS/km² em P99.9 para as Categorias 2 e 3.</p>
@@ -615,7 +615,7 @@ function renderContrib(){
   const cols = rampColors(alts.length);
   const A = document.getElementById("contribPanelsA");
   A.innerHTML = panelHTML("ct_prof","Contribuição de uma BS","dBm/MHz no RA × distância horizontal","") + panelHTML("ct_cum","Energia acumulada","fração do agregado vinda de dentro do raio R","");
-  document.getElementById("contribPanelsMap").innerHTML = panelHTML("ct_map","Mapa em planta no referencial da simulação",`aeronave a ${altsFt[ia]} ft · cor = interferência que uma BS naquele ponto causaria (dBm/MHz) · hexágonos = 133 sítios da grade (ISD 4.95 km) · barra = pista · tracejado = rampa`,"","wide");
+  document.getElementById("contribPanelsMap").innerHTML = panelHTML("ct_map","Mapa em planta no referencial da simulação",`aeronave a ${altsFt[ia]} ft · cor = interferência que uma BS naquele ponto causaria (dBm/MHz) · hexágonos = sítios da grade (ISD 4.95 km) · barra = pista · tracejado = rampa`,"","wide") + panelHTML("ct_zoom","Zoom ao redor da aeronave","mesma cor · círculos = raio de proteção por categoria (UC1 contínuo, UC2 tracejado, UC3 pontilhado)","","wide");
   const tr1 = alts.map((a,i)=>{ const P=prof(a); return {x:P.d_km, y:P.c_dbm_mhz.map(v=>v+foff), mode:"lines", name:`${altsFt[i]} ft`, line:{color:cols[i],width:i===ia?3.4:1.1}, opacity:i===ia?1:.6, hovertemplate:`<b>${altsFt[i]} ft</b> · %{x:.2f} km<br>%{y:.1f} dBm/MHz por BS<extra></extra>`}; });
   Plotly.react("ct_prof", tr1, baseLayout({xaxis:{type:"log",title:{text:"Distância horizontal BS → aeronave (km)",standoff:6},tickvals:[0.1,0.3,1,3,10,30],ticktext:["0.1","0.3","1","3","10","30"]}, yaxis:{title:{text:"Interferência por BS (dBm/MHz)",standoff:4}}}), PCFG);
   const tr2 = alts.map((a,i)=>{ const P=prof(a); return {x:P.d_km, y:P.cum_fraction.map(v=>100*v), mode:"lines", name:`${altsFt[i]} ft`, line:{color:cols[i],width:i===ia?3.4:1.1}, opacity:i===ia?1:.6, hovertemplate:`<b>${altsFt[i]} ft</b><br>%{y:.0f}% da energia vem de até %{x:.1f} km<extra></extra>`}; });
@@ -640,8 +640,25 @@ function renderContrib(){
     {type:"scatter", x:[rc[0]-rl, rc[0]+rl], y:[rc[1],rc[1]], mode:"lines", line:{color:css("--ink"),width:6}, hovertemplate:"pista<extra></extra>"},
     {type:"scatter", x:[xa], y:[ya], mode:"markers+text", marker:{symbol:"triangle-right",size:14,color:css("--bad"),line:{color:css("--surface"),width:1.5}}, text:[`${altsFt[ia]} ft`], textposition:"top center", textfont:{family:css("--mono"),size:11,color:css("--ink")}, hovertemplate:`aeronave · ${altsFt[ia]} ft<extra></extra>`}],
     baseLayout({margin:{l:52,r:60,t:10,b:44}, xaxis:{title:{text:"x (km) · leste →",standoff:6},range:[-36,36],scaleanchor:"y",scaleratio:1,gridcolor:"rgba(0,0,0,0)",zeroline:false,dtick:10}, yaxis:{title:{text:"y (km)",standoff:4},range:[-36,36],gridcolor:"rgba(0,0,0,0)",dtick:10}, annotations:circAnn}), PCFG);
-  const rTxt = UCS.map((uc,j)=>{ const r=rProt[j]; return `${uc}: ${r<=0?"nenhuma BS isolada viola":r>=45?"toda a rede (> 45 km)":r.toFixed(1)+" km"}`; }).join(" · ");
-  document.getElementById("ct_map").insertAdjacentHTML("afterend", `<div class="sub" style="padding:6px 8px 2px;font-size:12.5px;color:var(--ink-2)"><b>Raio de proteção</b> (além dele uma BS isolada apontada para a aeronave fica abaixo da ITM) — ${rTxt}</div>`);
+  // zoom automatico: janela = max(3 km, 2.5 x maior raio finito)
+  const finite = rProt.filter(r=>r>0 && r<45); const Rz = Math.max(3, finite.length? 2.5*Math.max(...finite) : 3);
+  const axz=[]; const nz=120; for(let k=0;k<=nz;k++) axz.push(Math.round((-Rz+2*Rz*k/nz)*1000)/1000);
+  const zz = axz.map(dy=>axz.map(dx=>{ const d=Math.hypot(dx,dy); return interp(Math.max(d,P.d_km[0]), P.d_km, P.c_dbm_mhz)+foff; }));
+  const zzs=zz.flat(); const zzmax=Math.max(...zzs), zzmin=Math.min(...zzs);
+  const zcirc = UCS.map((uc,j)=>{ const r=rProt[j]; if (r<=0 || r>=45) return null; const cx=[],cy=[]; for(let k=0;k<=180;k++){ const a=2*Math.PI*k/180; cx.push(xa+r*Math.cos(a)); cy.push(ya+r*Math.sin(a)); }
+    return {type:"scatter", x:cx, y:cy, mode:"lines", line:{color:css(`--uc${j+1}`),width:3,dash:j===0?"solid":j===1?"dash":"dot"}, hovertemplate:`raio de proteção ${uc}: ${(r*1000).toFixed(0)} m<extra></extra>`}; }).filter(Boolean);
+  const zAnn = UCS.map((uc,j)=>{ const r=rProt[j]; if (r<=0 || r>=45) return null; const a=Math.PI/4+j*Math.PI/6; return {x:xa+r*Math.cos(a), y:ya+r*Math.sin(a), text:`${uc} ${r<1?(r*1000).toFixed(0)+" m":r.toFixed(1)+" km"}`, showarrow:true, arrowhead:0, arrowcolor:css(`--uc${j+1}`), ax:40, ay:-22-14*j, font:{size:11,color:css(`--uc${j+1}`),family:css("--mono")}, bgcolor:css("--surface"), bordercolor:css(`--uc${j+1}`), borderwidth:1, borderpad:2}; }).filter(Boolean);
+  const itmTxt = UCS.map((uc,j)=>`${uc} ${itm(alts[ia],uc).toFixed(0)}`).join(" · ");
+  Plotly.react("ct_zoom", [
+    {type:"heatmap", x:axz.map(v=>v+xa), y:axz.map(v=>v+ya), z:zz, zmin:zzmin, zmax:zzmax, colorscale:[[0,css("--surface")],[0.25,css("--o1")],[0.5,css("--o2")],[0.7,css("--o3")],[0.85,css("--o4")],[1,css("--o5")]], colorbar:{title:{text:"dBm/MHz",side:"right"},thickness:10,len:.9,tickfont:{family:css("--mono"),size:10},outlinewidth:0}, hovertemplate:"BS em x %{x:.2f} km · y %{y:.2f} km<br>%{z:.1f} dBm/MHz<extra></extra>", zsmooth:"best"},
+    hexTrace(G.sites_km, G.isd_km),
+    {type:"scatter", x:[xa-Rz, rc[0]-rl], y:[G.approach_axis_y_km, G.approach_axis_y_km], mode:"lines", line:{color:css("--ink"),width:1.2,dash:"dash"}, hoverinfo:"skip"},
+    {type:"scatter", x:[rc[0]-rl, rc[0]+rl], y:[rc[1],rc[1]], mode:"lines", line:{color:css("--ink"),width:6}, hovertemplate:"pista<extra></extra>"},
+    ...zcirc,
+    {type:"scatter", x:[xa], y:[ya], mode:"markers", marker:{symbol:"triangle-right",size:14,color:css("--bad"),line:{color:css("--surface"),width:1.5}}, hovertemplate:`aeronave · ${altsFt[ia]} ft<extra></extra>`}],
+    baseLayout({margin:{l:52,r:60,t:10,b:44}, xaxis:{title:{text:`x (km) · janela ±${Rz.toFixed(1)} km · ITM (dBm/MHz): ${itmTxt}`,standoff:6},range:[xa-Rz,xa+Rz],scaleanchor:"y",scaleratio:1,gridcolor:"rgba(0,0,0,0)",zeroline:false}, yaxis:{title:{text:"y (km)",standoff:4},range:[ya-Rz,ya+Rz],gridcolor:"rgba(0,0,0,0)"}, annotations:zAnn}), PCFG);
+  const rTxt = UCS.map((uc,j)=>{ const r=rProt[j]; return `${uc}: ${r<=0?"nenhuma BS isolada viola":r>=45?"toda a rede (> 45 km)":(r<1?(r*1000).toFixed(0)+" m":r.toFixed(1)+" km")}`; }).join(" · ");
+  document.getElementById("ct_zoom").insertAdjacentHTML("afterend", `<div class="sub" style="padding:6px 8px 2px;font-size:12.5px;color:var(--ink-2)"><b>Raio de proteção</b> (além dele uma BS isolada apontada para a aeronave fica abaixo da ITM) — ${rTxt}</div>`);
   document.getElementById("contribLegendA").innerHTML = legendHTML(alts.map((a,i)=>({label:`${altsFt[i]} ft (${Math.round(a)} m)`,color:cols[i],bold:i===ia})), "mapa: hexágonos = 133 sítios da grade (ISD 4.95 km) · barra = pista · tracejado = rampa · ▶ aeronave · círculos = raio de proteção por categoria (UC1 contínuo, UC2 tracejado, UC3 pontilhado)");
   const Bx = document.getElementById("contribPanelsB");
   Bx.innerHTML = panelHTML("ct_disc","Disco de exclusão","redução do agregado × raio do disco","") + panelHTML("ct_corr","Corredor de aproximação","redução do agregado × meia-largura do corredor","") + panelHTML("ct_env","Envelope × Monte Carlo","agregado a 10 BS/km², dBm/MHz","");

@@ -18,11 +18,12 @@ if not os.path.exists(PLOTLY_FILE):
 
 tpl = open(os.path.join(H, "template.html"), encoding="utf-8").read()
 data = open(os.path.join(H, "results.json"), encoding="utf-8").read()
+contrib = open(os.path.join(H, "contrib.json"), encoding="utf-8").read()   # contribution_map.py
 plotly = open(PLOTLY_FILE, encoding="utf-8").read()
 # o bundle contem U+FFFD literal em strings/regex; troca pelo escape JS equivalente
 # (o publicador de artifacts rejeita o caractere literal)
 plotly = plotly.replace(chr(0xFFFD), chr(92) + "ufffd")   # U+FFFD literal -> escape JS �
 assert "</script" not in plotly.lower()
 out = os.path.join(H, "margens_ra_guarulhos.html")
-open(out, "w", encoding="utf-8").write(tpl.replace("/*__DATA__*/", data).replace("/*__PLOTLY__*/", plotly))
+open(out, "w", encoding="utf-8").write(tpl.replace("/*__DATA__*/", data).replace("/*__CONTRIB__*/", contrib).replace("/*__PLOTLY__*/", plotly))
 print("ok ->", out, round(os.path.getsize(out) / 1e6, 1), "MB")

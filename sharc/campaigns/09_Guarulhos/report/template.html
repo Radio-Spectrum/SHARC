@@ -95,6 +95,9 @@ section:last-of-type{border-bottom:0}
 .pill.pos{background:var(--good-soft);border-color:transparent;color:var(--good)}
 .panels{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
 .panels.four{grid-template-columns:repeat(4,1fr)}
+.panels.two{grid-template-columns:repeat(2,1fr)}
+.panels.one{grid-template-columns:1fr}
+.plot.wide{height:600px}
 .panel{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:10px 6px 4px}
 .panel h3{padding:0 8px 2px;display:flex;align-items:center;gap:8px;font-size:14px}
 .panel .sub{font-size:12px;color:var(--ink-3);padding:0 8px 4px}
@@ -126,7 +129,7 @@ table.tbl{border-collapse:collapse;width:100%;font-size:13px;font-variant-numeri
 .notes li{break-inside:avoid;margin-bottom:8px}
 .formula{font-family:var(--mono);font-size:13px;background:var(--surface-2);padding:10px 14px;border-radius:6px;color:var(--ink);overflow-x:auto;white-space:nowrap}
 #errbox{margin:12px 0;padding:10px 14px;border:1px solid var(--bad);border-radius:6px;color:var(--bad);font-family:var(--mono);font-size:12px;white-space:pre-wrap}
-@media (max-width:1000px){.page{grid-template-columns:1fr}nav.side{display:none}.panels,.panels.four{grid-template-columns:1fr}.method-tables{grid-template-columns:1fr}.summary{grid-template-columns:1fr}.notes{columns:1}header.top{grid-template-columns:1fr}.stamp{text-align:left}}
+@media (max-width:1000px){.page{grid-template-columns:1fr}nav.side{display:none}.panels,.panels.four,.panels.two{grid-template-columns:1fr}.plot.wide{height:420px}.method-tables{grid-template-columns:1fr}.summary{grid-template-columns:1fr}.notes{columns:1}header.top{grid-template-columns:1fr}.stamp{text-align:left}}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 
@@ -153,7 +156,7 @@ table.tbl{border-collapse:collapse;width:100%;font-size:13px;font-variant-numeri
 
 <div class="page">
 <nav class="side" aria-label="Seções">
-  <a href="#resumo">Resumo</a><a href="#metodo">Método</a><a href="#ref">Caso de referência</a><a href="#dmax">Densidade máxima</a><a href="#geom">Altura e downtilt</a><a href="#dens">Densidade</a><a href="#arr">Arranjo</a><a href="#roll">Apontamento do RA</a><a href="#load">Carga</a><a href="#kb">Feixes por BS</a><a href="#level">Voo nivelado</a><a href="#ccdf">CCDF</a><a href="#tabela">Tabela</a><a href="#notas">Notas</a>
+  <a href="#resumo">Resumo</a><a href="#metodo">Método</a><a href="#ref">Caso de referência</a><a href="#dmax">Densidade máxima</a><a href="#contrib">Mapa de contribuição</a><a href="#geom">Altura e downtilt</a><a href="#dens">Densidade</a><a href="#arr">Arranjo</a><a href="#roll">Apontamento do RA</a><a href="#load">Carga</a><a href="#kb">Feixes por BS</a><a href="#level">Voo nivelado</a><a href="#ccdf">CCDF</a><a href="#tabela">Tabela</a><a href="#notas">Notas</a>
 </nav>
 <main>
 
@@ -202,6 +205,20 @@ table.tbl{border-collapse:collapse;width:100%;font-size:13px;font-variant-numeri
   <div class="legend" id="dmaxLegend"></div>
 </section>
 
+<section id="contrib">
+  <div class="sec-head"><h2>Mapa de contribuição por BS</h2><span class="tag" id="contribTag"></span></div>
+  <p class="sec-note">Cálculo determinístico, sem Monte Carlo: aeronave parada num ponto da rampa, uma BS a 20 m em cada posição do plano, <b>setor apontado para a aeronave</b>, feixe varrido na faixa de steering e tomado o pior caso, todos os feixes alinhados, arranjo 8×8, downtilt 6°, P.528 mediano. É o envelope superior do que uma BS pode causar em função de onde está. Como o RA é isotrópico para o solo, o resultado depende só da distância horizontal até a projeção da aeronave.</p>
+  <div class="ctl" style="margin-bottom:12px"><span style="font-weight:500">Aeronave em</span><div class="seg" id="ctAltSeg" role="group" aria-label="Altitude da aeronave"></div></div>
+  <div class="panels two" id="contribPanelsA"></div>
+  <div class="panels one" id="contribPanelsMap" style="margin-top:14px"></div>
+  <div class="legend" id="contribLegendA"></div>
+  <div class="sec-head" style="margin-top:26px"><h3>Quanto uma zona de correção recupera</h3><span class="tag">rede uniforme de raio 45 km · remoção total das BSs dentro da zona</span></div>
+  <p class="sec-note">Redução da interferência agregada ao desligar todas as BSs num disco ao redor da projeção da aeronave, ou num corredor ao longo do eixo de aproximação. A linha tracejada marca o déficit a 10 BS/km² em P99.9 para as Categorias 2 e 3.</p>
+  <div class="panels" id="contribPanelsB"></div>
+  <div class="legend" id="contribLegendB"></div>
+  <div class="callout" id="contribCallout"></div>
+</section>
+
 <section id="geom">
   <div class="sec-head"><h2>Altura da BS e downtilt</h2><span class="tag" id="geomTag"></span></div>
   <p class="sec-note">Sweep completo: 4 alturas × 3 downtilts, arranjo 8×8. Cor = altura da BS, traço = downtilt mecânico; a referência (20 m, 6°) em traço grosso. Um painel por categoria.</p>
@@ -225,7 +242,7 @@ table.tbl{border-collapse:collapse;width:100%;font-size:13px;font-variant-numeri
 
 <section id="roll">
   <div class="sec-head"><h2>Apontamento do RA (rolagem)</h2><span class="tag" id="rollTag"></span></div>
-  <p class="sec-note">Faixa de elevação do eixo do RA: nadir fixo (sem rolagem), −90° a −80° (rolagem até 10°) e −90° a −70° (até 20°, referência). O padrão fora de banda do RA ganha com o ângulo em relação ao nadir, por isso a rolagem importa.</p>
+  <p class="sec-note">Faixa de elevação do eixo do RA: nadir fixo (sem rolagem), −90° a −80° (rolagem até 10°) e −90° a −70° (até 20°, referência). No modelo fora de banda da M.2319 usado no simulador, o ganho do RA é 0 dBi em todo o hemisfério inferior e só cai acima do horizonte; por isso a rolagem quase não altera o resultado: com 20° de rolagem, apenas BSs muito distantes, perto do horizonte, saem da região de 0 dBi.</p>
   <div class="panels" id="rollPanels"></div>
   <div class="legend" id="rollLegend"></div>
 </section>
@@ -273,7 +290,8 @@ table.tbl{border-collapse:collapse;width:100%;font-size:13px;font-variant-numeri
     <li><b>Máscaras ITM</b>: valores em dBm/MHz vs altitude tomados dos scripts de pós-processamento anteriores. Confirmar no relatório da RTCA se correspondem à máscara de emissões fundamentais (então o filtro do RA já estaria embutido e não deve ser aplicado de novo) ou à de espúrios.</li>
     <li><b>Densidade</b>: a soma de K snapshots emula K redes independentes sobrepostas na mesma área; a sombra e a porcentagem de tempo do P.528 são redesenhadas em cada snapshot, o que é coerente com BSs distintas. Não há correlação espacial entre as K cópias. A fronteira de margem zero é interpolada linearmente em log da densidade entre os K simulados.</li>
     <li><b>Área de referência</b>: 2827 km² é a área dos 133 hexágonos; o artigo descreve uma região circular de raio R<sub>s</sub>. Ajustar o texto ou o mapeamento de K para que coincidam.</li>
-    <li><b>Padrão fora de banda do RA</b>: modelado como ganho em dBi igual ao ângulo em relação ao nadir (|φ−90°|). É uma aproximação grosseira; a rodada com o padrão em banda da M.2319 é a próxima sensibilidade natural.</li>
+    <li><b>Padrão fora de banda do RA</b>: no simulador é 0 dBi para ângulos até 90° do eixo (todo o hemisfério inferior) e −|φ−90°| dBi acima do horizonte. A equação do artigo escreve +|φ−90°|; o sinal precisa ser alinhado com o código. Como é isotrópico para o solo, o RA não discrimina BSs próximas de distantes, o que explica a contribuição difusa de toda a rede no mapa de contribuição.</li>
+    <li><b>P.528 além do horizonte-rádio</b>: o termo de troposcatter do kernel devolve perda negativa logo após d<sub>ML</sub> (ex.: 91 dB a 52 km para aeronave a 52 m, contra 138 dB de espaço livre). Nenhuma posição simulada tem BS além do horizonte (distância máxima 43 km contra 50 km de horizonte no pior caso), então a campanha não é afetada, mas o kernel precisa de correção antes de cenários com aeronave mais baixa ou rede maior. No mapa de contribuição essa região usa espaço livre + difração de Terra lisa.</li>
     <li><b>Cenário misto</b>: soma em potência das duas bandas com K snapshots cada, ou seja, ρ BS/km² de cada tecnologia colocalizadas independentemente. O filtro é aplicado por banda antes da soma.</li>
     <li><b>Percentil</b>: com 20 000 trials, P99.9 apoia-se nas 20 maiores amostras; use P99 quando comparar diferenças abaixo de 1 dB.</li>
     <li><b>Reprodutibilidade</b>: todos os YAMLs estão versionados (<code>generate_inputs.py</code>, <code>generate_inputs_sensitivity.py</code>); o segundo Monte Carlo usa semente 20260913 (<code>report/aggregate.py</code>).</li>
@@ -288,6 +306,7 @@ table.tbl{border-collapse:collapse;width:100%;font-size:13px;font-variant-numeri
 function showErr(where, e){ const b=document.getElementById("errbox"); b.hidden=false; b.textContent += `[${where}] ${e && e.message ? e.message : e}\n`; console.error(where, e); }
 window.addEventListener("error", ev=>showErr("window", ev.error||ev.message));
 const DATA = /*__DATA__*/;
+const CONTRIB = /*__CONTRIB__*/;
 const M = DATA.meta, R = DATA.records;
 const E = M.e_grid, LOGE = E.map(Math.log10);
 const UCS = ["UC1","UC2","UC3"];
@@ -301,7 +320,7 @@ const DIST_OF = {}; R.filter(r=>r.group==="main").forEach(r=>DIST_OF[r.alt_m]=r.
 const K_LIST = M.k_list, RHO_OF_K = k => k*M.rho_snapshot;
 const ESMALL_IDX = {0.5:0, 0.1:1, 0.01:2, 0.001:3};
 
-const state = {rho:"5.0", p:0.001, filt:true, band:"3.65"};
+const state = {rho:"5.0", p:0.001, filt:true, band:"3.65", ctAlt:2};
 const css = k => getComputedStyle(document.documentElement).getPropertyValue(k).trim();
 const ftLabel = m => String(Math.round(m*FT));
 
@@ -567,6 +586,70 @@ function renderCCDF(){
   });
   document.getElementById("ccdfLegend").innerHTML = legendHTML([{label:`interferência agregada, ${BANDNAME[b]}`,color:bandColor(b)}, ...UCS.map((uc,j)=>({label:`ITM ${uc}`,color:css(`--uc${j+1}`),dash:"dash"})), {label:"percentil escolhido",color:css("--ink-3"),dash:"dot"}]);
 }
+
+function hexTrace(sites, isd_km){
+  const R = isd_km/Math.sqrt(3); const xs=[], ys=[];
+  sites.forEach(([cx,cy])=>{ for(let k=0;k<=6;k++){ const a=Math.PI/180*(90+60*k); xs.push(cx+R*Math.cos(a)); ys.push(cy+R*Math.sin(a)); } xs.push(null); ys.push(null); });
+  return {type:"scatter", x:xs, y:ys, mode:"lines", line:{color:css("--ink"),width:1}, opacity:.55, hoverinfo:"skip", connectgaps:false};
+}
+function renderContrib(){
+  const b = state.band==="mix" ? "3.65" : state.band; const B = CONTRIB.bands[b]; const G = CONTRIB.grid;
+  const alts = CONTRIB.meta.alts_m, altsFt = CONTRIB.meta.alts_ft; const ia = state.ctAlt;
+  const prof = alt => B.alts[String(alt)];
+  const foff = state.filt ? 0 : -(prof(alts[0]).filter_db);   // c ja inclui o filtro; desligar = remover
+  document.getElementById("contribTag").textContent = `${BANDNAME[b]}${state.band==="mix"?" (misto usa 3.65 GHz)":""} · ${B.conducted_power_dbm} dBm conduzidos · downtilt ${B.downtilt}° · filtro ${state.filt?"ligado":"desligado"}`;
+  const seg = document.getElementById("ctAltSeg");
+  seg.innerHTML = alts.map((a,i)=>`<button type="button" data-i="${i}" aria-pressed="${i===ia}">${altsFt[i]} ft</button>`).join("");
+  seg.querySelectorAll("button").forEach(btn=>btn.addEventListener("click",()=>{ state.ctAlt=parseInt(btn.dataset.i); safe("contribuição",renderContrib); }));
+  const cols = ordColors(alts.length);
+  const A = document.getElementById("contribPanelsA");
+  A.innerHTML = panelHTML("ct_prof","Contribuição de uma BS","dBm/MHz no RA × distância horizontal","") + panelHTML("ct_cum","Energia acumulada","fração do agregado vinda de dentro do raio R","");
+  document.getElementById("contribPanelsMap").innerHTML = panelHTML("ct_map","Mapa em planta no referencial da simulação",`aeronave a ${altsFt[ia]} ft · cor = interferência que uma BS naquele ponto causaria (dBm/MHz) · hexágonos = 133 sítios da grade (ISD 4.95 km) · barra = pista · tracejado = rampa`,"","wide");
+  const tr1 = alts.map((a,i)=>{ const P=prof(a); return {x:P.d_km, y:P.c_dbm_mhz.map(v=>v+foff), mode:"lines", name:`${altsFt[i]} ft`, line:{color:cols[i],width:i===ia?3.2:1.8}, hovertemplate:`<b>${altsFt[i]} ft</b> · %{x:.2f} km<br>%{y:.1f} dBm/MHz por BS<extra></extra>`}; });
+  Plotly.react("ct_prof", tr1, baseLayout({xaxis:{type:"log",title:{text:"Distância horizontal BS → aeronave (km)",standoff:6},tickvals:[0.1,0.3,1,3,10,30],ticktext:["0.1","0.3","1","3","10","30"]}, yaxis:{title:{text:"Interferência por BS (dBm/MHz)",standoff:4}}}), PCFG);
+  const tr2 = alts.map((a,i)=>{ const P=prof(a); return {x:P.d_km, y:P.cum_fraction.map(v=>100*v), mode:"lines", name:`${altsFt[i]} ft`, line:{color:cols[i],width:i===ia?3.2:1.8}, hovertemplate:`<b>${altsFt[i]} ft</b><br>%{y:.0f}% da energia vem de até %{x:.1f} km<extra></extra>`}; });
+  Plotly.react("ct_cum", tr2, baseLayout({xaxis:{type:"log",title:{text:"Raio R ao redor da aeronave (km)",standoff:6},tickvals:[0.3,1,3,10,30],ticktext:["0.3","1","3","10","30"]}, yaxis:{title:{text:"Fração do agregado dentro de R (%)",standoff:4},range:[0,102]},
+    shapes:[{type:"line",xref:"paper",x0:0,x1:1,y0:50,y1:50,line:{color:css("--ink-3"),width:1,dash:"dot"}},{type:"line",xref:"paper",x0:0,x1:1,y0:90,y1:90,line:{color:css("--ink-3"),width:1,dash:"dot"}}]}), PCFG);
+  // mapa em planta no referencial da simulacao: grade hexagonal, pista, linha de aproximacao, aeronave
+  const P = prof(alts[ia]); const [xa,ya] = G.aircraft_xy_km[String(alts[ia])];
+  const ax=[]; for(let v=-36; v<=36.001; v+=0.5) ax.push(Math.round(v*10)/10);
+  const z = ax.map(y=>ax.map(x=>{ const d=Math.hypot(x-xa,y-ya); return interp(Math.max(d,P.d_km[0]), P.d_km, P.c_dbm_mhz)+foff; }));
+  const zs=z.flat(); const zmax=Math.max(...zs), zmin=zmax-30;
+  const rc=G.runway_center_km, rl=G.runway_length_km/2;
+  const sPath = G.approach_s_km.map(sk=>[rc[0]+G.approach_sign*sk, G.approach_axis_y_km]);
+  Plotly.react("ct_map", [
+    {type:"heatmap", x:ax, y:ax, z, zmin, zmax, colorscale:[[0,css("--surface-2")],[0.5,css("--o2")],[1,css("--o5")]], colorbar:{title:{text:"dBm/MHz",side:"right"},thickness:10,len:.9,tickfont:{family:css("--mono"),size:10},outlinewidth:0}, hovertemplate:"BS em x %{x} km · y %{y} km<br>%{z:.1f} dBm/MHz<extra></extra>", zsmooth:"best"},
+    hexTrace(G.sites_km, G.isd_km),
+    {type:"scatter", x:[rc[0]-rl-33, rc[0]-rl], y:[G.approach_axis_y_km, G.approach_axis_y_km], mode:"lines", line:{color:css("--ink"),width:1.2,dash:"dash"}, hoverinfo:"skip"},
+    {type:"scatter", x:sPath.map(q=>q[0]), y:sPath.map(q=>q[1]), mode:"markers", marker:{size:4,color:css("--ink")}, hovertemplate:"ponto da rampa<extra></extra>"},
+    {type:"scatter", x:[rc[0]-rl, rc[0]+rl], y:[rc[1],rc[1]], mode:"lines", line:{color:css("--ink"),width:6}, hovertemplate:"pista<extra></extra>"},
+    {type:"scatter", x:[xa], y:[ya], mode:"markers+text", marker:{symbol:"triangle-right",size:14,color:css("--bad"),line:{color:css("--surface"),width:1.5}}, text:[`${altsFt[ia]} ft`], textposition:"top center", textfont:{family:css("--mono"),size:11,color:css("--ink")}, hovertemplate:`aeronave · ${altsFt[ia]} ft<extra></extra>`}],
+    baseLayout({margin:{l:52,r:60,t:10,b:44}, xaxis:{title:{text:"x (km) · leste →",standoff:6},range:[-36,36],scaleanchor:"y",scaleratio:1,gridcolor:"rgba(0,0,0,0)",zeroline:false,dtick:10}, yaxis:{title:{text:"y (km)",standoff:4},range:[-36,36],gridcolor:"rgba(0,0,0,0)",dtick:10}}), PCFG);
+  document.getElementById("contribLegendA").innerHTML = legendHTML(alts.map((a,i)=>({label:`${altsFt[i]} ft (${Math.round(a)} m)`,color:cols[i],bold:i===ia})), "mapa: hexágonos = 133 sítios da grade simulada (ISD 4.95 km) · barra = pista · tracejado = rampa · ▶ aeronave");
+  const Bx = document.getElementById("contribPanelsB");
+  Bx.innerHTML = panelHTML("ct_disc","Disco de exclusão","redução do agregado × raio do disco","") + panelHTML("ct_corr","Corredor de aproximação","redução do agregado × meia-largura do corredor","") + panelHTML("ct_env","Envelope × Monte Carlo","agregado a 10 BS/km², dBm/MHz","");
+  const need = {"3.65":21, "6.475":9}[b];
+  const needShape = [{type:"line",xref:"paper",x0:0,x1:1,y0:need,y1:need,line:{color:css("--bad"),width:1.4,dash:"dash"}}];
+  const needAnn = [{xref:"paper",x:1,y:need,text:`déficit UC2/UC3 ≈ ${need} dB`,showarrow:false,xanchor:"right",yanchor:"bottom",font:{size:10,color:css("--bad"),family:css("--mono")}}];
+  const tr3 = alts.map((a,i)=>{ const Pq=prof(a); return {x:Pq.radii_km, y:Pq.reduction_disc_db, mode:"lines+markers", line:{color:cols[i],width:i===ia?3.2:1.8}, marker:{size:6,color:cols[i]}, name:`${altsFt[i]} ft`, hovertemplate:`<b>${altsFt[i]} ft</b> · disco de %{x} km<br>redução %{y:.1f} dB<extra></extra>`}; });
+  Plotly.react("ct_disc", tr3, baseLayout({xaxis:{type:"log",title:{text:"Raio do disco (km)",standoff:6},tickvals:[0.5,1,2,5,10,20],ticktext:["0.5","1","2","5","10","20"]}, yaxis:{title:{text:"Redução do agregado (dB)",standoff:4},range:[0,Math.max(need+3,12)]}, shapes:needShape, annotations:needAnn}), PCFG);
+  const tr4 = alts.map((a,i)=>{ const Pq=prof(a); return {x:Pq.half_widths_km, y:Pq.reduction_corridor_db, mode:"lines+markers", line:{color:cols[i],width:i===ia?3.2:1.8}, marker:{size:6,color:cols[i]}, name:`${altsFt[i]} ft`, hovertemplate:`<b>${altsFt[i]} ft</b> · corredor ±%{x} km<br>redução %{y:.1f} dB<extra></extra>`}; });
+  Plotly.react("ct_corr", tr4, baseLayout({xaxis:{type:"log",title:{text:"Meia-largura do corredor (km)",standoff:6},tickvals:[0.25,0.5,1,2,5,10],ticktext:["0.25","0.5","1","2","5","10"]}, yaxis:{title:{text:"Redução do agregado (dB)",standoff:4},range:[0,Math.max(need+3,12)]}, shapes:needShape, annotations:needAnn}), PCFG);
+  const refs = REF(b); const mcAlt = alts.map(a=>refs.find(r=>Math.abs(r.alt_m-a)<0.6));
+  const env = alts.map(a=>prof(a).agg_dbm_mhz_rho10 + foff);
+  const mcQ = (r,e)=> r ? Qe(r.q["10.0"].map(v=>v+filtDb(b)), e) : null;
+  const xf = altsFt.map(String);
+  Plotly.react("ct_env", [
+    {type:"scatter", x:xf, y:env, mode:"lines+markers", name:"envelope determinístico", line:{color:css("--o4"),width:2.2}, marker:{size:9,symbol:"diamond",color:css("--o4")}, hovertemplate:"envelope · %{x} ft<br>%{y:.1f} dBm/MHz<extra></extra>"},
+    {type:"scatter", x:xf, y:mcAlt.map(r=>mcQ(r,0.001)), mode:"lines+markers", name:"Monte Carlo P99.9", line:{color:css("--o2"),width:2.2}, marker:{size:8,color:css("--o2")}, hovertemplate:"MC P99.9 · %{x} ft<br>%{y:.1f} dBm/MHz<extra></extra>"},
+    {type:"scatter", x:xf, y:mcAlt.map(r=>mcQ(r,0.5)), mode:"lines+markers", name:"Monte Carlo mediana", line:{color:css("--o1"),width:2.2,dash:"dot"}, marker:{size:8,color:css("--o1")}, hovertemplate:"MC mediana · %{x} ft<br>%{y:.1f} dBm/MHz<extra></extra>"}],
+    baseLayout({xaxis:{title:{text:"Altitude (ft)",standoff:6},type:"category"}, yaxis:{title:{text:"Interferência agregada (dBm/MHz)",standoff:4}}}), PCFG);
+  document.getElementById("contribLegendB").innerHTML = legendHTML([...alts.map((a,i)=>({label:`${altsFt[i]} ft`,color:cols[i],bold:i===ia})), {label:"envelope determinístico",color:css("--o4"),bold:true},{label:"Monte Carlo P99.9",color:css("--o2"),bold:true},{label:"Monte Carlo mediana",color:css("--o1"),bold:true}]);
+  const r50 = interp(0.5, P.cum_fraction, P.d_km), r90 = interp(0.9, P.cum_fraction, P.d_km); const cmax=Math.max(...P.c_dbm_mhz); const dpk=P.d_km[P.c_dbm_mhz.indexOf(cmax)];
+  const gap = mcAlt[ia] ? (env[ia]-mcQ(mcAlt[ia],0.001)).toFixed(0) : "–";
+  document.getElementById("contribCallout").innerHTML = `<b>Leitura a ${altsFt[ia]} ft, ${BANDNAME[b]}</b>: a BS diretamente abaixo da aeronave contribui ${(P.c_dbm_mhz[0]+foff).toFixed(0)} dBm/MHz e o máximo por BS é ${(cmax+foff).toFixed(0)} dBm/MHz a ${dpk.toFixed(1)} km, mas metade da energia agregada vem de além de ${r50.toFixed(0)} km e 90% só se fecha em ${r90.toFixed(0)} km. Um disco de 5 km recupera ${P.reduction_disc_db[4].toFixed(1)} dB e um corredor de ±2 km, ${P.reduction_corridor_db[3].toFixed(1)} dB, contra um déficit de ~${need} dB. Zonas geográficas locais não resolvem: a interferência é o brilho difuso da cidade inteira captado pelos lóbulos secundários. O envelope fica ${gap} dB acima do P99.9 do Monte Carlo, que tem azimutes aleatórios, carga 0.5 e feixes independentes.`;
+}
+
 const GROUPNAME={main:"sweep",arr:"arranjo",roll:"apontamento",load:"carga",k:"feixes",level:"nivelado"};
 let tabSort={k:"m2",dir:1};
 function tableRows(){
@@ -591,7 +674,7 @@ document.querySelectorAll("#tab th.sortable").forEach(th=>th.addEventListener("c
 
 // ---- wiring ---------------------------------------------------------------
 function safe(name, fn){ try{ fn(); }catch(e){ showErr(name, e); } }
-const BAND_SECTIONS = [["densidade máxima",renderDmax],["altura/downtilt",renderGeom],["densidade",renderDens],["arranjo",renderArr],["apontamento",renderRoll],["carga",renderLoad],["feixes",renderK],["ccdf",renderCCDF]];
+const BAND_SECTIONS = [["densidade máxima",renderDmax],["contribuição",renderContrib],["altura/downtilt",renderGeom],["densidade",renderDens],["arranjo",renderArr],["apontamento",renderRoll],["carga",renderLoad],["feixes",renderK],["ccdf",renderCCDF]];
 function renderAll(){
   document.getElementById("khint").textContent = state.rho==="snap"? "K = 1" : `K = ${M.k_of[state.rho]} snapshots/trial`;
   if (typeof Plotly === "undefined") showErr("plotly", "biblioteca Plotly não carregou");

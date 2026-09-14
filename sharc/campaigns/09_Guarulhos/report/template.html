@@ -138,7 +138,7 @@ table.tbl{border-collapse:collapse;width:100%;font-size:13px;font-variant-numeri
   <div>
     <div class="eyebrow">Coexistência IMT × radioaltímetro · Aeroporto de Guarulhos</div>
     <h1>Margens do radioaltímetro na aproximação</h1>
-    <p class="lede">Interferência agregada da rede IMT em 3.65 GHz e 6.475 GHz sobre o radioaltímetro (RA) de uma aeronave na rampa de 3°, comparada com as máscaras de tolerância (ITM) das três categorias de uso. Os gráficos são perfis de descida: altitude em pés na vertical, margem em dB na horizontal. Margem positiva significa interferência abaixo do limite.</p>
+    <p class="lede">Interferência agregada da rede IMT em 3.65 GHz e 6.475 GHz sobre o radioaltímetro (RA) de uma aeronave na rampa de 3°, comparada com as máscaras de tolerância (ITM) das três categorias de uso. Os gráficos seguem a descida: altitude em pés no eixo horizontal, da mais alta (esquerda) até o toque na pista (direita); margem em dB no eixo vertical. Margem positiva significa interferência abaixo do limite.</p>
   </div>
   <div class="stamp" id="stamp"></div>
 </header>
@@ -190,8 +190,8 @@ table.tbl{border-collapse:collapse;width:100%;font-size:13px;font-variant-numeri
 </section>
 
 <section id="ref">
-  <div class="sec-head"><h2>Caso de referência</h2><span class="tag">perfil de descida · margem × altitude · três categorias · uma coluna por banda</span></div>
-  <p class="sec-note">A aeronave desce de cima para baixo no eixo vertical. A faixa sombreada à esquerda de zero é violação da ITM; o preenchimento entre a curva e o zero mostra quanto cada categoria sobra ou falta. O pior ponto de cada curva está anotado.</p>
+  <div class="sec-head"><h2>Caso de referência</h2><span class="tag">margem × altitude, da entrada na rampa ao toque · três categorias · uma coluna por banda</span></div>
+  <p class="sec-note">A aeronave desce da esquerda para a direita. A faixa sombreada abaixo de zero é violação da ITM; o preenchimento entre a curva e o zero mostra quanto cada categoria sobra ou falta. O pior ponto de cada curva está anotado.</p>
   <div class="panels" id="refPanels"></div>
   <div class="legend" id="refLegend"></div>
   <div class="sec-head" style="margin-top:26px"><h3>Probabilidade de exceder a ITM</h3><span class="tag">P[I &gt; ITM] em cada altitude, escala log</span></div>
@@ -200,7 +200,7 @@ table.tbl{border-collapse:collapse;width:100%;font-size:13px;font-variant-numeri
 
 <section id="dmax">
   <div class="sec-head"><h2>Densidade máxima admissível</h2><span class="tag" id="dmaxTag"></span></div>
-  <p class="sec-note">Mapa de cor da margem no caso de referência: altitude na horizontal, densidade de BS na vertical (escala log, 0.14 a 20 BS/km²). A linha preta é a fronteira de margem zero: acima dela a rede viola a ITM. O gráfico à direita resume a fronteira para as três categorias; a densidade máxima admissível de cada categoria é o mínimo da curva ao longo da rampa.</p>
+  <p class="sec-note">Mapa de cor da margem no caso de referência: altitude na horizontal, decrescente como nos demais gráficos, densidade de BS na vertical (escala log, 0.14 a 20 BS/km²). A linha preta é a fronteira de margem zero: acima dela a rede viola a ITM. O gráfico à direita resume a fronteira para as três categorias; a densidade máxima admissível de cada categoria é o mínimo da curva ao longo da rampa.</p>
   <div class="panels four" id="dmaxPanels"></div>
   <div class="legend" id="dmaxLegend"></div>
 </section>
@@ -388,28 +388,29 @@ function baseLayout(extra){
   return out;
 }
 const PCFG = {displayModeBar:false, responsive:true};
-function altAxisY(){ return {type:"log", title:{text:"Altitude (ft)",standoff:4}, tickvals:ALTS_FT, ticktext:ALTS.map(a=>ftLabel(a)), range:[Math.log10(150),Math.log10(6400)]}; }
-function marginAxisX(vals){ const lo=Math.min(-5,...vals)-3, hi=Math.max(5,...vals)+3; return {title:{text:"Margem em relação à ITM (dB)",standoff:6}, range:[lo,hi]}; }
+// altitude no eixo x, decrescente (a aeronave desce da esquerda para a direita)
+function altAxisX(){ return {type:"log", title:{text:"Altitude na rampa (ft) · descida →",standoff:6}, tickvals:ALTS_FT, ticktext:ALTS.map(a=>ftLabel(a)), tickangle:-45, range:[Math.log10(6400),Math.log10(150)]}; }
+function marginAxisY(vals){ const lo=Math.min(-5,...vals)-3, hi=Math.max(5,...vals)+3; return {title:{text:"Margem em relação à ITM (dB)",standoff:4}, range:[lo,hi]}; }
 function guideShapes(lo){
-  const s=[{type:"rect",xref:"x",x0:lo,x1:0,yref:"paper",y0:0,y1:1,fillcolor:css("--bad-soft"),line:{width:0},layer:"below"},
-           {type:"line",xref:"x",x0:0,x1:0,yref:"paper",y0:0,y1:1,line:{color:css("--bad"),width:1.4}}];
-  [200,1000,2000,5000].forEach(ft=>s.push({type:"line",xref:"paper",x0:0,x1:1,yref:"y",y0:ft,y1:ft,line:{color:css("--ink-3"),width:1,dash:"dot"},layer:"below"}));
+  const s=[{type:"rect",xref:"paper",x0:0,x1:1,yref:"y",y0:lo,y1:0,fillcolor:css("--bad-soft"),line:{width:0},layer:"below"},
+           {type:"line",xref:"paper",x0:0,x1:1,yref:"y",y0:0,y1:0,line:{color:css("--bad"),width:1.4}}];
+  [200,1000,2000,5000].forEach(ft=>s.push({type:"line",xref:"x",x0:ft,x1:ft,yref:"paper",y0:0,y1:1,line:{color:css("--ink-3"),width:1,dash:"dot"},layer:"below"}));
   return s;
 }
-function guideAnnotations(){ return [200,1000,2000,5000].map(ft=>({xref:"paper",x:1,y:Math.log10(ft),yref:"y",text:`${ft} ft`,showarrow:false,xanchor:"right",yanchor:"bottom",font:{size:10,color:css("--ink-3"),family:css("--mono")}})); }
+function guideAnnotations(){ return [200,1000,2000,5000].map(ft=>({x:Math.log10(ft),xref:"x",yref:"paper",y:1,text:`${ft} ft`,showarrow:false,xanchor:"left",yanchor:"top",font:{size:10,color:css("--ink-3"),family:css("--mono")}})); }
 function hexA(hex, a){ const h=hex.replace("#",""); const n=parseInt(h.length===3?h.split("").map(c=>c+c).join(""):h,16); return `rgba(${(n>>16)&255},${(n>>8)&255},${n&255},${a})`; }
 function marginTrace(recs, uc, name, color, opts={}){
-  const x = recs.map(r=>margin(r,uc)), y = recs.map(r=>r.alt_m*FT);
+  const y = recs.map(r=>margin(r,uc)), x = recs.map(r=>r.alt_m*FT);
   const t = {x, y, mode:"lines+markers", name, line:{color,width:opts.width||2,dash:opts.dash||"solid",shape:"spline",smoothing:.5},
     marker:{size:opts.msize||6,color,symbol:UCSYM[uc]||"circle",line:{color:css("--surface"),width:1.5}}, opacity:opts.opacity??1,
-    customdata:recs.map((r,i)=>[DIST_OF[r.alt_m]??"", r.alt_m, x[i]]),
-    hovertemplate:`<b>${name}</b> · ${uc}<br>%{y:.0f} ft (%{customdata[1]:.0f} m)${opts.level?"":" · %{customdata[0]} m da pista"}<br>margem <b>%{x:.1f} dB</b><extra></extra>`};
-  if (opts.fill){ t.fill="tozerox"; t.fillcolor=hexA(color,.10); }
+    customdata:recs.map((r,i)=>[DIST_OF[r.alt_m]??"", r.alt_m, y[i]]),
+    hovertemplate:`<b>${name}</b> · ${uc}<br>%{x:.0f} ft (%{customdata[1]:.0f} m)${opts.level?"":" · %{customdata[0]} m da pista"}<br>margem <b>%{y:.1f} dB</b><extra></extra>`};
+  if (opts.fill){ t.fill="tozeroy"; t.fillcolor=hexA(color,.10); }
   return t;
 }
 function worstAnnotation(recs, uc, color){
   let mn=Infinity, at=null; recs.forEach(r=>{const m=margin(r,uc); if(m<mn){mn=m;at=r.alt_m;}});
-  return {x:mn, y:Math.log10(at*FT), text:`<b>${fmt(mn)} dB</b>`, showarrow:true, arrowhead:0, arrowcolor:color, ax:mn<0?-34:34, ay:0, font:{size:11,color,family:css("--mono")}, bgcolor:css("--surface"), bordercolor:color, borderwidth:1, borderpad:2};
+  return {x:Math.log10(at*FT), y:mn, text:`<b>${fmt(mn)} dB</b>`, showarrow:true, arrowhead:0, arrowcolor:color, ax:0, ay:mn<0?28:-28, font:{size:11,color,family:css("--mono")}, bgcolor:css("--surface"), bordercolor:color, borderwidth:1, borderpad:2};
 }
 function panelHTML(id, title, sub, color, cls){
   return `<div class="panel"><h3>${color?`<span class="dot" style="background:${color}"></span>`:""}${title}</h3>${sub?`<div class="sub">${sub}</div>`:""}<div class="plot ${cls||""}" id="${id}"></div></div>`;
@@ -419,9 +420,9 @@ function ucPanels(containerId, prefix){
 }
 function drawMarginPanels(prefix, seriesFn){
   UCS.forEach(uc=>{
-    const traces = seriesFn(uc); const vals = traces.flatMap(t=>t.x);
-    const xax = marginAxisX(vals);
-    Plotly.react(`${prefix}_${uc}`, traces, baseLayout({xaxis:xax, yaxis:altAxisY(), shapes:guideShapes(xax.range[0])}), PCFG);
+    const traces = seriesFn(uc); const vals = traces.flatMap(t=>t.y);
+    const yax = marginAxisY(vals);
+    Plotly.react(`${prefix}_${uc}`, traces, baseLayout({xaxis:altAxisX(), yaxis:yax, shapes:guideShapes(yax.range[0])}), PCFG);
   });
 }
 function legendHTML(items, note){
@@ -461,20 +462,20 @@ function renderSummary(){
 }
 function renderRef(){
   const bands=["3.65","6.475","mix"];
-  document.getElementById("refPanels").innerHTML = bands.map(b=>panelHTML(`ref_${b.replace(".","_")}`, BANDNAME[b], "perfil de descida · margem × altitude", bandColor(b))).join("");
+  document.getElementById("refPanels").innerHTML = bands.map(b=>panelHTML(`ref_${b.replace(".","_")}`, BANDNAME[b], "margem × altitude", bandColor(b))).join("");
   bands.forEach(b=>{
     const recs=REF(b); const traces=UCS.map((uc,i)=>marginTrace(recs,uc,uc,css(`--uc${i+1}`),{fill:true,width:2.2}));
-    const xax=marginAxisX(traces.flatMap(t=>t.x));
-    Plotly.react(`ref_${b.replace(".","_")}`, traces, baseLayout({xaxis:xax, yaxis:altAxisY(), shapes:guideShapes(xax.range[0]), annotations:[...guideAnnotations(), ...UCS.map((uc,i)=>worstAnnotation(recs,uc,css(`--uc${i+1}`)))]}), PCFG);
+    const yax=marginAxisY(traces.flatMap(t=>t.y));
+    Plotly.react(`ref_${b.replace(".","_")}`, traces, baseLayout({xaxis:altAxisX(), yaxis:yax, shapes:guideShapes(yax.range[0]), annotations:[...guideAnnotations(), ...UCS.map((uc,i)=>worstAnnotation(recs,uc,css(`--uc${i+1}`)))]}), PCFG);
   });
-  document.getElementById("refLegend").innerHTML = legendHTML(UCS.map((uc,i)=>({label:UCNAME[uc],color:css(`--uc${i+1}`)})), "marcadores: ● UC1  ■ UC2  ◆ UC3 · pontilhado horizontal: degraus da ITM");
-  document.getElementById("refProbPanels").innerHTML = bands.map(b=>panelHTML(`refp_${b.replace(".","_")}`, BANDNAME[b], "P[I > ITM] × altitude", bandColor(b))).join("");
+  document.getElementById("refLegend").innerHTML = legendHTML(UCS.map((uc,i)=>({label:UCNAME[uc],color:css(`--uc${i+1}`)})), "marcadores: ● UC1  ■ UC2  ◆ UC3 · pontilhado vertical: degraus da ITM");
+  document.getElementById("refProbPanels").innerHTML = bands.map(b=>panelHTML(`refp_${b.replace(".","_")}`, BANDNAME[b], "P[I > ITM] × altitude · descida →", bandColor(b))).join("");
   bands.forEach(b=>{
     const recs=REF(b);
-    const traces=UCS.map((uc,i)=>({y:recs.map(r=>r.alt_m*FT), x:recs.map(r=>Math.max(1e-5,pExceed(qArr(r), itm(r.alt_m,uc)))), mode:"lines+markers", name:uc,
+    const traces=UCS.map((uc,i)=>({x:recs.map(r=>r.alt_m*FT), y:recs.map(r=>Math.max(1e-5,pExceed(qArr(r), itm(r.alt_m,uc)))), mode:"lines+markers", name:uc,
       line:{color:css(`--uc${i+1}`),width:2,shape:"spline",smoothing:.5}, marker:{size:6,symbol:UCSYM[uc],color:css(`--uc${i+1}`),line:{color:css("--surface"),width:1.5}},
-      hovertemplate:`<b>${uc}</b> · %{y:.0f} ft<br>P[I &gt; ITM] = %{x:.2%}<extra></extra>`}));
-    Plotly.react(`refp_${b.replace(".","_")}`, traces, baseLayout({yaxis:altAxisY(), xaxis:{type:"log",range:[-4.1,0.05],title:{text:"P[I > ITM]",standoff:6},tickvals:[1e-4,1e-3,1e-2,1e-1,1],ticktext:["0.01%","0.1%","1%","10%","100%"]}}), PCFG);
+      hovertemplate:`<b>${uc}</b> · %{x:.0f} ft<br>P[I &gt; ITM] = %{y:.2%}<extra></extra>`}));
+    Plotly.react(`refp_${b.replace(".","_")}`, traces, baseLayout({xaxis:altAxisX(), yaxis:{type:"log",range:[-4.1,0.05],title:{text:"P[I > ITM]",standoff:4},tickvals:[1e-4,1e-3,1e-2,1e-1,1],ticktext:["0.01%","0.1%","1%","10%","100%"]}}), PCFG);
   });
 }
 function renderDmax(){
@@ -496,12 +497,12 @@ function renderDmax(){
       {type:"scatter", x:xlab, y:front, mode:"lines+markers", line:{color:css("--ink"),width:2.5,shape:"spline",smoothing:.5}, marker:{size:5,color:css("--ink")},
        hovertemplate:"%{x} ft<br>densidade máx. <b>%{y:.2f} BS/km²</b><extra></extra>"}
     ];
-    Plotly.react(`hm_${uc}`, traces, baseLayout({margin:{l:58,r:i===2?54:14,t:10,b:60}, xaxis:{type:"category",title:{text:"Altitude (ft)",standoff:6},tickangle:-45,gridcolor:"rgba(0,0,0,0)"}, yaxis:{type:"log",title:{text:"Densidade de BS (BS/km²)",standoff:4},range:[Math.log10(rhos[0]*0.75),Math.log10(rhos[rhos.length-1]*1.35)],gridcolor:"rgba(0,0,0,0)",tickvals:[0.2,0.5,1,2,5,10,20],ticktext:["0.2","0.5","1","2","5","10","20"]}}), PCFG);
+    Plotly.react(`hm_${uc}`, traces, baseLayout({margin:{l:58,r:i===2?54:14,t:10,b:60}, xaxis:{type:"category",autorange:"reversed",title:{text:"Altitude (ft) · descida →",standoff:6},tickangle:-45,gridcolor:"rgba(0,0,0,0)"}, yaxis:{type:"log",title:{text:"Densidade de BS (BS/km²)",standoff:4},range:[Math.log10(rhos[0]*0.75),Math.log10(rhos[rhos.length-1]*1.35)],gridcolor:"rgba(0,0,0,0)",tickvals:[0.2,0.5,1,2,5,10,20],ticktext:["0.2","0.5","1","2","5","10","20"]}}), PCFG);
   });
   const lines = UCS.map((uc,i)=>({x:recs.map(r=>r.alt_m*FT), y:recs.map(r=>clampRho(rhoMax(r,uc))), mode:"lines+markers", name:uc, line:{color:css(`--uc${i+1}`),width:2.2,shape:"spline",smoothing:.5}, marker:{size:6,symbol:UCSYM[uc],color:css(`--uc${i+1}`),line:{color:css("--surface"),width:1.5}},
       hovertemplate:`<b>${uc}</b> · %{x:.0f} ft<br>densidade máx. <b>%{y:.2f} BS/km²</b><extra></extra>`}));
   const shapes = M.densities.map(d=>({type:"line",xref:"paper",x0:0,x1:1,y0:d,y1:d,line:{color:css("--ink-3"),width:1,dash:"dot"},layer:"below"}));
-  Plotly.react("dmax_line", lines, baseLayout({margin:{l:58,r:14,t:10,b:60}, xaxis:{type:"log",title:{text:"Altitude (ft)",standoff:6},tickvals:ALTS_FT,ticktext:ALTS.map(ftLabel),tickangle:-45,range:[Math.log10(150),Math.log10(6400)]}, yaxis:{type:"log",title:{text:"Densidade máx. admissível (BS/km²)",standoff:4},range:[Math.log10(rhos[0]*0.75),Math.log10(rhos[rhos.length-1]*1.35)],tickvals:[0.2,0.5,1,2,5,10,20],ticktext:["0.2","0.5","1","2","5","10","20"]}, shapes,
+  Plotly.react("dmax_line", lines, baseLayout({margin:{l:58,r:14,t:10,b:60}, xaxis:{type:"log",title:{text:"Altitude (ft) · descida →",standoff:6},tickvals:ALTS_FT,ticktext:ALTS.map(ftLabel),tickangle:-45,range:[Math.log10(6400),Math.log10(150)]}, yaxis:{type:"log",title:{text:"Densidade máx. admissível (BS/km²)",standoff:4},range:[Math.log10(rhos[0]*0.75),Math.log10(rhos[rhos.length-1]*1.35)],tickvals:[0.2,0.5,1,2,5,10,20],ticktext:["0.2","0.5","1","2","5","10","20"]}, shapes,
     annotations:M.densities.map(d=>({xref:"paper",x:0,y:Math.log10(d),yref:"y",text:`${d}`,showarrow:false,xanchor:"left",yanchor:"bottom",font:{size:10,color:css("--ink-3"),family:css("--mono")}}))}), PCFG);
   document.getElementById("dmaxLegend").innerHTML = legendHTML([{label:"fronteira margem = 0",color:css("--ink"),bold:true}, ...UCS.map((uc,i)=>({label:UCNAME[uc],color:css(`--uc${i+1}`)}))], "pontos fora da grade (< 0.14 ou > 20 BS/km²) são desenhados nas bordas");
 }
@@ -565,9 +566,9 @@ function renderLevel(){
   bands.forEach(b=>{
     const recs=level(b); const alts=recs.map(r=>r.alt_m*FT);
     const traces=UCS.map((uc,i)=>marginTrace(recs,uc,uc,css(`--uc${i+1}`),{fill:true,width:2.2,level:true}));
-    const xax=marginAxisX(traces.flatMap(t=>t.x));
-    const shapes=guideShapes(xax.range[0]).filter(s=>s.type==="rect"||s.xref==="x"||[1000,2000].includes(s.y0));
-    Plotly.react(`lvl_${b.replace(".","_")}`, traces, baseLayout({xaxis:xax, yaxis:{type:"log",title:{text:"Altitude (ft)",standoff:4},tickvals:alts,ticktext:recs.map(r=>ftLabel(r.alt_m)),range:[Math.log10(280),Math.log10(3900)]}, shapes, annotations:UCS.map((uc,i)=>worstAnnotation(recs,uc,css(`--uc${i+1}`)))}), PCFG);
+    const yax=marginAxisY(traces.flatMap(t=>t.y));
+    const shapes=guideShapes(yax.range[0]).filter(s=>s.type==="rect"||s.yref==="y"&&s.type==="line"||[1000,2000].includes(s.x0));
+    Plotly.react(`lvl_${b.replace(".","_")}`, traces, baseLayout({xaxis:{type:"log",title:{text:"Altitude (ft) · descida →",standoff:6},tickvals:alts,ticktext:recs.map(r=>ftLabel(r.alt_m)),tickangle:-45,range:[Math.log10(3900),Math.log10(280)]}, yaxis:yax, shapes, annotations:UCS.map((uc,i)=>worstAnnotation(recs,uc,css(`--uc${i+1}`)))}), PCFG);
   });
   document.getElementById("levelLegend").innerHTML = legendHTML(UCS.map((uc,i)=>({label:UCNAME[uc],color:css(`--uc${i+1}`)})));
 }

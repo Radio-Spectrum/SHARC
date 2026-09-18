@@ -10113,3 +10113,6 @@ sharc/topology/map/*.tif
 /logs/
 /Claude outputs/
 /tmp_*.docx
+
+# configuracao de sessao salva pela interface grafica
+sharc/topology/map/*_config.json

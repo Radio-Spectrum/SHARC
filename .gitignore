@@ -10096,3 +10096,20 @@ sharc/terrain_tests/global_dem/tiles_250m_tif/tile_p45_p119_250m.tif
 sharc/terrain_tests/global_dem/tiles_250m_tif/tile_p45_p120_250m.tif
 sharc/terrain_tests/global_dem/tiles_250m_tif/tile_p45_p121_250m.tif
 sharc/terrain_tests/global_dem/tiles_250m_tif/tile_p45_p122_250m.tif
+
+# real_terrain downloaded tile cache
+sharc/propagation/real_terrain/tile_cache/
+sharc/propagation/real_terrain/data/
+
+# real_terrain: arquivo morto redundante (mesmo conteudo dos .py do modulo)
+sharc/propagation/real_terrain/real_terrain.zip
+
+# mapas gerados e dados baixados na raiz do repositorio
+/terrain.tif
+/clutter.tif
+sharc/topology/map/*.tif
+
+# saidas locais
+/logs/
+/Claude outputs/
+/tmp_*.docx

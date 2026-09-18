@@ -169,12 +169,14 @@ class StationFactory(object):
             num_bs, dtype=Antenna,
         )
 
-        # TODO: transform BS to local coord system before creating antenna
-
+        # The array orientation is defined in the site's own local frame (its
+        # row axis is the local vertical). Feeding global angles would leave the
+        # array rolled about its boresight by the curvature between the site and
+        # the simulation reference point.
         imt_base_stations.antenna = AntennaFactory.create_n_antennas(
             param.bs.antenna,
-            imt_base_stations.geom.pointn_azim_global,
-            imt_base_stations.geom.pointn_elev_global,
+            imt_base_stations.geom.pointn_azim_local,
+            imt_base_stations.geom.pointn_elev_local,
             num_bs
         )
 
@@ -490,8 +492,8 @@ class StationFactory(object):
         ue_param_ant.get_antenna_parameters()
         imt_ue.antenna = AntennaFactory.create_n_antennas(
             param.ue.antenna,
-            imt_ue.geom.pointn_azim_global,
-            imt_ue.geom.pointn_elev_global,
+            imt_ue.geom.pointn_azim_local,
+            imt_ue.geom.pointn_elev_local,
             num_ue,
         )
 

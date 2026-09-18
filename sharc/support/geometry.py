@@ -904,6 +904,51 @@ class SimulatorGeometry(GlobalGeometry):
             return dist2d, z_dist
         return dist2d
 
+    def get_local_pointing_vector_to(self, other: "SimulatorGeometry") -> tuple:
+        """Pointing angles to another geometry, in each of THIS geometry's own
+        local reference frames.
+
+        Same return convention as get_global_pointing_vector_to (phi from the x
+        axis towards y, theta from the z axis), but expressed in the observer's
+        local frame. For stations that carry a per-station local frame (one ENU
+        per site, as in the countries topologies) this is the frame the antenna
+        orientation is defined in: the array's row axis is the local vertical.
+        Using the global frame instead leaves the array rolled about its
+        boresight by the Earth curvature between the site and the simulation
+        reference point, which distorts the pattern for continental networks.
+
+        Falls back to the global pointing vector when this geometry does not
+        use local coordinates (all sites then share the global frame).
+
+        Parameters
+        ----------
+        other : SimulatorGeometry
+            The geometry to point at.
+
+        Returns
+        -------
+        tuple
+            phi, theta in degrees, shape (num_self, num_other).
+        """
+        if not self.uses_local_coords:
+            return self.get_global_pointing_vector_to(other)
+
+        p_global = np.stack(
+            [other.x_global, other.y_global, other.z_global], axis=-1,
+        )
+        other_local = self._global2local_points_permutation(p_global)
+
+        dx = other_local[..., 0] - self.x_local[:, np.newaxis]
+        dy = other_local[..., 1] - self.y_local[:, np.newaxis]
+        dz = other_local[..., 2] - self.z_local[:, np.newaxis]
+
+        dist = np.sqrt(dx * dx + dy * dy + dz * dz)
+        phi = np.degrees(np.arctan2(dy, dx))
+        theta = np.degrees(
+            np.arccos(np.clip(dz / np.where(dist == 0.0, 1.0, dist), -1.0, 1.0)),
+        )
+        return phi, theta
+
     def get_local_elevation(self, other: "SimulatorGeometry") -> np.array:
         """Calculate the elevation angle between this manager's stations and another's
         considering this one's loca coordinate system

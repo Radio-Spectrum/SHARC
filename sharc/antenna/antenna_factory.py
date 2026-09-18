@@ -89,11 +89,23 @@ class AntennaFactory():
         assert n_stations == len(azimuth)
         assert n_stations == len(elevation)
 
+        if n_stations == 0:
+            return antennas
+
         if antenna_params.pattern == "ARRAY":
-            for i in range(n_stations):
-                antennas[i] = AntennaFactory.create_antenna(
-                    antenna_params, azimuth[i], elevation[i],
-                )
+            first = AntennaFactory.create_antenna(
+                antenna_params, azimuth[0], elevation[0],
+            )
+            if getattr(first, "constant_gain", False):
+                # 1x1 constant-gain "array" (e.g. a -4 dBi UE): the gain does
+                # not depend on orientation or beams, share a single object.
+                antennas[:] = first
+            else:
+                antennas[0] = first
+                for i in range(1, n_stations):
+                    antennas[i] = AntennaFactory.create_antenna(
+                        antenna_params, azimuth[i], elevation[i],
+                    )
         else:
             # some antennas don't need azimuth and elevation at all
             # this makes it much faster

@@ -13,6 +13,7 @@ import sys
 
 
 class SpectralMaskImt2030(SpectralMask):
+    """IMT-2030 spectral mask (out-of-band emission limits)."""
 
     def __init__(
         self,
@@ -53,6 +54,22 @@ class SpectralMaskImt2030(SpectralMask):
         bandwidth: float,
         scenario: str
     ) -> np.array:
+        """Return the frequency offsets, in MHz, where the mask changes level.
+
+        Parameters
+        ----------
+        sta_type : StationType
+            Station the mask applies to (IMT_BS or IMT_UE).
+        bandwidth : float
+            Channel bandwidth in MHz.
+        scenario : str
+            Deployment scenario, e.g. "MACROCELL" or "INDOOR".
+
+        Returns
+        -------
+        np.array
+            Frequency offsets from the channel edge, in MHz.
+        """
         if sta_type is StationType.IMT_BS:
             if scenario == "MACROCELL":
                 delta_f_lim = np.arange(0, 50, .1)
@@ -75,6 +92,7 @@ class SpectralMaskImt2030(SpectralMask):
         return delta_f_lim
 
     def set_mask(self, p_tx=0):
+        """Set the mask power levels for a given transmit power in dBm."""
         emission_limits = self.get_emission_limits(
             self.sta_type,
             self.band_mhz,
@@ -98,6 +116,26 @@ class SpectralMaskImt2030(SpectralMask):
         category: float,
         scenario: str
     ) -> np.array:
+        """Return the emission limits, in dBm/MHz, for each frequency offset.
+
+        Parameters
+        ----------
+        sta_type : StationType
+            Station the mask applies to (IMT_BS or IMT_UE).
+        bandwidth : float
+            Channel bandwidth in MHz.
+        spurious_emissions : float
+            Spurious emission floor in dBm/MHz.
+        category : float
+            Equipment category the limits are taken from.
+        scenario : str
+            Deployment scenario, e.g. "MACROCELL" or "INDOOR".
+
+        Returns
+        -------
+        np.array
+            Emission limits in dBm/MHz, aligned with get_frequency_limits.
+        """
         if sta_type is StationType.IMT_BS:
             if scenario == "MACROCELL":
                 if category == "CatA":

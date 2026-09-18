@@ -549,6 +549,7 @@ class ENUReferenceFrame(ReferenceFrame):
 
     @staticmethod
     def from_coordinate_system(cs: CoordinateSystem):
+        """Build an ENU reference frame at the coordinate system's reference point."""
         return ENUReferenceFrame(
             lat=cs.ref_lat,
             lon=cs.ref_long,

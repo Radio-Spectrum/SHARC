@@ -202,11 +202,21 @@ class TestResolveAsset(unittest.TestCase):
     """Tests for TopologyCountries._resolve_asset."""
 
     def test_absolute_path(self):
-        """An absolute path should be returned unchanged."""
+        """An absolute path outside the package keeps the documented behaviour.
+
+        On POSIX it is returned unchanged. On Windows a drive-rooted path with
+        no "/sharc/" segment is rejected on purpose, so that configurations
+        written on Windows stay portable when the simulation runs on Linux.
+        """
+        import os
         from pathlib import Path
-        p = Path("/tmp/test_file.shp")
-        result = TopologyCountries._resolve_asset(p)
-        self.assertEqual(result, p)
+        p = Path(Path.cwd().anchor) / "tmp" / "test_file.shp"
+        self.assertTrue(p.is_absolute())
+        if os.name == "nt":
+            with self.assertRaises(ValueError):
+                TopologyCountries._resolve_asset(p)
+        else:
+            self.assertEqual(TopologyCountries._resolve_asset(p), p)
 
     def test_none_path(self):
         """A None path should resolve to None."""

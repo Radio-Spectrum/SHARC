@@ -152,10 +152,10 @@ if __name__ == '__main__':
     off_axis_angle_vec = np.linspace(0.1, 180, num=1001)
     # initialize antenna parameters
     param = ParametersAntenna()
-    param.frequency = 2155
+    param.frequency = 6525
     param_gt = ParametersAntennaImt()
-    param.gain = 33.1
-    param.diameter = 2
+    param.gain = 42
+    param.diameter = 4
     antenna_gt = Atenna_f1245_fs(param)
     antenna_gt.add_beam(0, 0)
     gain_gt = antenna_gt.calculate_gain(
@@ -166,7 +166,8 @@ if __name__ == '__main__':
     gain_gt_3 = antenna_gt.calculate_gain(
         off_axis_angle_vec=off_axis_angle_vec,
     )   
-    param.diameter = 1.8
+    param.gain = 38
+    param.diameter = 4
     antenna_gt = Atenna_f1245_fs(param)
     gain_gt_18 = antenna_gt.calculate_gain(
         off_axis_angle_vec=off_axis_angle_vec,

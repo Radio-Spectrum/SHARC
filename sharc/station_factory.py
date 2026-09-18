@@ -753,7 +753,8 @@ class StationFactory(object):
         elif parameters.general.system == "SINGLE_SPACE_STATION":
             return StationFactory.generate_single_space_station(
                 parameters.single_space_station,
-                coordinate_system
+                coordinate_system,
+                random_number_gen,
             )
         elif parameters.general.system == "RAS":
             return StationFactory.generate_ras_station(
@@ -783,7 +784,8 @@ class StationFactory(object):
     @staticmethod
     def generate_single_space_station(
             param: ParametersSingleSpaceStation,
-            simulator_coordinate_system: CoordinateSystem | None = None
+            simulator_coordinate_system: CoordinateSystem | None = None,
+            random_number_gen: np.random.RandomState | None = None,
     ):
         """Create a single space station (satellite) based on the provided parameters.
 
@@ -858,12 +860,23 @@ class StationFactory(object):
                 some_location_geom
             )
 
+        def draw_uniform(pointing_param, what: str) -> float:
+            """One RANDOM_RANGE draw from the snapshot generator (reproducible)."""
+            if random_number_gen is None:
+                raise ValueError(
+                    f"single_space_station.geometry.{what}.type == 'RANDOM_RANGE' "
+                    "requires a random_number_gen; call generate_system or pass one.")
+            lo, hi = float(pointing_param.min), float(pointing_param.max)
+            return lo + (hi - lo) * float(random_number_gen.rand())
+
         if param.geometry.azimuth.type == "POINTING_AT_IMT":
             azim, _ = ss_geom.get_global_pointing_vector_to(es_geom)
         elif param.geometry.azimuth.type == "POINTING_AT_LAT_LONG_ALT":
             azim = pointing_at_azim
         elif param.geometry.azimuth.type == "FIXED":
             azim = param.geometry.azimuth.fixed
+        elif param.geometry.azimuth.type == "RANDOM_RANGE":
+            azim = draw_uniform(param.geometry.azimuth, "azimuth")
         else:
             raise ValueError(
                 f"Did not recognize azimuth type of {
@@ -875,6 +888,11 @@ class StationFactory(object):
             elev = pointing_at_elev
         elif param.geometry.elevation.type == "FIXED":
             elev = param.geometry.elevation.fixed
+        elif param.geometry.elevation.type == "RANDOM_RANGE":
+            # min/max are given in the final convention ((-90, 90), 90 == z_up,
+            # -90 == nadir), the same one the YAMLs use. set_global_coords below
+            # applies elev -> 90 - elev, so pre-compensate here.
+            elev = 90.0 - draw_uniform(param.geometry.elevation, "elevation")
         else:
             raise ValueError(
                 f"Did not recognize elevation type of {

@@ -71,9 +71,16 @@ class ParametersSingleSpaceStation(ParametersBase):
             """
             Defines pointing parameters for the space station geometry.
             """
-            __EXISTING_TYPES = ["FIXED", "POINTING_AT_IMT", "POINTING_AT_LAT_LONG_ALT"]
-            type: typing.Literal["FIXED", "POINTING_AT_IMT", "POINTING_AT_LAT_LONG_ALT"] = None
+            __EXISTING_TYPES = [
+                "FIXED", "POINTING_AT_IMT", "POINTING_AT_LAT_LONG_ALT", "RANDOM_RANGE",
+            ]
+            type: typing.Literal[
+                "FIXED", "POINTING_AT_IMT", "POINTING_AT_LAT_LONG_ALT", "RANDOM_RANGE",
+            ] = None
             fixed: float = None
+            # RANDOM_RANGE: drawn uniformly in [min, max] once per snapshot
+            min: float = None
+            max: float = None
 
             def validate(self, ctx):
                 """
@@ -92,6 +99,15 @@ class ParametersSingleSpaceStation(ParametersBase):
                                 self.fixed,
                                 float):
                             raise ValueError(f"{ctx}.fixed should be a number")
+                    case "RANDOM_RANGE":
+                        for lim in ("min", "max"):
+                            if not isinstance(getattr(self, lim), (int, float)):
+                                raise ValueError(
+                                    f"{ctx}.{lim} should be a number when "
+                                    f"{ctx}.type == 'RANDOM_RANGE'")
+                        if self.min > self.max:
+                            raise ValueError(
+                                f"{ctx}.min should not be greater than {ctx}.max")
                     case "POINTING_AT_IMT":
                         pass
                     case _:

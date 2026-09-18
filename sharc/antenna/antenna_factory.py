@@ -11,6 +11,7 @@ from sharc.antenna.antenna_s465 import AntennaS465
 from sharc.antenna.antenna_rra7_3 import AntennaReg_RR_A7_3
 from sharc.antenna.antenna_s580 import AntennaS580
 from sharc.antenna.antenna_s1528 import AntennaS1528
+from sharc.antenna.antenna_s672 import AntennaS672
 from sharc.antenna.antenna_s1855 import AntennaS1855
 from sharc.antenna.antenna_f1245_fs import Antenna_f1245_fs
 from sharc.antenna.antenna_s1528 import AntennaS1528, AntennaS1528Leo, AntennaS1528Taylor
@@ -50,6 +51,8 @@ class AntennaFactory():
                 return AntennaS465(antenna_params.itu_r_s_465_modified)
             case "ITU-R S.1855":
                 return AntennaS1855(antenna_params.itu_r_s_1855)
+            case "ITU-R S.672":
+                return AntennaS672(antenna_params.itu_r_s_672)
             case "ITU-R F.1245_fs":
                 return Antenna_f1245_fs(antenna_params.itu_r_f_1245_fs)
             case "ITU-R Reg. RR. Appendice 7 Annex 3":
@@ -86,11 +89,23 @@ class AntennaFactory():
         assert n_stations == len(azimuth)
         assert n_stations == len(elevation)
 
+        if n_stations == 0:
+            return antennas
+
         if antenna_params.pattern == "ARRAY":
-            for i in range(n_stations):
-                antennas[i] = AntennaFactory.create_antenna(
-                    antenna_params, azimuth[i], elevation[i],
-                )
+            first = AntennaFactory.create_antenna(
+                antenna_params, azimuth[0], elevation[0],
+            )
+            if getattr(first, "constant_gain", False):
+                # 1x1 constant-gain "array" (e.g. a -4 dBi UE): the gain does
+                # not depend on orientation or beams, share a single object.
+                antennas[:] = first
+            else:
+                antennas[0] = first
+                for i in range(1, n_stations):
+                    antennas[i] = AntennaFactory.create_antenna(
+                        antenna_params, azimuth[i], elevation[i],
+                    )
         else:
             # some antennas don't need azimuth and elevation at all
             # this makes it much faster

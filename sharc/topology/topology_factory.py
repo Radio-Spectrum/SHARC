@@ -14,6 +14,7 @@ from sharc.topology.topology_indoor import TopologyIndoor
 from sharc.topology.topology_ntn import TopologyNTN
 from sharc.topology.topology_single_base_station import TopologySingleBaseStation
 from sharc.topology.topology_spherical_sampling_from_grid import TopologySamplingFromSphericalGrid
+from sharc.topology.topology_countries import TopologyCountries
 from sharc.parameters.parameters import Parameters
 from sharc.support.sharc_geom import CoordinateSystem
 
@@ -64,6 +65,11 @@ class TopologyFactory(object):
                 parameters.imt.topology.sampling_from_spherical_grid.num_bs,
                 (coordinate_system.ref_lat, coordinate_system.ref_long, coordinate_system.ref_alt),
                 parameters.imt.topology.sampling_from_spherical_grid.grid,
+            )
+        elif parameters.imt.topology.type == "MACRO_COUNTRIES":
+            return TopologyCountries(
+                parameters.imt.topology.macrocell_countries,
+                coordinate_system=coordinate_system
             )
         else:
             sys.stderr.write(

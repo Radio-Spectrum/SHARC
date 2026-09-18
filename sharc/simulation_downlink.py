@@ -556,6 +556,9 @@ class SimulationDownlink(Simulation):
         bs_interferer_paths = self.paths_between_imt_and_sys.mask.T
         for bs in bs_active:
             system_interfering = np.where(bs_interferer_paths[bs])[0]
+            if system_interfering.size == 0:
+                continue
+
             active_beams = [
                 i for i in range(
                     bs *

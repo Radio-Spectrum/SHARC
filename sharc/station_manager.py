@@ -23,6 +23,9 @@ class StationManager(object):
 
     def __init__(self, n):
         self.num_stations = n
+        self.latitude = np.zeros(n, dtype=float)  # Latitude of station
+        self.longitude = np.zeros(n, dtype=float)  # Longitude of station
+        self.height = np.empty(n)  # station height above ground
         self.idx_orbit = np.empty(n)
         self.indoor = np.zeros(n, dtype=bool)
         self.active = np.ones(n, dtype=bool)
@@ -91,6 +94,7 @@ class StationManager(object):
         station.z = self.geom.z_global[id]
         station.azimuth = self.geom.pointn_azim_global[id]
         station.elevation = self.geom.pointn_elev_global[id]
+        station.height = self.height[id]
         station.indoor = self.indoor[id]
         station.active = self.active[id]
         station.tx_power = self.tx_power[id]

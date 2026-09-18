@@ -346,40 +346,40 @@ class PropagationP619(Propagation):
         masked_frequency = frequency * np.ones_like(masked_distance)
 
         # Elevation angles seen from the station on Earth.
-        masked_elevation_angles = {}
+        elevation_angles = {}
         if station_a.is_space_station:
-            if station_b.geom.uses_local_coords:
-                raise NotImplementedError(
-                    "P619 currently assumes earth station z == height. "
-                    "If ES has local coords != global coords, this probably isn't true"
-                )
-            masked_indoor_stations = path.sta_b_to_masked(station_b.indoor)
-            masked_earth_station_height = path.sta_b_to_masked(station_b.geom.z_global)
-            masked_elevation_angles["free_space"] = station_b.geom.get_local_elevation(station_a.geom)
-            masked_earth_station_antenna_gain = path.mtx_to_masked(np.swapaxes(station_b_gains, 0, 1))
-            masked_elevation_angles["apparent"] = self.apparent_elevation_angle(
-                masked_elevation_angles["free_space"],
+            indoor_stations = path.sta_b_to_masked(station_b.indoor)
+            # Use the local z (height above the earth station's own ground
+            # plane) rather than the global z, which for locally-referenced
+            # stations (e.g. macro_countries BS) is an absolute coordinate,
+            # not a height. Local and global z coincide when the station
+            # doesn't use a local reference frame.
+            earth_station_height = path.sta_b_to_masked(station_b.geom.z_local)
+            # Elevation as seen from the earth station (station_b), respecting
+            # its local coordinate system/reference frame.
+            elevation_angles["free_space"] = station_b.geom.get_local_elevation(station_a.geom)
+            elevation_angles["free_space"][elevation_angles["free_space"] < 0] = 0
+            earth_station_antenna_gain = path.mtx_to_masked(np.swapaxes(station_b_gains, 0, 1))
+            elevation_angles["apparent"] = self.apparent_elevation_angle(
+                elevation_angles["free_space"],
                 self.earth_station_alt_m,
             )
             # Transpose it to fit the expected path loss shape
-            masked_elevation_angles["free_space"] = path.mtx_to_masked(np.transpose(
-                masked_elevation_angles["free_space"]))
-            masked_elevation_angles["apparent"] = path.mtx_to_masked(np.transpose(
-                masked_elevation_angles["apparent"]))
+            elevation_angles["free_space"] = path.mtx_to_masked(np.transpose(
+                elevation_angles["free_space"]))
+            elevation_angles["apparent"] = path.mtx_to_masked(np.transpose(
+                elevation_angles["apparent"]))
         elif station_b.is_space_station:
-            if station_a.geom.uses_local_coords:
-                raise NotImplementedError(
-                    "P619 currently assumes earth station z == height. "
-                    "If ES has local coords != global coords, this probably isn't true"
-                )
-            masked_indoor_stations = path.sta_a_to_masked(station_a.indoor)
-            masked_earth_station_height = path.sta_a_to_masked(station_a.geom.z_global)
-            masked_elevation_angles["free_space"] = path.mtx_to_masked(
+            indoor_stations = path.sta_a_to_masked(station_a.indoor)
+            # See note above: local z is the correct height above ground for
+            # locally-referenced earth stations.
+            earth_station_height = path.sta_a_to_masked(station_a.geom.z_local)
+            elevation_angles["free_space"] = path.mtx_to_masked(
                 station_a.geom.get_local_elevation(station_b.geom)
             )
-            masked_earth_station_antenna_gain = path.mtx_to_masked(station_a_gains)
-            masked_elevation_angles["apparent"] = self.apparent_elevation_angle(
-                masked_elevation_angles["free_space"],
+            earth_station_antenna_gain = path.mtx_to_masked(station_a_gains)
+            elevation_angles["apparent"] = self.apparent_elevation_angle(
+                elevation_angles["free_space"],
                 self.earth_station_alt_m,
             )
         else:
@@ -417,17 +417,15 @@ class PropagationP619(Propagation):
         masked_loss = self.get_loss(
             masked_distance,
             masked_frequency,
-            masked_indoor_stations,
-            masked_elevation_angles,
+            indoor_stations,
+            elevation_angles,
             is_earth_to_space_link,
-            masked_earth_station_antenna_gain,
+            earth_station_antenna_gain,
             is_single_entry_interf,
-            masked_earth_station_height,
+            earth_station_height,
         )
 
-        loss = path.from_masked_mtx(masked_loss)
-
-        return loss
+        return path.from_masked_mtx(masked_loss)
 
     @dispatch(np.ndarray, np.ndarray, np.ndarray, dict, bool, np.ndarray, bool, np.ndarray)
     def get_loss(
@@ -471,7 +469,7 @@ class PropagationP619(Propagation):
             raise ValueError(error_message)
 
         atmospheric_gasses_loss = self._get_atmospheric_gasses_loss(
-            frequency_MHz=freq_set,
+            frequency_MHz=freq_set.item(),
             # FIXME: mean of apparent elevation????
             apparent_elevation=np.mean(elevation["apparent"]),
         )
@@ -564,6 +562,8 @@ if __name__ == '__main__':
     loss_false = np.zeros(len(apparent_elevation))
     loss_true = np.zeros(len(apparent_elevation))
 
+    has_lookup_table = propagation.lookup_table
+
     print("Plotting atmospheric loss:")
     for index in range(len(apparent_elevation)):
         print(
@@ -580,16 +580,21 @@ if __name__ == '__main__':
             surf_water_vapour_density=surf_water_vapour_density,
             lookupTable=table,
         )
-        table = True
-        loss_true[index] = propagation._get_atmospheric_gasses_loss(
-            frequency_MHz=frequency_MHz,
-            apparent_elevation=apparent_elevation[index],
-            surf_water_vapour_density=surf_water_vapour_density,
-            lookupTable=table,
-        )
+        if has_lookup_table:
+            table = True
+            try:
+                loss_true[index] = propagation._get_atmospheric_gasses_loss(
+                    frequency_MHz=frequency_MHz,
+                    apparent_elevation=apparent_elevation[index],
+                    surf_water_vapour_density=surf_water_vapour_density,
+                    lookupTable=table,
+                )
+            except FileNotFoundError as error:
+                # no pre-computed table for this city/frequency/altitude
+                warn(str(error))
+                has_lookup_table = False
 
     plt.figure()
-    plt.semilogy(apparent_elevation, loss_false, label='No Table')
     plt.semilogy(apparent_elevation, loss_true, label='With Table')
 
     plt.grid(True)

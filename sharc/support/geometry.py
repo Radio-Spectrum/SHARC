@@ -2,7 +2,7 @@
 # from sharc.satellite.utils.sat_utils import lla2ecef
 
 from sharc.satellite.ngso.constants import EARTH_RADIUS_M
-from sharc.support.sharc_geom import cartesian_to_polar, polar_to_cartesian
+from sharc.support.sharc_geom import cartesian_to_polar, polar_to_cartesian, CoordinateSystem
 import scipy
 import numpy as np
 from dataclasses import dataclass
@@ -253,7 +253,6 @@ class GlobalGeometry(ABC):
             phi, theta (phi is calculated with respect to x counter-clockwise and
             theta is calculated with respect to z counter-clockwise).
         """
-
         # malloc
         dx = (other.x_global - self.x_global[:, np.newaxis]).astype(np.float64)
         dy = (other.y_global - self.y_global[:, np.newaxis]).astype(np.float64)
@@ -547,6 +546,15 @@ class ENUReferenceFrame(ReferenceFrame):
             ecef2local_rot, ecef2local_translation
         )
         return ecef2local
+
+    @staticmethod
+    def from_coordinate_system(cs: CoordinateSystem):
+        """Build an ENU reference frame at the coordinate system's reference point."""
+        return ENUReferenceFrame(
+            lat=cs.ref_lat,
+            lon=cs.ref_long,
+            alt=cs.ref_alt,
+        )
 
 
 class DWNReferenceFrame(ENUReferenceFrame):
@@ -897,6 +905,51 @@ class SimulatorGeometry(GlobalGeometry):
             return dist2d, z_dist
         return dist2d
 
+    def get_local_pointing_vector_to(self, other: "SimulatorGeometry") -> tuple:
+        """Pointing angles to another geometry, in each of THIS geometry's own
+        local reference frames.
+
+        Same return convention as get_global_pointing_vector_to (phi from the x
+        axis towards y, theta from the z axis), but expressed in the observer's
+        local frame. For stations that carry a per-station local frame (one ENU
+        per site, as in the countries topologies) this is the frame the antenna
+        orientation is defined in: the array's row axis is the local vertical.
+        Using the global frame instead leaves the array rolled about its
+        boresight by the Earth curvature between the site and the simulation
+        reference point, which distorts the pattern for continental networks.
+
+        Falls back to the global pointing vector when this geometry does not
+        use local coordinates (all sites then share the global frame).
+
+        Parameters
+        ----------
+        other : SimulatorGeometry
+            The geometry to point at.
+
+        Returns
+        -------
+        tuple
+            phi, theta in degrees, shape (num_self, num_other).
+        """
+        if not self.uses_local_coords:
+            return self.get_global_pointing_vector_to(other)
+
+        p_global = np.stack(
+            [other.x_global, other.y_global, other.z_global], axis=-1,
+        )
+        other_local = self._global2local_points_permutation(p_global)
+
+        dx = other_local[..., 0] - self.x_local[:, np.newaxis]
+        dy = other_local[..., 1] - self.y_local[:, np.newaxis]
+        dz = other_local[..., 2] - self.z_local[:, np.newaxis]
+
+        dist = np.sqrt(dx * dx + dy * dy + dz * dz)
+        phi = np.degrees(np.arctan2(dy, dx))
+        theta = np.degrees(
+            np.arccos(np.clip(dz / np.where(dist == 0.0, 1.0, dist), -1.0, 1.0)),
+        )
+        return phi, theta
+
     def get_local_elevation(self, other: "SimulatorGeometry") -> np.array:
         """Calculate the elevation angle between this manager's stations and another's
         considering this one's loca coordinate system
@@ -923,7 +976,7 @@ def plot_geom(
     fig: "go.Figure",
     geom: SimulatorGeometry,
     scatter_params: dict = {},
-    plot_pointing=False,
+    pointing_arrow_size=0
 ):
     """Adds a given SimulatorGeometry to a plotly figure
     considering global coordinates
@@ -944,10 +997,10 @@ def plot_geom(
         )
     )
 
-    if plot_pointing:
+    if pointing_arrow_size > 0.:
         from sharc.support.sharc_geom import polar_to_cartesian
         # Plot beam boresight vectors
-        boresight_length = 100 * 1e3  # Length of the boresight vectors for visualization
+        boresight_length = pointing_arrow_size  # Length of the boresight vectors for visualization
         boresight_x, boresight_y, boresight_z = polar_to_cartesian(
             boresight_length,
             geom.pointn_azim_global,

@@ -139,18 +139,28 @@ class AntennaSubarrayIMT(object):
         -------
             gain (np.array): element radiation pattern gain value [dBi]
         """
-        if isinstance(phi_arr, float) and isinstance(theta_arr, float):
-            return self._calculate_single_dir_gain(phi_arr, theta_arr)
+        scalar = np.isscalar(phi_arr) and np.isscalar(theta_arr)
+        phi = np.atleast_1d(np.asarray(phi_arr, dtype=float))
+        theta = np.atleast_1d(np.asarray(theta_arr, dtype=float))
 
-        n_direct = len(phi_arr)
+        # Element pattern (already vectorized over directions).
+        elem_g = self.element.element_pattern(phi, theta)              # (G,)
 
-        gains = np.zeros(n_direct)
+        # Superposition vector per direction (G, n_rows) and the fixed
+        # subarray excitation (n_rows,) -- vectorized over all directions.
+        m = np.arange(self.n_rows)
+        v = np.exp(
+            1.0j * 2 * np.pi * m[None, :] * self.dv_sub
+            * np.cos(np.deg2rad(theta))[:, None]
+        )                                                              # (G, n_rows)
+        w = (1.0 / np.sqrt(self.n_rows)) * np.exp(
+            1.0j * 2 * np.pi * m * self.dv_sub
+            * np.sin(np.deg2rad(self.eletrical_downtilt))
+        )                                                              # (n_rows,)
+        array_g = 10.0 * np.log10(np.abs(np.sum(v * w, axis=1)) ** 2)  # (G,)
 
-        for i in range(n_direct):
-            gains[i] = self._calculate_single_dir_gain(
-                phi_arr[i], theta_arr[i])
-
-        return gains
+        gains = elem_g + array_g
+        return float(gains[0]) if scalar else gains
 
 
 if __name__ == '__main__':

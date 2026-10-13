@@ -6,11 +6,17 @@ de 30 estações-base perto do ROEN e um conversor para os demais YAMLs daquele
 pacote.
 
 ```
-database/db_teste_30bs.csv            30 BS mais próximas do ROEN (do pacote)
+database/                             bases de estações-base: NÃO versionadas
 input/teste_instalacao.yaml           teste do pacote, convertido para esta branch
 reference/branch_database2_*.csv      saída do teste no pacote (referência)
 Script/convert_from_branch_database2.py
 ```
+
+As bases de estações-base trazem sítios e operadoras reais e ficam fora do Git
+(`sharc/campaigns/*/database/` está no `.gitignore`). Para rodar o teste, copie
+`teste_instalacao/db_teste_30bs.csv` do pacote `branch_database2` para
+`database/`. Sem esse arquivo, o teste `tests/e2e/test_branch_database2_case.py`
+é pulado.
 
 ## Rodar o teste
 

@@ -20,6 +20,9 @@ import pandas as pd
 from sharc.model import Model
 
 CAMPAIGN = Path(__file__).resolve().parents[2] / "sharc" / "campaigns" / "IMT_TO_SES_Database"
+# Real base stations: not versioned (copy it from the branch_database2 package,
+# teste_instalacao/db_teste_30bs.csv, into the campaign's database folder).
+DATABASE = CAMPAIGN / "database" / "db_teste_30bs.csv"
 
 
 def load_converter():
@@ -31,6 +34,7 @@ def load_converter():
     return module
 
 
+@unittest.skipUnless(DATABASE.is_file(), f"base-station database not found: {DATABASE}")
 class BranchDatabase2CaseTest(unittest.TestCase):
     """Run teste_instalacao and compare it with the branch_database2 reference."""
 
@@ -41,7 +45,7 @@ class BranchDatabase2CaseTest(unittest.TestCase):
         converter = load_converter()
         text = converter.convert_text(
             text,
-            database=str(CAMPAIGN / "database" / "db_teste_30bs.csv"),
+            database=str(DATABASE),
             output_dir=str(self.tmp / "out"),
         )
         self.param_file = self.tmp / "teste_instalacao.yaml"

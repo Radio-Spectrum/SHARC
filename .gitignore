@@ -105,3 +105,6 @@ sharc/campaigns/mss_d2d_to_imt/output/*.yaml
 # real-terrain downloads and caches (generated, large)
 sharc/propagation/real_terrain/data/
 sharc/propagation/real_terrain/tile_cache/
+
+# base-station databases (real sites and operators): never versioned
+sharc/campaigns/*/database/

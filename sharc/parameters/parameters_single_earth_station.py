@@ -94,8 +94,11 @@ class ParametersSingleEarthStation(ParametersBase):
         class FixedOrUniformDist(ParametersBase):
             """Represents a value that can be fixed or uniformly distributed."""
 
-            __EXISTING_TYPES = ["UNIFORM_DIST", "FIXED"]
-            type: typing.Literal["UNIFORM_DIST", "FIXED"] = None
+            # POINTING_AT_IMT_CENTER points the antenna at the simulator
+            # reference point (imt.topology.central_latitude/longitude/
+            # altitude), in the station's own frame.
+            __EXISTING_TYPES = ["UNIFORM_DIST", "FIXED", "POINTING_AT_IMT_CENTER"]
+            type: typing.Literal["UNIFORM_DIST", "FIXED", "POINTING_AT_IMT_CENTER"] = None
             fixed: float = None
 
             @dataclass
@@ -147,6 +150,8 @@ class ParametersSingleEarthStation(ParametersBase):
                                 self.fixed,
                                 float):
                             raise ValueError(f"{ctx}.fixed should be a number")
+                    case "POINTING_AT_IMT_CENTER":
+                        pass
                     case _:
                         raise NotImplementedError(
                             f"Validation for {ctx}.type = {
@@ -161,10 +166,10 @@ class ParametersSingleEarthStation(ParametersBase):
         class Location(ParametersBase):
             """Represents a location that can be fixed, cell-based, network-based, or uniformly distributed."""
 
-            __EXISTING_TYPES = ["FIXED", "CELL", "NETWORK", "UNIFORM_DIST"]
+            __EXISTING_TYPES = ["FIXED", "CELL", "NETWORK", "UNIFORM_DIST", "FIXED_GEO"]
             type: typing.Literal[
                 "FIXED", "CELL",
-                "NETWORK", "UNIFORM_DIST",
+                "NETWORK", "UNIFORM_DIST", "FIXED_GEO",
             ] = None
 
             @dataclass
@@ -232,7 +237,29 @@ class ParametersSingleEarthStation(ParametersBase):
                             f"{ctx}.max_dist_to_center needs to be a number",
                         )
 
+            @dataclass
+            class LocationFixedGeo(ParametersBase):
+                """Fixed geographic location of the station site."""
+
+                latitude: float = None
+                longitude: float = None
+                # Ground altitude of the site [m]. The antenna is
+                # geometry.height above it.
+                altitude: float = 0.0
+
+                def validate(self, ctx):
+                    """Validate the geographic coordinates of the site."""
+                    for name, limit in (("latitude", 90.0), ("longitude", 180.0)):
+                        value = getattr(self, name)
+                        if isinstance(value, bool) or not isinstance(value, (int, float)):
+                            raise ValueError(f"{ctx}.{name} needs to be a number")
+                        if abs(value) > limit:
+                            raise ValueError(f"{ctx}.{name} must be in [-{limit}, {limit}]")
+                    if isinstance(self.altitude, bool) or not isinstance(self.altitude, (int, float)):
+                        raise ValueError(f"{ctx}.altitude needs to be a number")
+
             fixed: LocationFixed = field(default_factory=LocationFixed)
+            fixed_geo: LocationFixedGeo = field(default_factory=LocationFixedGeo)
             cell: LocationDistributed = field(
                 default_factory=LocationDistributed,
             )
@@ -256,6 +283,8 @@ class ParametersSingleEarthStation(ParametersBase):
                         self.network.validate(f"{ctx}.network")
                     case "UNIFORM_DIST":
                         self.uniform_dist.validate(f"{ctx}.uniform_dist")
+                    case "FIXED_GEO":
+                        self.fixed_geo.validate(f"{ctx}.fixed_geo")
                     case _:
                         raise NotImplementedError(
                             f"ParametersSingleEarthStation.Location.type = {

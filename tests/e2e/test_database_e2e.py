@@ -174,6 +174,26 @@ class DatabaseE2ETest(unittest.TestCase):
             for p in snapshot_powers.values():
                 npt.assert_allclose(p, total_power + 3.0 - 10 * math.log10(2))
 
+    def test_victim_at_geographic_location(self):
+        """A FIXED_GEO victim pointing at the IMT center, with a directional antenna."""
+        parameters = copy.deepcopy(PARAMETERS)
+        ses = parameters["single_earth_station"]
+        ses["geometry"]["location"] = {
+            "type": "FIXED_GEO",
+            "fixed_geo": {"latitude": -3.87350, "longitude": -38.42216, "altitude": 30.0},
+        }
+        ses["geometry"]["azimuth"] = {"type": "POINTING_AT_IMT_CENTER"}
+        ses["geometry"]["elevation"] = {"type": "FIXED", "fixed": 0.0}
+        ses["antenna"] = {"pattern": "ITU-R F.699", "gain": 30.0,
+                          "itu_r_f_699": {"diameter": 2.0, "frequency": 3500.0}}
+        inr, _, _, sim = self.run_case("geo", parameters)
+        self.assertTrue(np.all(np.isfinite(inr)))
+        # 30 m of ground plus 15 m of antenna
+        npt.assert_allclose(sim.system.geom.z_local, 15.0)
+        # boresight through the simulator reference point, horizontally
+        azim_to_center = np.degrees(np.arctan2(-3.8 + 3.8735, -38.5 + 38.42216))
+        npt.assert_allclose(sim.system.geom.pointn_azim_local, azim_to_center, atol=0.1)
+
     def test_antenna_params_per_bs(self):
         """Each BS gets its own array, downtilt and power."""
         parameters = copy.deepcopy(PARAMETERS)

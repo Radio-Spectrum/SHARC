@@ -449,7 +449,7 @@ class PropagationClearAir(Propagation):
 
         # Basic transmission loss due to free - space propagation and attenuation
         # by atmospheric gases
-        Lbfsg = 92.5 + 20.0 * np.log10(f) + 20.0 * np.log10(d) + Ag
+        Lbfsg = 92.4 + 20.0 * np.log10(f) + 20.0 * np.log10(d) + Ag  # P.452-18 eq. (8)
 
         # Corrections for multipath and focusing effects at p and b0
         Esp = 2.6 * (1 - np.exp(-0.1 * (dlt + dlr))) * np.log10(p / 50)
@@ -858,7 +858,7 @@ class PropagationClearAir(Propagation):
 
         # Basic transmission loss due to free - space propagation and attenuation
         # by atmospheric gases
-        Lbfsg = 92.5 + 20.0 * np.log10(f) + 20.0 * np.log10(d) + Ag
+        Lbfsg = 92.4 + 20.0 * np.log10(f) + 20.0 * np.log10(d) + Ag  # P.452-18 eq. (8)
 
         # Corrections for multipath and focusing effects at p and b0
         Esp = 2.6 * (1 - np.exp(-0.1 * (dlt + dlr))) * np.log10(p / 50)

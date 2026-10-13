@@ -90,6 +90,11 @@ class TopologyCountries(Topology):
         # Antenna height above ground of each site (m). None means every BS
         # uses imt.bs.height; set only when the sites come from a database.
         self.site_heights: np.ndarray | None = None
+        # Array antenna and downtilt of each site (AntennaParamsFromFile) and
+        # its total transmit power (dBm). None means every BS uses the
+        # imt.bs parameters; set only with database.from_db_antenna_params.
+        self.site_antenna_params: list | None = None
+        self.site_tx_power: np.ndarray | None = None
 
         if self.database is not None:
             # No country shapes or population raster are needed.
@@ -275,6 +280,9 @@ class TopologyCountries(Topology):
         else:
             self.ground_altitude = np.zeros_like(self.lats)
         self.site_heights = self.height
+        self.site_antenna_params = self.database.antenna_params
+        if self.site_antenna_params is not None:
+            self.site_tx_power = np.array([p.tx_power for p in self.site_antenna_params])
         self.country_index = np.full(len(self.lats), "database", dtype=object)
         self.num_base_stations = len(self.lats)
 

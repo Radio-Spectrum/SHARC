@@ -162,8 +162,17 @@ class SimulationDownlink(Simulation):
         # pwr_1 is the transmit power from bs_1 to ue_1, pwr_2 is the transmit
         # power from bs_1 to ue_2, etc
         bs_active = np.where(self.bs.active)[0]
-        self.bs.tx_power = dict(
-            [(bs, tx_power * np.ones(self.parameters.imt.ue.k)) for bs in bs_active])
+        site_tx_power = getattr(self.topology, "site_tx_power", None)
+        if site_tx_power is None:
+            self.bs.tx_power = dict(
+                [(bs, tx_power * np.ones(self.parameters.imt.ue.k)) for bs in bs_active])
+        else:
+            # total power of each BS from the topology (e.g. a database)
+            self.bs.tx_power = dict([
+                (bs, (site_tx_power[bs] - 10 * math.log10(self.parameters.imt.ue.k))
+                 * np.ones(self.parameters.imt.ue.k))
+                for bs in bs_active
+            ])
 
         # Update the spectral mask
         if self.adjacent_channel:
@@ -554,6 +563,14 @@ class SimulationDownlink(Simulation):
                 "Implementation does not support victim system with more than 1 active station"
             )
 
+        # The powers above are those of the first active BS. When each BS has
+        # its own power (e.g. from a database), the emissions that scale with
+        # it are shifted per BS by its difference to that first BS. The
+        # spectral-mask emission is not shifted: the mask is set from the
+        # imt.bs power of the parameter file (absolute masks, such as the
+        # 3GPP ones, do not depend on it beyond the channel).
+        per_bs_power = getattr(self.topology, "site_tx_power", None) is not None
+
         rx_interference = 0
         bs_interferer_paths = self.paths_between_imt_and_sys.mask.T
         for bs in bs_active:
@@ -568,9 +585,12 @@ class SimulationDownlink(Simulation):
                     self.parameters.imt.ue.k,
                 )
             ]
+            if per_bs_power:
+                power_shift = self.bs.tx_power[bs][0] - self.bs.tx_power[frst_bs][0]
             if self.co_channel:
+                pow_coch_bs = pow_coch + power_shift if per_bs_power else pow_coch
                 rx_interference += np.sum(
-                    10 ** (0.1 * (pow_coch - self.coupling_loss_imt_system[active_beams, system_interfering]))
+                    10 ** (0.1 * (pow_coch_bs - self.coupling_loss_imt_system[active_beams, system_interfering]))
                 )
 
             if self.adjacent_channel:
@@ -585,9 +605,14 @@ class SimulationDownlink(Simulation):
                 # so more would have to be fixed before this
                 assert np.all(adj_loss == adj_loss.flat[0])
 
-                tx_oob_s = tx_oob - adj_loss[0, :]
+                tx_oob_bs, rx_oob_bs = tx_oob, rx_oob
+                if per_bs_power:
+                    if self.parameters.imt.adjacent_ch_emissions == "ACLR":
+                        tx_oob_bs = tx_oob + power_shift
+                    rx_oob_bs = rx_oob + power_shift
+                tx_oob_s = tx_oob_bs - adj_loss[0, :]
                 if self.param_system.adjacent_ch_reception != "OFF":
-                    rx_oob_s = rx_oob - self.coupling_loss_imt_system[active_beams, system_interfering]
+                    rx_oob_s = rx_oob_bs - self.coupling_loss_imt_system[active_beams, system_interfering]
                 else:
                     rx_oob_s = -np.inf
 

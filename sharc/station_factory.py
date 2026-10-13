@@ -112,6 +112,8 @@ class StationFactory(object):
         """
         param_ant = param_ant_bs.get_antenna_parameters()
         num_bs = topology.num_base_stations
+        # per-site array antenna and downtilt (e.g. read from a database)
+        site_antenna_params = getattr(topology, "site_antenna_params", None)
         imt_base_stations = StationManager(num_bs)
         imt_base_stations.station_type = StationType.IMT_BS
         if param.topology.type == "NTN":
@@ -134,11 +136,15 @@ class StationFactory(object):
             if topology.determines_local_geometry:
                 imt_base_stations.geom = topology.get_bs_geometry()
 
+            if site_antenna_params is None:
+                downtilt = param_ant.downtilt * np.ones(num_bs)
+            else:
+                downtilt = np.array([p.downtilt for p in site_antenna_params])
             imt_base_stations.geom.set_local_coords(
                 topology.x * np.ones(num_bs),
                 topology.y * np.ones(num_bs),
                 StationFactory._bs_heights(param, topology),
-                elev=-param_ant.downtilt * np.ones(num_bs)
+                elev=-downtilt
             )
             if param.topology.type == 'INDOOR':
                 imt_base_stations.geom.set_local_coords(
@@ -185,12 +191,21 @@ class StationFactory(object):
         # row axis is the local vertical). Feeding global angles would leave the
         # array rolled about its boresight by the curvature between the site and
         # the simulation reference point.
-        imt_base_stations.antenna = AntennaFactory.create_n_antennas(
-            param.bs.antenna,
-            imt_base_stations.geom.pointn_azim_local,
-            imt_base_stations.geom.pointn_elev_local,
-            num_bs
-        )
+        if site_antenna_params is None:
+            imt_base_stations.antenna = AntennaFactory.create_n_antennas(
+                param.bs.antenna,
+                imt_base_stations.geom.pointn_azim_local,
+                imt_base_stations.geom.pointn_elev_local,
+                num_bs
+            )
+        else:
+            imt_base_stations.antenna = AntennaFactory.create_n_antennas_from_db(
+                param.bs.antenna,
+                site_antenna_params,
+                imt_base_stations.geom.pointn_azim_local,
+                imt_base_stations.geom.pointn_elev_local,
+                num_bs
+            )
 
         # imt_base_stations.antenna = [AntennaOmni(0) for bs in range(num_bs)]
         imt_base_stations.bandwidth = param.bandwidth * np.ones(num_bs)

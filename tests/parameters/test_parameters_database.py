@@ -5,6 +5,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
+import numpy as np
 import numpy.testing as npt
 
 from sharc.parameters.parameters import Parameters
@@ -107,6 +108,32 @@ class ParametersDatabaseTest(unittest.TestCase):
             )
         with self.assertRaises(ValueError):
             self.load("database:\n  database_file_name: db.csv\n  unknown_key: 1\n")
+
+    def test_antenna_params(self):
+        """from_db_antenna_params needs the topology flag and its columns."""
+        with self.assertRaises(ValueError):
+            self.load("database:\n  database_file_name: db.csv\n  from_db_antenna_params: true\n")
+        flags = "  from_db_topology_countries: true\n  from_db_antenna_params: true\n"
+        with self.assertRaises(ValueError):
+            self.load("database:\n  database_file_name: db.csv\n" + flags)
+
+        lines = (self.csv.read_text().splitlines())
+        lines[0] += ",n_rows,n_columns,beamforming_gain,element_max_g,tx_power,sub_num_rows,downtilt"
+        for i in range(1, len(lines)):
+            lines[i] += f",8,8,15.0,5.0,{40.0 + i},3,6.0"
+        self.csv.write_text("\n".join(lines) + "\n")
+        params = self.load("database:\n  database_file_name: db.csv\n  num_subsets: 2\n" + flags)
+        params.select_subset(1)
+        antennas = params.antenna_params
+        self.assertEqual(len(antennas), 5)
+        self.assertEqual(antennas[0].n_rows, 8)
+        self.assertAlmostEqual(antennas[0].tx_power, 46.0)
+        self.assertAlmostEqual(antennas[0].element_max_g, 5.0 - (10 * np.log10(64) - 15.0))
+
+        lines[1] = lines[1].replace(",8,8,", ",8.5,8,")
+        self.csv.write_text("\n".join(lines) + "\n")
+        with self.assertRaises(ValueError):
+            self.load("database:\n  database_file_name: db.csv\n" + flags)
 
     def test_topology_columns(self):
         """MACRO_COUNTRIES from the database needs valid site columns."""

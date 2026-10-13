@@ -17,6 +17,9 @@ import numpy as np
 import pandas as pd
 
 from sharc.parameters.parameters_base import ParametersBase
+from sharc.parameters.database.parameters_database_imt_antenna import (
+    ANTENNA_COLUMNS, AntennaParamsFromFile,
+)
 
 ALLOWED_FORMATS = (".csv", ".xlsx")
 ALLOWED_DELIMITERS = ("\t", ",", "|")
@@ -51,8 +54,13 @@ class ParametersDatabase(ParametersBase):
     # rejected with a clear message: that topology is not available here.
     from_db_topology_gen_macrocell: bool = False
 
+    # Take the array antenna, downtilt and total power of each BS from the
+    # database (columns in ANTENNA_COLUMNS). Needs from_db_topology_countries.
+    from_db_antenna_params: bool = False
+
     # Runtime state, filled when the database is loaded.
     _data_full: Optional[pd.DataFrame] = field(default=None, init=False, repr=False)
+    _antenna_params_full: Optional[list] = field(default=None, init=False, repr=False)
     _subset_bounds: Optional[np.ndarray] = field(default=None, init=False, repr=False)
     _subset_index: int = field(default=0, init=False, repr=False)
     _snapshots_per_subset: int = field(default=1, init=False, repr=False)
@@ -82,6 +90,11 @@ class ParametersDatabase(ParametersBase):
             Context used in the error messages.
         """
         super().validate(ctx)
+        if self.from_db_antenna_params and not self.from_db_topology_countries:
+            raise ValueError(
+                f"{ctx}.from_db_antenna_params needs {ctx}.from_db_topology_countries: "
+                "the antenna rows must be the sites of the topology",
+            )
         if self.database_file_name is None:
             if self.from_db_topology_countries:
                 raise ValueError(
@@ -144,6 +157,14 @@ class ParametersDatabase(ParametersBase):
             )
         if self.from_db_topology_countries:
             self._check_topology_columns(data)
+        if self.from_db_antenna_params:
+            missing = [c for c in ANTENNA_COLUMNS if c not in data.columns]
+            if missing:
+                raise ValueError(f"ParametersDatabase: missing columns {missing}")
+            self._antenna_params_full = [
+                AntennaParamsFromFile.from_row(row)
+                for row in data[list(ANTENNA_COLUMNS)].to_dict("records")
+            ]
 
         self._data_full = data.reset_index(drop=True)
         # Consecutive subsets whose sizes differ by at most one row, so that
@@ -193,6 +214,14 @@ class ParametersDatabase(ParametersBase):
     def subset_index(self) -> int:
         """Index of the current subset."""
         return self._subset_index
+
+    @property
+    def antenna_params(self) -> Optional[list]:
+        """AntennaParamsFromFile of the current subset (None without from_db_antenna_params)."""
+        if self._antenna_params_full is None:
+            return None
+        start, end = self.subset_rows(self._subset_index)
+        return self._antenna_params_full[start:end]
 
     def subset_rows(self, index: int) -> tuple[int, int]:
         """Return the [start, end) row range of a subset."""

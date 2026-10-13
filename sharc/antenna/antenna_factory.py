@@ -1,5 +1,7 @@
 
 """Antenna factory module for creating antenna instances based on parameters."""
+import copy
+
 from sharc.parameters.parameters_antenna import ParametersAntenna
 from sharc.antenna.antenna import Antenna
 
@@ -112,5 +114,71 @@ class AntennaFactory():
             antennas[:] = AntennaFactory.create_antenna(
                 antenna_params, None, None,
             )
+
+        return antennas
+
+    @staticmethod
+    def create_n_antennas_from_db(
+        antenna_params: ParametersAntenna,
+        db_antenna_params: list,
+        azimuth: np.ndarray,
+        elevation: np.ndarray,
+        n_stations: int,
+    ):
+        """Create one array antenna per station, with per-station database values.
+
+        Every station starts from antenna_params.array; n_rows, n_columns,
+        element_max_g and the subarray rows are replaced by the values of its
+        AntennaParamsFromFile. Stations with the same values share one
+        parameter object, so the batched beam and gain computations still
+        apply when the whole network uses the same array.
+
+        Parameters
+        ----------
+        antenna_params : ParametersAntenna
+            Antenna parameters from the parameter file (pattern ARRAY).
+        db_antenna_params : list of AntennaParamsFromFile
+            One entry per station.
+        azimuth, elevation : np.ndarray
+            Pointing of each station, in its local frame [deg].
+        n_stations : int
+            Number of stations.
+
+        Returns
+        -------
+        np.ndarray
+            Array of AntennaBeamformingImt, one per station.
+        """
+        if antenna_params.pattern != "ARRAY":
+            raise ValueError(
+                "Antenna parameters from the database need the ARRAY pattern, "
+                f"not {antenna_params.pattern}")
+        assert n_stations == len(azimuth)
+        assert n_stations == len(elevation)
+        assert n_stations == len(db_antenna_params)
+
+        base = antenna_params.array.get_antenna_parameters()
+        if base.normalization:
+            raise ValueError(
+                "Beamforming normalization is not supported with antenna "
+                "parameters from the database: the normalization data is "
+                "computed for the array of the parameter file")
+
+        shared = {}
+        antennas = np.empty((n_stations,), dtype=Antenna)
+        for i, db in enumerate(db_antenna_params):
+            key = (db.n_rows, db.n_columns, db.element_max_g, db.sub_num_rows)
+            par = shared.get(key)
+            if par is None:
+                # shallow copies keep the attributes set outside the
+                # dataclass fields (e.g. adjacent_antenna_model)
+                par = copy.copy(base)
+                par.n_rows = db.n_rows
+                par.n_columns = db.n_columns
+                par.element_max_g = db.element_max_g
+                par.subarray = copy.copy(base.subarray)
+                par.subarray.n_rows = db.sub_num_rows
+                shared[key] = par
+            antennas[i] = AntennaBeamformingImt(par, azimuth[i], elevation[i])
 
         return antennas

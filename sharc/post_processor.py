@@ -605,6 +605,65 @@ class PostProcessor:
         return filtered[0]
 
     @staticmethod
+    def aggregate_over_subsets(
+        samples: list[float],
+        subsets: list[int],
+        *,
+        n_aggregate: int | None = None,
+        random_number_gen: np.random.RandomState | None = None,
+    ) -> np.ndarray:
+        """
+        Second Monte Carlo over the subsets of a base-station database run.
+
+        Each snapshot of a database run simulates one subset of the base
+        stations, so each of its samples is the interference of that subset
+        alone. The interference of the whole database is the sum of the
+        contributions of every subset, which are independent (each subset has
+        its own UEs, beams and activity). Each aggregate sample therefore adds,
+        in linear units, one sample drawn at random from every subset.
+
+        Parameters
+        ----------
+        samples : list[float]
+            Samples in dB (e.g. Results.system_inr or system_dl_interf_power).
+        subsets : list[int]
+            Subset of each sample (Results.system_database_subset).
+        n_aggregate : int, optional
+            Number of aggregate samples. Defaults to the number of samples of
+            the smallest subset.
+        random_number_gen : np.random.RandomState, optional
+            Generator of the draws (defaults to a fixed seed, for repeatable
+            post-processing).
+
+        Returns
+        -------
+        np.ndarray
+            Aggregate samples in dB.
+        """
+        samples = np.asarray(samples, dtype=float)
+        subsets = np.asarray(subsets, dtype=int)
+        if samples.shape != subsets.shape:
+            raise ValueError(
+                f"PostProcessor.aggregate_over_subsets: {samples.size} samples but "
+                f"{subsets.size} subset indices")
+        if samples.size == 0:
+            raise ValueError("PostProcessor.aggregate_over_subsets: no samples")
+        if random_number_gen is None:
+            random_number_gen = np.random.RandomState(31)
+
+        per_subset = [samples[subsets == s] for s in np.unique(subsets)]
+        if n_aggregate is None:
+            n_aggregate = min(len(s) for s in per_subset)
+        elif n_aggregate <= 0:
+            raise ValueError(f"n_aggregate must be a positive integer, but got {n_aggregate}.")
+
+        aggregate = np.zeros(n_aggregate)
+        for subset_samples in per_subset:
+            draws = random_number_gen.randint(0, len(subset_samples), size=n_aggregate)
+            aggregate += np.power(10, subset_samples[draws] / 10)
+        return 10 * np.log10(aggregate)
+
+    @staticmethod
     def aggregate_results(
         *,
         dl_samples: list[float],

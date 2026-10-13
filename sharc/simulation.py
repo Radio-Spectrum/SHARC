@@ -192,6 +192,19 @@ class Simulation(ABC, Observable):
         if database is not None and database.is_loaded:
             database.select_subset(database.subset_for_snapshot(snapshot_number))
 
+    def record_database_subset(self, n_samples: int):
+        """Store the current database subset once per system sample just collected.
+
+        Keeps system_database_subset aligned with system_inr, so that the
+        samples can be summed across subsets afterwards.
+
+        Args:
+            n_samples (int): Number of system samples collected in this snapshot.
+        """
+        database = getattr(self.parameters, "database", None)
+        if database is not None and database.is_loaded:
+            self.results.system_database_subset.extend([database.subset_index] * int(n_samples))
+
     def add_observer_list(self, observers: list):
         """
         Add a list of observers to the simulation.

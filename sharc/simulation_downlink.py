@@ -661,6 +661,7 @@ class SimulationDownlink(Simulation):
         """
         if not self.parameters.imt.interfered_with and np.any(self.bs.active):
             self.results.system_inr.extend(self.system.inr.flatten())
+            self.record_database_subset(self.system.inr.size)
             self.results.system_dl_interf_power.extend(
                 self.system.rx_interference.flatten(),
             )

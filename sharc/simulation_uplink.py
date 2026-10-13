@@ -521,6 +521,7 @@ class SimulationUplink(Simulation):
         sys_active = np.where(self.system.active)[0]
         if not self.parameters.imt.interfered_with and np.any(self.bs.active):
             self.results.system_inr.extend(self.system.inr[sys_active].tolist())
+            self.record_database_subset(len(sys_active))
             # FIXME: self.system.rx_interference should not be a scalar
             self.results.system_ul_interf_power.extend(
                 [self.system.rx_interference],

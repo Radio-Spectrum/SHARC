@@ -148,6 +148,9 @@ class DatabaseE2ETest(unittest.TestCase):
         self.assertEqual(sim.parameters.general.num_snapshots, 6)
         self.assertEqual(subsets, [0, 0, 0, 1, 1, 1])
         self.assertEqual(sim.topology.num_base_stations, 3)
+        # the subset of every system sample is stored next to it
+        self.assertEqual(list(sim.results.system_database_subset), subsets)
+        self.assertEqual(len(sim.results.system_inr), len(subsets))
 
     def test_antenna_params_equal_to_parameter_file(self):
         """A database repeating the parameter-file array and power changes nothing."""

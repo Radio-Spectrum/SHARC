@@ -51,6 +51,8 @@ class SimulationDownlink(Simulation):
 
         random_number_gen = np.random.RandomState(seed)
 
+        self.select_database_subset(snapshot_number)
+
         # In case of hotspots, base stations coordinates have to be calculated
         # on every snapshot. Anyway, let topology decide whether to calculate
         # or not

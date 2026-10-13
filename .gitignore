@@ -101,3 +101,7 @@ SYS_*.txt
 /sharc/campaigns/imt_*/output/output_imt*/*.yaml
 /sharc/campaigns/imt_*/output/Figs/*.png
 sharc/campaigns/mss_d2d_to_imt/output/*.yaml
+
+# real-terrain downloads and caches (generated, large)
+sharc/propagation/real_terrain/data/
+sharc/propagation/real_terrain/tile_cache/

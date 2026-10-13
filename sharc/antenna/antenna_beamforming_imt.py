@@ -366,6 +366,29 @@ class AntennaBeamformingImt(Antenna):
                 )
                 sys.exit(1)
 
+        if not co_channel:
+            # Without the array factor the gain depends only on the antenna
+            # and the direction. Rows of the same antenna asking for the same
+            # directions (its beams) are computed once and copied, so that
+            # they get exactly the same gain: evaluated as separate rows of a
+            # stacked batch they could differ in the last bit, and the
+            # downlink requires every beam of a BS to couple equally into the
+            # adjacent channel.
+            first_row = {}
+            source = np.arange(n_ant)
+            for i, a in enumerate(antennas):
+                j = first_row.setdefault(id(a), i)
+                if j != i and np.array_equal(phi[i], phi[j]) and np.array_equal(theta[i], theta[j]):
+                    source[i] = j
+            if np.any(source != np.arange(n_ant)):
+                unique_rows, inverse = np.unique(source, return_inverse=True)
+                gains = AntennaBeamformingImt.calculate_gain_batch(
+                    [antennas[r] for r in unique_rows],
+                    phi[unique_rows], theta[unique_rows], beams_l[unique_rows],
+                    co_channel=False,
+                )
+                return gains[inverse]
+
         if ref.constant_gain:
             gains = ref.element.element_pattern(phi, theta)
             if not co_channel:

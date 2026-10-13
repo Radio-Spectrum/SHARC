@@ -253,8 +253,13 @@ class PropagationClearAir(Propagation):
         alpha_obr = max(HH[1:n - 1] / (dtot - d[1:n - 1]))  # Eq(165c)
 
         # Calculate provisional values for the Tx and Rx smooth surface heights
-        gt = alpha_obt / (alpha_obt + alpha_obr)  # Eq(166e)
-        gr = alpha_obr / (alpha_obt + alpha_obr)  # Eq(166f)
+        denom_ab = alpha_obt + alpha_obr
+        if denom_ab > 0:
+            gt = alpha_obt / denom_ab  # Eq(166e)
+            gr = alpha_obr / denom_ab  # Eq(166f)
+        else:
+            gt = 0.0
+            gr = 0.0
 
         if hobs <= 0:
             hstp = hst
@@ -659,8 +664,13 @@ class PropagationClearAir(Propagation):
         alpha_obr = max(HH[1:n - 1] / (dtot - d[1:n - 1]))  # Eq(165c)
 
         # Calculate provisional values for the Tx and Rx smooth surface heights
-        gt = alpha_obt / (alpha_obt + alpha_obr)  # Eq(166e)
-        gr = alpha_obr / (alpha_obt + alpha_obr)  # Eq(166f)
+        denom_ab = alpha_obt + alpha_obr
+        if denom_ab > 0:
+            gt = alpha_obt / denom_ab  # Eq(166e)
+            gr = alpha_obr / denom_ab  # Eq(166f)
+        else:
+            gt = 0.0
+            gr = 0.0
 
         if hobs <= 0:
             hstp = hst
@@ -1037,7 +1047,8 @@ class PropagationClearAir(Propagation):
 
         beta = b0 * mu2 * mu3
 
-        # beta = max(beta, eps); % to avoid division by zero
+        # avoid division by zero when mu2 or mu3 collapse to 0
+        beta = max(beta, np.finfo(float).eps)
 
         Gamma = 1.076 / (2.0058 - np.log10(beta)) ** 1.012 * np.exp(-(9.51 - 4.8 * \
                          np.log10(beta) + 0.198 * (np.log10(beta)) ** 2) * 1e-6 * dtot ** (1.13),)
@@ -1074,6 +1085,65 @@ class PropagationClearAir(Propagation):
         Lba = Af + Adp + Ag
 
         return Lba
+
+    @staticmethod
+    def path_fraction_v2(d, zone, zone_r):
+        """Fraction of a single path lying in radio-climatic zone ``zone_r``.
+
+        Used instead of ``path_fraction`` when a zone profile is given. As
+        P.452-18 sec. 3.2.1 asks, a zone change is placed midway between two
+        points with different codes.
+
+        Parameters
+        ----------
+        d : np.ndarray
+            1-D distances along the path (km), increasing.
+        zone : np.ndarray
+            Zone code per point (1 = A1 coastal land, 2 = A2 inland, 3 = B sea).
+        zone_r : int
+            Zone whose fraction is wanted.
+
+        Returns
+        -------
+        float
+            Fraction of the path length in zone_r.
+        """
+        d = np.asarray(d, float)
+        inside = np.asarray(zone) == zone_r
+        if not inside.any():
+            return 0.0
+        mid = np.concatenate([[d[0]], (d[1:] + d[:-1]) / 2, [d[-1]]])
+        owned = mid[1:] - mid[:-1]
+        return float(owned[inside].sum() / (d[-1] - d[0]))
+
+    @staticmethod
+    def coast_distances(d, zone):
+        """Distance over land from each terminal to the first sea point (km).
+
+        Returns (dct, dcr) of P.452-18 eq. (49). With no sea on the path both
+        are the path length, which keeps the over-sea coupling correction
+        (dct, dcr <= 5 km) off.
+
+        Parameters
+        ----------
+        d : np.ndarray
+            1-D distances along the path (km), from the transmitter.
+        zone : np.ndarray
+            Zone code per point (3 = sea).
+
+        Returns
+        -------
+        tuple
+            (dct, dcr) in km.
+        """
+        d = np.asarray(d, float)
+        sea = np.flatnonzero(np.asarray(zone) == 3)
+        if sea.size == 0:
+            return float(d[-1] - d[0]), float(d[-1] - d[0])
+        i0, i1 = sea[0], sea[-1]
+        dct = 0.0 if i0 == 0 else (d[i0] + d[i0 - 1]) / 2 - d[0]
+        dcr = 0.0 if i1 == d.size - 1 else d[-1] - (d[i1] + d[i1 + 1]) / 2
+        return float(dct), float(dcr)
 
     @staticmethod
     def dl_bull(d, h, hts, hrs, ap, f):
@@ -1346,7 +1416,8 @@ class PropagationClearAir(Propagation):
             hse = hse / d
 
             # Calculate the required clearance for zero diffraction loss
-            hreq = 17.456 * np.sqrt(dse1 * dse2 * lamb / d)
+            # guard against degenerate geometry (dse1 * dse2 < 0 when b > 1)
+            hreq = 17.456 * np.sqrt(np.maximum(dse1 * dse2 * lamb / d, 0.0))
 
             if hse > hreq:
                 Ldsph = np.array([0, 0])
@@ -1366,8 +1437,13 @@ class PropagationClearAir(Propagation):
         return Ldsph
 
     @staticmethod
-    def dl_delta_bull(d, h, hts, hrs, hstd, hsrd, ap, f, omega):
+    def dl_delta_bull(d, h, hts, hrs, hstd, hsrd, ap, f, omega, g=None):
         """Calculate the general diffraction loss using the Bullington and spherical-Earth methods.
+
+        ``g`` is the profile with representative clutter heights (P.452-18
+        eq. 6e). When given, it replaces ``h`` only in the Bullington loss of
+        the actual path (sec. 4.2.1/4.2.3); hstd and hsrd still come from the
+        bare terrain.
 
         Parameters
         ----------
@@ -1389,6 +1465,8 @@ class PropagationClearAir(Propagation):
             Frequency in GHz.
         omega : float
             Fraction of path over sea.
+        g : np.ndarray, optional
+            Profile with clutter heights, for the actual-path Bullington loss.
 
         Returns
         -------
@@ -1398,7 +1476,7 @@ class PropagationClearAir(Propagation):
         # Use the method in 4.2 .1 for the actual terrain profile and antenna
         # heights.Set the resulting Bullington diffraction loss for the actual
         # path to Lbulla
-        Lbulla = PropagationClearAir.dl_bull(d, h, hts, hrs, ap, f)
+        Lbulla = PropagationClearAir.dl_bull(d, h if g is None else g, hts, hrs, ap, f)
 
         # Use the method in 4.2.1 for a second time, with all profile heights hi
         # set to zero and modified antenna heights given by
@@ -1426,7 +1504,7 @@ class PropagationClearAir(Propagation):
         return Ld
 
     @staticmethod
-    def dl_p(d, h, hts, hrs, hstd, hsrd, f, omega, p, b0, DN):
+    def dl_p(d, h, hts, hrs, hstd, hsrd, f, omega, p, b0, DN, g=None):
         """Calculate the diffraction loss not exceeded for a given time percentage using ITU-R P.452.
 
         Parameters
@@ -1453,6 +1531,8 @@ class PropagationClearAir(Propagation):
             Reference time percentage for interpolation.
         DN : float
             Surface refractivity lapse-rate.
+        g : np.ndarray, optional
+            Profile with clutter heights (see dl_delta_bull).
 
         Returns
         -------
@@ -1468,7 +1548,7 @@ class PropagationClearAir(Propagation):
         ap = ae
 
         Ld50 = PropagationClearAir.dl_delta_bull(
-            d, h, hts, hrs, hstd, hsrd, ap, f, omega,
+            d, h, hts, hrs, hstd, hsrd, ap, f, omega, g,
         )
 
         if p == 50:
@@ -1480,7 +1560,7 @@ class PropagationClearAir(Propagation):
             ap = ab
 
             Ldb = PropagationClearAir.dl_delta_bull(
-                d, h, hts, hrs, hstd, hsrd, ap, f, omega,
+                d, h, hts, hrs, hstd, hsrd, ap, f, omega, g,
             )
 
             # Compute the interpolation factor Fi
@@ -1527,6 +1607,9 @@ class PropagationClearAir(Propagation):
             Return an array station_a.num_stations x station_b.num_stations with the path loss
             between each station
         """
+        if self.model_params.override_from_db:
+            return self._precomputed_path_loss(params, path)
+
         masked_distance = path.mtx_to_masked(path.sta_a.geom.get_3d_distance_to(
             path.sta_b.geom,
         )) * (1e-3)  # P.452 expects Kms
@@ -1556,6 +1639,29 @@ class PropagationClearAir(Propagation):
         )
 
         return path.from_masked_mtx(masked_loss)
+
+    @staticmethod
+    def _precomputed_path_loss(params: Parameters, path: PropagationPath) -> np.ndarray:
+        """Path losses precomputed per database BS, for the current subset.
+
+        Shaped (n_system, n_bs). The losses were computed once, over each
+        station's real terrain profile, without antenna gains and with a
+        single draw of any random component of the model.
+        """
+        database = getattr(params, "database", None)
+        if database is None or not database.is_loaded or database.data is None \
+                or "path_loss_p452" not in database.data.columns:
+            raise ValueError(
+                "param_p452.override_from_db needs the P.452 losses precomputed from the "
+                "base-station database (database.use_real_terrain with from_db_topology_countries)")
+        if path.sta_b.station_type is not StationType.IMT_BS or path.sta_a.num_stations != 1:
+            raise NotImplementedError(
+                "P.452 losses from the database are per base station: they need a single "
+                "system station and the IMT base stations (downlink, IMT interfering)")
+        loss = database.data["path_loss_p452"].to_numpy(dtype=float)
+        if loss.size != path.sta_b.num_stations:
+            raise ValueError("P.452 losses from the database do not match the base stations")
+        return loss[np.newaxis, :]
 
     # pylint: disable=arguments-differ
     @dispatch(np.ndarray, np.ndarray, np.ndarray,
@@ -1612,15 +1718,37 @@ class PropagationClearAir(Propagation):
         tx_gain = np.ravel(tx_gain)
         rx_gain = np.ravel(rx_gain)
 
-        # Modify the path according to Section 4.5.4, Step 1  and compute clutter losses
-        # consider no obstacles profile
-        profile_length = 100
+        # Path profile. A terrain profile may be set on the model parameters
+        # (terrain_d in km from the transmitter, terrain_h in m; optionally
+        # terrain_g, the profile with clutter heights, and terrain_zone, the
+        # radio-climatic zone of each point): every link then uses it,
+        # stretched to its own distance. Otherwise, a profile without
+        # obstacles (section 4.5.4, step 1).
+        terrain_d = getattr(self.model_params, "terrain_d", None)
+        terrain_h = getattr(self.model_params, "terrain_h", None)
+        terrain_g = getattr(self.model_params, "terrain_g", None)
+        terrain_zone = getattr(self.model_params, "terrain_zone", None)
+        use_profile = (
+            terrain_d is not None and terrain_h is not None
+            and len(terrain_d) > 1 and len(terrain_h) == len(terrain_d)
+        )
         num_dists = distance.size
-        d = np.empty([num_dists, profile_length])
-        for ii in range(num_dists):
-            d[ii, :] = np.linspace(0, np.ravel(distance)[ii], profile_length)
+        g = None
+        if use_profile:
+            terrain_d = np.asarray(terrain_d, dtype=float)
+            profile_length = terrain_d.size
+            d = np.outer(np.ravel(distance) / terrain_d[-1], terrain_d)
+            h = np.tile(np.asarray(terrain_h, dtype=float), (num_dists, 1))
+            if terrain_g is not None:
+                g = np.tile(np.asarray(terrain_g, dtype=float), (num_dists, 1))
+        else:
+            terrain_zone = None
+            profile_length = 100
+            d = np.empty([num_dists, profile_length])
+            for ii in range(num_dists):
+                d[ii, :] = np.linspace(0, np.ravel(distance)[ii], profile_length)
 
-        h = np.zeros(d.shape)
+            h = np.zeros(d.shape)
 
         ha_t = []
         ha_r = []
@@ -1638,7 +1766,10 @@ class PropagationClearAir(Propagation):
         dtm = np.empty(num_dists)
         dlm = np.empty(num_dists)
 
-        zone = np.ones(profile_length) * 2
+        if terrain_zone is not None:
+            zone = np.asarray(terrain_zone, dtype=float)
+        else:
+            zone = np.ones(profile_length) * 2
         for index in range(num_dists):
 
             zone_r = 12
@@ -1652,7 +1783,10 @@ class PropagationClearAir(Propagation):
         [ae, ab] = self.earth_rad_eff(deltaN)
 
         # Compute the path fraction over sea
-        omega = self.path_fraction(d.transpose(), zone, 3)
+        if terrain_zone is not None:
+            omega = np.array([self.path_fraction_v2(d[k, :], zone, 3) for k in range(num_dists)])
+        else:
+            omega = self.path_fraction(d.transpose(), zone, 3)
 
         # Modify the path according to Section 4.5.4, Step 1 and compute clutter losses
         # only if not isempty ha_t and ha_r
@@ -1731,6 +1865,7 @@ class PropagationClearAir(Propagation):
                                p[ii],
                                b0[ii],
                                deltaN,
+                               None if g is None else g[ii],
                                )
 
             # The median basic transmission loss associated with diffraction Eq

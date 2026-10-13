@@ -194,6 +194,55 @@ class DatabaseE2ETest(unittest.TestCase):
         azim_to_center = np.degrees(np.arctan2(-3.8 + 3.8735, -38.5 + 38.42216))
         npt.assert_allclose(sim.system.geom.pointn_azim_local, azim_to_center, atol=0.1)
 
+    def test_real_terrain_losses(self):
+        """P.452 losses precomputed over a DEM, ground altitude at both ends."""
+        import rasterio
+        from rasterio.transform import from_origin
+
+        # 0.3 deg x 0.3 deg DEM at 0.001 deg: 40 m plain with a 120 m hill
+        lon0, lat0, step, n = -38.65, -3.65, 0.001, 300
+        lons = lon0 + (np.arange(n) + 0.5) * step
+        lats = lat0 - (np.arange(n) + 0.5) * step
+        dem = 40.0 + 120.0 * np.exp(
+            -(((lats[:, None] + 3.86) / 0.01) ** 2 + ((lons[None, :] + 38.45) / 0.01) ** 2))
+        dem_path = self.tmp / "dem.tif"
+        with rasterio.open(
+            dem_path, "w", driver="GTiff", height=n, width=n, count=1, dtype="float32",
+            crs="EPSG:4326", transform=from_origin(lon0, lat0, step, step),
+        ) as ds:
+            ds.write(dem.astype(np.float32), 1)
+
+        parameters = copy.deepcopy(PARAMETERS)
+        parameters["database"]["use_real_terrain"] = True
+        ses = parameters["single_earth_station"]
+        ses["geometry"]["location"] = {
+            "type": "FIXED_GEO",
+            "fixed_geo": {"latitude": -3.87350, "longitude": -38.42216, "altitude": 999.0},
+        }
+        ses["channel_model"] = "P452"
+        ses["param_p452"] = {
+            "percentage_p": 2.0, "clutter_loss": False, "Hte": 30.0, "Hre": 15.0,
+            "tx_lat": -3.8, "rx_lat": -3.87, "override_from_db": True, "hte_from_db": True,
+            "profile_source": "grid", "profile_raster": str(dem_path), "profile_step_m": 100.0,
+        }
+        _, _, _, sim = self.run_case("terrain", parameters)
+        database = sim.parameters.database
+        k = sim.parameters.imt.ue.k
+
+        # the victim stands on the terrain, not on the parameter-file altitude
+        self.assertAlmostEqual(
+            sim.parameters.single_earth_station.geometry.location.fixed_geo.altitude,
+            database.reference_ground,
+        )
+        self.assertLess(abs(database.reference_ground - 40.0), 5.0)
+        # each BS sits on its own ground altitude
+        npt.assert_allclose(sim.topology.ground_altitude, database.data["cota_terreno"])
+        # the snapshot used the precomputed loss of each BS, for every beam
+        npt.assert_allclose(
+            sim.imt_system_path_loss[0],
+            np.repeat(database.data["path_loss_p452"].to_numpy(), k),
+        )
+
     def test_antenna_params_per_bs(self):
         """Each BS gets its own array, downtilt and power."""
         parameters = copy.deepcopy(PARAMETERS)

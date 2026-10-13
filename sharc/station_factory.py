@@ -74,6 +74,18 @@ class StationFactory(object):
     """
 
     @staticmethod
+    def _bs_heights(param: ParametersImt, topology: Topology) -> np.ndarray:
+        """Antenna height above ground of each BS (m).
+
+        imt.bs.height for every BS, unless the topology carries the height of
+        each site (e.g. sites read from a database).
+        """
+        site_heights = getattr(topology, "site_heights", None)
+        if site_heights is not None:
+            return np.asarray(site_heights, dtype=float)
+        return param.bs.height * np.ones(topology.num_base_stations)
+
+    @staticmethod
     def generate_imt_base_stations(
         param: ParametersImt,
         param_ant_bs: ParametersAntennaImt,
@@ -125,7 +137,7 @@ class StationFactory(object):
             imt_base_stations.geom.set_local_coords(
                 topology.x * np.ones(num_bs),
                 topology.y * np.ones(num_bs),
-                param.bs.height * np.ones(num_bs),
+                StationFactory._bs_heights(param, topology),
                 elev=-param_ant.downtilt * np.ones(num_bs)
             )
             if param.topology.type == 'INDOOR':
@@ -429,6 +441,7 @@ class StationFactory(object):
 
             ue_azims = np.zeros_like(imt_ue.geom.pointn_azim_global)
             ue_elevs = np.zeros_like(imt_ue.geom.pointn_elev_global)
+            bs_heights = StationFactory._bs_heights(param, topology)
 
             for bs in range(num_bs):
                 idx = [
@@ -459,7 +472,7 @@ class StationFactory(object):
                     (topology.x[bs] - x) ** 2 + (topology.y[bs] - y) ** 2,
                 )
                 psi = np.degrees(
-                    np.arctan((param.bs.height - param.ue.height) / distance),
+                    np.arctan((bs_heights[bs] - param.ue.height) / distance),
                 )
                 ue_elevs[idx] = elevation[idx] + psi
             imt_ue.geom.set_local_coords(

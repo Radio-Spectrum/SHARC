@@ -32,6 +32,7 @@ from sharc.topology.topology import Topology
 from sharc.satellite.ngso.constants import EARTH_DEFAULT_CRS
 from sharc.parameters.imt.parameters_countries_imt import ParametersCountries
 from sharc.support.sharc_geom import CoordinateSystem
+from sharc.parameters.database.parameters_database import ParametersDatabase
 import sharc
 
 _WGS84_A = 6378137.0                  # semi-major axis [m]
@@ -51,7 +52,8 @@ class TopologyCountries(Topology):
     def __init__(self,
                  params: ParametersCountries,
                  coordinate_system: CoordinateSystem,
-                 random_number_gen: np.random.RandomState | None = None):
+                 random_number_gen: np.random.RandomState | None = None,
+                 database: ParametersDatabase | None = None):
         super().__init__(
             intersite_distance=0.0, cell_radius=params.cell_radius,
             determines_local_geometry=True
@@ -60,6 +62,12 @@ class TopologyCountries(Topology):
         self.coordinate_system = coordinate_system
         self.rng = random_number_gen if random_number_gen is not None \
                    else np.random.RandomState(self.params.rng_seed)
+
+        # When a loaded database is given, the sites are its rows (current
+        # subset) instead of points sampled over the countries.
+        if database is not None and not database.is_loaded:
+            raise ValueError("TopologyCountries: the database was given but not loaded.")
+        self.database = database
 
         # Buffers (will be filled in calculate_coordinates)
         self.countries: List[str] = list(params.country_names)
@@ -75,6 +83,17 @@ class TopologyCountries(Topology):
         self.height = np.empty(0, dtype=float)
         self.azimuth = np.empty(0, dtype=float)
         self.num_base_stations: int = 0
+
+        # Ground altitude of each site (m), used as the altitude of its local
+        # ENU frame. Zero unless the database carries the terrain elevation.
+        self.ground_altitude = np.empty(0, dtype=float)
+        # Antenna height above ground of each site (m). None means every BS
+        # uses imt.bs.height; set only when the sites come from a database.
+        self.site_heights: np.ndarray | None = None
+
+        if self.database is not None:
+            # No country shapes or population raster are needed.
+            return
 
         ################
         # LOAD environment once
@@ -181,15 +200,22 @@ class TopologyCountries(Topology):
         self,
         random_number_gen: np.random.RandomState | None = None
     ) -> "TopologyCountries":
-        """Sample and store BS positions across the configured countries."""
-        # Load country polygons (WGS84)
-        params = self.params
-        lons, lats = self._sample_bs_at_countries()
+        """Sample and store BS positions across the configured countries.
 
-        # Save geodetic positions (for plotting)
-        self.lons = np.array(lons)
-        self.lats = np.array(lats)
-        self.height = np.ones(self.num_base_stations) * params.height
+        With a database, the BS are the rows of its current subset instead.
+        """
+        params = self.params
+        if self.database is not None:
+            self._read_sites_from_database()
+        else:
+            # Load country polygons (WGS84)
+            lons, lats = self._sample_bs_at_countries()
+
+            # Save geodetic positions (for plotting)
+            self.lons = np.array(lons)
+            self.lats = np.array(lats)
+            self.height = np.ones(self.num_base_stations) * params.height
+            self.ground_altitude = np.zeros_like(self.lats)
 
         self.bs_geometry = SimulatorGeometry(
             self.num_base_stations,
@@ -205,7 +231,7 @@ class TopologyCountries(Topology):
             ENUReferenceFrame(
                 lat=self.lats,
                 lon=self.lons,
-                alt=np.zeros_like(self.lats),
+                alt=self.ground_altitude,
             )
         )
 
@@ -217,6 +243,8 @@ class TopologyCountries(Topology):
         # Azimuth assignment
         if params.fixed_azimuth is not None:
             self.azimuth = np.full(self.num_base_stations, float(params.fixed_azimuth))
+        elif self.database is not None:
+            self.azimuth = self._database_azimuth
         else:
             self.azimuth = self.rng.uniform(-180.0, 180.0, size=self.num_base_stations)
 
@@ -228,6 +256,27 @@ class TopologyCountries(Topology):
         )
 
         return self
+
+    def _read_sites_from_database(self):
+        """Take the BS of the database's current subset.
+
+        Columns: latitude/longitude (deg), azimute (deg, from East towards
+        North, as in the rest of the simulator) and altura (antenna height
+        above ground, m). The optional column cota_terreno (ground altitude,
+        m) becomes the altitude of each site's local frame.
+        """
+        data = self.database.data
+        self.lats = data["latitude"].to_numpy(dtype=float)
+        self.lons = data["longitude"].to_numpy(dtype=float)
+        self.height = data["altura"].to_numpy(dtype=float)
+        self._database_azimuth = data["azimute"].to_numpy(dtype=float)
+        if "cota_terreno" in data.columns:
+            self.ground_altitude = data["cota_terreno"].to_numpy(dtype=float)
+        else:
+            self.ground_altitude = np.zeros_like(self.lats)
+        self.site_heights = self.height
+        self.country_index = np.full(len(self.lats), "database", dtype=object)
+        self.num_base_stations = len(self.lats)
 
     # important logic:
     def _sample_bs_at_countries(self) -> (np.ndarray, np.ndarray):
@@ -289,7 +338,7 @@ class TopologyCountries(Topology):
             ENUReferenceFrame(
                 lat=np.repeat(self.lats, ue_k),
                 lon=np.repeat(self.lons, ue_k),
-                alt=np.repeat(np.zeros_like(self.lons), ue_k),
+                alt=np.repeat(self.ground_altitude, ue_k),
             )
         )
         return ue_geom

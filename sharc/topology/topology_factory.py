@@ -26,6 +26,15 @@ class TopologyFactory(object):
     def createTopology(parameters: Parameters,
                        coordinate_system: CoordinateSystem) -> Topology:
         """Create and return a topology object based on the provided parameters."""
+        database = getattr(parameters, "database", None)
+        sites_from_database = database is not None and database.is_loaded \
+            and database.from_db_topology_countries
+        if sites_from_database and parameters.imt.topology.type != "MACRO_COUNTRIES":
+            raise ValueError(
+                "TopologyFactory: database.from_db_topology_countries needs "
+                f"imt.topology.type MACRO_COUNTRIES, not {parameters.imt.topology.type}",
+            )
+
         if parameters.imt.topology.type == "SINGLE_BS":
             return TopologySingleBaseStation(
                 parameters.imt.topology.single_bs.cell_radius,
@@ -69,7 +78,8 @@ class TopologyFactory(object):
         elif parameters.imt.topology.type == "MACRO_COUNTRIES":
             return TopologyCountries(
                 parameters.imt.topology.macrocell_countries,
-                coordinate_system=coordinate_system
+                coordinate_system=coordinate_system,
+                database=database if sites_from_database else None,
             )
         else:
             sys.stderr.write(

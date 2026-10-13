@@ -11,7 +11,7 @@ class Antenna_f1245_fs(Antenna):
 
     def __init__(self, param: ParametersAntennaWithDiameter):
         super().__init__()
-        self.peak_gain = param.gain
+        self.peak_gain = param.antenna_gain
         lmbda = 3e8 / (param.frequency * 1e6)
         self.d_lmbda = param.diameter / lmbda
         self.g_l = 2 + 15 * math.log10(self.d_lmbda)
@@ -147,7 +147,7 @@ if __name__ == '__main__':
     # initialize antenna parameters
     param = ParametersAntennaWithDiameter()
     param.frequency = 2155
-    param.gain = 33.1
+    param.antenna_gain = 33.1
     param.diameter = 2
     antenna_gt = Antenna_f1245_fs(param)
     antenna_gt.add_beam(0, 0)

@@ -18,6 +18,7 @@ from sharc.antenna.antenna_s1855 import AntennaS1855
 from sharc.antenna.antenna_f1245_fs import Antenna_f1245_fs
 from sharc.antenna.antenna_s1528 import AntennaS1528, AntennaS1528Leo, AntennaS1528Taylor
 from sharc.antenna.antenna_beamforming_imt import AntennaBeamformingImt
+from sharc.antenna.antenna_sa509 import AntennaSA509
 
 import numpy as np
 
@@ -59,6 +60,8 @@ class AntennaFactory():
                 return Antenna_f1245_fs(antenna_params.itu_r_f_1245_fs)
             case "ITU-R Reg. RR. Appendice 7 Annex 3":
                 return AntennaReg_RR_A7_3(antenna_params.itu_reg_rr_a7_3)
+            case "ITU-R SA.509":
+                return AntennaSA509(antenna_params.itu_r_sa_509)
             case "MSS Adjacent":
                 return AntennaMSSAdjacent(
                     antenna_params.mss_adjacent.frequency)

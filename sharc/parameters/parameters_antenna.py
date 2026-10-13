@@ -4,6 +4,7 @@ from sharc.parameters.parameters_antenna_with_envelope_gain import ParametersAnt
 from sharc.parameters.antenna.parameters_antenna_s1528 import ParametersAntennaS1528
 from sharc.parameters.antenna.parameters_antenna_s672 import ParametersAntennaS672
 from sharc.parameters.antenna.parameters_antenna_with_freq import ParametersAntennaWithFreq
+from sharc.parameters.antenna.parameters_antenna_sa509 import ParametersAntennaSA509
 from sharc.parameters.imt.parameters_antenna_imt import ParametersAntennaImt
 
 from dataclasses import dataclass, field
@@ -32,7 +33,8 @@ class ParametersAntenna(ParametersBase):
         "ITU-R-S.1528-Section1.2",
         "ITU-R-S.1528-LEO",
         "MSS Adjacent",
-        "ITU-R F.1245_fs"]
+        "ITU-R F.1245_fs",
+        "ITU-R SA.509"]
 
     # chosen antenna radiation pattern
     pattern: typing.Literal["OMNI",
@@ -49,7 +51,8 @@ class ParametersAntenna(ParametersBase):
                             "ITU-R-S.1528-Section1.2",
                             "ITU-R-S.1528-LEO",
                             "MSS Adjacent",
-                            "ITU-R F.1245_fs"] = None
+                            "ITU-R F.1245_fs",
+                            "ITU-R SA.509"] = None
 
     # antenna gain [dBi]
     gain: float = None
@@ -101,6 +104,11 @@ class ParametersAntenna(ParametersBase):
 
     itu_r_f_1245_fs: ParametersAntennaWithDiameter = field(
         default_factory=ParametersAntennaWithDiameter,
+    )
+
+    # radio astronomy antenna; its peak gain comes from the aperture
+    itu_r_sa_509: ParametersAntennaSA509 = field(
+        default_factory=ParametersAntennaSA509,
     )
 
     def set_external_parameters(self, **kwargs):
@@ -208,6 +216,8 @@ class ParametersAntenna(ParametersBase):
                 self.mss_adjacent.validate(f"{ctx}.mss_adjacent")
             case "ITU-R F.1245_fs":
                 self.itu_r_f_1245_fs.validate(f"{ctx}.itu_r_f_1245_fs")
+            case "ITU-R SA.509":
+                self.itu_r_sa_509.validate(f"{ctx}.itu_r_sa_509")
             case _:
                 raise NotImplementedError(
                     "ParametersAntenna.validate does not implement this antenna validation!", )

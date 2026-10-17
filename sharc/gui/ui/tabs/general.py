@@ -18,6 +18,7 @@ import qtawesome as qta
 
 # --- Core Imports ---
 from core.yaml_builder import build_yaml_structure
+from core.yaml_builder import _as_bool  # noqa: E402
 from ui.tabs.assets.general_tab.variable_editor import VariableEditor
 from ui.tabs.assets.general_tab.general_tools import parse_list_safe
 from ui.tabs.assets.ses_tab.ses_persistence import SESPersistence
@@ -28,7 +29,6 @@ GUI_SYSTEM_TYPES = [
     "HAPS",
     "MSS_SS",
     "MSS_D2D",
-    "MSS_DC",
 ]
 
 GUI_TOPOLOGY_TYPES = [
@@ -325,74 +325,76 @@ class GeneralTab(QWidget):
         toolbar_layout.addStretch()
         main_layout.addLayout(toolbar_layout)
 
-        # --- Main Form ---
-        form_group = QGroupBox("General Parameters")
-        grid = QGridLayout(form_group)
-        grid.setColumnStretch(1, 1)
-        grid.setColumnStretch(3, 1)
-        grid.setColumnStretch(5, 1)
+        # --- Seções: Simulation / Interference Channels / Output ---
+        sim_group = QGroupBox("Simulation")
+        sim = QGridLayout(sim_group)
 
-        grid.addWidget(QLabel("Seed"), 0, 0)
+        sim.addWidget(QLabel("Num Snapshots"), 0, 0)
+        self.e_snaps = QLineEdit()
+        sim.addWidget(self.e_snaps, 0, 1)
+
+        sim.addWidget(QLabel("Seed"), 1, 0)
         seed_layout = QHBoxLayout()
         self.e_seed = QLineEdit()
         self.cb_rnd = QCheckBox("Random")
         self.cb_rnd.toggled.connect(self._toggle_random_seed)
         seed_layout.addWidget(self.e_seed)
         seed_layout.addWidget(self.cb_rnd)
-        grid.addLayout(seed_layout, 0, 1)
+        sim.addLayout(seed_layout, 1, 1)
 
-        grid.addWidget(QLabel("Num Snapshots"), 0, 2)
-        self.e_snaps = QLineEdit()
-        grid.addWidget(self.e_snaps, 0, 3)
-
-        grid.addWidget(QLabel("System Type"), 0, 4)
+        sim.addWidget(QLabel("System Type"), 2, 0)
         self.cb_sys = QComboBox()
         self.cb_sys.addItems(GUI_SYSTEM_TYPES)
-        grid.addWidget(self.cb_sys, 0, 5)
+        sim.addWidget(self.cb_sys, 2, 1)
 
-        grid.addWidget(QLabel("Output Dir"), 1, 0)
+        sim.addWidget(QLabel("IMT Link Direction"), 3, 0)
+        self.cb_link = QComboBox()
+        self.cb_link.addItems(["DOWNLINK", "UPLINK"])
+        sim.addWidget(self.cb_link, 3, 1)
+        main_layout.addWidget(sim_group)
+
+        chan_group = QGroupBox("Interference Channels")
+        chan = QGridLayout(chan_group)
+        self.cb_coch = QCheckBox("Co-channel interference")
+        chan.addWidget(self.cb_coch, 0, 0)
+        self.cb_adj = QCheckBox("Adjacent-channel interference")
+        chan.addWidget(self.cb_adj, 1, 0)
+        main_layout.addWidget(chan_group)
+
+        out_group = QGroupBox("Output")
+        out = QGridLayout(out_group)
+        out.addWidget(QLabel("Output Dir"), 0, 0)
         out_layout = QHBoxLayout()
         self.e_outdir = QLineEdit()
         btn_outdir = QPushButton("Browse")
         btn_outdir.clicked.connect(self._pick_outdir)
         out_layout.addWidget(self.e_outdir)
         out_layout.addWidget(btn_outdir)
-        grid.addLayout(out_layout, 1, 1, 1, 5)
+        out.addLayout(out_layout, 0, 1)
 
-        grid.addWidget(QLabel("YAML Dir"), 2, 0)
-        yaml_layout = QHBoxLayout()
+        out.addWidget(QLabel("Filename Prefix"), 1, 0)
+        self.e_prefix = QLineEdit()
+        out.addWidget(self.e_prefix, 1, 1)
+
+        self.cb_overwrite = QCheckBox("Overwrite existing results")
+        out.addWidget(self.cb_overwrite, 2, 0)
+
+        # Os YAMLs são um detalhe interno: gerados em segundo plano ao rodar.
+        self._lbl_yamldir = QLabel("YAML Dir")
         self.e_yamldir = QLineEdit()
         btn_yamldir = QPushButton("Browse")
         btn_yamldir.clicked.connect(self._pick_yamldir)
-        yaml_layout.addWidget(self.e_yamldir)
-        yaml_layout.addWidget(btn_yamldir)
-        grid.addLayout(yaml_layout, 2, 1, 1, 5)
-
-        grid.addWidget(QLabel("Filename Prefix"), 3, 0)
-        self.e_prefix = QLineEdit()
-        grid.addWidget(self.e_prefix, 3, 1)
-
-        grid.addWidget(QLabel("IMT Link Direction"), 3, 2)
-        self.cb_link = QComboBox()
-        self.cb_link.addItems(["DOWNLINK", "UPLINK"])
-        grid.addWidget(self.cb_link, 3, 3)
-
-        self.cb_overwrite = QCheckBox("Overwrite")
-        grid.addWidget(self.cb_overwrite, 3, 5)
-
-        self.cb_adj = QCheckBox("Enable Adj Channel")
-        grid.addWidget(self.cb_adj, 4, 1)
-        self.cb_coch = QCheckBox("Enable Co-Channel")
-        grid.addWidget(self.cb_coch, 4, 3)
-
-        main_layout.addWidget(form_group)
+        for _w in (self._lbl_yamldir, self.e_yamldir, btn_yamldir):
+            _w.setParent(out_group)
+            _w.hide()
+        main_layout.addWidget(out_group)
 
         self.lbl_preview = QLabel("Preview: ...")
-        self.lbl_preview.setStyleSheet("color: gray; font-style: italic;")
+        self.lbl_preview.setObjectName("StatusMsg")
         main_layout.addWidget(self.lbl_preview)
 
         # --- Variables Table UI ---
-        var_group = QGroupBox("Combination Variables (Tags -> YAML Values)")
+        var_group = QGroupBox("Parameter Sweep (optional)")
         var_layout = QVBoxLayout(var_group)
         
         var_tools = QHBoxLayout()
@@ -424,12 +426,13 @@ class GeneralTab(QWidget):
         bot_layout = QHBoxLayout()
         self.btn_actions = QPushButton("ACTIONS / GENERATION")
         self.btn_actions.setIcon(qta.icon('mdi.lightning-bolt'))
-        self.btn_actions.setStyleSheet("background-color: #28a745; color: white; font-weight: bold; padding: 6px;")
+        pass  # estilo vem do tema
 
         self.menu_actions = QMenu(self)
         self.menu_actions.addAction(qta.icon('mdi.rocket-launch'), "Batch Generate (from Table Variables)", self.save_yaml_to_yamldir)
         self.btn_actions.setMenu(self.menu_actions)
         
+        self.btn_actions.hide()  # substituído pelo botão Run da barra de ferramentas
         bot_layout.addWidget(self.btn_actions)
         bot_layout.addStretch()
         main_layout.addLayout(bot_layout)
@@ -468,7 +471,7 @@ class GeneralTab(QWidget):
         elif isinstance(widget, QCheckBox):
             sharc_var.value_changed.connect(lambda v: widget.setChecked(bool(v)))
             widget.toggled.connect(lambda c: sharc_var.set(c))
-            widget.setChecked(bool(sharc_var.get()))
+            widget.setChecked(_as_bool(sharc_var.get()))
 
     # =========================================================================
     # UI Callbacks
@@ -583,11 +586,15 @@ class GeneralTab(QWidget):
             return _num_or_str(new_val) if replaced else new_val
         return obj
 
-    def _internal_save_logic(self, use_combinations=True):
+    def _internal_save_logic(self, use_combinations=True, save_dir=None, quiet=False):
+        """Gera os YAMLs. `save_dir` sobrescreve a pasta; `quiet` suprime os diálogos.
+
+        Retorna a lista de caminhos gerados (vazia em caso de erro/aborto)."""
         if use_combinations:
             if self.var_table.rowCount() == 0:
-                QMessageBox.warning(self, "Generation Aborted", "The variable table is empty.")
-                return
+                if not quiet:
+                    QMessageBox.warning(self, "Generation Aborted", "The variable table is empty.")
+                return []
 
         sys_type = self.app.var_system.get()
         sys_key = str(sys_type or "").strip().lower() or "system"
@@ -605,9 +612,10 @@ class GeneralTab(QWidget):
             if vars_processed:
                 combinations = list(itertools.product(*vars_processed))
 
-        save_dir = Path(self.app.var_yaml_dir.get())
+        save_dir = Path(save_dir) if save_dir else Path(self.app.var_yaml_dir.get())
         save_dir.mkdir(parents=True, exist_ok=True)
 
+        generated = []
         count = 0
         prefix_tmpl = str(self.app.var_prefix.get())
 
@@ -666,17 +674,21 @@ class GeneralTab(QWidget):
                 final_structure["general"]["output_dir_prefix"] = base
                 fname = base if base.endswith(".yaml") else f"{base}.yaml"
             except KeyError as e:
-                QMessageBox.critical(self, "Error", f"Prefix requires variable {e}")
-                return
+                if not quiet:
+                    QMessageBox.critical(self, "Error", f"Prefix requires variable {e}")
+                return generated
 
             if final_structure["general"].get("seed") == "RANDOM":
                 final_structure["general"]["seed"] = random.randint(1, 999999)
             
             out_path = save_dir / fname
             _yaml_safe_dump(final_structure, out_path)
+            generated.append(str(out_path))
             count += 1
 
-        QMessageBox.information(self, "Success", f"Generated {count} configuration files in {save_dir}")
+        if not quiet:
+            QMessageBox.information(self, "Success", f"Generated {count} configuration files in {save_dir}")
+        return generated
 
     # =========================================================================
     # Routing helpers

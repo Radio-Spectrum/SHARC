@@ -221,7 +221,7 @@ def build_runner_ui(tab) -> None:
     exec_layout = QHBoxLayout(frm_exec)
     exec_layout.setContentsMargins(0, 0, 0, 0)
     
-    exec_layout.addWidget(QLabel("YAML Folder:"))
+    exec_layout.addWidget(QLabel("Run Folder:"))
     tab.e_run_folder = QLineEdit()
     exec_layout.addWidget(tab.e_run_folder, 1)
     
@@ -254,7 +254,7 @@ def build_runner_ui(tab) -> None:
     # TREEVIEW (JOBS)
     # =========================================================
     tab.tree = QTreeWidget()
-    tab.tree.setHeaderLabels(["YAML File", "Status", "Snapshot", "%", "ETA", "Branch", "Location", "Host"])
+    tab.tree.setHeaderLabels(["Simulation", "Status", "Snapshot", "%", "ETA", "Branch", "Location", "Host"])
     tab.tree.setSelectionMode(QTreeWidget.ExtendedSelection)
     
     tab.tree.setColumnWidth(0, 320)

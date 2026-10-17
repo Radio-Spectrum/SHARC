@@ -6,6 +6,12 @@ import subprocess
 import platform
 import tempfile
 
+# O Preview (CesiumJS) importa `sharc.*`; garante a raiz do repo no sys.path
+# quando a GUI é iniciada de sharc/gui/ ou por caminho de arquivo.
+_REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+if _REPO_ROOT not in sys.path:
+    sys.path.insert(0, _REPO_ROOT)
+
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QPushButton, QLabel, QFrame, QScrollArea, QStackedWidget,
@@ -26,177 +32,33 @@ from managers import ssh_runner
 # Import Tabs
 from ui.tabs import (
     GeneralTab, IMTTab, VictimTab, PreviewTab,
-    RunnerTab, ResultsTab, SingleEarthStationTab
+    RunnerTab, ResultsTab, SingleEarthStationTab, DatabaseTab, TerrainTab
 )
 from ui.tabs.ssh_config import SSHTunnelTab
+from ui.shell.workbench import WorkbenchMixin, ResponsiveScrollArea  # noqa: F401
 
 PROJECT_ROOT = get_sharc_root()
 
-# ==========================================================
-# DESIGN SYSTEM — palette tokens
-# ==========================================================
-# Uma única fonte de verdade para cores. O QSS e todos os
-# ícones (qtawesome) derivam daqui, então nada "destoa":
-# input, card, painel e fundo formam uma escala tonal coerente.
-#
-# Escala de elevação (dark):
-#   bg_app  <  bg_panel  <  bg_card  <  bg_input
-# O input é SEMPRE o tom mais claro do contexto — ele se lê
-# como "campo" em vez de parecer um buraco recortado no fundo.
-THEMES = {
-    "dark": {
-        # Surfaces (escala de elevação)
-        "bg_app":        "#0B0E14",   # fundo geral (deep graphite)
-        "bg_panel":      "#10141D",   # sidebar / header / status bar
-        "bg_card":       "#141926",   # group boxes, HUD, cartões
-        "bg_input":      "#1B2230",   # campos de texto (mais claro que o card)
-        "bg_input_focus":"#1F2837",
-        "bg_hover":      "#1A202E",
-        "bg_console":    "#0D1017",   # logs / terminal (única superfície "funda")
-
-        # Strokes
-        "border":        "#242C3D",
-        "border_strong": "#313C52",
-        "border_soft":   "#1B212E",
-
-        # Text
-        "text_primary":  "#E8ECF4",
-        "text_secondary":"#9AA4B8",
-        "text_muted":    "#5D6778",
-        "text_faint":    "#454E60",
-
-        # Accent (ciano de instrumentação, calibrado — não neon)
-        "accent":        "#3AC8E8",
-        "accent_strong": "#6FDCF5",
-        "accent_dim":    "#1E8FAC",
-        "accent_deep":   "#136477",
-        "accent_soft":   "#12283A",   # fundo de seleção / item ativo
-        "accent_text_on":"#03181E",   # texto sobre o accent
-
-        # Semantics
-        "success":       "#3DDC97",
-        "warn":          "#F5B841",
-        "danger":        "#F16A6A",
-
-        # Chrome
-        "scrollbar":     "#2B3446",
-        "scrollbar_hover":"#3A4763",
-        "selection_bg":  "#1E5A6E",
-        "selection_fg":  "#EAFBFF",
-
-        # Icons
-        "icon":          "#8E99AF",
-        "icon_active":   "#3AC8E8",
-        "icon_muted":    "#4A5568",
-        "icon_on_accent":"#03181E",
-    },
-    "light": {
-        "bg_app":        "#EDF0F4",
-        "bg_panel":      "#F8FAFC",
-        "bg_card":       "#FFFFFF",
-        "bg_input":      "#F2F5F9",   # levemente rebaixado dentro do card branco
-        "bg_input_focus":"#FFFFFF",
-        "bg_hover":      "#E8EDF3",
-        "bg_console":    "#101520",   # console continua escuro (leitura de log)
-
-        "border":        "#D5DCE6",
-        "border_strong": "#B9C3D2",
-        "border_soft":   "#E3E8EF",
-
-        "text_primary":  "#171E2B",
-        "text_secondary":"#525E72",
-        "text_muted":    "#8A94A6",
-        "text_faint":    "#B4BCC9",
-
-        "accent":        "#0E6E9E",
-        "accent_strong": "#1287C0",
-        "accent_dim":    "#0A5679",
-        "accent_deep":   "#083F59",
-        "accent_soft":   "#DDEDF6",
-        "accent_text_on":"#FFFFFF",
-
-        "success":       "#188A5E",
-        "warn":          "#B07C14",
-        "danger":        "#C24545",
-
-        "scrollbar":     "#C4CCD8",
-        "scrollbar_hover":"#9FABBD",
-        "selection_bg":  "#BFE0F0",
-        "selection_fg":  "#0B2B3C",
-
-        "icon":          "#5F6B80",
-        "icon_active":   "#0E6E9E",
-        "icon_muted":    "#A6AFBF",
-        "icon_on_accent":"#FFFFFF",
-    },
-}
-
-# Tipografia — pilha coerente por função
-FONT_UI   = "'Segoe UI Variable Text', 'Segoe UI', 'Inter', 'Roboto', sans-serif"
-FONT_MONO = "'Cascadia Mono', 'JetBrains Mono', 'Consolas', 'DejaVu Sans Mono', monospace"
+from ui.theme import (  # noqa: E402  (tema extraído de main.py)
+    THEMES, FONT_UI, FONT_MONO, theme_tokens, generate_theme_icon_assets,
+    build_stylesheet, get_sharc_qss,
+)
 
 
-def theme_tokens(theme: str) -> dict:
-    return THEMES.get(theme, THEMES["dark"])
-
-
-# ==========================================================
-# ICON ASSET FACTORY
-# ==========================================================
-# O stylesheet do Qt precisa de arquivos de imagem reais para
-# indicadores (setas de combobox, checkboxes, radios, spinbox).
-# Renderizamos um set coerente a partir da MESMA família de
-# glifos usada no resto da UI (Material Design Icons), com as
-# cores do tema — é isso que elimina o visual "Qt genérico".
-_ICON_ASSET_DIR = os.path.join(tempfile.gettempdir(), "sharc_gui_assets")
-
-
-def _render_icon_asset(glyph: str, filename: str, color: str, size: int = 18) -> str:
-    os.makedirs(_ICON_ASSET_DIR, exist_ok=True)
-    path = os.path.join(_ICON_ASSET_DIR, filename)
+def _eta_seconds(text: str) -> int:
+    """'1 day, 2:03:04' or '2:03:04' to seconds, so ETAs compare by time and not as text."""
+    days = 0
+    if "day" in text:
+        head, text = text.split(",", 1)
+        days = int(head.split()[0])
     try:
-        pixmap = qta.icon(glyph, color=color).pixmap(QSize(size, size))
-        pixmap.save(path, "PNG")
-    except Exception:
-        pass
-    return path.replace("\\", "/")
+        h, m, sec = (int(x) for x in text.strip().split(":"))
+    except ValueError:
+        return 0
+    return max(0, ((days * 24 + h) * 60 + m) * 60 + sec)
 
 
-def generate_theme_icon_assets(theme: str) -> dict:
-    """Renderiza o set de indicadores (chevrons, checks, radios, spin) para o tema."""
-    t = theme_tokens(theme)
-    fg     = t["icon"]
-    accent = t["accent"]
-    muted  = t["icon_muted"]
-
-    return {
-        "chevron_down":  _render_icon_asset("mdi.chevron-down",  f"chevron_down_{theme}.png",  fg),
-        "chevron_up":    _render_icon_asset("mdi.chevron-up",    f"chevron_up_{theme}.png",    fg),
-        "spin_up":       _render_icon_asset("mdi.menu-up",       f"spin_up_{theme}.png",       fg, 14),
-        "spin_down":     _render_icon_asset("mdi.menu-down",     f"spin_down_{theme}.png",     fg, 14),
-        "check_on":      _render_icon_asset("mdi.checkbox-marked",        f"check_on_{theme}.png",  accent, 20),
-        "check_off":     _render_icon_asset("mdi.checkbox-blank-outline", f"check_off_{theme}.png", muted, 20),
-        "check_dis":     _render_icon_asset("mdi.checkbox-blank-outline", f"check_dis_{theme}.png", t["text_faint"], 20),
-        "radio_on":      _render_icon_asset("mdi.radiobox-marked",        f"radio_on_{theme}.png",  accent, 20),
-        "radio_off":     _render_icon_asset("mdi.radiobox-blank",         f"radio_off_{theme}.png", muted, 20),
-        "branch_closed": _render_icon_asset("mdi.chevron-right", f"branch_closed_{theme}.png", fg, 14),
-        "branch_open":   _render_icon_asset("mdi.chevron-down",  f"branch_open_{theme}.png",   fg, 14),
-    }
-
-
-class ResponsiveScrollArea(QScrollArea):
-    """
-    QScrollArea transparente: o conteúdo das abas herda o fundo
-    da aplicação em vez de pintar um retângulo destoante.
-    """
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.setWidgetResizable(True)
-        self.setFrameShape(QFrame.NoFrame)
-        self.viewport().setAutoFillBackground(False)
-
-
-class App(QMainWindow):
+class App(WorkbenchMixin, QMainWindow):
     """
     SHARC GUI — PySide6:
     - Gerenciamento de janelas via QStackedWidget.
@@ -208,7 +70,7 @@ class App(QMainWindow):
     def __init__(self, defer_ui_init: bool = False):
         super().__init__()
 
-        self._current_theme = "dark"
+        self._current_theme = "graphite"
 
         self.setWindowTitle("SHARC – SHARing and Compatibility")
         self.setWindowIcon(qta.icon('mdi.satellite-variant',
@@ -248,6 +110,8 @@ class App(QMainWindow):
         self.pages_config = [
             ("general", "General Settings",   GeneralTab,            "mdi.tune-variant",        "configuration"),
             ("imt",     "IMT System",         IMTTab,                "mdi.access-point-network","configuration"),
+            ("database", "Database",         DatabaseTab,           "mdi.database",            "configuration"),
+            ("terrain", "Terrain & Clutter", TerrainTab,           "mdi.terrain",             "configuration"),
             ("victim",  "Space Station",      VictimTab,             "mdi.satellite-variant",   "configuration"),
             ("station", "Earth Station",      SingleEarthStationTab, "mdi.satellite-uplink",    "configuration"),
             ("preview", "Topology Preview",   PreviewTab,            "mdi.radar",               "operations"),
@@ -275,7 +139,7 @@ class App(QMainWindow):
 
     @property
     def tk(self) -> dict:
-        return theme_tokens(getattr(self, "_current_theme", "dark"))
+        return theme_tokens(getattr(self, "_current_theme", "graphite"))
 
     def initialize_ui(self):
         if self._ui_initialized:
@@ -283,8 +147,9 @@ class App(QMainWindow):
 
         # 4. Interface Construction
         self._build_layout()
-        self._build_menubar()
         self._init_pages()
+        self._build_job_scheduler()
+        self._build_menubar()
 
         # 5. Timers
         self.log_timer = QTimer(self)
@@ -301,327 +166,12 @@ class App(QMainWindow):
         self._refresh_sidebar_items()
         self._switch_page("general", "General Settings")
 
+        from ui.shell.preferences import apply_saved_appearance
+        apply_saved_appearance(self)
         QTimer.singleShot(800, self._show_welcome_toast)
         QTimer.singleShot(1000, self._disable_strict_validation)
 
         self._ui_initialized = True
-
-    # ==========================================================
-    # LAYOUT PRINCIPAL
-    # ==========================================================
-    def _build_layout(self):
-        central_widget = QWidget()
-        central_widget.setObjectName("AppRoot")
-        self.setCentralWidget(central_widget)
-        self.main_layout = QHBoxLayout(central_widget)
-        self.main_layout.setContentsMargins(0, 0, 0, 0)
-        self.main_layout.setSpacing(0)
-
-        # --- A. Sidebar (Left) ---
-        self.sidebar = QFrame()
-        self.sidebar.setFixedWidth(248)
-        self.sidebar.setObjectName("Sidebar")
-        self.sidebar_layout = QVBoxLayout(self.sidebar)
-        self.sidebar_layout.setContentsMargins(14, 18, 14, 16)
-        self.sidebar_layout.setSpacing(0)
-
-        self._build_sidebar_header()
-
-        # Container de navegação (com labels de seção)
-        self.nav_layout = QVBoxLayout()
-        self.nav_layout.setSpacing(2)
-        self.sidebar_layout.addLayout(self.nav_layout)
-        self.sidebar_layout.addStretch()
-
-        self._build_system_monitor()
-        self._build_sidebar_footer()
-
-        # --- Área Direita (Content + Header + Footer) ---
-        right_container = QWidget()
-        right_container.setObjectName("ContentColumn")
-        right_layout = QVBoxLayout(right_container)
-        right_layout.setContentsMargins(0, 0, 0, 0)
-        right_layout.setSpacing(0)
-
-        # B. Header Bar
-        self.header = QFrame()
-        self.header.setFixedHeight(64)
-        self.header.setObjectName("HeaderBar")
-        header_layout = QHBoxLayout(self.header)
-        header_layout.setContentsMargins(24, 0, 20, 0)
-        header_layout.setSpacing(14)
-
-        # Bloco de título: eyebrow + título do módulo
-        title_col = QWidget()
-        title_col_layout = QVBoxLayout(title_col)
-        title_col_layout.setContentsMargins(0, 0, 0, 0)
-        title_col_layout.setSpacing(1)
-
-        self.lbl_page_eyebrow = QLabel("ACTIVE MODULE")
-        self.lbl_page_eyebrow.setObjectName("PageEyebrow")
-
-        self.lbl_page_title = QLabel("DASHBOARD")
-        self.lbl_page_title.setObjectName("PageTitle")
-
-        title_col_layout.addWidget(self.lbl_page_eyebrow)
-        title_col_layout.addWidget(self.lbl_page_title)
-        header_layout.addWidget(title_col)
-
-        header_layout.addStretch()
-
-        # Chip de status do sistema (dot + label)
-        self.status_chip = QFrame()
-        self.status_chip.setObjectName("StatusChip")
-        chip_layout = QHBoxLayout(self.status_chip)
-        chip_layout.setContentsMargins(10, 4, 12, 4)
-        chip_layout.setSpacing(7)
-
-        self.lbl_header_status_dot = QLabel()
-        self.lbl_header_status_dot.setObjectName("StatusDot")
-        self.lbl_header_status_dot.setFixedSize(10, 10)
-        chip_layout.addWidget(self.lbl_header_status_dot)
-
-        self.lbl_header_status_text = QLabel("NOMINAL")
-        self.lbl_header_status_text.setObjectName("StatusChipText")
-        chip_layout.addWidget(self.lbl_header_status_text)
-        header_layout.addWidget(self.status_chip)
-
-        self.btn_theme_toggle = QPushButton()
-        self.btn_theme_toggle.setObjectName("IconButton")
-        self.btn_theme_toggle.setIconSize(QSize(19, 19))
-        self.btn_theme_toggle.setFixedSize(36, 36)
-        self.btn_theme_toggle.setCursor(QCursor(Qt.PointingHandCursor))
-        self.btn_theme_toggle.setToolTip("Toggle Light / Dark Theme")
-        self.btn_theme_toggle.clicked.connect(self._toggle_theme_safely)
-        header_layout.addWidget(self.btn_theme_toggle)
-
-        self.btn_gen_main = QPushButton("  Actions")
-        self.btn_gen_main.setIconSize(QSize(18, 18))
-        self.btn_gen_main.setObjectName("ActionBtn")
-        self.btn_gen_main.setCursor(QCursor(Qt.PointingHandCursor))
-        gen_menu = QMenu(self)
-        self._act_batch_menu = gen_menu.addAction("Batch Generate (from Table)", self._proxy_batch_generate)
-        gen_menu.addSeparator()
-        self._act_save_menu = gen_menu.addAction("Save Current State (Snapshot)", self.save_yaml_dialog_multicombos)
-        self.btn_gen_main.setMenu(gen_menu)
-        header_layout.addWidget(self.btn_gen_main)
-
-        self.header_accent_strip = QFrame()
-        self.header_accent_strip.setObjectName("HeaderAccentStrip")
-        self.header_accent_strip.setFixedHeight(2)
-
-        # C. Content Area (QStackedWidget)
-        self.stacked_widget = QStackedWidget()
-        self.stacked_widget.setObjectName("PageStack")
-
-        # D. Status Bar (telemetria)
-        self.status_bar = QFrame()
-        self.status_bar.setFixedHeight(28)
-        self.status_bar.setObjectName("StatusBar")
-        status_layout = QHBoxLayout(self.status_bar)
-        status_layout.setContentsMargins(14, 0, 14, 0)
-        status_layout.setSpacing(10)
-
-        self.lbl_status_icon = QLabel()
-        self.lbl_status_icon.setFixedSize(14, 14)
-        status_layout.addWidget(self.lbl_status_icon)
-
-        self.lbl_status_msg = QLabel("Ready.")
-        self.lbl_status_msg.setObjectName("StatusMsg")
-        status_layout.addWidget(self.lbl_status_msg)
-        status_layout.addStretch()
-
-        self.lbl_tun_status = QLabel("TUNNEL · INACTIVE")
-        self.lbl_tun_status.setObjectName("StatusPill")
-        self.lbl_ssh_status = QLabel("SSH · DISCONNECTED")
-        self.lbl_ssh_status.setObjectName("StatusPill")
-        status_layout.addWidget(self.lbl_tun_status)
-        status_layout.addWidget(self.lbl_ssh_status)
-
-        # Montando a área direita
-        right_layout.addWidget(self.header)
-        right_layout.addWidget(self.header_accent_strip)
-        right_layout.addWidget(self.stacked_widget)
-        right_layout.addWidget(self.status_bar)
-
-        # Adicionando ao layout principal
-        self.main_layout.addWidget(self.sidebar)
-        self.main_layout.addWidget(right_container)
-
-        # Pinta os ícones do chrome com as cores do tema atual
-        self._refresh_chrome_icons()
-
-    def _build_sidebar_header(self):
-        brand_row = QWidget()
-        brand_row_layout = QHBoxLayout(brand_row)
-        brand_row_layout.setContentsMargins(4, 0, 0, 0)
-        brand_row_layout.setSpacing(10)
-
-        self.lbl_brand_icon = QLabel()
-        self.lbl_brand_icon.setObjectName("BrandIcon")
-        self.lbl_brand_icon.setFixedSize(34, 34)
-
-        brand_text_col = QWidget()
-        brand_text_layout = QVBoxLayout(brand_text_col)
-        brand_text_layout.setContentsMargins(0, 0, 0, 0)
-        brand_text_layout.setSpacing(0)
-
-        lbl_brand = QLabel("SHARC")
-        lbl_brand.setObjectName("BrandLabel")
-
-        lbl_sub = QLabel("SHARing and Compatibility")
-        lbl_sub.setObjectName("SubBrandLabel")
-
-        brand_text_layout.addWidget(lbl_brand)
-        brand_text_layout.addWidget(lbl_sub)
-
-        brand_row_layout.addWidget(self.lbl_brand_icon)
-        brand_row_layout.addWidget(brand_text_col)
-        brand_row_layout.addStretch()
-
-        self.sidebar_layout.addWidget(brand_row)
-
-        divider = QFrame()
-        divider.setObjectName("SidebarDivider")
-        divider.setFixedHeight(1)
-        self.sidebar_layout.addSpacing(16)
-        self.sidebar_layout.addWidget(divider)
-        self.sidebar_layout.addSpacing(10)
-
-    def _make_nav_section_label(self, text: str) -> QLabel:
-        lbl = QLabel(text)
-        lbl.setObjectName("NavSectionLabel")
-        return lbl
-
-    def _build_system_monitor(self):
-        # HUD de telemetria no rodapé da sidebar
-        self.hud_frame = QFrame()
-        self.hud_frame.setObjectName("SystemMonitorCard")
-        hud_layout = QVBoxLayout(self.hud_frame)
-        hud_layout.setContentsMargins(14, 12, 14, 12)
-        hud_layout.setSpacing(8)
-
-        title_row = QHBoxLayout()
-        title_row.setSpacing(7)
-        self.lbl_hud_pulse_icon = QLabel()
-        self.lbl_hud_pulse_icon.setFixedSize(15, 15)
-        lbl_title = QLabel("SYSTEM MONITOR")
-        lbl_title.setObjectName("HUDTitle")
-        title_row.addWidget(self.lbl_hud_pulse_icon)
-        title_row.addWidget(lbl_title)
-        title_row.addStretch()
-        hud_layout.addLayout(title_row)
-
-        self.sys_meter = QProgressBar()
-        self.sys_meter.setValue(0)
-        self.sys_meter.setFixedHeight(6)
-        self.sys_meter.setTextVisible(False)
-        self.sys_meter.setObjectName("HUDProgress")
-        hud_layout.addWidget(self.sys_meter)
-
-        stats_layout = QHBoxLayout()
-
-        self.lbl_hud_snaps = QLabel("SNAPS 0/0")
-        self.lbl_hud_snaps.setObjectName("HUDStat")
-
-        self.lbl_hud_eta = QLabel("ETA --:--:--")
-        self.lbl_hud_eta.setObjectName("HUDStat")
-
-        stats_layout.addWidget(self.lbl_hud_snaps)
-        stats_layout.addStretch()
-        stats_layout.addWidget(self.lbl_hud_eta)
-
-        hud_layout.addLayout(stats_layout)
-
-        self.tray_button = QPushButton("  Active Threads")
-        self.tray_button.setObjectName("HUDTrayButton")
-        self.tray_button.setCursor(QCursor(Qt.PointingHandCursor))
-        self.tray_button.clicked.connect(self._toggle_simulation_tray)
-        hud_layout.addWidget(self.tray_button)
-
-        self.tray_frame = QFrame()
-        self.tray_frame.setObjectName("HUDTrayFrame")
-        self.tray_frame.setVisible(False)
-        self.tray_layout = QVBoxLayout(self.tray_frame)
-        self.tray_layout.setContentsMargins(0, 6, 0, 0)
-        self.tray_layout.setSpacing(6)
-        hud_layout.addWidget(self.tray_frame)
-
-        self.thread_widgets = {}
-
-        self.sidebar_layout.addWidget(self.hud_frame)
-
-    def _build_sidebar_footer(self):
-        self.sidebar_layout.addSpacing(10)
-        footer = QLabel("SHARC · SHARing and Compatibility")
-        footer.setObjectName("SidebarFooter")
-        footer.setAlignment(Qt.AlignHCenter)
-        self.sidebar_layout.addWidget(footer)
-
-    def _init_pages(self):
-        """Inicializa as abas, agrupadas por seção na sidebar."""
-        current_section = None
-        for key, label, Cls, icon, section in self.pages_config:
-
-            try:
-                page_instance = Cls(self)
-            except TypeError:
-                page_instance = QWidget()
-                l = QVBoxLayout(page_instance)
-                l.addWidget(QLabel(f"Placeholder para {label}"))
-
-            setattr(self, f"tab_{key}", page_instance)
-
-            if key not in ["results", "preview"]:
-                scroll = ResponsiveScrollArea()
-                scroll.setWidget(page_instance)
-                self.stacked_widget.addWidget(scroll)
-            else:
-                self.stacked_widget.addWidget(page_instance)
-
-            # Label de seção (eyebrow) quando muda o grupo
-            if section != current_section:
-                current_section = section
-                if self.nav_layout.count() > 0:
-                    self.nav_layout.addSpacing(10)
-                self.nav_layout.addWidget(
-                    self._make_nav_section_label(self._section_titles.get(section, section.upper()))
-                )
-
-            btn = QPushButton(f"  {label}")
-            btn.setIcon(qta.icon(icon, color=self.tk["icon"]))
-            btn.setIconSize(QSize(19, 19))
-            btn.setCursor(QCursor(Qt.PointingHandCursor))
-            btn.setObjectName("NavButton")
-
-            btn.clicked.connect(lambda checked=False, k=key, l=label: self._switch_page(k, l))
-
-            self.nav_layout.addWidget(btn)
-            self.nav_buttons[key] = btn
-
-    @Slot(str, str)
-    def _switch_page(self, key, label_text):
-        """Alterna a página visível no QStackedWidget."""
-        self.lbl_page_title.setText(label_text.upper())
-
-        index = next((i for i, cfg in enumerate(self.pages_config) if cfg[0] == key), 0)
-        self.stacked_widget.setCurrentIndex(index)
-        self.current_key = key
-
-        if key == "preview" and hasattr(self, "tab_preview"):
-            self.tab_preview.refresh()
-
-        t = self.tk
-        for k, btn in self.nav_buttons.items():
-            icon_name = next(cfg[3] for cfg in self.pages_config if cfg[0] == k)
-            if k == key:
-                btn.setProperty("active", True)
-                btn.setIcon(qta.icon(icon_name, color=t["icon_active"]))
-            else:
-                btn.setProperty("active", False)
-                btn.setIcon(qta.icon(icon_name, color=t["icon"]))
-            btn.style().unpolish(btn)
-            btn.style().polish(btn)
 
     def _space_ui_systems(self):
         return {
@@ -669,11 +219,6 @@ class App(QMainWindow):
             if should_show:
                 visible.add(key)
         return visible
-
-    def _refresh_sidebar_items(self):
-        visible = self._get_visible_page_keys()
-        for key, btn in self.nav_buttons.items():
-            btn.setVisible(key in visible)
 
     def _show_welcome_toast(self):
         self.lbl_status_msg.setText("System Ready.")
@@ -741,16 +286,55 @@ class App(QMainWindow):
         act_toggle_theme.triggered.connect(self._toggle_theme_safely)
         m_view.addAction(act_toggle_theme)
         m_view.addSeparator()
-        act_toggle_sidebar = QAction("Toggle Sidebar", self)
-        act_toggle_sidebar.triggered.connect(self._toggle_sidebar)
-        m_view.addAction(act_toggle_sidebar)
-
-        act_toggle_tray = QAction("Toggle Simulation Tray", self)
-        act_toggle_tray.triggered.connect(self._toggle_simulation_tray)
-        m_view.addAction(act_toggle_tray)
+        self._populate_view_menu(m_view)
 
         # --- Settings ---
         m_settings = menubar.addMenu("Settings")
+
+        from ui.shell.preferences import open_preferences
+        from ui.shell.tray import TrayController
+        act_prefs = QAction("Preferences...", self)
+        act_prefs.setShortcut("Ctrl+,")
+        act_prefs.triggered.connect(lambda: open_preferences(self))
+        m_settings.addAction(act_prefs)
+        m_settings.addSeparator()
+
+        m_theme = m_settings.addMenu("Theme")
+        theme_group = QActionGroup(self)
+        for label, key in (("Graphite (dark)", "graphite"), ("Light", "light")):
+            a_t = QAction(label, self)
+            a_t.setCheckable(True)
+            a_t.setChecked(key == getattr(self, "_current_theme", "graphite"))
+            a_t.triggered.connect(lambda checked=False, k=key: self._apply_theme(k))
+            theme_group.addAction(a_t)
+            m_theme.addAction(a_t)
+
+        m_font = m_settings.addMenu("Font size")
+        font_group = QActionGroup(self)
+        for pt in (9, 10, 11, 12):
+            a_f = QAction(f"{pt} pt", self)
+            a_f.setCheckable(True)
+            a_f.setChecked(pt == 10)
+            a_f.triggered.connect(lambda checked=False, v=pt: __import__("ui.shell.preferences", fromlist=["x"]).PreferencesDialog._set_font_size(None, v))
+            font_group.addAction(a_f)
+            m_font.addAction(a_f)
+
+        act_tray = QAction("Keep running in the system tray when closing", self)
+        act_tray.setCheckable(True)
+        act_tray.setChecked(TrayController.keep_running_enabled())
+        act_tray.setToolTip("While simulations are running, closing the window hides SHARC in the tray "
+                            "instead of stopping them.")
+        act_tray.toggled.connect(TrayController.set_keep_running)
+        m_settings.addAction(act_tray)
+        m_settings.addSeparator()
+
+        act_layout = QAction("Reset window layout", self)
+        act_layout.triggered.connect(self._reset_workbench_layout)
+        m_settings.addAction(act_layout)
+        act_cache = QAction("Open map cache folder", self)
+        act_cache.triggered.connect(self._open_cache_folder)
+        m_settings.addAction(act_cache)
+        m_settings.addSeparator()
 
         m_res = m_settings.addMenu("Resolution")
         res_group = QActionGroup(self)
@@ -816,12 +400,17 @@ class App(QMainWindow):
             self.lbl_status_icon.setPixmap(
                 qta.icon('mdi.information-outline', color=t["text_muted"]).pixmap(QSize(12, 12)))
 
+        self._refresh_workbench_icons()
+
         if hasattr(self, "tray_button"):
             chevron = 'mdi.chevron-up' if getattr(self, 'tray_frame', None) and self.tray_frame.isVisible() else 'mdi.chevron-down'
             self.tray_button.setIcon(qta.icon(chevron, color=t["accent"]))
 
     def _apply_theme(self, theme: str):
         self._current_theme = theme
+        if not os.environ.get("SHARC_GUI_NO_RESTORE"):
+            from PySide6.QtCore import QSettings
+            QSettings("SHARC", "GUI").setValue("appearance/theme", theme)
         app = QApplication.instance()
         if app:
             app.setStyleSheet(build_stylesheet(theme))
@@ -863,20 +452,8 @@ class App(QMainWindow):
             self.tab_preview._draw_preview()
 
     def _toggle_theme_safely(self):
-        new_theme = 'light' if getattr(self, '_current_theme', 'dark') == 'dark' else 'dark'
+        new_theme = "light" if getattr(self, "_current_theme", "graphite") != "light" else "graphite"
         self._apply_theme(new_theme)
-
-    def _toggle_sidebar(self):
-        self.sidebar.setVisible(not self.sidebar.isVisible())
-
-    def _toggle_simulation_tray(self):
-        if not hasattr(self, "tray_frame"):
-            return
-        is_visible = self.tray_frame.isVisible()
-        self.tray_frame.setVisible(not is_visible)
-        chevron = 'mdi.chevron-up' if not is_visible else 'mdi.chevron-down'
-        self.tray_button.setText("  Active Threads")
-        self.tray_button.setIcon(qta.icon(chevron, color=self.tk["accent"]))
 
     def _apply_resolution_from_settings(self, res_str):
         try:
@@ -932,6 +509,50 @@ class App(QMainWindow):
             except Exception as e:
                 QMessageBox.critical(self, "Error", f"Failed to save snapshot:\n{e}")
 
+    @staticmethod
+    def _saved_parallel() -> int:
+        if os.environ.get("SHARC_GUI_NO_RESTORE"):
+            return 2
+        from PySide6.QtCore import QSettings
+        try:
+            return max(1, int(QSettings("SHARC", "GUI").value("sim/parallel", 2)))
+        except (TypeError, ValueError):
+            return 2
+
+    def _build_job_scheduler(self):
+        """Simulation queue: starts jobs in order, limited and (optionally) at a scheduled time."""
+        from core.job_scheduler import JobScheduler
+        self.scheduler = JobScheduler(
+            start_fn=lambda path: self.runner_manager.run_local_parallel([path], 1),
+            stop_fn=lambda path: self.runner_manager.stop_simulations([path]),
+            log=self._safe_log, max_parallel=self._saved_parallel(), parent=self)
+        self.jobs_panel.bind(self.scheduler)
+        from ui.shell.tray import TrayController
+        self.tray = TrayController(self, self.scheduler, color=self.tk["accent"])
+
+    def _open_cache_folder(self):
+        from PySide6.QtCore import QUrl
+        from PySide6.QtGui import QDesktopServices
+        from core import terrain_service
+        QDesktopServices.openUrl(QUrl.fromLocalFile(str(terrain_service.cache_root())))
+
+    def run_simulation(self, start_at=None):
+        """Run button: generates the configuration in the background and queues the simulation."""
+        from core.run_service import start_run
+        return start_run(self, start_at=start_at)
+
+    def run_simulation_later(self):
+        """Run later: ask for a start time and queue the simulation for then."""
+        from ui.components.jobs_panel import ScheduleDialog
+        from PySide6.QtWidgets import QDialog
+        dlg = ScheduleDialog(self)
+        if dlg.exec() == QDialog.Accepted:
+            self.run_simulation(start_at=dlg.value())
+
+    def stop_simulation(self):
+        from core.run_service import stop_run
+        stop_run(self)
+
     def _proxy_batch_generate(self):
         if hasattr(self, 'tab_general'):
             self.tab_general.save_yaml_to_yamldir()
@@ -961,11 +582,14 @@ class App(QMainWindow):
                     clean = payload.strip()
                     if clean:
                         self.lbl_status_msg.setText(clean[:120])
+                        self._append_message(clean)
                     if hasattr(self, 'tab_runner') and hasattr(self.tab_runner, '_append_log'):
                         self.tab_runner._append_log(clean)
                 elif msg == "row":
                     if hasattr(self, 'tab_runner') and hasattr(self.tab_runner, '_update_tree_row'):
                         self.tab_runner._update_tree_row(payload)
+                    if getattr(self, "scheduler", None) is not None:
+                        self.scheduler.on_status(payload)
         except queue.Empty:
             pass
 
@@ -1004,14 +628,14 @@ class App(QMainWindow):
 
             for key, val in raw_data.items():
                 if isinstance(val, dict):
-                    pct_str = val.get('pct', '0%')
+                    pct_str = str(val.get('pct') or '0%')
                     try:
                         clean_pct = float(pct_str.replace('%', '').strip())
                     except (ValueError, TypeError):
                         clean_pct = 0.0
                     percentages.append(clean_pct)
 
-                    snap_str = val.get('snap', '0/0')
+                    snap_str = str(val.get('snap') or '0/0')
                     if '/' in snap_str:
                         try:
                             done, total = snap_str.split('/')
@@ -1020,7 +644,7 @@ class App(QMainWindow):
                         except (ValueError, TypeError):
                             pass
 
-                    eta_str = val.get('eta', '')
+                    eta_str = str(val.get('eta') or '')
                     if eta_str and ':' in eta_str:
                         etas.append(eta_str)
 
@@ -1066,7 +690,7 @@ class App(QMainWindow):
 
             avg_pct = sum(percentages) / len(percentages) if percentages else 0
             snaps_text = f"SNAPS {total_done_snaps}/{total_max_snaps}" if total_max_snaps > 0 else "SNAPS 0/0"
-            final_eta = f"ETA {max(etas)}" if etas else "ETA --:--:--"
+            final_eta = f"ETA {max(etas, key=_eta_seconds)}" if etas else "ETA --:--:--"
 
             self.sys_meter.setValue(int(avg_pct))
             self.sys_meter.setFormat(f"{avg_pct:.1f}%")
@@ -1077,777 +701,6 @@ class App(QMainWindow):
             print(f"HUD Update Error: {e}")
 
 
-# ==========================================================
-# STYLESHEET — folha única dirigida por tokens
-# ==========================================================
-def build_stylesheet(theme: str) -> str:
-    """
-    Folha de estilo completa e autossuficiente (sem qdarktheme).
-
-    Arquitetura de fundo — a correção das "caixas destoando":
-      1. Todo QWidget é TRANSPARENTE por padrão e herda a superfície
-         em que está apoiado. Nenhum container pinta um retângulo
-         de cor errada dentro de um card.
-      2. Somente janelas top-level, popups e superfícies nomeadas
-         (Sidebar, HeaderBar, cards, inputs) pintam fundo.
-      3. Inputs são o degrau tonal ACIMA da superfície onde vivem,
-         com borda de 1px consistente — leem-se como campos,
-         não como buracos.
-    """
-    t = theme_tokens(theme)
-    icons = generate_theme_icon_assets(theme)
-    is_dark = theme == "dark"
-
-    action_grad_top    = t["accent_strong"] if is_dark else t["accent_strong"]
-    action_grad_bottom = t["accent_dim"]
-
-    return f"""
-    /* ============================================================
-       GLOBAL — base transparente + tipografia
-       ============================================================ */
-    * {{
-        font-family: {FONT_UI};
-        outline: none;
-    }}
-
-    QWidget {{
-        color: {t['text_primary']};
-        background-color: transparent;
-        selection-background-color: {t['selection_bg']};
-        selection-color: {t['selection_fg']};
-    }}
-
-    /* Superfícies raiz — as únicas que pintam o fundo do app */
-    QMainWindow,
-    QDialog,
-    QMessageBox,
-    QInputDialog,
-    QColorDialog,
-    QFontDialog,
-    QFileDialog {{
-        background-color: {t['bg_app']};
-    }}
-    QStackedWidget#PageStack {{
-        background-color: {t['bg_app']};
-    }}
-
-    /* ScrollAreas transparentes: o conteúdo das abas assenta
-       diretamente no fundo do app */
-    QScrollArea {{
-        background: transparent;
-        border: none;
-    }}
-    QScrollArea > QWidget > QWidget {{
-        background: transparent;
-    }}
-    QScrollArea > QWidget > QScrollBar {{
-        background: transparent;
-    }}
-    QAbstractScrollArea::corner {{
-        background: transparent;
-        border: none;
-    }}
-
-    QToolTip {{
-        background-color: {t['bg_card'] if is_dark else t['text_primary']};
-        color: {t['text_primary'] if is_dark else '#FFFFFF'};
-        border: 1px solid {t['border_strong'] if is_dark else t['accent_dim']};
-        padding: 6px 10px;
-        border-radius: 4px;
-        font-size: 11px;
-    }}
-
-    /* ============================================================
-       MENU BAR / MENUS
-       ============================================================ */
-    QMenuBar {{
-        background-color: {t['bg_panel']};
-        color: {t['text_secondary']};
-        border-bottom: 1px solid {t['border_soft']};
-        padding: 3px 6px;
-        font-size: 12px;
-    }}
-    QMenuBar::item {{
-        background: transparent;
-        padding: 5px 11px;
-        border-radius: 5px;
-        color: {t['text_secondary']};
-    }}
-    QMenuBar::item:selected {{
-        background-color: {t['bg_hover']};
-        color: {t['text_primary']};
-    }}
-    QMenuBar::item:pressed {{
-        background-color: {t['accent_soft']};
-        color: {t['accent']};
-    }}
-    QMenu {{
-        background-color: {t['bg_card']};
-        color: {t['text_primary']};
-        border: 1px solid {t['border_strong']};
-        border-radius: 8px;
-        padding: 6px;
-    }}
-    QMenu::item {{
-        padding: 7px 26px 7px 12px;
-        border-radius: 5px;
-        font-size: 12px;
-        background: transparent;
-    }}
-    QMenu::item:selected {{
-        background-color: {t['accent_soft']};
-        color: {t['accent'] if is_dark else t['accent_dim']};
-    }}
-    QMenu::item:disabled {{
-        color: {t['text_faint']};
-    }}
-    QMenu::separator {{
-        height: 1px;
-        background: {t['border']};
-        margin: 6px 6px;
-    }}
-    QMenu::icon {{
-        padding-left: 8px;
-    }}
-
-    /* ============================================================
-       SIDEBAR
-       ============================================================ */
-    QFrame#Sidebar {{
-        background-color: {t['bg_panel']};
-        border-right: 1px solid {t['border_soft']};
-    }}
-    QFrame#SidebarDivider {{
-        background-color: {t['border_soft']};
-        border: none;
-        max-height: 1px;
-    }}
-
-    QLabel#BrandLabel {{
-        font-family: {FONT_MONO};
-        font-size: 21px;
-        font-weight: 700;
-        letter-spacing: 4px;
-        color: {t['text_primary']};
-    }}
-    QLabel#SubBrandLabel {{
-        font-family: {FONT_MONO};
-        font-size: 8px;
-        font-weight: 600;
-        letter-spacing: 2px;
-        color: {t['accent_dim'] if is_dark else t['text_muted']};
-    }}
-
-    QLabel#NavSectionLabel {{
-        font-family: {FONT_MONO};
-        font-size: 9px;
-        font-weight: 700;
-        letter-spacing: 2px;
-        color: {t['text_faint']};
-        padding: 6px 12px 4px 12px;
-    }}
-
-    QPushButton#NavButton {{
-        text-align: left;
-        padding: 10px 12px;
-        font-size: 13px;
-        background: transparent;
-        color: {t['text_secondary']};
-        border: none;
-        border-left: 3px solid transparent;
-        border-radius: 7px;
-    }}
-    QPushButton#NavButton:hover {{
-        background-color: {t['bg_hover']};
-        color: {t['text_primary']};
-    }}
-    QPushButton#NavButton[active="true"] {{
-        background-color: {t['accent_soft']};
-        color: {t['text_primary'] if is_dark else t['accent_deep']};
-        border-left: 3px solid {t['accent']};
-        border-top-left-radius: 2px;
-        border-bottom-left-radius: 2px;
-        font-weight: 600;
-    }}
-
-    QLabel#SidebarFooter {{
-        font-family: {FONT_MONO};
-        font-size: 8px;
-        letter-spacing: 1.5px;
-        color: {t['text_faint']};
-    }}
-
-    /* ============================================================
-       SYSTEM MONITOR (HUD)
-       ============================================================ */
-    QFrame#SystemMonitorCard {{
-        background-color: {t['bg_card']};
-        border: 1px solid {t['border']};
-        border-radius: 10px;
-    }}
-    QLabel#HUDTitle {{
-        font-family: {FONT_MONO};
-        font-size: 9px;
-        font-weight: 700;
-        letter-spacing: 2px;
-        color: {t['text_secondary']};
-    }}
-    QLabel#HUDStat {{
-        font-family: {FONT_MONO};
-        font-size: 10px;
-        font-weight: 600;
-        letter-spacing: 0.5px;
-        color: {t['text_primary']};
-    }}
-    QLabel#HUDThreadName {{
-        font-size: 10px;
-        font-weight: 600;
-        color: {t['text_primary']};
-    }}
-    QLabel#HUDThreadEta {{
-        font-family: {FONT_MONO};
-        font-size: 10px;
-        color: {t['text_secondary']};
-    }}
-    QPushButton#HUDTrayButton {{
-        background: transparent;
-        color: {t['accent'] if is_dark else t['accent_dim']};
-        font-weight: 600;
-        font-size: 11px;
-        border: none;
-        text-align: left;
-        padding: 4px 0px;
-    }}
-    QPushButton#HUDTrayButton:hover {{
-        color: {t['accent_strong']};
-    }}
-
-    /* ============================================================
-       HEADER
-       ============================================================ */
-    QFrame#HeaderBar {{
-        background-color: {t['bg_panel']};
-        border-bottom: 1px solid {t['border_soft']};
-    }}
-    QFrame#HeaderAccentStrip {{
-        border: none;
-        background-color: qlineargradient(
-            x1:0, y1:0, x2:1, y2:0,
-            stop:0 {t['accent']}, stop:0.35 {t['accent_dim']}, stop:1 transparent
-        );
-    }}
-    QLabel#PageEyebrow {{
-        font-family: {FONT_MONO};
-        font-size: 8px;
-        font-weight: 700;
-        letter-spacing: 2.5px;
-        color: {t['accent_dim'] if is_dark else t['text_muted']};
-    }}
-    QLabel#PageTitle {{
-        font-size: 17px;
-        font-weight: 600;
-        letter-spacing: 1.5px;
-        color: {t['text_primary']};
-    }}
-
-    QFrame#StatusChip {{
-        background-color: {t['bg_card']};
-        border: 1px solid {t['border']};
-        border-radius: 12px;
-    }}
-    QLabel#StatusChipText {{
-        font-family: {FONT_MONO};
-        font-size: 9px;
-        font-weight: 700;
-        letter-spacing: 1.5px;
-        color: {t['success']};
-    }}
-
-    QPushButton#IconButton {{
-        background-color: transparent;
-        border: 1px solid transparent;
-        border-radius: 9px;
-        padding: 0px;
-    }}
-    QPushButton#IconButton:hover {{
-        background-color: {t['bg_hover']};
-        border: 1px solid {t['border']};
-    }}
-    QPushButton#IconButton:pressed {{
-        background-color: {t['accent_soft']};
-    }}
-
-    QPushButton#ActionBtn {{
-        background-color: qlineargradient(
-            x1:0, y1:0, x2:0, y2:1,
-            stop:0 {action_grad_top}, stop:1 {action_grad_bottom}
-        );
-        color: {t['accent_text_on']};
-        font-weight: 700;
-        font-size: 12px;
-        letter-spacing: 1px;
-        padding: 9px 20px;
-        border-radius: 7px;
-        border: 1px solid {t['accent_dim']};
-    }}
-    QPushButton#ActionBtn:hover {{
-        background-color: qlineargradient(
-            x1:0, y1:0, x2:0, y2:1,
-            stop:0 {t['accent_strong']}, stop:1 {t['accent']}
-        );
-    }}
-    QPushButton#ActionBtn:pressed {{
-        background-color: {t['accent_dim']};
-    }}
-    QPushButton#ActionBtn::menu-indicator {{
-        image: none;
-    }}
-
-    /* ============================================================
-       STATUS BAR (telemetria)
-       ============================================================ */
-    QFrame#StatusBar {{
-        background-color: {t['bg_panel']};
-        border-top: 1px solid {t['border_soft']};
-    }}
-    QLabel#StatusMsg {{
-        font-family: {FONT_MONO};
-        font-size: 10px;
-        color: {t['text_secondary']};
-    }}
-    QLabel#StatusPill {{
-        font-family: {FONT_MONO};
-        font-size: 8px;
-        font-weight: 700;
-        letter-spacing: 1px;
-        color: {t['text_muted']};
-        background-color: {t['bg_card']};
-        border: 1px solid {t['border']};
-        border-radius: 8px;
-        padding: 2px 9px;
-    }}
-
-    /* ============================================================
-       BOTÕES GENÉRICOS
-       ============================================================ */
-    QPushButton {{
-        background-color: {t['bg_input']};
-        color: {t['text_primary']};
-        border: 1px solid {t['border_strong']};
-        border-radius: 6px;
-        padding: 7px 14px;
-        font-size: 12px;
-    }}
-    QPushButton:hover {{
-        background-color: {t['bg_hover'] if is_dark else '#FFFFFF'};
-        border: 1px solid {t['accent_dim']};
-    }}
-    QPushButton:pressed {{
-        background-color: {t['accent_soft']};
-    }}
-    QPushButton:disabled {{
-        color: {t['text_faint']};
-        background-color: {t['bg_card']};
-        border: 1px solid {t['border_soft']};
-    }}
-    QPushButton:focus {{
-        border: 1px solid {t['accent']};
-    }}
-
-    QToolButton {{
-        background-color: transparent;
-        border: 1px solid transparent;
-        border-radius: 6px;
-        padding: 4px;
-        color: {t['text_secondary']};
-    }}
-    QToolButton:hover {{
-        background-color: {t['bg_hover']};
-        border: 1px solid {t['border']};
-    }}
-    QToolButton:pressed {{
-        background-color: {t['accent_soft']};
-    }}
-
-    /* ============================================================
-       PROGRESS BARS
-       ============================================================ */
-    QProgressBar {{
-        border: 1px solid {t['border']};
-        background: {t['bg_app'] if is_dark else t['bg_input']};
-        border-radius: 4px;
-        text-align: center;
-        font-family: {FONT_MONO};
-        font-size: 10px;
-        color: {t['text_secondary']};
-    }}
-    QProgressBar::chunk {{
-        background-color: qlineargradient(
-            x1:0, y1:0, x2:1, y2:0,
-            stop:0 {t['accent_dim']}, stop:1 {t['accent']}
-        );
-        border-radius: 3px;
-    }}
-    QProgressBar#HUDProgress, QProgressBar#MiniProgress {{
-        border: none;
-        background: {t['bg_app'] if is_dark else t['border_soft']};
-        border-radius: 3px;
-        color: transparent;
-    }}
-    QProgressBar#HUDProgress::chunk, QProgressBar#MiniProgress::chunk {{
-        background-color: qlineargradient(
-            x1:0, y1:0, x2:1, y2:0,
-            stop:0 {t['accent_dim']}, stop:1 {t['accent']}
-        );
-        border-radius: 3px;
-    }}
-
-    /* ============================================================
-       INPUTS — um degrau tonal acima da superfície onde vivem
-       ============================================================ */
-    QLineEdit, QComboBox, QDoubleSpinBox, QSpinBox,
-    QDateEdit, QTimeEdit, QDateTimeEdit, QAbstractSpinBox {{
-        background-color: {t['bg_input']};
-        border: 1px solid {t['border_strong']};
-        border-radius: 6px;
-        padding: 6px 10px;
-        min-height: 18px;
-        color: {t['text_primary']};
-        font-size: 12px;
-    }}
-    QLineEdit:hover, QComboBox:hover, QDoubleSpinBox:hover,
-    QSpinBox:hover, QDateEdit:hover, QTimeEdit:hover {{
-        border: 1px solid {t['scrollbar_hover']};
-        background-color: {t['bg_input_focus']};
-    }}
-    QLineEdit:focus, QComboBox:focus, QDoubleSpinBox:focus,
-    QSpinBox:focus, QDateEdit:focus, QTimeEdit:focus {{
-        border: 1px solid {t['accent']};
-        background-color: {t['bg_input_focus']};
-    }}
-    QLineEdit:disabled, QComboBox:disabled, QDoubleSpinBox:disabled,
-    QSpinBox:disabled, QDateEdit:disabled, QTimeEdit:disabled {{
-        color: {t['text_faint']};
-        background-color: {t['bg_card']};
-        border: 1px solid {t['border_soft']};
-    }}
-    QLineEdit[readOnly="true"] {{
-        background-color: {t['bg_card']};
-        color: {t['text_secondary']};
-    }}
-    QLineEdit::placeholder {{
-        color: {t['text_muted']};
-    }}
-
-    QComboBox::drop-down {{
-        border: none;
-        border-left: 1px solid {t['border']};
-        width: 26px;
-        border-top-right-radius: 6px;
-        border-bottom-right-radius: 6px;
-    }}
-    QComboBox::down-arrow {{
-        image: url({icons['chevron_down']});
-        width: 13px;
-        height: 13px;
-    }}
-    QComboBox QAbstractItemView {{
-        background-color: {t['bg_card']};
-        border: 1px solid {t['border_strong']};
-        border-radius: 8px;
-        selection-background-color: {t['accent_soft']};
-        selection-color: {t['accent'] if is_dark else t['accent_deep']};
-        color: {t['text_primary']};
-        outline: none;
-        padding: 4px;
-    }}
-
-    QSpinBox::up-button, QDoubleSpinBox::up-button,
-    QDateEdit::up-button, QTimeEdit::up-button {{
-        subcontrol-origin: border;
-        subcontrol-position: top right;
-        width: 18px;
-        border-left: 1px solid {t['border']};
-        border-bottom: 1px solid {t['border']};
-        border-top-right-radius: 6px;
-        background-color: transparent;
-    }}
-    QSpinBox::down-button, QDoubleSpinBox::down-button,
-    QDateEdit::down-button, QTimeEdit::down-button {{
-        subcontrol-origin: border;
-        subcontrol-position: bottom right;
-        width: 18px;
-        border-left: 1px solid {t['border']};
-        border-bottom-right-radius: 6px;
-        background-color: transparent;
-    }}
-    QSpinBox::up-button:hover, QDoubleSpinBox::up-button:hover,
-    QSpinBox::down-button:hover, QDoubleSpinBox::down-button:hover {{
-        background-color: {t['bg_hover']};
-    }}
-    QSpinBox::up-arrow, QDoubleSpinBox::up-arrow,
-    QDateEdit::up-arrow, QTimeEdit::up-arrow {{
-        image: url({icons['spin_up']});
-        width: 11px; height: 11px;
-    }}
-    QSpinBox::down-arrow, QDoubleSpinBox::down-arrow,
-    QDateEdit::down-arrow, QTimeEdit::down-arrow {{
-        image: url({icons['spin_down']});
-        width: 11px; height: 11px;
-    }}
-
-    /* Áreas de texto / logs */
-    QTextEdit, QPlainTextEdit {{
-        background-color: {t['bg_input']};
-        border: 1px solid {t['border_strong']};
-        border-radius: 6px;
-        padding: 6px;
-        color: {t['text_primary']};
-    }}
-    QTextEdit:focus, QPlainTextEdit:focus {{
-        border: 1px solid {t['accent']};
-    }}
-    QTextEdit#ConsoleLog, QPlainTextEdit#ConsoleLog {{
-        background-color: {t['bg_console']};
-        color: #C6E8D8;
-        font-family: {FONT_MONO};
-        font-size: 11px;
-        border: 1px solid {t['border']};
-        border-radius: 8px;
-    }}
-
-    /* ============================================================
-       CHECKBOX / RADIO
-       ============================================================ */
-    QCheckBox, QRadioButton {{
-        color: {t['text_secondary']};
-        spacing: 8px;
-        padding: 2px 0px;
-        background: transparent;
-    }}
-    QCheckBox:hover, QRadioButton:hover {{
-        color: {t['text_primary']};
-    }}
-    QCheckBox:disabled, QRadioButton:disabled {{
-        color: {t['text_faint']};
-    }}
-    QCheckBox::indicator, QRadioButton::indicator {{
-        width: 18px;
-        height: 18px;
-    }}
-    QCheckBox::indicator:unchecked {{ image: url({icons['check_off']}); }}
-    QCheckBox::indicator:checked   {{ image: url({icons['check_on']}); }}
-    QCheckBox::indicator:disabled  {{ image: url({icons['check_dis']}); }}
-    QRadioButton::indicator:unchecked {{ image: url({icons['radio_off']}); }}
-    QRadioButton::indicator:checked   {{ image: url({icons['radio_on']}); }}
-
-    /* ============================================================
-       GROUP BOX — cards de parâmetros
-       ============================================================ */
-    QGroupBox {{
-        border: 1px solid {t['border']};
-        border-radius: 10px;
-        margin-top: 18px;
-        padding-top: 14px;
-        background-color: {t['bg_card']};
-        font-weight: 600;
-        font-size: 12px;
-        color: {t['text_secondary']};
-    }}
-    QGroupBox::title {{
-        subcontrol-origin: margin;
-        subcontrol-position: top left;
-        left: 12px;
-        padding: 2px 8px;
-        background-color: {t['bg_app']};
-        border: 1px solid {t['border']};
-        border-radius: 5px;
-        font-family: {FONT_MONO};
-        font-size: 10px;
-        font-weight: 700;
-        letter-spacing: 1.5px;
-        color: {t['accent'] if is_dark else t['accent_dim']};
-    }}
-
-    /* ============================================================
-       TABS (QTabWidget dentro das páginas)
-       ============================================================ */
-    QTabWidget::pane {{
-        border: 1px solid {t['border']};
-        border-radius: 8px;
-        background-color: {t['bg_card']};
-        top: -1px;
-    }}
-    QTabBar::tab {{
-        background: transparent;
-        color: {t['text_secondary']};
-        padding: 8px 16px;
-        margin-right: 4px;
-        border: 1px solid transparent;
-        border-top-left-radius: 7px;
-        border-top-right-radius: 7px;
-        font-size: 12px;
-    }}
-    QTabBar::tab:hover {{
-        color: {t['text_primary']};
-        background-color: {t['bg_hover']};
-    }}
-    QTabBar::tab:selected {{
-        color: {t['accent'] if is_dark else t['accent_deep']};
-        background-color: {t['bg_card']};
-        border: 1px solid {t['border']};
-        border-bottom: 1px solid {t['bg_card']};
-        font-weight: 600;
-    }}
-
-    /* ============================================================
-       TABLES / TREES / LISTS
-       ============================================================ */
-    QTableWidget, QTableView {{
-        background-color: {t['bg_card']};
-        alternate-background-color: {t['bg_panel']};
-        border: 1px solid {t['border']};
-        border-radius: 8px;
-        color: {t['text_primary']};
-        gridline-color: {t['border_soft']};
-        selection-background-color: {t['accent_soft']};
-        selection-color: {t['accent'] if is_dark else t['accent_deep']};
-    }}
-    QHeaderView {{
-        background-color: transparent;
-        border: none;
-    }}
-    QHeaderView::section {{
-        background-color: {t['bg_panel']};
-        color: {t['text_secondary']};
-        padding: 7px 9px;
-        border: none;
-        border-right: 1px solid {t['border_soft']};
-        border-bottom: 1px solid {t['border']};
-        font-family: {FONT_MONO};
-        font-size: 10px;
-        font-weight: 700;
-        letter-spacing: 1px;
-    }}
-    QTableCornerButton::section {{
-        background-color: {t['bg_panel']};
-        border: none;
-        border-bottom: 1px solid {t['border']};
-        border-right: 1px solid {t['border_soft']};
-    }}
-
-    QTreeView, QTreeWidget, QListView, QListWidget {{
-        background-color: {t['bg_card']};
-        alternate-background-color: {t['bg_panel']};
-        border: 1px solid {t['border']};
-        border-radius: 8px;
-        color: {t['text_primary']};
-        outline: none;
-    }}
-    QTreeView::item, QTreeWidget::item, QListView::item, QListWidget::item {{
-        padding: 4px 2px;
-        border-radius: 4px;
-    }}
-    QTreeView::item:hover, QTreeWidget::item:hover,
-    QListView::item:hover, QListWidget::item:hover {{
-        background-color: {t['bg_hover']};
-    }}
-    QTreeView::item:selected, QTreeWidget::item:selected,
-    QListView::item:selected, QListWidget::item:selected {{
-        background-color: {t['accent_soft']};
-        color: {t['accent'] if is_dark else t['accent_deep']};
-    }}
-    QTreeView::branch:has-children:!has-siblings:closed,
-    QTreeView::branch:closed:has-children:has-siblings {{
-        image: url({icons['branch_closed']});
-    }}
-    QTreeView::branch:open:has-children:!has-siblings,
-    QTreeView::branch:open:has-children:has-siblings {{
-        image: url({icons['branch_open']});
-    }}
-
-    /* ============================================================
-       SCROLLBARS
-       ============================================================ */
-    QScrollBar:vertical {{
-        background: transparent;
-        width: 10px;
-        margin: 2px;
-    }}
-    QScrollBar::handle:vertical {{
-        background: {t['scrollbar']};
-        min-height: 30px;
-        border-radius: 5px;
-    }}
-    QScrollBar::handle:vertical:hover {{ background: {t['scrollbar_hover']}; }}
-    QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{ height: 0px; }}
-    QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {{ background: none; }}
-
-    QScrollBar:horizontal {{
-        background: transparent;
-        height: 10px;
-        margin: 2px;
-    }}
-    QScrollBar::handle:horizontal {{
-        background: {t['scrollbar']};
-        min-width: 30px;
-        border-radius: 5px;
-    }}
-    QScrollBar::handle:horizontal:hover {{ background: {t['scrollbar_hover']}; }}
-    QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {{ width: 0px; }}
-    QScrollBar::add-page:horizontal, QScrollBar::sub-page:horizontal {{ background: none; }}
-
-    /* ============================================================
-       SLIDER / SPLITTER / MISC
-       ============================================================ */
-    QSlider::groove:horizontal {{
-        height: 4px;
-        background: {t['border']};
-        border-radius: 2px;
-    }}
-    QSlider::sub-page:horizontal {{
-        background: {t['accent_dim']};
-        border-radius: 2px;
-    }}
-    QSlider::handle:horizontal {{
-        background: {t['accent']};
-        width: 14px; height: 14px;
-        margin: -5px 0;
-        border-radius: 7px;
-        border: 2px solid {t['bg_panel']};
-    }}
-
-    QSplitter::handle {{
-        background-color: {t['border_soft']};
-    }}
-    QSplitter::handle:hover {{
-        background-color: {t['accent_dim']};
-    }}
-
-    QStatusBar {{
-        background-color: {t['bg_panel']};
-        color: {t['text_secondary']};
-        border-top: 1px solid {t['border_soft']};
-    }}
-
-    QMessageBox QLabel, QInputDialog QLabel {{
-        color: {t['text_primary']};
-        background: transparent;
-    }}
-
-    QLabel {{
-        background: transparent;
-    }}
-    QLabel:disabled {{
-        color: {t['text_faint']};
-    }}
-    """
-
-
-# Alias de compatibilidade (código externo pode importar o nome antigo)
-def get_sharc_qss(theme: str) -> str:
-    return build_stylesheet(theme)
-
 
 if __name__ == "__main__":
     # Renderização consistente entre plataformas: o estilo Fusion
@@ -1856,9 +709,23 @@ if __name__ == "__main__":
     app.setStyle("Fusion")
     app.setFont(QFont("Segoe UI", 10))
 
-    # Tema escuro por padrão — folha única, sem dependências externas
-    app.setStyleSheet(build_stylesheet("dark"))
+    # Tema profissional (graphite) por padrão — folha única, sem dependências externas
+    app.setStyleSheet(build_stylesheet("graphite"))
 
+    from ui.shell.splash import run_startup
+    splash, startup = run_startup(app)
     window = App()
     window.show()
+    if splash:
+        splash.finish(window)
+    window._safe_log(startup.summary())
+    if startup.problems:
+        from PySide6.QtWidgets import QMessageBox
+        lines = "\n".join(f"- {c or b}" for a, b, c in startup.problems)
+        fix = f"{sys.executable} -m pip install rasterio requests tqdm geopandas"
+        box = QMessageBox(QMessageBox.Warning, "Start-up check",
+                          f"Some features are limited:\n\n{lines}\n\nTo fix, run:\n{fix}", window)
+        box.setModal(False)
+        box.show()
+        window._startup_box = box
     sys.exit(app.exec())

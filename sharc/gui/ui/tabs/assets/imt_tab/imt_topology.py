@@ -9,6 +9,8 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt, Slot
 
 from ui.tabs.assets.imt_tab.imt_tools import IMTUIHelper as H
+from core.yaml_builder import _as_bool
+from core.yaml_builder import _as_bool  # noqa: E402
 
 # =============================================================================
 # Constantes e Helpers Puros (Sem dependência de Interface)
@@ -586,19 +588,19 @@ class IMTTopologySection:
 
         sat = data["sat_is_active_if"]
         conditions = []
-        if bool(self.state.get("mss_dc_sat_cond_inside_country").get()):
+        if _as_bool(self.state.get("mss_dc_sat_cond_inside_country").get()):
             conditions.append("LAT_LONG_INSIDE_COUNTRY")
-        if bool(self.state.get("mss_dc_sat_cond_min_elev").get()):
+        if _as_bool(self.state.get("mss_dc_sat_cond_min_elev").get()):
             conditions.append("MINIMUM_ELEVATION_FROM_ES")
-        if bool(self.state.get("mss_dc_sat_cond_max_elev").get()):
+        if _as_bool(self.state.get("mss_dc_sat_cond_max_elev").get()):
             conditions.append("MAXIMUM_ELEVATION_FROM_ES")
         sat["conditions"] = conditions
 
         min_elev = _num_or_str(self.state.get("mss_dc_sat_min_elevation_from_es").get())
         max_elev = _num_or_str(self.state.get("mss_dc_sat_max_elevation_from_es").get())
-        if min_elev is not None:
+        if min_elev not in (None, ""):
             sat["minimum_elevation_from_es"] = min_elev
-        if max_elev is not None:
+        if max_elev not in (None, ""):
             sat["maximum_elevation_from_es"] = max_elev
 
         lat_long = sat["lat_long_inside_country"]
@@ -638,7 +640,7 @@ class IMTTopologySection:
         service_grid = beam_positioning["service_grid"]
         grid_country_names = _parse_line_list(self._get_text_widget(self.txt_mss_dc_grid_countries)) or list(sat_country_names)
         service_grid["country_names"] = grid_country_names
-        service_grid["transform_grid_randomly"] = bool(self.state.get("mss_dc_sg_transform_grid_randomly").get())
+        service_grid["transform_grid_randomly"] = _as_bool(self.state.get("mss_dc_sg_transform_grid_randomly").get())
 
         grid_margin = _num_or_str(self.state.get("mss_dc_sg_grid_margin_from_border").get())
         if grid_margin is not None:

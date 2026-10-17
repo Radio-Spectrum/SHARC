@@ -723,8 +723,14 @@ print(json.dumps(items))
             cmd = [sys.executable, main_script, "-p", ypath]
 
             try:
+                # The child process must find the `sharc` package even when the GUI was
+                # started outside the repository root (not pip-installed).
+                env = dict(os.environ)
+                repo_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+                env["PYTHONPATH"] = repo_root + os.pathsep + env.get("PYTHONPATH", "")
                 proc = subprocess.Popen(
-                    cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1
+                    cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1,
+                    env=env, cwd=repo_root,
                 )
                 self.running_procs_local[ypath] = proc
 
@@ -1213,15 +1219,15 @@ print(json.dumps(items))
                 }
 
                 if total_snaps > 0:
-                    pct = (current_snap / total_snaps) * 100
+                    pct = min(100.0, (current_snap / total_snaps) * 100)
                     status_data["snap"] = f"{current_snap}/{total_snaps}"
                     status_data["pct"] = f"{pct:.1f}%"
 
                     elapsed = time.time() - start_time
                     if elapsed > 0:
                         rate = elapsed / current_snap
-                        remaining = total_snaps - current_snap
-                        eta_seconds = remaining * rate
+                        remaining = max(0, total_snaps - current_snap)
+                        eta_seconds = max(0.0, remaining * rate)
                         status_data["eta"] = str(
                             timedelta(seconds=int(eta_seconds)))
                     else:

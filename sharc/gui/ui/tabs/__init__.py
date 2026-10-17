@@ -8,6 +8,8 @@ from .runner import RunnerTab
 from .results import ResultsTab
 from .single_earth_station import SingleEarthStationTab
 from .ssh_config import SSHTunnelTab
+from .database import DatabaseTab
+from .terrain import TerrainTab
 
 __all__ = [
     "GeneralTab",
@@ -16,5 +18,7 @@ __all__ = [
     "PreviewTab",
     "RunnerTab",
     "ResultsTab",
-    "SSHTunnelTab"
+    "SSHTunnelTab",
+    "DatabaseTab",
+    "TerrainTab",
 ]

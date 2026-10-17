@@ -36,6 +36,7 @@ except ImportError:
     RESULT_FIELDNAME_TO_PLOT_INFO = {}
 
 from ui.components.scroll_containers import ScrollableContainer
+from core.yaml_builder import _as_bool  # noqa: E402
 from core.state import SharcVar
 
 class ResultsTab(QWidget):
@@ -167,7 +168,7 @@ class ResultsTab(QWidget):
         cb_plot_sel = QCheckBox("Plot Selected Only")
         self.var_plot_selected_only.value_changed.connect(cb_plot_sel.setChecked)
         cb_plot_sel.toggled.connect(self.var_plot_selected_only.set)
-        cb_plot_sel.setChecked(bool(self.var_plot_selected_only.get()))
+        cb_plot_sel.setChecked(_as_bool(self.var_plot_selected_only.get()))
         
         btn_all = QPushButton("Select All")
         btn_none = QPushButton("None")
@@ -939,7 +940,8 @@ class ResultsTab(QWidget):
             img_bytes = fig.to_image(format="png", width=w, height=h, scale=1)
             QTimer.singleShot(0, lambda: self._display_image(img_bytes))
         except Exception as e:
-            QTimer.singleShot(0, lambda: self._on_render_error(f"Plot Error:\n{e}"))
+            err = str(e)  # `e` não existe depois do except; o lambda roda depois
+            QTimer.singleShot(0, lambda: self._on_render_error(f"Plot Error:\n{err}"))
         finally:
             self._render_lock.release()
 

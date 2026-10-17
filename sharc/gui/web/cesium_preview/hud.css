@@ -1,0 +1,104 @@
+:root {
+  --bg: rgba(20, 22, 26, 0.82);
+  --bg-solid: #1b1d20;
+  --border: #383c42;
+  --text: #d6d9dd;
+  --muted: #8d949b;
+  --accent: #4f9dde;
+  --good: #5db36a;
+  --warn: #d9a23b;
+  font-family: "Segoe UI Variable Text", "Segoe UI", Inter, Roboto, sans-serif;
+}
+
+html, body, #cesiumContainer {
+  width: 100%; height: 100%; margin: 0; padding: 0; overflow: hidden;
+  background: #05070b; color: var(--text);
+}
+
+.panel {
+  position: absolute; z-index: 10;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  backdrop-filter: blur(6px);
+  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.45);
+  font-size: 12px;
+}
+
+#hudScene { top: 10px; left: 10px; min-width: 210px; max-width: 320px; padding: 8px 12px 9px; }
+#hudScene .eyebrow { font-size: 9px; letter-spacing: 0.16em; color: var(--accent); font-weight: 700; }
+#hudScene .title { font-size: 15px; font-weight: 600; margin: 2px 0 6px; letter-spacing: 0.02em; }
+#hudScene .stats { display: grid; grid-template-columns: auto 1fr; gap: 2px 12px; color: var(--muted); }
+#hudScene .stats b { color: var(--text); font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; }
+#hudScene .status { margin-top: 6px; padding-top: 5px; border-top: 1px solid var(--border);
+  color: var(--muted); font: 10px Consolas, "Cascadia Mono", monospace; }
+
+#topoPicker { top: 10px; left: 50%; transform: translateX(-50%); padding: 4px 8px; }
+#topoPicker select { background: var(--bg-solid); color: var(--text); border: 1px solid var(--border);
+  border-radius: 2px; font: 12px "Segoe UI", sans-serif; padding: 2px 4px; }
+
+.tools { top: 10px; right: 10px; display: flex; flex-direction: column; padding: 2px; gap: 2px; }
+.tools button {
+  width: 30px; height: 28px; background: transparent; color: var(--text);
+  border: 1px solid transparent; border-radius: 2px; cursor: pointer; font-size: 15px; line-height: 1;
+}
+.tools button:hover { background: rgba(79, 157, 222, 0.18); border-color: var(--border); }
+.tools button.on { color: var(--accent); border-color: var(--accent); }
+.tools button#btnMode { font-size: 10px; font-weight: 700; letter-spacing: 0.04em; }
+
+.legend { left: 10px; bottom: 34px; padding: 6px 10px; display: none; }
+.legend.show { display: block; }
+.legend .row { display: flex; align-items: center; gap: 8px; margin: 2px 0; color: var(--muted); }
+.legend .sw { width: 10px; height: 10px; border-radius: 1px; border: 1px solid rgba(255,255,255,0.35); }
+
+.bar {
+  position: absolute; z-index: 10; left: 0; right: 0; bottom: 0; height: 22px;
+  display: flex; align-items: center; gap: 22px; padding: 0 12px;
+  background: rgba(20, 22, 26, 0.9); border-top: 1px solid var(--border);
+  font: 11px Consolas, "Cascadia Mono", monospace; color: var(--muted);
+}
+.bar .right { margin-left: auto; color: var(--text); }
+
+/* Cesium: tira o chrome padrão e deixa só o que importa */
+.cesium-viewer-bottom { bottom: 22px !important; left: auto !important; right: 6px !important; }
+.cesium-widget-credits { font-size: 9px; opacity: 0.7; }
+.cesium-infoBox { top: 50px; border-radius: 2px; border-color: var(--border); }
+.cesium-viewer-toolbar { display: none; }
+
+#hudScene.problem { border-color: #e0605a; }
+#hudScene.problem .eyebrow { color: #e0605a; }
+#hudScene .stats .problem-msg { grid-column: 1 / -1; color: #f0b3b0; line-height: 1.4; white-space: normal; word-break: break-word; }
+
+#hudWarn { margin-top: 6px; padding: 5px 8px; border: 1px solid #ff5252; background: rgba(120, 20, 20, 0.45); color: #ffb4ab; line-height: 1.35; }
+
+#gotoBar { top: 10px; left: 50%; transform: translateX(-50%); display: flex; gap: 4px; padding: 4px; }
+#topoPicker { top: 52px; }
+#gotoBox { width: 250px; background: var(--bg-solid); color: var(--text); border: 1px solid var(--border);
+  border-radius: 2px; padding: 3px 6px; font: 12px Consolas, "Cascadia Mono", monospace; }
+#gotoBar button { background: transparent; color: var(--text); border: 1px solid var(--border); border-radius: 2px;
+  padding: 2px 8px; cursor: pointer; font-size: 11px; }
+#gotoBar button:hover { background: rgba(79, 157, 222, 0.18); }
+.tools button.on { color: var(--accent); border-color: var(--accent); }
+body.placing #cesiumContainer { cursor: crosshair; }
+.ctx { position: fixed; z-index: 50; min-width: 190px; padding: 3px 0; background: var(--bg-solid);
+  border: 1px solid var(--border); box-shadow: 0 8px 24px rgba(0,0,0,.55); font-size: 12px; }
+.ctx div { padding: 5px 14px; cursor: pointer; color: var(--text); }
+.ctx div:hover { background: rgba(79, 157, 222, 0.25); }
+.ctx .sep { height: 1px; padding: 0; margin: 3px 0; background: var(--border); cursor: default; }
+.ctx .hd { color: var(--muted); font: 11px Consolas, monospace; cursor: default; }
+.ctx .hd:hover { background: transparent; }
+#gotoBox { width: 300px; }
+#gotoBar button { white-space: nowrap; }
+
+/* Global loading indicator */
+#loadBox{position:fixed;left:50%;bottom:52px;transform:translateX(-50%);width:340px;padding:8px 12px 10px;
+  background:rgba(20,26,38,.92);border:1px solid #2A3446;border-radius:6px;color:#C9D1DE;font:12px "Segoe UI",sans-serif;
+  opacity:0;pointer-events:none;transition:opacity .2s;z-index:50}
+#loadBox.on{opacity:1}
+#loadLabel{margin-bottom:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#loadTrack{height:4px;background:#222B3A;border-radius:2px;overflow:hidden;position:relative}
+#loadFill{height:100%;background:#4F9DDE;border-radius:2px;transition:width .25s}
+#loadFill.ind{position:absolute;animation:loadslide 1.1s ease-in-out infinite}
+@keyframes loadslide{0%{left:-35%}100%{left:100%}}
+
+#hudTools button.on{background:#2b6cb0;color:#fff}

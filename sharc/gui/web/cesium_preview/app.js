@@ -7,33 +7,93 @@ if (isEmbedded) {
   document.getElementById("topoPicker").style.display = "none";
 }
 
+
+// ── Global loading indicator: slim progress bar + label while tiles, relief, buildings, hydro or the scene load.
+const Loading = (function () {
+  const box = document.createElement("div");
+  box.id = "loadBox";
+  box.innerHTML = '<div id="loadLabel">Loading...</div><div id="loadTrack"><div id="loadFill"></div></div>';
+  document.body.appendChild(box);
+  const label = box.querySelector("#loadLabel"), fill = box.querySelector("#loadFill");
+  const tasks = new Map();                 // name -> {done, total} ; total 0 = indeterminate
+  let hideTimer = null;
+  function render() {
+    if (!tasks.size) { hideTimer = hideTimer || setTimeout(() => { box.classList.remove("on"); hideTimer = null; }, 350); return; }
+    clearTimeout(hideTimer); hideTimer = null;
+    box.classList.add("on");
+    let done = 0, total = 0, indeterminate = false;
+    const names = [];
+    tasks.forEach((t, n) => { names.push(n); if (t.total > 0) { done += t.done; total += t.total; } else indeterminate = true; });
+    label.textContent = "Loading " + names.join(", ") + "...";
+    if (total > 0 && !indeterminate) { fill.classList.remove("ind"); fill.style.width = Math.max(4, 100 * done / total) + "%"; }
+    else { fill.classList.add("ind"); fill.style.width = "35%"; }
+  }
+  return {
+    set(name, done, total) { tasks.set(name, { done: done || 0, total: total || 0 }); render(); },
+    end(name) { tasks.delete(name); render(); },
+    async track(name, promise) { this.set(name, 0, 0); try { return await promise; } finally { this.end(name); } },
+  };
+})();
+window.SharcLoading = Loading;
+
 function setStatus(text) {
   statusEl.textContent = text;
   console.log("[cesium_spike]", text);
 }
 
+window.addEventListener("unhandledrejection", function (event) {
+  console.error("UNHANDLED REJECTION: " + (event.reason && (event.reason.stack || event.reason.message) || event.reason));
+});
+
 window.addEventListener("error", function (event) {
-  setStatus("JS ERROR: " + event.message);
+  const stack = event.error && event.error.stack ? ` | ${String(event.error.stack).split("\n").slice(0, 3).join(" > ")}` : "";
+  const where = (event.filename ? ` (${event.filename.split("/").pop()}:${event.lineno})` : "") + stack;
+  console.error("JS ERROR: " + event.message + where);
+  setStatus("JS ERROR: " + event.message + where);
 });
 
 setStatus("creating viewer (offline mode)…");
 
-const worldBasemap = new Cesium.SingleTileImageryProvider({
-  url: "./assets/world_basemap.jpg",
-  tileWidth: 4096,
-  tileHeight: 2048,
-  rectangle: Cesium.Rectangle.MAX_VALUE,
-});
+const params = new URLSearchParams(window.location.search);
+const ION_TOKEN = params.get("ion") || "";
+if (ION_TOKEN) {
+  Cesium.Ion.defaultAccessToken = ION_TOKEN;
+}
+
+// ── Mapas-base: offline por padrão; satélite online é opcional ──
+const BASEMAPS = [
+  {
+    id: "neii", name: "Natural Earth II", offline: true,
+    make: () => Cesium.TileMapServiceImageryProvider.fromUrl(
+      Cesium.buildModuleUrl("Assets/Textures/NaturalEarthII")),
+  },
+  {
+    id: "dark", name: "Dark political", offline: true,
+    make: () => Promise.resolve(new Cesium.SingleTileImageryProvider({
+      url: "./assets/world_basemap.jpg", tileWidth: 4096, tileHeight: 2048,
+      rectangle: Cesium.Rectangle.MAX_VALUE,
+    })),
+  },
+  {
+    id: "esri", name: "Esri World Imagery", offline: false,
+    make: () => Promise.resolve(new Cesium.UrlTemplateImageryProvider({
+      url: "https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+      maximumLevel: 19,
+      credit: "Esri, Maxar, Earthstar Geographics",
+    })),
+  },
+];
+let currentBasemapId = null;
 
 let viewer;
 try {
   viewer = new Cesium.Viewer("cesiumContainer", {
-    baseLayer: new Cesium.ImageryLayer(worldBasemap),
+    baseLayer: false,
     terrainProvider: new Cesium.EllipsoidTerrainProvider(),
     baseLayerPicker: false,
     geocoder: false,
-    homeButton: true,
-    sceneModePicker: true,
+    homeButton: false,
+    sceneModePicker: false,
     navigationHelpButton: false,
     animation: false,
     timeline: false,
@@ -41,20 +101,123 @@ try {
     infoBox: true,
     selectionIndicator: true,
     shouldAnimate: false,
+    msaaSamples: 4,
+    requestRenderMode: false,
   });
 } catch (e) {
   setStatus("FAILED to construct Cesium.Viewer: " + e);
   throw e;
 }
 
-viewer.scene.globe.enableLighting = false;
-viewer.scene.globe.baseColor = Cesium.Color.fromCssColorString("#1a3a5c");
-viewer.scene.skyAtmosphere.show = true;
-viewer.scene.backgroundColor = Cesium.Color.fromCssColorString("#070b14");
-viewer.scene.globe.showGroundAtmosphere = true;
+function setBasemap(id) {
+  const def = BASEMAPS.find((b) => b.id === id) || BASEMAPS[0];
+  def.make().then((provider) => {
+    viewer.imageryLayers.removeAll();
+    // A tile that fails (busy network, source timeout) is retried with a pause instead of staying blank.
+    const request = provider.requestImage.bind(provider);
+    provider.requestImage = async function (x, y, level, req) {
+      for (let attempt = 0; attempt < 4; attempt++) {
+        try {
+          return await request(x, y, level, req);   // undefined = Cesium throttling, handled by Cesium
+        } catch (e) { /* retry below */ }
+        await new Promise((res) => setTimeout(res, 800 * (attempt + 1)));
+      }
+      throw new Error('tile unavailable');
+    };
+    const layer = viewer.imageryLayers.addImageryProvider(provider);
+    layer.brightness = def.id === "esri" ? 1.0 : 1.08;
+    layer.saturation = def.id === "dark" ? 1.0 : 1.12;
+    currentBasemapId = def.id;
+    viewer.scene.requestRender();
+  }).catch((err) => {
+    console.warn("[cesium_spike] basemap failed:", def.id, err);
+    if (def.id !== "neii") setBasemap("neii");
+  });
+}
+window.SharcBasemaps = {
+  list: BASEMAPS.map((b) => ({ id: b.id, name: b.name, offline: b.offline })),
+  current: () => currentBasemapId,
+  set: setBasemap,
+};
+setBasemap(params.get("base") || "neii");
+
+if (ION_TOKEN) {
+  Cesium.createWorldTerrainAsync().then((t) => { viewer.terrainProvider = t; })
+    .catch((err) => console.warn("[cesium_spike] world terrain failed:", err));
+}
+
+// ── Aparência realista: sol, atmosfera, névoa, bloom, antialias ──
+const scene = viewer.scene;
+scene.backgroundColor = Cesium.Color.fromCssColorString("#03050a");
+scene.globe.baseColor = Cesium.Color.fromCssColorString("#0b1d33");
+scene.renderError.addEventListener((sc, err) => console.error('RENDER ERROR: ' + (err && (err.stack || err.message) || err)));
+scene.globe.enableLighting = true;
+scene.globe.dynamicAtmosphereLighting = true;
+scene.globe.dynamicAtmosphereLightingFromSun = true;
+scene.globe.showGroundAtmosphere = true;
+scene.globe.atmosphereLightIntensity = 14.0;
+scene.globe.depthTestAgainstTerrain = false;
+scene.globe.maximumScreenSpaceError = 1.5;
+scene.skyAtmosphere.show = true;
+scene.skyAtmosphere.brightnessShift = 0.05;
+scene.fog.enabled = true;
+scene.fog.density = 0.00018;
+scene.sun.show = true;
+scene.moon.show = true;
+scene.highDynamicRange = true;
+scene.postProcessStages.fxaa.enabled = true;
+viewer.resolutionScale = Math.min(window.devicePixelRatio || 1, 2);
+
+const bloom = scene.postProcessStages.bloom;
+bloom.enabled = true;
+bloom.uniforms.contrast = 128;
+bloom.uniforms.brightness = -0.5;
+bloom.uniforms.glowOnly = false;
+bloom.uniforms.delta = 1.0;
+bloom.uniforms.sigma = 2.6;
+bloom.uniforms.stepSize = 1.0;
+
+// ── Solo de análise: a base offline é de baixa resolução; ao aproximar a
+// câmera (escala de célula), esmaece a imagem e deixa só a grade métrica. ──
+function updateGroundMode() {
+  try {
+    const layer = viewer.imageryLayers.length ? viewer.imageryLayers.get(0) : null;
+    if (!layer) return;
+    const def = BASEMAPS.find((b) => b.id === currentBasemapId);
+    const h = viewer.camera.positionCartographic.height;
+    const near = 80000, far = 400000;                 // 80 km .. 400 km
+    let a = 1.0;
+    if (def && def.offline && h < far) {
+      a = Cesium.Math.clamp((h - near) / (far - near), 0.0, 1.0) * 0.85 + 0.15;
+    }
+    layer.alpha = a;
+    const cityDs = viewer.dataSources.getByName("cities")[0];
+    if (cityDs && window.__citiesWanted !== false) cityDs.show = h > 600000;
+    viewer.scene.requestRender();
+  } catch (e) { /* sem imagem ainda */ }
+}
+viewer.camera.percentageChanged = 0.02;
+viewer.camera.changed.addEventListener(updateGroundMode);
+viewer.camera.moveEnd.addEventListener(updateGroundMode);
+
+// Grade métrica local (referência de escala nas cenas locais).
+function addLocalGrid(toWorld, extentM, stepM) {
+  const n = Math.ceil(extentM / stepM);
+  for (let i = -n; i <= n; i++) {
+    const major = i % 5 === 0;
+    const col = Cesium.Color.fromCssColorString(major ? "#6b7480" : "#3a4048").withAlpha(major ? 0.55 : 0.35);
+    const c = i * stepM;
+    viewer.entities.add({ polyline: { positions: [toWorld(c, -extentM, 0.5), toWorld(c, extentM, 0.5)], width: major ? 1.4 : 1, material: col } });
+    viewer.entities.add({ polyline: { positions: [toWorld(-extentM, c, 0.5), toWorld(extentM, c, 0.5)], width: major ? 1.4 : 1, material: col } });
+  }
+}
+
+// Sol sobre a América do Sul (luz do dia, terminador visível ao afastar).
+viewer.clock.currentTime = Cesium.JulianDate.fromIso8601("2026-03-21T15:30:00Z");
+viewer.clock.shouldAnimate = false;
 
 viewer.camera.setView({
-  destination: Cesium.Cartesian3.fromDegrees(-47.0, -15.0, 25000000),
+  destination: Cesium.Cartesian3.fromDegrees(-47.0, -15.0, 18000000),
 });
 
 // ═══════════════════════════════════════════════════════════════════
@@ -272,6 +435,37 @@ function beamConePositions(bx, by, bz, azDeg, downtiltDeg, length, halfAngleDeg 
   return { apex, base };
 }
 
+
+// ═══════════════════════════════════════════════════════════════════
+// 3D models (procedural glTF served by the local server)
+// ═══════════════════════════════════════════════════════════════════
+function modelOrientation(position, headingDeg, pitchDeg) {
+  // Cesium: heading turns clockwise seen from above, 0 = East (the model's forward axis).
+  const hpr = new Cesium.HeadingPitchRoll(
+    Cesium.Math.toRadians(headingDeg), Cesium.Math.toRadians(pitchDeg), 0);
+  return Cesium.Transforms.headingPitchRollQuaternion(position, hpr);
+}
+
+function addModel(name, uri, position, headingDeg, pitchDeg, opts = {}) {
+  return viewer.entities.add({
+    name,
+    position,
+    orientation: modelOrientation(position, headingDeg, pitchDeg),
+    model: {
+      uri,
+      scale: opts.scale || 1.0,
+      minimumPixelSize: opts.minimumPixelSize || 0,
+      maximumScale: opts.maximumScale || 20000,
+      shadows: Cesium.ShadowMode.DISABLED,
+      distanceDisplayCondition: opts.nearM ? new Cesium.DistanceDisplayCondition(0, opts.nearM) : undefined,
+    },
+  });
+}
+
+function glow(color, power = 0.22) {
+  return new Cesium.PolylineGlowMaterialProperty({ glowPower: power, color });
+}
+
 function addBeamCone(toWorld, entities, bx, by, bz, azDeg, downtiltDeg, length, color, halfAngleDeg = 12) {
   const { apex, base } = beamConePositions(bx, by, bz, azDeg, downtiltDeg, length, halfAngleDeg);
   const apexWorld = toWorld(apex[0], apex[1], apex[2]);
@@ -280,7 +474,7 @@ function addBeamCone(toWorld, entities, bx, by, bz, azDeg, downtiltDeg, length, 
   entities.add({
     polygon: {
       hierarchy: baseWorld,
-      material: color.withAlpha(0.2),
+      material: color.withAlpha(0.16),
       outline: false,
       perPositionHeight: true,
     },
@@ -288,7 +482,7 @@ function addBeamCone(toWorld, entities, bx, by, bz, azDeg, downtiltDeg, length, 
   const radialStep = Math.max(1, Math.floor(base.length / 8));
   for (let i = 0; i < base.length; i += radialStep) {
     entities.add({
-      polyline: { positions: [apexWorld, baseWorld[i]], width: 1, material: color.withAlpha(0.55) },
+      polyline: { positions: [apexWorld, baseWorld[i]], width: 2.5, material: glow(color.withAlpha(0.85), 0.3) },
     });
   }
 }
@@ -355,10 +549,20 @@ function renderGainMap(scene) {
 // ═══════════════════════════════════════════════════════════════════
 
 function renderHexSectorScene(scene) {
+  renderHexSectorScene._sites = new Set();
   const { toWorld } = makeEnuHelpers(scene.reference);
   const bsHeightM = scene.bs_height_m;
   const ueHeightM = scene.ue_height_m;
   const arrowLenM = scene.hex_radius_m * 0.6;
+
+  // Grade métrica de referência
+  {
+    let ext = 0;
+    for (const hc of scene.hex_centers) ext = Math.max(ext, Math.abs(hc.x), Math.abs(hc.y));
+    ext += scene.hex_radius_m * 1.6;
+    const step = Math.pow(10, Math.floor(Math.log10(ext / 6)));
+    addLocalGrid(toWorld, Math.ceil(ext / step) * step, step);
+  }
 
   // Hex cells
   for (const hc of scene.hex_centers) {
@@ -374,13 +578,13 @@ function renderHexSectorScene(scene) {
       );
     }
     viewer.entities.add({
-      polyline: { positions, width: 1.5, material: C.hex.withAlpha(0.5) },
+      polyline: { positions, width: 3, material: glow(C.hex.brighten(-0.1, new Cesium.Color()).withAlpha(0.9), 0.16) },
     });
     // Subtle hex fill
     viewer.entities.add({
       polygon: {
         hierarchy: positions,
-        material: C.hex.withAlpha(0.04),
+        material: C.hex.withAlpha(0.07),
         outline: false,
       },
     });
@@ -392,14 +596,28 @@ function renderHexSectorScene(scene) {
     const groundPos = toWorld(bs.x, bs.y, 0);
     const worldPos = toWorld(bs.x, bs.y, bsHeightM);
 
-    // Mast
-    viewer.entities.add({
-      polyline: { positions: [groundPos, worldPos], width: 2, material: C.mast },
-    });
-    // Antenna point
+    // One tower model per site (the 3 sectors of a site share the position)
+    const siteKey = `${bs.x.toFixed(1)},${bs.y.toFixed(1)}`;
+    if (!renderHexSectorScene._sites.has(siteKey)) {
+      renderHexSectorScene._sites.add(siteKey);
+      const towerPos = toWorld(bs.x, bs.y, 0);
+      addModel("Base station", "/models/tower.glb", towerPos, -bs.azimuth_deg, 0,
+        { scale: Math.max(1, bsHeightM / 30), nearM: 2500 });
+    }
     viewer.entities.add({
       position: worldPos,
-      point: { pixelSize: 7, color: C.bs, outlineColor: C.bsOutline, outlineWidth: 1 },
+      point: {
+        pixelSize: 8, color: C.bs, outlineColor: C.bsOutline, outlineWidth: 1.5,
+        distanceDisplayCondition: new Cesium.DistanceDisplayCondition(2200, Number.POSITIVE_INFINITY),
+      },
+    });
+    const ringR = Math.max(scene.hex_radius_m * 0.06, 8);
+    viewer.entities.add({
+      position: groundPos,
+      ellipse: {
+        semiMajorAxis: ringR, semiMinorAxis: ringR,
+        material: C.bs.withAlpha(0.22), outline: true, outlineColor: C.bs.withAlpha(0.8),
+      },
     });
 
     // Sector wedge
@@ -424,7 +642,7 @@ function renderHexSectorScene(scene) {
   for (const ue of scene.ue_positions) {
     viewer.entities.add({
       position: toWorld(ue.x, ue.y, ueHeightM),
-      point: { pixelSize: 3.5, color: C.ue.withAlpha(0.8) },
+      point: { pixelSize: 4.5, color: C.ue.withAlpha(0.95), outlineColor: Cesium.Color.WHITE.withAlpha(0.6), outlineWidth: 0.8 },
     });
   }
 
@@ -475,7 +693,7 @@ function renderIndoorScene(scene) {
   for (const ue of scene.ue_positions) {
     viewer.entities.add({
       position: toWorld(ue.x, ue.y, ue.z),
-      point: { pixelSize: 3.5, color: C.ue.withAlpha(0.8) },
+      point: { pixelSize: 4.5, color: C.ue.withAlpha(0.95), outlineColor: Cesium.Color.WHITE.withAlpha(0.6), outlineWidth: 0.8 },
     });
   }
 
@@ -495,6 +713,10 @@ function renderSingleSpaceStationScene(scene) {
 
   // Gain map (heatmap) — rendered first so it sits under other elements
   renderGainMap(scene);
+
+  // Satellite model with the dish looking at the Earth (nadir)
+  addModel("Satellite model", "/models/satellite.glb", satWorld, 0, -90,
+    { minimumPixelSize: 72, maximumScale: 400000 });
 
   // Satellite
   viewer.entities.add({
@@ -535,8 +757,8 @@ function renderSingleSpaceStationScene(scene) {
     // Link line SAT → ES (straight 3D line, not geodesic)
     viewer.entities.add({
       polyline: {
-        positions: [satWorld, esWorld], width: 2.5,
-        material: C.link.withAlpha(0.85),
+        positions: [satWorld, esWorld], width: 1.6,
+        material: glow(C.link.withAlpha(0.9), 0.25),
         arcType: Cesium.ArcType.NONE,
       },
     });
@@ -547,24 +769,36 @@ function renderSingleSpaceStationScene(scene) {
     const footprintPositions = Cesium.Cartesian3.fromDegreesArray(
       scene.footprint.flatMap((p) => [p.lon_deg, p.lat_deg])
     );
+    // Contorno fino com brilho; preenchimento translúcido
     viewer.entities.add({
-      polyline: { positions: footprintPositions, width: 3, material: C.footprint },
+      polyline: { positions: footprintPositions, width: 1.8, material: glow(C.footprint.withAlpha(0.95), 0.22), clampToGround: true },
     });
     viewer.entities.add({
       polygon: {
         hierarchy: new Cesium.PolygonHierarchy(footprintPositions),
-        material: C.footprint.withAlpha(0.1),
+        material: C.footprint.withAlpha(0.12),
         outline: false,
       },
     });
-    // Beam volume lines — straight in 3D space
-    const beamStep = Math.max(1, Math.floor(footprintPositions.length / 16));
+    // Volume do feixe: leque de triângulos translúcidos (satélite -> contorno) + poucas arestas finas
+    const triStep = Math.max(1, Math.floor(footprintPositions.length / 48));
+    for (let i = 0; i + triStep < footprintPositions.length; i += triStep) {
+      viewer.entities.add({
+        polygon: {
+          hierarchy: [satWorld, footprintPositions[i], footprintPositions[i + triStep]],
+          perPositionHeight: true,
+          material: C.footprint.withAlpha(0.045),
+          outline: false,
+        },
+      });
+    }
+    const beamStep = Math.max(1, Math.floor(footprintPositions.length / 8));
     for (let i = 0; i < footprintPositions.length; i += beamStep) {
       viewer.entities.add({
         polyline: {
           positions: [satWorld, footprintPositions[i]],
           width: 1,
-          material: C.footprint.withAlpha(0.2),
+          material: C.footprint.withAlpha(0.35),
           arcType: Cesium.ArcType.NONE,
         },
       });
@@ -592,7 +826,7 @@ function renderSingleSpaceStationScene(scene) {
   if (scene.country_bs && scene.country_bs.length > 0) {
     for (const bs of scene.country_bs) {
       viewer.entities.add({
-        position: Cesium.Cartesian3.fromDegrees(bs.lon_deg, bs.lat_deg, 0),
+        position: Cesium.Cartesian3.fromDegrees(bs.lon_deg, bs.lat_deg, (bs.ground_m || 0) + 25),
         point: { pixelSize: 6, color: C.countryBs, outlineColor: Cesium.Color.WHITE, outlineWidth: 1 },
       });
     }
@@ -684,6 +918,11 @@ function renderSingleStationScene(scene) {
     polyline: { positions: [groundPos, worldPos], width: 3, material: C.mast },
   });
 
+  // Dish model, pointed with the station azimuth/elevation
+  addModel("Earth station", "/models/earth_station.glb", groundPos,
+    -(scene.antenna_azimuth_deg || 0), (scene.antenna_elevation_deg || 0),
+    { nearM: 1500 });
+
   // Station point — cyan (C.station), distinct from satellite red
   viewer.entities.add({
     name: "Single Earth Station",
@@ -746,10 +985,10 @@ function renderNtnScene(scene) {
       );
     }
     viewer.entities.add({
-      polyline: { positions, width: 1.5, material: C.hex.withAlpha(0.5) },
+      polyline: { positions, width: 3, material: glow(C.hex.brighten(-0.1, new Cesium.Color()).withAlpha(0.9), 0.16) },
     });
     viewer.entities.add({
-      polygon: { hierarchy: positions, material: C.hex.withAlpha(0.04), outline: false },
+      polygon: { hierarchy: positions, material: C.hex.withAlpha(0.07), outline: false },
     });
     viewer.entities.add({
       position: toWorld(ap.x, ap.y, 0),
@@ -796,7 +1035,7 @@ function renderNtnScene(scene) {
   for (const ue of scene.ue_positions) {
     viewer.entities.add({
       position: toWorld(ue.x, ue.y, 0),
-      point: { pixelSize: 3.5, color: C.ue.withAlpha(0.8) },
+      point: { pixelSize: 4.5, color: C.ue.withAlpha(0.95), outlineColor: Cesium.Color.WHITE.withAlpha(0.6), outlineWidth: 0.8 },
     });
   }
 
@@ -811,12 +1050,601 @@ function renderNtnScene(scene) {
 // Scene dispatcher + QWebChannel bridge
 // ═══════════════════════════════════════════════════════════════════
 
+function hudFromScene(scene) {
+  if (!window.SharcHud || scene.error) return;
+  const n = (a) => (Array.isArray(a) ? a.length : 0);
+  const stats = [];
+  const add = (k, v) => { if (v) stats.push([k, String(v)]); };
+  add("Base stations", n(scene.base_stations));
+  add("Cells", n(scene.hex_centers));
+  add("UEs", n(scene.ue_positions));
+  add("Buildings", n(scene.buildings));
+  add("Anchors", n(scene.anchor_points));
+  add("Devices", n(scene.devices));
+  if (scene.satellite) add("Satellite", "1");
+  if (scene.station) add("Earth station", "1");
+  if (scene.reference) {
+    stats.push(["Reference", scene.reference.lat_deg.toFixed(3) + ", " + scene.reference.lon_deg.toFixed(3)]);
+  }
+  window.SharcHud.setScene({ title: scene.topology_type || "Scene", stats });
+  window.SharcHud.setLegend([
+    { color: "#4fc3f7", label: "Base station / sector" },
+    { color: "#ef5350", label: "UE" },
+    { color: "#ffd54f", label: "Beam" },
+    { color: "#7986cb", label: "Cell" },
+  ]);
+}
+
+
+// ═══════════════════════════════════════════════════════════════════
+// Adaptive terrain and land cover: tiles are requested as the camera moves
+// (served by the local tile server, cached on disk), nothing is downloaded up front.
+// ═══════════════════════════════════════════════════════════════════
+const tileState = { key: null, layers: [] };
+
+function clearTerrain() {
+  for (const l of tileState.layers) viewer.imageryLayers.remove(l, true);
+  tileState.layers = [];
+  viewer.terrainProvider = new Cesium.EllipsoidTerrainProvider();
+  viewer.scene.verticalExaggeration = 1.0;
+  viewer.scene.globe.depthTestAgainstTerrain = false;
+  tileState.key = null;
+}
+
+const hydro = { source: new Cesium.CustomDataSource("hydro"), on: false, timer: null, last: "" };
+viewer.dataSources.add(hydro.source);
+
+async function updateHydro() {
+  if (!hydro.on) { hydro.source.entities.removeAll(); hydro.last = ""; return; }
+  const h = viewer.camera.positionCartographic.height;
+  const rect = h < 2.5e6 ? viewer.camera.computeViewRectangle() : null;
+  if (!rect) { hydro.source.entities.removeAll(); hydro.last = ""; return; }
+  const d = Cesium.Math.toDegrees;
+  const box = [d(rect.west), d(rect.south), d(rect.east), d(rect.north)].map((v) => v.toFixed(3));
+  const key = box.join(",");
+  if (key === hydro.last) return;
+  hydro.last = key;
+  try {
+    const r = await Loading.track('rivers & lakes', fetch(`/hydro?west=${box[0]}&south=${box[1]}&east=${box[2]}&north=${box[3]}`));
+    if (!r.ok) return;
+    const gj = await r.json();
+    hydro.source.entities.removeAll();
+    const blue = Cesium.Color.fromCssColorString("#3aa0ff");
+    for (const f of gj.features) {
+      const g = f.geometry;
+      const lines = g.type === "LineString" ? [g.coordinates] : g.type === "MultiLineString" ? g.coordinates : [];
+      for (const c of lines) {
+        hydro.source.entities.add({ polyline: {
+          positions: Cesium.Cartesian3.fromDegreesArray(c.flat()), width: 2.2, clampToGround: true,
+          material: new Cesium.PolylineGlowMaterialProperty({ glowPower: 0.15, color: blue.withAlpha(0.95) }) } });
+      }
+      const polys = g.type === "Polygon" ? [g.coordinates] : g.type === "MultiPolygon" ? g.coordinates : [];
+      for (const p of polys) {
+        hydro.source.entities.add({ polygon: {
+          hierarchy: new Cesium.PolygonHierarchy(Cesium.Cartesian3.fromDegreesArray(p[0].flat())),
+          material: blue.withAlpha(0.3), outline: false, classificationType: Cesium.ClassificationType.TERRAIN } });
+      }
+    }
+    viewer.scene.requestRender();
+  } catch (e) { /* offline: keep the view clean */ }
+}
+for (const ev of [viewer.camera.moveEnd, viewer.camera.changed]) {
+  ev.addEventListener(() => {
+    clearTimeout(hydro.timer);
+    hydro.timer = setTimeout(updateHydro, 500);
+  });
+}
+
+
+// Buildings (OpenStreetMap), extruded from their footprints when the camera is close.
+const FACADES = ["#d9d2c3", "#cfc7b8", "#e6e1d6", "#b9a58e", "#c9b79c", "#a8b2bd", "#d8cdb8", "#bfae9a", "#e0d6c5", "#9fa8b0", "#a8685a", "#8d8f94"];
+function facadeColor(f) {
+  if (bld.clean) return Cesium.Color.fromCssColorString("#f4f5f6");
+  const tall = Math.min(1, f.h / 70);
+  const base = Cesium.Color.fromCssColorString(FACADES[Math.abs(f.id | 0) % FACADES.length]);
+  return Cesium.Color.lerp(base, Cesium.Color.fromCssColorString("#7f9bbd"), tall * 0.55, new Cesium.Color());
+}
+
+const bld = { clean: false, realistic: false, source: new Cesium.CustomDataSource("buildings"), on: false, timer: null, last: "", ids: new Set(), max: 3000, dist: 3500, minH: 0 };
+viewer.dataSources.add(bld.source);
+
+// ── Trees: OpenStreetMap trees plus vegetation-based trees, drawn as two batched primitives (crowns, trunks).
+const trees = { on: false, max: 2500, crowns: null, trunks: null, key: "", dist: 1200 };
+function clearTrees() {
+  for (const k of ["crowns", "trunks"]) { if (trees[k]) { viewer.scene.primitives.remove(trees[k]); trees[k] = null; } }
+  trees.key = "";
+}
+function setTrees(list) {
+  if (!trees.on || !list || !list.length) { clearTrees(); return; }
+  const key = list.length + ":" + list[0].join(",") + ":" + list[list.length - 1].join(",");
+  if (key === trees.key) return;
+  clearTrees(); trees.key = key;
+  const crownGeom = new Cesium.EllipsoidGeometry({ radii: new Cesium.Cartesian3(1, 1, 1), stackPartitions: 6, slicePartitions: 8,
+    vertexFormat: Cesium.PerInstanceColorAppearance.VERTEX_FORMAT });
+  const trunkGeom = new Cesium.CylinderGeometry({ length: 1, topRadius: 0.5, bottomRadius: 0.7, slices: 6,
+    vertexFormat: Cesium.PerInstanceColorAppearance.VERTEX_FORMAT });
+  const crowns = [], trunks = [];
+  const rnd = (i, s) => { const v = Math.sin(i * 12.9898 + s * 78.233) * 43758.5453; return v - Math.floor(v); };
+  const trunkColor = Cesium.ColorGeometryInstanceAttribute.fromColor(Cesium.Color.fromCssColorString("#5b4636"));
+  list.forEach((t, i) => {
+    const th = Math.max(3, t[2] || 8);
+    const g = viewer.scene.globe.getHeight(Cesium.Cartographic.fromDegrees(t[0], t[1])) || 0;
+    const crownR = th * (0.36 + 0.1 * rnd(i, 1)), trunkLen = th * 0.45, tr = Math.max(0.25, th * 0.03);
+    const crownPos = Cesium.Cartesian3.fromDegrees(t[0], t[1], g + trunkLen + crownR * 0.9);
+    const trunkPos = Cesium.Cartesian3.fromDegrees(t[0], t[1], g + trunkLen / 2);
+    const m1 = Cesium.Matrix4.multiplyByScale(Cesium.Transforms.eastNorthUpToFixedFrame(crownPos), new Cesium.Cartesian3(crownR, crownR, crownR * 1.2), new Cesium.Matrix4());
+    const m2 = Cesium.Matrix4.multiplyByScale(Cesium.Transforms.eastNorthUpToFixedFrame(trunkPos), new Cesium.Cartesian3(tr, tr, trunkLen), new Cesium.Matrix4());
+    const green = Cesium.Color.fromHsl(0.25 + 0.06 * rnd(i, 2), 0.45 + 0.2 * rnd(i, 3), 0.22 + 0.14 * rnd(i, 4));
+    crowns.push(new Cesium.GeometryInstance({ geometry: crownGeom, modelMatrix: m1, attributes: { color: Cesium.ColorGeometryInstanceAttribute.fromColor(green) } }));
+    trunks.push(new Cesium.GeometryInstance({ geometry: trunkGeom, modelMatrix: m2, attributes: { color: trunkColor } }));
+  });
+  const ap = () => new Cesium.PerInstanceColorAppearance({ translucent: false, closed: true });
+  trees.crowns = viewer.scene.primitives.add(new Cesium.Primitive({ geometryInstances: crowns, appearance: ap(), asynchronous: false }));
+  trees.trunks = viewer.scene.primitives.add(new Cesium.Primitive({ geometryInstances: trunks, appearance: ap(), asynchronous: false }));
+  viewer.scene.requestRender();
+}
+
+// ── City-scale 3D from streamed tilesets (optional, free Cesium ion token or a Google Map Tiles key):
+//   "osm"   = Cesium OSM Buildings (every OpenStreetMap building of the world, LOD streamed, city scale)
+//   "photo" = Google Photorealistic 3D Tiles (photogrammetry of buildings and trees), through ion or a Google key
+// While one is active our own extruded buildings/trees are hidden so they do not overlap (and, for "photo", the globe).
+const photoreal = { tileset: null, key: "", busy: false, mode: "" };
+async function setPhotoreal(mode, ionToken, googleKey) {
+  mode = mode || "";
+  ionToken = (ionToken || "").trim();
+  googleKey = (googleKey || "").trim();
+  if (mode === "photo" && !ionToken && !googleKey) mode = "";
+  if (mode === "osm" && !ionToken) mode = "";
+  const key = [mode, ionToken, googleKey].join("|");
+  if (key === photoreal.key || photoreal.busy) return;
+  photoreal.key = key;
+  if (photoreal.tileset) {
+    viewer.scene.primitives.remove(photoreal.tileset);
+    photoreal.tileset = null;
+    viewer.scene.globe.show = true;
+    photoreal.mode = "";
+    bld.last = "";
+    setTimeout(updateBuildings, 200);
+  }
+  if (!mode) { viewer.scene.requestRender(); return; }
+  photoreal.busy = true;
+  Loading.set(mode === "osm" ? "city buildings" : "photorealistic 3D", 0, 0);
+  try {
+    if (ionToken) Cesium.Ion.defaultAccessToken = ionToken;
+    let ts;
+    if (mode === "osm") ts = await Cesium.createOsmBuildingsAsync();
+    else if (ionToken) ts = await Cesium.Cesium3DTileset.fromIonAssetId(2275207, { showCreditsOnScreen: true, maximumScreenSpaceError: 6 });
+    else ts = await Cesium.Cesium3DTileset.fromUrl("https://tile.googleapis.com/v1/3dtiles/root.json?key=" + encodeURIComponent(googleKey),
+      { showCreditsOnScreen: true, maximumScreenSpaceError: 6 });
+    viewer.scene.primitives.add(ts);
+    photoreal.tileset = ts;
+    photoreal.mode = mode;
+    if (mode === "photo") viewer.scene.globe.show = false;
+    if (bld.ids.size) { bld.source.entities.removeAll(); bld.ids.clear(); }
+    clearTrees();
+    setStatus(mode === "osm" ? "Cesium OSM Buildings on" : "Photorealistic 3D Tiles on");
+  } catch (e) {
+    photoreal.key = "";
+    setStatus("City 3D unavailable: " + (e && e.message ? e.message : e) + " (check the token / key and your internet connection)");
+  } finally {
+    photoreal.busy = false;
+    Loading.end(mode === "osm" ? "city buildings" : "photorealistic 3D");
+    viewer.scene.requestRender();
+  }
+}
+
+// ── Roads (OpenStreetMap highways) drawn as ground corridors in the "clean city model" look.
+const roads = { source: new Cesium.CustomDataSource("roads"), ids: new Set(), on: false };
+viewer.dataSources.add(roads.source);
+function setRoads(list) {
+  if (!roads.on) { if (roads.ids.size) { roads.source.entities.removeAll(); roads.ids.clear(); } return; }
+  const color = Cesium.Color.fromCssColorString("#7c828c");
+  for (const [w, pts] of list || []) {
+    const id = pts[0].join(",") + ">" + pts[pts.length - 1].join(",") + ":" + pts.length;
+    if (roads.ids.has(id)) continue;
+    roads.ids.add(id);
+    roads.source.entities.add({ corridor: { positions: Cesium.Cartesian3.fromDegreesArray(pts.flat()), width: w,
+      material: color, cornerType: Cesium.CornerType.ROUNDED, classificationType: Cesium.ClassificationType.TERRAIN } });
+  }
+  if (roads.ids.size > 6000) { roads.source.entities.removeAll(); roads.ids.clear(); }
+  viewer.scene.requestRender();
+}
+
+function heightAboveGround() {
+  const c = viewer.camera.positionCartographic;
+  const g = viewer.scene.globe.getHeight(c);
+  return g === undefined ? c.height : Math.max(0, c.height - g);
+}
+
+async function updateBuildings() {
+  if (photoreal.tileset) return;
+  const h = heightAboveGround();
+  if (h > trees.dist) clearTrees();
+  if (!bld.on || h > bld.dist) { if (bld.ids.size) { bld.source.entities.removeAll(); bld.ids.clear(); } bld.last = ""; return; }
+  // Only the ground around the screen centre (a tilted view's full rectangle reaches the horizon).
+  const cv = viewer.scene.canvas;
+  // Pick the terrain, not the sea-level ellipsoid: at 1100 m elevation (Brasilia) the ellipsoid hit lies km away.
+  const centre = new Cesium.Cartesian2(cv.clientWidth / 2, cv.clientHeight / 2);
+  const hit = viewer.scene.globe.pick(viewer.camera.getPickRay(centre), viewer.scene)
+    || viewer.camera.pickEllipsoid(centre, viewer.scene.globe.ellipsoid);
+  if (!hit) return;
+  const c = Cesium.Cartographic.fromCartesian(hit);
+  const d = Cesium.Math.toDegrees;
+  const half = Math.min(0.0045, Math.max(0.002, (h * 0.9) / 111000));
+  const box = [d(c.longitude) - half, d(c.latitude) - half, d(c.longitude) + half, d(c.latitude) + half]
+    .map((v) => v.toFixed(4));
+  try {
+    const r = await Loading.track('buildings', fetch(`/buildings?west=${box[0]}&south=${box[1]}&east=${box[2]}&north=${box[3]}&trees=${trees.on && h <= trees.dist ? trees.max : 0}&roads=${roads.on ? 1 : 0}`));
+    if (!r.ok) return;
+    const gj = await r.json();
+    const cx = d(c.longitude), cy = d(c.latitude);
+    const near = gj.features.filter((f) => f.h >= bld.minH).map((f) => ({ f, d: Math.hypot(f.ring[0][0] - cx, f.ring[0][1] - cy) }))
+      .sort((a, b) => a.d - b.d).slice(0, bld.max).map((o) => o.f);
+    if (bld.ids.size + near.length > bld.max * 1.6) { bld.source.entities.removeAll(); bld.ids.clear(); }
+    for (const f of near) {
+      if (bld.ids.has(f.id)) continue;
+      bld.ids.add(f.id);
+      const color = facadeColor(f);
+      bld.source.entities.add({
+        polygon: {
+          hierarchy: new Cesium.PolygonHierarchy(Cesium.Cartesian3.fromDegreesArray(f.ring.flat())),
+          height: 0, extrudedHeight: f.h, shadows: Cesium.ShadowMode.ENABLED,
+          heightReference: Cesium.HeightReference.CLAMP_TO_GROUND,
+          extrudedHeightReference: Cesium.HeightReference.RELATIVE_TO_GROUND,
+          material: color, outline: false,
+        },
+      });
+    }
+    viewer.scene.requestRender();
+    if (trees.on && h <= trees.dist) setTrees(gj.trees || []);
+    setRoads(gj.roads || []);
+    if (gj.error) setStatus('buildings unavailable (OpenStreetMap servers busy): ' + gj.error);
+    if (gj.pending > 0) { clearTimeout(bld.timer); bld.timer = setTimeout(updateBuildings, 4000); }   // tiles still downloading
+  } catch (e) { /* offline */ }
+}
+for (const ev of [viewer.camera.moveEnd, viewer.camera.changed]) {
+  ev.addEventListener(() => {
+    clearTimeout(bld.timer);
+    bld.timer = setTimeout(updateBuildings, 600);
+  });
+}
+
+// Warning for base stations on water: red markers in the scene + a note in the scene card.
+const warnSource = new Cesium.CustomDataSource("site-warnings");
+viewer.dataSources.add(warnSource);
+
+function setSiteWarning(info) {
+  warnSource.entities.removeAll();
+  const card = document.getElementById("hudScene");
+  let box = document.getElementById("hudWarn");
+  if (!info) { if (box) box.remove(); return; }
+  if (!box) {
+    box = document.createElement("div");
+    box.id = "hudWarn";
+    box.className = "warn";
+    card.appendChild(box);
+  }
+  box.textContent = "\u26A0 " + info.message;
+  for (const s of info.sites || []) {
+    warnSource.entities.add({
+      position: Cesium.Cartesian3.fromDegrees(s.lon, s.lat, 30),
+      point: { pixelSize: 16, color: Cesium.Color.TRANSPARENT, outlineColor: Cesium.Color.fromCssColorString("#ff5252"),
+               outlineWidth: 3, disableDepthTestDistance: Number.POSITIVE_INFINITY },
+      label: { text: "ON WATER", font: "bold 11px 'Segoe UI', sans-serif", fillColor: Cesium.Color.fromCssColorString("#ff8a80"),
+               outlineColor: Cesium.Color.BLACK, outlineWidth: 3, style: Cesium.LabelStyle.FILL_AND_OUTLINE,
+               verticalOrigin: Cesium.VerticalOrigin.BOTTOM, pixelOffset: new Cesium.Cartesian2(0, -14),
+               distanceDisplayCondition: new Cesium.DistanceDisplayCondition(0, 60000),
+               disableDepthTestDistance: Number.POSITIVE_INFINITY },
+    });
+  }
+  viewer.scene.requestRender();
+}
+
+// "Loading terrain tiles" indicator in the bottom bar.
+let tileLoadPeak = 0;
+(function () {
+  const bar = document.getElementById("hudBar");
+  if (!bar) return;
+  const el = document.createElement("span");
+  el.id = "barLoad";
+  el.style.color = "#d9a23b";
+  bar.insertBefore(el, document.getElementById("barBase"));
+  viewer.scene.globe.tileLoadProgressEvent.addEventListener((n) => {
+    el.textContent = n > 0 ? `loading ${n} map tiles...` : "";
+    tileLoadPeak = n === 0 ? 0 : Math.max(tileLoadPeak, n);
+    if (n > 0) Loading.set("map tiles", tileLoadPeak - n, tileLoadPeak); else Loading.end("map tiles");
+  });
+})();
+
+// ═══════════════════════════════════════════════════════════════════
+// Place the simulation scenario on the map: draggable centre marker, click-to-place,
+// right-click menu and a "go to coordinates" box.
+// ═══════════════════════════════════════════════════════════════════
+const place = { source: new Cesium.CustomDataSource("scenario-center"), marker: null, dragging: false, mode: false };
+viewer.dataSources.add(place.source);
+
+const PIN_SVG = "data:image/svg+xml;utf8," + encodeURIComponent(
+  '<svg xmlns="http://www.w3.org/2000/svg" width="40" height="52" viewBox="0 0 40 52">' +
+  '<path d="M20 50 C20 50 4 30 4 19 a16 16 0 1 1 32 0 C36 30 20 50 20 50Z" fill="#4f9dde" stroke="#ffffff" stroke-width="2.5"/>' +
+  '<circle cx="20" cy="19" r="6" fill="#ffffff"/></svg>');
+
+function groundPick(pos) {
+  const ray = viewer.camera.getPickRay(pos);
+  if (!ray) return null;
+  return viewer.scene.globe.pick(ray, viewer.scene) || viewer.camera.pickEllipsoid(pos, viewer.scene.globe.ellipsoid) || null;
+}
+
+function cartToLatLon(c) {
+  const g = Cesium.Cartographic.fromCartesian(c);
+  return { lat: Cesium.Math.toDegrees(g.latitude), lon: Cesium.Math.toDegrees(g.longitude) };
+}
+
+function showCenterMarker(ref) {
+  place.source.entities.removeAll();
+  if (!ref) return;
+  place.marker = place.source.entities.add({
+    id: "scenario-center", name: "Scenario centre",
+    position: Cesium.Cartesian3.fromDegrees(ref.lon_deg, ref.lat_deg, (ref.alt_m || 0) + 3),
+    billboard: { image: PIN_SVG, width: 28, height: 36, verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
+                 disableDepthTestDistance: Number.POSITIVE_INFINITY, scaleByDistance: new Cesium.NearFarScalar(2000, 1.2, 2.0e6, 0.6) },
+    label: { text: "Scenario centre - drag to move", font: "11px 'Segoe UI', sans-serif",
+             fillColor: Cesium.Color.WHITE, outlineColor: Cesium.Color.BLACK, outlineWidth: 3,
+             style: Cesium.LabelStyle.FILL_AND_OUTLINE, verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
+             pixelOffset: new Cesium.Cartesian2(0, -40), showBackground: false,
+             distanceDisplayCondition: new Cesium.DistanceDisplayCondition(0, 80000),
+             disableDepthTestDistance: Number.POSITIVE_INFINITY },
+  });
+}
+
+function commitCenter(lat, lon) {
+  if (window.pyBridge && window.pyBridge.set_scenario_center) window.pyBridge.set_scenario_center(lat, lon);
+  setStatus(`scenario centre -> ${lat.toFixed(5)}, ${lon.toFixed(5)}`);
+}
+
+function setPlaceMode(on) {
+  place.mode = on;
+  document.body.classList.toggle("placing", on);
+  const b = document.getElementById("btnPlace");
+  if (b) b.classList.toggle("on", on);
+}
+
+(function wirePlacement() {
+  const canvas = viewer.scene.canvas;
+  const handler = new Cesium.ScreenSpaceEventHandler(canvas);
+  const ctrl = viewer.scene.screenSpaceCameraController;
+
+  handler.setInputAction((e) => {
+    const picked = viewer.scene.pick(e.position);
+    if (picked && picked.id && picked.id.id === "scenario-center") {
+      place.dragging = true;
+      ctrl.enableInputs = false;
+    }
+  }, Cesium.ScreenSpaceEventType.LEFT_DOWN);
+
+  handler.setInputAction((e) => {
+    if (!place.dragging || !place.marker) return;
+    const c = groundPick(e.endPosition);
+    if (c) place.marker.position = c;
+  }, Cesium.ScreenSpaceEventType.MOUSE_MOVE);
+
+  handler.setInputAction((e) => {
+    if (!place.dragging) return;
+    place.dragging = false;
+    ctrl.enableInputs = true;
+    const c = groundPick(e.position);
+    if (c) { const ll = cartToLatLon(c); commitCenter(ll.lat, ll.lon); }
+  }, Cesium.ScreenSpaceEventType.LEFT_UP);
+
+  handler.setInputAction((e) => {
+    if (!place.mode) return;
+    const c = groundPick(e.position);
+    setPlaceMode(false);
+    if (c) { const ll = cartToLatLon(c); commitCenter(ll.lat, ll.lon); }
+  }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
+
+  // right-click menu
+  let menu = null;
+  const closeMenu = () => { if (menu) { menu.remove(); menu = null; } };
+  document.addEventListener("click", closeMenu);
+  canvas.addEventListener("contextmenu", (ev) => {
+    ev.preventDefault();
+    closeMenu();
+    const rect = canvas.getBoundingClientRect();
+    const c = groundPick(new Cesium.Cartesian2(ev.clientX - rect.left, ev.clientY - rect.top));
+    const ll = c ? cartToLatLon(c) : null;
+    menu = document.createElement("div");
+    menu.className = "ctx";
+    menu.style.left = Math.min(ev.clientX, window.innerWidth - 210) + "px";
+    menu.style.top = Math.min(ev.clientY, window.innerHeight - 160) + "px";
+    const add = (text, fn, cls) => {
+      const d = document.createElement("div");
+      d.textContent = text;
+      if (cls) d.className = cls;
+      if (fn) d.addEventListener("click", (e2) => { e2.stopPropagation(); closeMenu(); fn(); });
+      menu.appendChild(d);
+    };
+    if (ll) add(`${ll.lat.toFixed(5)}, ${ll.lon.toFixed(5)}`, null, "hd");
+    if (ll) add("Place scenario here", () => commitCenter(ll.lat, ll.lon));
+    if (ll) add("Copy coordinates", () => {
+      const t = `${ll.lat.toFixed(6)}, ${ll.lon.toFixed(6)}`;
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(t).catch(() => {});
+      else { const ta = document.createElement("textarea"); ta.value = t; document.body.appendChild(ta); ta.select(); document.execCommand("copy"); ta.remove(); }
+    });
+    if (ll) add("Zoom here", () => viewer.camera.flyTo({ destination: Cesium.Cartesian3.fromDegrees(ll.lon, ll.lat, 3000) }));
+    const sep = document.createElement("div"); sep.className = "sep"; menu.appendChild(sep);
+    add("Zoom to scenario", () => { if (place.marker) viewer.flyTo(place.source, { duration: 1.2 }); });
+    add("Reset view", () => viewer.camera.flyHome(1.0));
+    document.body.appendChild(menu);
+  });
+
+  // toolbar button + go-to box
+  const btn = document.getElementById("btnPlace");
+  if (btn) btn.addEventListener("click", () => setPlaceMode(!place.mode));
+  const box = document.getElementById("gotoBox");
+  const parse = () => {
+    const m = (box.value || "").replace(/,/g, " ").match(/(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)/);
+    return m ? { lat: parseFloat(m[1]), lon: parseFloat(m[2]) } : null;
+  };
+  const go = () => {
+    const p = parse();
+    if (!p || Math.abs(p.lat) > 90 || Math.abs(p.lon) > 180) { box.style.borderColor = "#e0605a"; return null; }
+    box.style.borderColor = "";
+    viewer.camera.flyTo({ destination: Cesium.Cartesian3.fromDegrees(p.lon, p.lat, 12000) });
+    return p;
+  };
+  if (box) {
+    box.addEventListener("keydown", (e) => { if (e.key === "Enter") go(); e.stopPropagation(); });
+    document.getElementById("gotoGo").addEventListener("click", go);
+    document.getElementById("gotoPlace").addEventListener("click", () => { const p = go(); if (p) commitCenter(p.lat, p.lon); });
+  }
+})();
+
+function warmTiles(lat, lon) {
+  fetch(`/warm?lat=${lat}&lon=${lon}&z=15`).catch(() => {});
+}
+
+function applyDetail(t) {
+  // Quality knobs from the Terrain tab (they also apply when terrain streaming is off).
+  if (!t) return;
+  viewer.scene.globe.maximumScreenSpaceError = t.sse || 1.5;
+  viewer.resolutionScale = t.render_scale || Math.min(window.devicePixelRatio || 1, 2);
+  bld.realistic = !!t.realistic;
+  bld.clean = !!t.clean;
+  viewer.shadows = !!(t.clean || t.realistic);
+  if (t.clean || t.realistic) { viewer.shadowMap.softShadows = true; viewer.shadowMap.maximumDistance = 4000; viewer.shadowMap.darkness = 0.55; viewer.shadowMap.size = 2048; }
+  if (t.clean || t.realistic) viewer.scene.light = new Cesium.SunLight();
+  roads.on = !!t.clean;
+  setPhotoreal(t.city_mode || "", t.ion_token || "", t.photoreal_key || "");
+  trees.on = !!t.trees; trees.max = t.trees_max || 2500;
+  if (!trees.on) clearTrees();
+  bld.max = Math.max(t.buildings_max || 3000, t.clean ? 8000 : 0);
+  bld.dist = t.buildings_distance_m || 3500;
+  bld.minH = t.buildings_min_height || 0;
+  if (t.basemap && window.SharcBasemaps && window.SharcBasemaps.current() !== t.basemap) window.SharcBasemaps.set(t.basemap);
+}
+
+function applyTerrain(t) {
+  applyDetail(t);
+  hydro.on = !!(t && t.hydro);
+  bld.on = !!(t && t.buildings);
+  updateBuildings();
+  hydro.last = "";
+  updateHydro();
+  if (!t) { if (tileState.key) clearTerrain(); return; }
+  const key = [t.clean, t.relief, t.clutter, t.hillshade, t.exaggeration, t.opacity, t.relief_samples, t.max_level].join("|");
+  if (key === tileState.key) return;
+  clearTerrain();
+  tileState.key = key;
+  const merc = new Cesium.WebMercatorTilingScheme();
+  const addLayer = (url, alpha) => {
+    const provider = new Cesium.UrlTemplateImageryProvider({
+      url, tilingScheme: merc, tileWidth: 256, tileHeight: 256, maximumLevel: t.max_level || 15,
+    });
+    const layer = viewer.imageryLayers.addImageryProvider(provider);
+    layer.alpha = alpha;
+    tileState.layers.push(layer);
+  };
+  if (t.hillshade) addLayer("/tiles/hillshade/{z}/{x}/{y}.png", 0.5);
+  if (t.clutter) addLayer(t.clean ? "/tiles/clutter_clean/{z}/{x}/{y}.png" : "/tiles/clutter/{z}/{x}/{y}.png", t.opacity);
+  if (t.relief) {
+    const W = t.relief_samples || 65;
+    viewer.terrainProvider = new Cesium.CustomHeightmapTerrainProvider({
+      width: W, height: W, tilingScheme: merc,
+      callback: async (x, y, level) => {
+        try {
+          // A tile that fails once (busy network) must not stay flat at 0 m: retry before giving up.
+          let r = null;
+          for (let attempt = 0; attempt < 4; attempt++) {
+            r = await fetch(`/tiles/terrain/${level}/${x}/${y}.f32?v=6`);
+            if (r.ok) break;
+            if (r.status === 404 && attempt >= 1) break;               // no data for this tile (e.g. open sea)
+            await new Promise((res) => setTimeout(res, 600 * (attempt + 1)));
+          }
+          if (!r || !r.ok) return new Float32Array(W * W);
+          const src = new Float32Array(await r.arrayBuffer());      // 256 x 256, row 0 = north
+          if (src.length !== 256 * 256) return new Float32Array(W * W);
+          const out = new Float32Array(W * W);
+          for (let j = 0; j < W; j++) {
+            const sy = Math.min(255, Math.round((j * 255) / (W - 1)));
+            for (let i = 0; i < W; i++) out[j * W + i] = src[sy * 256 + Math.min(255, Math.round((i * 255) / (W - 1)))];
+          }
+          return out;
+        } catch (e) { return new Float32Array(W * W); }
+      },
+    });
+    viewer.terrainProvider.errorEvent.addEventListener((e) => console.error('[terrain] ' + (e && e.message)));
+    viewer.scene.verticalExaggeration = t.exaggeration || 1.0;
+    viewer.scene.globe.depthTestAgainstTerrain = true;
+  }
+  viewer.scene.requestRender();
+}
+
+function showSceneProblem(scene) {
+  const card = document.getElementById("hudScene");
+  if (card) card.classList.add("problem");
+  const title = document.getElementById("hudTitle");
+  if (title) title.textContent = "Scenario problem";
+  const stats = document.getElementById("hudStats");
+  if (stats) {
+    stats.textContent = "";
+    const msg = document.createElement("div");
+    msg.className = "problem-msg";
+    msg.textContent = String(scene.error);
+    stats.appendChild(msg);
+  }
+  if (window.SharcHud) window.SharcHud.setLegend([]);
+}
+
+function clearSceneProblem() {
+  const card = document.getElementById("hudScene");
+  if (card) card.classList.remove("problem");
+}
+
+function renderPart(scene) {
+  if (scene.buildings !== undefined) renderIndoorScene(scene);
+  else if (scene.anchor_points !== undefined) renderNtnScene(scene);
+  else if (scene.satellite !== undefined) renderSingleSpaceStationScene(scene);
+  else if (scene.devices !== undefined) renderD2DScene(scene);
+  else if (scene.station !== undefined) renderSingleStationScene(scene);
+  else renderHexSectorScene(scene);
+}
+
+function renderComposite(scene) {
+  showCenterMarker(scene.imt && scene.imt.reference);
+  if (scene.terrain && scene.imt && scene.imt.reference) warmTiles(scene.imt.reference.lat_deg, scene.imt.reference.lon_deg);
+  const realZoom = viewer.zoomTo.bind(viewer);
+  viewer.zoomTo = () => Promise.resolve(true);   // só enquadra uma vez, no fim
+  renderPart(scene.imt);
+  const imtCount = viewer.entities.values.length;
+  const imtEntities = viewer.entities.values.slice();
+  if (scene.system) renderPart(scene.system);
+  viewer.zoomTo = realZoom;
+  // enquadra a rede IMT (a escala de células); o sistema fica a um zoom-out
+  viewer.zoomTo(imtEntities.length ? imtEntities : viewer.entities);
+  if (window.SharcHud) {
+    hudFromScene(scene.imt);
+    if (scene.system) {
+      const sysName = (scene.system.topology_type || 'system');
+      window.SharcHud.setLegend([
+        { color: '#4fc3f7', label: 'Base station / sector' }, { color: '#ef5350', label: 'UE' },
+        { color: '#ffd54f', label: 'Beam' }, { color: '#00e5ff', label: sysName + ' (victim)' },
+        { color: '#ff1744', label: 'Satellite' },
+      ]);
+    }
+  }
+  setStatus((scene.topology_type || '') + ': ' + imtCount + ' IMT entities' + (scene.system ? ' + victim system' : ''));
+}
+
 function renderScene(scene) {
   viewer.entities.removeAll();
+  applyTerrain(scene.terrain || null);
+  if (scene.composite && !scene.error) { clearSceneProblem(); renderComposite(scene); return; }
   if (scene.error) {
     setStatus("scene error: " + scene.error);
+    showSceneProblem(scene);
     return;
   }
+  clearSceneProblem();
   if (scene.buildings !== undefined) {
     renderIndoorScene(scene);
   } else if (scene.anchor_points !== undefined) {
@@ -830,16 +1658,20 @@ function renderScene(scene) {
   } else {
     renderHexSectorScene(scene);
   }
+  hudFromScene(scene);
 }
 
 function requestScene(topologyType) {
   if (!window.pyBridge) return;
   setStatus(`loading ${topologyType}…`);
+  Loading.set('scenario', 0, 0);
   window.pyBridge.get_scene(topologyType, function (json) {
     try {
       renderScene(JSON.parse(json));
     } catch (e) {
       setStatus("render failed: " + e);
+    } finally {
+      Loading.end('scenario');
     }
   });
 }
@@ -863,6 +1695,7 @@ if (typeof qt !== "undefined" && qt.webChannelTransport) {
       setStatus("pong: " + message);
     });
     setStatus("connected — waiting for scene");
+    if (pyBridge.notify_ready) pyBridge.notify_ready();
     if (!isEmbedded) {
       requestScene(document.getElementById("topoSelect").value);
     }
@@ -870,3 +1703,97 @@ if (typeof qt !== "undefined" && qt.webChannelTransport) {
 } else {
   setStatus("viewer ready (no QWebChannel — standalone browser?)");
 }
+
+
+// ═══════════════════════════════════════════════════════════════════
+// Street view: walk through the scene at eye level (procedural 3D from real data, not photographs).
+// W A S D / arrows move, drag looks around, Shift runs, Q/E change eye height, Esc leaves.
+// ═══════════════════════════════════════════════════════════════════
+const street = { on: false, keys: new Set(), lon: 0, lat: 0, heading: 0, pitch: 0, eye: 1.7, saved: null, fog: null, drag: null, tick: null, busy: false };
+const STREET_CTL = ["enableRotate", "enableTranslate", "enableZoom", "enableTilt", "enableLook"];
+function enterStreet() {
+  if (street.on) return;
+  const cv = viewer.scene.canvas;
+  const hit = viewer.camera.pickEllipsoid(new Cesium.Cartesian2(cv.clientWidth / 2, cv.clientHeight / 2), viewer.scene.globe.ellipsoid);
+  const c = hit ? Cesium.Cartographic.fromCartesian(hit)
+    : (place.marker ? Cesium.Cartographic.fromCartesian(place.marker.position.getValue(Cesium.JulianDate.now())) : null);
+  if (!c) return;
+  const cam = viewer.camera;
+  street.saved = { pos: cam.positionWC.clone(), heading: cam.heading, pitch: cam.pitch, roll: cam.roll };
+  street.lon = Cesium.Math.toDegrees(c.longitude); street.lat = Cesium.Math.toDegrees(c.latitude);
+  street.heading = cam.heading; street.pitch = 0; street.eye = 1.7;
+  // Terrain height under the view centre (the globe may not report heights for tiles still loading).
+  const terrainHit = viewer.scene.globe.pick(cam.getPickRay(new Cesium.Cartesian2(cv.clientWidth / 2, cv.clientHeight / 2)), viewer.scene);
+  street.lastG = terrainHit ? Cesium.Cartographic.fromCartesian(terrainHit).height : 0;
+  if (terrainHit) { const tc = Cesium.Cartographic.fromCartesian(terrainHit); street.lon = Cesium.Math.toDegrees(tc.longitude); street.lat = Cesium.Math.toDegrees(tc.latitude); }
+  const sc = viewer.scene, ctl = sc.screenSpaceCameraController;
+  street.fog = { en: sc.fog.enabled, d: sc.fog.density, sky: sc.skyAtmosphere ? sc.skyAtmosphere.show : false,
+                 ground: sc.globe.showGroundAtmosphere, near: cam.frustum.near };
+  STREET_CTL.forEach((k) => { ctl[k] = false; });
+  sc.fog.enabled = true; sc.fog.density = 0.0007; sc.fog.minimumBrightness = 0.12;
+  if (sc.skyAtmosphere) sc.skyAtmosphere.show = true;
+  sc.globe.showGroundAtmosphere = true;
+  cam.frustum.near = 0.3;
+  trees.dist = 1200; bld.dist = Math.max(bld.dist, 2500);
+  street.on = true;
+  document.getElementById("btnStreet").classList.add("on");
+  setStatus("street view: W A S D move, drag to look, Shift run, Esc leave");
+  street.tick = streetStep;
+  viewer.scene.preRender.addEventListener(street.tick);
+  setTimeout(updateBuildings, 300);
+}
+function leaveStreet() {
+  if (!street.on) return;
+  street.on = false;
+  viewer.scene.preRender.removeEventListener(street.tick);
+  const sc = viewer.scene, ctl = sc.screenSpaceCameraController;
+  STREET_CTL.forEach((k) => { ctl[k] = true; });
+  sc.fog.enabled = street.fog.en; sc.fog.density = street.fog.d;
+  if (sc.skyAtmosphere) sc.skyAtmosphere.show = street.fog.sky;
+  sc.globe.showGroundAtmosphere = street.fog.ground;
+  viewer.camera.frustum.near = street.fog.near;
+  viewer.camera.setView({ destination: street.saved.pos,
+    orientation: { heading: street.saved.heading, pitch: street.saved.pitch, roll: street.saved.roll } });
+  document.getElementById("btnStreet").classList.remove("on");
+  setStatus("street view closed");
+}
+function streetStep() {
+  if (!street.on) return;
+  const speed = (street.keys.has("shift") ? 12 : 3.5) / 60;                 // metres per frame (~60 fps)
+  let f = 0, r = 0;
+  if (street.keys.has("w") || street.keys.has("arrowup")) f += 1;
+  if (street.keys.has("s") || street.keys.has("arrowdown")) f -= 1;
+  if (street.keys.has("d") || street.keys.has("arrowright")) r += 1;
+  if (street.keys.has("a") || street.keys.has("arrowleft")) r -= 1;
+  if (street.keys.has("q")) street.eye = Math.max(1.0, street.eye - 0.05);
+  if (street.keys.has("e")) street.eye = Math.min(60, street.eye + 0.05);
+  const mLat = 111320, mLon = 111320 * Math.cos(Cesium.Math.toRadians(street.lat));
+  street.lon += ((Math.sin(street.heading) * f + Math.cos(street.heading) * r) * speed) / mLon;
+  street.lat += ((Math.cos(street.heading) * f - Math.sin(street.heading) * r) * speed) / mLat;
+  const gh = viewer.scene.globe.getHeight(Cesium.Cartographic.fromDegrees(street.lon, street.lat));
+  if (gh !== undefined) street.lastG = gh;
+  const g = street.lastG;
+  viewer.camera.setView({ destination: Cesium.Cartesian3.fromDegrees(street.lon, street.lat, g + street.eye),
+    orientation: { heading: street.heading, pitch: street.pitch, roll: 0 } });
+  if ((f || r) && !street.busy) { street.busy = true; setTimeout(() => { street.busy = false; updateBuildings(); }, 1200); }
+}
+(function () {
+  const btn = document.getElementById("btnStreet");
+  if (btn) btn.addEventListener("click", () => (street.on ? leaveStreet() : enterStreet()));
+  window.addEventListener("keydown", (e) => {
+    const k = e.key.toLowerCase();
+    if (k === "escape") { leaveStreet(); return; }
+    if (street.on) { street.keys.add(k); if (k.startsWith("arrow")) e.preventDefault(); }
+  });
+  window.addEventListener("keyup", (e) => street.keys.delete(e.key.toLowerCase()));
+  const cv = viewer.scene.canvas;
+  cv.addEventListener("pointerdown", (e) => { if (street.on) { street.drag = { x: e.clientX, y: e.clientY }; cv.setPointerCapture(e.pointerId); } });
+  cv.addEventListener("pointerup", () => { street.drag = null; });
+  cv.addEventListener("pointermove", (e) => {
+    if (!street.on || !street.drag) return;
+    street.heading += (e.clientX - street.drag.x) * 0.004;
+    street.pitch = Math.max(-1.2, Math.min(1.2, street.pitch - (e.clientY - street.drag.y) * 0.004));
+    street.drag = { x: e.clientX, y: e.clientY };
+  });
+  window.SharcStreet = { enter: enterStreet, leave: leaveStreet, state: street };
+})();

@@ -82,7 +82,7 @@ class CesiumBridgeMixin:
         ant = None
         if glob.satellite_obj is not None:
             ant = getattr(glob.satellite_obj, "antenna", None)
-            if isinstance(ant, list) and ant:
+            if isinstance(ant, (list, tuple, np.ndarray)) and len(ant) > 0:
                 ant = ant[0]
 
         sub_lat = glob.satellite_lat_deg
@@ -112,13 +112,22 @@ class CesiumBridgeMixin:
         d_norms[d_norms == 0] = 1.0
         D_unit = D / d_norms[:, np.newaxis]
 
-        dots = np.dot(D_unit, u_bore)
-        dots = np.clip(dots, -1.0, 1.0)
+        dots = np.clip(np.dot(D_unit, u_bore), -1.0, 1.0)
         angles_deg = np.degrees(np.arccos(dots))
 
+        # Ângulo azimutal em torno do eixo (padrões não simétricos: S.1855, S.1528-Taylor)
+        ref = np.array([0.0, 0.0, 1.0]) if abs(u_bore[2]) < 0.9 else np.array([0.0, 1.0, 0.0])
+        e1 = _unit(np.cross(u_bore, ref))
+        e2 = np.cross(u_bore, e1)
+        theta_deg = np.degrees(np.arctan2(D_unit @ e2, D_unit @ e1))
+
         if ant is not None:
-            from utils import _antenna_gain_db_batch
-            gains = _antenna_gain_db_batch(ant, angles_deg)
+            from core.antenna_service import gain_at
+            try:
+                gains = gain_at(ant, angles_deg, theta_deg)
+            except Exception as exc:  # padrão sem suporte: avisa, não desenha parábola falsa
+                self._report_scene_problem(f"gain map unavailable for this antenna pattern: {exc}")
+                return None
             gains = np.nan_to_num(gains, nan=vmin_db)
         else:
             bw = beamwidth_deg or 8.7
@@ -270,11 +279,19 @@ class CesiumBridgeMixin:
         az_var = getattr(self.app, "se_azimuth", None)
         azimuth_deg = _safe_float(az_var.get() if hasattr(az_var, "get") else az_var, 0.0)
 
+        z0 = float(local.bs_height_m)
+        engine = getattr(self, "_current_engine", None)
+        if engine is not None and engine.system is not None                 and str(engine.params.general.system).upper() == "SINGLE_EARTH_STATION":
+            g = engine.system.geom       # posição e apontamento reais do motor
+            x0, y0, z0 = float(g.x_global[0]), float(g.y_global[0]), float(g.z_global[0])
+            azimuth_deg = float(g.pointn_azim_global[0])
+            elevation_deg = float(g.pointn_elev_global[0])
+
         return {
             "topology_type": "SINGLE_EARTH_STATION",
             "reference": self._reference_dict(local),
             "bs_height_m": local.bs_height_m,
-            "station": {"x": float(x0), "y": float(y0), "z": float(local.bs_height_m)},
+            "station": {"x": float(x0), "y": float(y0), "z": z0},
             "antenna_elevation_deg": elevation_deg,
             "antenna_azimuth_deg": azimuth_deg,
         }
@@ -377,9 +394,37 @@ class CesiumBridgeMixin:
         scene = self._build_scene_graph(topo_type, data)
 
         if scene.is_global:
+            try:
+                from core.engine_scene import build_engine_scene
+                engine = build_engine_scene(data)
+                self._current_engine = engine
+                if engine.system is not None:
+                    scene.global_.satellite_obj = engine.system   # antena real, parâmetros do YAML
+                    self._patch_global_from_engine(scene.global_, engine)
+                if topo_type == "Macro_countries" and str(engine.params.imt.topology.type).upper() == "MACRO_COUNTRIES":
+                    from core.engine_scene import station_lat_lon
+                    lat, lon = station_lat_lon(engine)          # sites as the engine placed them
+                    scene.global_.country_bs_lats, scene.global_.country_bs_lons = lat, lon
+                elif engine.system_error:
+                    self._report_scene_problem(f"system: {engine.system_error}")
+            except Exception as exc:  # noqa: BLE001
+                self._report_scene_problem(f"invalid parameters for the simulator: {exc}")
             return self._global_scene_dict(topo_type, scene.global_)
 
         local = scene.local
+
+        # Fonte da verdade: o motor do SHARC, alimentado pelo mesmo YAML da simulação.
+        from core.engine_scene import (
+            EngineSceneError, apply_to_local, build_engine_scene, hex_sector_scene,
+        )
+        try:
+            engine = build_engine_scene(data)
+        except EngineSceneError as exc:
+            return {"error": f"invalid parameters for the simulator: {exc}", "topology_type": topo_type}
+        apply_to_local(local, engine)
+        if topo_type in ("MACROCELL", "HOTSPOT", "SINGLE_BS", "SINGLE_BASE_STATION")                 and str(engine.params.imt.topology.type).upper() == ("SINGLE_BS" if topo_type.startswith("SINGLE") else topo_type):
+            return hex_sector_scene(topo_type, engine)
+
         if topo_type == "INDOOR" and local.indoor_topo is not None:
             return self._indoor_scene_dict(local)
         if topo_type == "NTN" and local.ntn_topo is not None:
@@ -390,12 +435,87 @@ class CesiumBridgeMixin:
             return self._single_earth_station_scene_dict(local)
         return self._hex_sector_scene_dict(topo_type, local)
 
+    def _patch_global_from_engine(self, glob, engine) -> None:
+        """Satélite nos parâmetros do motor; a estação-alvo é o centro da rede IMT."""
+        from utils import lla_to_ecef
+        ref = engine.reference
+        glob.earth_station_lat_deg, glob.earth_station_lon_deg = ref["lat_deg"], ref["lon_deg"]
+        glob.earth_station_alt_m = ref["alt_m"]
+        glob.earth_station_x, glob.earth_station_y, glob.earth_station_z = lla_to_ecef(
+            ref["lat_deg"], ref["lon_deg"], ref["alt_m"])
+        if str(engine.params.general.system).upper() == "SINGLE_SPACE_STATION":
+            ss = engine.params.single_space_station
+            lat = float(ss.geometry.location.fixed.lat_deg)
+            lon = float(ss.geometry.location.fixed.long_deg)
+            alt = float(ss.geometry.altitude)
+            glob.satellite_lat_deg, glob.satellite_lon_deg, glob.satellite_alt_m = lat, lon, alt
+            glob.satellite_x, glob.satellite_y, glob.satellite_z = lla_to_ecef(lat, lon, alt)
+
+    def _report_scene_problem(self, message: str) -> None:
+        """Mostra o problema do cenário em Messages (sem repetir a mesma mensagem)."""
+        if message != getattr(self, "_last_scene_problem", None):
+            self._last_scene_problem = message
+            try:
+                self.app._safe_log(f"[SCENARIO] {message}")
+            except Exception:
+                pass
+
+    def _composite_scene_dict(self, data) -> Dict[str, Any]:
+        """Rede IMT + sistema vítima na mesma cena (mesmo referencial)."""
+        imt_type = self._detect_topology_type(data)
+        sys_type = self._detect_system_type(data)
+        imt = self._scene_graph_to_cesium_dict(imt_type, data)
+        if imt.get("error"):
+            return imt
+        system = None
+        if sys_type and sys_type != imt_type:
+            system = self._scene_graph_to_cesium_dict(sys_type, data)
+            if system.get("error"):
+                self._report_scene_problem(system["error"])
+                system = None
+        terrain = self._terrain_block(imt)
+        return {"topology_type": f"{imt_type} + {sys_type}" if system else imt_type,
+                "composite": True, "imt": imt, "system": system, "terrain": terrain}
+
+    def _terrain_block(self, imt: Dict[str, Any]):
+        """Terrain overlays for the scene; also puts stations on the ground."""
+        tab = getattr(self.app, "tab_terrain", None)
+        info = tab.overlay_info() if tab is not None else None
+        if not info:
+            return None
+        try:
+            ref = imt.get("reference")
+            if ref:                                   # local scenes sit on the ground at the reference
+                g = tab.ground_heights(ref["lat_deg"], ref["lon_deg"])
+                ref["alt_m"] = float(ref.get("alt_m", 0.0)) * 0.0 + float(g[0]) if g is not None else ref.get("alt_m", 0.0)
+            sites = imt.get("country_bs")
+            if sites:                                 # database sites: each one on its own ground
+                lat = [p["lat_deg"] for p in sites]
+                lon = [p["lon_deg"] for p in sites]
+                g = tab.ground_heights(lat, lon)
+                for p, h in zip(sites, g):
+                    p["ground_m"] = float(h)
+        except Exception as exc:  # noqa: BLE001 - never let terrain break the scene
+            self._report_scene_problem(f"terrain sampling failed: {exc}")
+        return info
+
     def _cesium_scene_provider(self, topo_type: str) -> str:
         """``PyBridge.scene_provider``-shaped callable, backed by the real
         scenario the user configured in the GUI (see ``web/cesium_preview/
         spike_widget.py``'s ``CesiumSpikeWidget(scene_provider=...)``)."""
         try:
             data = self._current_yaml()
-            return json.dumps(self._scene_graph_to_cesium_dict(topo_type, data))
+            if topo_type == "SCENARIO":
+                scene = self._composite_scene_dict(data)
+            else:
+                scene = self._scene_graph_to_cesium_dict(topo_type, data)
+            if isinstance(scene, dict) and scene.get("error"):
+                self._report_scene_problem(scene["error"])
+            return json.dumps(scene)
+        except SystemExit as e:
+            # The engine calls sys.exit() on impossible parameters (e.g. hotspots that cannot be placed);
+            # that must never close the GUI.
+            return json.dumps({"error": "The simulator rejected these parameters (e.g. too many hotspots for the "
+                                        f"cell size). Exit code {e.code}.", "topology_type": topo_type})
         except Exception as e:
             return json.dumps({"error": str(e), "topology_type": topo_type})

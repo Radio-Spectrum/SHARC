@@ -1,6 +1,7 @@
 import json
 from pathlib import Path
 from PySide6.QtWidgets import QFileDialog, QMessageBox
+from core.yaml_builder import _as_bool  # noqa: E402
 
 class SESPersistence:
     """
@@ -52,8 +53,8 @@ class SESPersistence:
                 "N0": g(app.p452_N0), "delta_N": g(app.p452_delta_N), "percentage_p": g(app.p452_percentage_p),
                 "Dct": g(app.p452_Dct), "Dcr": g(app.p452_Dcr), "Hte": g(app.p452_Hte),
                 "tx_lat": g(app.p452_tx_lat), "rx_lat": g(app.p452_rx_lat), "polarization": g(app.p452_polarization),
-                "clutter_loss": bool(app.p452_clutter_loss.get()), "clutter_type": g(app.p452_clutter_type),
-                "is_terrain": bool(app.p452_is_terrain.get()),
+                "clutter_loss": _as_bool(app.p452_clutter_loss.get()), "clutter_type": g(app.p452_clutter_type),
+                "is_terrain": _as_bool(app.p452_is_terrain.get()),
             },
         }
 

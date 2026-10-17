@@ -26,6 +26,22 @@ class IMTTab(QWidget):
 
         self._build_ui()
 
+    def _fit_channel_model_to_topology(self, topo):
+        """Keep dependent parameters valid when the topology changes.
+
+        - NTN only accepts the FSPL or P619 channel models.
+        - The UNIFORM/CELL/UNIFORM_IN_CELL UE distributions only exist with MACROCELL.
+        """
+        topo = str(topo).upper()
+        if topo == "NTN":
+            ch = self.state.get("ch_model")
+            if str(ch.get()).strip().upper() not in ("FSPL", "P619"):
+                ch.set("P619")
+        if topo != "MACROCELL":
+            dist = self.state.get("ue_dist_type")
+            if str(dist.get()).strip().upper() in ("UNIFORM", "CELL", "UNIFORM_IN_CELL"):
+                dist.set("ANGLE_AND_DISTANCE")
+
     def _build_ui(self):
         main_layout = QVBoxLayout(self)
 
@@ -33,7 +49,7 @@ class IMTTab(QWidget):
         toolbar_layout = QHBoxLayout()
         self.btn_files = QPushButton("File Operations (Presets)")
         self.btn_files.setIcon(qta.icon('mdi.folder-outline'))
-        self.btn_files.setStyleSheet("background-color: #007bff; color: white; font-weight: bold; padding: 6px;")
+        pass  # estilo vem do tema
 
         self.menu_files = QMenu(self)
         self.menu_files.addAction(qta.icon('mdi.content-save'), "Save IMT Preset (.json)", self.save_config)
@@ -58,6 +74,7 @@ class IMTTab(QWidget):
         # Build sections inside the scroll area
         IMTSections.build_general(self.inner_layout, self.state)
         self.topo_section = IMTTopologySection(self.inner_layout, self.state)
+        self.state.get("topo_type").value_changed.connect(self._fit_channel_model_to_topology)
         IMTSections.build_bs(self.inner_layout, self.state)
         IMTSections.build_ue(self.inner_layout, self.state)
         IMTSections.build_channel(self.inner_layout, self.state)

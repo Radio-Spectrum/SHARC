@@ -232,12 +232,14 @@ class RunnerTab(QWidget, RemoteBrowserMixin):
         _insert_job_row_impl(self, iid, yaml_name, status, snap, pct, eta, branch, location, host)
 
     def _current_host_label(self) -> str:
+        if self.rb_local.isChecked():
+            return "localhost"
         host = getattr(self.app, "ssh_host", None)
         user = getattr(self.app, "ssh_user", None)
         h = host.text().strip() if hasattr(host, "text") else getattr(host, "get", lambda: "")().strip()
         u = user.text().strip() if hasattr(user, "text") else getattr(user, "get", lambda: "")().strip()
         if u and h: return f"{u}@{h}"
-        return h or "remote"
+        return h or "(no host set)"
 
     # =========================================================
     # Run/Stop
@@ -382,7 +384,7 @@ class RunnerTab(QWidget, RemoteBrowserMixin):
         
         layout = QVBoxLayout(win)
         txt = QTextEdit()
-        txt.setStyleSheet("background-color: black; color: #00FF00; font-family: Consolas; font-size: 9pt;")
+        txt.setObjectName("ConsoleLog")
         txt.setReadOnly(True)
         layout.addWidget(txt)
         

@@ -2,6 +2,44 @@ import copy
 import yaml
 
 
+
+def _station_antenna_block(app_state, g_sta) -> dict:
+    """Bloco `antenna` da estação terrena (editor guiado pelo motor, se existir)."""
+    try:
+        return app_state.tab_station.ant_section.editor.to_yaml()
+    except AttributeError:
+        return {"pattern": g_sta("se_ant_pattern"), "gain": _num_or_str(g_sta("se_ant_gain"))}
+
+
+def _victim_antenna_block(app_state, g_vic) -> dict:
+    """Bloco `antenna` do sistema vítima: usa o editor guiado pelo motor, se existir."""
+    try:
+        editor = app_state.tab_victim.ant_section.editor
+        return editor.to_yaml()
+    except AttributeError:
+        return {"pattern": g_vic("v_ant_pattern"), "gain": _num_or_str(g_vic("v_ant_gain"))}
+
+
+class YamlTuple(tuple):
+    """A tuple that is written to YAML with the `!!python/tuple` tag.
+
+    The engine only gets real tuples (e.g. `imt.ue.azimuth_range`) through that tag."""
+
+
+yaml.SafeDumper.add_representer(
+    YamlTuple,
+    lambda dumper, data: dumper.represent_sequence("tag:yaml.org,2002:python/tuple", list(data)))
+
+
+def _as_bool(v) -> bool:
+    """Converte valor de campo (bool, 'True'/'False', 0/1) em bool de verdade.
+
+    `bool("False")` é True: os combos da GUI entregam texto."""
+    if isinstance(v, str):
+        return v.strip().lower() in ("true", "1", "yes", "on")
+    return bool(v)
+
+
 def _num_or_str(s):
     """Conversor robusto de strings para float/int."""
     if s is None:
@@ -115,6 +153,12 @@ def _normalize_adjacent_antenna_model(value):
     return mapping.get(low, raw)
 
 
+def _engine_topology_type(value: str) -> str:
+    """Nome da topologia como o motor espera (Macro_countries -> MACRO_COUNTRIES)."""
+    v = str(value or "")
+    return "MACRO_COUNTRIES" if v.lower().replace(" ", "_") == "macro_countries" else v
+
+
 def _normalize_imt_channel_model(value):
     raw = str(value or "").strip()
     if not raw:
@@ -163,6 +207,21 @@ def _parse_mapping_text(raw_text):
     return data if isinstance(data, dict) else {}
 
 
+def _service_grid(names, grid_margin, eligible_margin, transform_randomly=True) -> dict:
+    """Grade de serviço no formato do motor (zona FROM_COUNTRIES)."""
+    return {
+        "transform_grid_randomly": bool(transform_randomly),
+        "grid_in_zone": {
+            "type": "FROM_COUNTRIES",
+            "from_countries": {
+                "country_names": list(names),
+                "margin_from_border": grid_margin,
+            },
+        },
+        "eligible_sats_margin_from_border": eligible_margin,
+    }
+
+
 def _default_mss_dc_config(country_names):
     names = country_names or ["Brazil"]
     return {
@@ -182,12 +241,7 @@ def _default_mss_dc_config(country_names):
         },
         "beam_positioning": {
             "type": "SERVICE_GRID",
-            "service_grid": {
-                "country_names": list(names),
-                "transform_grid_randomly": True,
-                "grid_margin_from_border": 0.0,
-                "eligible_sats_margin_from_border": 0.0,
-            },
+            "service_grid": _service_grid(names, 0.0, 0.0, True),
         },
         "orbits": [
             {
@@ -245,13 +299,13 @@ def build_yaml_structure(app_state):
     general = {
         "seed": int(n(g_gen("var_seed")) or 0),
         "num_snapshots": int(n(g_gen("var_snaps")) or 0),
-        "overwrite_output": bool(g_gen("var_overwrite")),
+        "overwrite_output": _as_bool(g_gen("var_overwrite")),
         "output_dir": str(g_gen("var_outdir") or ""),
         "output_dir_prefix": str(g_gen("var_prefix") or ""),
         "system": system_type,
         "imt_link": str(g_gen("var_imt_link") or ""),
-        "enable_adjacent_channel": bool(g_gen("var_adj")),
-        "enable_cochannel": bool(g_gen("var_coch")),
+        "enable_adjacent_channel": _as_bool(g_gen("var_adj")),
+        "enable_cochannel": _as_bool(g_gen("var_coch")),
     }
 
     # --- 2. Topology (IMT) ---
@@ -260,7 +314,7 @@ def build_yaml_structure(app_state):
         "central_latitude": n(g_imt("topo_c_lat")),
         "central_longitude": n(g_imt("topo_c_lon")),
         "central_altitude": n(g_imt("topo_c_alt")),
-        "type": topo_type,
+        "type": _engine_topology_type(topo_type),
     }
 
     if topo_type == "Macro_countries":
@@ -300,14 +354,14 @@ def build_yaml_structure(app_state):
     elif topo_type == "MACROCELL":
         topology["macrocell"] = {
             "intersite_distance": n(g_imt("macro_intersite")),
-            "wrap_around": bool(g_imt("macro_wrap")),
+            "wrap_around": _as_bool(g_imt("macro_wrap")),
             "num_clusters": int(n(g_imt("macro_clusters")) or 1),
         }
 
     elif topo_type == "HOTSPOT":
         topology["hotspot"] = {
             "intersite_distance": n(g_imt("hotspot_intersite")),
-            "wrap_around": bool(g_imt("hotspot_wrap")),
+            "wrap_around": _as_bool(g_imt("hotspot_wrap")),
             "num_clusters": int(n(g_imt("hotspot_clusters")) or 1),
             "num_hotspots_per_cell": int(n(g_imt("hotspot_num_per_cell")) or 1),
             "max_dist_hotspot_ue": n(g_imt("hotspot_max_dist_ue")),
@@ -322,8 +376,12 @@ def build_yaml_structure(app_state):
         except (ValueError, TypeError):
             sbs_az = az_text
 
+        num_clusters = int(n(g_imt("sbs_clusters")) or 1)
+        if isinstance(sbs_az, list) and sbs_az:
+            # o motor exige um azimute por cluster
+            sbs_az = (sbs_az + [sbs_az[-1]] * num_clusters)[:num_clusters]
         single_bs = {
-            "num_clusters": int(n(g_imt("sbs_clusters")) or 1),
+            "num_clusters": num_clusters,
             "azimuth": sbs_az,
         }
         sbs_cell_radius = n(g_imt("sbs_cell_radius"))
@@ -385,14 +443,24 @@ def build_yaml_structure(app_state):
 
         beam_positioning = mss_dc.setdefault("beam_positioning", {})
         service_grid = beam_positioning.setdefault("service_grid", {})
-        if countries and not service_grid.get("country_names"):
-            service_grid["country_names"] = list(countries)
+        # formato antigo do GUI (country_names / grid_margin_from_border) -> formato do motor
+        legacy_names = service_grid.pop("country_names", None)
+        legacy_margin = service_grid.pop("grid_margin_from_border", None)
+        service_grid.pop("country_shapes_filename", None)
+        for _unsupported in ("enable_fixed_lat_lons_for_grid", "fixed_lats", "fixed_lons"):
+            service_grid.pop(_unsupported, None)   # não existem neste motor
+        if "grid_in_zone" not in service_grid:
+            service_grid.update(_service_grid(
+                legacy_names or countries or ["Brazil"],
+                legacy_margin if legacy_margin is not None else 0.0,
+                service_grid.get("eligible_sats_margin_from_border", 0.0),
+                service_grid.get("transform_grid_randomly", True)))
 
         topology["mss_dc"] = mss_dc
 
     # --- 3. IMT Structure ---
     ue_array = {
-        "normalization": bool(g_imt("ue_norm")),
+        "normalization": _as_bool(g_imt("ue_norm")),
         "element_pattern": g_imt("ue_elem_pat"),
         "minimum_array_gain": n(g_imt("ue_min_arr_gain")),
         "element_max_g": n(g_imt("ue_elem_max_g")),
@@ -417,7 +485,7 @@ def build_yaml_structure(app_state):
         "k_m": int(n(g_imt("ue_km")) or 0),
         "indoor_percent": n(g_imt("ue_indoor")),
         "distribution_type": g_imt("ue_dist_type"),
-        "tx_power_control": bool(g_imt("ue_tx_power_ctrl")),
+        "tx_power_control": _as_bool(g_imt("ue_tx_power_ctrl")),
         "p_o_pusch": n(g_imt("ue_p_o_pusch")),
         "alpha": n(g_imt("ue_alpha")),
         "p_cmax": n(g_imt("ue_p_cmax")),
@@ -433,10 +501,10 @@ def build_yaml_structure(app_state):
         ue_block["distribution_azimuth"] = g_imt("ue_dist_azimuth")
         az_min = n(g_imt("ue_az_min"))
         az_max = n(g_imt("ue_az_max"))
-        ue_block["azimuth_range"] = f"{az_min},{az_max}"
+        ue_block["azimuth_range"] = YamlTuple((az_min, az_max))
 
     bs_array = {
-        "normalization": bool(g_imt("bs_norm")),
+        "normalization": _as_bool(g_imt("bs_norm")),
         "element_pattern": g_imt("bs_elem_pat"),
         "minimum_array_gain": n(g_imt("bs_min_arr_gain")),
         "horizontal_beamsteering_range": [n(g_imt("bs_h_steer_min")), n(g_imt("bs_h_steer_max"))],
@@ -453,7 +521,7 @@ def build_yaml_structure(app_state):
         "element_sla_v": n(g_imt("bs_elem_sla_v")),
         "multiplication_factor": n(g_imt("bs_mult")),
         "subarray": {
-            "is_enabled": bool(g_imt("bs_sub_enabled")),
+            "is_enabled": _as_bool(g_imt("bs_sub_enabled")),
             "n_rows": n(g_imt("bs_sub_rows")),
             "element_vert_spacing": n(g_imt("bs_sub_evspace")),
             "eletrical_downtilt": n(g_imt("bs_sub_e_downtilt")),
@@ -468,7 +536,7 @@ def build_yaml_structure(app_state):
 
     imt = {
         "minimum_separation_distance_bs_ue": n(g_imt("imt_min_sep")),
-        "interfered_with": bool(g_imt("imt_interfered")),
+        "interfered_with": _as_bool(g_imt("imt_interfered")),
         "frequency": n(g_imt("imt_freq")),
         "bandwidth": n(g_imt("imt_bw")),
         "rb_bandwidth": n(g_imt("imt_rb_bw")),
@@ -497,7 +565,7 @@ def build_yaml_structure(app_state):
             "sinr_max": n(g_imt("dl_sinr_max")),
         },
         "channel_model": _normalize_imt_channel_model(g_imt("ch_model")),
-        "shadowing": bool(g_imt("shadowing")),
+        "shadowing": _as_bool(g_imt("shadowing")),
     }
 
     # Estrutura base do resultado (sempre contém general e imt)
@@ -505,6 +573,14 @@ def build_yaml_structure(app_state):
         "general": general,
         "imt": imt
     }
+
+    # --- Base-station database (optional) ---
+    try:
+        db_block = app_state.tab_database.to_yaml()
+    except AttributeError:
+        db_block = {}
+    if db_block:
+        result["database"] = db_block
 
     # --- 4. Blocos Dinâmicos Baseados no Sistema Escolhido ---
     if system_type == "SINGLE_SPACE_STATION":
@@ -515,7 +591,7 @@ def build_yaml_structure(app_state):
             "polarization_loss": n(g_vic("v_pol_loss")),
             "noise_temperature": n(g_vic("v_tnoise")),
             "channel_model": g_vic("v_ch_model"),
-            "is_global_coordinate_system": bool(g_vic("ss_is_global_cs")),
+            "is_global_coordinate_system": _as_bool(g_vic("ss_is_global_cs")),
             "season": g_vic("v_season"),
             "param_p619": {
                 "mean_clutter_height": g_vic("v_p619_clutter"),
@@ -533,17 +609,8 @@ def build_yaml_structure(app_state):
                 "azimuth": {"type": g_vic("v_az_type")},
                 "elevation": {"type": g_vic("v_el_type")},
             },
-            "antenna": {
-                "pattern": g_vic("v_ant_pattern"),
-                "gain": n(g_vic("v_ant_gain")),
-            }
+            "antenna": _victim_antenna_block(app_state, g_vic),
         }
-
-        if g_vic("v_ant_pattern") == "ITU-R S.672":
-            single_space_station["antenna"]["itu_r_s_672"] = {
-                "antenna_3_dB": n(g_vic("v_s672_3db")),
-                "antenna_l_s": n(g_vic("v_s672_ls")),
-            }
 
         result["single_space_station"] = single_space_station
 
@@ -559,8 +626,8 @@ def build_yaml_structure(app_state):
             "spectral_mask": g_sta("se_spectral_mask"),
             "spurious_emissions": n(g_sta("se_spurious_emissions")),
             "tx_power_density": n(g_sta("se_tx_power_density")),
-            "height": n(g_sta("se_height")),
             "geometry": {
+                "height": n(g_sta("se_height")),
                 "location": {
                     "type": g_sta("se_loc_type"),
                     "fixed": {"x": n(g_sta("se_loc_fixed_x")), "y": n(g_sta("se_loc_fixed_y"))},
@@ -582,14 +649,9 @@ def build_yaml_structure(app_state):
                     "uniform_dist": {"min": n(g_sta("se_el_ud_min")), "max": n(g_sta("se_el_ud_max"))},
                 },
             },
-            "antenna": {
-                "pattern": g_sta("se_ant_pattern"),
-                "gain": n(g_sta("se_ant_gain")),
-                "diameter": n(g_sta("se_ant_diameter")),
-                "envelope_gain": n(g_sta("se_ant_envelope_gain")),
-            },
+            "antenna": _station_antenna_block(app_state, g_sta),
             "channel_model": g_sta("se_channel_model"),
-            "p452": {
+            "param_p452": {
                 "atmospheric_pressure": n(g_sta("p452_atmospheric_pressure")),
                 "air_temperature": n(g_sta("p452_air_temperature")),
                 "N0": n(g_sta("p452_N0")),
@@ -601,9 +663,9 @@ def build_yaml_structure(app_state):
                 "tx_lat": n(g_sta("p452_tx_lat")),
                 "rx_lat": n(g_sta("p452_rx_lat")),
                 "polarization": n(g_sta("p452_polarization")),
-                "clutter_loss": bool(g_sta("p452_clutter_loss")),
+                "clutter_loss": _as_bool(g_sta("p452_clutter_loss")),
                 "clutter_type": g_sta("p452_clutter_type"),
-                "is_terrain": bool(g_sta("p452_is_terrain")),
+                "is_terrain": _as_bool(g_sta("p452_is_terrain")),
             },
         }
 
@@ -611,7 +673,7 @@ def build_yaml_structure(app_state):
         ant_pattern = g_sta("se_ant_pattern")
         if ant_pattern == "ITU-R S.672":
             single_earth_station["antenna"]["itu_r_s_672"] = {
-                "antenna_3_dB": n(g_sta("se_ant_3db")),
+                "antenna_3_dB_bw": n(g_sta("se_ant_3db")),
                 "antenna_l_s": n(g_sta("se_ant_l_s")),
             }
         elif ant_pattern == "ITU-R F.1245_fs":

@@ -17,7 +17,8 @@ DEFAULTS = {
     # --- Simulação ---
     "seed": 157,
     "num_snapshots": 10000,
-    "output_dir": str(Path.cwd() / "sharc/campaigns"),
+    # Absolute and independent of the working directory
+    "output_dir": str(Path(__file__).resolve().parents[2] / "sharc" / "campaigns"),
 
     # --- SSH / Conexão Remota ---
     "ssh_host": "",

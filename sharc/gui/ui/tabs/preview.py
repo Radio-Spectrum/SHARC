@@ -22,7 +22,8 @@ if HAS_WEBENGINE:
         from web.cesium_preview.spike_widget import CesiumSpikeWidget
         from web.cesium_preview.local_server import _WEB_ROOT as _CESIUM_WEB_ROOT
         HAS_CESIUM = os.path.isdir(os.path.join(_CESIUM_WEB_ROOT, "vendor", "cesium"))
-    except ImportError:
+    except ImportError as _cesium_err:
+        print(f"[preview] CesiumJS unavailable: {_cesium_err}")
         HAS_CESIUM = False
 
 from utils import build_yaml_text
@@ -76,28 +77,22 @@ class PreviewTab(QWidget, Geometry3DMixin, SceneBuilderMixin, CesiumBridgeMixin)
         self._build_ui()
 
     def _build_ui(self):
-        main_layout = QHBoxLayout(self)
+        # A aba é só a vista 3D: ocupa todo o documento. Os controles ficam
+        # em `controls_panel` (dock "View") e o espectro em `spectrum_widget`
+        # (aba própria), ambos acoplados pela casca (ui/shell/workbench.py).
+        main_layout = QVBoxLayout(self)
+        main_layout.setContentsMargins(0, 0, 0, 0)
+        main_layout.setSpacing(0)
 
-        # ═══════════════════════════════════════════════
-        # LEFT PANEL — tabbed: 3D Globe + Spectrum
-        # ═══════════════════════════════════════════════
-        self._left_tabs = QTabWidget()
-        self._left_tabs.setDocumentMode(True)
-
-        # ── Tab 1: 3D Globe ──
-        globe_page = QWidget()
-        globe_layout = QVBoxLayout(globe_page)
-        globe_layout.setContentsMargins(0, 0, 0, 0)
-
-        self._lbl_scenario = QLabel("Scenario Preview")
-        self._lbl_scenario.setAlignment(Qt.AlignCenter)
-        self._lbl_scenario.setObjectName("PageTitle")
-        globe_layout.addWidget(self._lbl_scenario)
+        self._lbl_scenario = QLabel("", self)  # texto de cenário (usado por plot_engines)
+        self._lbl_scenario.hide()
 
         if HAS_CESIUM:
             self._cesium_embed = CesiumSpikeWidget(
                 scene_provider=self._cesium_scene_provider, embedded=True)
-            globe_layout.addWidget(self._cesium_embed)
+            main_layout.addWidget(self._cesium_embed)
+            self._cesium_embed.ready.connect(self._draw_preview)
+            self._cesium_embed.center_picked.connect(self._on_center_picked)
         else:
             lbl_no_cesium = QLabel(
                 "CesiumJS not available.\n\n"
@@ -106,22 +101,19 @@ class PreviewTab(QWidget, Geometry3DMixin, SceneBuilderMixin, CesiumBridgeMixin)
             )
             lbl_no_cesium.setAlignment(Qt.AlignCenter)
             lbl_no_cesium.setObjectName("StatusMsg")
-            globe_layout.addWidget(lbl_no_cesium)
+            main_layout.addWidget(lbl_no_cesium)
 
-        self._left_tabs.addTab(globe_page, "3D Globe")
-
-        # ── Tab 2: Spectrum & Link Budget ──
         self._spectrum_widget = SpectrumWidget(self.app)
-        self._left_tabs.addTab(self._spectrum_widget, "Spectrum & Link Budget")
-
-        main_layout.addWidget(self._left_tabs, stretch=7)
+        self.spectrum_widget = self._spectrum_widget
 
         # ═══════════════════════════════════════════════
         # RIGHT SIDEBAR (Controls & Summaries)
         # ═══════════════════════════════════════════════
         self.right_scroll = QScrollArea()
         self.right_scroll.setWidgetResizable(True)
-        self.right_scroll.setFixedWidth(300)
+        self.right_scroll.setMinimumWidth(300)
+        self.right_scroll.setFrameShape(QScrollArea.NoFrame)
+        self.controls_panel = self.right_scroll
         right_panel = QWidget()
         right_layout = QVBoxLayout(right_panel)
 
@@ -243,11 +235,11 @@ class PreviewTab(QWidget, Geometry3DMixin, SceneBuilderMixin, CesiumBridgeMixin)
         f_yml_btns.addWidget(btn_ref_yaml)
         f_yml_btns.addWidget(btn_pop_yaml)
         l_yaml.addLayout(f_yml_btns)
-        right_layout.addWidget(frm_yaml)
+        # O YAML é detalhe interno (gerado em segundo plano ao rodar): sem painel aqui.
+        frm_yaml.hide()
 
         right_layout.addStretch()
         self.right_scroll.setWidget(right_panel)
-        main_layout.addWidget(self.right_scroll, stretch=3)
 
         self._update_supported_catalog("", "")
         self.refresh()
@@ -335,11 +327,70 @@ class PreviewTab(QWidget, Geometry3DMixin, SceneBuilderMixin, CesiumBridgeMixin)
             return sys_type
         return topo_type
 
+    def _on_center_picked(self, lat: float, lon: float) -> None:
+        """The scenario centre was placed on the map: update the IMT reference and redraw."""
+        tab_db = getattr(self.app, "tab_database", None)
+        if tab_db is not None:
+            from core.yaml_builder import _as_bool
+            if _as_bool(tab_db.state.get("db_enabled").get()) and _as_bool(tab_db.state.get("db_from_sites").get()):
+                self.app._safe_log("[SCENARIO] The base-station positions come from the database, so the "
+                                   "scenario cannot be moved. Turn off 'Take sites from database' to place it freely.")
+                self._draw_preview()               # puts the marker back
+                return
+        st = self.app.tab_imt.state
+        st.get("topo_c_lat").set(round(float(lat), 5))
+        st.get("topo_c_lon").set(round(float(lon), 5))
+        self.app._safe_log(f"[SCENARIO] Scenario centre set to {lat:.5f}, {lon:.5f}")
+        self._draw_preview()
+
+    def _schedule_site_check(self):
+        """Warn (in the 3D view and in Messages) when a base station falls on water."""
+        tab = getattr(self.app, "tab_terrain", None)
+        if tab is None:
+            return
+        try:
+            enabled = tab.state.get("terr_check_water").get()
+            enabled = enabled if isinstance(enabled, bool) else str(enabled).lower() in ("true", "1")
+            if not enabled:
+                self._apply_site_warning(None)
+                return
+            from core.engine_scene import build_engine_scene, station_lat_lon, EngineSceneError
+            from core.site_checks import SiteCheckJob
+            engine = build_engine_scene(self._current_yaml())
+            if str(engine.params.imt.topology.type).upper() in ("NTN", "MSS_DC"):
+                return                                    # stations are not on the ground
+            lat, lon = station_lat_lon(engine)
+            key = (len(lat), round(float(lat.sum()), 5), round(float(lon.sum()), 5))
+            if key == getattr(self, "_site_key", None):
+                return                                    # same positions: keep the last verdict
+            self._site_key = key
+            job = getattr(self, "_site_job", None)
+            if job is not None and job.isRunning():
+                return
+            self._site_job = SiteCheckJob(lat, lon, self)
+            self._site_job.done.connect(self._on_site_check)
+            self._site_job.start()
+        except Exception:  # noqa: BLE001 - never disturb the preview for a convenience check
+            return
+
+    def _on_site_check(self, wet, lat, lon):
+        if not len(wet):
+            self._apply_site_warning(None)
+            return
+        sites = [{"lat": float(lat[i]), "lon": float(lon[i]), "index": int(i)} for i in wet]
+        msg = f"{len(wet)} of {len(lat)} base stations are on open water (ESA WorldCover)"
+        self.app._safe_log(f"[WARNING] {msg}. Check their coordinates.")
+        self._apply_site_warning({"message": msg, "sites": sites[:200]})
+
+    def _apply_site_warning(self, payload):
+        import json
+        if self._cesium_embed is not None:
+            self._cesium_embed.view.page().runJavaScript(f"setSiteWarning({json.dumps(payload)});")
+
     def _draw_preview(self):
         data = self._current_yaml()
         topo_type = self._detect_topology_type(data)
         sys_type = self._detect_system_type(data)
-        scene_type = self._resolve_preview_type(topo_type, sys_type)
 
         self._update_sim_summary()
         self._update_supported_catalog(topo_type, sys_type)
@@ -347,6 +398,7 @@ class PreviewTab(QWidget, Geometry3DMixin, SceneBuilderMixin, CesiumBridgeMixin)
         if self._cesium_embed is not None:
             self._cesium_embed.show()
             try:
-                self._cesium_embed.request_scene(scene_type)
+                self._cesium_embed.request_scene("SCENARIO")
+                self._schedule_site_check()
             except Exception as e:
                 print(f"[PreviewTab] CesiumJS render failed: {e}")

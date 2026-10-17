@@ -40,6 +40,8 @@ class PyBridge(QObject):
     """
 
     pong = Signal(str)
+    ready = Signal()
+    center_picked = Signal(float, float)
 
     def __init__(self, scene_provider: Optional[Callable[[str], str]] = None, parent=None):
         super().__init__(parent)
@@ -49,6 +51,16 @@ class PyBridge(QObject):
     def ping(self, message: str) -> None:
         print(f"[cesium_spike] ping from JS: {message!r}")
         self.pong.emit(f"Python received: {message!r}")
+
+    @Slot(float, float)
+    def set_scenario_center(self, lat: float, lon: float) -> None:
+        """The user placed or dragged the scenario centre on the map."""
+        self.center_picked.emit(lat, lon)
+
+    @Slot()
+    def notify_ready(self) -> None:
+        """A página terminou de conectar o QWebChannel e aceita cenas."""
+        self.ready.emit()
 
     @Slot(result=str)
     def get_supported_topologies(self) -> str:
@@ -91,13 +103,27 @@ class CesiumSpikeWidget(QWidget):
         layout.addWidget(self.view)
 
         self.bridge = PyBridge(scene_provider=scene_provider)
+        self.ready = self.bridge.ready
+        self.center_picked = self.bridge.center_picked
         self.channel = QWebChannel()
         self.channel.registerObject("pyBridge", self.bridge)
         self.view.page().setWebChannel(self.channel)
 
-        url = f"http://127.0.0.1:{port}/index.html"
+        # Opções de visual via ambiente (sem token no código):
+        #   SHARC_CESIUM_BASE = neii (padrão, offline) | dark | esri (satélite online)
+        #   CESIUM_ION_TOKEN  = habilita relevo mundial (Cesium World Terrain)
+        from urllib.parse import urlencode
+        import os
+        query = {}
         if embedded:
-            url += "?embedded=1"
+            query["embedded"] = "1"
+        if os.environ.get("SHARC_CESIUM_BASE"):
+            query["base"] = os.environ["SHARC_CESIUM_BASE"]
+        if os.environ.get("CESIUM_ION_TOKEN"):
+            query["ion"] = os.environ["CESIUM_ION_TOKEN"]
+        url = f"http://127.0.0.1:{port}/index.html"
+        if query:
+            url += "?" + urlencode(query)
         self.view.load(QUrl(url))
 
     def request_scene(self, topology_type: str) -> None:

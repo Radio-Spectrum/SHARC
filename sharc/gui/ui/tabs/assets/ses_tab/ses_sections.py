@@ -188,67 +188,29 @@ class SESGeometrySection:
 
 
 class SESAntennaSection:
+    """Antena da estação terrena: todos os padrões do motor, com parâmetros e ganho ao vivo."""
+
     def __init__(self, parent_layout, app):
         self.app = app
-        self.frame = QGroupBox("Antenna (Pattern + Parameters)")
+        self.frame = QGroupBox("Antenna")
         self.main_layout = QVBoxLayout(self.frame)
+        from core.state import SharcVar
+        from ui.components.antenna_editor import AntennaEditor
 
-        grid = QGridLayout()
-        H.add_grid_row(grid, 0, [
-            ("antenna.pattern", H.create_field(app.se_ant_pattern, QComboBox, SUPPORTED_ANTENNA_PATTERNS)),
-            ("antenna.gain [dBi]", H.create_field(app.se_ant_gain)),
-            ("", None)
-        ])
-        self.main_layout.addLayout(grid)
+        def get_var(name):
+            v = getattr(app, name, None)
+            if v is None:
+                v = SharcVar("")
+                setattr(app, name, v)
+            return v
 
-        self.stack = QStackedWidget()
-        self.main_layout.addWidget(self.stack)
-        self.frames = {}
-
-        # Diameter-based
-        f_diam = QWidget()
-        l_diam = QGridLayout(f_diam)
-        H.add_grid_row(l_diam, 0, [("diameter [m]", H.create_field(app.se_ant_diameter)), ("", QLabel("(freq & gain from system)")), ("", None)])
-        self.frames["DIAM"] = f_diam
-        self.stack.addWidget(f_diam)
-
-        # Envelope
-        f_env = QWidget()
-        l_env = QGridLayout(f_env)
-        H.add_grid_row(l_env, 0, [("envelope_gain [dB]", H.create_field(app.se_ant_envelope_gain)), ("", None), ("", None)])
-        self.frames["MODIFIED ITU-R S.465"] = f_env
-        self.stack.addWidget(f_env)
-
-        # S.672
-        f_s672 = QWidget()
-        l_s672 = QGridLayout(f_s672)
-        H.add_grid_row(l_s672, 0, [("antenna_3_dB [deg]", H.create_field(app.se_ant_3db)), ("antenna_l_s [dB] (opt.)", H.create_field(app.se_ant_l_s)), ("", None)])
-        self.frames["ITU-R S.672"] = f_s672
-        self.stack.addWidget(f_s672)
-
-        # F1245
-        f_f1245 = QWidget()
-        l_f1245 = QGridLayout(f_f1245)
-        H.add_grid_row(l_f1245, 0, [("gain (F1245) [dB]", H.create_field(app.se_ant_f1245_gain)), ("diameter [m]", H.create_field(app.se_ant_f1245_diameter)), ("frequency [MHz]", H.create_field(app.se_ant_f1245_frequency))])
-        self.frames["ITU-R F.1245_fs"] = f_f1245
-        self.stack.addWidget(f_f1245)
-
-        self.hint = QLabel("Select a pattern to view specific parameters.")
-        self.stack.addWidget(self.hint)
-
-        self.app.se_ant_pattern.value_changed.connect(self.refresh)
+        self.editor = AntennaEditor(get_var, pattern_key="se_ant_pattern",
+                                    gain_key="se_ant_gain", prefix="se_ant")
+        self.main_layout.addWidget(self.editor)
         parent_layout.addWidget(self.frame)
 
-    def refresh(self, *args):
-        pat = str(self.app.se_ant_pattern.get() or "").strip()
-        if not pat:
-            self.stack.setCurrentWidget(self.hint)
-        elif pat in DIAMETER_PATTERNS:
-            self.stack.setCurrentWidget(self.frames["DIAM"])
-        elif pat in self.frames:
-            self.stack.setCurrentWidget(self.frames[pat])
-        else:
-            self.stack.setCurrentWidget(self.hint)
+    def refresh(self, *args):  # compatibilidade com o código antigo
+        pass
 
 
 class SESChannelSection:

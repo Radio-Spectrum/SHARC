@@ -84,56 +84,14 @@ class VictimGeometrySection:
 
 
 class VictimAntennaSection:
+    """Antena do sistema vítima: todos os padrões do motor, com parâmetros e ganho ao vivo."""
+
     def __init__(self, parent_layout, state):
         self.state = state
         self.frame = QGroupBox("Antenna")
         self.main_layout = QVBoxLayout(self.frame)
-
-        self._build_ui()
+        from ui.components.antenna_editor import AntennaEditor
+        self.editor = AntennaEditor(
+            state.get, pattern_key="v_ant_pattern", gain_key="v_ant_gain", prefix="v_ant")
+        self.main_layout.addWidget(self.editor)
         parent_layout.addWidget(self.frame)
-
-    def _build_ui(self):
-        # Pattern Selector
-        grid_top = QGridLayout()
-        H.add_grid_row(grid_top, 0, [
-            ("pattern", H.create_field(self.state.get("v_ant_pattern"), QComboBox, ["ITU-R S.672", "ITU-R M.2101", "3GPP TR 38.901", "Custom"])),
-            ("gain [dBi]", H.create_field(self.state.get("v_ant_gain"))),
-            ("", None),
-        ])
-        self.main_layout.addLayout(grid_top)
-
-        # Stacked area for dynamically switching the parameters
-        self.stack = QStackedWidget()
-        self.main_layout.addWidget(self.stack)
-
-        # S.672 Frame
-        self.frm_s672 = QWidget()
-        l_s672 = QGridLayout(self.frm_s672)
-        l_s672.setContentsMargins(0, 0, 0, 0)
-        H.add_grid_row(l_s672, 0, [
-            ("itu_r_s_672.antenna_3_dB", H.create_field(self.state.get("v_s672_3db"))),
-            ("itu_r_s_672.antenna_l_s [dB]", H.create_field(self.state.get("v_s672_ls"))),
-            ("", None),
-        ])
-        self.stack.addWidget(self.frm_s672)
-
-        # Other Frame
-        self.frm_other = QWidget()
-        l_other = QVBoxLayout(self.frm_other)
-        l_other.setContentsMargins(0, 0, 0, 0)
-        lbl_other = QLabel("Parameters for this pattern not yet implemented in GUI.")
-        lbl_other.setStyleSheet("color: gray; font-style: italic;")
-        l_other.addWidget(lbl_other)
-        self.stack.addWidget(self.frm_other)
-
-        # Setup Traces
-        self.state.get("v_ant_pattern").value_changed.connect(self.refresh)
-        self.refresh()
-
-    def refresh(self, *args):
-        """Toggles S.672 parameters visibility."""
-        pattern = str(self.state.get("v_ant_pattern").get() or "").strip()
-        if pattern == "ITU-R S.672":
-            self.stack.setCurrentWidget(self.frm_s672)
-        else:
-            self.stack.setCurrentWidget(self.frm_other)

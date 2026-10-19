@@ -120,7 +120,8 @@ class DatabaseE2ETest(unittest.TestCase):
             for i, row in enumerate(rows):
                 row += [values[i] for values in columns.values()]
         csv = self.tmp / f"{name}.csv"
-        lines = [",".join(header)] + [",".join(repr(v) for v in r) for r in rows]
+        # numpy 2 reprs scalars as np.float64(...): write plain Python numbers
+        lines = [",".join(header)] + [",".join(repr(v.item() if hasattr(v, "item") else v) for v in r) for r in rows]
         csv.write_text("\n".join(lines) + "\n")
 
         parameters = copy.deepcopy(parameters)

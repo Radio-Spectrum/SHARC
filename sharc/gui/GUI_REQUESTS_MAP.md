@@ -95,6 +95,11 @@ technical detail and the resume instructions.
 | HOTSPOT broken by NumPy 2.5 | FIXED in `sharc/topology/topology_hotspot.py` |
 | Blank area around the scenario (tiles that failed once stayed blank) | FIXED, re-verify visually |
 | Station presets not saving the new antenna fields | TODO |
+| P.452 channel (with clutter) broken by NumPy 2.5 | FIXED in `sharc/propagation/propagation_clear_air_452.py` |
+| SES P.452: `Hre` missing from the YAML/session; polarization was a number | FIXED (`yaml_builder.py`, `ses_persistence.py`, polarization combo); `is_terrain` hidden (engine rejects it without `override_from_db`); test `tests/gui/test_p452_channel.py` |
+| P.452 over the database in the GUI (`override_from_db`, `hte_from_db`, `profile_source`/`profile_raster`/`profile_step_m`, `clutter_raster`/`clutter_heights`, `zone_raster`) | DONE in Earth Station > Channel (group "Real terrain over the base-station database", status line + "Apply required settings"); tests in `tests/gui/test_p452_channel.py` |
+| Earth Station location `FIXED_GEO` (lat/lon/ground altitude), required by the database real terrain | DONE (`ses_sections.py`, `yaml_builder.py`, session save/load) |
+| Database simulation crashed under NumPy 2.5 (`simulation_downlink.py`, `simulation_uplink.py`) | FIXED; `tests/e2e/test_database_e2e.py` passes (incl. real-terrain P.452) |
 
 ## How to resume
 1. Read `CLAUDE.md`, `GUI_BACKLOG.md` and this map.

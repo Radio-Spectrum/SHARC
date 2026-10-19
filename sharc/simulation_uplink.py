@@ -528,7 +528,7 @@ class SimulationUplink(Simulation):
             )
             self.results.system_ul_interf_power_per_mhz.extend(
                 [self.system.rx_interference
-                    - 10 * math.log10(self.system.bandwidth[sys_active])],
+                    - 10 * np.log10(self.system.bandwidth[sys_active])],
             )
             # TODO: generalize this a bit more if needed
             if hasattr(

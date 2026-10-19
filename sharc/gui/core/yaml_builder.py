@@ -1,3 +1,4 @@
+import os
 import copy
 import yaml
 
@@ -38,6 +39,19 @@ def _as_bool(v) -> bool:
     if isinstance(v, str):
         return v.strip().lower() in ("true", "1", "yes", "on")
     return bool(v)
+
+
+def _abs_path(v) -> str:
+    """Absolute path of a file chosen in the GUI (the engine resolves relative ones against the YAML)."""
+    v = str(v or "").strip()
+    return os.path.abspath(v) if v else ""
+
+
+def _p452_polarization(v) -> str:
+    """P.452 polarization as the engine expects it: 'horizontal' or 'vertical'.
+
+    Old sessions stored a number here; anything but 'vertical' falls back to horizontal."""
+    return "vertical" if str(v).strip().lower() == "vertical" else "horizontal"
 
 
 def _num_or_str(s):
@@ -631,6 +645,11 @@ def build_yaml_structure(app_state):
                 "location": {
                     "type": g_sta("se_loc_type"),
                     "fixed": {"x": n(g_sta("se_loc_fixed_x")), "y": n(g_sta("se_loc_fixed_y"))},
+                    "fixed_geo": {
+                        "latitude": n(g_sta("se_loc_geo_lat")),
+                        "longitude": n(g_sta("se_loc_geo_lon")),
+                        "altitude": n(g_sta("se_loc_geo_alt")),
+                    },
                     "cell": {"min_dist_to_bs": n(g_sta("se_loc_cell_min_dist_to_bs"))},
                     "network": {"min_dist_to_bs": n(g_sta("se_loc_network_min_dist_to_bs"))},
                     "uniform_dist": {
@@ -660,12 +679,21 @@ def build_yaml_structure(app_state):
                 "Dct": n(g_sta("p452_Dct")),
                 "Dcr": n(g_sta("p452_Dcr")),
                 "Hte": n(g_sta("p452_Hte")),
+                "Hre": n(g_sta("p452_Hre")),
                 "tx_lat": n(g_sta("p452_tx_lat")),
                 "rx_lat": n(g_sta("p452_rx_lat")),
-                "polarization": n(g_sta("p452_polarization")),
+                "polarization": _p452_polarization(g_sta("p452_polarization")),
                 "clutter_loss": _as_bool(g_sta("p452_clutter_loss")),
                 "clutter_type": g_sta("p452_clutter_type"),
                 "is_terrain": _as_bool(g_sta("p452_is_terrain")),
+                "override_from_db": _as_bool(g_sta("p452_override_from_db")),
+                "hte_from_db": _as_bool(g_sta("p452_hte_from_db")),
+                "profile_source": str(g_sta("p452_profile_source") or "mesh"),
+                "profile_raster": _abs_path(g_sta("p452_profile_raster")),
+                "profile_step_m": n(g_sta("p452_profile_step_m")) or 0.0,
+                "clutter_raster": _abs_path(g_sta("p452_clutter_raster")),
+                "clutter_heights": str(g_sta("p452_clutter_heights") or "celplan"),
+                "zone_raster": _abs_path(g_sta("p452_zone_raster")),
             },
         }
 

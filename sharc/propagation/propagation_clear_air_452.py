@@ -482,17 +482,18 @@ class PropagationClearAir(Propagation):
         ha = ha_t
         dk = dk_t
 
-        if ha > htg:
+        # empty ha_t/ha_r means no terminal clutter (as in the ITU MATLAB code)
+        if np.size(ha) > 0 and ha > htg:
 
             Ffc = 0.25 + 0.375 * (1 + np.tanh(7.5 * (f - 0.5)))  # (57a)
             Aht = 10.25 * Ffc * \
                 np.exp(-dk) * (1 - np.tanh(6 * (htg / ha - 0.625))) - \
                 0.33  # (57)
 
-            kk = np.nonzero(d >= dk)
+            kk = np.nonzero(d >= dk)[0]
 
             if kk.size:
-                index1 = kk[0]
+                index1 = kk[0] + 1
             else:
                 index1 = d.size
 
@@ -501,15 +502,15 @@ class PropagationClearAir(Propagation):
         ha = ha_r
         dk = dk_r
 
-        if ha > hrg:
+        if np.size(ha) > 0 and ha > hrg:
             Ffc = 0.25 + 0.375 * (1 + np.tanh(7.5 * (f - 0.5)))  # (57a)
             Ahr = 10.25 * Ffc * \
                 np.exp(-dk) * (1 - np.tanh(6 * (hrg / ha - 0.625))) - \
                 0.33  # (57)
 
-            kk = np.nonzero(d <= d[-1] - dk)
+            kk = np.nonzero(d <= d[-1] - dk)[0]
             if kk.size:
-                index2 = kk[-1]
+                index2 = kk[-1] + 1
             else:
                 index2 = 1
 
@@ -712,7 +713,7 @@ class PropagationClearAir(Propagation):
 
         kindex = np.nonzero(theta == theta_t)
 
-        lt = kindex[0] + 1
+        lt = int(kindex[0][0]) + 1
 
         dlt = d[lt]
 
@@ -727,7 +728,7 @@ class PropagationClearAir(Propagation):
         theta_r = max(theta)
 
         kindex = np.nonzero(np.ravel(theta) == theta_r)
-        lr = kindex[-1] + 1
+        lr = int(kindex[-1][-1]) + 1
 
         dlr = dtot - d[lr]
 
@@ -745,7 +746,7 @@ class PropagationClearAir(Propagation):
             numax = max(nu)
 
             kindex = np.nonzero(nu == numax)
-            lt = kindex[-1] + 1
+            lt = int(kindex[-1][-1]) + 1
             dlt = d[lt]
             dlr = dtot - dlt
             kindex = np.nonzero(dlr <= dtot - d[ii])
@@ -1263,11 +1264,14 @@ class PropagationClearAir(Propagation):
         """
         # Normalized factor for surface admittance for horizontal (1) and vertical
         # (2) polarizations
+        epsr, sigma, d, hte, hre, adft, f = (
+            float(np.squeeze(x)) for x in (epsr, sigma, d, hte, hre, adft, f)
+        )
         K = np.empty(2)
-        K[0] = 0.036 * (adft * f) ** (-1 / 3) * (
+        K[0] = float(np.squeeze(0.036 * (adft * f) ** (-1 / 3) * (
             (epsr - 1) **
             2 + (18 * sigma / f) ** 2
-        ) ** (-1 / 4)
+        ) ** (-1 / 4)))
         K[1] = K[0] * (epsr ** 2 + (18 * sigma / f) ** 2) ** (1 / 2)
 
         # Earth ground / polarization parameter
@@ -1476,7 +1480,7 @@ class PropagationClearAir(Propagation):
         # Use the method in 4.2 .1 for the actual terrain profile and antenna
         # heights.Set the resulting Bullington diffraction loss for the actual
         # path to Lbulla
-        Lbulla = PropagationClearAir.dl_bull(d, h if g is None else g, hts, hrs, ap, f)
+        Lbulla = float(np.ravel(PropagationClearAir.dl_bull(d, h if g is None else g, hts, hrs, ap, f))[0])
 
         # Use the method in 4.2.1 for a second time, with all profile heights hi
         # set to zero and modified antenna heights given by
@@ -1486,7 +1490,7 @@ class PropagationClearAir(Propagation):
 
         # where hstd and hsrd are given in 5.1 .6.3 of Attachment 2. Set the
         # resulting Bullington diffraction loss for this smooth path to Lbulls
-        Lbulls = PropagationClearAir.dl_bull(d, h1, hts1, hrs1, ap, f)
+        Lbulls = float(np.ravel(PropagationClearAir.dl_bull(d, h1, hts1, hrs1, ap, f))[0])
 
         # Use the method in 4.2.2 to calculate the spherical - Earth diffraction loss
         # for the actual path length (dtot) with

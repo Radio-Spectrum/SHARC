@@ -1,6 +1,6 @@
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QGroupBox, 
-    QLabel, QStackedWidget, QComboBox, QCheckBox
+    QLabel, QStackedWidget, QComboBox, QCheckBox, QLineEdit, QPushButton, QFileDialog
 )
 from PySide6.QtCore import Qt
 
@@ -69,6 +69,17 @@ class SESGeometrySection:
         H.add_grid_row(l_fix, 0, [("x [m]", H.create_field(self.app.se_loc_fixed_x)), ("y [m]", H.create_field(self.app.se_loc_fixed_y)), ("", None)])
         self.loc_frames["FIXED"] = f_fix
         self.loc_stack.addWidget(f_fix)
+
+        # FIXED_GEO (needed by the database real terrain: the profiles start here)
+        f_geo = QWidget()
+        l_geo = QGridLayout(f_geo)
+        H.add_grid_row(l_geo, 0, [
+            ("latitude [deg]", H.create_field(self.app.se_loc_geo_lat)),
+            ("longitude [deg]", H.create_field(self.app.se_loc_geo_lon)),
+            ("ground altitude [m]", H.create_field(self.app.se_loc_geo_alt)),
+        ])
+        self.loc_frames["FIXED_GEO"] = f_geo
+        self.loc_stack.addWidget(f_geo)
 
         # CELL
         f_cell = QWidget()
@@ -231,7 +242,7 @@ class SESChannelSection:
         l_p452 = QGridLayout(self.p452_box)
 
         H.add_grid_row(l_p452, 0, [("atmospheric_pressure [hPa]", H.create_field(app.p452_atmospheric_pressure)), ("air_temperature [K]", H.create_field(app.p452_air_temperature)), ("p_452 [%]", H.create_field(app.p452_percentage_p))])
-        H.add_grid_row(l_p452, 1, [("N0", H.create_field(app.p452_N0)), ("delta_N", H.create_field(app.p452_delta_N)), ("polarization", H.create_field(app.p452_polarization))])
+        H.add_grid_row(l_p452, 1, [("N0", H.create_field(app.p452_N0)), ("delta_N", H.create_field(app.p452_delta_N)), ("polarization", H.create_field(app.p452_polarization, QComboBox, ["horizontal", "vertical"]))])
         H.add_grid_row(l_p452, 2, [("Dct [km]", H.create_field(app.p452_Dct)), ("Dcr [km]", H.create_field(app.p452_Dcr)), ("", None)])
         
         # Read-only heights
@@ -249,12 +260,18 @@ class SESChannelSection:
         l_clut.addStretch()
         l_p452.addWidget(self.clutter_row, 4, 0, 1, 6)
 
-        H.add_grid_row(l_p452, 5, [("tx_lat [deg]", H.create_field(app.p452_tx_lat)), ("rx_lat [deg]", H.create_field(app.p452_rx_lat)), ("is_terrain", H.create_field(app.p452_is_terrain, QCheckBox))])
+        H.add_grid_row(l_p452, 5, [("tx_lat [deg]", H.create_field(app.p452_tx_lat)), ("rx_lat [deg]", H.create_field(app.p452_rx_lat)), ("", None)])
+
+        self._build_p452_database_group(l_p452, 6)
 
         self.main_layout.addWidget(self.p452_box)
 
         self.app.se_channel_model.value_changed.connect(self.refresh)
         self.app.p452_clutter_loss.value_changed.connect(self.refresh_clutter)
+        for var in (self.app.p452_override_from_db, self.app.p452_hte_from_db,
+                    self.app.p452_profile_source, self.app.se_loc_type, self.app.se_channel_model):
+            var.value_changed.connect(self.refresh_database_group)
+        self.refresh_database_group()
         
         parent_layout.addWidget(self.frame)
 
@@ -267,3 +284,135 @@ class SESChannelSection:
         is_p452 = str(self.app.se_channel_model.get() or "").strip() == "P452"
         has_clutter = str(self.app.p452_clutter_loss.get()).lower() in ("true", "1")
         self.clutter_row.setVisible(is_p452 and has_clutter)
+
+    # ------------------------------------------------- P.452 over the database
+    def _file_row(self, var, title, filters):
+        """Line edit bound to `var` plus a Browse button; returns the row widget."""
+        row = QWidget()
+        lay = QHBoxLayout(row)
+        lay.setContentsMargins(0, 0, 0, 0)
+        edit = H.create_field(var, QLineEdit)
+        btn = QPushButton("Browse")
+
+        def pick():
+            path, _ = QFileDialog.getOpenFileName(row, title, "", filters)
+            if path:
+                var.set(path)
+        btn.clicked.connect(pick)
+        lay.addWidget(edit)
+        lay.addWidget(btn)
+        return row
+
+    def _build_p452_database_group(self, grid, row):
+        app = self.app
+        box = QGroupBox("Real terrain over the base-station database")
+        self.db_group = box
+        g = QGridLayout(box)
+        tif = "GeoTIFF (*.tif *.tiff);;All files (*)"
+
+        self.lbl_db_status = QLabel("")
+        self.lbl_db_status.setWordWrap(True)
+        g.addWidget(self.lbl_db_status, 0, 0, 1, 4)
+
+        H.add_grid_row(g, 1, [
+            ("override_from_db (precompute P.452 per BS)", H.create_field(app.p452_override_from_db, QCheckBox)),
+            ("hte_from_db (BS height from 'altura')", H.create_field(app.p452_hte_from_db, QCheckBox)),
+        ])
+        H.add_grid_row(g, 2, [
+            ("profile_source", H.create_field(app.p452_profile_source, QComboBox, ["mesh", "grid"])),
+            ("profile_step_m (0 = 301 points)", H.create_field(app.p452_profile_step_m)),
+        ])
+        self.row_profile_raster = QWidget()
+        lay = QHBoxLayout(self.row_profile_raster)
+        lay.setContentsMargins(0, 0, 0, 0)
+        lay.addWidget(QLabel("profile_raster (terrain, needed for 'grid')"))
+        lay.addWidget(self._file_row(app.p452_profile_raster, "Select terrain GeoTIFF", tif), 1)
+        g.addWidget(self.row_profile_raster, 3, 0, 1, 4)
+
+        self.row_clutter = QWidget()
+        lay = QHBoxLayout(self.row_clutter)
+        lay.setContentsMargins(0, 0, 0, 0)
+        lay.addWidget(QLabel("clutter_raster (land cover)"))
+        lay.addWidget(self._file_row(app.p452_clutter_raster, "Select land-cover GeoTIFF", tif), 1)
+        lay.addWidget(QLabel("clutter_heights"))
+        lay.addWidget(H.create_field(app.p452_clutter_heights, QComboBox, ["celplan", "p452_tab3"]))
+        g.addWidget(self.row_clutter, 4, 0, 1, 4)
+
+        row_zone = QWidget()
+        lay = QHBoxLayout(row_zone)
+        lay.setContentsMargins(0, 0, 0, 0)
+        lay.addWidget(QLabel("zone_raster (1 = A1 coastal, 2 = A2 inland, 3 = B sea)"))
+        lay.addWidget(self._file_row(app.p452_zone_raster, "Select radio-climatic zone GeoTIFF", tif), 1)
+        g.addWidget(row_zone, 5, 0, 1, 4)
+
+        btn = QPushButton("Apply required settings")
+        btn.setToolTip("Turns on the database, its sites and real terrain, and uses FIXED_GEO for the station.")
+        btn.clicked.connect(self.apply_required_settings)
+        g.addWidget(btn, 6, 0, 1, 2)
+
+        grid.addWidget(box, row, 0, 1, 6)
+        self._db_vars_connected = False
+
+    def _database_state(self):
+        tab = getattr(self.app, "tab_database", None)
+        return getattr(tab, "state", None)
+
+    def _connect_database_vars(self):
+        """The Database tab is created after this one: hook its variables on first use."""
+        st = self._database_state()
+        if st is None or self._db_vars_connected:
+            return
+        for key in ("db_enabled", "db_file", "db_from_sites", "db_use_terrain"):
+            st.get(key).value_changed.connect(self.refresh_database_group)
+        self._db_vars_connected = True
+
+    def database_requirements(self):
+        """What is still missing for P.452 over the database; [] when everything is set."""
+        app, st = self.app, self._database_state()
+        missing = []
+
+        def on(v):
+            return str(v.get()).strip().lower() in ("true", "1")
+        if str(app.se_channel_model.get() or "").strip() != "P452":
+            missing.append("Channel model must be P452")
+        if st is None or not on(st.get("db_enabled")) or not str(st.get("db_file").get() or "").strip():
+            missing.append("Database tab: enable the database and choose its file")
+        if st is not None and not on(st.get("db_from_sites")):
+            missing.append("Database tab: take the sites from the database")
+        if st is not None and not on(st.get("db_use_terrain")):
+            missing.append("Database tab: use real terrain")
+        if str(app.se_loc_type.get() or "").strip() != "FIXED_GEO":
+            missing.append("Station location type must be FIXED_GEO (the profiles start there)")
+        if str(app.p452_profile_source.get() or "") == "grid" and not str(app.p452_profile_raster.get() or "").strip():
+            missing.append("profile_source 'grid' needs profile_raster")
+        return missing
+
+    def refresh_database_group(self, *args):
+        self._connect_database_vars()
+        is_p452 = str(self.app.se_channel_model.get() or "").strip() == "P452"
+        self.db_group.setVisible(is_p452)
+        grid_src = str(self.app.p452_profile_source.get() or "") == "grid"
+        self.row_profile_raster.setVisible(grid_src)
+        if not is_p452:
+            return
+        override = str(self.app.p452_override_from_db.get()).strip().lower() in ("true", "1")
+        missing = self.database_requirements() if override else []
+        if not override:
+            text = ("Off: P.452 is computed on every snapshot with the parameters above. "
+                    "Turn override_from_db on to precompute it per base station over the real terrain.")
+        elif missing:
+            text = "Missing for override_from_db: " + "; ".join(missing) + "."
+        else:
+            text = "Ready: P.452 is precomputed per base station when the simulation starts (IMT downlink)."
+        self.lbl_db_status.setText(text)
+
+    def apply_required_settings(self):
+        """Set what override_from_db needs; the database file itself is still the user's choice."""
+        st = self._database_state()
+        self.app.se_channel_model.set("P452")
+        self.app.se_loc_type.set("FIXED_GEO")
+        if st is not None:
+            st.get("db_enabled").set(True)
+            st.get("db_from_sites").set(True)
+            st.get("db_use_terrain").set(True)
+        self.refresh_database_group()

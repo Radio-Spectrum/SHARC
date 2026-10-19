@@ -23,6 +23,7 @@ class SESPersistence:
                 "location": {
                     "type": g(app.se_loc_type),
                     "fixed": {"x": g(app.se_loc_fixed_x), "y": g(app.se_loc_fixed_y)},
+                    "fixed_geo": {"latitude": g(app.se_loc_geo_lat), "longitude": g(app.se_loc_geo_lon), "altitude": g(app.se_loc_geo_alt)},
                     "cell": {"min_dist_to_bs": g(app.se_loc_cell_min_dist_to_bs)},
                     "network": {"min_dist_to_bs": g(app.se_loc_network_min_dist_to_bs)},
                     "uniform_dist": {"min_dist_to_center": g(app.se_loc_ud_min_dist_to_center), "max_dist_to_center": g(app.se_loc_ud_max_dist_to_center)},
@@ -51,10 +52,14 @@ class SESPersistence:
             "p452": {
                 "atmospheric_pressure": g(app.p452_atmospheric_pressure), "air_temperature": g(app.p452_air_temperature),
                 "N0": g(app.p452_N0), "delta_N": g(app.p452_delta_N), "percentage_p": g(app.p452_percentage_p),
-                "Dct": g(app.p452_Dct), "Dcr": g(app.p452_Dcr), "Hte": g(app.p452_Hte),
+                "Dct": g(app.p452_Dct), "Dcr": g(app.p452_Dcr), "Hte": g(app.p452_Hte), "Hre": g(app.p452_Hre),
                 "tx_lat": g(app.p452_tx_lat), "rx_lat": g(app.p452_rx_lat), "polarization": g(app.p452_polarization),
                 "clutter_loss": _as_bool(app.p452_clutter_loss.get()), "clutter_type": g(app.p452_clutter_type),
                 "is_terrain": _as_bool(app.p452_is_terrain.get()),
+                "override_from_db": _as_bool(app.p452_override_from_db.get()), "hte_from_db": _as_bool(app.p452_hte_from_db.get()),
+                "profile_source": g(app.p452_profile_source), "profile_raster": g(app.p452_profile_raster),
+                "profile_step_m": g(app.p452_profile_step_m), "clutter_raster": g(app.p452_clutter_raster),
+                "clutter_heights": g(app.p452_clutter_heights), "zone_raster": g(app.p452_zone_raster),
             },
         }
 
@@ -82,6 +87,10 @@ class SESPersistence:
         s(app.se_loc_type, loc.get("type"))
         s(app.se_loc_fixed_x, loc.get("fixed", {}).get("x"))
         s(app.se_loc_fixed_y, loc.get("fixed", {}).get("y"))
+        geo = loc.get("fixed_geo", {})
+        s(app.se_loc_geo_lat, geo.get("latitude"))
+        s(app.se_loc_geo_lon, geo.get("longitude"))
+        s(app.se_loc_geo_alt, geo.get("altitude"))
         s(app.se_loc_cell_min_dist_to_bs, loc.get("cell", {}).get("min_dist_to_bs"))
         s(app.se_loc_network_min_dist_to_bs, loc.get("network", {}).get("min_dist_to_bs"))
         ud = loc.get("uniform_dist", {})
@@ -121,12 +130,21 @@ class SESPersistence:
         s(app.p452_Dct, p.get("Dct"))
         s(app.p452_Dcr, p.get("Dcr"))
         s(app.p452_Hte, p.get("Hte"))
+        s(app.p452_Hre, p.get("Hre"))
         s(app.p452_tx_lat, p.get("tx_lat"))
         s(app.p452_rx_lat, p.get("rx_lat"))
-        s(app.p452_polarization, p.get("polarization"))
+        s(app.p452_polarization, "vertical" if str(p.get("polarization")).strip().lower() == "vertical" else "horizontal")
         app.p452_clutter_loss.set(bool(p.get("clutter_loss", False)))
         s(app.p452_clutter_type, p.get("clutter_type"))
         app.p452_is_terrain.set(bool(p.get("is_terrain", False)))
+        app.p452_override_from_db.set(bool(p.get("override_from_db", False)))
+        app.p452_hte_from_db.set(bool(p.get("hte_from_db", False)))
+        s(app.p452_profile_source, p.get("profile_source") or "mesh")
+        s(app.p452_profile_raster, p.get("profile_raster", ""))
+        s(app.p452_profile_step_m, p.get("profile_step_m", 0.0))
+        s(app.p452_clutter_raster, p.get("clutter_raster", ""))
+        s(app.p452_clutter_heights, p.get("clutter_heights") or "celplan")
+        s(app.p452_zone_raster, p.get("zone_raster", ""))
 
     @staticmethod
     def save_to_file(app, parent_widget=None):

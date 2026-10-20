@@ -554,7 +554,13 @@ function publishLegend() {
   if (lobes.on && lobes.info) {
     items.push({ id: "lobe", title: "Antenna gain", unit: "dBi", vmin: lobes.info.floor_dbi, vmax: lobes.info.peak_dbi });
   }
-  const m = heat.data && heat.mode ? heat.data.maps[heat.mode] : null;
+  if (interf.on && interf.data && interf.data.contrib) {
+    items.push({ id: "interf", title: "BS contribution to the victim interference", unit: "dBm/MHz",
+                 vmin: interf.data.cmin - ((interf.data.cmax - interf.data.cmin) < 0.5 ? 1 : 0),
+                 vmax: interf.data.cmax + ((interf.data.cmax - interf.data.cmin) < 0.5 ? 1 : 0) });
+  }
+  const hs = heat.mode ? heatSource() : null;
+  const m = hs ? hs.maps[heat.mode] : null;
   if (m) items.push({ id: "heat", title: m.title, unit: m.unit, vmin: m.vmin, vmax: m.vmax });
   if (window.pyBridge && window.pyBridge.set_legend) window.pyBridge.set_legend(JSON.stringify(items));
 }
@@ -582,8 +588,13 @@ function setLobes(on) {
 })();
 
 // ── Ground heat map (PSD / I/N / strongest-BS power, computed by core/heatmap.py from the engine scene)
-const heat = { mode: "", ent: null, data: null };
-const HEAT_ORDER = ["", "psd", "inr", "power"];
+const heat = { mode: "", ent: null, data: null, sat: null };
+function heatSource() { return heat.mode.startsWith("sat_") ? heat.sat : heat.data; }
+function heatOrder() {                                    // IMT maps, plus the satellite footprint maps when there is a satellite
+  const order = ["", "psd", "inr", "power"];
+  if (heat.sat) order.push(...Object.keys(heat.sat.maps));
+  return order;
+}
 
 function jetRGB(t) {
   t = Math.min(1, Math.max(0, t));
@@ -595,11 +606,12 @@ function setHeat(mode) {
   heat.mode = mode || "";
   if (heat.ent) { viewer.entities.remove(heat.ent); heat.ent = null; }
   const btn = document.getElementById("btnHeat");
-  const m = heat.data && heat.mode ? heat.data.maps[heat.mode] : null;
+  const src = heat.mode ? heatSource() : null;
+  const m = src ? src.maps[heat.mode] : null;
   if (btn) btn.classList.toggle("on", !!m);
   publishLegend();
   if (!m) { viewer.scene.requestRender(); return; }
-  const n = heat.data.n;
+  const n = src.n;
   const cv = document.createElement("canvas");
   cv.width = n; cv.height = n;
   const ctx = cv.getContext("2d");
@@ -616,20 +628,83 @@ function setHeat(mode) {
   heat.ent = viewer.entities.add({
     name: "Heat map: " + m.title,
     rectangle: {
-      coordinates: Cesium.Rectangle.fromDegrees(heat.data.west, heat.data.south, heat.data.east, heat.data.north),
+      coordinates: Cesium.Rectangle.fromDegrees(src.west, src.south, src.east, src.north),
       material: new Cesium.ImageMaterialProperty({ image: cv.toDataURL("image/png"), transparent: true }),
     },
   });
-  setStatus(`${m.title}: ${m.vmin.toFixed(0)} to ${m.vmax.toFixed(0)} ${m.unit} (${heat.data.freq_mhz} MHz, free space, all base stations at full power)`);
+  setStatus(`${m.title}: ${m.vmin.toFixed(0)} to ${m.vmax.toFixed(0)} ${m.unit} (free space, nominal full power${src.freq_mhz ? ", " + src.freq_mhz + " MHz" : ""})`);
   viewer.scene.requestRender();
 }
 
 (function wireHeatButton() {
   const btn = document.getElementById("btnHeat");
   if (btn) btn.addEventListener("click", () => {
-    if (!heat.data) { setStatus("No heat map for this scene"); return; }
-    setHeat(HEAT_ORDER[(HEAT_ORDER.indexOf(heat.mode) + 1) % HEAT_ORDER.length]);
+    if (!heat.data && !heat.sat) { setStatus("No heat map for this scene"); return; }
+    const order = heatOrder();
+    setHeat(order[(order.indexOf(heat.mode) + 1) % order.length]);
   });
+})();
+
+// ── Interferer vs victim: role labels, base stations coloured by their contribution to the interference at the
+//    victim, and the interference paths drawn from every base station to the victim (core/interference.py)
+const interf = { on: false, bsEnts: [], bsWorld: [], victimWorld: null, data: null, lines: [] };
+const ROLE_COLOR = { interferer: "#ff7043", victim: "#00e5ff" };
+
+function addRoleLabel(position, name, role, heightPx) {
+  if (!role) return;
+  const col = Cesium.Color.fromCssColorString(ROLE_COLOR[role] || "#ffffff");
+  viewer.entities.add({
+    position,
+    label: {
+      text: `${role === "interferer" ? "INTERFERER" : "VICTIM"}  ·  ${name}`,
+      font: "bold 13px 'Segoe UI', Arial, sans-serif", fillColor: col, outlineColor: Cesium.Color.BLACK, outlineWidth: 3,
+      style: Cesium.LabelStyle.FILL_AND_OUTLINE, showBackground: true,
+      backgroundColor: Cesium.Color.fromCssColorString("#14161899"),
+      verticalOrigin: Cesium.VerticalOrigin.BOTTOM, pixelOffset: new Cesium.Cartesian2(0, -(heightPx || 22)),
+      disableDepthTestDistance: Number.POSITIVE_INFINITY,
+    },
+  });
+}
+
+function setInterf(on) {
+  interf.on = !!on;
+  for (const l of interf.lines) viewer.entities.remove(l);
+  interf.lines = [];
+  const d = interf.data;
+  const btn = document.getElementById("btnInterf");
+  const usable = !!(d && d.contrib && d.contrib.length === interf.bsEnts.length);
+  if (btn) btn.classList.toggle("on", interf.on && usable);
+  const flat = usable && (d.cmax - d.cmin) < 0.5;      // e.g. the engine's array-gain floor makes every BS equal
+  const span = usable ? Math.max(d.cmax - d.cmin, 1) : 1;
+  interf.bsEnts.forEach((ent, i) => {
+    const colored = interf.on && usable;
+    const [r, g, b] = colored ? jetRGB(flat ? 0.5 : (d.contrib[i] - d.cmin) / span) : [0, 0, 0];
+    ent.point.color = colored ? Cesium.Color.fromBytes(r, g, b, 255) : C.bs;
+    ent.point.pixelSize = colored ? 12 : 8;
+    ent.point.distanceDisplayCondition = colored
+      ? new Cesium.DistanceDisplayCondition(0, Number.POSITIVE_INFINITY)
+      : new Cesium.DistanceDisplayCondition(2200, Number.POSITIVE_INFINITY);
+    if (colored && interf.victimWorld) {
+      interf.lines.push(viewer.entities.add({
+        polyline: { positions: [interf.bsWorld[i], interf.victimWorld], width: 1.6,
+                    material: Cesium.Color.fromBytes(r, g, b, 150), arcType: Cesium.ArcType.NONE },
+      }));
+    }
+  });
+  publishLegend();
+  if (interf.on) {
+    setStatus(usable
+      ? `Interference: ${d.victim_name || "victim"} receives ${d.psd_dbm_mhz} dBm/MHz (I/N = ${d.inr_db} dB); ` +
+        (flat ? `every base station contributes the same (${d.cmax} dBm/MHz each: the antenna sees only the sidelobe floor)`
+              : `base stations coloured by contribution (${d.cmin} to ${d.cmax} dBm/MHz)`)
+      : "No victim interference to show for this scenario (the system is not the victim, or its antenna is not supported)");
+  }
+  viewer.scene.requestRender();
+}
+
+(function wireInterfButton() {
+  const btn = document.getElementById("btnInterf");
+  if (btn) btn.addEventListener("click", () => setInterf(!interf.on));
 })();
 
 // ── UE links (colour = SNR) with their link budget; click one to open it in the "Link budget" window
@@ -711,9 +786,12 @@ function renderHexSectorScene(scene) {
   lobes.ents = [];
   lobes.info = scene.lobe || null;
   heat.data = scene.heat || null;
+  heat.sat = null;
   heat.ent = null;                                  // the old entity went away with the scene
   if (snap.timer) { clearInterval(snap.timer); snap.timer = null; const pb = document.getElementById("btnPlay"); if (pb) pb.classList.remove("on"); }
   links.ents = []; links.data = scene.links || null;
+  for (const l of interf.lines) viewer.entities.remove(l);
+  interf.lines = []; interf.bsEnts = []; interf.bsWorld = []; interf.victimWorld = null; interf.data = scene.interference || null;
   snap.frames = scene.snapshots || null; snap.ues = []; snap.bs = scene.base_stations; snap.idx = 0;
   if (window.pyBridge && window.pyBridge.set_plots) window.pyBridge.set_plots(JSON.stringify(scene.plots || null));
   const { toWorld } = makeEnuHelpers(scene.reference);
@@ -770,13 +848,15 @@ function renderHexSectorScene(scene) {
       addModel("Base station", "/models/tower.glb", towerPos, -bs.azimuth_deg, 0,
         { scale: Math.max(1, bsHeightM / 30), nearM: 2500 });
     }
-    viewer.entities.add({
+    const bsPoint = viewer.entities.add({
       position: worldPos,
       point: {
         pixelSize: 8, color: C.bs, outlineColor: C.bsOutline, outlineWidth: 1.5,
         distanceDisplayCondition: new Cesium.DistanceDisplayCondition(2200, Number.POSITIVE_INFINITY),
       },
     });
+    interf.bsEnts.push(bsPoint);
+    interf.bsWorld.push(worldPos);
     const ringR = Math.max(scene.hex_radius_m * 0.06, 8);
     viewer.entities.add({
       position: groundPos,
@@ -828,6 +908,7 @@ function renderHexSectorScene(scene) {
     links.ents.push(ent);
   }
 
+  if (scene.roles) addRoleLabel(toWorld(0, 0, bsHeightM + 40), "IMT network", scene.roles.imt, 30);
   if (heat.mode) setHeat(heat.mode);                 // keep the chosen map across redraws
   viewer.zoomTo(viewer.entities);
   setStatus(
@@ -900,6 +981,13 @@ function renderSingleSpaceStationScene(scene) {
   // Satellite model with the dish looking at the Earth (nadir)
   addModel("Satellite model", "/models/satellite.glb", satWorld, 0, -90,
     { minimumPixelSize: 72, maximumScale: 400000 });
+  heat.sat = scene.footprint || null;                 // satellite footprint maps join the heat-map button
+  interf.victimWorld = satWorld;
+  addRoleLabel(satWorld, "satellite", scene.roles && scene.roles.system, 44);
+  if (window.pyBridge && window.pyBridge.set_satellite) {
+    window.pyBridge.set_satellite(JSON.stringify(scene.footprint ? scene.footprint.summary : null));
+  }
+  if (heat.mode) setHeat(heat.mode);
   if (scene.lobe) {                                   // 3D gain lobe of the satellite antenna (nadir-pointing)
     const lobe = addModel("Satellite antenna lobe", scene.lobe.uri, satWorld, 0, -90,
       { scale: Math.max(sat.alt_m * 0.3, 20000), maximumScale: 4e7 });
@@ -1107,6 +1195,9 @@ function renderSingleStationScene(scene) {
   viewer.entities.add({
     polyline: { positions: [groundPos, worldPos], width: 3, material: C.mast },
   });
+
+  interf.victimWorld = worldPos;
+  addRoleLabel(worldPos, "earth station", scene.roles && scene.roles.system, 40);
 
   // Dish model, pointed with the station azimuth/elevation
   addModel("Earth station", "/models/earth_station.glb", groundPos,
@@ -1865,6 +1956,7 @@ function renderComposite(scene) {
   const imtEntities = viewer.entities.values.slice();
   if (scene.system) renderPart(scene.system);
   if (lobes.on) setLobes(true);                        // refresh the colour bar after a redraw
+  if (interf.on || interf.bsEnts.length) setInterf(interf.on);   // victim position is known only now
   viewer.zoomTo = realZoom;
   // enquadra a rede IMT (a escala de células); o sistema fica a um zoom-out
   viewer.zoomTo(imtEntities.length ? imtEntities : viewer.entities);

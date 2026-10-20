@@ -71,10 +71,11 @@ def main() -> int:
         print("saved", out, ok)
         app.quit()
 
-    QTimer.singleShot(9000, toggle)
-    QTimer.singleShot(10000, fly)
-    QTimer.singleShot(15500, errors)
-    QTimer.singleShot(16000, shot)
+    wait = int(float(os.environ.get("SHARC_SHOT_WAIT", "0")) * 1000)      # extra seconds for slow scenes
+    QTimer.singleShot(9000 + wait, toggle)
+    QTimer.singleShot(10000 + wait, fly)
+    QTimer.singleShot(13500 + wait, errors)
+    QTimer.singleShot(16000 + wait, shot)
     app.exec()
     return 0
 

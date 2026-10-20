@@ -640,11 +640,10 @@ class SpectrumWidget(QWidget):
                     x=0.5, y=-0.26,
                     xref="paper", yref="paper",
                     text=(
-                        f"<span style='color:{in_color}'>●</span> "
-                        f"I/N = {lb['i_over_n_db']:.1f} dB  —  "
-                        + ("⚠ Potential interference"
+                        f"<span style='color:{in_color}'><b>I/N = {lb['i_over_n_db']:.1f} dB</b></span>  —  "
+                        + ("Potential interference (above the -10 dB criterion)"
                            if lb["i_over_n_db"] > -10
-                           else "✓ Below typical protection criteria")
+                           else "Below the typical protection criterion (-10 dB)")
                     ),
                     showarrow=False,
                     font=dict(size=11, color=c["text"]),

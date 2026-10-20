@@ -58,7 +58,7 @@ class LinkBudgetPanel(QWidget):
             self.title.setText("Click a UE link in the 3D scene")
             self.body.setText("")
             return
-        self.title.setText(f"Link budget: UE {link.get('ue')} ← BS {link.get('bs')}")
+        self.title.setText(f"Link budget: BS {link.get('bs')} to UE {link.get('ue')}")
         rows = []
         for label, key, unit, fmt in self.ROWS:
             if key in link:
@@ -76,6 +76,7 @@ class PlotsPanel(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.data: Optional[Dict[str, Any]] = None
+        self.sat: Optional[Dict[str, Any]] = None
         self.setMinimumHeight(150)
 
     def sizeHint(self):  # noqa: N802
@@ -83,6 +84,11 @@ class PlotsPanel(QWidget):
 
     def set_payload(self, payload: str) -> None:
         self.data = _loads(payload)
+        self.update()
+
+    def set_satellite(self, payload: str) -> None:
+        """Summary of the satellite footprint and of the IMT interference into the satellite (None clears it)."""
+        self.sat = _loads(payload)
         self.update()
 
     # ----------------------------------------------------------------- paint
@@ -95,10 +101,42 @@ class PlotsPanel(QWidget):
             p.drawText(self.rect(), Qt.AlignCenter, "No plot data for this scene")
             p.end()
             return
-        half = self.width() / 2
-        self._psd(p, QRectF(62, 24, half - 84, self.height() - 62))
-        self._cdf(p, QRectF(half + 62, 24, half - 84, self.height() - 62))
+        cols = 3 if self.sat else 2
+        w = self.width() / cols
+        self._psd(p, QRectF(62, 24, w - 84, self.height() - 62))
+        self._cdf(p, QRectF(w + 62, 24, w - 84, self.height() - 62))
+        if self.sat:
+            self._satellite(p, QRectF(2 * w + 20, 16, w - 34, self.height() - 30))
         p.end()
+
+    def _satellite(self, p: QPainter, r: QRectF) -> None:
+        s = self.sat or {}
+        inr = s.get("inr_db")
+        rows = [("Satellite", f"{s.get('altitude_km', 0):,.0f} km, {s.get('peak_gain_dbi', 0):.1f} dBi peak"),
+                ("3 dB beamwidth", f"{s.get('beamwidth_deg', 0):.2f}°"),
+                ("Gain toward the IMT network", f"{s.get('gain_toward_network_dbi', 0):.1f} dBi"),
+                ("IMT PSD at the satellite", f"{s.get('imt_psd_at_sat_dbm_mhz', 0):.1f} dBm/MHz"),
+                ("Satellite noise PSD", f"{s.get('noise_psd_dbm_mhz', 0):.1f} dBm/MHz")]
+        p.setFont(QFont("Segoe UI", 9, QFont.DemiBold))
+        p.setPen(FG)
+        p.drawText(QPointF(r.left(), r.top() + 8), f"Interference into the satellite ({s.get('n_bs', 0)} base stations)")
+        y = r.top() + 30
+        for k, v in rows:
+            p.setFont(QFont("Segoe UI", 8))
+            p.setPen(MUTED)
+            p.drawText(QPointF(r.left(), y), k)
+            p.setPen(FG)
+            p.drawText(QRectF(r.left(), y - 11, r.width(), 16), Qt.AlignRight | Qt.AlignVCenter, v)
+            y += 20
+        if inr is not None:
+            ok = inr < -10.0                                          # common protection criterion: I/N <= -10 dB
+            col = QColor("#5DB36A") if ok else QColor("#E0605A")
+            p.setFont(QFont("Segoe UI", 20, QFont.DemiBold))
+            p.setPen(col)
+            p.drawText(QRectF(r.left(), y + 4, r.width(), 36), Qt.AlignLeft | Qt.AlignVCenter, f"I/N = {inr:+.1f} dB")
+            p.setFont(QFont("Segoe UI", 8))
+            p.setPen(MUTED)
+            p.drawText(QPointF(r.left(), y + 52), "I/N <= -10 dB: " + ("within the usual criterion" if ok else "above the usual criterion"))
 
     def _frame(self, p: QPainter, r: QRectF, title: str, xlabel: str, ylabel: str) -> None:
         p.setPen(FG)

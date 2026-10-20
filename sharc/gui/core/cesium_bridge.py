@@ -478,7 +478,14 @@ class CesiumBridgeMixin:
             try:                                         # 3D gain lobe of the victim antenna, from the engine
                 from core import gain_lobe
                 from core.engine_scene import build_engine_scene
-                system["lobe"] = gain_lobe.system_lobe_for_scene(build_engine_scene(data))
+                es = build_engine_scene(data)
+                system["lobe"] = gain_lobe.system_lobe_for_scene(es)
+                from core import sat_footprint
+                system["footprint"] = sat_footprint.compute(es)
+                from core import interference
+                info = interference.compute(es)
+                imt["interference"] = info
+                imt["roles"] = system["roles"] = (info or {}).get("roles")
             except Exception:  # noqa: BLE001 - decoration only
                 system["lobe"] = None
         return {"topology_type": f"{imt_type} + {sys_type}" if system else imt_type,

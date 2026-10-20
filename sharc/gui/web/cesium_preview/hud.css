@@ -102,3 +102,6 @@ body.placing #cesiumContainer { cursor: crosshair; }
 @keyframes loadslide{0%{left:-35%}100%{left:100%}}
 
 #hudTools button.on{background:#2b6cb0;color:#fff}
+
+/* Line icons for the 3D toolbar (no glyphs or emoji) */
+.tools button svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; display: block; margin: 0 auto; pointer-events: none; }

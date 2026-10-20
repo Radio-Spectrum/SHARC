@@ -60,3 +60,26 @@ def test_workbench_docks_follow_the_bridge(win):
     bridge.plots_changed.emit(json.dumps(PLOTS))
     assert win.plots_panel.data["victim"]["name"] == "SINGLE_SPACE_STATION"
     assert win.dock_plots.windowTitle() == "Plots"
+
+
+SAT = {"altitude_km": 35786.0, "peak_gain_dbi": 30.0, "beamwidth_deg": 1.5, "gain_toward_network_dbi": 10.0,
+       "imt_psd_at_sat_dbm_mhz": -145.9, "noise_psd_dbm_mhz": -114.0, "inr_db": -31.9, "n_bs": 57}
+
+
+def test_plots_panel_adds_a_satellite_column_and_judges_inr():
+    _app()
+    from ui.components.preview_panels import PlotsPanel
+    panel = PlotsPanel()
+    panel.resize(900, 220)
+    panel.set_payload(json.dumps(PLOTS))
+    two = panel.grab().toImage()
+    panel.set_satellite(json.dumps(SAT))
+    three = panel.grab().toImage()
+    assert two != three and panel.sat["inr_db"] == -31.9
+    panel.set_satellite("null")
+    assert panel.sat is None
+
+
+def test_satellite_summary_reaches_the_plots_dock(win):
+    win.tab_preview._cesium_embed.bridge.satellite_changed.emit(json.dumps(SAT))
+    assert win.plots_panel.sat["n_bs"] == 57

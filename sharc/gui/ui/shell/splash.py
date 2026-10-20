@@ -128,7 +128,7 @@ CHECKS: List[Tuple[str, Callable[[], Tuple[str, str]]]] = [
 # ------------------------------------------------------------------ splash
 W, H = 900, 520
 ACCENT = QColor("#4F9DDE")
-_STATUS_GLYPH = {OK: ("✓", "#5DB36A"), WARN: ("!", "#D9A23B"), FAIL: ("✕", "#E0605A")}
+_STATUS_COLOR = {OK: "#5DB36A", WARN: "#D9A23B", FAIL: "#E0605A"}          # drawn as small dots, no glyphs
 
 
 def _stars(n: int = 140):
@@ -294,10 +294,11 @@ class StartupSplash(QSplashScreen):
         y0 = 268
         p.setFont(QFont("Segoe UI", 10))
         for i, (label, status) in enumerate(self._log[-7:]):
-            glyph, color = _STATUS_GLYPH.get(status, ("✓", "#5DB36A"))
+            color = _STATUS_COLOR.get(status, "#5DB36A")
             y = y0 + i * 21
-            p.setPen(QColor(color))
-            p.drawText(52, y, glyph)
+            p.setPen(Qt.NoPen)
+            p.setBrush(QColor(color))
+            p.drawEllipse(QPointF(56, y - 4), 3.2, 3.2)
             p.setPen(QColor("#9AA7BA" if status == OK else "#E3C27A" if status == WARN else "#F0908C"))
             p.drawText(74, y, label)
         by = H - 52

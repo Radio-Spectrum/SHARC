@@ -461,6 +461,7 @@ class WorkbenchMixin:
         self.addDockWidget(Qt.BottomDockWidgetArea, self.dock_plots)
         self.tabifyDockWidget(self.dock_messages, self.dock_plots)
         bridge.plots_changed.connect(self.plots_panel.set_payload)
+        bridge.satellite_changed.connect(self.plots_panel.set_satellite)
 
         self.link_panel = LinkBudgetPanel()
         self.dock_link = QDockWidget("Link budget", self)

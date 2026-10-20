@@ -45,6 +45,7 @@ class PyBridge(QObject):
     legend_changed = Signal(str)          # JSON list of colour-scale legends the 3D view is showing
     link_selected = Signal(str)           # JSON link budget of the UE link the user clicked
     plots_changed = Signal(str)           # JSON data for the PSD / CDF plots of the current scene
+    satellite_changed = Signal(str)       # JSON summary of the satellite footprint and the IMT interference into it
 
     def __init__(self, scene_provider: Optional[Callable[[str], str]] = None, parent=None):
         super().__init__(parent)
@@ -72,6 +73,10 @@ class PyBridge(QObject):
     @Slot(str)
     def set_plots(self, payload: str) -> None:
         self.plots_changed.emit(payload)
+
+    @Slot(str)
+    def set_satellite(self, payload: str) -> None:
+        self.satellite_changed.emit(payload)
 
     @Slot()
     def notify_ready(self) -> None:

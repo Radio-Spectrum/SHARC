@@ -51,6 +51,8 @@ ArchitecturesInstallIn64BitMode=x64compatible
 PrivilegesRequired=admin
 PrivilegesRequiredOverridesAllowed=dialog
 DisableProgramGroupPage=yes
+; Inno hides the folder page on upgrades by default ("auto"); keep it so the folder can be changed.
+DisableDirPage=no
 CloseApplications=yes
 RestartApplications=no
 ShowLanguageDialog=auto

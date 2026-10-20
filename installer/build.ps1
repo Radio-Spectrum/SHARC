@@ -18,6 +18,19 @@ Step "Brand assets"
 python (Join-Path $here "make_assets.py")
 if ($LASTEXITCODE) { throw "make_assets failed" }
 
+Step "Build info (read by the in-app updater)"
+Push-Location $root
+$commit = (git rev-parse HEAD).Trim()
+$branch = (git branch --show-current).Trim()
+$repo = ((git remote get-url origin).Trim() -replace '^.*github\.com[:/]', '' -replace '\.git$', '')
+if (git status --porcelain --untracked-files=no) { Write-Warning "Tracked files have uncommitted changes: the build will not match commit $commit." }
+Pop-Location
+[ordered]@{
+    repo = $repo; branch = $branch; tag = "v$Version-$branch"; commit = $commit
+    version = $Version; built_at = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
+} | ConvertTo-Json | Set-Content (Join-Path $root "sharc\build_info.json") -Encoding UTF8
+Get-Content (Join-Path $root "sharc\build_info.json")
+
 if (-not $SkipFreeze) {
     Step "PyInstaller (onedir)"
     python -m PyInstaller (Join-Path $here "sharc.spec") --noconfirm `

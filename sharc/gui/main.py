@@ -170,6 +170,7 @@ class App(WorkbenchMixin, QMainWindow):
         apply_saved_appearance(self)
         QTimer.singleShot(800, self._show_welcome_toast)
         QTimer.singleShot(1000, self._disable_strict_validation)
+        QTimer.singleShot(4000, self._check_updates_on_start)
 
         self._ui_initialized = True
 
@@ -222,6 +223,11 @@ class App(WorkbenchMixin, QMainWindow):
 
     def _show_welcome_toast(self):
         self.lbl_status_msg.setText("System Ready.")
+
+    def _check_updates_on_start(self):
+        from ui.shell import update_dialog
+        if update_dialog.check_on_start_enabled() and not os.environ.get("SHARC_GUI_NO_RESTORE"):
+            update_dialog.check_for_updates(self)
 
     def _disable_strict_validation(self):
         print(">> UI Ready: SHARC ready!")
@@ -359,6 +365,18 @@ class App(WorkbenchMixin, QMainWindow):
         act_about = QAction("About SHARC", self)
         act_about.triggered.connect(self._about_dialog)
         m_help.addAction(act_about)
+
+        m_help.addSeparator()
+        from ui.shell import update_dialog
+        act_update = QAction("Check for Updates...", self)
+        act_update.triggered.connect(lambda: update_dialog.check_for_updates(self, manual=True))
+        m_help.addAction(act_update)
+
+        act_auto = QAction("Check for Updates on Start", self)
+        act_auto.setCheckable(True)
+        act_auto.setChecked(update_dialog.check_on_start_enabled())
+        act_auto.toggled.connect(update_dialog.set_check_on_start)
+        m_help.addAction(act_auto)
 
     # ==========================================================
     # THEME ENGINE

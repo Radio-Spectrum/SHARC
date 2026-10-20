@@ -117,3 +117,4 @@ sharc/campaigns/*/database/
 /installer/assets/*.png
 /installer/assets/*.ico
 /installer/build_iss.log
+/sharc/build_info.json

@@ -16,7 +16,7 @@
 
 #define AppName "SHARC"
 #define AppPublisher "SHARC Project"
-#define AppURL "https://github.com/edgar-souza/sharc"
+#define AppURL "https://github.com/Radio-Spectrum/SHARC"
 #define AppExe "SHARC.exe"
 
 [Setup]

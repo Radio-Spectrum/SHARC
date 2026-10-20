@@ -18,8 +18,14 @@ def test_a_failing_check_does_not_block(monkeypatch):
     assert "boom" in report.summary()
 
 
-def test_pixmap_paints_background(qapp=None):
+def test_splash_paints_dark_frame_and_logs_checks(qapp=None):
     from PySide6.QtWidgets import QApplication
     QApplication.instance() or QApplication([])
-    img = sp._pixmap().toImage()
-    assert img.pixelColor(5, 5).lightness() < 80          # dark gradient, not the default fill
+    s = sp.StartupSplash()
+    s.progress(60, "Loading SHARC engine...")
+    s.mark("Checking Qt modules", sp.OK)
+    s.mark("Checking data libraries", sp.WARN)
+    img = s.grab().toImage()
+    assert (img.width(), img.height()) == (sp.W, sp.H)
+    assert img.pixelColor(sp.W // 2, 12).lightness() < 80     # dark space gradient, not the default fill
+    assert [lab for lab, _ in s._log] == ["Checking Qt modules", "Checking data libraries"]

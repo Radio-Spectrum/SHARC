@@ -218,9 +218,12 @@ def build_runner_ui(tab) -> None:
     # EXECUTION CONTROLS
     # =========================================================
     frm_exec = QWidget()
-    exec_layout = QHBoxLayout(frm_exec)
+    exec_rows = QVBoxLayout(frm_exec)
+    exec_rows.setContentsMargins(0, 0, 0, 0)
+    exec_layout = QHBoxLayout()
     exec_layout.setContentsMargins(0, 0, 0, 0)
-    
+    exec_rows.addLayout(exec_layout)
+
     exec_layout.addWidget(QLabel("Run Folder:"))
     tab.e_run_folder = QLineEdit()
     exec_layout.addWidget(tab.e_run_folder, 1)
@@ -233,20 +236,24 @@ def build_runner_ui(tab) -> None:
     btn_ref_fold.clicked.connect(tab._scan_yaml_files)
     exec_layout.addWidget(btn_ref_fold)
     
-    exec_layout.addWidget(QLabel("Workers:"))
+    run_layout = QHBoxLayout()
+    run_layout.setContentsMargins(0, 0, 0, 0)
+    exec_rows.addLayout(run_layout)
+
+    run_layout.addWidget(QLabel("Workers:"))
     tab.spin_workers = QSpinBox()
     tab.spin_workers.setRange(1, 32)
-    exec_layout.addWidget(tab.spin_workers)
-    
-    exec_layout.addStretch()
-    
+    run_layout.addWidget(tab.spin_workers)
+
+    run_layout.addStretch()
+
     btn_run = QPushButton("Run Selected")
     btn_run.clicked.connect(tab._run_selected_ui)
-    exec_layout.addWidget(btn_run)
-    
+    run_layout.addWidget(btn_run)
+
     btn_stop = QPushButton("Stop")
     btn_stop.clicked.connect(tab._stop_selected_ui)
-    exec_layout.addWidget(btn_stop)
+    run_layout.addWidget(btn_stop)
     
     content_layout.addWidget(frm_exec)
 

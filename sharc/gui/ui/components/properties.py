@@ -28,19 +28,26 @@ _ACRONYMS = {
     "p452", "p619", "p1411", "uma", "umi", "abg", "fspl", "los", "nlos", "3db", "3gpp", "m2101", "s672",
     "s1528", "mimo", "psd", "bw", "ac", "gso", "ngso", "leo", "meo", "haps", "d2d", "dc",
 }
+_ABBREVIATIONS = {"ch": "channel", "lat": "latitude", "lon": "longitude", "long": "longitude"}
 _UNIT_RE = re.compile(r"^(.*?)\s*[\[(]([^\])]+)[\])]\s*$")
+# "name [unit] (note)": the bracketed part is the unit, the note rides along with it.
+_UNIT_NOTE_RE = re.compile(r"^(.*?)\s*\[([^\]]+)\]\s*\(([^)]+)\)\s*$")
 
 
 def humanize(label: str) -> Tuple[str, str, str]:
     """Devolve (texto legível, unidade, chave original) para um rótulo do YAML."""
     raw = (label or "").strip().rstrip(":").strip()
     unit = ""
-    m = _UNIT_RE.match(raw)
-    if m:
+    mn = _UNIT_NOTE_RE.match(raw)
+    m = None if mn else _UNIT_RE.match(raw)
+    if mn:
+        raw, unit = mn.group(1).strip(), f"{mn.group(2).strip()} ({mn.group(3).strip()})"
+    elif m:
         raw, unit = m.group(1).strip(), m.group(2).strip()
     key = raw
     if re.fullmatch(r"[A-Za-z0-9_.\-]+", raw) and ("_" in raw or raw.islower()):
         words = raw.replace(".", " ").replace("_", " ").split()
+        words = [_ABBREVIATIONS.get(w.lower(), w) for w in words]
         words = [w.upper() if w.lower() in _ACRONYMS else w for w in words]
         if words and not words[0].isupper():
             words[0] = words[0].capitalize()

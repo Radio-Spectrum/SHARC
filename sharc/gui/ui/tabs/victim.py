@@ -36,7 +36,6 @@ class VictimTab(QWidget):
         toolbar_layout = QHBoxLayout()
         self.btn_files = QPushButton("File Operations (Presets)")
         self.btn_files.setIcon(qta.icon('mdi.folder-outline'))
-        self.btn_files.setStyleSheet("background-color: #007bff; color: white; font-weight: bold; padding: 6px;")
 
         self.menu_files = QMenu(self)
         self.menu_files.addAction(qta.icon('mdi.content-save'), "Save SSS Preset (.json)", self.save_config)

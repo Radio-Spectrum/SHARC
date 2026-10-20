@@ -117,10 +117,28 @@ class ResultsTab(QWidget):
 
         paned.addWidget(self.left_scroll)
         paned.addWidget(right_frame)
-        paned.setSizes([380, 800])
+        paned.setChildrenCollapsible(False)
+        paned.setStretchFactor(0, 0)
+        paned.setStretchFactor(1, 1)
+        paned.setSizes([470, 330])
         main_layout.addWidget(paned)
-        
+        self._paned = paned
+
         self._load_subplot_config_to_ui()
+
+    # The controls need ~480 px. When the tab is narrower, stack controls above the plot
+    # instead of clipping them.
+    _NARROW_PX = 900
+
+    def resizeEvent(self, ev):  # noqa: N802
+        super().resizeEvent(ev)
+        paned = getattr(self, "_paned", None)
+        if paned is None:
+            return
+        want = Qt.Vertical if self.width() < self._NARROW_PX else Qt.Horizontal
+        if paned.orientation() != want:
+            paned.setOrientation(want)
+            paned.setSizes([300, 300] if want == Qt.Vertical else [470, 330])
 
     def _build_file_manager(self, parent):
         frm = QGroupBox("Result Folders")
@@ -302,7 +320,7 @@ class ResultsTab(QWidget):
         sh_frame.addWidget(self.e_leg_suffix)
         l_axis.addLayout(sh_frame)
 
-        lim_box = QGroupBox("Limits & Steps (Empty = Auto)")
+        lim_box = QGroupBox("Limits && Steps (Empty = Auto)")
         lim_l = QGridLayout(lim_box)
         lim_l.addWidget(QLabel("Min"), 0, 1)
         lim_l.addWidget(QLabel("Max"), 0, 2)
@@ -350,7 +368,7 @@ class ResultsTab(QWidget):
         btns.addWidget(btn_rm_c)
         l_crit.addLayout(btns)
 
-        nb.addTab(tab_axis, "Data & Axis")
+        nb.addTab(tab_axis, "Data && Axis")
         nb.addTab(tab_crit, "Protection Criteria")
         l.addWidget(nb)
         

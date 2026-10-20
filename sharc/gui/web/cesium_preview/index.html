@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <title>SHARC Scene</title>
   <meta http-equiv="Content-Security-Policy"
-        content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-eval' blob:; worker-src 'self' blob:; img-src 'self' data: blob: https://services.arcgisonline.com https://server.arcgisonline.com; connect-src 'self' https://services.arcgisonline.com https://server.arcgisonline.com;" />
+        content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-eval' blob:; worker-src 'self' blob:; img-src 'self' data: blob: https://services.arcgisonline.com https://server.arcgisonline.com https://*.cesium.com https://*.googleapis.com https://*.gstatic.com; connect-src 'self' https://services.arcgisonline.com https://server.arcgisonline.com https://*.cesium.com https://*.googleapis.com https://*.virtualearth.net;" />
   <!-- CESIUM_BASE_URL precisa ser definido antes do Cesium.js (arquivo externo por causa do CSP). -->
   <script src="./cesium_base_url.js"></script>
   <link rel="stylesheet" href="./vendor/cesium/Widgets/widgets.css" />

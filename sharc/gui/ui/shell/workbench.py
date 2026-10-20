@@ -132,6 +132,12 @@ class WorkbenchMixin:
         self.prop_search.setPlaceholderText("Search parameter…  (name, key or unit)")
         self.prop_search.setClearButtonEnabled(True)
         self.prop_search.textChanged.connect(self._on_prop_search)
+        # The dock title stays "Properties" (short tab); the page context goes here.
+        self.prop_crumb = QLabel("")
+        self.prop_crumb.setObjectName("PropCrumb")
+        self.prop_crumb.setContentsMargins(8, 4, 8, 4)
+        self.prop_crumb.setStyleSheet("font-weight: 600;")
+        pl.addWidget(self.prop_crumb)
         pl.addWidget(self.prop_search)
         pl.addWidget(self.stacked_widget, 1)
         self.dock_properties.setWidget(props_host)
@@ -284,6 +290,8 @@ class WorkbenchMixin:
         mono = QFont("Cascadia Mono", 9)
         mono.setStyleHint(QFont.Monospace)
         self.messages_view.setFont(mono)
+        from ui.shell.app_art import attach_backdrop
+        attach_backdrop(self.messages_view)             # subtle Cerrado / UnB watermark
 
         self.dock_messages = QDockWidget("Messages", self)
         self.dock_messages.setObjectName("DockMessages")
@@ -301,6 +309,7 @@ class WorkbenchMixin:
         self.tray_layout = QVBoxLayout(self.tray_frame)
         self.thread_widgets = {}
         jobs = self.jobs_panel
+        attach_backdrop(jobs.tree)
 
         self.dock_jobs = QDockWidget("Jobs", self)
         self.dock_jobs.setObjectName("DockJobs")
@@ -380,7 +389,7 @@ class WorkbenchMixin:
                 spec = getattr(page, "spectrum_widget", None)
                 if spec is not None:
                     self.doc_tabs.insertTab(1, spec, qta.icon("mdi.chart-bell-curve", color=self.tk["icon"]),
-                                            "Spectrum & Link Budget")
+                                            "Spectrum && Link Budget")
                 ctl = getattr(page, "controls_panel", None)
                 if ctl is not None:
                     self.dock_view = QDockWidget("View", self)
@@ -411,7 +420,10 @@ class WorkbenchMixin:
                 self._page_sections[key] = secs
                 if len(secs) > 1:
                     for idx, box in enumerate(secs):
-                        child = QTreeWidgetItem(item, [section_title(box)])
+                        full = section_title(box)
+                        short = full.split(" (")[0] if len(full) > 24 else full
+                        child = QTreeWidgetItem(item, [short])
+                        child.setToolTip(0, full)
                         child.setData(0, Qt.UserRole, key)
                         child.setData(0, Qt.UserRole + 1, idx)
 
@@ -424,6 +436,15 @@ class WorkbenchMixin:
 
     def _on_doc_tab_changed(self, index):
         page = self.doc_tabs.widget(index)
+        # Results needs room for its controls and plot: give the width back to the
+        # centre while it is open, and restore the Properties width on leaving.
+        on_results = page is getattr(self, "tab_results", None)
+        if on_results and not getattr(self, "_props_width_before_results", None):
+            self._props_width_before_results = self.dock_properties.width()
+            self.resizeDocks([self.dock_properties], [320], Qt.Horizontal)
+        elif not on_results and getattr(self, "_props_width_before_results", None):
+            self.resizeDocks([self.dock_properties], [self._props_width_before_results], Qt.Horizontal)
+            self._props_width_before_results = None
         if page is getattr(self, "tab_preview", None):
             try:
                 self.tab_preview.refresh()
@@ -450,7 +471,7 @@ class WorkbenchMixin:
             box.setVisible(idx is None or i == idx)
         if idx is not None:
             self._switch_page(key, page_label, keep_filter=True)
-            self.dock_properties.setWindowTitle(f"Properties · {page_label} · {label}")
+            self.prop_crumb.setText(f"{page_label}  ›  {label}")
 
     @Slot(str, str)
     def _switch_page(self, key, label_text, keep_filter=False):
@@ -473,7 +494,7 @@ class WorkbenchMixin:
         widget = self._page_widgets.get(key)
         if widget is not None:
             self.stacked_widget.setCurrentWidget(widget)
-            self.dock_properties.setWindowTitle(f"Properties · {label_text}")
+            self.prop_crumb.setText(label_text)
             self.dock_properties.show()
             self.dock_properties.raise_()
 
@@ -539,6 +560,15 @@ class WorkbenchMixin:
             s.setValue("workbench/geometry", self.saveGeometry())
             s.setValue("workbench/state", self.saveState(LAYOUT_VERSION))
         tray = getattr(self, "tray", None)
+        interactive = not os.environ.get("SHARC_GUI_NO_RESTORE")        # tests and screenshots never prompt
+        if tray is not None and interactive and tray.available and not tray._quitting:
+            choice = tray.close_choice()
+            event.ignore()
+            if choice == "minimize":
+                tray.hide_to_tray()
+            elif choice == "quit":
+                tray.quit()                    # asks first when simulations would be interrupted
+            return
         if tray is not None and tray.should_hide():
             # Simulations are still running: keep SHARC alive in the system tray.
             event.ignore()

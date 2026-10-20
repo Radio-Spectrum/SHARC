@@ -12,13 +12,15 @@ from typing import Callable, Optional
 
 import qtawesome as qta
 from PySide6.QtCore import QSettings, QTimer
-from PySide6.QtGui import QAction, QIcon
-from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QApplication, QFrame, QLabel, QMenu, QMessageBox, QSystemTrayIcon, QVBoxLayout
+from PySide6.QtGui import QAction, QColor, QFont, QIcon, QPainter, QPen, QPixmap
+from PySide6.QtCore import QRectF, Qt
+from PySide6.QtWidgets import (QApplication, QCheckBox, QFrame, QLabel, QMenu, QMessageBox, QSystemTrayIcon,
+                               QVBoxLayout)
 
 from core import job_scheduler as js
 
 SETTING_KEY = "tray/keep_running"
+CLOSE_KEY = "tray/close_action"
 
 
 class CornerNotice(QFrame):
@@ -48,20 +50,67 @@ class CornerNotice(QFrame):
         self.close()
 
 
+def render_tray_icon(color: str, pct: Optional[float] = None, active: int = 0, paused: bool = False,
+                     failed: bool = False, size: int = 64) -> QIcon:
+    """Tray icon with the queue progress drawn as a ring and the number of active jobs as a badge.
+
+    pct=None draws the idle icon (orbit glyph only). Paused turns the ring amber, failures red.
+    """
+    pm = QPixmap(size, size)
+    pm.fill(Qt.transparent)
+    p = QPainter(pm)
+    p.setRenderHint(QPainter.Antialiasing)
+    s = float(size)
+    p.setPen(Qt.NoPen)
+    p.setBrush(QColor("#161B24"))
+    p.drawEllipse(QRectF(2, 2, s - 4, s - 4))
+    ring = QRectF(7, 7, s - 14, s - 14)
+    p.setPen(QPen(QColor("#2A3446"), s * 0.11))
+    p.drawEllipse(ring)
+    accent = QColor("#E0605A" if failed else "#D9A23B" if paused else color)
+    if pct is not None:
+        pen = QPen(accent, s * 0.11)
+        pen.setCapStyle(Qt.RoundCap)
+        p.setPen(pen)
+        p.drawArc(ring, 90 * 16, int(-360 * 16 * max(0.0, min(100.0, pct)) / 100))
+        p.setPen(QColor("#EAF1FA"))
+        f = QFont("Segoe UI", int(s * 0.26), QFont.DemiBold)
+        p.setFont(f)
+        p.drawText(QRectF(0, 0, s, s), Qt.AlignCenter, f"{int(pct)}")
+    else:
+        p.setPen(QPen(accent, s * 0.07))
+        p.setBrush(Qt.NoBrush)
+        p.drawEllipse(QRectF(s * 0.3, s * 0.38, s * 0.4, s * 0.24))
+        p.setPen(Qt.NoPen)
+        p.setBrush(accent)
+        p.drawEllipse(QRectF(s * 0.56, s * 0.3, s * 0.12, s * 0.12))
+    if active > 1:
+        r = s * 0.17
+        p.setPen(Qt.NoPen)
+        p.setBrush(accent)
+        p.drawEllipse(QRectF(s - 2 * r - 1, 1, 2 * r, 2 * r))
+        p.setPen(QColor("#FFFFFF"))
+        p.setFont(QFont("Segoe UI", int(s * 0.16), QFont.Bold))
+        p.drawText(QRectF(s - 2 * r - 1, 1, 2 * r, 2 * r), Qt.AlignCenter, str(min(active, 9)))
+    p.end()
+    return QIcon(pm)
+
+
 class TrayController:
     """Owns the tray icon and decides what closing the window means."""
 
     def __init__(self, window, scheduler: js.JobScheduler, color: str = "#4F9DDE",
                  tray_factory: Callable[..., QSystemTrayIcon] = QSystemTrayIcon):
         self.window, self.scheduler = window, scheduler
+        self._color = color
+        self._job_actions: list = []
         self.available = QSystemTrayIcon.isSystemTrayAvailable()
         self._was_active = False
         self._quitting = False
         self.last_message = ""                     # last notification text (also used by tests)
         self.tray: Optional[QSystemTrayIcon] = None
         if self.available:
-            icon = qta.icon("mdi.orbit-variant", color=color)
-            self.tray = tray_factory(icon, window)
+            self.tray = tray_factory(render_tray_icon(color), window)
             self.tray.setToolTip("SHARC")
             self.tray.activated.connect(self._on_activated)
             self.tray.setContextMenu(self._build_menu())
@@ -77,6 +126,42 @@ class TrayController:
     @staticmethod
     def set_keep_running(on: bool) -> None:
         QSettings("SHARC", "GUI").setValue(SETTING_KEY, bool(on))
+
+    @staticmethod
+    def close_action() -> str:
+        """What the window's close button does: "ask" (default), "minimize" (to tray) or "quit"."""
+        v = str(QSettings("SHARC", "GUI").value(CLOSE_KEY, "ask")).lower()
+        return v if v in ("ask", "minimize", "quit") else "ask"
+
+    @staticmethod
+    def set_close_action(value: str) -> None:
+        QSettings("SHARC", "GUI").setValue(CLOSE_KEY, value if value in ("ask", "minimize", "quit") else "ask")
+
+    def close_choice(self) -> str:
+        """Decide what the close button means now: "minimize", "quit" or "cancel" (asks unless remembered)."""
+        action = self.close_action()
+        if action in ("minimize", "quit"):
+            return action
+        n = self.active_jobs()
+        box = QMessageBox(self.window)
+        box.setIcon(QMessageBox.Question)
+        box.setWindowTitle("Close SHARC")
+        box.setText("Do you want to keep SHARC in the system tray or quit it?")
+        box.setInformativeText(
+            (f"{n} simulation job(s) are running or waiting; they keep going if you minimize to the tray."
+             if n else "Minimized, SHARC stays available from the tray icon."))
+        b_min = box.addButton("Minimize to tray", QMessageBox.AcceptRole)
+        b_quit = box.addButton("Quit SHARC", QMessageBox.DestructiveRole)
+        box.addButton("Cancel", QMessageBox.RejectRole)
+        box.setDefaultButton(b_min)
+        remember = QCheckBox("Remember my choice (change it in Settings > Preferences)")
+        box.setCheckBox(remember)
+        box.exec()
+        clicked = box.clickedButton()
+        choice = "minimize" if clicked is b_min else "quit" if clicked is b_quit else "cancel"
+        if remember.isChecked() and choice != "cancel":
+            self.set_close_action(choice)
+        return choice
 
     # ----------------------------------------------------------- state
     def active_jobs(self) -> int:
@@ -109,6 +194,18 @@ class TrayController:
         self._menu = m
         return m
 
+    def _refresh_job_actions(self, running) -> None:
+        """One disabled menu line per running job (name, progress, ETA), above the pause/stop actions."""
+        for a in self._job_actions:
+            self._menu.removeAction(a)
+        self._job_actions = []
+        for j in running[:6]:
+            eta = f"  ETA {j.eta}" if j.eta not in ("", "--") else ""
+            a = QAction(f"{j.name[:34]}  {j.pct:.0f}%{eta}", self._menu)
+            a.setEnabled(False)
+            self._menu.insertAction(self.act_pause, a)
+            self._job_actions.append(a)
+
     def _stop_all(self) -> None:
         for job in list(self.scheduler.jobs):
             if job.status in (js.RUNNING, js.QUEUED, js.SCHEDULED):
@@ -120,10 +217,18 @@ class TrayController:
         waiting = sum(1 for j in self.scheduler.jobs if j.status in (js.QUEUED, js.SCHEDULED))
         active = n_run + waiting
         if self.tray is not None:
-            pcts = [j.pct for j in self.scheduler.jobs if j.status == js.RUNNING]
-            avg = f", {sum(pcts) / len(pcts):.0f}%" if pcts else ""
-            text = f"{n_run} running, {waiting} waiting{avg}" if active else "No simulations running"
-            self.tray.setToolTip(f"SHARC: {text}")
+            running = [j for j in self.scheduler.jobs if j.status == js.RUNNING]
+            pcts = [j.pct for j in running]
+            avg = sum(pcts) / len(pcts) if pcts else None
+            text = (f"{n_run} running, {waiting} waiting" + (f", {avg:.0f}%" if avg is not None else "")) \
+                if active else "No simulations running"
+            lines = [f"SHARC: {text}"] + [f"{j.name[:26]}: {j.pct:.0f}%" + (f" (ETA {j.eta})" if j.eta not in ("", "--") else "")
+                                         for j in running[:3]]
+            self.tray.setToolTip("\n".join(lines))
+            failed = any(j.status == js.FAILED for j in self.scheduler.jobs) and not active
+            self.tray.setIcon(render_tray_icon(self._color, avg if active else None, active,
+                                               self.scheduler.paused and active > 0, failed))
+            self._refresh_job_actions(running)
             self.act_status.setText(text)
             self.act_pause.setText("Resume queue" if self.scheduler.paused else "Pause queue")
             self.act_stop.setEnabled(active > 0)
@@ -157,9 +262,13 @@ class TrayController:
         if self.tray is not None:
             self.tray.show()
         n = self.active_jobs()
-        self.notify("SHARC is still running",
-                    f"The window was closed, but {n} simulation job(s) continue in the background. "
-                    "Use the tray icon to reopen SHARC or to quit.")
+        if n:
+            self.notify("SHARC is still running",
+                        f"The window was closed, but {n} simulation job(s) continue in the background. "
+                        "Use the tray icon to reopen SHARC or to quit.")
+        else:
+            self.notify("SHARC is in the system tray",
+                        "Click the tray icon to reopen SHARC, or right-click it to quit.")
 
     def show_window(self) -> None:
         self.window.showNormal()

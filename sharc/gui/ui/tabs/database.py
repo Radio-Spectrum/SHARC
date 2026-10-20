@@ -140,7 +140,10 @@ class DatabaseTab(QWidget):
         grid.addWidget(self._field("db_enabled"), 0, 1)
         grid.addWidget(QLabel("Database file"), 1, 0)
         file_row = QHBoxLayout()
-        file_row.addWidget(self._field("db_file"))
+        db_file = self._field("db_file")
+        db_file.setMinimumWidth(220)
+        db_file.setPlaceholderText("path to .csv / .xlsx")
+        file_row.addWidget(db_file, 1)
         btn = QPushButton("Browse")
         btn.clicked.connect(self._browse)
         file_row.addWidget(btn)
@@ -178,6 +181,9 @@ class DatabaseTab(QWidget):
             ("Terrain cache folder", self._field("db_terrain_output_dir")),
         ]
         for i, (label, w) in enumerate(rows):
+            if isinstance(w, QLineEdit) and ("file" in label or "folder" in label):
+                w.setMinimumWidth(220)
+                w.setPlaceholderText("optional" if "optional" in label else "path")
             t.addWidget(QLabel(label), i, 0)
             t.addWidget(w, i, 1)
         lay.addWidget(g3)

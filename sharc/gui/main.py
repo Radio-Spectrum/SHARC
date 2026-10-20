@@ -73,8 +73,8 @@ class App(WorkbenchMixin, QMainWindow):
         self._current_theme = "graphite"
 
         self.setWindowTitle("SHARC – SHARing and Compatibility")
-        self.setWindowIcon(qta.icon('mdi.satellite-variant',
-                                    color=theme_tokens(self._current_theme)["accent"]))
+        from ui.shell.app_art import app_icon
+        self.setWindowIcon(app_icon())
 
         # 1. Resolution Adaptation
         screen = QApplication.primaryScreen().geometry()
@@ -368,7 +368,8 @@ class App(WorkbenchMixin, QMainWindow):
         com as cores do tema atual — nada de hex hardcoded espalhado."""
         t = self.tk
 
-        self.setWindowIcon(qta.icon('mdi.satellite-variant', color=t["accent"]))
+        from ui.shell.app_art import app_icon
+        self.setWindowIcon(app_icon())
 
         if hasattr(self, "lbl_brand_icon"):
             self.lbl_brand_icon.setPixmap(
@@ -705,9 +706,18 @@ class App(WorkbenchMixin, QMainWindow):
 if __name__ == "__main__":
     # Renderização consistente entre plataformas: o estilo Fusion
     # respeita 100% do QSS (nada de widgets nativos "vazando" no tema)
+    if sys.platform == "win32":
+        # Own taskbar identity, so Windows shows the SHARC icon instead of the Python one.
+        try:
+            import ctypes
+            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("UnB.SHARC.GUI")
+        except Exception:  # noqa: BLE001 - cosmetic only
+            pass
     app = QApplication(sys.argv)
     app.setStyle("Fusion")
     app.setFont(QFont("Segoe UI", 10))
+    from ui.shell.app_art import app_icon
+    app.setWindowIcon(app_icon())
 
     # Tema profissional (graphite) por padrão — folha única, sem dependências externas
     app.setStyleSheet(build_stylesheet("graphite"))

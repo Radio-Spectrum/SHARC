@@ -1503,6 +1503,33 @@ function warmTiles(lat, lon) {
   fetch(`/warm?lat=${lat}&lon=${lon}&z=15`).catch(() => {});
 }
 
+// Cinematic look: ambient occlusion, filmic tone mapping and a time-of-day sun (Cesium 1.119 APIs).
+function applyRealism(t) {
+  try { applyRealismUnsafe(t); } catch (e) { console.error("[realism] " + (e && e.message)); }
+}
+
+function applyRealismUnsafe(t) {
+  const scene = viewer.scene;
+  const on = !!(t && t.effects);
+  const ao = scene.postProcessStages.ambientOcclusion;
+  // AO samples the depth buffer: it haloes photogrammetry tiles, so skip it there.
+  const aoOk = false;  // AO blanked the scene in QtWebEngine; re-enable only after testing on target GPUs
+  ao.enabled = aoOk;
+  if (aoOk) {
+    Object.assign(ao.uniforms, { intensity: 2.5, bias: 0.1, lengthCap: 0.26, stepSize: 1.95, frustumLength: 1000.0 });
+  }
+  scene.postProcessStages.tonemapper = on ? Cesium.Tonemapper.ACES : Cesium.Tonemapper.REINHARD;
+  if (typeof t.sun_hour !== "number" || street.on) { scene.requestRender(); return; }
+  const lon = Cesium.Math.toDegrees(viewer.camera.positionCartographic.longitude);
+  const utcH = (((t.sun_hour - lon / 15) % 24) + 24) % 24;
+  viewer.clock.currentTime = Cesium.JulianDate.fromDate(new Date(Date.UTC(2026, 2, 21) + Math.round(utcH * 3600e3)));
+  viewer.clock.shouldAnimate = false;
+  const day = Cesium.Math.clamp((Math.cos(((t.sun_hour - 12) / 12) * Math.PI) + 0.15) / 1.15, 0, 1);
+  scene.globe.atmosphereLightIntensity = Cesium.Math.lerp(3.0, 14.0, day);
+  scene.fog.minimumBrightness = Cesium.Math.lerp(0.02, 0.08, day);
+  scene.requestRender();
+}
+
 function applyDetail(t) {
   // Quality knobs from the Terrain tab (they also apply when terrain streaming is off).
   if (!t) return;
@@ -1515,6 +1542,13 @@ function applyDetail(t) {
   if (t.clean || t.realistic) viewer.scene.light = new Cesium.SunLight();
   roads.on = !!t.clean;
   setPhotoreal(t.city_mode || "", t.ion_token || "", t.photoreal_key || "");
+  applyRealism(t);
+  // Photogrammetry: follow the map-quality setting (lower error = sharper, heavier) and keep more tiles cached.
+  if (photoreal.tileset) {
+    photoreal.tileset.maximumScreenSpaceError = Math.max(2, (t.sse || 1.5) * 2.5);
+    photoreal.tileset.cacheBytes = 1024 * 1024 * 1024;
+    photoreal.tileset.maximumCacheOverflowBytes = 512 * 1024 * 1024;
+  }
   trees.on = !!t.trees; trees.max = t.trees_max || 2500;
   if (!trees.on) clearTrees();
   bld.max = Math.max(t.buildings_max || 3000, t.clean ? 8000 : 0);
@@ -1531,7 +1565,8 @@ function applyTerrain(t) {
   hydro.last = "";
   updateHydro();
   if (!t) { if (tileState.key) clearTerrain(); return; }
-  const key = [t.clean, t.relief, t.clutter, t.hillshade, t.exaggeration, t.opacity, t.relief_samples, t.max_level].join("|");
+  const key = [t.clean, t.relief, t.clutter, t.hillshade, t.exaggeration, t.opacity, t.relief_samples, t.max_level,
+    t.world_terrain, t.world_terrain ? t.ion_token : ""].join("|");
   if (key === tileState.key) return;
   clearTerrain();
   tileState.key = key;
@@ -1546,7 +1581,20 @@ function applyTerrain(t) {
   };
   if (t.hillshade) addLayer("/tiles/hillshade/{z}/{x}/{y}.png", 0.5);
   if (t.clutter) addLayer(t.clean ? "/tiles/clutter_clean/{z}/{x}/{y}.png" : "/tiles/clutter/{z}/{x}/{y}.png", t.opacity);
-  if (t.relief) {
+  if (t.relief && t.world_terrain && t.ion_token) {
+    // Cesium World Terrain (ion): much finer than the 30 m SRTM tiles, no "waves" over cities.
+    Cesium.Ion.defaultAccessToken = t.ion_token;
+    Cesium.createWorldTerrainAsync({ requestVertexNormals: true }).then((tp) => {
+      viewer.terrainProvider = tp;
+      viewer.scene.verticalExaggeration = t.exaggeration || 1.0;
+      viewer.scene.globe.depthTestAgainstTerrain = true;
+      setStatus("Cesium World Terrain on");
+      viewer.scene.requestRender();
+    }).catch((e) => {
+      tileState.key = "";                      // let the next change retry
+      setStatus("Cesium World Terrain unavailable: " + (e && e.message ? e.message : e) + " (check the ion token)");
+    });
+  } else if (t.relief) {
     const W = t.relief_samples || 65;
     viewer.terrainProvider = new Cesium.CustomHeightmapTerrainProvider({
       width: W, height: W, tilingScheme: merc,

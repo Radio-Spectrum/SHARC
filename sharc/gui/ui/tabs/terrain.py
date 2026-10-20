@@ -30,6 +30,9 @@ MAX_LEVELS = ["10", "11", "12", "13", "14", "15"]
 LOOKS = ["Analysis (land cover)", "Clean city model (white buildings, roads, trees)", "Realistic (satellite imagery)",
          "City buildings (Cesium OSM Buildings, needs ion token)",
          "Photorealistic 3D (Google tiles, needs ion token or Google key)"]
+SUN_HOURS = {"Sunrise (06:30)": 6.5, "Morning (09:00)": 9.0, "Midday (12:30)": 12.5,
+             "Afternoon (15:30)": 15.5, "Golden hour (17:30)": 17.5, "Night (22:00)": 22.0}
+RELIEF_SOURCES = ["Local SRTM (offline)", "Cesium World Terrain (needs ion token)"]
 BUILDING_LIMITS = ["500", "1000", "3000", "6000", "10000"]
 BUILDING_DISTANCES = {"Close (1.5 km)": 1500, "Normal (3.5 km)": 3500, "Far (6 km)": 6000}
 BUILDING_MIN_HEIGHT = ["0", "3", "6", "10", "20"]
@@ -59,6 +62,9 @@ DEFAULTS: Dict[str, object] = {
     "terr_show_buildings": True,
     "terr_show_trees": True,
     "terr_look": "Analysis (land cover)",
+    "terr_relief_source": "Local SRTM (offline)",
+    "terr_effects": True,
+    "terr_sun_hour": "Midday (12:30)",
     "terr_photoreal_key": "",
     "terr_ion_token": "",
     "terr_trees_limit": "2500",
@@ -109,7 +115,7 @@ class TerrainTab(QWidget):
         hydro_service.set_cache_dir(ts_mod.cache_root() / "hydro")
         buildings_service.set_cache_dir(ts_mod.cache_root() / "buildings")
         self._build_ui()
-        for key in ("terr_stream", "terr_show_relief", "terr_show_clutter", "terr_show_hillshade", "terr_show_hydro", "terr_show_buildings", "terr_show_trees", "terr_trees_limit", "terr_look", "terr_photoreal_key", "terr_ion_token", "terr_quality", "terr_relief_res",
+        for key in ("terr_stream", "terr_show_relief", "terr_show_clutter", "terr_show_hillshade", "terr_show_hydro", "terr_show_buildings", "terr_show_trees", "terr_trees_limit", "terr_look", "terr_relief_source", "terr_effects", "terr_sun_hour", "terr_photoreal_key", "terr_ion_token", "terr_quality", "terr_relief_res",
                     "terr_max_level", "terr_bld_limit", "terr_bld_distance", "terr_bld_min_height", "terr_render_scale",
                     "terr_basemap",
                     "terr_exaggeration", "terr_clutter_opacity"):
@@ -181,6 +187,9 @@ class TerrainTab(QWidget):
             ("Render resolution", self._field("terr_render_scale", list(RENDER_SCALES))),
             ("Building limit", self._field("terr_bld_limit", BUILDING_LIMITS)),
             ("Scene look", self._field("terr_look", LOOKS)),
+            ("Relief source", self._field("terr_relief_source", RELIEF_SOURCES)),
+            ("Cinematic tone mapping", self._field("terr_effects")),
+            ("Time of day", self._field("terr_sun_hour", list(SUN_HOURS))),
             ("Cesium ion access token (free, ion.cesium.com)", self._field("terr_ion_token")),
             ("Google Map Tiles API key (alternative to ion)", self._field("terr_photoreal_key")),
             ("Tree limit", self._field("terr_trees_limit", ["500", "1000", "2500", "5000"])),
@@ -194,7 +203,19 @@ class TerrainTab(QWidget):
                       "Lower it if the map feels slow.")
         hint.setWordWrap(True)
         hint.setObjectName("StatusMsg")
-        dl.addWidget(hint, len(drows), 0, 1, 2)
+        btn_test = QPushButton("Test Google / ion access")
+        btn_test.clicked.connect(self._test_photoreal_access)
+        self.lbl_photoreal = QLabel("")
+        self.lbl_photoreal.setWordWrap(True)
+        self.lbl_photoreal.setObjectName("StatusMsg")
+        # One container so the property-table converter keeps these as a single full-width block.
+        footer = QWidget()
+        fl = QVBoxLayout(footer)
+        fl.setContentsMargins(0, 4, 0, 0)
+        fl.addWidget(hint)
+        fl.addWidget(btn_test)
+        fl.addWidget(self.lbl_photoreal)
+        dl.addWidget(footer, len(drows), 0, 1, 2)
         lay.addWidget(gd)
 
         g1 = QGroupBox("Offline Region (for the simulation)")
@@ -372,11 +393,48 @@ class TerrainTab(QWidget):
             "render_scale": RENDER_SCALES.get(str(self.state.get("terr_render_scale").get()), 1.0),
             "basemap": "esri" if realistic else BASEMAPS.get(str(self.state.get("terr_basemap").get()), "neii"),
             "realistic": realistic,
+            "effects": flag("terr_effects"),
+            "world_terrain": str(self.state.get("terr_relief_source").get()).startswith("Cesium"),
+            "sun_hour": SUN_HOURS.get(str(self.state.get("terr_sun_hour").get()), 12.5),
             "photoreal_key": str(self.state.get("terr_photoreal_key").get()).strip(),
             "ion_token": str(self.state.get("terr_ion_token").get()).strip(),
             "city_mode": city_mode,
             "clean": clean,
         }
+
+    def _test_photoreal_access(self):
+        """Check the Google key and/or ion token on a worker thread; the result lands in the label and Messages."""
+        import threading
+        from PySide6.QtCore import QTimer
+        from core import photoreal_check
+        key = str(self.state.get("terr_photoreal_key").get()).strip()
+        token = str(self.state.get("terr_ion_token").get()).strip()
+        if not key and not token:
+            self.lbl_photoreal.setText("Enter a Google Map Tiles API key or a Cesium ion token first.")
+            return
+        self.lbl_photoreal.setText("Checking...")
+        holder: list = []
+
+        def work():
+            res = []
+            if key:
+                res.append(photoreal_check.check_google_key(key))
+            if token:
+                res.append(photoreal_check.check_ion_token(token))
+            holder.append(res)
+
+        threading.Thread(target=work, daemon=True).start()
+        timer = QTimer(self)
+        timer.setInterval(150)
+
+        def poll():
+            if not holder:
+                return
+            timer.stop()
+            self.lbl_photoreal.setText("\n".join(("OK: " if ok else "FAILED: ") + msg for ok, msg in holder[0]))
+
+        timer.timeout.connect(poll)
+        timer.start()
 
     def ground_heights(self, lat, lon):
         """Ground height [m] at the points (streamed DEM), or None when streaming is off."""

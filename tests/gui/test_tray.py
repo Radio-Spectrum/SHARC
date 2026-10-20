@@ -58,3 +58,65 @@ def test_tray_tooltip_reports_progress(win, tray, monkeypatch):
     win.scheduler.on_status({"iid": job.path, "status": "Running", "pct": "40%"})
     if tray.tray is not None:
         assert "1 running" in tray.tray.toolTip()
+
+
+# ---------------------------------------------------------------- close-button dialog
+@pytest.fixture()
+def close_pref():
+    """Restore the user's real close-button preference after a test changes it."""
+    from ui.shell.tray import TrayController
+    old = TrayController.close_action()
+    yield TrayController
+    TrayController.set_close_action(old)
+
+
+@pytest.mark.parametrize("value", ["minimize", "quit"])
+def test_remembered_close_action_skips_the_dialog(tray, close_pref, value, monkeypatch):
+    close_pref.set_close_action(value)
+    from PySide6.QtWidgets import QMessageBox
+    monkeypatch.setattr(QMessageBox, "exec", lambda self: pytest.fail("dialog must not open"))
+    assert tray.close_choice() == value
+
+
+def test_invalid_stored_close_action_falls_back_to_ask(close_pref):
+    from PySide6.QtCore import QSettings
+    QSettings("SHARC", "GUI").setValue("tray/close_action", "bogus")
+    assert close_pref.close_action() == "ask"
+
+
+@pytest.mark.parametrize("label,expected", [("Minimize to tray", "minimize"), ("Quit SHARC", "quit"), ("Cancel", "cancel")])
+def test_dialog_buttons_map_to_choices(tray, close_pref, label, expected, monkeypatch):
+    close_pref.set_close_action("ask")
+    from PySide6.QtWidgets import QMessageBox
+
+    def fake_exec(self):
+        for b in self.buttons():
+            if b.text() == label:
+                self._clicked = b
+    monkeypatch.setattr(QMessageBox, "exec", fake_exec)
+    monkeypatch.setattr(QMessageBox, "clickedButton", lambda self: getattr(self, "_clicked", None))
+    assert tray.close_choice() == expected
+    assert close_pref.close_action() == "ask"          # not remembered unless the box is ticked
+
+
+def test_interactive_close_minimizes_to_tray(win, tray, close_pref, monkeypatch):
+    monkeypatch.delenv("SHARC_GUI_NO_RESTORE", raising=False)
+    monkeypatch.setattr(tray, "close_choice", lambda: "minimize")
+    monkeypatch.setattr(win, "saveGeometry", lambda: b"")           # keep the test from touching saved layout
+    monkeypatch.setattr(win, "saveState", lambda *_a: b"")
+    from PySide6.QtCore import QSettings
+    monkeypatch.setattr(QSettings, "setValue", lambda *a, **k: None)
+    win.show()
+    win.close()
+    assert not win.isVisible()
+    assert "system tray" in tray.last_message
+
+
+def test_interactive_close_cancel_keeps_window(win, tray, monkeypatch):
+    monkeypatch.delenv("SHARC_GUI_NO_RESTORE", raising=False)
+    monkeypatch.setattr(tray, "close_choice", lambda: "cancel")
+    from PySide6.QtCore import QSettings
+    monkeypatch.setattr(QSettings, "setValue", lambda *a, **k: None)
+    win.show()
+    win.close()
+    assert win.isVisible()

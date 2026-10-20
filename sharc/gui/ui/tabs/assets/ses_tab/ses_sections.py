@@ -9,6 +9,15 @@ from ui.tabs.assets.ses_tab.ses_pattern_controller import (
     LOC_TYPES, AZ_EL_TYPES, SUPPORTED_ANTENNA_PATTERNS, DIAMETER_PATTERNS, CHANNEL_MODELS
 )
 
+
+def _hint(widget, placeholder, tip=""):
+    """Placeholder (and tooltip) for an optional free-text field."""
+    widget.setPlaceholderText(placeholder)
+    if tip:
+        widget.setToolTip(tip)
+    return widget
+
+
 class SESBasicSection:
     @staticmethod
     def build(parent_layout, app):
@@ -27,7 +36,8 @@ class SESBasicSection:
         ])
         H.add_grid_row(layout, 2, [
             ("adjacent_ch_leak_ratio [dB]", H.create_field(app.se_adjacent_ch_leak_ratio)),
-            ("spectral_mask", H.create_field(app.se_spectral_mask)),
+            ("spectral_mask", _hint(H.create_field(app.se_spectral_mask), "optional",
+                                    "Used only when adjacent_ch_emissions = SPECTRAL_MASK")),
             ("spurious_emissions [dBm/MHz]", H.create_field(app.se_spurious_emissions)),
         ])
         H.add_grid_row(layout, 3, [

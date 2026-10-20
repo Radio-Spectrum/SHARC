@@ -186,6 +186,14 @@ class PreferencesDialog(QDialog):
         keep.setChecked(TrayController.keep_running_enabled())
         keep.toggled.connect(TrayController.set_keep_running)
         lay.addWidget(keep)
+        from PySide6.QtWidgets import QComboBox
+        lay.addWidget(QLabel("When I click the window's close button:"))
+        close = QComboBox()
+        labels = {"Ask me every time": "ask", "Minimize to the system tray": "minimize", "Quit SHARC": "quit"}
+        close.addItems(list(labels))
+        close.setCurrentText(next(k for k, v in labels.items() if v == TrayController.close_action()))
+        close.currentTextChanged.connect(lambda t: TrayController.set_close_action(labels[t]))
+        lay.addWidget(close)
         fin = QCheckBox("Notify when background simulations finish")
         fin.setChecked(_flag(settings().value("tray/notify_finish", True)))
         fin.toggled.connect(lambda on: settings().setValue("tray/notify_finish", on))

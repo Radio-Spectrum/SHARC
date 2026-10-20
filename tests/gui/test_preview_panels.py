@@ -83,3 +83,24 @@ def test_plots_panel_adds_a_satellite_column_and_judges_inr():
 def test_satellite_summary_reaches_the_plots_dock(win):
     win.tab_preview._cesium_embed.bridge.satellite_changed.emit(json.dumps(SAT))
     assert win.plots_panel.sat["n_bs"] == 57
+
+
+PNG_1X1 = ("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==")
+
+
+def test_screenshot_is_saved_in_a_known_folder_and_reported(win, tmp_path, monkeypatch):
+    monkeypatch.setenv("SHARC_SCREENSHOT_DIR", str(tmp_path))
+    bridge = win.tab_preview._cesium_embed.bridge
+    seen = []
+    bridge.screenshot_saved.connect(seen.append)
+    path = bridge.save_screenshot("sharc_scene_20261020_000000.png", PNG_1X1)
+    assert path == str(tmp_path / "sharc_scene_20261020_000000.png")
+    assert open(path, "rb").read(8) == b"\x89PNG\r\n\x1a\n"            # a real PNG on disk
+    assert seen == [path]
+    assert path in win.statusBar().currentMessage()                    # the user is told where it went
+
+
+def test_screenshot_name_cannot_escape_the_folder(win, tmp_path, monkeypatch):
+    monkeypatch.setenv("SHARC_SCREENSHOT_DIR", str(tmp_path))
+    path = win.tab_preview._cesium_embed.bridge.save_screenshot("../../evil", PNG_1X1)
+    assert os.path.dirname(path) == str(tmp_path) and path.endswith(".png")

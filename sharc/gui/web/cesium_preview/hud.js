@@ -374,17 +374,31 @@
               c.toBlob(function (blob) {
                 try {
                   if (!blob) return;
-                  var url = URL.createObjectURL(blob);
-                  var a = document.createElement("a");
-                  a.href = url;
                   var d = new Date();
                   var pad = function (n) { return (n < 10 ? "0" : "") + n; };
-                  a.download = "sharc_scene_" + d.getFullYear() +
+                  var fileName = "sharc_scene_" + d.getFullYear() +
                     pad(d.getMonth() + 1) +
                     pad(d.getDate()) + "_" +
                     pad(d.getHours()) +
                     pad(d.getMinutes()) +
                     pad(d.getSeconds()) + ".png";
+                  // Inside SHARC the file is saved by Python in a known folder, and the path is reported.
+                  if (window.pyBridge && window.pyBridge.save_screenshot) {
+                    var reader = new FileReader();
+                    reader.onload = function () {
+                      window.pyBridge.save_screenshot(fileName, String(reader.result), function (path) {
+                        if (typeof window.setStatus === "function") {
+                          window.setStatus(path ? "Screenshot saved: " + path : "Could not save the screenshot");
+                        }
+                      });
+                    };
+                    reader.readAsDataURL(blob);
+                    return;
+                  }
+                  var url = URL.createObjectURL(blob);
+                  var a = document.createElement("a");
+                  a.href = url;
+                  a.download = fileName;
                   document.body.appendChild(a);
                   a.click();
                   document.body.removeChild(a);

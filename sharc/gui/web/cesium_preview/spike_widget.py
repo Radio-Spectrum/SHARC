@@ -43,6 +43,7 @@ class PyBridge(QObject):
     ready = Signal()
     center_picked = Signal(float, float)
     legend_changed = Signal(str)          # JSON list of colour-scale legends the 3D view is showing
+    screenshot_saved = Signal(str)        # path of a screenshot of the 3D view that was just saved
     link_selected = Signal(str)           # JSON link budget of the UE link the user clicked
     plots_changed = Signal(str)           # JSON data for the PSD / CDF plots of the current scene
     satellite_changed = Signal(str)       # JSON summary of the satellite footprint and the IMT interference into it
@@ -65,6 +66,30 @@ class PyBridge(QObject):
     def set_legend(self, payload: str) -> None:
         """The 3D view reports which colour scales (gain lobes, heat maps) are on screen."""
         self.legend_changed.emit(payload)
+
+    @Slot(str, str, result=str)
+    def save_screenshot(self, name: str, data_url: str) -> str:
+        """Save a screenshot of the 3D view (PNG data URL) in the screenshots folder; returns the saved path."""
+        import base64
+        import os
+        import re
+        from pathlib import Path
+
+        from PySide6.QtCore import QStandardPaths
+        folder = os.environ.get("SHARC_SCREENSHOT_DIR") or os.path.join(
+            QStandardPaths.writableLocation(QStandardPaths.PicturesLocation) or str(Path.home()), "SHARC")
+        try:
+            os.makedirs(folder, exist_ok=True)
+            safe = re.sub(r"[^A-Za-z0-9_.-]", "_", name) or "sharc_scene.png"
+            path = os.path.join(folder, safe if safe.lower().endswith(".png") else safe + ".png")
+            payload = data_url.split(",", 1)[1] if "," in data_url else data_url
+            with open(path, "wb") as fh:
+                fh.write(base64.b64decode(payload))
+        except Exception as exc:  # noqa: BLE001 - report, never crash the view
+            print(f"[cesium_spike] save_screenshot failed: {exc}")
+            return ""
+        self.screenshot_saved.emit(path)
+        return path
 
     @Slot(str)
     def set_link(self, payload: str) -> None:

@@ -460,6 +460,7 @@ class WorkbenchMixin:
         self.dock_plots.setWidget(self.plots_panel)
         self.addDockWidget(Qt.BottomDockWidgetArea, self.dock_plots)
         self.tabifyDockWidget(self.dock_messages, self.dock_plots)
+        bridge.screenshot_saved.connect(self._on_screenshot_saved)
         bridge.plots_changed.connect(self.plots_panel.set_payload)
         bridge.satellite_changed.connect(self.plots_panel.set_satellite)
 
@@ -471,6 +472,19 @@ class WorkbenchMixin:
         self.dock_link.setFloating(True)
         self.dock_link.hide()
         bridge.link_selected.connect(self._on_link_selected)
+
+    def _on_screenshot_saved(self, path):
+        """Tell the user where the 3D screenshot went (Messages, status bar and a clickable folder link)."""
+        import os
+        self._safe_log(f"[3D] Screenshot saved: {path}")
+        self.statusBar().showMessage(f"Screenshot saved: {path}", 12000)
+        try:
+            from PySide6.QtCore import QUrl
+            from PySide6.QtGui import QDesktopServices
+            if not os.environ.get("SHARC_GUI_NO_RESTORE"):          # open the folder in Explorer, selecting nothing
+                QDesktopServices.openUrl(QUrl.fromLocalFile(os.path.dirname(path)))
+        except Exception:  # noqa: BLE001 - convenience only
+            pass
 
     def _on_link_selected(self, payload):
         self.link_panel.set_payload(payload)

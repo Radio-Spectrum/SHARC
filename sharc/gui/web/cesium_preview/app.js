@@ -446,6 +446,18 @@ function modelOrientation(position, headingDeg, pitchDeg) {
   return Cesium.Transforms.headingPitchRollQuaternion(position, hpr);
 }
 
+// Orientation (Cesium model frame: X forward, Y left, Z up) that points a model's forward axis at `target`.
+function orientToward(position, target) {
+  const C3 = Cesium.Cartesian3;
+  const f = C3.normalize(C3.subtract(target, position, new C3()), new C3());
+  let up = C3.normalize(position, new C3());                          // radial up at the model
+  up = C3.subtract(up, C3.multiplyByScalar(f, C3.dot(up, f), new C3()), new C3());
+  if (C3.magnitude(up) < 1e-6) up = new C3(0, 0, 1);                  // looking straight down: any up works
+  up = C3.normalize(up, new C3());
+  const left = C3.cross(up, f, new C3());
+  return Cesium.Quaternion.fromRotationMatrix(new Cesium.Matrix3(f.x, left.x, up.x, f.y, left.y, up.y, f.z, left.z, up.z));
+}
+
 function addModel(name, uri, position, headingDeg, pitchDeg, opts = {}) {
   return viewer.entities.add({
     name,
@@ -979,8 +991,12 @@ function renderSingleSpaceStationScene(scene) {
   renderGainMap(scene);
 
   // Satellite model with the dish looking at the Earth (nadir)
-  addModel("Satellite model", "/models/satellite.glb", satWorld, 0, -90,
+  // The engine points the satellite (by default at the IMT network); aim the model and its lobe the same way.
+  const fpt = scene.footprint && scene.footprint.pointing;
+  const aimAt = fpt ? Cesium.Cartesian3.fromDegrees(fpt.target_lon_deg, fpt.target_lat_deg, 0) : null;
+  const satModel = addModel("Satellite model", "/models/satellite.glb", satWorld, 0, -90,
     { minimumPixelSize: 72, maximumScale: 400000 });
+  if (aimAt) satModel.orientation = orientToward(satWorld, aimAt);
   heat.sat = scene.footprint || null;                 // satellite footprint maps join the heat-map button
   interf.victimWorld = satWorld;
   addRoleLabel(satWorld, "satellite", scene.roles && scene.roles.system, 44);
@@ -990,7 +1006,8 @@ function renderSingleSpaceStationScene(scene) {
   if (heat.mode) setHeat(heat.mode);
   if (scene.lobe) {                                   // 3D gain lobe of the satellite antenna (nadir-pointing)
     const lobe = addModel("Satellite antenna lobe", scene.lobe.uri, satWorld, 0, -90,
-      { scale: Math.max(sat.alt_m * 0.3, 20000), maximumScale: 4e7 });
+      { scale: aimAt ? Cesium.Cartesian3.distance(satWorld, aimAt) : Math.max(sat.alt_m, 20000), maximumScale: 4e7 });
+    if (aimAt) lobe.orientation = orientToward(satWorld, aimAt);   // the main beam ends on the aimed ground point
     lobe.show = lobes.on;
     lobes.ents.push(lobe);
     lobes.info = lobes.info || scene.lobe;

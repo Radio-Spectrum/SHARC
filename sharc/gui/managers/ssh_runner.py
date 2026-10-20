@@ -713,14 +713,17 @@ print(json.dumps(items))
                 self.log_callback(
                     f"[LOCAL] Config '{os.path.basename(ypath)}' has {known_total} snapshots.")
 
+            frozen = getattr(sys, "frozen", False)
             main_script = os.path.join(PROJECT_ROOT / "main_cli.py")
-            if not os.path.exists(main_script):
+            if not frozen and not os.path.exists(main_script):
                 self.log_callback(
                     f"[LOCAL] Error: main_cli.py missing at {main_script}")
                 self._emit_status({"iid": ypath, "status": "Missing Script"})
                 return
 
-            cmd = [sys.executable, main_script, "-p", ypath]
+            # Installed build: sys.executable is SHARC.exe, which runs the CLI via --sharc-cli.
+            cmd = ([sys.executable, "--sharc-cli", "-p", ypath] if frozen
+                   else [sys.executable, main_script, "-p", ypath])
 
             try:
                 # The child process must find the `sharc` package even when the GUI was
@@ -728,9 +731,14 @@ print(json.dumps(items))
                 env = dict(os.environ)
                 repo_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
                 env["PYTHONPATH"] = repo_root + os.pathsep + env.get("PYTHONPATH", "")
+                run_cwd = repo_root
+                if frozen:
+                    # Install dir is read-only; the CLI writes logs relative to its cwd.
+                    run_cwd = os.path.join(os.path.expanduser("~"), "Documents", "SHARC")
+                    os.makedirs(run_cwd, exist_ok=True)
                 proc = subprocess.Popen(
                     cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1,
-                    env=env, cwd=repo_root,
+                    env=env, cwd=run_cwd,
                 )
                 self.running_procs_local[ypath] = proc
 

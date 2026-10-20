@@ -1,4 +1,5 @@
 import os
+import sys
 from pathlib import Path
 
 # ============================================================================
@@ -18,7 +19,10 @@ DEFAULTS = {
     "seed": 157,
     "num_snapshots": 10000,
     # Absolute and independent of the working directory
-    "output_dir": str(Path(__file__).resolve().parents[2] / "sharc" / "campaigns"),
+    # Installed build: the install dir is read-only, so campaigns live under Documents.
+    "output_dir": (str(Path.home() / "Documents" / "SHARC" / "campaigns")
+                   if getattr(sys, "frozen", False)
+                   else str(Path(__file__).resolve().parents[2] / "sharc" / "campaigns")),
 
     # --- SSH / Conexão Remota ---
     "ssh_host": "",

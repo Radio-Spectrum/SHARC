@@ -108,3 +108,12 @@ sharc/propagation/real_terrain/tile_cache/
 
 # base-station databases (real sites and operators): never versioned
 sharc/campaigns/*/database/
+
+# installer build output
+/installer/build/
+/installer/redist/
+/installer/build_pyi.log
+/installer/assets/*.bmp
+/installer/assets/*.png
+/installer/assets/*.ico
+/installer/build_iss.log

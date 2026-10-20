@@ -439,7 +439,9 @@ class App(WorkbenchMixin, QMainWindow):
             QDesktopServices.openUrl(QUrl.fromLocalFile(os.getcwd()))
 
     def _open_results_folder(self):
-        log_dir = os.path.join(PROJECT_ROOT, "logs")
+        base = (os.path.join(os.path.expanduser("~"), "Documents", "SHARC")
+                if getattr(sys, "frozen", False) else PROJECT_ROOT)
+        log_dir = os.path.join(base, "logs")
         if not os.path.exists(log_dir):
             os.makedirs(log_dir, exist_ok=True)
         QDesktopServices.openUrl(QUrl.fromLocalFile(log_dir))
@@ -703,7 +705,8 @@ class App(WorkbenchMixin, QMainWindow):
 
 
 
-if __name__ == "__main__":
+def run():
+    """Start the Qt application (also called by the frozen installer launcher)."""
     # Renderização consistente entre plataformas: o estilo Fusion
     # respeita 100% do QSS (nada de widgets nativos "vazando" no tema)
     if sys.platform == "win32":
@@ -739,3 +742,6 @@ if __name__ == "__main__":
         box.show()
         window._startup_box = box
     sys.exit(app.exec())
+
+if __name__ == "__main__":
+    run()

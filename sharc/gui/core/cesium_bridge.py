@@ -474,6 +474,13 @@ class CesiumBridgeMixin:
                 self._report_scene_problem(system["error"])
                 system = None
         terrain = self._terrain_block(imt)
+        if system is not None:
+            try:                                         # 3D gain lobe of the victim antenna, from the engine
+                from core import gain_lobe
+                from core.engine_scene import build_engine_scene
+                system["lobe"] = gain_lobe.system_lobe_for_scene(build_engine_scene(data))
+            except Exception:  # noqa: BLE001 - decoration only
+                system["lobe"] = None
         return {"topology_type": f"{imt_type} + {sys_type}" if system else imt_type,
                 "composite": True, "imt": imt, "system": system, "terrain": terrain}
 

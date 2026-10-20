@@ -185,7 +185,39 @@ def hex_sector_scene(topo_type: str, es: EngineScene) -> Dict[str, Any]:
             for x, y in zip(g_ue.x_global, g_ue.y_global)
         ],
         "source": "engine",
+        "lobe": _bs_lobe(es),
+        "heat": _heatmaps(es),
+        "links": _extra(es, "links"),
+        "plots": _extra(es, "plots"),
+        "snapshots": _extra(es, "snapshots"),
     }
+
+
+def _extra(es: EngineScene, name: str):
+    """Optional preview data from core/preview_extras (UE links, HUD plots, snapshot sequence), or None."""
+    try:
+        from core import preview_extras
+        return getattr(preview_extras, name)(es)
+    except Exception:  # noqa: BLE001 - decoration only
+        return None
+
+
+def _heatmaps(es: EngineScene):
+    """Ground heat maps (PSD, strongest-BS power, I/N) of the IMT network, or None."""
+    try:
+        from core import heatmap
+        return heatmap.compute(es)
+    except Exception:  # noqa: BLE001 - decoration only
+        return None
+
+
+def _bs_lobe(es: EngineScene):
+    """3D gain-lobe model of the base-station sector (None when it cannot be built)."""
+    try:
+        from core import gain_lobe
+        return gain_lobe.bs_lobe_for_scene(es)
+    except Exception:  # noqa: BLE001 - never break the preview for a decoration
+        return None
 
 
 def station_lat_lon(es: EngineScene, geom=None):

@@ -390,6 +390,7 @@ class WorkbenchMixin:
                 if spec is not None:
                     self.doc_tabs.insertTab(1, spec, qta.icon("mdi.chart-bell-curve", color=self.tk["icon"]),
                                             "Spectrum && Link Budget")
+                self._build_legend_dock(page)
                 ctl = getattr(page, "controls_panel", None)
                 if ctl is not None:
                     self.dock_view = QDockWidget("View", self)
@@ -433,6 +434,64 @@ class WorkbenchMixin:
         self._default_dock_state = self.saveState(LAYOUT_VERSION)
         self._restore_workbench_layout()
         QTimer.singleShot(0, self._resize_default_docks)
+
+    def _build_legend_dock(self, preview):
+        """Detached window with the colour scales the 3D view is showing (gain lobes, heat maps)."""
+        from ui.components.legend_panel import LegendPanel
+        self.legend_panel = LegendPanel()
+        self.dock_legend = QDockWidget("Legend", self)
+        self.dock_legend.setObjectName("DockLegend")
+        self.dock_legend.setWidget(self.legend_panel)
+        self.addDockWidget(Qt.RightDockWidgetArea, self.dock_legend)
+        self.dock_legend.setFloating(True)
+        self.dock_legend.hide()
+        self._legend_placed = False
+        embed = getattr(preview, "_cesium_embed", None)
+        if embed is not None:
+            embed.bridge.legend_changed.connect(self._on_legend_changed)
+            self._build_preview_panels(embed.bridge)
+
+    def _build_preview_panels(self, bridge):
+        """PSD / CDF plots (tab next to Messages and Jobs) and the link-budget window of the clicked link."""
+        from ui.components.preview_panels import LinkBudgetPanel, PlotsPanel
+        self.plots_panel = PlotsPanel()
+        self.dock_plots = QDockWidget("Plots", self)
+        self.dock_plots.setObjectName("DockPlots")
+        self.dock_plots.setWidget(self.plots_panel)
+        self.addDockWidget(Qt.BottomDockWidgetArea, self.dock_plots)
+        self.tabifyDockWidget(self.dock_messages, self.dock_plots)
+        bridge.plots_changed.connect(self.plots_panel.set_payload)
+
+        self.link_panel = LinkBudgetPanel()
+        self.dock_link = QDockWidget("Link budget", self)
+        self.dock_link.setObjectName("DockLinkBudget")
+        self.dock_link.setWidget(self.link_panel)
+        self.addDockWidget(Qt.RightDockWidgetArea, self.dock_link)
+        self.dock_link.setFloating(True)
+        self.dock_link.hide()
+        bridge.link_selected.connect(self._on_link_selected)
+
+    def _on_link_selected(self, payload):
+        self.link_panel.set_payload(payload)
+        if self.link_panel.link:
+            self.dock_link.show()
+            self.dock_link.adjustSize()
+            if not getattr(self, "_link_placed", False):
+                from PySide6.QtCore import QPoint
+                self._link_placed = True
+                self.dock_link.move(self.doc_tabs.mapToGlobal(QPoint(70, 120)))
+
+    def _on_legend_changed(self, payload):
+        self.legend_panel.set_payload(payload)
+        if not self.legend_panel.items:
+            self.dock_legend.hide()
+            return
+        self.dock_legend.show()
+        self.dock_legend.adjustSize()
+        if not self._legend_placed:                         # first time: bottom-left of the 3D scene
+            from PySide6.QtCore import QPoint
+            self._legend_placed = True
+            self.dock_legend.move(self.doc_tabs.mapToGlobal(QPoint(70, max(60, self.doc_tabs.height() - 330))))
 
     def _on_doc_tab_changed(self, index):
         page = self.doc_tabs.widget(index)

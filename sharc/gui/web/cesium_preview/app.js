@@ -548,8 +548,174 @@ function renderGainMap(scene) {
 // Topology renderers
 // ═══════════════════════════════════════════════════════════════════
 
+// ── Colour-scale legends live in a detached Qt window (the 3D view only reports what is on screen)
+function publishLegend() {
+  const items = [];
+  if (lobes.on && lobes.info) {
+    items.push({ id: "lobe", title: "Antenna gain", unit: "dBi", vmin: lobes.info.floor_dbi, vmax: lobes.info.peak_dbi });
+  }
+  const m = heat.data && heat.mode ? heat.data.maps[heat.mode] : null;
+  if (m) items.push({ id: "heat", title: m.title, unit: m.unit, vmin: m.vmin, vmax: m.vmax });
+  if (window.pyBridge && window.pyBridge.set_legend) window.pyBridge.set_legend(JSON.stringify(items));
+}
+
+// ── 3D antenna gain lobes (a GLB built by core/gain_lobe.py from the engine antenna, one instance per sector)
+const lobes = { on: false, ents: [], info: null };
+
+function setLobes(on) {
+  lobes.on = !!on;
+  for (const e of lobes.ents) e.show = lobes.on;
+  const btn = document.getElementById("btnLobes");
+  if (btn) btn.classList.toggle("on", lobes.on);
+  publishLegend();
+  if (lobes.on) {
+    setStatus(lobes.info
+      ? `Antenna gain lobe: peak ${lobes.info.peak_dbi} dBi, ${lobes.info.range_db} dB range (cold = side lobes, hot = main beam)`
+      : "No antenna gain lobe for this scene");
+  }
+  viewer.scene.requestRender();
+}
+
+(function wireLobesButton() {
+  const btn = document.getElementById("btnLobes");
+  if (btn) btn.addEventListener("click", () => setLobes(!lobes.on));
+})();
+
+// ── Ground heat map (PSD / I/N / strongest-BS power, computed by core/heatmap.py from the engine scene)
+const heat = { mode: "", ent: null, data: null };
+const HEAT_ORDER = ["", "psd", "inr", "power"];
+
+function jetRGB(t) {
+  t = Math.min(1, Math.max(0, t));
+  const f = (c) => Math.round(255 * Math.min(1, Math.max(0, 1.5 - Math.abs(4 * t - c))));
+  return [f(3), f(2), f(1)];
+}
+
+function setHeat(mode) {
+  heat.mode = mode || "";
+  if (heat.ent) { viewer.entities.remove(heat.ent); heat.ent = null; }
+  const btn = document.getElementById("btnHeat");
+  const m = heat.data && heat.mode ? heat.data.maps[heat.mode] : null;
+  if (btn) btn.classList.toggle("on", !!m);
+  publishLegend();
+  if (!m) { viewer.scene.requestRender(); return; }
+  const n = heat.data.n;
+  const cv = document.createElement("canvas");
+  cv.width = n; cv.height = n;
+  const ctx = cv.getContext("2d");
+  const img = ctx.createImageData(n, n);
+  for (let row = 0; row < n; row++) {                 // values are south-to-north, the image is north-up
+    for (let col = 0; col < n; col++) {
+      const v = m.values[(n - 1 - row) * n + col];
+      const [r, g, b] = jetRGB((v - m.vmin) / (m.vmax - m.vmin));
+      const o = (row * n + col) * 4;
+      img.data[o] = r; img.data[o + 1] = g; img.data[o + 2] = b; img.data[o + 3] = 165;
+    }
+  }
+  ctx.putImageData(img, 0, 0);
+  heat.ent = viewer.entities.add({
+    name: "Heat map: " + m.title,
+    rectangle: {
+      coordinates: Cesium.Rectangle.fromDegrees(heat.data.west, heat.data.south, heat.data.east, heat.data.north),
+      material: new Cesium.ImageMaterialProperty({ image: cv.toDataURL("image/png"), transparent: true }),
+    },
+  });
+  setStatus(`${m.title}: ${m.vmin.toFixed(0)} to ${m.vmax.toFixed(0)} ${m.unit} (${heat.data.freq_mhz} MHz, free space, all base stations at full power)`);
+  viewer.scene.requestRender();
+}
+
+(function wireHeatButton() {
+  const btn = document.getElementById("btnHeat");
+  if (btn) btn.addEventListener("click", () => {
+    if (!heat.data) { setStatus("No heat map for this scene"); return; }
+    setHeat(HEAT_ORDER[(HEAT_ORDER.indexOf(heat.mode) + 1) % HEAT_ORDER.length]);
+  });
+})();
+
+// ── UE links (colour = SNR) with their link budget; click one to open it in the "Link budget" window
+const links = { on: false, ents: [], data: null };
+
+function linkColor(snr) {
+  const [r, g, b] = jetRGB((snr + 10) / 50);                       // -10 dB blue ... 40 dB red
+  return Cesium.Color.fromBytes(r, g, b, 235);
+}
+
+function setLinks(on) {
+  links.on = !!on;
+  for (const e of links.ents) e.show = links.on;
+  const btn = document.getElementById("btnLinks");
+  if (btn) btn.classList.toggle("on", links.on);
+  if (links.on) setStatus(links.data ? "UE links: colour = SNR (-10 dB blue to 40 dB red); click a link for its link budget" : "No links for this scene");
+  viewer.scene.requestRender();
+}
+
+(function wireLinks() {
+  const btn = document.getElementById("btnLinks");
+  if (btn) btn.addEventListener("click", () => setLinks(!links.on));
+  const h = new Cesium.ScreenSpaceEventHandler(viewer.canvas);
+  h.setInputAction((c) => {
+    const p = viewer.scene.pick(c.position);
+    if (p && p.id && p.id.linkInfo && window.pyBridge && window.pyBridge.set_link) {
+      window.pyBridge.set_link(JSON.stringify(p.id.linkInfo));
+    }
+  }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
+})();
+
+// ── Snapshot animation: the engine redraws the UEs every snapshot; play through a short sequence
+const snap = { frames: null, ues: [], bs: [], toWorld: null, ueH: 1.5, idx: 0, timer: null };
+
+function applySnapshot(i) {
+  const f = snap.frames && snap.frames[i];
+  if (!f) return;
+  snap.ues.forEach((ent, n) => { if (n < f.x.length) ent.position = snap.toWorld(f.x[n], f.y[n], snap.ueH); });
+  links.ents.forEach((ent) => {
+    const k = ent.linkOrig;
+    const bs = snap.bs[f.bs[k.ue]];
+    if (!bs) return;
+    ent.polyline.positions = [snap.toWorld(f.x[k.ue], f.y[k.ue], k.ue_xyz[2]), snap.toWorld(bs.x, bs.y, bs.z)];
+    ent.polyline.material = linkColor(f.snr[k.ue]);
+  });
+  setStatus(`Snapshot ${i + 1}/${snap.frames.length}: UEs redrawn as in the simulation, links follow the strongest base station`);
+  viewer.scene.requestRender();
+}
+
+function setPlay(on) {
+  const btn = document.getElementById("btnPlay");
+  if (snap.timer) { clearInterval(snap.timer); snap.timer = null; }
+  if (btn) btn.classList.toggle("on", !!on);
+  if (!on) {
+    snap.idx = 0;
+    if (snap.frames) {                                  // back to the scene's own draw
+      snap.ues.forEach((ent) => { if (ent.uePos0) ent.position = ent.uePos0; });
+      links.ents.forEach((ent) => {
+        const k = ent.linkOrig;
+        ent.polyline.positions = [snap.toWorld(...k.ue_xyz), snap.toWorld(...k.bs_xyz)];
+        ent.polyline.material = linkColor(k.snr_db);
+      });
+    }
+    viewer.scene.requestRender();
+    return;
+  }
+  if (!snap.frames) { setStatus("No snapshots for this scene"); if (btn) btn.classList.remove("on"); return; }
+  snap.timer = setInterval(() => { snap.idx = (snap.idx + 1) % snap.frames.length; applySnapshot(snap.idx); }, 900);
+  applySnapshot(snap.idx);
+}
+
+(function wirePlay() {
+  const btn = document.getElementById("btnPlay");
+  if (btn) btn.addEventListener("click", () => setPlay(!snap.timer));
+})();
+
 function renderHexSectorScene(scene) {
   renderHexSectorScene._sites = new Set();
+  lobes.ents = [];
+  lobes.info = scene.lobe || null;
+  heat.data = scene.heat || null;
+  heat.ent = null;                                  // the old entity went away with the scene
+  if (snap.timer) { clearInterval(snap.timer); snap.timer = null; const pb = document.getElementById("btnPlay"); if (pb) pb.classList.remove("on"); }
+  links.ents = []; links.data = scene.links || null;
+  snap.frames = scene.snapshots || null; snap.ues = []; snap.bs = scene.base_stations; snap.idx = 0;
+  if (window.pyBridge && window.pyBridge.set_plots) window.pyBridge.set_plots(JSON.stringify(scene.plots || null));
   const { toWorld } = makeEnuHelpers(scene.reference);
   const bsHeightM = scene.bs_height_m;
   const ueHeightM = scene.ue_height_m;
@@ -636,16 +802,33 @@ function renderHexSectorScene(scene) {
       toWorld, viewer.entities, bs.x, bs.y, bsHeightM,
       bs.azimuth_deg, scene.downtilt_deg, arrowLenM, C.beam
     );
+
+    if (scene.lobe) {                                   // gain lobe: same heading convention as the tower model
+      const lobe = addModel("Antenna gain lobe", scene.lobe.uri, worldPos, -bs.azimuth_deg, 0, { scale: arrowLenM * 0.9 });
+      lobe.show = lobes.on;
+      lobes.ents.push(lobe);
+    }
   }
 
   // UE scatter
+  snap.toWorld = toWorld; snap.ueH = ueHeightM;
   for (const ue of scene.ue_positions) {
-    viewer.entities.add({
+    const ent = viewer.entities.add({
       position: toWorld(ue.x, ue.y, ueHeightM),
       point: { pixelSize: 4.5, color: C.ue.withAlpha(0.95), outlineColor: Cesium.Color.WHITE.withAlpha(0.6), outlineWidth: 0.8 },
     });
+    ent.uePos0 = ent.position;
+    snap.ues.push(ent);
+  }
+  for (const k of links.data || []) {                 // serving-BS links with their link budget
+    const ent = viewer.entities.add({
+      polyline: { positions: [toWorld(...k.ue_xyz), toWorld(...k.bs_xyz)], width: 2, material: linkColor(k.snr_db) },
+    });
+    ent.linkInfo = k; ent.linkOrig = k; ent.show = links.on;
+    links.ents.push(ent);
   }
 
+  if (heat.mode) setHeat(heat.mode);                 // keep the chosen map across redraws
   viewer.zoomTo(viewer.entities);
   setStatus(
     `${scene.topology_type}: ${scene.base_stations.length} BS, ` +
@@ -717,6 +900,13 @@ function renderSingleSpaceStationScene(scene) {
   // Satellite model with the dish looking at the Earth (nadir)
   addModel("Satellite model", "/models/satellite.glb", satWorld, 0, -90,
     { minimumPixelSize: 72, maximumScale: 400000 });
+  if (scene.lobe) {                                   // 3D gain lobe of the satellite antenna (nadir-pointing)
+    const lobe = addModel("Satellite antenna lobe", scene.lobe.uri, satWorld, 0, -90,
+      { scale: Math.max(sat.alt_m * 0.3, 20000), maximumScale: 4e7 });
+    lobe.show = lobes.on;
+    lobes.ents.push(lobe);
+    lobes.info = lobes.info || scene.lobe;
+  }
 
   // Satellite
   viewer.entities.add({
@@ -922,6 +1112,14 @@ function renderSingleStationScene(scene) {
   addModel("Earth station", "/models/earth_station.glb", groundPos,
     -(scene.antenna_azimuth_deg || 0), (scene.antenna_elevation_deg || 0),
     { nearM: 1500 });
+  if (scene.lobe) {                                   // 3D gain lobe of the dish, same pointing as the dish model
+    const lobe = addModel("Earth station antenna lobe", scene.lobe.uri, worldPos,
+      -(scene.antenna_azimuth_deg || 0), (scene.antenna_elevation_deg || 0),
+      { scale: Math.max(50, s.z * 3) * 1.3 });
+    lobe.show = lobes.on;
+    lobes.ents.push(lobe);
+    lobes.info = lobes.info || scene.lobe;
+  }
 
   // Station point — cyan (C.station), distinct from satellite red
   viewer.entities.add({
@@ -1666,6 +1864,7 @@ function renderComposite(scene) {
   const imtCount = viewer.entities.values.length;
   const imtEntities = viewer.entities.values.slice();
   if (scene.system) renderPart(scene.system);
+  if (lobes.on) setLobes(true);                        // refresh the colour bar after a redraw
   viewer.zoomTo = realZoom;
   // enquadra a rede IMT (a escala de células); o sistema fica a um zoom-out
   viewer.zoomTo(imtEntities.length ? imtEntities : viewer.entities);

@@ -42,6 +42,9 @@ class PyBridge(QObject):
     pong = Signal(str)
     ready = Signal()
     center_picked = Signal(float, float)
+    legend_changed = Signal(str)          # JSON list of colour-scale legends the 3D view is showing
+    link_selected = Signal(str)           # JSON link budget of the UE link the user clicked
+    plots_changed = Signal(str)           # JSON data for the PSD / CDF plots of the current scene
 
     def __init__(self, scene_provider: Optional[Callable[[str], str]] = None, parent=None):
         super().__init__(parent)
@@ -56,6 +59,19 @@ class PyBridge(QObject):
     def set_scenario_center(self, lat: float, lon: float) -> None:
         """The user placed or dragged the scenario centre on the map."""
         self.center_picked.emit(lat, lon)
+
+    @Slot(str)
+    def set_legend(self, payload: str) -> None:
+        """The 3D view reports which colour scales (gain lobes, heat maps) are on screen."""
+        self.legend_changed.emit(payload)
+
+    @Slot(str)
+    def set_link(self, payload: str) -> None:
+        self.link_selected.emit(payload)
+
+    @Slot(str)
+    def set_plots(self, payload: str) -> None:
+        self.plots_changed.emit(payload)
 
     @Slot()
     def notify_ready(self) -> None:

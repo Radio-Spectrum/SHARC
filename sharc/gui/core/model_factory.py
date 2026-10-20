@@ -32,6 +32,7 @@ class Part:
     normals: np.ndarray              # (N, 3) float32
     indices: np.ndarray              # (M,) uint32
     material: int
+    colors: np.ndarray | None = None  # optional (N, 4) float32 per-vertex RGBA (glTF COLOR_0)
 
 
 @dataclass
@@ -161,7 +162,12 @@ def to_glb(model: Model) -> bytes:
                           "min": part.positions.min(axis=0).tolist(), "max": part.positions.max(axis=0).tolist()})
         accessors.append({"bufferView": vn, "componentType": 5126, "count": len(part.normals), "type": "VEC3"})
         accessors.append({"bufferView": vi, "componentType": 5125, "count": len(part.indices), "type": "SCALAR"})
-        prims.append({"attributes": {"POSITION": a0, "NORMAL": a0 + 1}, "indices": a0 + 2, "material": part.material})
+        attrs = {"POSITION": a0, "NORMAL": a0 + 1}
+        if part.colors is not None:
+            vc = add_view(part.colors.astype("<f4"), 34962)
+            accessors.append({"bufferView": vc, "componentType": 5126, "count": len(part.colors), "type": "VEC4"})
+            attrs["COLOR_0"] = len(accessors) - 1
+        prims.append({"attributes": attrs, "indices": a0 + 2, "material": part.material})
     materials = []
     for m in model.materials:
         mat = {"pbrMetallicRoughness": {"baseColorFactor": list(m.color), "metallicFactor": m.metallic,
@@ -234,8 +240,20 @@ MODELS = {"satellite": satellite, "tower": tower, "earth_station": earth_station
 _cache: Dict[str, bytes] = {}
 
 
+_dynamic: Dict[str, bytes] = {}
+
+
+def register(name: str, data: bytes, limit: int = 64) -> None:
+    """Serve extra, scene-dependent models (e.g. antenna gain lobes) under /models/<name>.glb."""
+    if len(_dynamic) >= limit:
+        _dynamic.pop(next(iter(_dynamic)))
+    _dynamic[name] = data
+
+
 def glb(name: str) -> bytes:
-    """GLB bytes for one of MODELS (built once, then cached)."""
+    """GLB bytes for one of MODELS (built once, then cached) or a registered dynamic model."""
+    if name in _dynamic:
+        return _dynamic[name]
     if name not in MODELS:
         raise KeyError(name)
     if name not in _cache:

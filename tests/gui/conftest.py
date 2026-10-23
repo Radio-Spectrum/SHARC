@@ -17,9 +17,21 @@ for _p in (os.path.join(_REPO, "sharc", "gui"), _REPO):
         sys.path.insert(0, _p)
 
 
+def _isolate_qsettings():
+    """QSettings("SHARC", "GUI") of the tests lives in a temporary INI folder: a test must never change the user's
+    saved theme, Cesium token or heat-map style (the Windows registry is the default store)."""
+    import tempfile
+    from PySide6.QtCore import QSettings
+    folder = tempfile.mkdtemp(prefix="sharc_test_settings_")
+    QSettings.setDefaultFormat(QSettings.IniFormat)
+    QSettings.setPath(QSettings.IniFormat, QSettings.UserScope, folder)
+    QSettings.setPath(QSettings.IniFormat, QSettings.SystemScope, folder)
+
+
 @pytest.fixture(scope="session")
 def _gui_session():
     pytest.importorskip("PySide6")
+    _isolate_qsettings()
     from PySide6.QtWidgets import QApplication
     app = QApplication.instance() or QApplication([])
     import main as gui_main

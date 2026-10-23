@@ -22,7 +22,7 @@ QUANTITIES = {
     "power": ("Strongest BS received power", "dBm"),
     "inr": ("Aggregate I/N", "dB"),
 }
-GRID_N = 80
+GRID_N = 120
 M_PER_DEG = 111_320.0
 
 
@@ -101,7 +101,8 @@ def compute(es, n: int = GRID_N) -> Optional[Dict[str, Any]]:
             maps[name] = {"values": np.round(g, 1).ravel().tolist(), "vmin": round(float(lo), 1),
                           "vmax": round(float(max(hi, lo + 1.0)), 1), "unit": unit, "title": title}
         result = {"n": n, "west": lon0 - dlon, "east": lon0 + dlon, "south": lat0 - dlat, "north": lat0 + dlat,
-                  "freq_mhz": f_mhz, "bandwidth_mhz": bw_mhz, "maps": maps}
+                  "freq_mhz": f_mhz, "bandwidth_mhz": bw_mhz, "maps": maps,
+                  "bs_km": [[round(float(x) / 1000.0, 3), round(float(y) / 1000.0, 3)] for x, y in zip(gx, gy)]}
     except Exception:                                        # noqa: BLE001 - a map must never break the preview
         result = None
     try:

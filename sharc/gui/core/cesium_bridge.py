@@ -68,9 +68,9 @@ def _footprint_boundary_lla(sx: float, sy: float, sz: float, bw_deg: float, n: i
 class CesiumBridgeMixin:
     """Converts this tab's real :class:`SceneGraph` into Cesium-ready JSON."""
 
-    def _compute_gain_map_cesium(self, glob, vmin_db: float, vmax_db: float,
+    def _compute_gain_map_cesium(self, glob, vmin_db, vmax_db,
                                   beamwidth_deg: float = None,
-                                  grid_step_deg: float = 2.0) -> dict | None:
+                                  grid_step_deg: float = 2.0, target_lla=None) -> dict | None:
         """Compute antenna gain on a lat/lon grid for CesiumJS heatmap."""
         from utils import lla_to_ecef
 
@@ -106,7 +106,10 @@ class CesiumBridgeMixin:
         px, py, pz = lla_to_ecef(lat_flat, lon_flat, np.zeros_like(lat_flat))
         P = np.column_stack((px, py, pz))
 
-        u_bore = _unit(-S)
+        u_bore = _unit(-S)                                  # nadir, unless the beam is pointed elsewhere
+        if target_lla is not None:
+            tx, ty, tz = lla_to_ecef(np.array([target_lla[0]]), np.array([target_lla[1]]), np.array([0.0]))
+            u_bore = _unit(np.array([tx[0], ty[0], tz[0]]) - S)
         D = P - S
         d_norms = np.linalg.norm(D, axis=1)
         d_norms[d_norms == 0] = 1.0
@@ -128,8 +131,14 @@ class CesiumBridgeMixin:
             except Exception as exc:  # padrão sem suporte: avisa, não desenha parábola falsa
                 self._report_scene_problem(f"gain map unavailable for this antenna pattern: {exc}")
                 return None
+            if vmax_db is None:                             # automatic range: the pattern peak and 30 dB below it
+                vmax_db = float(np.nanmax(gains))
+            if vmin_db is None:
+                vmin_db = vmax_db - 30.0
             gains = np.nan_to_num(gains, nan=vmin_db)
         else:
+            vmax_db = 30.0 if vmax_db is None else vmax_db
+            vmin_db = vmax_db - 30.0 if vmin_db is None else vmin_db
             bw = beamwidth_deg or 8.7
             half_bw = max(bw / 2.0, 0.1)
             gains = vmax_db - (angles_deg / half_bw) ** 2 * (vmax_db - vmin_db)
@@ -338,6 +347,36 @@ class CesiumBridgeMixin:
             })
         return borders
 
+    @staticmethod
+    def _gain_range_value(var):
+        """The vMin / vMax field as a number, or None when it is blank or 'auto' (peak and peak - 30 dB then)."""
+        try:
+            return float(str(var.get()).strip())
+        except (TypeError, ValueError):
+            return None
+
+    def _beam_target(self):
+        """(lat, lon) on the ground where the satellite beam is pointed (engine pointing), or None for nadir."""
+        engine = getattr(self, "_current_engine", None)
+        if engine is None:
+            return None
+        try:
+            from core import sat_footprint
+            fp = sat_footprint.compute(engine)
+            if fp:
+                return fp["pointing"]["target_lat_deg"], fp["pointing"]["target_lon_deg"]
+        except Exception:  # noqa: BLE001 - nadir is the documented fallback
+            pass
+        return None
+
+    @staticmethod
+    def _gain_grid_step(beamwidth_deg):
+        """Grid step [deg]: fine enough to resolve the beam (about 6 cells per 3 dB beamwidth), at most 2 degrees."""
+        try:
+            return float(min(2.0, max(0.25, float(beamwidth_deg) / 6.0)))
+        except (TypeError, ValueError):
+            return 2.0
+
     def _global_scene_dict(self, topo_type: str, glob) -> Dict[str, Any]:
         beamwidth = self._determine_beamwidth(glob.satellite_obj) if self.app.show_beamwidth.get() else None
         footprint = []
@@ -378,14 +417,13 @@ class CesiumBridgeMixin:
 
         if self.app.var_show_gainmap.get():
             try:
-                vmin = float(self.app.var_gain_vmin.get())
-                vmax = float(self.app.var_gain_vmax.get())
                 gain_map = self._compute_gain_map_cesium(
-                    glob, vmin, vmax, beamwidth_deg=beamwidth)
+                    glob, self._gain_range_value(self.app.var_gain_vmin), self._gain_range_value(self.app.var_gain_vmax),
+                    beamwidth_deg=beamwidth, target_lla=self._beam_target(), grid_step_deg=self._gain_grid_step(beamwidth))
                 if gain_map:
                     scene["gain_map"] = gain_map
-            except Exception:
-                pass
+            except Exception as exc:  # noqa: BLE001 - the preview survives, but the user must see why there is no map
+                self._report_scene_problem(f"gain map not drawn: {exc}")
 
         return scene
 
@@ -482,6 +520,8 @@ class CesiumBridgeMixin:
                 system["lobe"] = gain_lobe.system_lobe_for_scene(es)
                 from core import sat_footprint
                 system["footprint"] = sat_footprint.compute(es)
+                if system["footprint"] and self.app.var_show_gainmap.get():
+                    system["show_heat"] = "sat_gain"             # "Show gain map": the satellite antenna footprint
                 from core import interference
                 info = interference.compute(es)
                 imt["interference"] = info
@@ -519,12 +559,18 @@ class CesiumBridgeMixin:
         spike_widget.py``'s ``CesiumSpikeWidget(scene_provider=...)``)."""
         try:
             data = self._current_yaml()
+            self.antenna_error = None                    # set again by the geometry code if the antenna is not applied
             if topo_type == "SCENARIO":
                 scene = self._composite_scene_dict(data)
             else:
                 scene = self._scene_graph_to_cesium_dict(topo_type, data)
             if isinstance(scene, dict) and scene.get("error"):
                 self._report_scene_problem(scene["error"])
+            if isinstance(scene, dict) and self.antenna_error:
+                scene["warnings"] = [*scene.get("warnings", []), self.antenna_error]
+            lobe_warning = ((scene.get("system") or {}).get("lobe") or {}).get("warning") if isinstance(scene, dict) else None
+            if lobe_warning:                              # e.g. a pattern with a rear lobe
+                scene["warnings"] = [*scene.get("warnings", []), lobe_warning]
             return json.dumps(scene)
         except SystemExit as e:
             # The engine calls sys.exit() on impossible parameters (e.g. hotspots that cannot be placed);

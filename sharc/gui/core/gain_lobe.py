@@ -136,7 +136,8 @@ def sample_axisymmetric_gain(antenna) -> Optional[Dict[str, Any]]:
     elev = np.arange(-90.0, 90.0 + 1e-6, D_ELEV)
     PH, EL = np.meshgrid(np.radians(dphi), np.radians(elev))
     off_axis = np.degrees(np.arccos(np.clip(np.cos(EL) * np.cos(PH), -1.0, 1.0)))
-    gain = np.asarray(antenna_service.gain_at(antenna, off_axis.ravel()), dtype=float).reshape(PH.shape)
+    around = np.degrees(np.arctan2(np.sin(EL), np.cos(EL) * np.sin(PH)))        # angle around the boresight
+    gain = np.asarray(antenna_service.gain_at(antenna, off_axis.ravel(), around.ravel()), dtype=float).reshape(PH.shape)
     if not np.isfinite(gain).any():
         return None
     gain = np.where(np.isfinite(gain), gain, np.nanmin(gain))
@@ -162,6 +163,19 @@ def bs_lobe_for_scene(es) -> Optional[Dict[str, Any]]:
     return info
 
 
+def rear_lobe_warning(data: Dict[str, Any], margin_db: float = 10.0) -> Optional[str]:
+    """Text when the pattern radiates backwards (gain at 180 degrees within `margin_db` of the peak), else None.
+
+    An aperture antenna has no rear lobe of that size; a pattern that does (the engine's S.1528-Taylor depends on
+    sin(theta), so G(theta) = G(180 - theta)) is drawn as the engine defines it, but the user must be told."""
+    i0 = int(np.argmin(np.abs(data["elev"])))
+    rear = float(data["gain"][i0, int(np.argmin(np.abs(np.abs(data["dphi"]) - 180.0)))])
+    if rear < data["peak"] - margin_db:
+        return None
+    return (f"This antenna pattern gives {rear:.0f} dBi at 180 degrees (peak {data['peak']:.0f} dBi): a rear lobe that "
+            "an aperture antenna does not have. The preview draws what the engine pattern defines.")
+
+
 def system_lobe_for_scene(es) -> Optional[Dict[str, Any]]:
     """Lobe of the victim system antenna (earth station dish or satellite beam), from the engine."""
     cached = getattr(es, "_system_lobe", "unset")
@@ -174,6 +188,9 @@ def system_lobe_for_scene(es) -> Optional[Dict[str, Any]]:
             data = sample_axisymmetric_gain(system.antenna[0])
             if data is not None:
                 info = _register(data, "syslobe")
+                warning = rear_lobe_warning(data)
+                if warning:
+                    info["warning"] = warning
     except Exception:                                       # noqa: BLE001
         info = None
     try:

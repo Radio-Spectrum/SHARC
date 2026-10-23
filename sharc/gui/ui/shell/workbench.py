@@ -377,7 +377,7 @@ class WorkbenchMixin:
                 page = QWidget()
                 QVBoxLayout(page).addWidget(QLabel(f"Placeholder para {label}"))
             setattr(self, f"tab_{key}", page)
-            if key not in ("preview", "results"):
+            if key not in ("preview", "results", "contour"):
                 try:
                     restructure_page(page)
                 except Exception as exc:  # a conversão nunca pode impedir a abertura
@@ -401,6 +401,9 @@ class WorkbenchMixin:
                     self.dock_properties.raise_()
             elif key == "results":
                 self.doc_tabs.addTab(page, qta.icon(icon, color=self.tk["icon"]), "Results")
+                self._doc_pages[key] = page
+            elif key == "contour":
+                self.doc_tabs.addTab(page, qta.icon(icon, color=self.tk["icon"]), "Protection Contour")
                 self._doc_pages[key] = page
             else:
                 scroll = ResponsiveScrollArea()

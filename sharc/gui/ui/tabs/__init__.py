@@ -10,6 +10,7 @@ from .single_earth_station import SingleEarthStationTab
 from .ssh_config import SSHTunnelTab
 from .database import DatabaseTab
 from .terrain import TerrainTab
+from .contour import ContourTab
 
 __all__ = [
     "GeneralTab",
@@ -21,4 +22,5 @@ __all__ = [
     "SSHTunnelTab",
     "DatabaseTab",
     "TerrainTab",
+    "ContourTab",
 ]

@@ -2,6 +2,8 @@ from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QGroupBox, 
     QLabel, QStackedWidget, QComboBox, QCheckBox, QLineEdit, QPushButton, QFileDialog
 )
+import os
+
 from PySide6.QtCore import Qt
 
 from ui.tabs.assets.imt_tab.imt_tools import IMTUIHelper as H
@@ -345,7 +347,7 @@ class SESChannelSection:
         lay.addWidget(QLabel("clutter_raster (land cover)"))
         lay.addWidget(self._file_row(app.p452_clutter_raster, "Select land-cover GeoTIFF", tif), 1)
         lay.addWidget(QLabel("clutter_heights"))
-        lay.addWidget(H.create_field(app.p452_clutter_heights, QComboBox, ["celplan", "p452_tab3"]))
+        lay.addWidget(H.create_field(app.p452_clutter_heights, QComboBox, ["celplan", "p452_tab3", "worldcover"]))
         g.addWidget(self.row_clutter, 4, 0, 1, 4)
 
         row_zone = QWidget()
@@ -359,6 +361,12 @@ class SESChannelSection:
         btn.setToolTip("Turns on the database, its sites and real terrain, and uses FIXED_GEO for the station.")
         btn.clicked.connect(self.apply_required_settings)
         g.addWidget(btn, 6, 0, 1, 2)
+
+        btn_terrain = QPushButton("Use the terrain loaded in the Terrain tab")
+        btn_terrain.setToolTip("Sets profile_source grid with the downloaded terrain, its land cover and the "
+                               "worldcover height table (the downloaded land cover uses ESA WorldCover classes).")
+        btn_terrain.clicked.connect(self.use_loaded_terrain)
+        g.addWidget(btn_terrain, 6, 2, 1, 2)
 
         grid.addWidget(box, row, 0, 1, 6)
         self._db_vars_connected = False
@@ -395,7 +403,72 @@ class SESChannelSection:
             missing.append("Station location type must be FIXED_GEO (the profiles start there)")
         if str(app.p452_profile_source.get() or "") == "grid" and not str(app.p452_profile_raster.get() or "").strip():
             missing.append("profile_source 'grid' needs profile_raster")
+        loaded = self._loaded_terrain()
+        clutter = str(app.p452_clutter_raster.get() or "").strip()
+        if loaded is not None and clutter and os.path.normcase(os.path.abspath(clutter)) == \
+                os.path.normcase(str(loaded.clutter)) and str(app.p452_clutter_heights.get()) != "worldcover":
+            missing.append("the downloaded land cover uses ESA WorldCover classes: set clutter_heights to worldcover")
+        if loaded is not None and os.path.normcase(os.path.abspath(str(app.p452_profile_raster.get() or "x"))) == \
+                os.path.normcase(str(loaded.terrain)):
+            problem = self.coverage_problem()
+            if problem:
+                missing.append(problem)
         return missing
+
+    def _loaded_terrain(self):
+        """The terrain set loaded in the Terrain tab, or None."""
+        tset = getattr(getattr(self.app, "tab_terrain", None), "active", None)
+        return tset if tset is not None and tset.ready else None
+
+    def use_loaded_terrain(self):
+        """Point the P.452 profiles at the terrain and land cover downloaded in the Terrain tab."""
+        tset = self._loaded_terrain()
+        if tset is None:
+            self.lbl_db_status.setText("No terrain loaded: download or load one in Terrain & Clutter first.")
+            return False
+        app = self.app
+        app.p452_profile_source.set("grid")
+        app.p452_profile_raster.set(str(tset.terrain))
+        app.p452_clutter_raster.set(str(tset.clutter))
+        app.p452_clutter_heights.set("worldcover")
+        zones = tset.folder / "zones.tif"
+        try:                    # P.452 zones (coast / sea) from the land cover and the DEM; without them every path is inland
+            if not zones.is_file():
+                from sharc.propagation.real_terrain.zones import build_zone_raster
+                build_zone_raster(str(tset.clutter), str(zones), str(tset.terrain))
+            app.p452_zone_raster.set(str(zones))
+        except Exception as exc:  # noqa: BLE001 - the other options are still valid
+            self.lbl_db_status.setText(f"Zone raster not built ({exc}); paths are treated as inland.")
+            return True
+        self.refresh_database_group()
+        return True
+
+    def coverage_problem(self):
+        """Why the loaded terrain does not cover the station and the database sites, or '' when it does."""
+        tset = self._loaded_terrain()
+        if tset is None:
+            return ""
+        west, south, east, north = tset.bbox
+        points = []
+        try:
+            points.append((float(self.app.se_loc_geo_lat.get()), float(self.app.se_loc_geo_lon.get())))
+        except (TypeError, ValueError):
+            pass
+        st = self._database_state()
+        db_file = str(st.get("db_file").get() or "").strip() if st is not None else ""
+        if db_file and os.path.isfile(db_file):
+            try:
+                import pandas as pd
+                df = pd.read_csv(db_file, usecols=["latitude", "longitude"])
+                points += [(df["latitude"].min(), df["longitude"].min()), (df["latitude"].max(), df["longitude"].max())]
+            except (ValueError, OSError):
+                pass
+        outside = [(la, lo) for la, lo in points if not (south <= la <= north and west <= lo <= east)]
+        if not outside:
+            return ""
+        la, lo = outside[0]
+        return (f"the loaded terrain (lon {west:.3f} to {east:.3f}, lat {south:.3f} to {north:.3f}) does not cover "
+                f"({la:.3f}, {lo:.3f}): download a larger region")
 
     def refresh_database_group(self, *args):
         self._connect_database_vars()

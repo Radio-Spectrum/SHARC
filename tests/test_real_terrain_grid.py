@@ -79,6 +79,11 @@ class HeightTableTest(unittest.TestCase):
         self.assertEqual(celplan[19], 45)
         self.assertEqual(celplan[200], 0)
         self.assertEqual(height_lut("p452_tab3")[4], 10)
+        worldcover = height_lut("worldcover")
+        self.assertEqual(worldcover[50], 15)        # built-up
+        self.assertEqual(worldcover[10], 15)        # tree cover
+        self.assertEqual(worldcover[80], 0)         # water
+        self.assertEqual(worldcover[30], 0)         # grassland
         with self.assertRaises(ValueError):
             height_lut("unknown")
 

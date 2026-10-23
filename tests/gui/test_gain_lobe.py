@@ -62,7 +62,7 @@ def test_jet_scale_runs_blue_to_red():
 def test_lobe_shape_main_beam_points_forward_and_down(win):
     es_scene = _scene(win)
     from core import engine_scene as eng
-    es = next(iter(eng._CACHE.values()))
+    es = eng.build_engine_scene(win.tab_preview._current_yaml())     # the cache keeps old entries in place on a hit
     data = gain_lobe.sample_bs_gain(es)
     peak = data["peak"]
     e_i, p_i = np.unravel_index(np.argmax(data["gain"]), data["gain"].shape)
@@ -76,7 +76,7 @@ def test_lobe_shape_main_beam_points_forward_and_down(win):
 def test_lobe_model_geometry_is_closed_and_bounded(win):
     _scene(win)
     from core import engine_scene as eng
-    es = next(iter(eng._CACHE.values()))
+    es = eng.build_engine_scene(win.tab_preview._current_yaml())     # the cache keeps old entries in place on a hit
     model = gain_lobe.build_lobe_model(gain_lobe.sample_bs_gain(es))
     for part in model.parts:
         assert part.colors is not None and part.colors.shape == (len(part.positions), 4)
@@ -100,3 +100,15 @@ def test_victim_system_gets_a_lobe_from_the_engine_antenna(win):
     assert lobe["peak_dbi"] > 10.0                               # a dish or satellite beam is directive
     doc = _parse_glb(model_factory.glb(lobe["uri"].rsplit("/", 1)[-1].replace(".glb", "")))
     assert "COLOR_0" in doc["meshes"][0]["primitives"][0]["attributes"]
+
+
+def test_rear_lobe_is_flagged_for_the_taylor_pattern_only():
+    from types import SimpleNamespace
+    from core.antenna_service import build_antenna
+    taylor = build_antenna("ITU-R-S.1528-Taylor", {"frequency": 2170.0, "antenna_gain": 35.0, "l_r": 1.6, "l_t": 1.6})
+    s672 = build_antenna("ITU-R S.672", {"antenna_gain": 40, "antenna_3_dB_bw": 0.6, "antenna_l_s": -25})
+
+    def lobe(ant):
+        return gain_lobe.system_lobe_for_scene(SimpleNamespace(system=SimpleNamespace(antenna=[ant])))
+    assert "rear lobe" in lobe(taylor)["warning"]
+    assert "warning" not in lobe(s672)

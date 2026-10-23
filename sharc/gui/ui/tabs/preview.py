@@ -189,6 +189,8 @@ class PreviewTab(QWidget, Geometry3DMixin, SceneBuilderMixin, CesiumBridgeMixin)
 
         right_layout.addWidget(frm_vis)
 
+        right_layout.addWidget(self._build_heat_style_group())
+
         # --- 3. Supported Types ---
         frm_catalog = QGroupBox("Visible Before Run")
         l_cat = QVBoxLayout(frm_catalog)
@@ -386,6 +388,138 @@ class PreviewTab(QWidget, Geometry3DMixin, SceneBuilderMixin, CesiumBridgeMixin)
         import json
         if self._cesium_embed is not None:
             self._cesium_embed.view.page().runJavaScript(f"setSiteWarning({json.dumps(payload)});")
+
+    # ------------------------------------------------------------ heat-map style
+    def _build_heat_style_group(self) -> QGroupBox:
+        """Palette, range, opacity, iso-lines, bands and the I/N protection contour of the ground heat maps.
+
+        The style is saved in QSettings, sent to the 3D view (`setHeatStyle`) and used by File > Export Publication
+        Figures, so the screen and the figure look the same."""
+        from PySide6.QtWidgets import QComboBox, QDoubleSpinBox, QSlider, QSpinBox
+        from core.heat_style import MAX_BANDS, PALETTE_LABELS, HeatStyle, load_style, save_style
+
+        style = load_style()
+        box = QGroupBox("Heat map")
+        lay = QVBoxLayout(box)
+        w = self.heat_widgets = {}
+
+        w["palette"] = QComboBox()
+        for key, label in PALETTE_LABELS.items():
+            w["palette"].addItem(label, key)
+        w["palette"].setCurrentIndex(max(0, w["palette"].findData(style.palette)))
+        w["reverse"] = QCheckBox("Reverse colours")
+        w["reverse"].setChecked(style.reverse)
+        row = QHBoxLayout()
+        row.addWidget(QLabel("Scale:"))
+        row.addWidget(w["palette"], 1)
+        lay.addLayout(row)
+        lay.addWidget(w["reverse"])
+
+        w["fixed"] = QCheckBox("Fixed range")
+        w["fixed"].setToolTip("Use the same minimum and maximum on every map (default: each map's own range).")
+        w["fixed"].setChecked(not style.auto_range)
+        w["vmin"], w["vmax"] = QDoubleSpinBox(), QDoubleSpinBox()
+        for sp, v in ((w["vmin"], style.vmin), (w["vmax"], style.vmax)):
+            sp.setRange(-400.0, 400.0)
+            sp.setDecimals(1)
+            sp.setSingleStep(5.0)
+            sp.setValue(v)
+        row = QHBoxLayout()
+        row.addWidget(w["fixed"])
+        row.addWidget(w["vmin"])
+        row.addWidget(QLabel("to"))
+        row.addWidget(w["vmax"])
+        lay.addLayout(row)
+
+        w["opacity"] = QSlider(Qt.Horizontal)
+        w["opacity"].setRange(20, 100)
+        w["opacity"].setValue(int(round(style.opacity * 100)))
+        row = QHBoxLayout()
+        row.addWidget(QLabel("Opacity:"))
+        row.addWidget(w["opacity"], 1)
+        lay.addLayout(row)
+
+        w["isolines"] = QCheckBox("Iso-lines")
+        w["isolines"].setChecked(style.isolines)
+        w["bands"] = QSpinBox()
+        w["bands"].setRange(0, MAX_BANDS)
+        w["bands"].setSpecialValueText("Smooth")
+        w["bands"].setToolTip("0 = smooth colour scale; 2 or more = that many discrete colour bands.")
+        w["bands"].setValue(style.bands)
+        row = QHBoxLayout()
+        row.addWidget(w["isolines"])
+        row.addStretch()
+        row.addWidget(QLabel("Bands:"))
+        row.addWidget(w["bands"])
+        lay.addLayout(row)
+
+        w["thr_on"] = QCheckBox("Protection contour, I/N =")
+        w["thr_on"].setChecked(style.threshold_on)
+        w["thr"] = QDoubleSpinBox()
+        w["thr"].setRange(-100.0, 100.0)
+        w["thr"].setDecimals(1)
+        w["thr"].setSuffix(" dB")
+        w["thr"].setValue(style.threshold_db)
+        row = QHBoxLayout()
+        row.addWidget(w["thr_on"])
+        row.addWidget(w["thr"])
+        lay.addLayout(row)
+
+        btn_reset = w["reset"] = QPushButton("Reset heat-map style")
+        lay.addWidget(btn_reset)
+
+        def read() -> HeatStyle:
+            return HeatStyle(
+                palette=w["palette"].currentData(), reverse=w["reverse"].isChecked(),
+                auto_range=not w["fixed"].isChecked(), vmin=w["vmin"].value(), vmax=w["vmax"].value(),
+                opacity=w["opacity"].value() / 100.0, isolines=w["isolines"].isChecked(), bands=w["bands"].value(),
+                threshold_on=w["thr_on"].isChecked(), threshold_db=w["thr"].value()).sanitized()
+
+        def changed(*_):
+            for key in ("vmin", "vmax"):
+                w[key].setEnabled(w["fixed"].isChecked())
+            w["thr"].setEnabled(w["thr_on"].isChecked())
+            self.heat_style = read()
+            save_style(self.heat_style)
+            self._push_heat_style()
+
+        def reset():
+            d = HeatStyle()
+            w["palette"].setCurrentIndex(w["palette"].findData(d.palette))
+            w["reverse"].setChecked(d.reverse)
+            w["fixed"].setChecked(not d.auto_range)
+            w["vmin"].setValue(d.vmin)
+            w["vmax"].setValue(d.vmax)
+            w["opacity"].setValue(int(round(d.opacity * 100)))
+            w["isolines"].setChecked(d.isolines)
+            w["bands"].setValue(d.bands)
+            w["thr_on"].setChecked(d.threshold_on)
+            w["thr"].setValue(d.threshold_db)
+
+        for key in ("palette",):
+            w[key].currentIndexChanged.connect(changed)
+        for key in ("reverse", "fixed", "isolines", "thr_on"):
+            w[key].toggled.connect(changed)
+        for key in ("vmin", "vmax", "thr"):
+            w[key].valueChanged.connect(changed)
+        w["opacity"].valueChanged.connect(changed)
+        w["bands"].valueChanged.connect(changed)
+        btn_reset.clicked.connect(reset)
+
+        self.heat_style = read()
+        for key in ("vmin", "vmax"):
+            w[key].setEnabled(w["fixed"].isChecked())
+        w["thr"].setEnabled(w["thr_on"].isChecked())
+        if self._cesium_embed is not None:
+            self._cesium_embed.ready.connect(self._push_heat_style)     # the page restarts with the default style
+        return box
+
+    def _push_heat_style(self, *_):
+        """Send the chosen heat-map style to the 3D view (it redraws the visible map)."""
+        embed = self._cesium_embed
+        style = getattr(self, "heat_style", None)
+        if embed is not None and style is not None:
+            embed.view.page().runJavaScript(f"setHeatStyle({style.to_js()});")
 
     def _draw_preview(self):
         data = self._current_yaml()

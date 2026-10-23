@@ -41,6 +41,16 @@ function setStatus(text) {
   console.log("[cesium_spike]", text);
 }
 
+// Problems of the scene that the preview worked around (e.g. an antenna pattern the engine rejected): shown
+// in amber under the status until the next scene, so a fallback is never mistaken for the real result
+function showWarnings(list) {
+  const el = document.getElementById("hudWarn");
+  if (!el) return;
+  const items = (list || []).filter(Boolean);
+  el.textContent = items.map((w) => "Warning: " + w).join("\n");
+  el.hidden = items.length === 0;
+}
+
 window.addEventListener("unhandledrejection", function (event) {
   console.error("UNHANDLED REJECTION: " + (event.reason && (event.reason.stack || event.reason.message) || event.reason));
 });
@@ -573,7 +583,10 @@ function publishLegend() {
   }
   const hs = heat.mode ? heatSource() : null;
   const m = hs ? hs.maps[heat.mode] : null;
-  if (m) items.push({ id: "heat", title: m.title, unit: m.unit, vmin: m.vmin, vmax: m.vmax });
+  if (m) {
+    const [lo, hi] = heatRange(m);
+    items.push({ id: "heat", title: m.title, unit: m.unit, vmin: lo, vmax: hi, stops: heatLegendStops(heatPaletteName(heat.mode)) });
+  }
   if (window.pyBridge && window.pyBridge.set_legend) window.pyBridge.set_legend(JSON.stringify(items));
 }
 
@@ -608,10 +621,132 @@ function heatOrder() {                                    // IMT maps, plus the 
   return order;
 }
 
+// STK-style rainbow: antenna lobes, BS interference contribution and UE link SNR (same stops as the Qt legend)
 function jetRGB(t) {
   t = Math.min(1, Math.max(0, t));
   const f = (c) => Math.round(255 * Math.min(1, Math.max(0, 1.5 - Math.abs(4 * t - c))));
   return [f(3), f(2), f(1)];
+}
+
+// Heat-map palettes. Names match core/heat_style.PALETTES (a test keeps the lists equal); "auto" picks viridis for
+// levels and magma for I/N. Perceptually uniform ones first: readable in grayscale and for colour-blind users.
+const HEAT_STOPS = {
+  viridis: ["#440154", "#472d7b", "#3b528b", "#2c728e", "#21918c", "#28ae80", "#5ec962", "#addc30", "#fde725"],
+  magma: ["#000004", "#180f3e", "#451077", "#721f81", "#9f2f7f", "#cd4071", "#f1605d", "#fd9567", "#fcfdbf"],
+  inferno: ["#000004", "#1f0c48", "#550f6d", "#88226a", "#a83655", "#e35933", "#f9950a", "#f8c932", "#fcffa4"],
+  plasma: ["#0d0887", "#47039f", "#7301a8", "#9c179e", "#bd3786", "#d8576b", "#ed7953", "#fa9e3b", "#fdc926", "#f0f921"],
+  cividis: ["#00224e", "#123570", "#3b496c", "#575d6d", "#707173", "#8a8678", "#a69d75", "#c4b56c", "#e4cf5b", "#fee838"],
+  turbo: ["#30123b", "#4662d7", "#36aaf9", "#1ae4b6", "#72fe5e", "#c7ef34", "#faba39", "#f66b19", "#ca2a04", "#7a0403"],
+  jet: ["#00007f", "#0000ff", "#007fff", "#00ffff", "#7fff7f", "#ffff00", "#ff7f00", "#ff0000", "#7f0000"],
+  coolwarm: ["#3b4cc0", "#6788ee", "#9abbff", "#c9d7f0", "#edd1c2", "#f7a889", "#e26952", "#b40426"],
+  gray: ["#000000", "#ffffff"],
+};
+const HEAT_RGB = {};
+for (const k of Object.keys(HEAT_STOPS)) {
+  HEAT_RGB[k] = HEAT_STOPS[k].map((h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16)));
+}
+
+// What the user chose in the View panel (pushed by Qt through setHeatStyle): see core/heat_style.HeatStyle
+const heatStyle = { palette: "auto", reverse: false, vmin: null, vmax: null, opacity: 0.85, isolines: true, bands: 0,
+                    threshold: -6 };                      // threshold: I/N protection contour [dB] or null
+
+function heatPaletteName(mode) {
+  return heatStyle.palette !== "auto" && HEAT_RGB[heatStyle.palette] ? heatStyle.palette : (mode === "inr" ? "magma" : "viridis");
+}
+function heatRange(m) {                                  // manual range when set, else the one of the map
+  const lo = heatStyle.vmin, hi = heatStyle.vmax;
+  return lo !== null && hi !== null && hi > lo ? [lo, hi] : [m.vmin, m.vmax];
+}
+function heatRGB(t, name) {                              // t in [0, 1] -> [r, g, b]; honours bands and reverse
+  const s = HEAT_RGB[name] || HEAT_RGB.viridis, n = heatStyle.bands;
+  t = Math.min(1, Math.max(0, t));
+  if (n >= 2) t = Math.min(n - 1, Math.floor(t * n)) / (n - 1);
+  if (heatStyle.reverse) t = 1 - t;
+  t *= s.length - 1;
+  const i = Math.min(s.length - 2, Math.floor(t)), f = t - i;
+  return [0, 1, 2].map((c) => s[i][c] + (s[i + 1][c] - s[i][c]) * f);
+}
+function heatLegendStops(name) {                         // [[position 0..1, "#rrggbb"], ...] as the 3D view draws it
+  const hex = (t) => "#" + heatRGB(t, name).map((v) => Math.round(v).toString(16).padStart(2, "0")).join("");
+  const n = heatStyle.bands, out = [];
+  if (n >= 2) {
+    for (let k = 0; k < n; k++) { const c = hex((k + 0.5) / n); out.push([k / n, c], [(k + 1) / n, c]); }
+  } else {
+    for (let k = 0; k <= 32; k++) out.push([k / 32, hex(k / 32)]);
+  }
+  return out;
+}
+
+// Bilinear sample of a south-to-north n x n grid at fractional (x, y) in [0, n-1]
+function heatSample(vals, n, x, y) {
+  const x0 = Math.min(n - 2, Math.floor(x)), y0 = Math.min(n - 2, Math.floor(y));
+  const fx = x - x0, fy = y - y0, a = y0 * n + x0;
+  return vals[a] * (1 - fx) * (1 - fy) + vals[a + 1] * fx * (1 - fy) + vals[a + n] * (1 - fx) * fy + vals[a + n + 1] * fx * fy;
+}
+
+// Smooth, contoured, edge-feathered ground map: values are interpolated first and coloured afterwards,
+// so the 80-150 cell grid does not show as blocks; iso-lines give a quantitative reading
+function renderHeatCanvas(m, n, mode) {
+  const S = Math.min(1024, n * 7);
+  const cv = document.createElement("canvas");
+  cv.width = S; cv.height = S;
+  const ctx = cv.getContext("2d");
+  const img = ctx.createImageData(S, S);
+  const [vmin, vmax] = heatRange(m), span = vmax - vmin;
+  const name = heatPaletteName(mode), bands = heatStyle.bands, thr = mode === "inr" ? heatStyle.threshold : null;
+  const rawStep = span / 8, mag = Math.pow(10, Math.floor(Math.log10(rawStep)));
+  const niceStep = [1, 2, 5, 10].map((k) => k * mag).reduce((a, b) => (Math.abs(b - rawStep) < Math.abs(a - rawStep) ? b : a));
+  const step = bands >= 2 ? span / bands : niceStep, origin = bands >= 2 ? vmin : 0;   // lines on the band edges
+  const level = new Float32Array(S * S);
+  for (let row = 0; row < S; row++) {
+    const gy = (1 - row / (S - 1)) * (n - 1);          // image row 0 is north
+    for (let col = 0; col < S; col++) level[row * S + col] = heatSample(m.values, n, (col / (S - 1)) * (n - 1), gy);
+  }
+  const feather = S * 0.06, cell = (x) => Math.floor((x - origin) / step);
+  const levels = Array.isArray(m.levels) ? m.levels : null;          // footprint maps: contours at fixed dB below the peak
+  const crosses = (L, v, o) => (v >= L) !== (o >= L);
+  for (let row = 0; row < S; row++) {
+    for (let col = 0; col < S; col++) {
+      const i = row * S + col, v = level[i];
+      const t = (v - vmin) / span;
+      let [r, g, b] = heatRGB(t, name);
+      let a = heatStyle.opacity * (0.62 + 0.38 * Math.min(1, Math.max(0, t)));
+      const edge = Math.min(row, col, S - 1 - row, S - 1 - col);
+      a *= Math.min(1, edge / feather);               // fade out at the border: no hard square on the globe
+      if (m.fade_below !== undefined) a *= Math.min(1, Math.max(0, (v - m.fade_below) / (0.15 * span)));   // only the beam
+      const right = col < S - 1 ? level[i + 1] : v, down = row < S - 1 ? level[i + S] : v;
+      const left = col > 0 ? level[i - 1] : v, up = row > 0 ? level[i - S] : v;
+      if (levels) {
+        const edgeAt = (L) => crosses(L, v, right) || crosses(L, v, down);
+        if (m.bold !== undefined && (edgeAt(m.bold) || crosses(m.bold, v, left) || crosses(m.bold, v, up))) {
+          r = 255; g = 255; b = 255; a = 1;           // the -3 dB contour: the edge of the beam
+        } else if (heatStyle.isolines && levels.some(edgeAt)) {
+          r = r * 0.45 + 255 * 0.55; g = g * 0.45 + 255 * 0.55; b = b * 0.45 + 255 * 0.55; a = Math.max(a, 0.75);
+        }
+      } else if (heatStyle.isolines && (cell(v) !== cell(right) || cell(v) !== cell(down))) {
+        r = r * 0.55 + 255 * 0.45; g = g * 0.55 + 255 * 0.45; b = b * 0.55 + 255 * 0.45; a = Math.min(1, a + 0.2);
+      }
+      if (thr !== null && ((v >= thr) !== (right >= thr) || (v >= thr) !== (down >= thr))) { r = 0; g = 229; b = 255; a = 1; }
+      const o = i * 4;
+      img.data[o] = r; img.data[o + 1] = g; img.data[o + 2] = b; img.data[o + 3] = Math.round(255 * a);
+    }
+  }
+  ctx.putImageData(img, 0, 0);
+  return cv;
+}
+
+// Called by Qt (View panel > Heat map) with a JSON from core/heat_style.HeatStyle.to_js(); redraws the visible map
+function setHeatStyle(style) {
+  const s = typeof style === "string" ? JSON.parse(style) : (style || {});
+  const num = (v) => (v === null || v === undefined || v === "" || !isFinite(Number(v)) ? null : Number(v));
+  if (typeof s.palette === "string") heatStyle.palette = HEAT_RGB[s.palette] ? s.palette : "auto";
+  if ("reverse" in s) heatStyle.reverse = !!s.reverse;
+  if ("vmin" in s || "vmax" in s) { heatStyle.vmin = num(s.vmin); heatStyle.vmax = num(s.vmax); }
+  if ("opacity" in s) heatStyle.opacity = Math.min(1, Math.max(0.2, num(s.opacity) ?? 0.85));
+  if ("isolines" in s) heatStyle.isolines = !!s.isolines;
+  if ("bands" in s) { const b = Math.floor(num(s.bands) ?? 0); heatStyle.bands = b < 2 ? 0 : Math.min(16, b); }
+  if ("threshold" in s) heatStyle.threshold = num(s.threshold);
+  if (heat.mode) setHeat(heat.mode);
 }
 
 function setHeat(mode) {
@@ -624,19 +759,7 @@ function setHeat(mode) {
   publishLegend();
   if (!m) { viewer.scene.requestRender(); return; }
   const n = src.n;
-  const cv = document.createElement("canvas");
-  cv.width = n; cv.height = n;
-  const ctx = cv.getContext("2d");
-  const img = ctx.createImageData(n, n);
-  for (let row = 0; row < n; row++) {                 // values are south-to-north, the image is north-up
-    for (let col = 0; col < n; col++) {
-      const v = m.values[(n - 1 - row) * n + col];
-      const [r, g, b] = jetRGB((v - m.vmin) / (m.vmax - m.vmin));
-      const o = (row * n + col) * 4;
-      img.data[o] = r; img.data[o + 1] = g; img.data[o + 2] = b; img.data[o + 3] = 165;
-    }
-  }
-  ctx.putImageData(img, 0, 0);
+  const cv = renderHeatCanvas(m, n, heat.mode);
   heat.ent = viewer.entities.add({
     name: "Heat map: " + m.title,
     rectangle: {
@@ -644,7 +767,13 @@ function setHeat(mode) {
       material: new Cesium.ImageMaterialProperty({ image: cv.toDataURL("image/png"), transparent: true }),
     },
   });
-  setStatus(`${m.title}: ${m.vmin.toFixed(0)} to ${m.vmax.toFixed(0)} ${m.unit} (free space, nominal full power${src.freq_mhz ? ", " + src.freq_mhz + " MHz" : ""})`);
+  const [lo, hi] = heatRange(m);
+  if (m.levels) {
+    setStatus(`${m.title}: peak ${hi.toFixed(1)} ${m.unit}; contours -3 (white), -6, -10, -15, -20 dB below the peak`);
+    viewer.scene.requestRender();
+    return;
+  }
+  setStatus(`${m.title}: ${lo.toFixed(0)} to ${hi.toFixed(0)} ${m.unit} (free space, nominal full power${src.freq_mhz ? ", " + src.freq_mhz + " MHz" : ""})`);
   viewer.scene.requestRender();
 }
 
@@ -1003,7 +1132,15 @@ function renderSingleSpaceStationScene(scene) {
   if (window.pyBridge && window.pyBridge.set_satellite) {
     window.pyBridge.set_satellite(JSON.stringify(scene.footprint ? scene.footprint.summary : null));
   }
-  if (heat.mode) setHeat(heat.mode);
+  if (scene.show_heat && heat.sat && heat.sat.maps[scene.show_heat]) {   // "Show gain map" in the View panel
+    heat.fromCheckbox = true;
+    setHeat(scene.show_heat);
+  } else if (heat.fromCheckbox) {                     // the checkbox was turned off: take its map away
+    heat.fromCheckbox = false;
+    setHeat("");
+  } else if (heat.mode) {
+    setHeat(heat.mode);
+  }
   if (scene.lobe) {                                   // 3D gain lobe of the satellite antenna (nadir-pointing)
     const lobe = addModel("Satellite antenna lobe", scene.lobe.uri, satWorld, 0, -90,
       { scale: aimAt ? Cesium.Cartesian3.distance(satWorld, aimAt) : Math.max(sat.alt_m, 20000), maximumScale: 4e7 });
@@ -1991,8 +2128,70 @@ function renderComposite(scene) {
   setStatus((scene.topology_type || '') + ': ' + imtCount + ' IMT entities' + (scene.system ? ' + victim system' : ''));
 }
 
+// ── Protection contour (Protection Contour page): one curve per BS off-axis angle around the protected station, clamped
+//    to the terrain, with violated ray ends and the end of the rays. Lives in its own data source, so it survives the
+//    scene redraws (`viewer.entities.removeAll()`). Data: core/contour_scene.payload().
+const contour = { ds: null, data: null };
+
+function contourSource() {
+  if (!contour.ds) {
+    contour.ds = new Cesium.CustomDataSource("Protection contour");
+    viewer.dataSources.add(contour.ds);
+  }
+  return contour.ds;
+}
+
+function clearContour() {
+  contour.data = null;
+  if (contour.ds) contour.ds.entities.removeAll();
+  viewer.scene.requestRender();
+}
+
+function setContour(payload, fly) {
+  const d = typeof payload === "string" ? JSON.parse(payload) : payload;
+  const ds = contourSource();
+  ds.entities.removeAll();
+  contour.data = d;
+  if (!d) { viewer.scene.requestRender(); return; }
+  d.curves.forEach((c, i) => {
+    const color = Cesium.Color.fromCssColorString(c.color);
+    const positions = Cesium.Cartesian3.fromDegreesArray(c.points.flat());
+    ds.entities.add({ name: c.label, polyline: { positions, width: 3, material: color, clampToGround: true } });
+    if (i === 0 && c.points.length > 3) {              // the first curve (usually off-axis 0) as a translucent area
+      ds.entities.add({ name: c.label + " (area)",
+        polygon: { hierarchy: new Cesium.PolygonHierarchy(positions), material: color.withAlpha(0.16), classificationType: Cesium.ClassificationType.TERRAIN } });
+    }
+  });
+  if (d.ray_ends && d.ray_ends.length > 2) {
+    ds.entities.add({ name: "End of the rays",
+      polyline: { positions: Cesium.Cartesian3.fromDegreesArray(d.ray_ends.flat()), width: 1.5, clampToGround: true,
+                  material: new Cesium.PolylineDashMaterialProperty({ color: Cesium.Color.WHITE.withAlpha(0.55) }) } });
+  }
+  (d.violated || []).forEach((v) => {
+    ds.entities.add({ name: "Criterion still violated at the end of this ray (off-axis " + v.off_axis_deg + ")",
+      position: Cesium.Cartesian3.fromDegrees(v.lon, v.lat),
+      point: { pixelSize: 9, color: Cesium.Color.fromCssColorString(v.color), outlineColor: Cesium.Color.WHITE, outlineWidth: 2,
+               heightReference: Cesium.HeightReference.CLAMP_TO_GROUND, disableDepthTestDistance: Number.POSITIVE_INFINITY } });
+  });
+  ds.entities.add({ name: d.station.name,
+    position: Cesium.Cartesian3.fromDegrees(d.station.lon, d.station.lat),
+    point: { pixelSize: 11, color: Cesium.Color.BLACK, outlineColor: Cesium.Color.WHITE, outlineWidth: 2,
+             heightReference: Cesium.HeightReference.CLAMP_TO_GROUND, disableDepthTestDistance: Number.POSITIVE_INFINITY },
+    label: { text: d.station.name, font: "12px sans-serif", fillColor: Cesium.Color.WHITE, outlineColor: Cesium.Color.BLACK,
+             outlineWidth: 3, style: Cesium.LabelStyle.FILL_AND_OUTLINE, pixelOffset: new Cesium.Cartesian2(0, -18),
+             heightReference: Cesium.HeightReference.CLAMP_TO_GROUND, disableDepthTestDistance: Number.POSITIVE_INFINITY } });
+  if (fly !== false && d.bounds) {
+    const [w, s, e, n] = d.bounds, padX = Math.max((e - w) * 0.35, 0.02), padY = Math.max((n - s) * 0.35, 0.02);
+    viewer.camera.flyTo({ destination: Cesium.Rectangle.fromDegrees(w - padX, s - padY, e + padX, n + padY), duration: 1.2 });
+  }
+  setStatus(`Protection contour: ${d.curves.length} curve(s) around ${d.station.name}` +
+            (d.violated && d.violated.length ? `; ${d.violated.length} ray(s) still violate the criterion where they end` : ""));
+  viewer.scene.requestRender();
+}
+
 function renderScene(scene) {
   viewer.entities.removeAll();
+  showWarnings(scene.warnings);
   applyTerrain(scene.terrain || null);
   if (scene.composite && !scene.error) { clearSceneProblem(); renderComposite(scene); return; }
   if (scene.error) {

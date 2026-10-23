@@ -18,6 +18,21 @@ from sharc.model import Model
 sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 
 
+def _scenario_of_project(path):
+    """A `.sharc` project holds the engine YAML: write it to a temporary file and run that (the GUI writes absolute
+    paths for its data files, so the YAML does not depend on where it sits)."""
+    import tempfile
+    from sharc.gui.core.project_file import ProjectError, extract_scenario
+    name = os.path.splitext(os.path.basename(path))[0]
+    folder = tempfile.mkdtemp(prefix="sharc_project_")
+    try:
+        out = extract_scenario(path, os.path.join(folder, f"{name}.yaml"))
+    except ProjectError as exc:
+        sys.exit(f"Cannot open the project: {exc}")
+    print(f"Project {path}: running its scenario ({out})\n")
+    return out
+
+
 def main(argv):
     """
     Run the main entry point for the SHARC command-line interface.
@@ -36,12 +51,14 @@ def main(argv):
 
     parser = argparse.ArgumentParser(description="SHARC - Radio Sharing and Compatiblity Monte Carlo Simulator")
     parser.add_argument("-p", "--param-file", default=os.path.join(os.getcwd(), "input", "parameters.yaml"),
-                        help="Path to parameter file (default: input/parameters.yaml)")
+                        help="Path to the parameter file: a YAML, or a .sharc project (default: input/parameters.yaml)")
     parser.add_argument("-l", "--log-file", default=None,
                         help="Path to output log file (optional)")
 
     args = parser.parse_args(argv)
     param_file = os.path.join(os.getcwd(), args.param_file) if not os.path.isabs(args.param_file) else args.param_file
+    if param_file.lower().endswith(".sharc"):
+        param_file = _scenario_of_project(param_file)
 
     log_file = None
     if args.log_file is not None:

@@ -9,6 +9,7 @@ snapshots, so the run has ``N * num_subsets`` snapshots in total.
 The section is optional. Without a ``database`` section (or without
 ``database_file_name``) nothing is loaded and the simulation is unchanged.
 """
+import warnings
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
@@ -425,7 +426,7 @@ class ParametersDatabase(ParametersBase):
             eq. 6e; None without clutter_raster) and zone (radio-climatic zone
             per point, 1 = A1, 2 = A2, 3 = B; None without zone_raster).
         """
-        from sharc.propagation.real_terrain.grade_raster import GridRaster, height_lut
+        from sharc.propagation.real_terrain.grade_raster import CELPLAN_MAX_CLASS, GridRaster, height_lut
 
         lats_db = self._data_full["latitude"].to_numpy(dtype=float)
         lons_db = self._data_full["longitude"].to_numpy(dtype=float)
@@ -450,6 +451,7 @@ class ParametersDatabase(ParametersBase):
             if p452_params.zone_raster else None
 
         profiles = []
+        clutter_class_warned = False
         for lat, lon in zip(lats_db, lons_db):
             if step_m > 0:
                 length_km = _great_circle_km(ref_lat, ref_lon, lat, lon)
@@ -475,6 +477,14 @@ class ParametersDatabase(ParametersBase):
             clutter_m = None
             if land_cover is not None:
                 classes = np.clip(land_cover.sample(lats, lons, "nearest", fill=0).astype(int), 0, 255)
+                if p452_params.clutter_heights != "worldcover" and classes.max() > CELPLAN_MAX_CLASS \
+                        and not clutter_class_warned:
+                    clutter_class_warned = True
+                    warnings.warn(
+                        f"param_p452.clutter_raster has classes above {CELPLAN_MAX_CLASS} "
+                        f"(found {int(classes.max())}), which are not CelPlan classes: the "
+                        f"'{p452_params.clutter_heights}' table gives them 0 m. For the ESA WorldCover land "
+                        "cover downloaded by SHARC use param_p452.clutter_heights: worldcover.", stacklevel=2)
                 # no clutter within 50 m of either terminal (P.452-18 eq. 6e)
                 away = (dist_km >= 0.05) & (dist_km <= dist_km[-1] - 0.05)
                 away[0] = away[-1] = False

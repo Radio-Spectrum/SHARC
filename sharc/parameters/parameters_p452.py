@@ -57,7 +57,9 @@ class ParametersP452(ParametersBase):
     # heights are added to the intermediate profile points (P.452-18 eq. 6e)
     # and used only in the Bullington part of the diffraction model.
     clutter_raster: str = ""
-    # Height table for clutter_raster: "celplan" or "p452_tab3".
+    # Height table for clutter_raster: "celplan" or "p452_tab3" (both for CelPlan
+    # classes 1-28), or "worldcover" (ESA WorldCover classes 10-100, the land
+    # cover that real_terrain.download_clutter writes).
     clutter_heights: str = "celplan"
     # Radio-climatic zone GeoTIFF (1 = A1 coastal land, 2 = A2 inland,
     # 3 = B sea). When set, the zones, the fraction over sea and Dct/Dcr come
@@ -81,8 +83,8 @@ class ParametersP452(ParametersBase):
             raise ValueError(f"{ctx}.profile_source must be 'mesh' or 'grid'")
         if self.profile_source == "grid" and not self.profile_raster:
             raise ValueError(f"{ctx}.profile_source 'grid' needs {ctx}.profile_raster")
-        if self.clutter_heights not in ("celplan", "p452_tab3"):
-            raise ValueError(f"{ctx}.clutter_heights must be 'celplan' or 'p452_tab3'")
+        if self.clutter_heights not in ("celplan", "p452_tab3", "worldcover"):
+            raise ValueError(f"{ctx}.clutter_heights must be 'celplan', 'p452_tab3' or 'worldcover'")
         if isinstance(self.profile_step_m, bool) or not isinstance(self.profile_step_m, (int, float)) \
                 or self.profile_step_m < 0:
             raise ValueError(f"{ctx}.profile_step_m must be a non-negative number")

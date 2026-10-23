@@ -130,3 +130,54 @@ def test_session_save_and_load_keeps_database_options(win):
     assert win.p452_override_from_db.get() in (True, "True")
     assert win.p452_profile_source.get() == "grid" and win.p452_profile_raster.get() == "dem.tif"
     assert float(win.se_loc_geo_lat.get()) == -12.5
+
+
+def test_use_loaded_terrain_fills_grid_profiles_and_worldcover_heights(win, tmp_path, monkeypatch):
+    from pathlib import Path
+    from types import SimpleNamespace
+    from core.yaml_builder import build_yaml_structure
+    section = win.tab_station.chan_section
+    win.var_system.set("SINGLE_EARTH_STATION")
+    win.se_channel_model.set("P452")
+    win.p452_override_from_db.set(True)
+
+    # nothing loaded: says so and changes nothing
+    monkeypatch.setattr(win.tab_terrain, "active", None, raising=False)
+    win.p452_profile_source.set("mesh")
+    assert section.use_loaded_terrain() is False
+    assert win.p452_profile_source.get() == "mesh"
+
+    import numpy as np
+    import rasterio
+    from rasterio.transform import from_origin
+    kw = dict(driver="GTiff", height=60, width=60, count=1, crs="EPSG:4326", transform=from_origin(-39.0, -3.0, 0.01, 0.01))
+    land = np.full((60, 60), 10, dtype=np.uint8)
+    land[:, :15] = 80                                         # sea on the west side
+    with rasterio.open(tmp_path / "clutter.tif", "w", dtype="uint8", **kw) as ds:
+        ds.write(land, 1)
+    with rasterio.open(tmp_path / "terrain.tif", "w", dtype="float32", **kw) as ds:
+        ds.write(np.full((60, 60), 20.0, dtype=np.float32), 1)
+    tset = SimpleNamespace(folder=tmp_path, terrain=tmp_path / "terrain.tif", clutter=tmp_path / "clutter.tif",
+                           bbox=(-39.0, -3.6, -38.4, -3.0), ready=True)
+    monkeypatch.setattr(win.tab_terrain, "active", tset, raising=False)
+    assert section.use_loaded_terrain() is True
+    assert win.p452_profile_source.get() == "grid"
+    assert win.p452_clutter_heights.get() == "worldcover"
+    blk = build_yaml_structure(win)["single_earth_station"]["param_p452"]
+    assert blk["profile_raster"].endswith("terrain.tif") and blk["clutter_raster"].endswith("clutter.tif")
+    assert blk["clutter_heights"] == "worldcover"
+    assert blk["zone_raster"].endswith("zones.tif") and (tmp_path / "zones.tif").is_file()
+    with rasterio.open(tmp_path / "zones.tif") as z:
+        assert set(np.unique(z.read(1))) >= {2, 3}            # inland and sea cells were derived
+
+    # a station outside the downloaded region is reported
+    win.se_loc_geo_lat.set(-3.3)
+    win.se_loc_geo_lon.set(-38.7)
+    assert section.coverage_problem() == ""
+    win.se_loc_geo_lat.set(10.0)
+    assert "does not cover" in section.coverage_problem()
+    assert any("does not cover" in m for m in section.database_requirements())
+
+    # the downloaded land cover with a CelPlan table is flagged, not silently accepted
+    win.p452_clutter_heights.set("celplan")
+    assert any("worldcover" in m for m in section.database_requirements())

@@ -59,11 +59,20 @@ def main() -> int:
 
     def fly():
         page.runJavaScript(
-            "viewer.camera.setView({destination: Cesium.Cartesian3.fromDegrees(-47.88, -15.80, %f),"
-            " orientation: {heading: 0.0, pitch: Cesium.Math.toRadians(%f), roll: 0.0}});" % (alt, pitch))
+            "viewer.camera.setView({destination: Cesium.Cartesian3.fromDegrees(%f, %f, %f),"
+            " orientation: {heading: 0.0, pitch: Cesium.Math.toRadians(%f), roll: 0.0}});"
+            % (float(os.environ.get("SHARC_SHOT_LON", -47.88)), float(os.environ.get("SHARC_SHOT_LAT", -15.80)), alt, pitch))
+
+    def hud_status(text):
+        print("HUD STATUS:", text, flush=True)
+        if "render failed" in str(text) or "scene error" in str(text):
+            print("RENDER FAILED", flush=True)
+            os._exit(3)
 
     def errors():
         page.runJavaScript("JSON.stringify(window.__errs || [])", lambda r: print("PAGE ERRORS:", r))
+        # the app catches render errors and only prints them in the HUD: a capture of a broken scene must not pass
+        page.runJavaScript("document.getElementById('status').textContent", hud_status)
 
     def shot():
         img = app.primaryScreen().grabWindow(0) if os.environ.get("SHARC_SHOT_SCREEN") else win.grab()

@@ -12,9 +12,11 @@ from PySide6.QtCore import QPointF, QRectF, Qt
 from PySide6.QtGui import QColor, QFont, QLinearGradient, QPainter, QPen
 from PySide6.QtWidgets import QWidget
 
-# Same rainbow stops as core/gain_lobe.jet and the heat-map canvas (cold to hot)
+# Same rainbow stops as core/gain_lobe.jet (antenna lobes; cold to hot)
 STOPS = [(0.0, "#00007f"), (0.12, "#0000ff"), (0.37, "#00ffff"), (0.5, "#00ff00"), (0.63, "#ffff00"),
          (0.88, "#ff0000"), (1.0, "#7f0000")]
+# Items from the 3D view may carry their own `stops` ([[position 0..1, '#rrggbb'], ...]), e.g. the heat map in the
+# palette the user chose (View panel > Heat map); the others use the rainbow above.
 COL_W, BAR_W, BAR_H, PAD = 168, 18, 190, 14
 
 
@@ -67,7 +69,8 @@ class LegendPanel(QWidget):
             top = 64.0
             bar = QRectF(x0, top, BAR_W, BAR_H)
             grad = QLinearGradient(0, bar.bottom(), 0, bar.top())
-            for pos, col in STOPS:
+            stops = [(float(p), c) for p, c in item["stops"]] if item.get("stops") else STOPS
+            for pos, col in stops:
                 grad.setColorAt(pos, QColor(col))
             p.setPen(Qt.NoPen)
             p.setBrush(grad)

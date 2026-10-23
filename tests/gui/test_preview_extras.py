@@ -39,7 +39,7 @@ def test_links_carry_a_consistent_link_budget(win):
 def test_serving_station_is_the_strongest_one(win):
     _scene(win)
     from core import engine_scene as eng, gain_lobe, heatmap
-    es = list(eng._CACHE.values())[-1]
+    es = eng.build_engine_scene(win.tab_preview._current_yaml())     # the cache keeps old entries in place on a hit
     link = preview_extras.links(es)[0]
     data = gain_lobe.sample_bs_gain(es)
     ux, uy, uz = link["ue_xyz"]

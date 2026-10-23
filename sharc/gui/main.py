@@ -32,7 +32,7 @@ from managers import ssh_runner
 # Import Tabs
 from ui.tabs import (
     GeneralTab, IMTTab, VictimTab, PreviewTab,
-    RunnerTab, ResultsTab, SingleEarthStationTab, DatabaseTab, TerrainTab
+    RunnerTab, ResultsTab, SingleEarthStationTab, DatabaseTab, TerrainTab, ContourTab
 )
 from ui.tabs.ssh_config import SSHTunnelTab
 from ui.shell.workbench import WorkbenchMixin, ResponsiveScrollArea  # noqa: F401
@@ -118,6 +118,7 @@ class App(WorkbenchMixin, QMainWindow):
             ("ssh",     "SSH Connection",     SSHTunnelTab,          "mdi.lan-connect",         "operations"),
             ("runner",  "Execution Engine",   RunnerTab,             "mdi.console-line",        "operations"),
             ("results", "Analysis & Results", ResultsTab,            "mdi.chart-bell-curve-cumulative", "operations"),
+            ("contour", "Protection Contour", ContourTab,          "mdi.radar",               "operations"),
         ]
         self._section_titles = {
             "configuration": "CONFIGURATION",
@@ -165,6 +166,10 @@ class App(WorkbenchMixin, QMainWindow):
 
         self._refresh_sidebar_items()
         self._switch_page("general", "General Settings")
+
+        from core.project_service import ProjectService
+        self.projects = ProjectService(self)
+        QTimer.singleShot(0, self._start_projects)
 
         from ui.shell.preferences import apply_saved_appearance
         apply_saved_appearance(self)
@@ -241,6 +246,29 @@ class App(WorkbenchMixin, QMainWindow):
         # --- File ---
         m_file = menubar.addMenu("File")
 
+        act_new = QAction("New Project", self)
+        act_new.setShortcut("Ctrl+N")
+        act_new.triggered.connect(self.new_project)
+        m_file.addAction(act_new)
+        act_open_proj = QAction("Open Project...", self)
+        act_open_proj.setShortcut("Ctrl+O")
+        act_open_proj.triggered.connect(self.open_project_dialog)
+        m_file.addAction(act_open_proj)
+        self.menu_recent = m_file.addMenu("Open Recent")
+        self.menu_recent.aboutToShow.connect(self._fill_recent_menu)
+        act_save_proj = QAction("Save Project", self)
+        act_save_proj.setShortcut("Ctrl+S")
+        act_save_proj.triggered.connect(self.save_project)
+        m_file.addAction(act_save_proj)
+        act_save_as = QAction("Save Project As...", self)
+        act_save_as.setShortcut("Ctrl+Shift+S")
+        act_save_as.triggered.connect(self.save_project_as)
+        m_file.addAction(act_save_as)
+        act_manager = QAction("Project Manager...", self)
+        act_manager.triggered.connect(self.show_project_manager)
+        m_file.addAction(act_manager)
+        m_file.addSeparator()
+
         act_save = QAction("Save Snapshot (Current State)...", self)
         act_save.triggered.connect(self.save_yaml_dialog_multicombos)
         m_file.addAction(act_save)
@@ -268,6 +296,11 @@ class App(WorkbenchMixin, QMainWindow):
         act_open_results = QAction("Open Results Folder", self)
         act_open_results.triggered.connect(self._open_results_folder)
         m_file.addAction(act_open_results)
+
+        act_export_figs = QAction("Export Publication Figures", self)
+        act_export_figs.setShortcut("Ctrl+Shift+E")
+        act_export_figs.triggered.connect(self._export_publication_figures)
+        m_file.addAction(act_export_figs)
 
         m_file.addSeparator()
 
@@ -463,6 +496,147 @@ class App(WorkbenchMixin, QMainWindow):
         if not os.path.exists(log_dir):
             os.makedirs(log_dir, exist_ok=True)
         QDesktopServices.openUrl(QUrl.fromLocalFile(log_dir))
+
+    def _export_publication_figures(self):
+        """Save the preview heat maps and PSD/CDF plots as 300 dpi PNG plus vector PDF/SVG."""
+        import json
+        from core import figure_export
+        embed = getattr(getattr(self, "tab_preview", None), "_cesium_embed", None)
+        raw = getattr(getattr(embed, "bridge", None), "last_scene", None)
+        try:
+            scene = json.loads(raw) if raw else None
+        except ValueError:
+            scene = None
+        if not scene:
+            self.statusBar().showMessage("Open the 3D preview first: there is no scene to export.", 8000)
+            return
+        folder = os.environ.get("SHARC_SCREENSHOT_DIR") or os.path.join(
+            os.path.expanduser("~"), "Pictures", "SHARC")
+        folder = os.path.join(folder, "figures")
+        try:
+            from core.heat_style import load_style
+            paths = figure_export.export_figures(scene, folder, style=load_style())
+        except Exception as exc:  # noqa: BLE001 - report, never crash the GUI
+            self.statusBar().showMessage(f"Figure export failed: {exc}", 10000)
+            return
+        if not paths:
+            self.statusBar().showMessage("The scene has no heat maps or plots to export.", 8000)
+            return
+        self.statusBar().showMessage(f"Saved {len(paths)} figure files in {folder}", 12000)
+        if not os.environ.get("SHARC_GUI_NO_RESTORE"):
+            QDesktopServices.openUrl(QUrl.fromLocalFile(folder))
+
+    # ------------------------------------------------------------ projects (.sharc)
+    def _start_projects(self):
+        """Once the pages exist: remember the starting values, show the project in the title, open the file given on the
+        command line (a double-clicked .sharc)."""
+        self.projects.snapshot_defaults()
+        self._project_timer = QTimer(self)
+        self._project_timer.timeout.connect(self._refresh_project_title)
+        self._project_timer.start(1500)
+        self._refresh_project_title()
+        paths = [a for a in sys.argv[1:] if a.lower().endswith(".sharc") and os.path.isfile(a)]
+        if paths and not os.environ.get("SHARC_GUI_NO_RESTORE"):
+            self.open_project(paths[0])
+
+    def _refresh_project_title(self):
+        title = f"{self.projects.title()} \u2013 SHARC"
+        if self.windowTitle() != title:
+            self.setWindowTitle(title)
+
+    def _fill_recent_menu(self):
+        self.menu_recent.clear()
+        items = self.projects.recent()
+        if not items:
+            self.menu_recent.addAction("(no recent projects)").setEnabled(False)
+            return
+        for item in items:
+            act = self.menu_recent.addAction(f"{item.get('name', '')}   {item['path']}")
+            act.triggered.connect(lambda _=False, p=item["path"]: self.open_project(p))
+
+    def _confirm_discard(self) -> bool:
+        """True when it is fine to leave the current project: nothing unsaved, or the user chose Save / Discard."""
+        if not self.projects.is_dirty() or os.environ.get("SHARC_GUI_NO_RESTORE"):
+            return True
+        box = QMessageBox(QMessageBox.Question, "Unsaved changes",
+                          f"Save the changes of \"{self.projects.name}\" first?",
+                          QMessageBox.Save | QMessageBox.Discard | QMessageBox.Cancel, self)
+        choice = box.exec()
+        if choice == QMessageBox.Cancel:
+            return False
+        if choice == QMessageBox.Save:
+            return self.save_project()
+        return True
+
+    def new_project(self) -> bool:
+        if not self._confirm_discard():
+            return False
+        self.projects.new_project()
+        self._refresh_project_title()
+        self._safe_log("[PROJECT] New project")
+        return True
+
+    def open_project_dialog(self) -> bool:
+        path, _ = QFileDialog.getOpenFileName(self, "Open SHARC project", self._project_folder(),
+                                              "SHARC projects (*.sharc);;All files (*)")
+        return bool(path) and self.open_project(path)
+
+    def open_project(self, path: str) -> bool:
+        from core.project_file import ProjectError
+        if not self._confirm_discard():
+            return False
+        try:
+            report = self.projects.open(path)
+        except ProjectError as exc:
+            QMessageBox.warning(self, "Open project", str(exc))
+            self._safe_log(f"[PROJECT] Could not open {path}: {exc}")
+            return False
+        self._refresh_project_title()
+        extra = f" ({len(report['skipped'])} values from a different SHARC version were skipped)" if report["skipped"] else ""
+        self._safe_log(f"[PROJECT] Opened {path}{extra}")
+        self.statusBar().showMessage(f"Opened {path}{extra}", 8000)
+        return True
+
+    def _project_folder(self) -> str:
+        if self.projects.path:
+            return os.path.dirname(self.projects.path)
+        return os.path.join(os.path.expanduser("~"), "Documents", "SHARC")
+
+    def save_project(self) -> bool:
+        if not self.projects.path:
+            return self.save_project_as()
+        return self._save_project_to(None)
+
+    def save_project_as(self) -> bool:
+        start = os.path.join(self._project_folder(), f"{self.projects.name}.sharc")
+        path, _ = QFileDialog.getSaveFileName(self, "Save SHARC project", start, "SHARC projects (*.sharc)")
+        return bool(path) and self._save_project_to(path)
+
+    def _save_project_to(self, path) -> bool:
+        from core.project_file import ProjectError
+        try:
+            saved = self.projects.save(path)
+        except (ProjectError, OSError) as exc:
+            QMessageBox.warning(self, "Save project", str(exc))
+            self._safe_log(f"[PROJECT] Could not save: {exc}")
+            return False
+        self._refresh_project_title()
+        self._safe_log(f"[PROJECT] Saved {saved}")
+        self.statusBar().showMessage(f"Saved {saved}", 6000)
+        return True
+
+    def show_project_manager(self):
+        from ui.shell.project_dialog import ProjectDialog
+        ProjectDialog(self).exec()
+        self._refresh_project_title()
+
+    def closeEvent(self, event):  # noqa: N802 (Qt override)
+        tray = getattr(self, "tray", None)
+        leaving = tray is None or not tray.available or tray._quitting      # minimizing to the tray is not leaving
+        if leaving and not self._confirm_discard():
+            event.ignore()
+            return
+        super().closeEvent(event)
 
     def _clear_runner_log(self):
         if hasattr(self, 'tab_runner') and hasattr(self.tab_runner, 'text_log'):

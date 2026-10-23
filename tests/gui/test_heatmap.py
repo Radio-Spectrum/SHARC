@@ -18,6 +18,12 @@ for _p in (os.path.join(_REPO, "sharc", "gui"), _REPO):
 from core import heatmap  # noqa: E402
 
 
+def current_engine_scene(win):
+    """Engine scene of the YAML now in the GUI. `eng._CACHE` keeps an old entry in place on a hit, so its last item is not it."""
+    from core import engine_scene as eng
+    return eng.build_engine_scene(win.tab_preview._current_yaml())
+
+
 def _scene(win):
     st = win.tab_imt.state
     for key, val in {"topo_type": "MACROCELL", "macro_intersite": "800", "macro_clusters": "1"}.items():
@@ -37,8 +43,7 @@ def test_scene_carries_three_heat_maps_with_geo_bounds(win):
 
 def test_power_falls_with_distance_from_the_nearest_base_station(win):
     _scene(win)
-    from core import engine_scene as eng
-    es = list(eng._CACHE.values())[-1]
+    es = current_engine_scene(win)
     heat = heatmap.compute(es)
     n = heat["n"]
     power = np.array(heat["maps"]["power"]["values"]).reshape(n, n)
@@ -54,8 +59,7 @@ def test_power_falls_with_distance_from_the_nearest_base_station(win):
 
 def test_aggregate_is_never_below_the_strongest_single_station_psd(win):
     _scene(win)
-    from core import engine_scene as eng
-    es = list(eng._CACHE.values())[-1]
+    es = current_engine_scene(win)
     heat = heatmap.compute(es)
     p = es.params.imt
     shift = 10 * np.log10(float(p.bandwidth))                    # total power -> per-MHz density
@@ -66,11 +70,81 @@ def test_aggregate_is_never_below_the_strongest_single_station_psd(win):
 
 def test_inr_is_psd_minus_noise_floor(win):
     _scene(win)
-    from core import engine_scene as eng
-    es = list(eng._CACHE.values())[-1]
+    es = current_engine_scene(win)
     heat = heatmap.compute(es)
     psd = np.array(heat["maps"]["psd"]["values"])
     inr = np.array(heat["maps"]["inr"]["values"])
     diff = psd - inr
     assert np.allclose(diff, diff[0], atol=0.2)                  # constant offset = victim noise PSD
     assert -125.0 < diff[0] < -100.0                             # about -114 dBm/MHz at 290 K
+
+
+def test_heat_map_lists_base_stations_for_figures(win):
+    heat = _scene(win)["heat"]
+    assert heat["n"] >= 100 and len(heat["bs_km"]) > 0
+    assert all(len(p) == 2 for p in heat["bs_km"])
+
+
+def _engine_scene(win):
+    _scene(win)
+    return current_engine_scene(win)
+
+
+def test_free_space_loss_matches_the_engine_propagation_class(win):
+    from core import gain_lobe
+    from sharc.propagation.propagation_free_space import PropagationFreeSpace
+    es = _engine_scene(win)
+    data = gain_lobe.sample_bs_gain(es)
+    px = np.array([100.0, -350.0, 900.0])
+    py = np.array([40.0, 700.0, -250.0])
+    _, _, _, fspl, dist = heatmap.levels(es, data, px, py, 1.5)
+    f = float(es.params.imt.frequency)
+    ref = PropagationFreeSpace(np.random.RandomState(1)).get_free_space_loss(frequency=f, distance=dist)
+    assert np.allclose(fspl, ref, atol=0.05)
+
+
+def test_sector_gain_matches_the_engine_antenna_toward_each_receiver(win):
+    import copy
+    from core import gain_lobe
+    es = _engine_scene(win)
+    data = gain_lobe.sample_bs_gain(es)
+    g = es.bs.geom
+    rng = np.random.RandomState(7)
+    k = 5
+    bx, by, bz = float(g.x_global[k]), float(g.y_global[k]), float(g.z_global[k])
+    px, py = bx + rng.uniform(-900, 900, 150), by + rng.uniform(-900, 900, 150)
+    _, _, gain, _, _ = heatmap.levels(es, data, px, py, 1.5)
+    az, el = float(g.pointn_azim_global[k]), float(g.pointn_elev_global[k])
+    ant = copy.deepcopy(es.bs.antenna[k])                          # each sector antenna is mounted with its own orientation
+    ant.beams_list, ant.w_vec_list = [], []
+    if hasattr(ant, "co_correction_factor_list"):
+        ant.co_correction_factor_list = []
+    ant.add_beam(az, 90.0 - el)
+    phi = np.degrees(np.arctan2(py - by, px - bx))
+    theta = 90.0 - np.degrees(np.arctan2(1.5 - bz, np.hypot(px - bx, py - by)))
+    direct = np.asarray(ant.calculate_gain(phi_vec=phi, theta_vec=theta, beams_l=np.zeros(phi.size, dtype=int)), float)
+    err = np.abs(gain[:, k] - direct)
+    assert np.percentile(err, 90) < 1.5 and err.max() < 6.0        # grid interpolation only, at 3 x 2.5 deg steps
+
+
+def test_eirp_and_noise_budget_close_by_hand(win):
+    from core import gain_lobe
+    es = _engine_scene(win)
+    data = gain_lobe.sample_bs_gain(es)
+    p = es.params.imt
+    psd_m, power_m, gain, fspl, _ = heatmap.levels(es, data, np.array([250.0]), np.array([120.0]), 1.5)
+    eirp = float(p.bs.conducted_power) - float(p.bs.ohmic_loss)
+    assert np.allclose(power_m, eirp + gain - fspl)
+    assert np.allclose(psd_m, power_m - 10 * np.log10(float(p.bandwidth)))
+
+
+def test_gui_downtilt_reaches_the_engine_and_changes_the_ground_map(win):
+    st = win.tab_imt.state
+    values = {}
+    for tilt in ("0", "10"):
+        st.get("bs_downtilt").set(tilt)
+        _scene(win)
+        es = current_engine_scene(win)
+        assert np.allclose(es.bs.geom.pointn_elev_global, -float(tilt))
+        values[tilt] = np.array(heatmap.compute(es)["maps"]["power"]["values"])
+    assert not np.allclose(values["0"], values["10"])          # a tilted beam lights the ground differently

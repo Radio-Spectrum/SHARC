@@ -292,6 +292,11 @@ class Geometry3DMixin:
         if HAS_SHARC_CORE and StationFactory and ParametersSingleSpaceStation:
             try:
                 p_ss = ParametersSingleSpaceStation()
+                # the factory computes tx power from these; unset (None) made every preview satellite fail
+                p_ss.bandwidth = _get_app_var("v_bw", 20.0)
+                p_ss.tx_power_density = _get_app_var("v_txpsd", -30.0)
+                p_ss.noise_temperature = _get_app_var("v_tnoise", 290.0)
+                p_ss.frequency = _get_app_var("v_freq", 2170.0)
                 try:
                     p_ss.geometry.altitude = ss_alt
                 except (AttributeError, TypeError, ValueError):
@@ -311,13 +316,36 @@ class Geometry3DMixin:
                     p_ss.antenna.pattern = pat_name
                 except (AttributeError, TypeError, ValueError):
                     pass
+                # the factory needs the user's antenna parameters (S.672 without Ls fails), so fill them from the editor
+                try:
+                    from core.antenna_service import block_values, parameters_for
+                    block = self.app.tab_victim.ant_section.editor.to_yaml()
+                    pat = str(block.get("pattern", ""))
+                    # the factory builds MODIFIED S.465 with the wrong class; the real one is built below
+                    p_ss.antenna = parameters_for("OMNI" if pat == "MODIFIED ITU-R S.465" else pat, block_values(block))
+                except AttributeError:
+                    pass  # no guided editor
+                except Exception as e:
+                    self.antenna_error = f"Antenna parameters not applied: {e}"
+                    self._report_scene_problem(self.antenna_error)
 
                 # sat_obj is used ONLY for the antenna object (gain map /
                 # beamwidth). Its .x/.y/.z are in a local ENU frame centred on
                 # the reference earth station, NOT the ECEF frame used to draw
                 # the globe, so they must never be used for positioning here.
                 sat_obj = StationFactory.generate_single_space_station(p_ss)
-            except Exception:
+                try:
+                    from core.antenna_service import build_antenna_from_block
+                    block = self.app.tab_victim.ant_section.editor.to_yaml()
+                    sat_obj.antenna = [build_antenna_from_block(block)]
+                except AttributeError:
+                    pass  # no guided editor: keep the factory antenna
+                except Exception as e:
+                    self.antenna_error = f"Antenna pattern not applied: {e}"
+                    self._report_scene_problem(self.antenna_error)
+            except Exception as e:
+                self.antenna_error = f"Satellite antenna unavailable: {e}"
+                self._report_scene_problem(self.antenna_error)
                 sat_obj = None
 
         # Position the satellite in the SAME ECEF frame as the globe and the

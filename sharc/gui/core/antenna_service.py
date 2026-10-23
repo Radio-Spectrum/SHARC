@@ -120,6 +120,15 @@ def build_antenna(pattern: str, values: Optional[Dict[str, Any]] = None):
         return AntennaModifiedS465(SimpleNamespace(
             antenna_gain=float(vals["antenna_gain"]),
             antenna_envelope_gain=float(vals["envelope_gain"])))
+    return AntennaFactory.create_antenna(parameters_for(pattern, vals), 0.0, 0.0)
+
+
+def parameters_for(pattern: str, values: Optional[Dict[str, Any]] = None):
+    """`ParametersAntenna` do motor para `pattern`, com os padrões de `PATTERN_SPECS` e os `values` por cima."""
+    from sharc.parameters.parameters_antenna import ParametersAntenna
+
+    spec = PATTERN_SPECS[pattern]
+    vals = {**defaults(pattern), **(values or {})}
     p = ParametersAntenna()
     p.pattern = pattern
     if spec.attr is None:                       # OMNI: ganho direto
@@ -132,7 +141,32 @@ def build_antenna(pattern: str, values: Optional[Dict[str, Any]] = None):
         # alguns padrões lêem o ganho do bloco-pai
         if "antenna_gain" in vals:
             p.gain = float(vals["antenna_gain"])
-    return AntennaFactory.create_antenna(p, 0.0, 0.0)
+    return p
+
+
+def block_values(block: Dict[str, Any]) -> Dict[str, Any]:
+    """Valores planos (`chave do motor -> número`) de um bloco `antenna` de YAML."""
+    pattern = str(block.get("pattern", ""))
+    spec = PATTERN_SPECS.get(pattern)
+    if spec is None:
+        raise ValueError(f"Unknown antenna pattern: {pattern!r}")
+    vals: Dict[str, Any] = {}
+    sub = block.get(spec.attr) if spec.attr else None
+    if isinstance(sub, dict):
+        vals.update({k: v for k, v in sub.items() if v is not None})
+    if spec.attr is None and block.get("gain") is not None:
+        vals["gain"] = block["gain"]
+    elif "antenna_gain" not in vals and block.get("gain") is not None:
+        vals["antenna_gain"] = block["gain"]
+    return vals
+
+
+def build_antenna_from_block(block: Dict[str, Any]):
+    """Cria a antena do motor a partir de um bloco `antenna` de YAML (`pattern`, `gain`, sub-blocos).
+
+    Levanta exceção se o padrão for desconhecido ou o motor recusar os parâmetros,
+    para o preview mostrar o erro em vez de cair numa parábola."""
+    return build_antenna(str(block.get("pattern", "")), block_values(block))
 
 
 def gain_at(antenna, off_axis_deg, theta_deg=None) -> np.ndarray:

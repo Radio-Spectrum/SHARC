@@ -29,3 +29,19 @@ def test_all_engine_patterns_with_params_are_listed():
     # padrões do motor que usam sub-parâmetros (ARRAY e ARRAY2 ficam fora: são arranjos IMT)
     for name in PATTERN_SPECS:
         assert f'"{name}"' in src, f"{name} não existe mais na fábrica do motor"
+
+
+def test_block_values_flatten_the_yaml_antenna_block():
+    from core.antenna_service import block_values, build_antenna_from_block
+    block = {"pattern": "ITU-R S.672", "gain": 40,
+             "itu_r_s_672": {"antenna_3_dB_bw": 1.5, "antenna_l_s": -20}}
+    assert block_values(block) == {"antenna_3_dB_bw": 1.5, "antenna_l_s": -20, "antenna_gain": 40}
+    g = gain_at(build_antenna_from_block(block), [0.0, 0.75])
+    assert abs((g[0] - g[1]) - 3.0) < 0.1                    # -3 dB at half the 3 dB beamwidth
+
+
+def test_unknown_pattern_raises_instead_of_falling_back():
+    import pytest
+    from core.antenna_service import build_antenna_from_block
+    with pytest.raises(ValueError):
+        build_antenna_from_block({"pattern": "NOT A PATTERN"})

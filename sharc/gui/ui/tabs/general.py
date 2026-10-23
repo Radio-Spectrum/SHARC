@@ -619,7 +619,13 @@ class GeneralTab(QWidget):
         count = 0
         prefix_tmpl = str(self.app.var_prefix.get())
 
+        # Presets applied while building a combination change the pages: each combination starts from the values the
+        # user has, and the window is put back at the end.
+        from core import project_state
+        original = project_state.capture(self.app)
+
         for combo in combinations:
+            project_state.apply_vars(self.app, original)
             final_structure = copy.deepcopy(base_structure)
             fname_vars = {}
             mapping_vars = {}
@@ -635,7 +641,7 @@ class GeneralTab(QWidget):
                         del external_data["config_type"]
 
                     if config_type == "IMT":
-                        self._apply_flat_to_app(external_data)
+                        self._apply_imt_preset(external_data)
                         final_structure["imt"] = build_yaml_structure(self.app).get("imt", {})
                     elif config_type in {"SSS", "SES", "SYSTEM", "SINGLE_EARTH_STATION", "SINGLE_SPACE_STATION", "MSS_SS", "MSS_D2D", "MSS_DC", "HAPS"}:
                         SESPersistence.apply_config(self.app, external_data)
@@ -674,6 +680,7 @@ class GeneralTab(QWidget):
                 final_structure["general"]["output_dir_prefix"] = base
                 fname = base if base.endswith(".yaml") else f"{base}.yaml"
             except KeyError as e:
+                project_state.apply_vars(self.app, original)
                 if not quiet:
                     QMessageBox.critical(self, "Error", f"Prefix requires variable {e}")
                 return generated
@@ -686,6 +693,8 @@ class GeneralTab(QWidget):
             generated.append(str(out_path))
             count += 1
 
+        project_state.apply_vars(self.app, original)
+
         if not quiet:
             QMessageBox.information(self, "Success", f"Generated {count} configuration files in {save_dir}")
         return generated
@@ -693,6 +702,24 @@ class GeneralTab(QWidget):
     # =========================================================================
     # Routing helpers
     # =========================================================================
+
+    def _apply_imt_preset(self, data: Dict[str, Any]) -> None:
+        """An IMT preset (.json) of the sweep, applied the way 'Load IMT Preset' does: into the IMT page state. (The IMT
+        values do not live on the window object, so `_apply_flat_to_app` silently ignored them.)"""
+        tab = getattr(self.app, "tab_imt", None)
+        variables = getattr(getattr(tab, "state", None), "vars", None)
+        if not isinstance(variables, dict):
+            return
+        for key, value in data.items():
+            if key in variables:
+                variables[key].set(value)
+        section = getattr(tab, "topo_section", None)
+        if section is not None:
+            section.toggle_visibility()
+            section._toggle_raster_state()
+            text = data.get("countries_text", data.get("countries"))
+            if text is not None:
+                section.set_countries_text(text)
 
     def _apply_flat_to_app(self, data: Dict[str, Any]) -> None:
         for k, v in data.items():

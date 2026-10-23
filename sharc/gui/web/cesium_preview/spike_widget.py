@@ -51,6 +51,7 @@ class PyBridge(QObject):
     def __init__(self, scene_provider: Optional[Callable[[str], str]] = None, parent=None):
         super().__init__(parent)
         self._scene_provider = scene_provider or _default_scene_provider
+        self.last_scene: Optional[str] = None
 
     @Slot(str)
     def ping(self, message: str) -> None:
@@ -116,7 +117,9 @@ class PyBridge(QObject):
     def get_scene(self, topology_type: str) -> str:
         """Return a SceneGraph for *topology_type* as JSON (see class docstring)."""
         try:
-            return self._scene_provider(topology_type)
+            scene = self._scene_provider(topology_type)
+            self.last_scene = scene               # kept for File > Export Publication Figures
+            return scene
         except Exception as e:
             print(f"[cesium_spike] get_scene({topology_type!r}) failed: {e}")
             return json.dumps({"error": str(e), "topology_type": topology_type})

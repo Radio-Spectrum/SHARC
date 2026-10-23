@@ -30,7 +30,12 @@ P452_TAB3_HEIGHTS = {1: 20, 10: 20,
                      4: 10, 5: 10, 6: 10,
                      8: 0, 11: 0, 13: 0, 16: 0, 17: 0, 18: 0, 20: 0, 21: 0, 22: 0,
                      23: 0, 25: 0, 26: 0, 27: 0, 28: 0}
-HEIGHT_TABLES = {"celplan": CELPLAN_HEIGHTS, "p452_tab3": P452_TAB3_HEIGHTS}
+# Same P.452-18 Table 3 heights for the ESA WorldCover classes that download_clutter writes (the land cover
+# downloaded by the GUI): trees / mangroves 15 m, built-up 15 m (urban; WorldCover has no suburban / dense
+# urban split), everything else (shrub, grass, crop, bare, snow, water, wetland, moss) 0 m, i.e. open / rural.
+WORLDCOVER_HEIGHTS = {10: 15, 20: 0, 30: 0, 40: 0, 50: 15, 60: 0, 70: 0, 80: 0, 90: 0, 95: 15, 100: 0}
+HEIGHT_TABLES = {"celplan": CELPLAN_HEIGHTS, "p452_tab3": P452_TAB3_HEIGHTS, "worldcover": WORLDCOVER_HEIGHTS}
+CELPLAN_MAX_CLASS = max(CELPLAN_HEIGHTS)
 
 
 def height_lut(name: str) -> np.ndarray:

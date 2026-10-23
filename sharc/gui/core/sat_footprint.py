@@ -22,7 +22,9 @@ from typing import Any, Dict, Optional
 import numpy as np
 
 EARTH_RADIUS = 6_371_000.0
-GRID_N = 80
+GRID_N = 161                       # about 20 km cells for a GEO spot beam: the beam is resolved, not blocky
+FOOTPRINT_LEVELS_DB = (-3.0, -6.0, -10.0, -15.0, -20.0)     # iso-gain contours, relative to the peak
+FLOOR_DB = -20.0                   # below this the map is transparent: only the beam is drawn, not the side-lobe floor
 
 
 def _unit_ll(lat_deg, lon_deg):
@@ -34,13 +36,50 @@ def _fspl(dist_m, f_mhz):
     return 32.44 + 20.0 * np.log10(np.maximum(dist_m, 1.0) / 1000.0) + 20.0 * math.log10(f_mhz)
 
 
-def _beamwidth_deg(antenna, peak: float) -> float:
-    """Full 3 dB beamwidth from the engine pattern (first off-axis angle that is 3 dB down, times two)."""
+def _beamwidths_deg(antenna, peak: float):
+    """(major, minor) full 3 dB beamwidths [deg] from the engine pattern, along the two principal planes.
+
+    A rotationally symmetric pattern gives the same value twice; an elliptical one (S.1528 with a major / minor axis
+    ratio, S.1855...) gives two. The first 3 dB-down angle along each plane, times two."""
     from core import antenna_service
     ang = np.linspace(0.0, 10.0, 2001)
-    g = np.asarray(antenna_service.gain_at(antenna, ang), dtype=float)
-    below = np.nonzero(g <= peak - 3.0)[0]
-    return float(2.0 * ang[below[0]]) if len(below) else 20.0
+    widths = []
+    for phi in (0.0, 90.0):
+        g = np.asarray(antenna_service.gain_at(antenna, ang, np.full_like(ang, phi)), dtype=float)
+        below = np.nonzero(g <= peak - 3.0)[0]
+        widths.append(float(2.0 * ang[below[0]]) if len(below) else 20.0)
+    return max(widths), min(widths)
+
+
+def _beamwidth_deg(antenna, peak: float) -> float:
+    """Full 3 dB beamwidth (the wider principal plane)."""
+    return _beamwidths_deg(antenna, peak)[0]
+
+
+def pattern_directivity(antenna, peak: float):
+    """(directivity [dBi], mean gain over the sphere [dB]) of the engine pattern, by integrating it over all directions.
+
+    D = 4 pi G_peak / integral(G dOmega). The mean of the gain pattern over the sphere is 1 (0 dB) for a lossless
+    antenna; reference envelopes (S.672, F.699...) are not physical patterns and often integrate to more or less, which
+    is why gain and directivity differ: the mean is reported so that the difference is visible, not hidden."""
+    from core import antenna_service
+    theta = np.concatenate([np.arange(0.0, 20.0, 0.02), np.arange(20.0, 180.0 + 1e-9, 0.25)])
+    phis = np.arange(0.0, 360.0, 15.0)
+    w = np.sin(np.radians(theta))
+    rows = []
+    for phi in phis:
+        g = np.asarray(antenna_service.gain_at(antenna, theta, np.full_like(theta, phi)), dtype=float)
+        rows.append(np.trapezoid(10.0 ** (np.nan_to_num(g, nan=-60.0) / 10.0) * w, np.radians(theta)))
+    mean_lin = float(np.mean(rows)) / 2.0                           # (1 / 4 pi) * integral = mean(phi) * 2 pi / 4 pi
+    return float(peak - 10.0 * math.log10(mean_lin)), float(10.0 * math.log10(mean_lin))
+
+
+def _beam_map(values, peak: float, unit: str, title: str) -> Dict[str, Any]:
+    """A footprint map: values plus what makes it read as a beam: contours at fixed dB below the peak (-3 dB drawn
+    bold: the beam edge) and a floor under which the 3D view draws nothing."""
+    return {"values": np.round(values, 1).tolist(), "vmin": round(peak + FLOOR_DB, 1), "vmax": round(peak, 1),
+            "unit": unit, "title": title, "levels": [round(peak + d, 2) for d in FOOTPRINT_LEVELS_DB],
+            "bold": round(peak - 3.0, 2), "fade_below": round(peak + FLOOR_DB, 2)}
 
 
 def compute(es, n: int = GRID_N) -> Optional[Dict[str, Any]]:
@@ -81,15 +120,23 @@ def compute(es, n: int = GRID_N) -> Optional[Dict[str, Any]]:
         lon_t = math.degrees(math.atan2(target[1], target[0]))
         slant_t = float(np.linalg.norm(target - sat_pos))
 
+        ref_axis = np.array([0.0, 0.0, 1.0]) if abs(p_enu[2]) < 0.9 else np.array([0.0, 1.0, 0.0])
+        e1 = np.cross(p_enu, ref_axis)
+        e1 /= np.linalg.norm(e1)
+        e2 = np.cross(p_enu, e1)                                              # plane perpendicular to the beam axis
+
         def off_axis(points_ecef):
-            """Angle [deg] from the beam axis and distance [m], for points given in ECEF."""
+            """Angle [deg] from the beam axis, distance [m] and angle [deg] around the axis, for ECEF points."""
             e = np.asarray(cs.ecef2enu(points_ecef[:, 0], points_ecef[:, 1], points_ecef[:, 2]), float).T
             v = e - sat_enu
             dist_ = np.linalg.norm(v, axis=-1)
-            return np.degrees(np.arccos(np.clip((v @ p_enu) / dist_, -1.0, 1.0))), dist_
+            vn = v / dist_[:, None]
+            return (np.degrees(np.arccos(np.clip(vn @ p_enu, -1.0, 1.0))), dist_,
+                    np.degrees(np.arctan2(vn @ e2, vn @ e1)))
 
         peak = float(np.nanmax(antenna_service.gain_at(antenna, np.linspace(0.0, 1.0, 21))))
-        bw = _beamwidth_deg(antenna, peak)
+        bw, bw_minor = _beamwidths_deg(antenna, peak)
+        directivity, mean_gain_db = pattern_directivity(antenna, peak)
         theta_ext = float(np.clip(1.4 * bw, 0.3, 8.0))
         half_m = 1.25 * slant_t * math.tan(math.radians(theta_ext))            # ground half-width (oblique incidence)
         dlat = min(half_m / 111_320.0, 40.0)
@@ -98,20 +145,16 @@ def compute(es, n: int = GRID_N) -> Optional[Dict[str, Any]]:
         lons = np.linspace(lon_t - dlon, lon_t + dlon, n)
         LON, LAT = np.meshgrid(lons, lats)                                   # row 0 = south
         ground = _unit_ll(LAT.ravel(), LON.ravel()) * EARTH_RADIUS
-        theta, dist = off_axis(ground)
-        gain = np.asarray(antenna_service.gain_at(antenna, theta), dtype=float)
+        theta, dist, phi = off_axis(ground)
+        gain = np.asarray(antenna_service.gain_at(antenna, theta, phi), dtype=float)
 
         maps = {}
-        lo = max(float(peak - 30.0), float(np.nanmin(gain)))
-        maps["sat_gain"] = {"values": np.round(gain, 1).tolist(), "vmin": round(lo, 1), "vmax": round(peak, 1),
-                            "unit": "dBi", "title": "Satellite antenna gain (footprint)"}
+        maps["sat_gain"] = _beam_map(gain, peak, "dBi", "Satellite antenna gain (footprint)")
         tx = getattr(ss, "tx_power_density", None)
         if tx is not None:
             pol = float(getattr(ss, "polarization_loss", 0.0) or 0.0)
             psd = float(tx) + 90.0 + gain - _fspl(dist, f_sat) - pol                     # dBW/Hz -> dBm/MHz
-            hi = float(np.nanmax(psd))
-            maps["sat_psd"] = {"values": np.round(psd, 1).tolist(), "vmin": round(hi - 30.0, 1), "vmax": round(hi, 1),
-                               "unit": "dBm/MHz", "title": "Satellite PSD on the ground"}
+            maps["sat_psd"] = _beam_map(psd, float(np.nanmax(psd)), "dBm/MHz", "Satellite PSD on the ground")
 
         # aggregate IMT interference at the satellite receiver
         data = gain_lobe.sample_bs_gain(es)
@@ -126,7 +169,8 @@ def compute(es, n: int = GRID_N) -> Optional[Dict[str, Any]]:
         v_bs = np.stack([bx, by, bz], axis=-1) - sat_enu                      # satellite -> BS
         slant = np.linalg.norm(v_bs, axis=-1)
         th_bs = np.degrees(np.arccos(np.clip((v_bs @ p_enu) / slant, -1.0, 1.0)))
-        g_sat = np.asarray(antenna_service.gain_at(antenna, th_bs), dtype=float)
+        phi_bs = np.degrees(np.arctan2((v_bs / slant[:, None]) @ e2, (v_bs / slant[:, None]) @ e1))
+        g_sat = np.asarray(antenna_service.gain_at(antenna, th_bs, phi_bs), dtype=float)
         eirp_psd = float(p.bs.conducted_power) - float(p.bs.ohmic_loss) - 10.0 * math.log10(float(p.bandwidth))
         pol = float(getattr(ss, "polarization_loss", 0.0) or 0.0)
         per_bs = eirp_psd + g_bs - _fspl(slant, float(p.frequency)) + g_sat - pol
@@ -134,6 +178,8 @@ def compute(es, n: int = GRID_N) -> Optional[Dict[str, Any]]:
         t_noise = float(getattr(ss, "noise_temperature", None) or 290.0)
         noise_psd = -114.0 + 10.0 * math.log10(t_noise / 290.0)
         summary = {"altitude_km": round(alt / 1000.0, 1), "peak_gain_dbi": round(peak, 1), "beamwidth_deg": round(bw, 2),
+                   "beamwidth_minor_deg": round(bw_minor, 2), "directivity_dbi": round(directivity, 1),
+                   "mean_gain_db": round(mean_gain_db, 1), "antenna_pattern": str(ss.antenna.pattern),
                    "freq_mhz": f_sat, "imt_freq_mhz": float(p.frequency), "n_bs": int(len(bx)),
                    "pointing_type": str(getattr(ss.geometry.azimuth, "type", "")),
                    "imt_psd_at_sat_dbm_mhz": round(i_psd, 1), "noise_psd_dbm_mhz": round(noise_psd, 1),

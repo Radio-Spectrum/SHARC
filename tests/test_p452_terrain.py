@@ -195,6 +195,22 @@ class DatabaseTerrainTest(unittest.TestCase):
         self.database.compute_terrain(*REF, self.params, frequency_ghz=3.5)
         self.assertTrue(np.all(np.isfinite(self.database.data_full["path_loss_p452"])))
 
+    def test_worldcover_land_cover_heights(self):
+        """ESA WorldCover classes (what the GUI downloads) use their own table; CelPlan tables warn on them."""
+        built_up = np.full((N_PIX, N_PIX), 50)                  # WorldCover 'Built-up'
+        self.params.clutter_raster = self.write_raster("wc.tif", built_up, "uint8")
+
+        self.params.clutter_heights = "worldcover"
+        prof = self.database.terrain_profiles(*REF, self.params)[0]
+        inner = (prof["dist_km"] >= 0.05) & (prof["dist_km"] <= prof["dist_km"][-1] - 0.05)
+        npt.assert_allclose(prof["clutter_m"][inner], prof["height_m"][inner] + 15.0)
+
+        # a CelPlan table has no class 50: 0 m of clutter, so it must say so instead of silently dropping the city
+        self.params.clutter_heights = "celplan"
+        with self.assertWarnsRegex(UserWarning, "worldcover"):
+            prof = self.database.terrain_profiles(*REF, self.params)[0]
+        npt.assert_allclose(prof["clutter_m"], prof["height_m"])
+
     def test_missing_terrain(self):
         """A profile leaving the raster is reported."""
         self.database.data_full.loc[0, "longitude"] = -39.0

@@ -94,6 +94,7 @@ class SimulationUplink(Simulation):
             self.ue,
             self.bs,
         )
+        self.calculate_sinr()
 
 
         if self.parameters.general.system == "WIFI":

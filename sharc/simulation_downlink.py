@@ -1300,8 +1300,8 @@ class SimulationDownlink(Simulation):
         
 
         self.system.intra_interference = np.concatenate((
-            self.system.ap.rx_interference.flatten(),
-            self.system.sta.rx_interference.flatten()
+            self.system.ap.rx_interference[ap_active].flatten(),
+            self.system.sta.rx_interference[sta_active].flatten()
         ))
 
         self.system.thermal_noise = \
@@ -1310,23 +1310,23 @@ class SimulationDownlink(Simulation):
 
 
         self.system.ap.total_interference = 10 * np.log10(
-            10 ** (0.1 * self.system.ap.rx_interference) +
+            10 ** (0.1 * self.system.ap.rx_interference[ap_active]) +
             10 ** (0.1 * self.system.thermal_noise)
         )
         self.system.sta.total_interference = 10 * np.log10(
-            10 ** (0.1 * self.system.sta.rx_interference) +
+            10 ** (0.1 * self.system.sta.rx_interference[sta_active]) +
             10 ** (0.1 * self.system.thermal_noise)
         )
 
         self.system.intra_rx_interference = np.concatenate((
-            self.system.ap.rx_interference.flatten(),
-            self.system.sta.rx_interference.flatten()
+            self.system.ap.rx_interference[ap_active].flatten(),
+            self.system.sta.rx_interference[sta_active].flatten()
         ))
         
-        self.system.ap.snr = self.system.ap.rx_power - self.system.thermal_noise
-        self.system.sta.snr = self.system.sta.rx_power - self.system.thermal_noise  
-        self.system.ap.sinr = self.system.ap.rx_power - self.system.ap.total_interference
-        self.system.sta.sinr = self.system.sta.rx_power - self.system.sta.total_interference
+        self.system.ap.snr = self.system.ap.rx_power[ap_active] - self.system.thermal_noise
+        self.system.sta.snr = self.system.sta.rx_power[sta_active] - self.system.thermal_noise  
+        self.system.ap.sinr = self.system.ap.rx_power[ap_active] - self.system.ap.total_interference
+        self.system.sta.sinr = self.system.sta.rx_power[sta_active] - self.system.sta.total_interference
 
         self.system.sinr = np.concatenate((self.system.ap.sinr.flatten(), self.system.sta.sinr.flatten()))
         self.system.snr = np.concatenate((self.system.ap.snr.flatten(), self.system.sta.snr.flatten()))
@@ -1350,6 +1350,12 @@ class SimulationDownlink(Simulation):
         self.results.system_dl_interf_power.extend(self.system.sta.ext_interference.flatten())
         self.results.system_intra_dl_interf_power.extend(self.system.ap.rx_interference.flatten())
         self.results.system_intra_dl_interf_power.extend(self.system.sta.rx_interference.flatten())
+        self.results.wifi_dl_sinr.extend(self.system.sinr.flatten())
+        self.results.wifi_dl_snr.extend(self.system.snr.flatten())
+
+        for sinr in self.system.sinr.flatten():
+            tput = self.calculate_wifi_tput(sinr)
+            self.results.wifi_dl_tput.append(tput)
 
         for ap in ap_active:
             sta = self.system.link[ap]
@@ -1363,26 +1369,6 @@ class SimulationDownlink(Simulation):
 
             self.results.wifi_ap_antenna_gain.extend(self.ap_antenna_gain[ap, sta])
             self.results.wifi_sta_antenna_gain.extend(self.sta_antenna_gain[ap, sta])
-
-            
-            
-            
-
-            # --- Coleta de SINR e SNR (STA e AP) ---
-            sta_sinr = np.atleast_1d(self.system.sta.sinr[sta])
-            sta_snr = np.atleast_1d(self.system.sta.snr[sta])
-            ap_sinr = np.atleast_1d(self.system.ap.sinr[ap])
-            ap_snr = np.atleast_1d(self.system.ap.snr[ap])
-
-            # Coleta do Downlink
-            self.results.wifi_dl_sinr.extend(sta_sinr.tolist())
-            self.results.wifi_dl_snr.extend(sta_snr.tolist())
-            self.results.wifi_dl_sinr.extend(ap_sinr.tolist())
-            self.results.wifi_dl_snr.extend(ap_snr.tolist())
-
-            # Throughput WiFi das STAs
-            wifi_tput = self.calculate_wifi_tput(sta_sinr)
-            self.results.wifi_dl_tput.extend(wifi_tput.tolist())
 
 
         '''self.results.system_dl_interf_power_per_mhz.extend(

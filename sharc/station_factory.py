@@ -193,6 +193,13 @@ class StationFactory(object):
                 param.bandwidth,
                 param.spurious_emissions
             )
+        elif param.spectral_mask == "3GPP E-UTRA_80MHz":
+            imt_base_stations.spectral_mask = SpectralMask3Gpp80MHz(
+                StationType.IMT_BS,
+                param.frequency,
+                param.bandwidth,
+                param.spurious_emissions,
+            )
         else:
             raise ValueError(
                 f"Invalid IMT-BS spectral mask {param.spectral_mask}")

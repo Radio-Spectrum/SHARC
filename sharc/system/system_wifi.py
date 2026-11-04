@@ -93,21 +93,22 @@ class SystemWifi:
             wifi_aps.indoor = self.topology.indoor
             wifi_aps.building_id = self.topology.building_id
 
-        wifi_aps.height = wifi_aps.z
         wifi_aps.elevation = -param_ant.downtilt * np.ones(num_aps)
 
         wifi_aps.azimuth =  wrap2_180(self.topology.azimuth)
         random_values = random_number_gen.rand(num_aps)
         wifi_aps.active = random_values < self.parameters.ap.load_probability
         wifi_aps.tx_power = self.parameters.ap.conducted_power * np.ones(num_aps)
-        wifi_aps.rx_power = np.full((num_aps, self.parameters.sta.k), -500.0)
+        #wifi_aps.rx_power = np.full((num_aps, self.parameters.sta.k), -500.0)
         wifi_aps.rx_interference = np.full(num_aps, -500.0)
         wifi_aps.ext_interference = np.full(num_aps, -500.0)
         wifi_aps.total_interference = np.full((num_aps, self.parameters.sta.k), -500.0)
-        wifi_aps.snr = np.full((num_aps, self.parameters.sta.k), -500.0)
-        wifi_aps.sinr = np.full((num_aps, self.parameters.sta.k), -500.0)
-        wifi_aps.sinr_ext = np.full((num_aps, self.parameters.sta.k), -500.0)
-        wifi_aps.inr = np.full((num_aps, self.parameters.sta.k), -500.0)
+        wifi_aps.interf_power_total = np.full(num_aps, -500.0)
+        wifi_aps.intra_interference = np.full(num_aps, -500.0)
+        wifi_aps.snr = np.full(num_aps, -500.0)
+        wifi_aps.sinr = np.full(num_aps, -500.0)
+        wifi_aps.sinr_ext = np.full(num_aps, -500.0)
+        wifi_aps.inr = np.full(num_aps, -500.0)
 
         for i in range(num_aps):
             wifi_aps.antenna[i] = AntennaOmni()
@@ -250,6 +251,11 @@ class SystemWifi:
         wifi_sta.active = random_values < self.parameters.sta.load_probability        
         wifi_sta.rx_interference = np.full(self.num_sta, -500.0)
         wifi_sta.ext_interference = np.full(self.num_sta, -500.0)
+        wifi_sta.interf_power_total = np.full(self.num_sta, -500.0)
+        wifi_sta.intra_interference = np.full(self.num_sta, -500.0)
+        wifi_sta.snr = np.full(self.num_sta, -500.0)
+        wifi_sta.sinr = np.full(self.num_sta, -500.0)
+        wifi_sta.inr = np.full(self.num_sta, -500.0)
 
         # TODO: this piece of code works only for uplink
         '''self.parameters_antenna.get_antenna_parameters()

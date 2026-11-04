@@ -33,28 +33,22 @@ class Results(object):
         self.imt_ul_tx_power = SampleList()
         # SINR [dB]
         self.imt_ul_sinr_ext = SampleList()
-        # SINR [dB]
         self.imt_ul_sinr = SampleList()
         # SNR [dB]
         self.imt_ul_snr = SampleList()
         self.imt_ul_inr = SampleList()
         # Throughput [bits/s/Hz]
         self.imt_ul_tput_ext = SampleList()
-        # Throughput [bits/s/Hz]
         self.imt_ul_tput = SampleList()
 
         self.imt_path_loss = SampleList()
         self.imt_coupling_loss = SampleList()
         # Antenna gain [dBi]
         self.imt_bs_antenna_gain = SampleList()
-        # Antenna gain [dBi]
         self.imt_ue_antenna_gain = SampleList()
 
-        # Antenna gain [dBi]
         self.system_imt_antenna_gain = SampleList()
-        # Antenna gain [dBi]
         self.imt_system_antenna_gain = SampleList()
-        # Antenna gain [dBi]
         self.imt_system_antenna_gain_adjacent = SampleList()
 
         # Path Loss [dB]
@@ -71,7 +65,6 @@ class Results(object):
         self.imt_dl_tx_power = SampleList()
         # SINR [dB]
         self.imt_dl_sinr_ext = SampleList()
-        # SINR [dB]
         self.imt_dl_sinr = SampleList()
         # SNR [dB]
         self.imt_dl_snr = SampleList()
@@ -79,7 +72,6 @@ class Results(object):
         self.imt_dl_inr = SampleList()
         # Throughput [bits/s/Hz]
         self.imt_dl_tput_ext = SampleList()
-        # Throughput [bits/s/Hz]
         self.imt_dl_tput = SampleList()
 
         self.imt_dl_interf_power = SampleList()
@@ -96,15 +88,13 @@ class Results(object):
         self.system_ul_coupling_loss = SampleList()
         self.system_ul_interf_power = SampleList()
         # Interference Power [dBm]
-
         self.system_dl_coupling_loss = SampleList()
         self.system_dl_interf_power = SampleList()
         self.system_intra_dl_interf_power = SampleList()
-        self.system_ext_dl_interf_power = SampleList()
-        self.system_ul_interf_power = SampleList()
         self.system_intra_ul_interf_power = SampleList()
-        self.system_ext_ul_interf_power = SampleList()
+        self.system_interf_power_total = SampleList()
         self.system_inr = SampleList()
+
         # Interference Power [dBm/MHz]
         # NOTE: this may not be what you want for a correct
         # protection criteria analysis since it is
@@ -117,42 +107,40 @@ class Results(object):
         self.system_pfd = SampleList()
         self.system_rx_interf = SampleList()
 
-        self.wifi_ul_tx_power_density = SampleList()
-        self.wifi_ul_tx_power = SampleList()
-        self.wifi_ul_sinr_ext = SampleList()
-        self.wifi_ul_sinr = SampleList()
-        self.wifi_ul_snr = SampleList()
-        self.wifi_ul_inr = SampleList()
-        self.wifi_ul_tput_ext = SampleList()
-        self.wifi_ul_tput = SampleList()
+        self.system_ul_tx_power_density = SampleList()
+        self.system_ul_tx_power = SampleList()
+        self.system_ul_sinr_ext = SampleList()
+        self.system_ul_sinr = SampleList()
+        self.system_ul_snr = SampleList()
+        self.system_ul_tput_ext = SampleList()
+        self.system_ul_tput = SampleList()
 
-        self.wifi_path_loss = SampleList()
-        self.wifi_coupling_loss = SampleList()
-        self.wifi_ap_antenna_gain = SampleList()  # equivalent to imt_bs_antenna_gain
-        self.wifi_sta_antenna_gain = SampleList()
+        self.system_path_loss = SampleList()
+        self.system_coupling_loss = SampleList()
+        self.system_ap_antenna_gain = SampleList()  # equivalent to imt_bs_antenna_gain
+        self.system_sta_antenna_gain = SampleList()
 
-        self.wifi_dl_tx_power_density = SampleList()
-        self.wifi_dl_tx_power = SampleList()
-        self.wifi_dl_sinr_ext = SampleList()
-        self.wifi_dl_sinr = SampleList()
-        self.wifi_dl_snr = SampleList()
-        self.wifi_dl_inr = SampleList()
-        self.wifi_dl_tput_ext = SampleList()
-        self.wifi_dl_tput = SampleList()
+        self.system_dl_tx_power_density = SampleList()
+        self.system_dl_tx_power = SampleList()
+        self.system_dl_sinr_ext = SampleList()
+        self.system_dl_sinr = SampleList()
+        self.system_dl_snr = SampleList()
+        self.system_dl_inr = SampleList()
+        self.system_dl_tput = SampleList()
 
-        self.wifi_system_ul_coupling_loss = SampleList()  # equivalent to system_ul_coupling_loss
-        self.wifi_system_ul_interf_power = SampleList()  # equivalent to system_ul_interf_power
-        self.wifi_system_dl_coupling_loss = SampleList()  # equivalent to system_dl_coupling_loss
-        self.wifi_system_dl_interf_power = SampleList()
-        self.wifi_system_inr = SampleList()  # equivalent to system_inr
-        self.wifi_system_pfd = SampleList()  # equivalent to system_pfd
-        self.wifi_system_rx_interf = SampleList()  # equivalent to system_rx_interf
+        self.system_imt_ul_coupling_loss = SampleList()
+        self.system_imt_ul_interf_power = SampleList()
+        self.system_imt_dl_coupling_loss = SampleList()
+        self.system_imt_dl_interf_power = SampleList()
+        self.system_imt_inr = SampleList()
+        self.system_imt_pfd = SampleList()
+        self.system_imt_rx_interf = SampleList()
 
-        self.wifi_imt_antenna_gain = SampleList()  # equivalent to imt_bs_antenna_gain
-        self.imt_wifi_antenna_gain = SampleList()  # equivalent to imt_ue_antenna_gain
-        self.imt_wifi_path_loss = SampleList()
-        self.imt_wifi_building_entry_loss = SampleList()
-        self.imt_wifi_diffraction_loss = SampleList()
+        self.system_imt_antenna_gain = SampleList()
+        self.imt_system_antenna_gain = SampleList()
+        self.imt_system_path_loss = SampleList()
+        self.imt_system_building_entry_loss = SampleList()
+        self.imt_system_diffraction_loss = SampleList()
 
         self.imt_ap_path_loss = SampleList()
         self.imt_ap_antenna_gain = SampleList()

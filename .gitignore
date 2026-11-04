@@ -111,3 +111,5 @@ sharc/campaigns/mss_d2d_to_imt/output/*.yaml
 /sharc/output
 
 /.yaml
+/.html
+/.zip

@@ -74,12 +74,12 @@ class Results(object):
         self.imt_dl_tput_ext = SampleList()
         self.imt_dl_tput = SampleList()
 
-        self.imt_dl_interf_power = SampleList()
-        self.imt_ul_interf_power = SampleList()
+        self.imt_dl_interf_power_total = SampleList()
+        self.imt_ul_interf_power_total = SampleList()
         self.imt_dl_intra_interf_power = SampleList()
         self.imt_ul_intra_interf_power = SampleList()
-        self.imt_dl_ext_interf_power = SampleList()
-        self.imt_ul_ext_interf_power = SampleList()
+        self.imt_dl_interf_power = SampleList()
+        self.imt_ul_interf_power = SampleList()
 
         # PFD
         self.imt_dl_pfd_external = SampleList()

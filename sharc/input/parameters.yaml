@@ -1,7 +1,7 @@
 general:
     ###########################################################################
     # Number of simulation snapshots
-    num_snapshots: 1000
+    num_snapshots: 5000
     # IMT link that will be simulated (DOWNLINK or UPLINK)
     imt_link: DOWNLINK
     ###########################################################################
@@ -20,7 +20,7 @@ general:
     overwrite_output: TRUE
     ###########################################################################
     # output destination folder - this is relative SHARC/sharc directory
-    output_dir  : campaigns/huaweii_uma_indoor_ADJACENT/output/LF20
+    output_dir  : campaigns/IMT_WIFI_URBANO_LF_IMT_COCANAL/output/DL_LF20
     ###########################################################################
     # output folder prefix
     output_dir_prefix  : output_IMT_WIFI
@@ -31,12 +31,11 @@ imt:
     bandwidth: 80                                    # Total IMT bandwidth [MHz]
     rb_bandwidth: 0.180                               # Resource Block bandwidth [MHz]
     adjacent_antenna_model: BEAMFORMING            # Antenna model: SINGLE_ELEMENT or BEAMFORMING
-    spectral_mask: 3GPP E-UTRA                         # Spectral mask model
+    spectral_mask: 3GPP E-UTRA                           # Spectral mask model
     spurious_emissions: -15                         # Spurious emission level [dBm/MHz]
     guard_band_ratio: 0.1                             # Ratio of total bandwidth used as guard band
     channel_model: UMa                          # Channel model: FSPL, CI, UMa, UMi, etc.
     shadowing: TRUE  
-    adjacent_ch_emissions: ACLR                     # Adjacent channel emissions model: SPECTRAL_MASK or ACLR
      ###########################################################################
     # >>> NOVO: modelo de recepção da UE no canal adjacente (interferência
     # WIFI->UE), via ACS (Adjacent Channel Selectivity)
@@ -84,11 +83,11 @@ imt:
                 ###########################################################################
                 # Base station horizontal beamsteering range. [deg]
                 # The range considers the BS azimuth as 0deg
-                horizontal_beamsteering_range: [-60., 60.]
+                horizontal_beamsteering_range: !!python/tuple [-60., 60.]
                 ###########################################################################
                 # Base station horizontal beamsteering range. [deg]
                 # The range considers the horizon as 90deg, 0 as zenith
-                vertical_beamsteering_range: [90., 100.]
+                vertical_beamsteering_range: !!python/tuple [90., 100.]
                 ###########################################################################
                 # File to be used in the BS beamforming normalization
                 # Normalization files can be generated with the
@@ -289,7 +288,7 @@ wifi:
             num_aps: 57
             min_dist_bs: 20.0
             min_dist_nodes_indoor: 2.0 
-            buildings_per_cell: 3
+            buildings_per_cell: 5
     
     # Base station parameters
     ap:

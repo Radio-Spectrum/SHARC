@@ -101,8 +101,6 @@ class SimulationDownlink(Simulation):
             self.coupling_loss_wifi = self.calculate_intra_wifi_coupling_loss(
                 self.system.sta, self.system.ap,)
             
-            self.calculate_sinr_wifi()
-            
             
         self.connect_ue_to_bs()
         self.select_ue(random_number_gen)
@@ -1223,113 +1221,458 @@ class SimulationDownlink(Simulation):
             self.results.write_files(snapshot_number)
             self.notify_observers(source=__name__, results=self.results)
     
+    
+    
     def calculate_sinr_wifi(self):
         """
-        Calcula o SINR interno para o sistema WiFi (STAs e APs), 
+        Calcula as potências recebidas, interferências, SNR e SINR
+        dos enlaces WiFi, além da interferência intra-RLAN nos
+        nós ativos.
+
+        ap_active:
+            APs transmissores selecionados na rodada.
+
+        sta_active:
+            STAs transmissoras selecionadas na rodada.
+
+        ap_rx_active:
+            APs receptores das STAs transmissoras.
+
+        sta_rx_active:
+            STAs receptoras dos APs transmissores.
+
+        rx_interference:
+            Interferência nos receptores dos enlaces WiFi,
+            utilizada no cálculo de SINR.
+
+        intra_interference:
+            Potência interferente agregada nos nós ativos,
+            utilizada posteriormente em inter_power_total.
         """
+
+        # =====================================================
+        # 1. NÓS ATIVOS
+        # =====================================================
+
         ap_active = np.where(self.system.ap.active)[0]
         sta_active = np.where(self.system.sta.active)[0]
+
+        ap_active_set = set(ap_active.tolist())
         sta_active_set = set(sta_active.tolist())
 
-        sta_rx_interference = np.zeros(self.system.sta.num_stations)
-        ap_rx_interference = np.zeros(self.system.ap.num_stations)
+        num_aps = self.system.ap.num_stations
 
-        #AP -> STA
-        for ap in ap_active:
-            # Uma STA pode estar associada/linkada ao AP (self.system.link)
-            # mas não estar ativa neste snapshot; power_control_wifi só cria
-            # tx_power para STAs ativas, então filtramos aqui para evitar
-            # KeyError e para não computar rx_power/interferência de STAs
-            # que não existem de fato nesta rodada.
-            linked_stas = sta_active
-            if len(linked_stas) == 0:
-                continue
-            self.system.sta.rx_power[linked_stas] = self.system.ap.tx_power[ap] - \
-                self.coupling_loss_wifi[ap, linked_stas]
+        # =====================================================
+        # 2. INICIALIZAÇÃO
+        # =====================================================
 
-            ap_interfer = [a for a in ap_active if a not in [ap]]
-            if len(ap_interfer) == 0:
-                continue
-            for ai in ap_interfer:
-                interference = self.system.ap.tx_power[ai] - \
-                               self.coupling_loss_wifi[ai, linked_stas]
+        self.system.ap.rx_power[:] = -500.0
+        self.system.sta.rx_power[:] = -500.0
 
-                sta_rx_interference[linked_stas] = 10 * np.log10(
-                    np.power(10, 0.1 * sta_rx_interference[linked_stas]) +
-                    np.power(10, 0.1 * interference)
+        self.system.ap.rx_interference[:] = -np.inf
+        self.system.sta.rx_interference[:] = -np.inf
+
+        self.system.ap.intra_interference[:] = -np.inf
+        self.system.sta.intra_interference[:] = -np.inf
+
+        self.system.ap.total_interference[:] = -np.inf
+        self.system.sta.total_interference[:] = -np.inf
+
+        self.system.ap.snr[:] = -np.inf
+        self.system.sta.snr[:] = -np.inf
+
+        self.system.ap.sinr[:] = -np.inf
+        self.system.sta.sinr[:] = -np.inf
+
+        # Soma potências em dBm, usando escala linear
+        def somar_dbm(p1, p2):
+            return (
+                10.0 / np.log(10.0)
+                * np.logaddexp(
+                    0.1 * np.log(10.0) * p1,
+                    0.1 * np.log(10.0) * p2
                 )
-        #STA -> AP
-        coupling_loss_sta_ap = self.coupling_loss_wifi.T 
+            )
 
-        for ap in ap_active:
-            linked_stas = np.array([
-                s for s in np.atleast_1d(self.system.link[ap]).astype(int)
+        # =====================================================
+        # 3. IDENTIFICAÇÃO DOS RECEPTORES
+        # =====================================================
+
+        ap_rx_active = []
+        sta_rx_active = []
+
+        ap_linked_stas = {}
+
+        for ap in range(num_aps):
+
+            linked_stas = np.atleast_1d(
+                self.system.link[ap]
+            ).astype(int)
+
+            # STAs transmissoras associadas ao AP
+            stas_tx = np.array([
+                s for s in linked_stas
                 if s in sta_active_set
             ], dtype=int)
+
+            # STAs que recebem dos APs transmissores
+            stas_rx = np.array([
+                s for s in linked_stas
+                if ap in ap_active_set
+                and s not in sta_active_set
+            ], dtype=int)
+
+            if len(stas_tx) > 0:
+                ap_rx_active.append(ap)
+                ap_linked_stas[ap] = stas_tx
+
+            if len(stas_rx) > 0:
+                sta_rx_active.extend(stas_rx.tolist())
+
+        ap_rx_active = np.array(
+            sorted(set(ap_rx_active)),
+            dtype=int
+        )
+
+        sta_rx_active = np.array(
+            sorted(set(sta_rx_active)),
+            dtype=int
+        )
+
+        self.ap_rx_active = ap_rx_active
+        self.sta_rx_active = sta_rx_active
+
+        # =====================================================
+        # 4. MATRIZES DE ACOPLAMENTO
+        # =====================================================
+
+        coupling_loss_sta_ap = self.coupling_loss_wifi.T
+
+        self.coupling_loss_ap_ap = (
+            self.calculate_intra_wifi_coupling_loss(
+                self.system.ap,
+                self.system.ap
+            )
+        )
+
+        self.coupling_loss_sta_sta = (
+            self.calculate_intra_wifi_coupling_loss(
+                self.system.sta,
+                self.system.sta
+            )
+        )
+
+        # =====================================================
+        # 5. POTÊNCIA DESEJADA AP -> STA (DOWNLINK)
+        # =====================================================
+
+        for ap in ap_active:
+
+            linked_stas = np.array([
+                s for s in np.atleast_1d(
+                    self.system.link[ap]
+                ).astype(int)
+                if s in sta_rx_active
+            ], dtype=int)
+
             if len(linked_stas) == 0:
                 continue
-            
-            # 1. Extrai as potências de TX do dicionário e converte para um array NumPy
-            tx_powers_sta = np.array([self.system.sta.tx_power[sta] for sta in linked_stas])
-            
-            # 2. Calcula a potência recebida de cada STA (em dBm)
-            rx_powers_dbm = tx_powers_sta - coupling_loss_sta_ap[linked_stas, ap]
-            
-            # 3. Soma as potências linearmente e converte de volta para dBm.
-            # Isso consolida o sinal e evita o ValueError na matriz rx_power do AP.
-            rx_powers_lin = np.sum(10 ** (0.1 * rx_powers_dbm))
-            self.system.ap.rx_power[ap] = 10 * np.log10(rx_powers_lin)
 
-            sta_interferers = [s for s in sta_active if s not in linked_stas]
-            if len(sta_interferers) == 0:
+            self.system.sta.rx_power[linked_stas] = (
+                self.system.ap.tx_power[ap]
+                - self.coupling_loss_wifi[ap, linked_stas]
+            )
+
+        # =====================================================
+        # 6. POTÊNCIA DESEJADA STA -> AP (UPLINK)
+        # =====================================================
+
+        for ap in ap_rx_active:
+
+            linked_stas = ap_linked_stas[ap]
+
+            tx_powers_sta = np.array([
+                self.system.sta.tx_power[sta]
+                for sta in linked_stas
+            ])
+
+            rx_powers_dbm = (
+                tx_powers_sta
+                - coupling_loss_sta_ap[linked_stas, ap]
+            )
+
+            rx_powers_lin = np.sum(
+                10.0 ** (0.1 * rx_powers_dbm)
+            )
+
+            self.system.ap.rx_power[ap] = (
+                10.0 * np.log10(rx_powers_lin)
+            )
+
+        # =====================================================
+        # 7. INTERFERÊNCIA NOS RECEPTORES DOS ENLACES
+        # =====================================================
+
+        # -----------------------------------------------------
+        # 7.1 AP -> STA
+        # -----------------------------------------------------
+
+        for ap in ap_active:
+
+            linked_stas = np.array([
+                s for s in np.atleast_1d(
+                    self.system.link[ap]
+                ).astype(int)
+                if s in sta_rx_active
+            ], dtype=int)
+
+            if len(linked_stas) == 0:
                 continue
-        #AP -> AP
-        self.coupling_loss_ap_ap = self.calculate_intra_wifi_coupling_loss(self.system.ap, self.system.ap)
+
+            for ai in ap_active:
+
+                # Exclui AP servidor
+                if ai == ap:
+                    continue
+
+                interference = (
+                    self.system.ap.tx_power[ai]
+                    - self.coupling_loss_wifi[ai, linked_stas]
+                )
+
+                self.system.sta.rx_interference[linked_stas] = (
+                    somar_dbm(
+                        self.system.sta.rx_interference[linked_stas],
+                        interference
+                    )
+                )
+
+        # -----------------------------------------------------
+        # 7.2 STA -> AP
+        # -----------------------------------------------------
+
+        for ap in ap_rx_active:
+
+            linked_stas = ap_linked_stas[ap]
+
+            for si in sta_active:
+
+                # Exclui as STAs que fornecem sinal desejado
+                if si in linked_stas:
+                    continue
+
+                interference = (
+                    self.system.sta.tx_power[si]
+                    - coupling_loss_sta_ap[si, ap]
+                )
+
+                self.system.ap.rx_interference[ap] = (
+                    somar_dbm(
+                        self.system.ap.rx_interference[ap],
+                        interference
+                    )
+                )
+
+        # -----------------------------------------------------
+        # 7.3 AP -> AP
+        # -----------------------------------------------------
+
+        for ap_victim in ap_rx_active:
+
+            for ai in ap_active:
+
+                # Não contabilizar autointerferência
+                if ai == ap_victim:
+                    continue
+
+                interference = (
+                    self.system.ap.tx_power[ai]
+                    - self.coupling_loss_ap_ap[ai, ap_victim]
+                )
+
+                self.system.ap.rx_interference[ap_victim] = (
+                    somar_dbm(
+                        self.system.ap.rx_interference[ap_victim],
+                        interference
+                    )
+                )
+
+        # -----------------------------------------------------
+        # 7.4 STA -> STA
+        # -----------------------------------------------------
+
+        for sta_victim in sta_rx_active:
+
+            for si in sta_active:
+
+                # Não contabilizar autointerferência
+                if si == sta_victim:
+                    continue
+
+                interference = (
+                    self.system.sta.tx_power[si]
+                    - self.coupling_loss_sta_sta[si, sta_victim]
+                )
+
+                self.system.sta.rx_interference[sta_victim] = (
+                    somar_dbm(
+                        self.system.sta.rx_interference[sta_victim],
+                        interference
+                    )
+                )
+
+        # =====================================================
+        # 8. INTERFERÊNCIA INTRA-RLAN NOS NÓS ATIVOS
+        # =====================================================
+
+        # -----------------------------------------------------
+        # 8.1 AP -> AP
+        # -----------------------------------------------------
+
         for ap_victim in ap_active:
-            ap_interferers = [a for a in ap_active if a != ap_victim]
-            for ai in ap_interferers:
-                interference = self.system.ap.tx_power[ai] - \
-                               self.coupling_loss_ap_ap[ai, ap_victim]
-                
-                ap_rx_interference[ap_victim] = 10 * np.log10(
-                    np.power(10, 0.1 * ap_rx_interference[ap_victim]) +
-                    np.power(10, 0.1 * interference)
+
+            for ai in ap_active:
+
+                if ai == ap_victim:
+                    continue
+
+                interference = (
+                    self.system.ap.tx_power[ai]
+                    - self.coupling_loss_ap_ap[ai, ap_victim]
                 )
-        #STA -> STA
-        self.coupling_loss_sta_sta = self.calculate_intra_wifi_coupling_loss(self.system.sta, self.system.sta)
+
+                self.system.ap.intra_interference[ap_victim] = (
+                    somar_dbm(
+                        self.system.ap.intra_interference[ap_victim],
+                        interference
+                    )
+                )
+
+        # -----------------------------------------------------
+        # 8.2 STA -> AP
+        # -----------------------------------------------------
+
+        for ap_victim in ap_active:
+
+            for si in sta_active:
+
+                interference = (
+                    self.system.sta.tx_power[si]
+                    - coupling_loss_sta_ap[si, ap_victim]
+                )
+
+                self.system.ap.intra_interference[ap_victim] = (
+                    somar_dbm(
+                        self.system.ap.intra_interference[ap_victim],
+                        interference
+                    )
+                )
+
+        # -----------------------------------------------------
+        # 8.3 AP -> STA
+        # -----------------------------------------------------
+
         for sta_victim in sta_active:
-            sta_interferers = [s for s in sta_active if s != sta_victim]
-            for si in sta_interferers:
-                interference = self.system.sta.tx_power[si] - \
-                               self.coupling_loss_sta_sta[si, sta_victim]
 
-                sta_rx_interference[sta_victim] = 10 * np.log10(
-                    np.power(10, 0.1 * sta_rx_interference[sta_victim]) +
-                    np.power(10, 0.1 * interference)
+            for ai in ap_active:
+
+                interference = (
+                    self.system.ap.tx_power[ai]
+                    - self.coupling_loss_wifi[ai, sta_victim]
                 )
-        
 
-        self.system.ap.intra_interference[ap_active] = ap_rx_interference[ap_active] 
-        self.system.sta.intra_interference[sta_active] = sta_rx_interference[sta_active]
+                self.system.sta.intra_interference[sta_victim] = (
+                    somar_dbm(
+                        self.system.sta.intra_interference[sta_victim],
+                        interference
+                    )
+                )
 
-        self.system.thermal_noise = \
-            10 * np.log10(BOLTZMANN_CONSTANT * self.param_system.noise_temperature * 1e3) + \
-            10 * np.log10(self.param_system.bandwidth * 1e6)
+        # -----------------------------------------------------
+        # 8.4 STA -> STA
+        # -----------------------------------------------------
 
+        for sta_victim in sta_active:
 
-        self.system.ap.total_interference = 10 * np.log10(
-            10 ** (0.1 * ap_rx_interference[ap_active]) +
-            10 ** (0.1 * self.system.thermal_noise)
+            for si in sta_active:
+
+                if si == sta_victim:
+                    continue
+
+                interference = (
+                    self.system.sta.tx_power[si]
+                    - self.coupling_loss_sta_sta[si, sta_victim]
+                )
+
+                self.system.sta.intra_interference[sta_victim] = (
+                    somar_dbm(
+                        self.system.sta.intra_interference[sta_victim],
+                        interference
+                    )
+                )
+
+        # =====================================================
+        # 9. RUÍDO TÉRMICO
+        # =====================================================
+
+        self.system.thermal_noise = (
+            10.0 * np.log10(
+                BOLTZMANN_CONSTANT
+                * self.param_system.noise_temperature
+                * 1e3
+            )
+            + 10.0 * np.log10(
+                self.param_system.bandwidth * 1e6
+            )
         )
-        self.system.sta.total_interference = 10 * np.log10(
-            10 ** (0.1 * sta_rx_interference[sta_active]) +
-            10 ** (0.1 * self.system.thermal_noise)
+
+        noise = self.system.thermal_noise
+
+        # =====================================================
+        # 10. INTERFERÊNCIA TOTAL NOS RECEPTORES
+        # =====================================================
+
+        self.system.ap.total_interference[ap_rx_active] = (
+            somar_dbm(
+                self.system.ap.rx_interference[ap_rx_active],
+                noise
+            )
         )
 
-        self.system.ap.snr[ap_active] = self.system.ap.rx_power[ap_active] - self.system.thermal_noise
-        self.system.sta.snr[sta_active] = self.system.sta.rx_power[sta_active] - self.system.thermal_noise  
-        self.system.ap.sinr[ap_active] = self.system.ap.rx_power[ap_active] - self.system.ap.total_interference
-        self.system.sta.sinr[sta_active] = self.system.sta.rx_power[sta_active] - self.system.sta.total_interference
+        self.system.sta.total_interference[sta_rx_active] = (
+            somar_dbm(
+                self.system.sta.rx_interference[sta_rx_active],
+                noise
+            )
+        )
+
+        # =====================================================
+        # 11. SNR
+        # =====================================================
+
+        self.system.ap.snr[ap_rx_active] = (
+            self.system.ap.rx_power[ap_rx_active]
+            - noise
+        )
+
+        self.system.sta.snr[sta_rx_active] = (
+            self.system.sta.rx_power[sta_rx_active]
+            - noise
+        )
+
+        # =====================================================
+        # 12. SINR
+        # =====================================================
+
+        self.system.ap.sinr[ap_rx_active] = (
+            self.system.ap.rx_power[ap_rx_active]
+            - self.system.ap.total_interference[ap_rx_active]
+        )
+
+        self.system.sta.sinr[sta_rx_active] = (
+            self.system.sta.rx_power[sta_rx_active]
+            - self.system.sta.total_interference[sta_rx_active]
+        )
 
     
     def collect_results_wifi(self, write_to_file: bool, snapshot_number: int):
@@ -1344,21 +1687,28 @@ class SimulationDownlink(Simulation):
         ap_active = np.where(self.system.ap.active)[0]
         sta_active = np.where(self.system.sta.active)[0]
 
+        # Conjuntos identificados em calculate_sinr_wifi()
+        ap_rx_active = self.ap_rx_active
+        sta_rx_active = self.sta_rx_active
+
         self.results.system_dl_interf_power.extend(self.system.ap.ext_interference[ap_active])
         self.results.system_dl_interf_power.extend(self.system.sta.ext_interference[sta_active])
         self.results.system_intra_dl_interf_power.extend(self.system.ap.intra_interference[ap_active])
         self.results.system_intra_dl_interf_power.extend(self.system.sta.intra_interference[sta_active])
         self.results.system_interf_power_total.extend(self.system.ap.interf_power_total[ap_active])
         self.results.system_interf_power_total.extend(self.system.sta.interf_power_total[sta_active])
-        self.results.system_dl_sinr.extend(self.system.ap.sinr[ap_active])
-        self.results.system_dl_sinr.extend(self.system.sta.sinr[sta_active])
-        self.results.system_dl_snr.extend(self.system.ap.snr[ap_active])
-        self.results.system_dl_snr.extend(self.system.sta.snr[sta_active])
+        self.results.system_dl_sinr.extend(self.system.ap.sinr[ap_rx_active])
+        self.results.system_dl_sinr.extend(self.system.sta.sinr[sta_rx_active])
+        self.results.system_dl_snr.extend(self.system.ap.snr[ap_rx_active])
+        self.results.system_dl_snr.extend(self.system.sta.snr[sta_rx_active])
         self.results.system_inr.extend(self.system.ap.inr[ap_active])
         self.results.system_inr.extend(self.system.sta.inr[sta_active])
 
-        for sinr in self.results.system_dl_sinr:
-            tput = self.calculate_wifi_tput(sinr)
+        for ap_sinr in self.system.ap.sinr[ap_rx_active]:
+            tput = self.calculate_wifi_tput(ap_sinr)
+            self.results.system_dl_tput.append(float(tput))
+        for sta_sinr in self.system.sta.sinr[sta_rx_active]:
+            tput = self.calculate_wifi_tput(sta_sinr)
             self.results.system_dl_tput.append(float(tput))
 
         for ap in ap_active:
@@ -1440,9 +1790,9 @@ class SimulationDownlink(Simulation):
                     self.imt_system_diffraction_loss[:, bs],
                 )
 
-            self.results.imt_dl_ext_interf_power.extend(self.ue.ext_interference[ue].tolist())
+            self.results.imt_dl_interf_power.extend(self.ue.ext_interference[ue].tolist())
             self.results.imt_dl_intra_interf_power.extend(self.ue.rx_interference[ue].tolist())
-            self.results.imt_dl_interf_power.extend(self.ue.interf_power_total[ue].tolist())
+            self.results.imt_dl_interf_power_total.append(self.ue.interf_power_total[ue].tolist())
             self.results.imt_dl_tx_power.extend(self.bs.tx_power[bs].tolist())
             self.results.imt_dl_sinr.extend(self.ue.sinr[ue].tolist())
             self.results.imt_dl_snr.extend(self.ue.snr[ue].tolist())

@@ -94,15 +94,16 @@ class SystemWifi:
             wifi_aps.building_id = self.topology.building_id
 
         wifi_aps.elevation = -param_ant.downtilt * np.ones(num_aps)
+        wifi_aps.height = wifi_aps.z
 
         wifi_aps.azimuth =  wrap2_180(self.topology.azimuth)
         random_values = random_number_gen.rand(num_aps)
         wifi_aps.active = random_values < self.parameters.ap.load_probability
         wifi_aps.tx_power = self.parameters.ap.conducted_power * np.ones(num_aps)
-        #wifi_aps.rx_power = np.full((num_aps, self.parameters.sta.k), -500.0)
+        wifi_aps.rx_power = np.full(num_aps, -500.0)
         wifi_aps.rx_interference = np.full(num_aps, -500.0)
         wifi_aps.ext_interference = np.full(num_aps, -500.0)
-        wifi_aps.total_interference = np.full((num_aps, self.parameters.sta.k), -500.0)
+        wifi_aps.total_interference = np.full(num_aps, -500.0)
         wifi_aps.interf_power_total = np.full(num_aps, -500.0)
         wifi_aps.intra_interference = np.full(num_aps, -500.0)
         wifi_aps.snr = np.full(num_aps, -500.0)
@@ -145,6 +146,7 @@ class SystemWifi:
             random_number_gen.random_sample(self.num_sta) + azimuth_range[0]
         
         wifi_sta.tx_power = self.parameters.sta.conducted_power * np.ones(self.num_sta)
+        wifi_sta.rx_power = np.full(self.num_sta, -500.0)
         
         elevation_range = (-90, 90)
         elevation = (elevation_range[1] - elevation_range[0]) * \
@@ -253,6 +255,7 @@ class SystemWifi:
         wifi_sta.ext_interference = np.full(self.num_sta, -500.0)
         wifi_sta.interf_power_total = np.full(self.num_sta, -500.0)
         wifi_sta.intra_interference = np.full(self.num_sta, -500.0)
+        wifi_sta.total_interference = np.full(self.num_sta, -500.0)
         wifi_sta.snr = np.full(self.num_sta, -500.0)
         wifi_sta.sinr = np.full(self.num_sta, -500.0)
         wifi_sta.inr = np.full(self.num_sta, -500.0)

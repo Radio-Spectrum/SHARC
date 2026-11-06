@@ -1792,7 +1792,7 @@ class SimulationDownlink(Simulation):
 
             self.results.imt_dl_interf_power.extend(self.ue.ext_interference[ue].tolist())
             self.results.imt_dl_intra_interf_power.extend(self.ue.rx_interference[ue].tolist())
-            self.results.imt_dl_interf_power_total.append(self.ue.interf_power_total[ue].tolist())
+            self.results.imt_dl_interf_power_total.extend(self.ue.interf_power_total[ue].tolist())
             self.results.imt_dl_tx_power.extend(self.bs.tx_power[bs].tolist())
             self.results.imt_dl_sinr.extend(self.ue.sinr[ue].tolist())
             self.results.imt_dl_snr.extend(self.ue.snr[ue].tolist())

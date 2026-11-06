@@ -100,4 +100,4 @@ def run_campaign_re(campaign_name, param_name_regex):
 if __name__ == "__main__":
     # Example usage
     #campaign_name = sys.argv[1]
-    run_campaign('IMT_WIFI_URBANO_LF_IMT_COCANAL')
+    run_campaign('IMT_WIFI_URBANO_LF_IMT_ADJACENT')

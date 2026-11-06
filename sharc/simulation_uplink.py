@@ -659,62 +659,6 @@ class SimulationUplink(Simulation):
                 self.system.sta.rx_power[sta_rx_active]
                 - self.system.sta.total_interference[sta_rx_active]
             )
-    
-            # =====================================================
-            # 13. DEBUG
-            # =====================================================
-    
-            print("\n========== WIFI SINR DEBUG ==========")
-    
-            print("APs transmissores:", ap_active)
-            print("STAs transmissoras:", sta_active)
-    
-            print("APs receptores:", ap_rx_active)
-            print("STAs receptoras:", sta_rx_active)
-    
-            print("\n===== INTERFERÊNCIA INTRA-RLAN =====")
-    
-            print(
-                "Interferência intra APs ativos (dBm):",
-                self.system.ap.intra_interference[ap_active]
-            )
-    
-            print(
-                "Interferência intra STAs ativas (dBm):",
-                self.system.sta.intra_interference[sta_active]
-            )
-    
-            print(
-                "\nAPs ativos sem interferência finita:",
-                ap_active[
-                    ~np.isfinite(
-                        self.system.ap.intra_interference[ap_active]
-                    )
-                ]
-            )
-    
-            print(
-                "STAs ativas sem interferência finita:",
-                sta_active[
-                    ~np.isfinite(
-                        self.system.sta.intra_interference[sta_active]
-                    )
-                ]
-            )
-    
-            print("\n===== SINR DOS ENLACES =====")
-    
-            print(
-                "SINR APs receptores (dB):",
-                self.system.ap.sinr[ap_rx_active]
-            )
-    
-            print(
-                "SINR STAs receptoras (dB):",
-                self.system.sta.sinr[sta_rx_active]
-            )
-        
-
 
     def calculate_sinr_ext(self):
         """
@@ -946,6 +890,7 @@ class SimulationUplink(Simulation):
         tx_power_ap_arr = np.array([self.system.ap.tx_power[ap] for ap in active_ap])
         tx_power_sta_arr = np.array([self.system.sta.tx_power[sta] for sta in active_sta])
 
+        self.bs.interf_power_total = {}
         for bs in bs_active:
             # Feixes ativos desta BS
             active_beams = [
@@ -1075,14 +1020,11 @@ class SimulationUplink(Simulation):
             bs_ext_int = in_band_interf_power + oob_power_lin
             self.bs.ext_interference[bs] = 10 * np.log10(bs_ext_int)
 
-            #print(np.array(self.bs.rx_interference))
-            bs_rx_interf_arr = np.array(list(self.bs.rx_interference.values()))
-            intra_bs_mw = np.power(10, 0.1 * bs_rx_interf_arr).flatten()
+            intra_bs_mw = np.power(10.0, self.bs.rx_interference[bs] / 10.0)
 
-            bs_ext_interf_arr = np.array(list(self.bs.ext_interference.values()))
-            total_interf_bs_mw = intra_bs_mw + np.power(10, 0.1 * bs_ext_interf_arr.flatten())
-            
-            self.bs.interf_power_total = 10 * np.log10(total_interf_bs_mw)
+            self.bs.interf_power_total[bs] = 10.0 * np.log10(
+                intra_bs_mw + bs_ext_int
+            )
 
             # Recalcula SINR Externo: S / (I_intra + I_ext + N)
             i_intra_noise_lin = 10 ** (0.1 * self.bs.total_interference[bs])
@@ -1708,7 +1650,9 @@ class SimulationUplink(Simulation):
                     self.imt_system_diffraction_loss[:, bs],
                 )
 
-            self.results.imt_ul_interf_power_total.append(float(self.bs.interf_power_total[bs]))
+            self.results.imt_ul_interf_power_total.extend(
+                self.bs.interf_power_total[bs].tolist(),
+            )
 
             self.results.imt_ul_intra_interf_power.extend(
                 self.bs.rx_interference[bs].tolist(),

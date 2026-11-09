@@ -68,6 +68,16 @@ from sharc.support.sharc_geom import CoordinateSystem
 from sharc.support.sharc_utils import wrap2_180
 
 
+def _set_antenna_site_rotations(antennas: np.ndarray, geom: SimulatorGeometry):
+    """Gives beamforming antennas the global to site rotation of their stations."""
+    if not geom.uses_local_coords:
+        return
+    rotations = geom.global2local.rot.as_matrix()
+    for antenna, rotation in zip(antennas, rotations):
+        if isinstance(antenna, AntennaBeamformingImt):
+            antenna.set_site_rotation(rotation)
+
+
 class StationFactory(object):
     """
     Factory class for creating and configuring station objects for various scenarios.
@@ -169,15 +179,18 @@ class StationFactory(object):
             num_bs, dtype=Antenna,
         )
 
-        # The array orientation is defined in the site's own local frame (its
-        # row axis is the local vertical). Feeding global angles would leave the
-        # array rolled about its boresight by the curvature between the site and
-        # the simulation reference point.
+        # The array orientation is defined in the site's own local frame, and
+        # the antenna gets the site's rotation to bring in the global directions
+        # the simulator passes. Without it the array would be misaligned by the
+        # curvature between the site and the simulation reference point.
         imt_base_stations.antenna = AntennaFactory.create_n_antennas(
             param.bs.antenna,
             imt_base_stations.geom.pointn_azim_local,
             imt_base_stations.geom.pointn_elev_local,
             num_bs
+        )
+        _set_antenna_site_rotations(
+            imt_base_stations.antenna, imt_base_stations.geom,
         )
 
         # imt_base_stations.antenna = [AntennaOmni(0) for bs in range(num_bs)]
@@ -496,6 +509,7 @@ class StationFactory(object):
             imt_ue.geom.pointn_elev_local,
             num_ue,
         )
+        _set_antenna_site_rotations(imt_ue.antenna, imt_ue.geom)
 
         # imt_ue.antenna = [AntennaOmni(0) for bs in range(num_ue)]
         imt_ue.bandwidth = param.bandwidth * np.ones(num_ue)

@@ -15,6 +15,7 @@ from sharc.antenna.antenna_element_imt_const import AntennaElementImtConst
 from sharc.antenna.antenna_subarray_imt import AntennaSubarrayIMT
 from sharc.antenna.antenna import Antenna
 from sharc.parameters.imt.parameters_antenna_imt import ParametersAntennaImt
+from sharc.support.sharc_utils import wrap2_180, clip_angle
 
 
 class AntennaBeamformingImt(Antenna):
@@ -85,6 +86,7 @@ class AntennaBeamformingImt(Antenna):
 
         self.azimuth = azimuth
         self.elevation = elevation
+        self.site_global2local = None
         self._calculate_rotation_matrix()
         self.minimum_array_gain = par.minimum_array_gain
 
@@ -116,6 +118,65 @@ class AntennaBeamformingImt(Antenna):
             and self.subarray is None
             and not self.normalize
         )
+
+    def set_site_rotation(self, global2local: np.ndarray):
+        """
+        Sets the rotation from global coordinates to the site's own frame.
+
+        Used when azimuth and elevation are defined in a per-site frame. The
+        simulator keeps passing global directions, and they are brought to the
+        site's frame before the azimuth and elevation rotation is applied.
+
+        Parameters
+        ----------
+            global2local (np.ndarray): (3, 3) rotation matrix
+        """
+        if self.constant_gain:
+            # gain does not depend on orientation, and the object may be shared
+            return
+        self.site_global2local = global2local
+        self._calculate_rotation_matrix()
+
+    def clip_beam_direction(
+        self, phi, theta, h_range, v_range, boresight_azimuth,
+    ) -> tuple:
+        """
+        Limits a beam direction to the steering ranges of this antenna.
+
+        When a site rotation is set, the ranges apply in the site's frame and
+        boresight_azimuth is ignored in favor of the antenna's own azimuth.
+        See :meth:`Antenna.clip_beam_direction`.
+        """
+        rot = self.site_global2local
+        if rot is None:
+            return super().clip_beam_direction(
+                phi, theta, h_range, v_range, boresight_azimuth,
+            )
+
+        local = rot @ self._angles_to_vector(phi, theta)
+        h_min, h_max = wrap2_180(np.asarray(h_range) + self.azimuth)
+        local_phi = clip_angle(
+            np.rad2deg(np.arctan2(local[1], local[0])), h_min, h_max,
+        )
+        local_theta = np.clip(
+            np.rad2deg(np.arccos(np.clip(local[2], -1.0, 1.0))), *v_range,
+        )
+
+        clipped = rot.T @ self._angles_to_vector(local_phi, local_theta)
+        return (
+            np.rad2deg(np.arctan2(clipped[1], clipped[0])),
+            np.rad2deg(np.arccos(np.clip(clipped[2], -1.0, 1.0))),
+        )
+
+    @staticmethod
+    def _angles_to_vector(phi: float, theta: float) -> np.ndarray:
+        """Unit vector for phi from the x axis and theta from the z axis [degrees]."""
+        phi_rad, theta_rad = np.deg2rad(phi), np.deg2rad(theta)
+        return np.array([
+            np.sin(theta_rad) * np.cos(phi_rad),
+            np.sin(theta_rad) * np.sin(phi_rad),
+            np.cos(theta_rad),
+        ])
 
     def add_beam(self, phi_etilt: float, theta_etilt: float):
         """
@@ -606,6 +667,8 @@ class AntennaBeamformingImt(Antenna):
             [0.0, 0.0, 1.0],
         ])
         self.rotation_mtx = ry @ rz.T
+        if self.site_global2local is not None:
+            self.rotation_mtx = self.rotation_mtx @ self.site_global2local
 
 ###############################################################################
 

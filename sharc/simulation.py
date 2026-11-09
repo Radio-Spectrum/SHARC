@@ -23,7 +23,6 @@ from sharc.antenna.antenna_beamforming_imt import AntennaBeamformingImt
 from sharc.results import Results
 from sharc.propagation.propagation_factory import PropagationFactory
 from sharc.propagation.propagation_path import PropagationPath
-from sharc.support.sharc_utils import wrap2_180, clip_angle
 
 
 class Simulation(ABC, Observable):
@@ -505,12 +504,12 @@ class Simulation(ABC, Observable):
         else:
             self.bs_to_ue_d_2D = self.bs.geom.get_local_distance_to(self.ue.geom)
             self.bs_to_ue_d_3D = self.bs.geom.get_3d_distance_to(self.ue.geom)
-            self.bs_to_ue_phi, self.bs_to_ue_theta = self.bs.geom.get_local_pointing_vector_to(
+            self.bs_to_ue_phi, self.bs_to_ue_theta = self.bs.geom.get_global_pointing_vector_to(
                 self.ue.geom, )
 
         bs_active = np.where(self.bs.active)[0]
 
-        assert np.all((-180 <= self.bs.geom.pointn_azim_local) & (self.bs.geom.pointn_azim_local <= 180)), "BS azimuth angles should be in [-180, 180] range"
+        assert np.all((-180 <= self.bs.geom.pointn_azim_global) & (self.bs.geom.pointn_azim_global <= 180)), "BS azimuth angles should be in [-180, 180] range"
         K = self.parameters.imt.ue.k
         h_range = self.parameters.imt.bs.antenna.array.horizontal_beamsteering_range
         v_range = self.parameters.imt.bs.antenna.array.vertical_beamsteering_range
@@ -525,20 +524,21 @@ class Simulation(ABC, Observable):
             # Activate the selected UE's and create beams
             if self.bs.active[bs]:
                 self.ue.active[self.link[bs]] = np.ones(K, dtype=bool)
-                # limit beamforming angle
-                beam_h_min, beam_h_max = wrap2_180(
-                    h_range + self.bs.geom.pointn_azim_local[bs]
-                )
                 antenna = self.bs.antenna[bs]
                 n_beams = len(antenna.beams_list)
                 for ue in self.link[bs]:
                     beam_bs.append(bs)
                     beam_ue.append(ue)
-                    bs_phi.append(clip_angle(
-                        self.bs_to_ue_phi[bs, ue], beam_h_min, beam_h_max,
-                    ))
-                    bs_theta.append(
-                        np.clip(self.bs_to_ue_theta[bs, ue], *v_range))
+                    # limit beamforming angle
+                    beam_phi, beam_theta = antenna.clip_beam_direction(
+                        self.bs_to_ue_phi[bs, ue],
+                        self.bs_to_ue_theta[bs, ue],
+                        h_range,
+                        v_range,
+                        self.bs.geom.pointn_azim_global[bs],
+                    )
+                    bs_phi.append(beam_phi)
+                    bs_theta.append(beam_theta)
                     # beam resource block group = index of this beam in the
                     # BS antenna list (unchanged when the antenna stores none)
                     if getattr(antenna, "constant_gain", False):
@@ -612,7 +612,7 @@ class Simulation(ABC, Observable):
                 theta = self.bs_to_ue_theta
                 beams_idx = self.bs_to_ue_beam_rbs[station_2_active]
             elif not station_2.is_imt_station():
-                phi, theta = station_1.geom.get_local_pointing_vector_to(station_2.geom)
+                phi, theta = station_1.geom.get_global_pointing_vector_to(station_2.geom)
                 phi = np.repeat(phi, self.parameters.imt.ue.k, 0)
                 theta = np.repeat(theta, self.parameters.imt.ue.k, 0)
                 beams_idx = np.tile(
@@ -620,7 +620,7 @@ class Simulation(ABC, Observable):
                 )
 
         elif (station_1.station_type is StationType.IMT_UE):
-            phi, theta = station_1.geom.get_local_pointing_vector_to(station_2.geom)
+            phi, theta = station_1.geom.get_global_pointing_vector_to(station_2.geom)
             beams_idx = np.zeros(len(station_2_active), dtype=int)
 
         elif not station_1.is_imt_station():

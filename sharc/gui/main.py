@@ -395,6 +395,13 @@ class App(WorkbenchMixin, QMainWindow):
 
         # --- Help ---
         m_help = menubar.addMenu("Help")
+        act_help = QAction("Help and Parameter Guide\tF1", self)
+        act_help.triggered.connect(self._toggle_help)
+        m_help.addAction(act_help)
+        act_book = QAction("Handbook", self)
+        act_book.triggered.connect(lambda: self._open_handbook())
+        m_help.addAction(act_book)
+        m_help.addSeparator()
         act_about = QAction("About SHARC", self)
         act_about.triggered.connect(self._about_dialog)
         m_help.addAction(act_about)

@@ -193,6 +193,11 @@ def hex_sector_scene(topo_type: str, es: EngineScene) -> Dict[str, Any]:
     }
 
 
+def layers(es: EngineScene) -> Dict[str, Any]:
+    """Optional engine-derived layers (lobe, ground maps, UE links, HUD plots) for topologies with a local frame."""
+    return {"lobe": _bs_lobe(es), "heat": _heatmaps(es), "links": _extra(es, "links"), "plots": _extra(es, "plots")}
+
+
 def _extra(es: EngineScene, name: str):
     """Optional preview data from core/preview_extras (UE links, HUD plots, snapshot sequence), or None."""
     try:

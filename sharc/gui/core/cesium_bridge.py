@@ -198,7 +198,19 @@ class CesiumBridgeMixin:
             "ue_positions": ue_positions,
         }
 
-    def _indoor_scene_dict(self, local) -> Dict[str, Any]:
+    @staticmethod
+    def _engine_ues(engine, limit: int = 600, with_z: bool = True) -> list:
+        """UE positions exactly as the engine drew them (local ENU), thinned to `limit` for the 3D view."""
+        ue = engine.ue.geom
+        n = int(ue.num_geometries)
+        step = max(1, -(-n // limit))
+        x, y, z = (np.asarray(ue.x_global, float)[::step], np.asarray(ue.y_global, float)[::step],
+                   np.asarray(ue.z_global, float)[::step])
+        if with_z:
+            return [{"x": float(a), "y": float(b), "z": float(c)} for a, b, c in zip(x, y, z)]
+        return [{"x": float(a), "y": float(b)} for a, b in zip(x, y)]
+
+    def _indoor_scene_dict(self, local, engine=None) -> Dict[str, Any]:
         topo = local.indoor_topo
         n_total_bs = len(topo.x)
         bs_per_floor = max(1, n_total_bs // max(1, topo.num_floors))
@@ -224,25 +236,26 @@ class CesiumBridgeMixin:
             for x, y, z in zip(topo.x, topo.y, heights)
         ]
 
-        rng = np.random.RandomState(42)
-        ue_positions = []
-        n_ue = min(n_total_bs * 3, 60)
-        for i in range(n_ue):
-            bi = i % n_total_bs
-            ue_positions.append({
-                "x": float(topo.x[bi]) + rng.uniform(-topo.cell_radius, topo.cell_radius),
-                "y": float(topo.y[bi]) + rng.uniform(-topo.b_d / 2, topo.b_d / 2),
-                "z": float(heights[bi]) - rng.uniform(0, topo.b_h * 0.8),
-            })
-
-        return {
+        out = {
             "topology_type": "INDOOR",
             "reference": self._reference_dict(local),
             "ue_height_m": local.ue_height_m,
             "buildings": buildings,
             "base_stations": base_stations,
-            "ue_positions": ue_positions,
         }
+        if engine is not None:
+            from core import engine_scene
+            out["ue_positions"] = self._engine_ues(engine)          # the engine's UEs, not a random sample
+            out["source"] = "engine"
+            out.update(engine_scene.layers(engine))
+            return out
+        rng = np.random.RandomState(42)                              # no engine scene: a labelled illustration
+        out["ue_positions"] = [{
+            "x": float(topo.x[i % n_total_bs]) + rng.uniform(-topo.cell_radius, topo.cell_radius),
+            "y": float(topo.y[i % n_total_bs]) + rng.uniform(-topo.b_d / 2, topo.b_d / 2),
+            "z": float(heights[i % n_total_bs]) - rng.uniform(0, topo.b_h * 0.8),
+        } for i in range(min(n_total_bs * 3, 60))]
+        return out
 
     def _mss_d2d_scene_dict(self, local) -> Dict[str, Any]:
         """Two D2D devices + link — matches PlotEnginesMixin's dedicated
@@ -305,21 +318,21 @@ class CesiumBridgeMixin:
             "antenna_azimuth_deg": azimuth_deg,
         }
 
-    def _ntn_scene_dict(self, local) -> Dict[str, Any]:
+    def _ntn_scene_dict(self, local, engine=None) -> Dict[str, Any]:
         topo = local.ntn_topo
         anchor_points = [{"x": float(x), "y": float(y)} for x, y in zip(topo.x, topo.y)]
 
-        rng = np.random.RandomState(42)
-        ue_positions = []
-        n_ue = min(len(topo.x) * 5, 80)
-        for i in range(n_ue):
-            bi = i % len(topo.x)
-            ue_positions.append({
-                "x": float(topo.x[bi]) + rng.uniform(-topo.cell_radius * 0.8, topo.cell_radius * 0.8),
-                "y": float(topo.y[bi]) + rng.uniform(-topo.cell_radius * 0.8, topo.cell_radius * 0.8),
-            })
+        if engine is not None:
+            ue_positions = self._engine_ues(engine, with_z=False)    # the engine's UEs, not a random sample
+        else:
+            rng = np.random.RandomState(42)                          # no engine scene: a labelled illustration
+            ue_positions = [{
+                "x": float(topo.x[i % len(topo.x)]) + rng.uniform(-topo.cell_radius * 0.8, topo.cell_radius * 0.8),
+                "y": float(topo.y[i % len(topo.x)]) + rng.uniform(-topo.cell_radius * 0.8, topo.cell_radius * 0.8),
+            } for i in range(min(len(topo.x) * 5, 80))]
 
         return {
+            "source": "engine" if engine is not None else "illustration",
             "topology_type": "NTN",
             "reference": self._reference_dict(local),
             "hex_radius_m": float(topo.cell_radius),
@@ -432,6 +445,7 @@ class CesiumBridgeMixin:
         scene = self._build_scene_graph(topo_type, data)
 
         if scene.is_global:
+            engine = None
             try:
                 from core.engine_scene import build_engine_scene
                 engine = build_engine_scene(data)
@@ -447,7 +461,17 @@ class CesiumBridgeMixin:
                     self._report_scene_problem(f"system: {engine.system_error}")
             except Exception as exc:  # noqa: BLE001
                 self._report_scene_problem(f"invalid parameters for the simulator: {exc}")
-            return self._global_scene_dict(topo_type, scene.global_)
+            out = self._global_scene_dict(topo_type, scene.global_)
+            if (engine is not None and topo_type == "Macro_countries"
+                    and str(engine.params.imt.topology.type).upper() == "MACRO_COUNTRIES"):
+                try:                                    # sectors, UEs, links, lobe and ground maps, on the sphere
+                    from core import country_scene
+                    out["country"] = country_scene.build(engine)
+                    for problem in out["country"].get("problems", []):
+                        self._report_scene_problem(f"Macro_countries: {problem}")
+                except Exception as exc:  # noqa: BLE001 - the dots-only scene is still drawn
+                    self._report_scene_problem(f"Macro_countries scene: {type(exc).__name__}: {exc}")
+            return out
 
         local = scene.local
 
@@ -460,14 +484,32 @@ class CesiumBridgeMixin:
         except EngineSceneError as exc:
             return {"error": f"invalid parameters for the simulator: {exc}", "topology_type": topo_type}
         apply_to_local(local, engine)
+        self._current_engine = engine                    # the dict builders below read the engine's own stations
         if topo_type in ("MACROCELL", "HOTSPOT", "SINGLE_BS", "SINGLE_BASE_STATION")                 and str(engine.params.imt.topology.type).upper() == ("SINGLE_BS" if topo_type.startswith("SINGLE") else topo_type):
             return hex_sector_scene(topo_type, engine)
 
+        if topo_type == "MSS_DC" and str(engine.params.imt.topology.type).upper() == "MSS_DC":
+            from core import country_scene
+            try:
+                return {"topology_type": "MSS_DC", "reference": dict(engine.reference),
+                        "constellation": country_scene.constellation(engine)}
+            except Exception as exc:  # noqa: BLE001
+                return {"error": f"MSS_DC scene: {type(exc).__name__}: {exc}", "topology_type": topo_type}
         if topo_type == "INDOOR" and local.indoor_topo is not None:
-            return self._indoor_scene_dict(local)
+            return self._indoor_scene_dict(local, engine)
         if topo_type == "NTN" and local.ntn_topo is not None:
-            return self._ntn_scene_dict(local)
+            return self._ntn_scene_dict(local, engine)
         if topo_type == "MSS_D2D":
+            sys_obj = getattr(engine, "system", None)
+            if sys_obj is not None and str(engine.params.general.system).upper() == "MSS_D2D":
+                from core import country_scene
+                try:                                    # the engine's own constellation, as the victim system
+                    cell = float(engine.params.mss_d2d.cell_radius)
+                    return {"topology_type": "MSS_D2D", "reference": dict(engine.reference), "as_system": True,
+                            "constellation": country_scene.constellation(
+                                engine, geom=sys_obj.geom, beam_radius_m=cell, with_ues=False)}
+                except Exception as exc:  # noqa: BLE001
+                    self._report_scene_problem(f"MSS_D2D scene: {type(exc).__name__}: {exc}")
             return self._mss_d2d_scene_dict(local)
         if topo_type == "SINGLE_EARTH_STATION":
             return self._single_earth_station_scene_dict(local)

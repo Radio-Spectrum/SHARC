@@ -181,7 +181,9 @@ class AppState(QObject):
         self.hotspot_wrap = self._add(False, bool)
         self.hotspot_clusters = self._add("1")
         self.hotspot_num_per_cell = self._add("3")
-        self.hotspot_max_dist_ue = self._add("400.0")
+        # Overridden by imt_defaults.json. The engine fails ("Infinite loop while creating hotspots") when the
+        # hotspots do not fit in the sector: 3 per cell with 500 m intersite works up to 70 m, not at 100 m.
+        self.hotspot_max_dist_ue = self._add("70.0")
         self.hotspot_min_dist_bs = self._add("40.0")
 
         self.sbs_intersite = self._add("600")

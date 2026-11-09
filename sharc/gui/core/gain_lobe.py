@@ -32,8 +32,12 @@ def band_color(k: int) -> Tuple[float, float, float]:
     return _STOPS[min(k, len(_STOPS) - 1)]
 
 
-def sample_bs_gain(es) -> Optional[Dict[str, Any]]:
+def sample_bs_gain(es, local_frame: bool = False) -> Optional[Dict[str, Any]]:
     """Gain [dBi] of the first base-station sector on a (elevation, azimuth-offset) grid, from the engine antenna.
+
+    `local_frame=True` takes the boresight in the site's own ENU frame (`pointn_*_local`). Wide-area networks
+    (Macro_countries) need it: their global-frame elevation carries the Earth curvature between the site and
+    the reference point, so it is not the sector downtilt.
 
     Returns {"dphi": (P,), "elev": (E,), "gain": (E, P), "peak": float, "az": float, "el": float} or None.
     """
@@ -41,8 +45,9 @@ def sample_bs_gain(es) -> Optional[Dict[str, Any]]:
     if not len(getattr(bs, "antenna", [])):
         return None
     ant = copy.deepcopy(bs.antenna[0])                      # never mutate the cached engine scene
-    az = float(bs.geom.pointn_azim_global[0])
-    el = float(bs.geom.pointn_elev_global[0])               # negative = pointing down
+    suffix = "local" if local_frame else "global"
+    az = float(getattr(bs.geom, f"pointn_azim_{suffix}")[0])
+    el = float(getattr(bs.geom, f"pointn_elev_{suffix}")[0])   # negative = pointing down
     if hasattr(ant, "beams_list"):
         ant.beams_list, ant.w_vec_list = [], []
         if hasattr(ant, "co_correction_factor_list"):

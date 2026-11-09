@@ -32,7 +32,7 @@
     "hotspot_wrap": false,
     "hotspot_clusters": 1,
     "hotspot_num_per_cell": 3,
-    "hotspot_max_dist_ue": 100.0,
+    "hotspot_max_dist_ue": 70.0,
     "hotspot_min_dist_bs": 50.0,
     "sbs_intersite": 1000.0,
     "sbs_cell_radius": 500.0,

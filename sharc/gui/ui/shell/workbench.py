@@ -20,11 +20,11 @@ import os
 
 import qtawesome as qta
 from PySide6.QtCore import QSettings, QSize, Qt, QTimer, Slot
-from PySide6.QtGui import QAction, QFont
+from PySide6.QtGui import QAction, QFont, QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QDockWidget, QFrame, QHBoxLayout, QLabel, QMainWindow, QPlainTextEdit,
     QProgressBar, QPushButton, QScrollArea, QStackedWidget, QStatusBar,
-    QTabWidget, QToolBar, QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget, QMenu,
+    QTabWidget, QToolBar, QToolButton, QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget, QMenu,
 )
 
 LAYOUT_VERSION = 3  # incrementar quando os docks mudarem (invalida layout salvo)
@@ -33,6 +33,41 @@ from ui.components.properties import (  # noqa: E402
 )
 
 _SECTION_TITLES = {"configuration": "Project", "operations": "Simulation"}
+
+# First match wins; keywords are tested against the lower-case section title.
+_SECTION_GLYPHS = (
+    (r"base.?station d|database", "mdi.database-outline"),
+    (r"\bbs\b", "mdi.antenna"),
+    (r"\bue\b", "mdi.cellphone"),
+    (r"interference", "mdi.waveform"),
+    (r"offline", "mdi.cloud-off-outline"),
+    (r"ul / dl|channel", "mdi.swap-vertical"),
+    (r"topology", "mdi.graph-outline"),
+    (r"simulation", "mdi.cog-outline"),
+    (r"output", "mdi.folder-open-outline"),
+    (r"sweep", "mdi.table-large"),
+    (r"terrain", "mdi.terrain"),
+    (r"layers", "mdi.layers-outline"),
+    (r"detail|perf", "mdi.speedometer"),
+    (r"download", "mdi.download-outline"),
+    (r"\bdata\b", "mdi.database-cog-outline"),
+    (r"p619|propagation|p\.452", "mdi.signal-variant"),
+    (r"geometry", "mdi.vector-square"),
+    (r"antenna", "mdi.antenna"),
+    (r"spectrum", "mdi.chart-bell-curve"),
+    (r"criterion", "mdi.shield-check-outline"),
+    (r"rays", "mdi.vector-line"),
+    (r"basic|general|project", "mdi.format-list-bulleted"),
+)
+
+
+def section_glyph(title: str) -> str:
+    import re
+    low = title.lower()
+    for pattern, glyph in _SECTION_GLYPHS:
+        if re.search(pattern, low):
+            return glyph
+    return "mdi.circle-small"
 
 
 def _find_owner_layout(widget):
@@ -149,12 +184,14 @@ class WorkbenchMixin:
         self._section_filter = {}
         self._section_windows = {}
         self._nav_items = {}
+        self._section_icon_items = []
         self.nav_buttons = {}  # legado: mantido vazio
 
         self._build_toolbar()
         self._build_scenario_dock()
         self._build_bottom_docks()
         self._build_status_bar()
+        self._build_feko_layout()
         self._refresh_chrome_icons()
 
     # ------------------------------------------------------------------
@@ -193,6 +230,174 @@ class WorkbenchMixin:
                              spacer.sizePolicy().verticalPolicy().Preferred)
         tb.addWidget(spacer)
         add("Theme", "mdi.theme-light-dark", self._toggle_theme_safely, "Toggle graphite / light theme")
+
+        self.btn_help = QToolButton()
+        self.btn_help.setObjectName("HelpButton")
+        self.btn_help.setToolTip("Help: explains the current page and its parameters, and opens the handbook (F1)")
+        self.btn_help.setFixedSize(26, 26)
+        self.btn_help.setIconSize(QSize(16, 16))
+        self.btn_help.setCursor(Qt.PointingHandCursor)
+        self.btn_help.clicked.connect(self._toggle_help)
+        tb.addWidget(self.btn_help)
+        self._help_shortcut = QShortcut(QKeySequence("F1"), self)
+        self._help_shortcut.activated.connect(self._toggle_help)
+        self._style_help_button()
+
+    def _style_help_button(self):
+        t = self.tk
+        self.btn_help.setIcon(qta.icon("mdi.help", color=t["accent"]))
+        self.btn_help.setStyleSheet(
+            f"QToolButton#HelpButton {{ border: 1.5px solid {t['accent']}; border-radius: 13px; background: transparent; }}"
+            f"QToolButton#HelpButton:hover {{ background: {t['accent']}33; }}")
+
+    # ------------------------------------------------------------------
+    # Painel Help (botao "?" e F1)
+    # ------------------------------------------------------------------
+    def _ensure_help_dock(self):
+        if getattr(self, "dock_help", None) is None:
+            from ui.shell.help_panel import HelpDock
+            self.dock_help = HelpDock(self)
+            self.addDockWidget(Qt.RightDockWidgetArea, self.dock_help)
+            self.tabifyDockWidget(self.dock_properties, self.dock_help)
+            self.dock_properties.raise_()
+            self.dock_help.visibilityChanged.connect(lambda vis: vis and self._update_help())
+        return self.dock_help
+
+    # ------------------------------------------------------------------
+    # Layout opcional estilo Feko (ribbon + Model Status)
+    # ------------------------------------------------------------------
+    def _build_feko_layout(self):
+        from ui.shell.feko_layout import ModelStatusDock, build_ribbon_toolbar
+        self.dock_model_status = ModelStatusDock(self)
+        self.addDockWidget(Qt.RightDockWidgetArea, self.dock_model_status)
+        self.splitDockWidget(self.dock_properties, self.dock_model_status, Qt.Vertical)
+        self.dock_model_status.hide()
+        self.ribbon_toolbar, self.ribbon = build_ribbon_toolbar(self)
+        self.addToolBarBreak(Qt.TopToolBarArea)
+        self.addToolBar(Qt.TopToolBarArea, self.ribbon_toolbar)
+        self.ribbon_toolbar.hide()
+        self._layout_mode = "classic"
+        if not os.environ.get("SHARC_GUI_NO_RESTORE"):
+            saved = QSettings("SHARC", "GUI").value("appearance/layout", "classic")
+            self._layout_mode = saved if saved in ("classic", "feko") else "classic"
+        self._set_layout_mode(self._layout_mode, persist=False)
+
+    def _set_layout_mode(self, mode, persist=True):
+        feko = mode == "feko"
+        self._layout_mode = "feko" if feko else "classic"
+        self.main_toolbar.setVisible(not feko)
+        self.ribbon_toolbar.setVisible(feko)
+        self.dock_model_status.setVisible(feko)
+        self.dock_scenario.setWindowTitle("Items" if feko else "Scenario")
+        self._refresh_workbench_icons()
+        if persist and not os.environ.get("SHARC_GUI_NO_RESTORE"):
+            QSettings("SHARC", "GUI").setValue("appearance/layout", self._layout_mode)
+
+    def _refresh_model_status(self):
+        from PySide6.QtWidgets import QApplication
+        dock = self.dock_model_status
+        dock.show()
+        QApplication.setOverrideCursor(Qt.WaitCursor)
+        try:
+            data = self.tab_preview._current_yaml()
+            if not data:
+                raise ValueError("No configuration generated.")
+            from core.engine_scene import build_engine_scene
+            build_engine_scene(data)
+            ok, summary, detail = True, "Model is valid", "The engine built the scenario without errors."
+        except Exception as exc:  # the engine reports what it rejected in the message
+            ok, summary, detail = False, "Model has errors", f"{type(exc).__name__}: {exc}"
+        finally:
+            QApplication.restoreOverrideCursor()
+        lines = self.messages_view.toPlainText().splitlines()[-40:]
+        dock.show_result(ok, summary, detail, lines, self.tk)
+        return ok
+
+    def _dock_tab(self, dock):
+        """(QTabBar, index) of a tabbed dock, or (None, -1) when it is not in a tab group."""
+        from PySide6.QtWidgets import QTabBar
+        for bar in self.findChildren(QTabBar):
+            for i in range(bar.count()):
+                if bar.tabText(i) == dock.windowTitle() and bar.isVisible():
+                    return bar, i
+        return None, -1
+
+    def _dock_on_top(self, dock):
+        # a dock behind another tab still reports isVisible() == True
+        bar, i = self._dock_tab(dock)
+        return dock.isVisible() and (bar is None or bar.currentIndex() == i)
+
+    def _raise_dock(self, dock):
+        dock.show()
+        bar, i = self._dock_tab(dock)
+        if bar is not None:
+            bar.setCurrentIndex(i)
+        dock.raise_()
+
+    def _toggle_help(self):
+        dock = self._ensure_help_dock()
+        if self._dock_on_top(dock):
+            dock.hide()
+            return
+        self._raise_dock(dock)
+        dock.tabs.setCurrentIndex(0)
+        self._update_help()
+
+    def _open_handbook(self, topic=None):
+        dock = self._ensure_help_dock()
+        self._raise_dock(dock)
+        dock.open_topic(topic or "What SHARC does")
+
+    def _update_help(self):
+        dock = getattr(self, "dock_help", None)
+        key = getattr(self, "current_key", None)
+        if dock is None or not self._dock_on_top(dock) or key is None:
+            return
+        entry = self._nav_items.get(key)
+        page_label = entry[0].text(0) if entry else key
+        boxes = self._page_sections.get(key, [])
+        idx = self._section_filter.get(key)
+        shown = [boxes[idx]] if idx is not None and idx < len(boxes) else boxes
+        title = section_title(boxes[idx]) if idx is not None and idx < len(boxes) else ""
+        rows = []
+        for box in shown:
+            rows += [lbl.text() for lbl in box.findChildren(QLabel) if lbl.objectName() == "PropLabel"]
+        dock.show_context(key, page_label, title, rows)
+
+    def _apply_param_tooltips(self):
+        """Hovering a parameter name shows what it means (descriptions in ui/shell/help_content.py)."""
+        from ui.shell import help_content as hc
+        for key, boxes in self._page_sections.items():
+            for box in boxes:
+                for lbl in box.findChildren(QLabel):
+                    if lbl.objectName() != "PropLabel":
+                        continue
+                    text = hc.lookup(key, lbl.text())
+                    if text:
+                        raw = lbl.toolTip()
+                        tip = f"{text}\n({raw})" if raw else text
+                        lbl.setToolTip(tip)
+                        self._tip_row_neighbours(lbl, tip)
+
+    @staticmethod
+    def _tip_row_neighbours(lbl, tip):
+        """Same description over the value editor and the unit of the row, not only over the name."""
+        from PySide6.QtWidgets import QGridLayout
+        grid = lbl.parentWidget().layout() if lbl.parentWidget() is not None else None
+        if not isinstance(grid, QGridLayout):
+            return
+        idx = grid.indexOf(lbl)
+        if idx < 0:
+            return
+        row = grid.getItemPosition(idx)[0]
+        for col in (1, 2):
+            item = grid.itemAtPosition(row, col)
+            w = item.widget() if item is not None else None
+            if w is None:
+                continue
+            for target in [w] + w.findChildren(QWidget):
+                if not target.toolTip():
+                    target.setToolTip(tip)
 
     # ------------------------------------------------------------------
     # Árvore do cenário (dock esquerdo)
@@ -418,6 +623,7 @@ class WorkbenchMixin:
                 section_items[section] = top
             item = QTreeWidgetItem(section_items[section], [label])
             item.setData(0, Qt.UserRole, key)
+            item.setIcon(0, qta.icon(icon, color=self.tk["icon"]))
             self._nav_items[key] = (item, icon)
             if key in self._page_widgets and key not in ("runner", "ssh"):
                 secs = top_level_sections(page)
@@ -428,9 +634,13 @@ class WorkbenchMixin:
                         short = full.split(" (")[0] if len(full) > 24 else full
                         child = QTreeWidgetItem(item, [short])
                         child.setToolTip(0, full)
+                        glyph = section_glyph(full)
+                        child.setIcon(0, qta.icon(glyph, color=self.tk["icon"]))
+                        self._section_icon_items.append((child, glyph))
                         child.setData(0, Qt.UserRole, key)
                         child.setData(0, Qt.UserRole + 1, idx)
 
+        self._apply_param_tooltips()
         self.scenario_tree.expandAll()
         self.doc_tabs.currentChanged.connect(self._on_doc_tab_changed)
         self._resize_default_docks()
@@ -554,6 +764,7 @@ class WorkbenchMixin:
     def _switch_page(self, key, label_text, keep_filter=False):
         """Documentos (3D Scene, Results) viram aba central; o resto abre em Properties."""
         self.current_key = key
+        self._update_help()
         self.lbl_page_title.setText(label_text)
         if hasattr(self, "prop_search") and self.prop_search.text():
             self.prop_search.clear()
@@ -596,6 +807,13 @@ class WorkbenchMixin:
             act.setIcon(qta.icon(glyph, color=t.get(role, t["icon"])))
         for key, (item, icon) in getattr(self, "_nav_items", {}).items():
             item.setIcon(0, qta.icon(icon, color=t["icon"]))
+        for item, glyph in getattr(self, "_section_icon_items", []):
+            item.setIcon(0, qta.icon(glyph, color=t["icon"]))
+        if getattr(self, "btn_help", None) is not None:
+            self._style_help_button()
+        if getattr(self, "ribbon", None) is not None:
+            self.ribbon.refresh_icons(t)
+            self.ribbon_toolbar.setStyleSheet(self.ribbon.stylesheet(t))
         if hasattr(self, "tray_frame") and hasattr(self, "dock_jobs"):
             pass
 
@@ -606,6 +824,12 @@ class WorkbenchMixin:
                      self.dock_messages, self.dock_jobs):
             if dock is not None:
                 m_view.addAction(dock.toggleViewAction())
+        m_view.addSeparator()
+        m_layout = m_view.addMenu("Layout")
+        for mode, text in (("classic", "Classic"), ("feko", "Ribbon (Feko style)")):
+            a = QAction(text, self)
+            a.triggered.connect(lambda _=False, m=mode: self._set_layout_mode(m))
+            m_layout.addAction(a)
         m_view.addSeparator()
         act = QAction("Reset Layout", self)
         act.triggered.connect(self._reset_workbench_layout)
@@ -630,6 +854,7 @@ class WorkbenchMixin:
             self.restoreGeometry(geo)
         if state:
             self.restoreState(state, LAYOUT_VERSION)
+        self._set_layout_mode(self._layout_mode, persist=False)
 
     def closeEvent(self, event):  # noqa: N802 (Qt override)
         if not os.environ.get("SHARC_GUI_NO_RESTORE"):

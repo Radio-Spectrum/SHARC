@@ -1058,8 +1058,34 @@ function renderHexSectorScene(scene) {
   );
 }
 
+// Layer state of an IMT network scene (lobes, ground maps, UE links, HUD plots, snapshots). Every IMT renderer starts
+// from it so a scene never inherits the previous scene's maps or links. Victim-system renderers must NOT call it:
+// in a composite scene they draw after the IMT network and would wipe its layers.
+function resetEngineLayers(scene) {
+  lobes.ents = []; lobes.info = scene.lobe || null;
+  heat.data = scene.heat || null; heat.sat = null; heat.ent = null;
+  if (snap.timer) { clearInterval(snap.timer); snap.timer = null; const pb = document.getElementById("btnPlay"); if (pb) pb.classList.remove("on"); }
+  links.ents = []; links.data = scene.links || null;
+  for (const l of interf.lines) viewer.entities.remove(l);
+  interf.lines = []; interf.bsEnts = []; interf.bsWorld = []; interf.victimWorld = null; interf.data = scene.interference || null;
+  snap.frames = null; snap.ues = []; snap.bs = scene.base_stations || []; snap.idx = 0;
+  if (window.pyBridge && window.pyBridge.set_plots) window.pyBridge.set_plots(JSON.stringify(scene.plots || null));
+}
+
+// Serving-BS links (local ENU), coloured by SNR; click one for its link budget
+function addEnuLinks(toWorld) {
+  for (const k of links.data || []) {
+    const ent = viewer.entities.add({
+      polyline: { positions: [toWorld(...k.ue_xyz), toWorld(...k.bs_xyz)], width: 2, material: linkColor(k.snr_db) },
+    });
+    ent.linkInfo = k; ent.linkOrig = k; ent.show = links.on;
+    links.ents.push(ent);
+  }
+}
+
 function renderIndoorScene(scene) {
   const { toWorld, orientation } = makeEnuHelpers(scene.reference);
+  resetEngineLayers(scene);
 
   for (const b of scene.buildings) {
     const totalHeight = b.floor_height * b.num_floors;
@@ -1088,11 +1114,17 @@ function renderIndoorScene(scene) {
     }
   }
 
+  const lobeScale = Math.max(2.5, (scene.buildings[0] ? scene.buildings[0].floor_height : 3) * 1.2);
   for (const bs of scene.base_stations) {
     viewer.entities.add({
       position: toWorld(bs.x, bs.y, bs.z),
       point: { pixelSize: 6, color: C.bs, outlineColor: C.bsOutline, outlineWidth: 1 },
     });
+    if (scene.lobe) {                                   // gain lobe of the access point, same pointing for all
+      const lobe = addModel("Antenna gain lobe", scene.lobe.uri, toWorld(bs.x, bs.y, bs.z), 0, 0, { scale: lobeScale });
+      lobe.show = lobes.on;
+      lobes.ents.push(lobe);
+    }
   }
 
   for (const ue of scene.ue_positions) {
@@ -1101,12 +1133,81 @@ function renderIndoorScene(scene) {
       point: { pixelSize: 4.5, color: C.ue.withAlpha(0.95), outlineColor: Cesium.Color.WHITE.withAlpha(0.6), outlineWidth: 0.8 },
     });
   }
+  addEnuLinks(toWorld);
+  if (heat.mode) setHeat(heat.mode);                    // keep the chosen map across redraws
 
   viewer.zoomTo(viewer.entities);
   setStatus(
     `INDOOR: ${scene.buildings.length} buildings, ${scene.base_stations.length} BS, ` +
-      `${scene.ue_positions.length} UE`
+      `${scene.ue_positions.length} UE${scene.source === "engine" ? " (engine)" : " (illustration)"}`
   );
+}
+
+// Macro_countries network from the engine (core/country_scene.py): everything is placed by latitude/longitude
+// because the sites are thousands of km apart; each site gets its own local ENU frame for sector, cone and lobe.
+function renderCountryNetwork(scene) {
+  const c = scene.country;
+  const sites = c.sites || [];
+  const R = Math.max(c.cell_radius_m || 1000, 200);
+  const detailed = sites.length <= 300;               // towers, cones and lobes only while the entity count stays low
+  lobes.ents = []; lobes.info = c.lobe || null;
+  heat.data = c.heat || null; heat.ent = null;
+  links.ents = []; links.data = c.links || null;
+  snap.frames = null; snap.ues = []; snap.idx = 0;
+  const near = new Cesium.DistanceDisplayCondition(0, Math.max(60 * R, 150000));
+  const dotFar = new Cesium.DistanceDisplayCondition(0, Number.POSITIVE_INFINITY);
+
+  for (const s of sites) {
+    const h = Math.max(s.height_m || 20, 5);
+    const { toWorld } = makeEnuHelpers({ lat_deg: s.lat_deg, lon_deg: s.lon_deg, alt_m: 0 });
+    const top = toWorld(0, 0, h);
+    viewer.entities.add({                               // visible from space: a site is a dot until you zoom in
+      position: top,
+      point: { pixelSize: 7, color: C.countryBs, outlineColor: C.bsOutline, outlineWidth: 1.5, distanceDisplayCondition: dotFar,
+               disableDepthTestDistance: Number.POSITIVE_INFINITY },
+    });
+    viewer.entities.add({                               // the cell, to scale
+      position: toWorld(0, 0, 0),
+      ellipse: { semiMajorAxis: R, semiMinorAxis: R, material: C.hex.withAlpha(0.10), outline: true,
+                 outlineColor: C.hex.withAlpha(0.7), distanceDisplayCondition: near },
+    });
+    viewer.entities.add({                               // sector wedge along the engine azimuth (site frame)
+      polygon: { hierarchy: sectorWedgePositions(toWorld, 0, 0, h, s.azimuth_deg, R * 0.9), material: C.sector.withAlpha(0.14),
+                 outline: true, outlineColor: C.sector.withAlpha(0.6), perPositionHeight: true, distanceDisplayCondition: near },
+    });
+    if (!detailed) continue;
+    addBeamCone(toWorld, viewer.entities, 0, 0, h, s.azimuth_deg, s.downtilt_deg, R * 0.6, C.beam);
+    addModel("Base station", "/models/tower.glb", toWorld(0, 0, 0), -s.azimuth_deg, 0,
+      { scale: Math.max(1, h / 30), nearM: Math.max(2500, 4 * R) });
+    if (c.lobe) {
+      const lobe = addModel("Antenna gain lobe", c.lobe.uri, top, -s.azimuth_deg, 0, { scale: R * 0.9, nearM: 40 * R });
+      lobe.show = lobes.on;
+      lobes.ents.push(lobe);
+    }
+  }
+
+  for (const u of c.ues || []) {
+    viewer.entities.add({
+      position: Cesium.Cartesian3.fromDegrees(u.lon_deg, u.lat_deg, 1.5),
+      point: { pixelSize: 4.5, color: C.ue.withAlpha(0.95), outlineColor: Cesium.Color.WHITE.withAlpha(0.6), outlineWidth: 0.8,
+               heightReference: Cesium.HeightReference.CLAMP_TO_GROUND, distanceDisplayCondition: dotFar,
+               disableDepthTestDistance: Number.POSITIVE_INFINITY },
+    });
+  }
+  for (const k of c.links || []) {                      // engine-assigned serving BS, coloured by nominal SNR
+    const ent = viewer.entities.add({
+      polyline: { positions: [Cesium.Cartesian3.fromDegrees(k.ue_lla[1], k.ue_lla[0], k.ue_lla[2]),
+                              Cesium.Cartesian3.fromDegrees(k.bs_lla[1], k.bs_lla[0], k.bs_lla[2])],
+                  width: 2, material: linkColor(k.snr_db), depthFailMaterial: linkColor(k.snr_db),
+                  arcType: Cesium.ArcType.GEODESIC, distanceDisplayCondition: near },
+    });
+    ent.linkInfo = k; ent.linkOrig = k; ent.show = links.on;
+    links.ents.push(ent);
+  }
+  if (window.pyBridge && window.pyBridge.set_plots) window.pyBridge.set_plots(JSON.stringify(null));
+  if (heat.mode) setHeat(heat.mode);                    // keep the chosen map across redraws
+  const nUe = c.ue_total || (c.ues || []).length;
+  scene._countryStatus = `${sites.length} sites, ${nUe} UE, cell radius ${(R / 1000).toFixed(1)} km`;
 }
 
 function renderSingleSpaceStationScene(scene) {
@@ -1254,9 +1355,12 @@ function renderSingleSpaceStationScene(scene) {
     }
   }
 
-  // Country BS (Macro_countries) — larger dots + triangle markers
+  // Macro_countries from the engine: sites with sectors, cells, UEs, links, lobes and ground maps
+  if (scene.country) renderCountryNetwork(scene);
+
+  // Country BS (Macro_countries) — larger dots + triangle markers (plain dots when there is no engine data)
   if (scene.country_bs && scene.country_bs.length > 0) {
-    for (const bs of scene.country_bs) {
+    for (const bs of (scene.country ? [] : scene.country_bs)) {
       viewer.entities.add({
         position: Cesium.Cartesian3.fromDegrees(bs.lon_deg, bs.lat_deg, (bs.ground_m || 0) + 25),
         point: { pixelSize: 6, color: C.countryBs, outlineColor: Cesium.Color.WHITE, outlineWidth: 1 },
@@ -1293,7 +1397,8 @@ function renderSingleSpaceStationScene(scene) {
   let statusMsg =
     `${scene.topology_type}: satellite (${sat.lat_deg.toFixed(1)}°, ${sat.lon_deg.toFixed(1)}°), ` +
     `footprint ${scene.footprint.length} pts`;
-  if (scene.country_bs) statusMsg += `, ${scene.country_bs.length} BS`;
+  if (scene._countryStatus) statusMsg += `, ${scene._countryStatus}`;
+  else if (scene.country_bs) statusMsg += `, ${scene.country_bs.length} BS`;
   if (scene.borders) statusMsg += `, ${scene.borders.length} borders`;
   if (scene.gain_map) statusMsg += `, gain map ${scene.gain_map.cells.length} cells`;
   setStatus(statusMsg);
@@ -1415,8 +1520,55 @@ function renderSingleStationScene(scene) {
   );
 }
 
+// MSS_DC: a constellation seen from the ground (core/country_scene.constellation). Beams are the engine's "base
+// stations": each footprint is where the beam boresight meets the Earth; colour = serving satellite.
+function renderMssDcScene(scene) {
+  const c = scene.constellation;
+  if (!scene.as_system) resetEngineLayers({});   // a victim constellation draws after the IMT network: keep its layers
+  const hue = (k) => Cesium.Color.fromHsl((k * 0.618033988) % 1, 0.65, 0.55);
+  const satPos = c.satellites.map((s) => Cesium.Cartesian3.fromDegrees(s.lon_deg, s.lat_deg, s.alt_m));
+
+  c.satellites.forEach((s, k) => {
+    addModel("Satellite model", "/models/satellite.glb", satPos[k], 0, -90, { minimumPixelSize: 30, maximumScale: 300000 });
+    viewer.entities.add({
+      position: satPos[k],
+      point: { pixelSize: 6, color: hue(k), outlineColor: Cesium.Color.WHITE, outlineWidth: 1 },
+      label: { text: `SAT ${k + 1} · ${s.beams} beams`, font: "11px 'Segoe UI', Arial, sans-serif", fillColor: hue(k),
+               outlineColor: Cesium.Color.BLACK, outlineWidth: 3, style: Cesium.LabelStyle.FILL_AND_OUTLINE,
+               verticalOrigin: Cesium.VerticalOrigin.BOTTOM, pixelOffset: new Cesium.Cartesian2(0, -14),
+               distanceDisplayCondition: new Cesium.DistanceDisplayCondition(0, 6.0e6) },
+    });
+  });
+  for (const b of c.beams) {                           // footprint on the ground, to scale
+    viewer.entities.add({
+      position: Cesium.Cartesian3.fromDegrees(b.lon_deg, b.lat_deg, 0),
+      ellipse: { semiMajorAxis: c.beam_radius_m, semiMinorAxis: c.beam_radius_m, material: hue(b.sat).withAlpha(0.20),
+                 outline: true, outlineColor: hue(b.sat).withAlpha(0.75) },
+    });
+  }
+  for (const u of c.ues) {
+    viewer.entities.add({
+      position: Cesium.Cartesian3.fromDegrees(u.lon_deg, u.lat_deg, 1.5),
+      point: { pixelSize: 3.5, color: C.ue.withAlpha(0.95), outlineColor: Cesium.Color.WHITE.withAlpha(0.5), outlineWidth: 0.6 },
+    });
+  }
+  for (const l of c.links) {                           // UE to the satellite of its beam
+    viewer.entities.add({
+      name: `UE link: ${l.dist_km} km, elevation ${l.elev_deg}°`,
+      polyline: { positions: [Cesium.Cartesian3.fromDegrees(l.ue_lon_deg, l.ue_lat_deg, 1.5), satPos[l.sat]], width: 1.2,
+                  material: new Cesium.PolylineDashMaterialProperty({ color: hue(l.sat).withAlpha(0.6) }),
+                  arcType: Cesium.ArcType.NONE },
+    });
+  }
+  viewer.zoomTo(viewer.entities);
+  const miss = c.beams_missing ? `, ${c.beams_missing} beams miss the Earth` : "";
+  setStatus(`${scene.topology_type}: ${c.satellites.length} satellites, ${c.beams.length} beams of ${(c.beam_radius_m / 1000).toFixed(1)} km radius, ` +
+            `${c.ue_total ? c.ue_total + " UE (engine)" : "engine geometry"}${miss}`);
+}
+
 function renderNtnScene(scene) {
   const { toWorld } = makeEnuHelpers(scene.reference);
+  resetEngineLayers(scene);
 
   // Hex cells around anchor points
   for (const ap of scene.anchor_points) {
@@ -1504,6 +1656,15 @@ function hudFromScene(scene) {
   add("Buildings", n(scene.buildings));
   add("Anchors", n(scene.anchor_points));
   add("Devices", n(scene.devices));
+  if (scene.constellation) {
+    add("Satellites", n(scene.constellation.satellites));
+    add("Beams", n(scene.constellation.beams));
+    add("UEs", scene.constellation.ue_total);
+  }
+  if (scene.country) {
+    add("Sites", n(scene.country.sites));
+    add("UEs", scene.country.ue_total);
+  }
   if (scene.satellite) add("Satellite", "1");
   if (scene.station) add("Earth station", "1");
   if (scene.reference) {
@@ -2092,7 +2253,8 @@ function clearSceneProblem() {
 }
 
 function renderPart(scene) {
-  if (scene.buildings !== undefined) renderIndoorScene(scene);
+  if (scene.constellation !== undefined) renderMssDcScene(scene);
+  else if (scene.buildings !== undefined) renderIndoorScene(scene);
   else if (scene.anchor_points !== undefined) renderNtnScene(scene);
   else if (scene.satellite !== undefined) renderSingleSpaceStationScene(scene);
   else if (scene.devices !== undefined) renderD2DScene(scene);
@@ -2200,7 +2362,9 @@ function renderScene(scene) {
     return;
   }
   clearSceneProblem();
-  if (scene.buildings !== undefined) {
+  if (scene.constellation !== undefined) {
+    renderMssDcScene(scene);
+  } else if (scene.buildings !== undefined) {
     renderIndoorScene(scene);
   } else if (scene.anchor_points !== undefined) {
     renderNtnScene(scene);

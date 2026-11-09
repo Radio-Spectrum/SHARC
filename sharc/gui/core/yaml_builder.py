@@ -773,6 +773,21 @@ def build_yaml_structure(app_state):
             "tx_power_density": 40.0,
             "num_sectors": 19,
             "antenna_pattern": "ITU-R-S.1528-Taylor",
+            # Without these the engine cannot even create the constellation (S.1528 SLR is None, no orbits).
+            "antenna": {
+                "pattern": "ITU-R-S.1528-Taylor",
+                "gain": 34.1,
+                "itu_r_s_1528": {"slr": 20.0, "n_side_lobes": 2, "l_r": 1.6, "l_t": 1.6,
+                                 "frequency": 2110.0, "bandwidth": 5.0},
+            },
+            "beam_positioning": {
+                "type": "ANGLE_FROM_SUBSATELLITE",
+                "angle_from_subsatellite_theta": {"type": "FIXED", "fixed": 0.0},
+                "angle_from_subsatellite_phi": {"type": "FIXED", "fixed": 0.0},
+            },
+            "sat_is_active_if": {"conditions": ["MINIMUM_ELEVATION_FROM_ES"], "minimum_elevation_from_es": 5.0},
+            "orbits": [{"n_planes": 28, "inclination_deg": 53.0, "perigee_alt_km": 525.0, "apogee_alt_km": 525.0,
+                        "sats_per_plane": 120, "long_asc_deg": 0.0, "phasing_deg": 1.5}],
             "channel_model": "P619"
         }
 

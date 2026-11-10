@@ -6,10 +6,11 @@ This module uses plotly to visualize satellite footprints and related data for S
 import numpy as np
 import plotly.graph_objects as go
 from dataclasses import dataclass, field
+from functools import reduce
 
 from sharc.station_factory import StationFactory
 from sharc.parameters.parameters_mss_d2d import ParametersOrbit, ParametersMssD2d
-from sharc.support.sharc_geom import GeometryConverter
+from sharc.support.sharc_geom import CoordinateSystem
 from sharc.satellite.utils.sat_utils import ecef2lla
 from sharc.station_manager import StationManager
 from sharc.parameters.antenna.parameters_antenna_s1528 import ParametersAntennaS1528
@@ -50,7 +51,7 @@ class FootPrintOpts:
 
 def plot_fp(
     params,
-    geoconv,
+    coord_sys,
     opts=FootPrintOpts(seed=32)
 ):
     """
@@ -58,7 +59,7 @@ def plot_fp(
 
     Args:
         params: Parameters for the MSS D2D system.
-        geoconv: GeometryConverter instance for coordinate transformations.
+        coord_sys: CoordinateSystem instance for coordinate transformations.
         opts: FootPrintOpts instance with plotting options.
 
     Returns:
@@ -81,15 +82,17 @@ def plot_fp(
 
     center_of_earth = StationManager(1)
     # rotated and then translated center of earth
-    center_of_earth.x = np.array([0.0])
-    center_of_earth.y = np.array([0.0])
-    center_of_earth.z = np.array([-geoconv.get_translation()])
+    center_of_earth.geom.set_global_coords(
+        np.array([0.0]),
+        np.array([0.0]),
+        np.array([-coord_sys.get_translation()]),
+    )
 
-    mss_d2d_manager = StationFactory.generate_mss_d2d(params, rng, geoconv)
+    mss_d2d_manager = StationFactory.generate_mss_d2d(params, rng, coord_sys)
 
     # Plot the globe with satellite positions
     fig = plot_globe_with_borders(
-        True, geoconv, True
+        True, coord_sys, True
     )
 
     # Set the camera position in Plotly
@@ -107,7 +110,7 @@ def plot_fp(
                 range=(-show_range / 2, show_range / 2)
             ),
             camera=dict(
-                center=dict(x=0, y=0, z=center_of_earth.z[0] / show_range / 1e3),
+                center=dict(x=0, y=0, z=center_of_earth.geom.z_global[0] / show_range / 1e3),
                 eye=dict(x=0, y=0, z=0.7),  # Eye position (above the center)
                 up=dict(x=0, y=1, z=0)      # "Up" is along +y (default is usually +z)
             )
@@ -127,10 +130,10 @@ def plot_fp(
     # Satellite as fp center
     center_fp_at_sat = 0
     # get original sat xyz
-    orx, ory, orz = geoconv.revert_transformed_cartesian_to_cartesian(
-        station_1.x[center_fp_at_sat],
-        station_1.y[center_fp_at_sat],
-        station_1.z[center_fp_at_sat],
+    orx, ory, orz = coord_sys.enu2ecef(
+        station_1.geom.x_global[center_fp_at_sat],
+        station_1.geom.y_global[center_fp_at_sat],
+        station_1.geom.z_global[center_fp_at_sat],
     )
     sat_lat, sat_long, sat_alt = ecef2lla(orx, ory, orz)
 
@@ -138,8 +141,8 @@ def plot_fp(
     # lon_vals = np.linspace(sat_long - 10.0, sat_long + 10.0, resolution)
 
     # # Ground station as fp center
-    # lat_vals = np.linspace(geoconv.ref_lat, geoconv.ref_lat + 10.0, resolution)
-    # lon_vals = np.linspace(geoconv.ref_long - 5.0, geoconv.ref_long + 5.0, resolution)
+    # lat_vals = np.linspace(coord_sys.ref_lat, coord_sys.ref_lat + 10.0, resolution)
+    # lon_vals = np.linspace(coord_sys.ref_long - 5.0, coord_sys.ref_long + 5.0, resolution)
 
     # Arbitrary range for fp calulation
     lat_vals = np.linspace(-33.69111, 4, resolution)
@@ -154,14 +157,15 @@ def plot_fp(
 
     # Convert the lat/lon grid to transformed Cartesian coordinates.
     # Ensure your converter function can handle vectorized (numpy array) inputs.
-    x_flat, y_flat, z_flat = geoconv.convert_lla_to_transformed_cartesian(lat_flat, lon_flat, 0)
+    x_flat, y_flat, z_flat = coord_sys.lla2enu(lat_flat, lon_flat, 0)
 
     # creates a StationManager to calculate the gains on
     surf_manager = StationManager(len(x_flat))
-    surf_manager.x = x_flat
-    surf_manager.y = y_flat
-    surf_manager.z = z_flat
-    surf_manager.height = z_flat
+    surf_manager.geom.set_global_coords(
+        x_flat,
+        y_flat,
+        z_flat,
+    )
 
     station_1 = mss_d2d_manager
     mss_active = np.where(station_1.active)[0]
@@ -171,8 +175,8 @@ def plot_fp(
     print("Calculating gains (memory intensive)")
     # Calculate vector and apointment off_axis
     gains = np.zeros((len(mss_active), len(station_2_active)))
-    off_axis_angle = station_1.get_off_axis_angle(station_2)
-    phi, theta = station_1.get_pointing_vector_to(station_2)
+    off_axis_angle = station_1.geom.get_off_axis_angle(station_2.geom)
+    phi, theta = station_1.geom.get_global_pointing_vector_to(station_2.geom)
     for k in range(len(mss_active)):
         gains[k, :] = \
             station_1.antenna[k].calculate_gain(
@@ -243,9 +247,9 @@ def plot_fp(
     # Plot all satellites (red markers)
     print("adding sats")
     fig.add_trace(go.Scatter3d(
-        x=mss_d2d_manager.x / 1e3,
-        y=mss_d2d_manager.y / 1e3,
-        z=mss_d2d_manager.z / 1e3,
+        x=mss_d2d_manager.geom.x_global / 1e3,
+        y=mss_d2d_manager.geom.y_global / 1e3,
+        z=mss_d2d_manager.geom.z_global / 1e3,
         mode='markers',
         marker=dict(size=2, color='red', opacity=0.5),
         showlegend=False
@@ -254,9 +258,9 @@ def plot_fp(
     # Plot visible satellites (green markers)
     # print(visible_positions['x'][visible_positions['x'] > 0])
     fig.add_trace(go.Scatter3d(
-        x=mss_d2d_manager.x[mss_d2d_manager.active] / 1e3,
-        y=mss_d2d_manager.y[mss_d2d_manager.active] / 1e3,
-        z=mss_d2d_manager.z[mss_d2d_manager.active] / 1e3,
+        x=mss_d2d_manager.geom.x_global[mss_d2d_manager.active] / 1e3,
+        y=mss_d2d_manager.geom.y_global[mss_d2d_manager.active] / 1e3,
+        z=mss_d2d_manager.geom.z_global[mss_d2d_manager.active] / 1e3,
         mode='markers',
         marker=dict(size=3, color='green', opacity=0.8),
         name="MSS D2D sat",
@@ -272,8 +276,9 @@ def plot_fp(
     ))
 
     polygons_lim = plot_mult_polygon(
+        # params.beam_positioning.service_grid.eligibility_polygon,
         params.sat_is_active_if.lat_long_inside_country.filter_polygon,
-        geoconv,
+        coord_sys,
         True,
         2
     )
@@ -301,7 +306,7 @@ def plot_fp(
         lon = np.array(xy_coords[0])
         lat = np.array(xy_coords[1])
 
-        x, y, z = geoconv.convert_lla_to_transformed_cartesian(lat, lon, 1e3)
+        x, y, z = coord_sys.lla2enu(lat, lon, 1e3)
 
         fig.add_trace(go.Scatter3d(
             x=x / 1e3,
@@ -311,10 +316,33 @@ def plot_fp(
             marker=dict(size=1, color='blue', opacity=1.0),
             name="Service Point"
         ))
+
+        if params.beam_positioning.service_grid.grid_exclusion_zone._polygon is not None:
+            polygons_lim = plot_mult_polygon(
+                params.beam_positioning.service_grid.grid_exclusion_zone._polygon,
+                coord_sys,
+                True,
+                2
+            )
+
+            lim_x, lim_y, lim_z = reduce(
+                lambda acc, it: (list(it[0]) + [None] + acc[0], list(it[1]) + [None] + acc[1], list(it[2]) + [None] + acc[2]),
+                polygons_lim,
+                ([], [], [])
+            )
+
+            fig.add_trace(go.Scatter3d(
+                x=lim_x,
+                y=lim_y,
+                z=lim_z,
+                mode='lines',
+                line=dict(color='rgb(255, 0, 0)'),
+                name="Exclusion Zone"
+            ))
     # fig.add_trace(go.Scatter3d(
-    #     x=center_of_earth.x / 1e3,
-    #     y=center_of_earth.y / 1e3,
-    #     z=center_of_earth.z / 1e3,
+    #     x=center_of_earth.geom.x_global / 1e3,
+    #     y=center_of_earth.geom.y_global / 1e3,
+    #     z=center_of_earth.geom.z_global / 1e3,
     #     mode='markers',
     #     marker=dict(size=5, color='black', opacity=1.0),
     #     showlegend=False
@@ -354,19 +382,35 @@ if __name__ == "__main__":
         name="Example-MSS-D2D",
         antenna_pattern="ITU-R-S.1528-Taylor",
         num_sectors=19,
-        antenna_s1528=antenna_params,
         intersite_distance=np.sqrt(3) * spotbeam_radius,
         cell_radius=spotbeam_radius,
         orbits=[orbit_1]
     )
+    params.antenna.itu_r_s_1528 = antenna_params
     params.sat_is_active_if.conditions = [
         # "MINIMUM_ELEVATION_FROM_ES",
         "LAT_LONG_INSIDE_COUNTRY",
     ]
     params.sat_is_active_if.minimum_elevation_from_es = 5.0
-    params.sat_is_active_if.lat_long_inside_country.country_names = ["Brazil"]
+    params.sat_is_active_if.lat_long_inside_country.country_names = ["Brazil", "Paraguay"]
+    params.sat_is_active_if.lat_long_inside_country.margin_from_border = 111
     # params.beams_load_factor = 0.1
     params.beam_positioning.type = "SERVICE_GRID"
+
+    grid_exclusion_zone = params.beam_positioning.service_grid.grid_exclusion_zone
+    grid_exclusion_zone.type = "CIRCLE"
+    # at frienship bridge, so should affect more than 1 grid
+    grid_exclusion_zone.circle.center_lat = -25.5094741
+    grid_exclusion_zone.circle.center_lon = -54.6007197
+    grid_exclusion_zone.circle.radius_km = 5 * spotbeam_radius / 1e3
+
+    # grid_exclusion_zone.type = "CIRCLE"
+    # # at frienship bridge, so should affect more than 1 grid
+    # grid_exclusion_zone.circle.center_lat = -25.5094741
+    # grid_exclusion_zone.circle.center_lon = -54.6007197
+    # grid_exclusion_zone.circle.radius_km = 0.00001
+    # grid_exclusion_zone.circle.radius_km = 2 * spotbeam_radius / 1e3
+
     # params.beam_positioning.type = "ANGLE_AND_DISTANCE_FROM_SUBSATELLITE"
     # params.beam_positioning.angle_from_subsatellite_phi.type = "~U(MIN,MAX)"
     # params.beam_positioning.angle_from_subsatellite_phi.distribution.min = -60.0
@@ -376,13 +420,13 @@ if __name__ == "__main__":
     params.propagate_parameters()
     params.validate("opa")
 
-    geoconv = GeometryConverter()
+    coord_sys = CoordinateSystem()
 
     sys_lat = -14.5
     sys_long = -52
     sys_alt = 1200
 
-    geoconv.set_reference(
+    coord_sys.set_reference(
         sys_lat, sys_long, sys_alt
     )
 
@@ -396,6 +440,6 @@ if __name__ == "__main__":
     ]
 
     for opt in opts:
-        fig = plot_fp(params, geoconv, opt)
+        fig = plot_fp(params, coord_sys, opt)
         # fig.write_image(f"fp.png")
         fig.show()

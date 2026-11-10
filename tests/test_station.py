@@ -8,7 +8,7 @@ Created on Mon Feb  6 17:59:07 2017
 import unittest
 
 from sharc.support.enumerations import StationType
-from sharc.antenna.antenna_beamforming_imt import AntennaBeamformingImt
+from sharc.antenna.antenna_array import AntennaArray
 from sharc.antenna.antenna_omni import AntennaOmni
 from sharc.parameters.imt.parameters_antenna_imt import ParametersAntennaImt
 from sharc.station import Station
@@ -60,29 +60,29 @@ class StationTest(unittest.TestCase):
         self.station.station_type = StationType.IMT_BS
         self.station.x = 10
         self.station.y = 15
-        self.station.height = 6
+        self.station.z = 6
         self.station.tx_power = 20
         self.station.rx_power = -3
         par = self.bs_param.get_antenna_parameters()
-        self.station.antenna = AntennaBeamformingImt(par, 300, -10)
+        self.station.antenna = AntennaArray(par, azimuth=300, elevation=-10)
 
         self.station2 = Station()
         self.station2.id = 1
         self.station2.station_type = StationType.IMT_UE
         self.station2.x = 10
         self.station2.y = 15
-        self.station2.height = 6
+        self.station2.z = 6
         self.station2.tx_power = 17
         self.station2.rx_power = 9
         par = self.ue_param.get_antenna_parameters()
-        self.station2.antenna = AntennaBeamformingImt(par, 270, 2)
+        self.station2.antenna = AntennaArray(par, azimuth=270, elevation=2)
 
         self.station3 = Station()
         self.station3.id = 2
         self.station3.station_type = StationType.FSS_SS
         self.station3.x = 10
         self.station3.y = 15
-        self.station3.height = 6
+        self.station3.z = 6
         self.station3.tx_power = 20
         self.station3.rx_power = -3
         self.station3.antenna = AntennaOmni(50)
@@ -105,7 +105,7 @@ class StationTest(unittest.TestCase):
 
     def test_height(self):
         """Test that the station height is set correctly."""
-        self.assertEqual(self.station.height, 6)
+        self.assertEqual(self.station.z, 6)
 
     def test_tx_power(self):
         """Test that the station transmit power is set correctly."""
@@ -143,7 +143,7 @@ class StationTest(unittest.TestCase):
         """Test the inequality operator for stations."""
         self.assertFalse(self.station != self.station2)
         # changing id, x, y, or height should change the result
-        self.station.height = 9
+        self.station.z = 9
         self.assertTrue(self.station != self.station2)
         #
         self.assertTrue(self.station != self.station3)

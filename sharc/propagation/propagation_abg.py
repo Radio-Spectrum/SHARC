@@ -8,6 +8,8 @@ Created on Tue Jul  4 11:57:41 2017
 import numpy as np
 from multipledispatch import dispatch
 
+from sharc.propagation.propagation_path import PropagationPath
+
 from sharc.propagation.propagation import Propagation
 from sharc.station_manager import StationManager
 from sharc.parameters.parameters import Parameters
@@ -35,14 +37,11 @@ class PropagationABG(Propagation):
         self.building_loss = 20
         self.shadowing_sigma_dB = 6.5
 
-    @dispatch(Parameters, float, StationManager,
-              StationManager, np.ndarray, np.ndarray)
-    def get_loss(
+    def get_path_loss(
         self,
         params: Parameters,
         frequency: float,
-        station_a: StationManager,
-        station_b: StationManager,
+        path: "PropagationPath",
         station_a_gains=None,
         station_b_gains=None,
     ) -> np.array:
@@ -74,19 +73,22 @@ class PropagationABG(Propagation):
 
         if wrap_around_enabled:
             _, distances_3d, _, _ = \
-                station_a.get_dist_angles_wrap_around(station_b)
+                path.sta_a.geom.get_global_dist_angles_wrap_around(path.sta_b.geom)
         else:
-            distances_3d = station_a.get_3d_distance_to(station_b)
+            distances_3d = path.sta_a.geom.get_3d_distance_to(path.sta_b.geom)
 
-        indoor_stations = station_a.indoor
+        indoor_stations = path.sta_a.indoor
 
-        loss = \
+        mskd_indoor = path.sta_a_to_masked(indoor_stations)
+        mskd_dist3d = path.mtx_to_masked(distances_3d)
+        mskd_loss = \
             self.get_loss(
-                distances_3d,
-                frequency * np.ones(distances_3d.shape),
-                indoor_stations,
+                mskd_dist3d,
+                frequency * np.ones(mskd_dist3d.shape),
+                mskd_indoor,
                 params.imt.shadowing,
             )
+        loss = path.from_masked_mtx(mskd_loss)
 
         return loss
 
@@ -124,7 +126,7 @@ class PropagationABG(Propagation):
             shadowing = 0
 
         building_loss = self.building_loss * \
-            np.tile(indoor_stations, (distance.shape[1], 1)).transpose()
+            indoor_stations
 
         loss = 10 * self.alpha * np.log10(distance) + self.beta + 10 * \
             self.gamma * np.log10(frequency * 1e-3) + shadowing + building_loss

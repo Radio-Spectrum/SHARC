@@ -12,7 +12,7 @@ import os
 
 from sharc.antenna.beamforming_normalization.beamforming_normalizer import BeamformingNormalizer
 from sharc.parameters.imt.parameters_antenna_imt import ParametersAntennaImt
-from sharc.antenna.antenna_beamforming_imt import AntennaBeamformingImt
+from sharc.antenna.antenna_array import AntennaArray
 
 
 class BeamformingNormalizerTest(unittest.TestCase):
@@ -163,7 +163,7 @@ class BeamformingNormalizerTest(unittest.TestCase):
         # Test 1: omni pattern
         azi = 0
         ele = 0
-        self.norm_1.antenna = AntennaBeamformingImt(self.par_1, azi, ele)
+        self.norm_1.antenna = AntennaArray(self.par_1, azimuth=azi, elevation=ele)
         # Test adjacent channel case: single antenna element
         c_chan = False
         c_fac, err = self.norm_1.calculate_correction_factor(0, 0, c_chan)
@@ -173,7 +173,7 @@ class BeamformingNormalizerTest(unittest.TestCase):
         # Test 2: UE element pattern
         azi = 0
         ele = 0
-        self.norm_2.antenna = AntennaBeamformingImt(self.par_2, azi, ele)
+        self.norm_2.antenna = AntennaArray(self.par_2, azimuth=azi, elevation=ele)
         # Test adjacent channel case: single antenna element
         c_chan = False
         c_fac, err = self.norm_2.calculate_correction_factor(0, 0, c_chan)
@@ -184,7 +184,7 @@ class BeamformingNormalizerTest(unittest.TestCase):
         # Test 3.1: BS element pattern
         azi = 0
         ele = 0
-        self.norm_3.antenna = AntennaBeamformingImt(self.par_3, azi, ele)
+        self.norm_3.antenna = AntennaArray(self.par_3, azimuth=azi, elevation=ele)
         # Test adjacent channel case: single antenna element
         c_chan = False
         c_fac, err = self.norm_3.calculate_correction_factor(0, 0, c_chan)
@@ -195,7 +195,7 @@ class BeamformingNormalizerTest(unittest.TestCase):
         # Test 3.2: BS array
         azi = 0
         ele = 0
-        self.norm_3.antenna = AntennaBeamformingImt(self.par_3, azi, ele)
+        self.norm_3.antenna = AntennaArray(self.par_3, azimuth=azi, elevation=ele)
         # Test adjacent channel case: single antenna element
         c_chan = True
         c_fac, err = self.norm_3.calculate_correction_factor(0, 0, c_chan)

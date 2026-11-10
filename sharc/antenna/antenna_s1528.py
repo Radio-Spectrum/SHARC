@@ -175,12 +175,18 @@ class AntennaS1528(Antenna):
         # the system design
         self.l_s = param.antenna_l_s
 
+        # far-out side-lobe level [dBi]
+        if param.far_out_side_lobe is None:
+            self.l_f = 0
+        else:
+            self.l_f = param.far_out_side_lobe
+
         # for elliptical antennas, this is the ratio major axis/minor axis
         # we assume circular antennas, so z = 1
-        self.z = 1
-
-        # far-out side-lobe level [dBi]
-        self.l_f = 0
+        if param.major_minor_axis_ratio is None:
+            self.z = 1
+        else:
+            self.z = param.major_minor_axis_ratio
 
         # back-lobe level
         self.l_b = np.maximum(
@@ -190,19 +196,22 @@ class AntennaS1528(Antenna):
         # one-half the 3 dB beamwidth in the plane of interest
         self.psi_b = param.antenna_3_dB_bw / 2
 
-        if self.l_s == -15:
-            self.a = 2.58 * math.sqrt(1 - 1.4 * math.log10(self.z))
-        elif self.l_s == -20:
-            self.a = 2.58 * math.sqrt(1 - 1.0 * math.log10(self.z))
-        elif self.l_s == -25:
-            self.a = 2.58 * math.sqrt(1 - 0.6 * math.log10(self.z))
-        elif self.l_s == -30:
-            self.a = 2.58 * math.sqrt(1 - 0.4 * math.log10(self.z))
+        if math.isclose(self.z, 1.0):
+            self.a = 2.58
         else:
-            sys.stderr.write(
-                "ERROR\nInvalid AntennaS1528 L_s parameter: " + str(self.l_s),
-            )
-            sys.exit(1)
+            if self.l_s == -15:
+                self.a = 2.58 * math.sqrt(1 - 1.4 * math.log10(self.z))
+            elif self.l_s == -20:
+                self.a = 2.58 * math.sqrt(1 - 1.0 * math.log10(self.z))
+            elif self.l_s == -25:
+                self.a = 2.58 * math.sqrt(1 - 0.6 * math.log10(self.z))
+            elif self.l_s == -30:
+                self.a = 2.58 * math.sqrt(1 - 0.4 * math.log10(self.z))
+            else:
+                sys.stderr.write(
+                    f"ERROR\nInvalid AntennaS1528 L_s parameter {self.l_s} for z={self.z}"
+                )
+                sys.exit(1)
 
         self.b = 6.32
         self.alpha = 1.5

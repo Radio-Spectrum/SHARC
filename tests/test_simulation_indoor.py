@@ -167,10 +167,11 @@ class SimulationIndoorTest(unittest.TestCase):
 
 #        print("Random position:")
 #        self.simulation.plot_scenario()
-        self.simulation.ue.x = np.array([0.0, 45.0, 75.0, 120.0])
-        self.simulation.ue.y = np.array([0.0, 50.0, 0.0, 50.0])
-        self.simulation.ue.z = np.ones_like(
-            self.simulation.ue.x) * self.param.imt.ue.height
+        self.simulation.ue.geom.set_global_coords(
+            np.array([0.0, 45.0, 75.0, 120.0]),
+            np.array([0.0, 50.0, 0.0, 50.0]),
+            np.ones_like(self.simulation.ue.geom.x_global) * self.param.imt.ue.height,
+        )
 #        print("Forced position:")
 #        self.simulation.plot_scenario()
 
@@ -239,8 +240,8 @@ class SimulationIndoorTest(unittest.TestCase):
             )
 
         # Test angle to ES in the IMT coord system
-        phi_es, theta_es = self.simulation.bs.get_pointing_vector_to(
-            self.simulation.system,
+        phi_es, theta_es = self.simulation.bs.geom.get_global_pointing_vector_to(
+            self.simulation.system.geom,
         )
         expected_phi_es = np.array([[18.44], [23.96], [33.69], [53.13]])
         npt.assert_array_almost_equal(phi_es, expected_phi_es, decimal=2)

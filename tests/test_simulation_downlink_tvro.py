@@ -14,6 +14,7 @@ from sharc.simulation_downlink import SimulationDownlink
 from sharc.parameters.parameters import Parameters
 from sharc.station_factory import StationFactory
 from sharc.propagation.propagation_factory import PropagationFactory
+from sharc.propagation.propagation_path import PropagationPath
 
 
 class SimulationDownlinkTvroTest(unittest.TestCase):
@@ -153,10 +154,12 @@ class SimulationDownlinkTvroTest(unittest.TestCase):
             self.simulation.topology,
             random_number_gen,
         )
-        self.simulation.bs.x = np.array([0, -200])
-        self.simulation.bs.y = np.array([0, 0])
-        self.simulation.bs.azimuth = np.array([0, 180])
-        self.simulation.bs.elevation = np.array([-10, -10])
+        self.simulation.bs.geom.set_global_coords(
+            np.array([0.0, -200.0]),
+            np.array([0.0, 0.0]),
+            azim=np.array([0.0, 180.0]),
+            elev=np.array([-10.0, -10.0]),
+        )
 
         self.simulation.ue = StationFactory.generate_imt_ue(
             self.param.imt,
@@ -164,8 +167,10 @@ class SimulationDownlinkTvroTest(unittest.TestCase):
             self.simulation.topology,
             random_number_gen,
         )
-        self.simulation.ue.x = np.array([30, 60, -220, -300])
-        self.simulation.ue.y = np.array([0, 0, 0, 0])
+        self.simulation.ue.geom.set_global_coords(
+            np.array([30.0, 60.0, -220.0, -300.0]),
+            np.array([0.0, 0.0, 0.0, 0.0]),
+        )
 
         # test connection method
         self.simulation.connect_ue_to_bs()
@@ -185,6 +190,9 @@ class SimulationDownlinkTvroTest(unittest.TestCase):
             self.param, random_number_gen,
         )
 
+        self.simulation.intra_imt_paths = PropagationPath.create_default(
+            self.simulation.ue, self.simulation.bs
+        )
         # test coupling loss method
         self.simulation.coupling_loss_imt = self.simulation.calculate_intra_imt_coupling_loss(
             self.simulation.ue, self.simulation.bs, )
@@ -285,9 +293,14 @@ class SimulationDownlinkTvroTest(unittest.TestCase):
         self.simulation.system = StationFactory.generate_fss_earth_station(
             self.param.fss_es, random_number_gen,
         )
-        self.simulation.system.x = np.array([600])
-        self.simulation.system.y = np.array([0])
+        self.simulation.system.geom.set_global_coords(
+            np.array([600.0]),
+            np.array([0.0]),
+        )
 
+        self.simulation.paths_between_imt_and_sys = PropagationPath.create_default(
+            self.simulation.system, self.simulation.bs
+        )
         # test the method that calculates interference from IMT UE to FSS space
         # station
         self.simulation.calculate_external_interference()

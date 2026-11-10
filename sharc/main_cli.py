@@ -7,9 +7,9 @@ Created on Fri Aug 11 13:17:14 2017
 
 import os
 import sys
-import getopt
+import argparse
 
-from sharc.support.sharc_logger import Logging, SimulationLogger
+from sharc.support.sharc_logger import setup_logging, SimulationLogger
 from sharc.controller import Controller
 from sharc.gui.view_cli import ViewCli
 from sharc.model import Model
@@ -34,27 +34,24 @@ def main(argv):
 
     param_file = ""
 
-    try:
-        opts, _ = getopt.getopt(argv, "hp:")
-    except getopt.GetoptError:
-        print("usage: main_cli.py -p <param_file>")
-        sys.exit(2)
+    parser = argparse.ArgumentParser(description="SHARC - Radio Sharing and Compatiblity Monte Carlo Simulator")
+    parser.add_argument("-p", "--param-file", default=os.path.join(os.getcwd(), "input", "parameters.yaml"),
+                        help="Path to parameter file (default: input/parameters.yaml)")
+    parser.add_argument("-l", "--log-file", default=None,
+                        help="Path to output log file (optional)")
 
-    if not opts:
-        param_file = os.path.join(os.getcwd(), "input", "parameters.yaml")
-    else:
-        for opt, arg in opts:
-            if opt == "-h":
-                print("usage: main_cli.py -p <param_file>")
-                sys.exit()
-            elif opt == "-p":
-                param_file = os.path.join(os.getcwd(), arg)
+    args = parser.parse_args(argv)
+    param_file = os.path.join(os.getcwd(), args.param_file) if not os.path.isabs(args.param_file) else args.param_file
+
+    log_file = None
+    if args.log_file is not None:
+        log_file = os.path.join(os.getcwd(), args.log_file) if not os.path.isabs(args.log_file) else args.log_file
+
+    setup_logging(log_file=log_file)
 
     # Logger setup start
     sim_logger = SimulationLogger(param_file)
     sim_logger.start()
-
-    Logging.setup_logging()
 
     model = Model()
     view_cli = ViewCli()

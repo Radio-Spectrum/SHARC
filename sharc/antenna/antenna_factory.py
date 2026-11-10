@@ -11,9 +11,11 @@ from sharc.antenna.antenna_s465 import AntennaS465
 from sharc.antenna.antenna_rra7_3 import AntennaReg_RR_A7_3
 from sharc.antenna.antenna_s580 import AntennaS580
 from sharc.antenna.antenna_s1528 import AntennaS1528
+from sharc.antenna.antenna_s672 import AntennaS672
 from sharc.antenna.antenna_s1855 import AntennaS1855
+from sharc.antenna.antenna_f1245_fs import Antenna_f1245_fs
 from sharc.antenna.antenna_s1528 import AntennaS1528, AntennaS1528Leo, AntennaS1528Taylor
-from sharc.antenna.antenna_beamforming_imt import AntennaBeamformingImt
+from sharc.antenna.antenna_array import AntennaArray
 
 import numpy as np
 
@@ -26,8 +28,13 @@ class AntennaFactory():
         antenna_params: ParametersAntenna,
         azimuth: float,
         elevation: float,
+        global2local_transform=None,
     ):
-        """Create and return an antenna instance based on the provided parameters, azimuth, and elevation."""
+        """Create and return an antenna instance based on the provided parameters, azimuth, and elevation.
+
+        global2local_transform is the single transform to the frame in which
+        azimuth and elevation are defined, if not global coordinates.
+        """
         match antenna_params.pattern:
             case "OMNI":
                 return AntennaOmni(antenna_params.gain)
@@ -49,16 +56,21 @@ class AntennaFactory():
                 return AntennaS465(antenna_params.itu_r_s_465_modified)
             case "ITU-R S.1855":
                 return AntennaS1855(antenna_params.itu_r_s_1855)
+            case "ITU-R S.672":
+                return AntennaS672(antenna_params.itu_r_s_672)
+            case "ITU-R F.1245_fs":
+                return Antenna_f1245_fs(antenna_params.itu_r_f_1245_fs)
             case "ITU-R Reg. RR. Appendice 7 Annex 3":
                 return AntennaReg_RR_A7_3(antenna_params.itu_reg_rr_a7_3)
             case "MSS Adjacent":
                 return AntennaMSSAdjacent(
                     antenna_params.mss_adjacent.frequency)
             case "ARRAY":
-                return AntennaBeamformingImt(
+                return AntennaArray(
                     antenna_params.array.get_antenna_parameters(),
-                    azimuth,
-                    elevation
+                    global2local_transform,
+                    azimuth=azimuth,
+                    elevation=elevation,
                 )
             case _:
                 raise ValueError(
@@ -71,6 +83,7 @@ class AntennaFactory():
         azimuth: np.ndarray | float,
         elevation: np.ndarray | float,
         n_stations: int,
+        global2local_transform=None,
     ):
         """
         Creates many antennas based on passed parameters.
@@ -78,16 +91,37 @@ class AntennaFactory():
         only a single antenna object will be created, and every position
         in the array will point to it.
         This is much more performant.
+
+        global2local_transform holds one transform per station, to the frame
+        in which azimuth and elevation are defined, if not global coordinates.
         """
         antennas = np.empty((n_stations,), dtype=Antenna)
         assert n_stations == len(azimuth)
         assert n_stations == len(elevation)
 
+        if n_stations == 0:
+            return antennas
+
         if antenna_params.pattern == "ARRAY":
-            for i in range(n_stations):
-                antennas[i] = AntennaFactory.create_antenna(
-                    antenna_params, azimuth[i], elevation[i],
-                )
+            def station_transform(i):
+                if global2local_transform is None:
+                    return None
+                return global2local_transform.take(i)
+
+            first = AntennaFactory.create_antenna(
+                antenna_params, azimuth[0], elevation[0], station_transform(0),
+            )
+            if getattr(first, "constant_gain", False):
+                # 1x1 constant-gain "array" (e.g. a -4 dBi UE): the gain does
+                # not depend on orientation or beams, share a single object.
+                antennas[:] = first
+            else:
+                antennas[0] = first
+                for i in range(1, n_stations):
+                    antennas[i] = AntennaFactory.create_antenna(
+                        antenna_params, azimuth[i], elevation[i],
+                        station_transform(i),
+                    )
         else:
             # some antennas don't need azimuth and elevation at all
             # this makes it much faster

@@ -12,7 +12,7 @@ from scipy.interpolate import interp1d
 import numpy as np
 from multipledispatch import dispatch
 from warnings import warn
-from sharc.station_manager import StationManager
+from sharc.propagation.propagation_path import PropagationPath
 from sharc.parameters.parameters import Parameters
 from sharc.propagation.propagation import Propagation
 from sharc.propagation.propagation_free_space import PropagationFreeSpace
@@ -59,6 +59,7 @@ class PropagationP619(Propagation):
         """
 
         super().__init__(random_number_gen)
+        self.needs_antenna_gains = True
 
         self.is_earth_space_model = True
         self.clutter = PropagationClutterLoss(self.random_number_gen)
@@ -282,45 +283,41 @@ class PropagationP619(Propagation):
     def apparent_elevation_angle(
             cls,
             elevation_deg: np.array,
-            space_station_alt_m: float) -> np.array:
+            earth_station_alt_m: float) -> np.array:
         """Calculate apparent elevation angle according to ITU-R P619, Attachment B
 
         Parameters
         ----------
         elevation_deg : np.array
-            free-space elevation angle
-        space_station_alt_m : float
-            space-station altitude
+            free-earth elevation angle
+        earth_station_alt_m : float
+            earth-station altitude
 
         Returns
         -------
         np.array
             apparent elevation angle
         """
-        elev_angles_rad = np.deg2rad(elevation_deg)
-        tau_fs1 = 1.728 + 0.5411 * elev_angles_rad + 0.03723 * elev_angles_rad**2
-        tau_fs2 = 0.1815 + 0.06272 * elev_angles_rad + 0.01380 * elev_angles_rad**2
-        tau_fs3 = 0.01727 + 0.008288 * elev_angles_rad
+        tau_fs1 = 1.728 + 0.5411 * elevation_deg + 0.03723 * elevation_deg**2
+        tau_fs2 = 0.1815 + 0.06272 * elevation_deg + 0.01380 * elevation_deg**2
+        tau_fs3 = 0.01727 + 0.008288 * elevation_deg
 
+        Ht_km = earth_station_alt_m / 1e3
         # change in elevation angle due to refraction
         tau_fs_deg = 1 / (
-            tau_fs1 + space_station_alt_m * tau_fs2 +
-            space_station_alt_m**2 * tau_fs3
+            tau_fs1 + Ht_km * tau_fs2 +
+            Ht_km**2 * tau_fs3
         )
-        tau_fs = tau_fs_deg / 180. * np.pi
 
-        return np.degrees(elev_angles_rad + tau_fs)
+        return elevation_deg + tau_fs_deg
 
-    @dispatch(Parameters, float, StationManager,
-              StationManager, np.ndarray, np.ndarray)
-    def get_loss(
+    def get_path_loss(
         self,
         params: Parameters,
         frequency: float,
-        station_a: StationManager,
-        station_b: StationManager,
-        station_a_gains=None,
-        station_b_gains=None,
+        path: PropagationPath,
+        station_a_gains,
+        station_b_gains,
     ) -> np.array:
         """Wrapper for the get_loss function that satisfies the ABS class interface
 
@@ -341,36 +338,49 @@ class PropagationP619(Propagation):
             Return an array station_a.num_stations x station_b.num_stations with the path loss
             between each station
         """
-        distance = station_a.get_3d_distance_to(station_b)
-        frequency = frequency * np.ones(distance.shape)
-        indoor_stations = np.tile(
-            station_b.indoor, (station_a.num_stations, 1),
-        )
+        station_a = path.sta_a
+        station_b = path.sta_b
+
+        distance = station_a.geom.get_3d_distance_to(station_b.geom)
+        masked_distance = path.mtx_to_masked(distance)
+        masked_frequency = frequency * np.ones_like(masked_distance)
 
         # Elevation angles seen from the station on Earth.
         elevation_angles = {}
         if station_a.is_space_station:
-            earth_station_height = station_b.height
-            elevation_angles["free_space"] = station_b.get_elevation(station_a)
-            earth_station_antenna_gain = station_b_gains
-            # if (station_b_gains.shape != distance.shape):
-            #     raise ValueError(f"Invalid shape for station_b_gains = {station_b_gains.shape}")
+            indoor_stations = path.sta_b_to_masked(station_b.indoor)
+            # Use the local z (height above the earth station's own ground
+            # plane) rather than the global z, which for locally-referenced
+            # stations (e.g. macro_countries BS) is an absolute coordinate,
+            # not a height. Local and global z coincide when the station
+            # doesn't use a local reference frame.
+            earth_station_height = path.sta_b_to_masked(station_b.geom.z_local)
+            # Elevation as seen from the earth station (station_b), respecting
+            # its local coordinate system/reference frame.
+            elevation_angles["free_space"] = station_b.geom.get_local_elevation(station_a.geom)
+            elevation_angles["free_space"][elevation_angles["free_space"] < 0] = 0
+            earth_station_antenna_gain = path.mtx_to_masked(np.swapaxes(station_b_gains, 0, 1))
             elevation_angles["apparent"] = self.apparent_elevation_angle(
                 elevation_angles["free_space"],
-                station_a.height,
+                self.earth_station_alt_m,
             )
             # Transpose it to fit the expected path loss shape
-            elevation_angles["free_space"] = np.transpose(
-                elevation_angles["free_space"])
-            elevation_angles["apparent"] = np.transpose(
-                elevation_angles["apparent"])
+            elevation_angles["free_space"] = path.mtx_to_masked(np.transpose(
+                elevation_angles["free_space"]))
+            elevation_angles["apparent"] = path.mtx_to_masked(np.transpose(
+                elevation_angles["apparent"]))
         elif station_b.is_space_station:
-            earth_station_height = station_a.height
-            elevation_angles["free_space"] = station_a.get_elevation(station_b)
-            earth_station_antenna_gain = station_a_gains
+            indoor_stations = path.sta_a_to_masked(station_a.indoor)
+            # See note above: local z is the correct height above ground for
+            # locally-referenced earth stations.
+            earth_station_height = path.sta_a_to_masked(station_a.geom.z_local)
+            elevation_angles["free_space"] = path.mtx_to_masked(
+                station_a.geom.get_local_elevation(station_b.geom)
+            )
+            earth_station_antenna_gain = path.mtx_to_masked(station_a_gains)
             elevation_angles["apparent"] = self.apparent_elevation_angle(
                 elevation_angles["free_space"],
-                station_b.height,
+                self.earth_station_alt_m,
             )
         else:
             raise ValueError(
@@ -404,9 +414,9 @@ class PropagationP619(Propagation):
                 is_earth_to_space_link = False if imt_station.is_space_station else True
                 is_single_entry_interf = False
 
-        loss = self.get_loss(
-            distance,
-            frequency,
+        masked_loss = self.get_loss(
+            masked_distance,
+            masked_frequency,
             indoor_stations,
             elevation_angles,
             is_earth_to_space_link,
@@ -415,7 +425,7 @@ class PropagationP619(Propagation):
             earth_station_height,
         )
 
-        return loss
+        return path.from_masked_mtx(masked_loss)
 
     @dispatch(np.ndarray, np.ndarray, np.ndarray, dict, bool, np.ndarray, bool, np.ndarray)
     def get_loss(
@@ -459,7 +469,8 @@ class PropagationP619(Propagation):
             raise ValueError(error_message)
 
         atmospheric_gasses_loss = self._get_atmospheric_gasses_loss(
-            frequency_MHz=freq_set,
+            frequency_MHz=freq_set.item(),
+            # FIXME: mean of apparent elevation????
             apparent_elevation=np.mean(elevation["apparent"]),
         )
         beam_spreading_attenuation = self._get_beam_spreading_att(
@@ -470,14 +481,25 @@ class PropagationP619(Propagation):
         diffraction_loss = 0
 
         if single_entry:
+            # if earth station is IMT BS with ue_k beams
+            elev = elevation["free_space"]
+            if earth_station_antenna_gain.ndim == 2:
+                elev = np.repeat(
+                    elevation["free_space"][..., np.newaxis],
+                    earth_station_antenna_gain.shape[1],
+                    -1
+                )
             tropo_scintillation_loss = self.scintillation.get_tropospheric_attenuation(
-                elevation=elevation["free_space"],
+                elevation=elev,
                 antenna_gain_dB=earth_station_antenna_gain,
                 frequency_MHz=freq_set,
                 earth_station_alt_m=self.earth_station_alt_m,
                 earth_station_lat_deg=self.earth_station_lat_deg,
                 season=self.season,
             )
+            if tropo_scintillation_loss.ndim > 1:
+                # TODO: better fix for this
+                tropo_scintillation_loss = np.min(tropo_scintillation_loss, -1)
 
             loss = free_space_loss + self.depolarization_loss + atmospheric_gasses_loss + \
                 beam_spreading_attenuation + diffraction_loss + tropo_scintillation_loss
@@ -487,7 +509,7 @@ class PropagationP619(Propagation):
                     frequency=frequency,
                     distance=distance,
                     elevation=elevation["free_space"],
-                    station_type=StationType.FSS_SS,
+                    clutter_scenario="spatial",
                     earth_station_height=earth_station_height,
                     mean_clutter_height=self.mean_clutter_height,
                     below_rooftop=self.below_rooftop,
@@ -540,6 +562,8 @@ if __name__ == '__main__':
     loss_false = np.zeros(len(apparent_elevation))
     loss_true = np.zeros(len(apparent_elevation))
 
+    has_lookup_table = propagation.lookup_table
+
     print("Plotting atmospheric loss:")
     for index in range(len(apparent_elevation)):
         print(
@@ -556,16 +580,21 @@ if __name__ == '__main__':
             surf_water_vapour_density=surf_water_vapour_density,
             lookupTable=table,
         )
-        table = True
-        loss_true[index] = propagation._get_atmospheric_gasses_loss(
-            frequency_MHz=frequency_MHz,
-            apparent_elevation=apparent_elevation[index],
-            surf_water_vapour_density=surf_water_vapour_density,
-            lookupTable=table,
-        )
+        if has_lookup_table:
+            table = True
+            try:
+                loss_true[index] = propagation._get_atmospheric_gasses_loss(
+                    frequency_MHz=frequency_MHz,
+                    apparent_elevation=apparent_elevation[index],
+                    surf_water_vapour_density=surf_water_vapour_density,
+                    lookupTable=table,
+                )
+            except FileNotFoundError as error:
+                # no pre-computed table for this city/frequency/altitude
+                warn(str(error))
+                has_lookup_table = False
 
     plt.figure()
-    plt.semilogy(apparent_elevation, loss_false, label='No Table')
     plt.semilogy(apparent_elevation, loss_true, label='With Table')
 
     plt.grid(True)

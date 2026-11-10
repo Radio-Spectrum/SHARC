@@ -914,11 +914,18 @@ single_space_station:
         ###########################################################################
         # earth station lat long [deg]
         es_long_deg: 1
+        # Where to point antenna if azimuth|elevation use "POINTING_AT_LAT_LONG_ALT"
+        # latitude [deg]
+        pointing_at_lat: 0.
+        # longitude [deg]
+        pointing_at_long: 0.
+        # altitude [m]
+        pointing_at_alt: 0.
         ###########################################################################
         # Antenna azimuth angle [degrees]
         azimuth:
             ###########################################################################
-            # Type of azimuth. May be "FIXED" or "POINTING_AT_IMT"
+            # Type of azimuth. May be "FIXED", "POINTING_AT_IMT" or "POINTING_AT_LAT_LONG_ALT"
             type: POINTING_AT_IMT
             ###########################################################################
             # Arbitrary value of azimuth when type == "FIXED" [deg]
@@ -927,7 +934,7 @@ single_space_station:
         # Antenna elevation angle [degrees]
         elevation:
             ###########################################################################
-            # Type of elevation. May be "FIXED" or "POINTING_AT_IMT"
+            # Type of elevation. May be "FIXED", "POINTING_AT_IMT" or "POINTING_AT_LAT_LONG_ALT"
             type: POINTING_AT_IMT
             ###########################################################################
             # Arbitrary value of elevation when type == "FIXED" [deg]

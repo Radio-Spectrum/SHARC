@@ -232,21 +232,30 @@ imt:
                         min: 0.0
                         max: 66.1
                 service_grid:
+                    grid_exclusion_zone:
+                        type: CIRCLE     # may be "CIRCLE" or "FROM_COUNTRIES"
+                        circle:
+                            center_lat: -14.123
+                            center_lon: -47.1
+                            radius_km: 123
+
                     transform_grid_randomly: true # add per drop rand rotation + transl. to grid
                     # by default this already gets shapefile from natural earth
-                    country_shapes_filename: sharc/data/countries/ne_110m_admin_0_countries.shp
-                    # By default, these are the same as taken from `sat_is_active_if.lat_long_inside_country`
-                    country_names:
-                        - Brazil
-                        - Chile
+                    grid_in_zone:
+                        type: FROM_COUNTRIES     # may be "CIRCLE" or "FROM_COUNTRIES"
+                        from_countries:
+                            country_shapes_filename: sharc/data/countries/ne_110m_admin_0_countries.shp
+                            # By default, these are the same as taken from `sat_is_active_if.lat_long_inside_country`
+                            country_names:
+                                - Brazil
+                                - Chile
 
-                    # This margin defines where the grid is constructed
-                    # margin from inside of border [km]
-                    # By default, this is made to be the same as beam_radius
-                    # if positive, makes border smaller by x km
-                    # if negative, makes border bigger by x km
-                    grid_margin_from_border: 0.11
-
+                            # This margin defines where the grid is constructed
+                            # margin from inside of border [km]
+                            # By default, this is made to be the same as beam_radius
+                            # if positive, makes border smaller by x km
+                            # if negative, makes border bigger by x km
+                            margin_from_border: 0.11
                     # This margin defines what satellites may serve the grid
                     # it should normally be a smaller value than the grid from border
                     # since a satellite not right above the grid may serve some point better
@@ -255,6 +264,7 @@ imt:
                     # if positive, makes border smaller by x km
                     # if negative, makes border bigger by x km
                     eligible_sats_margin_from_border: -2.1
+                    minimum_service_angle: 10.1
             sat_is_active_if:
                 # for a satellite to be active, it needs to respect ALL conditions
                 conditions:
@@ -304,6 +314,30 @@ imt:
     # Defines the antenna model to be used in compatibility studies between
     # IMT and other services in adjacent band
     # Possible values: SINGLE_ELEMENT, BEAMFORMING
+        sampling_from_spherical_grid:
+            num_bs: 324
+            max_ue_distance: 132
+            grid:
+                cell_radius: 111
+                grid_in_zone:
+                    type: CIRCLE     # may be "CIRCLE" or "FROM_COUNTRIES"
+                    circle:
+                        center_lat: 1
+                        center_lon: 2
+                        radius_km: 3
+                    from_countries:
+                        country_shapes_filename: sharc/data/countries/ne_110m_admin_0_countries.shp
+                        # By default, these are the same as taken from `sat_is_active_if.lat_long_inside_country`
+                        country_names:
+                            - Brazil
+                            - Chile
+
+                        # This margin defines where the grid is constructed
+                        # margin from inside of border [km]
+                        # By default, this is made to be the same as beam_radius
+                        # if positive, makes border smaller by x km
+                        # if negative, makes border bigger by x km
+                        margin_from_border: 0.11
     adjacent_antenna_model  : BEAMFORMING
     # Base station parameters
     bs:
@@ -326,6 +360,8 @@ imt:
         ohmic_loss  : 3.1
         # Base Station Antenna parameters:
         antenna:
+            pattern: "ARRAY"
+            # pattern: ITU-R-S.1528-Taylor
             array:
                 ###########################################################################
                 # If normalization of M2101 should be applied for BS
@@ -408,7 +444,19 @@ imt:
                     element_vert_spacing: 0.05
                     # Sub array eletrical downtilt [deg]
                     eletrical_downtilt: 9.0
-
+            gain: 34.1
+            itu_r_s_1528:
+                ### The following parameters are used for S.1528-Taylor antenna pattern
+                # SLR is the side-lobe ratio of the pattern (dB), the difference in gain between the maximum
+                # gain and the gain at the peak of the first side lobe.
+                slr: 20.0
+                # Number of secondary lobes considered in the diagram (coincide with the roots of the Bessel function)
+                n_side_lobes: 2
+                # Radial (l_r) and transverse (l_t) sizes of the effective radiating area of the satellite transmitt antenna (m)
+                l_r: 1.6
+                l_t: 1.6
+                frequency: 2177.0
+                bandwidth: 6.0
     ###########################################################################
     # User Equipment parameters:
     ue:
@@ -884,6 +932,13 @@ single_space_station:
         ###########################################################################
         # earth station lat long [deg]
         es_long_deg: 3.9
+        # Where to point antenna if azimuth|elevation use "POINTING_AT_LAT_LONG_ALT"
+        # latitude [deg]
+        pointing_at_lat: 12.
+        # longitude [deg]
+        pointing_at_long: -1.
+        # altitude [m]
+        pointing_at_alt: 123.
         ###########################################################################
         # Azimuth angle [degrees]
         azimuth:
@@ -944,6 +999,9 @@ single_space_station:
             # Antenna diameter [m]
             # if no diameter is passed, a diameter will be assumed according to document
             diameter: 2.12
+        itu_r_s_1528:
+            major_minor_axis_ratio: 1.0
+            far_out_side_lobe: -25
     ###########################################################################
     # Selected channel model
     channel_model: "P619"
@@ -967,7 +1025,7 @@ mss_d2d:
     # Number of sectors
     num_sectors: 19
     beam_positioning:
-        # type may be one of 
+        # type may be one of
         # "ANGLE_FROM_SUBSATELLITE", "ANGLE_AND_DISTANCE_FROM_SUBSATELLITE",
         # "SERVICE_GRID"
         # when "ANGLE_FROM_SUBSATELLITE", both phi and theta must be specified
@@ -1009,20 +1067,30 @@ mss_d2d:
                 min: 0.0
                 max: 66.1
         service_grid:
-            transform_grid_randomly: true # add per drop rand rotation + transl. to grid
-            # by default this already gets shapefile from natural earth
-            country_shapes_filename: sharc/data/countries/ne_110m_admin_0_countries.shp
-            # By default, these are the same as taken from `sat_is_active_if.lat_long_inside_country`
-            country_names:
-                - Brazil
-                - Chile
+            grid_exclusion_zone:
+                type: CIRCLE     # may be "CIRCLE" or "FROM_COUNTRIES"
+                circle:
+                    center_lat: -14.123
+                    center_lon: 120
+                    radius_km: 321
 
-            # This margin defines where the grid is constructed
-            # margin from inside of border [km]
-            # By default, this is made to be the same as beam_radius
-            # if positive, makes border smaller by x km
-            # if negative, makes border bigger by x km
-            grid_margin_from_border: 0.11
+            transform_grid_randomly: true # add per drop rand rotation + transl. to grid
+
+            grid_in_zone:
+                type: FROM_COUNTRIES     # may be "CIRCLE" or "FROM_COUNTRIES"
+                from_countries:
+                    country_shapes_filename: sharc/data/countries/ne_110m_admin_0_countries.shp
+                    # By default, these are the same as taken from `sat_is_active_if.lat_long_inside_country`
+                    country_names:
+                        - Brazil
+                        - Chile
+
+                    # This margin defines where the grid is constructed
+                    # margin from inside of border [km]
+                    # By default, this is made to be the same as beam_radius
+                    # if positive, makes border smaller by x km
+                    # if negative, makes border bigger by x km
+                    margin_from_border: 0.11
 
             # This margin defines what satellites may serve the grid
             # it should normally be a smaller value than the grid from border
@@ -1032,6 +1100,7 @@ mss_d2d:
             # if positive, makes border smaller by x km
             # if negative, makes border bigger by x km
             eligible_sats_margin_from_border: -2.1
+            minimum_service_angle: 12.1
     sat_is_active_if:
         # for a satellite to be active, it needs to respect ALL conditions
         conditions:
@@ -1053,19 +1122,21 @@ mss_d2d:
     # Satellite antenna pattern
     # Antenna pattern from ITU-R S.1528
     # Possible values: "ITU-R-S.1528-Section1.2", "ITU-R-S.1528-LEO"
-    antenna_pattern: ITU-R-S.1528-Taylor
-    antenna_s1528:
-        # Satellite antenna gain dBi
-        antenna_gain: 34.1
-        ### The following parameters are used for S.1528-Taylor antenna pattern
-        # SLR is the side-lobe ratio of the pattern (dB), the difference in gain between the maximum
-        # gain and the gain at the peak of the first side lobe.
-        slr: 20.0
-        # Number of secondary lobes considered in the diagram (coincide with the roots of the Bessel function)
-        n_side_lobes: 2
-        # Radial (l_r) and transverse (l_t) sizes of the effective radiating area of the satellite transmitt antenna (m)
-        l_r: 1.6
-        l_t: 1.6
+    antenna:
+        pattern: ITU-R-S.1528-Taylor
+        gain: 34.1
+        itu_r_s_1528:
+            ### The following parameters are used for S.1528-Taylor antenna pattern
+            # SLR is the side-lobe ratio of the pattern (dB), the difference in gain between the maximum
+            # gain and the gain at the peak of the first side lobe.
+            slr: 20.0
+            # Number of secondary lobes considered in the diagram (coincide with the roots of the Bessel function)
+            n_side_lobes: 2
+            # Radial (l_r) and transverse (l_t) sizes of the effective radiating area of the satellite transmitt antenna (m)
+            l_r: 1.6
+            l_t: 1.6
+            frequency: 2177.0
+            bandwidth: 6.0
     # channel model, possible values are "FSPL" (free-space path loss),
     #                                    "SatelliteSimple" (FSPL + 4 + clutter loss)
     #                                    "P619"

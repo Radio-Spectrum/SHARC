@@ -5,7 +5,7 @@ import numpy as np
 from multipledispatch import dispatch
 
 from sharc.propagation.propagation import Propagation
-from sharc.station_manager import StationManager
+from sharc.propagation.propagation_path import PropagationPath
 from sharc.parameters.parameters import Parameters
 from sharc.parameters.parameters_p452 import ParametersP452
 from sharc.propagation.clear_air_452_aux import p676_ga
@@ -24,6 +24,7 @@ class PropagationClearAir(Propagation):
             model_params: ParametersP452):
         """Initialize PropagationClearAir with a random number generator and model parameters."""
         super().__init__(random_number_gen)
+        self.needs_antenna_gains = True
 
         self.clutter = PropagationClutterLoss(random_number_gen)
         self.building_entry = PropagationBuildingEntryLoss(
@@ -460,20 +461,6 @@ class PropagationClearAir(Propagation):
         return Lbfsg, Lb0p, Lb0b
     # pylint: disable=function-redefined
     # pylint: disable=arguments-renamed
-
-    def __init__(
-            self,
-            random_number_gen: np.random.RandomState,
-            model_params: ParametersP452):
-        """Initialize PropagationClearAir with a random number generator and model parameters."""
-        super().__init__(random_number_gen)
-
-        self.clutter = PropagationClutterLoss(random_number_gen)
-        self.building_entry = PropagationBuildingEntryLoss(
-            self.random_number_gen,
-        )
-        self.building_loss = 20
-        self.model_params = model_params
 
     @staticmethod
     def closs_corr(f, d, h, zone, htg, hrg, ha_t, ha_r, dk_t, dk_r):
@@ -1508,16 +1495,13 @@ class PropagationClearAir(Propagation):
 
         return Ldp, Ld50
 
-    @dispatch(Parameters, float, StationManager,
-              StationManager, np.ndarray, np.ndarray)
-    def get_loss(
+    def get_path_loss(
         self,
         params: Parameters,
         frequency: float,
-        station_a: StationManager,
-        station_b: StationManager,
-        station_a_gains=None,
-        station_b_gains=None,
+        path: PropagationPath,
+        station_a_gains,
+        station_b_gains,
     ) -> np.array:
         """Wrapper function for the get_loss method to fit the Propagation ABC class interface
         Calculates the loss between station_a and station_b
@@ -1543,30 +1527,35 @@ class PropagationClearAir(Propagation):
             Return an array station_a.num_stations x station_b.num_stations with the path loss
             between each station
         """
-        distance = station_a.get_3d_distance_to(
-            station_b,
-        ) * (1e-3)  # P.452 expects Kms
+        masked_distance = path.mtx_to_masked(path.sta_a.geom.get_3d_distance_to(
+            path.sta_b.geom,
+        )) * (1e-3)  # P.452 expects Kms
         frequency_array = frequency * \
-            np.ones(distance.shape) * (1e-3)  # P.452 expects GHz
-        indoor_stations = np.tile(
-            station_b.indoor, (station_a.num_stations, 1),
+            np.ones(masked_distance.shape) * (1e-3)  # P.452 expects GHz
+        # FIXME: Why always station_b?
+        masked_indoor_stations = path.sta_b_to_masked(path.sta_b.indoor)
+        # FIXME: Why station b -> station a?
+        masked_elevation = path.mtx_to_masked(
+            path.sta_b.geom.get_local_elevation(path.sta_a.geom).T
         )
-        elevation = station_b.get_elevation(station_a)
-        if params.imt.interfered_with:
-            tx_gain = station_a_gains
-            rx_gain = station_b_gains
-        else:
-            tx_gain = station_b_gains
-            rx_gain = station_a_gains
 
-        return self.get_loss(
-            distance,
+        if params.imt.interfered_with:
+            tx_gain = path.mtx_to_masked(station_a_gains)
+            rx_gain = path.mtx_to_masked(np.swapaxes(station_b_gains, 0, 1))
+        else:
+            tx_gain = path.mtx_to_masked(np.swapaxes(station_b_gains, 0, 1))
+            rx_gain = path.mtx_to_masked(station_a_gains)
+
+        masked_loss = self.get_loss(
+            masked_distance,
             frequency_array,
-            indoor_stations,
-            elevation,
+            masked_indoor_stations,
+            masked_elevation,
             tx_gain,
             rx_gain,
         )
+
+        return path.from_masked_mtx(masked_loss)
 
     # pylint: disable=arguments-differ
     @dispatch(np.ndarray, np.ndarray, np.ndarray,
@@ -1629,7 +1618,7 @@ class PropagationClearAir(Propagation):
         num_dists = distance.size
         d = np.empty([num_dists, profile_length])
         for ii in range(num_dists):
-            d[ii, :] = np.linspace(0, distance[0][ii], profile_length)
+            d[ii, :] = np.linspace(0, np.ravel(distance)[ii], profile_length)
 
         h = np.zeros(d.shape)
 
@@ -1669,7 +1658,7 @@ class PropagationClearAir(Propagation):
         # only if not isempty ha_t and ha_r
         # [dc, hc, zonec, htgc, hrgc, Aht, Ahr] = self.closs_corr(f, d, h, zone, Hte, Hre, ha_t, ha_r, dk_t, dk_r)
 
-        Lb = np.empty([1, num_dists])
+        Lb = np.empty([num_dists])
 
         # Effective Earth curvature Ce(km ^ -1)
         Ce = 1 / ae
@@ -1813,9 +1802,9 @@ class PropagationClearAir(Propagation):
             ) + Aht + Ahr
 
             if (self.model_params.polarization).lower() == "horizontal":
-                Lb[0, ii] = Lb_pol[0]
+                Lb[ii] = Lb_pol[0]
             elif (self.model_params.polarization).lower() == "vertical":
-                Lb[0, ii] = Lb_pol[1]
+                Lb[ii] = Lb_pol[1]
             else:
                 error_message = "invalid polarization"
                 raise ValueError(error_message)
@@ -1824,7 +1813,7 @@ class PropagationClearAir(Propagation):
             clutter_loss = self.clutter.get_loss(
                 frequency=frequency * 1000,
                 distance=distance * 1000,
-                station_type=StationType.FSS_ES,
+                clutter_scenario="terrestrial",  # Always terrestrial for P.452
                 clutter_type=self.model_params.clutter_type
             )
         else:

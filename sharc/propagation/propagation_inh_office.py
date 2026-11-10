@@ -18,6 +18,12 @@ class PropagationInhOffice(Propagation):
     according to 3GPP TR 38.900 v14.2.0.
     """
 
+    def get_path_loss(self, *args, **kwargs):
+        """This class isn't supposed to be directly called in the simulation
+        loop, so this methods doesn't need to be implemented
+        """
+        raise NotImplementedError()
+
     def get_loss(self, *args, **kwargs) -> np.array:
         """
         Calculates path loss for LOS and NLOS cases with respective shadowing

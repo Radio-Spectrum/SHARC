@@ -5,7 +5,8 @@ from sharc.topology.topology_imt_mss_dc import TopologyImtMssDc
 from sharc.parameters.imt.parameters_imt_mss_dc import ParametersImtMssDc
 from sharc.station_manager import StationManager
 from sharc.parameters.parameters_orbit import ParametersOrbit
-from sharc.support.sharc_geom import GeometryConverter, lla2ecef
+from sharc.support.sharc_geom import CoordinateSystem, lla2ecef
+from sharc.satellite.utils.sat_utils import calc_elevation
 
 
 class TestTopologyImtMssDc(unittest.TestCase):
@@ -45,22 +46,22 @@ class TestTopologyImtMssDc(unittest.TestCase):
         self.params.sat_is_active_if.minimum_elevation_from_es = 5.0
 
         # Define the geometry converter
-        self.geometry_converter = GeometryConverter()
-        self.geometry_converter.set_reference(-15.0, -42.0, 1200)
+        self.coordinate_system = CoordinateSystem()
+        self.coordinate_system.set_reference(-15.0, -42.0, 1200)
 
         # Define the Earth center coordinates
         self.earth_center_x = np.array([0.])
         self.earth_center_y = np.array([0.])
         x, y, z = lla2ecef(
-            self.geometry_converter.ref_lat,
-            self.geometry_converter.ref_long,
-            self.geometry_converter.ref_alt,
+            self.coordinate_system.ref_lat,
+            self.coordinate_system.ref_long,
+            self.coordinate_system.ref_alt,
         )
         self.earth_center_z = np.array([-np.sqrt(x * x + y * y + z * z)])
 
         # Instantiate the IMT MSS-DC topology
         self.imt_mss_dc_topology = TopologyImtMssDc(
-            self.params, self.geometry_converter)
+            self.params, self.coordinate_system)
 
     def test_initialization(self):
         """Test initialization of the IMT MSS-DC topology."""
@@ -107,18 +108,22 @@ class TestTopologyImtMssDc(unittest.TestCase):
 
         # by default, satellites should always point to nadir (earth center)
         ref_earth_center = StationManager(1)
-        ref_earth_center.x = self.earth_center_x.flatten()
-        ref_earth_center.y = self.earth_center_y.flatten()
-        ref_earth_center.z = self.earth_center_z.flatten()
+        ref_earth_center.geom.set_global_coords(
+            self.earth_center_x.flatten(),
+            self.earth_center_y.flatten(),
+            self.earth_center_z.flatten(),
+        )
 
         ref_space_stations = StationManager(
             self.imt_mss_dc_topology.num_base_stations)
-        ref_space_stations.x = self.imt_mss_dc_topology.space_station_x
-        ref_space_stations.y = self.imt_mss_dc_topology.space_station_y
-        ref_space_stations.z = self.imt_mss_dc_topology.space_station_z
+        ref_space_stations.geom.set_global_coords(
+            self.imt_mss_dc_topology.space_station_x,
+            self.imt_mss_dc_topology.space_station_y,
+            self.imt_mss_dc_topology.space_station_z,
+        )
 
-        phi, theta = ref_space_stations.get_pointing_vector_to(
-            ref_earth_center)
+        phi, theta = ref_space_stations.geom.get_global_pointing_vector_to(
+            ref_earth_center.geom)
         npt.assert_array_almost_equal(
             np.squeeze(
                 phi[center_beam_idxs]),
@@ -151,6 +156,51 @@ class TestTopologyImtMssDc(unittest.TestCase):
         # Add a tolerance to the elevation angle because of the Earth
         # oblateness
         npt.assert_array_less(min_elevation_angle, xy_plane_elevations)
+
+    def test_minimum_service_angle(self):
+        """Test minimum visibility angle for service grid service."""
+        orbit = ParametersOrbit(
+            n_planes=1,
+            sats_per_plane=1,
+            phasing_deg=3.9,
+            long_asc_deg=18.0,
+            inclination_deg=54.5,
+            perigee_alt_km=525,
+            apogee_alt_km=525,
+        )
+        self.coordinate_system.set_reference(0.0, 0.0, 0)
+
+        self.params.orbits = [orbit]
+        self.params.beam_positioning.type = "SERVICE_GRID"
+        self.params.beam_positioning.service_grid.grid_in_zone.type = "CIRCLE"
+        self.params.beam_positioning.service_grid.grid_in_zone.circle.center_lat = 0.0
+        self.params.beam_positioning.service_grid.grid_in_zone.circle.center_lon = 0.0
+        self.params.beam_positioning.service_grid.grid_in_zone.circle.radius_km = 10 * 111.0
+        self.params.validate("")
+
+        self.imt_mss_dc_topology = TopologyImtMssDc(
+            self.params, self.coordinate_system)
+
+        n_previous_selected = np.inf
+        for a in [5, 50, 80]:
+            self.imt_mss_dc_topology.orbit_params.beam_positioning.service_grid.minimum_service_angle = a
+            self.imt_mss_dc_topology.calculate_coordinates(
+                random_number_gen=np.random.RandomState(8))
+
+            lon_lat_grid = self.params.beam_positioning.service_grid.lon_lat_grid
+            elev_from_bs = calc_elevation(
+                lon_lat_grid[1],
+                self.imt_mss_dc_topology.lat[0],
+                lon_lat_grid[0],
+                self.imt_mss_dc_topology.lon[0],
+                sat_height=self.imt_mss_dc_topology.height[0],
+                es_height=0.0,
+            )
+            n_selected = np.sum(elev_from_bs >= a)
+            self.assertLess(n_selected, n_previous_selected)
+            self.assertLess(n_selected, len(elev_from_bs))
+            self.assertEqual(n_selected, self.imt_mss_dc_topology.num_base_stations)
+            n_previous_selected = n_selected
 
 
 if __name__ == '__main__':

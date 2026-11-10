@@ -23,6 +23,8 @@ class AntennaS1528Test(unittest.TestCase):
         param.antenna_gain = 39
         param.antenna_pattern = "ITU-R S.1528-0"
         param.antenna_3_dB_bw = 2
+        param.major_minor_axis_ratio = 1
+        param.far_out_side_lobe = 0
 
         param.antenna_l_s = -20
         self.antenna20 = AntennaS1528(param)

@@ -15,10 +15,14 @@ class AntennaAntennaMultipleTransceiverTest(unittest.TestCase):
     def setUp(self):
         """Set up test fixtures for AntennaMultipleTransceiver tests."""
         param = ParametersAntennaS1528()
-        param.antenna_gain = 30
-        param.frequency = 2170.0
-        param.bandwidth = 5.0
-        param.antenna_3_dB_bw = 4.4127
+        param.pattern = "ITU-R-S.1528-Taylor"
+        param.frequency = 43000.0
+        param.bandwidth = 500.0
+        param.antenna_gain = 46.6
+        param.slr = 20.0
+        param.n_side_lobes = 2
+        param.l_r = 1.6
+        param.l_t = 1.6
 
         self.base_antenna = AntennaS1528Taylor(param)
 

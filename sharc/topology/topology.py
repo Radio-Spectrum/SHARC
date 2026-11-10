@@ -8,6 +8,7 @@ Created on Tue Feb 14 12:48:58 2017
 from abc import ABCMeta, abstractmethod
 import numpy as np
 import matplotlib.axes
+from sharc.support.geometry import SimulatorGeometry
 
 
 class Topology(object):
@@ -19,6 +20,8 @@ class Topology(object):
         self,
         intersite_distance: float,
         cell_radius: float,
+        *,
+        determines_local_geometry: bool = False
     ):
         """Initialize a Topology instance with intersite distance and cell radius."""
         self.intersite_distance = intersite_distance
@@ -32,12 +35,27 @@ class Topology(object):
         self.azimuth = np.empty(0)
         self.indoor = np.empty(0)
         self.is_space_station = False
+        self.determines_local_geometry = determines_local_geometry
         self.num_base_stations = -1
         self.static_base_stations = False
 
     @abstractmethod
     def calculate_coordinates(self, random_number_gen=np.random.RandomState()):
         """Calculate the coordinates of the stations according to class attributes."""
+
+    def get_ue_geometry(self, ue_k: int) -> SimulatorGeometry:
+        """Returns UE pre-built SimulatorGeometry if implemented
+        """
+        if not self.determines_local_geometry:
+            raise ValueError("cannot get local UE geom if topology doesn't determines_local_geometry")
+        raise NotImplementedError()
+
+    def get_bs_geometry(self) -> SimulatorGeometry:
+        """Returns BS pre-built SimulatorGeometry if implemented
+        """
+        if not self.determines_local_geometry:
+            raise ValueError("cannot get local BS geom if topology doesn't determines_local_geometry")
+        raise NotImplementedError()
 
     # by default, a sharc topology will translate the UE distribution by the
     # BS position

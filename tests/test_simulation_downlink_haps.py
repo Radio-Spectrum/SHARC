@@ -15,6 +15,7 @@ from sharc.parameters.parameters import Parameters
 from sharc.antenna.antenna_omni import AntennaOmni
 from sharc.station_factory import StationFactory
 from sharc.propagation.propagation_factory import PropagationFactory
+from sharc.propagation.propagation_path import PropagationPath
 from sharc.parameters.imt.parameters_imt_topology import ParametersImtTopology
 from sharc.parameters.imt.parameters_single_bs import ParametersSingleBS
 
@@ -169,8 +170,10 @@ class SimulationDownlinkHapsTest(unittest.TestCase):
             self.simulation.topology,
             random_number_gen,
         )
-        self.simulation.ue.x = np.array([20, 70, 110, 170])
-        self.simulation.ue.y = np.array([0, 0, 0, 0])
+        self.simulation.ue.geom.set_global_coords(
+            np.array([20, 70, 110, 170]),
+            np.array([0, 0, 0, 0]),
+        )
         self.simulation.ue.antenna = np.array(
             [AntennaOmni(10), AntennaOmni(11), AntennaOmni(22), AntennaOmni(23)],
         )
@@ -191,6 +194,9 @@ class SimulationDownlinkHapsTest(unittest.TestCase):
         self.simulation.connect_ue_to_bs()
         self.simulation.select_ue(random_number_gen)
         self.simulation.link = {0: [0, 1], 1: [2, 3]}
+        self.simulation.intra_imt_paths = PropagationPath.create_default(
+            self.simulation.ue, self.simulation.bs
+        )
         self.simulation.coupling_loss_imt = \
             self.simulation.calculate_intra_imt_coupling_loss(
                 self.simulation.ue,
@@ -264,6 +270,9 @@ class SimulationDownlinkHapsTest(unittest.TestCase):
             self.param.haps, 0, random_number_gen,
         )
 
+        self.simulation.paths_between_imt_and_sys = PropagationPath.create_default(
+            self.simulation.system, self.simulation.ue
+        )
         # now we evaluate interference from HAPS to IMT UE
         self.simulation.calculate_sinr_ext()
 

@@ -2,33 +2,41 @@
 import os
 import sys
 import yaml
-import logging
+import logging.config
 import subprocess
 from pathlib import Path
 from datetime import datetime
-from typing import Optional
+from typing import Optional, List
+
+level_mapping = logging.getLevelNamesMapping()
 
 
-class Logging:
-    """Logging utility class for configuring application logging."""
+def setup_logging(log_file=None, default_level="INFO"):
+    """Setup logging configuration for the root logger.
 
-    @staticmethod
-    def setup_logging(
-        default_path="support/logging.yaml",
-        default_level=logging.INFO,
-        env_key="LOG_CFG",
-    ):
-        """Set up logging configuration for the application."""
-        path = default_path
-        value = os.getenv(env_key, None)
-        if value:
-            path = value
-        if os.path.exists(path):
-            with open(path, "rt") as f:
-                config = yaml.safe_load(f.read())
-            logging.config.dictConfig(config)
-        else:
-            logging.basicConfig(level=default_level)
+    Run this function in the beginning of the simulation to setup the root logger.
+    """
+
+    try:
+        level = level_mapping[default_level]
+    except KeyError:
+        raise ValueError("Invalid log level option {}".format(default_level))
+
+    root_logger = logging.getLogger()
+    root_logger.setLevel(level)
+    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    root_logger.handlers = []
+
+    # Stream to stdout
+    handler = logging.StreamHandler(sys.stdout)
+    handler.setFormatter(formatter)
+    root_logger.addHandler(handler)
+
+    # Stream to file if specified
+    if log_file is not None:
+        file_handler = logging.FileHandler(log_file)
+        file_handler.setFormatter(formatter)
+        root_logger.addHandler(file_handler)
 
 
 class SimulationLogger:
@@ -102,7 +110,7 @@ class SimulationLogger:
                 return parent
         return None
 
-    def _run_git_cmd(self, args: list[str]) -> Optional[str]:
+    def _run_git_cmd(self, args: List[str]) -> Optional[str]:
         try:
             return (
                 subprocess.check_output(["git"] + args, stderr=subprocess.DEVNULL)
@@ -132,7 +140,7 @@ class SimulationLogger:
     def _get_python_version(self) -> str:
         return sys.version.replace("\n", " ")
 
-    def _get_installed_packages(self) -> list[str]:
+    def _get_installed_packages(self) -> List[str]:
         try:
             output = subprocess.check_output(
                 [sys.executable, "-m", "pip", "freeze"], stderr=subprocess.DEVNULL

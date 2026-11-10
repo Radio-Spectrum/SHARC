@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 
 from sharc.parameters.parameters_base import ParametersBase
 from sharc.parameters.parameters_p619 import ParametersP619
-from sharc.parameters.antenna.parameters_antenna_s1528 import ParametersAntennaS1528
+from sharc.parameters.parameters_antenna import ParametersAntenna
 import numpy as np
 
 
@@ -66,18 +66,9 @@ class ParametersMssSs(ParametersBase):
     # Possible values: "ITU-R-S.1528-Section1.2", "ITU-R-S.1528-LEO"
     antenna_pattern: str = "ITU-R-S.1528-LEO"
 
-    # Radius of the antenna's circular aperture in meters
-    antenna_diamter: float = 1.0
-
-    # The required near-in-side-lobe level (dB) relative to peak gain
-    antenna_l_s: float = -6.75
-
-    # 3 dB beamwidth angle (3 dB below maximum gain) [degrees]
-    antenna_3_dB_bw: float = 4.4127
-
-    # Paramters for the ITU-R-S.1528 antenna patterns
-    antenna_s1528: ParametersAntennaS1528 = field(
-        default_factory=ParametersAntennaS1528)
+    # Paramters for the antenna patterns
+    antenna: ParametersAntenna = field(
+        default_factory=ParametersAntenna)
 
     # paramters for channel model
     param_p619: ParametersP619 = field(default_factory=ParametersP619)
@@ -131,12 +122,10 @@ class ParametersMssSs(ParametersBase):
                 f"""ParametersImt: Inavlid Spectral Mask Name {
                     self.spectral_mask}""")
 
-        self.antenna_s1528.set_external_parameters(
+        self.antenna.set_external_parameters(
+            pattern=self.antenna_pattern,
             frequency=self.frequency,
             bandwidth=self.bandwidth,
-            antenna_gain=self.antenna_gain,
-            antenna_l_s=self.antenna_l_s,
-            antenna_3_dB_bw=self.antenna_3_dB_bw,
         )
 
         if self.channel_model.upper() not in [

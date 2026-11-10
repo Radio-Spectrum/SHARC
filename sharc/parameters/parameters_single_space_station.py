@@ -14,6 +14,7 @@ class ParametersSingleSpaceStation(ParametersBase):
     section_name: str = "single_space_station"
     nested_parameters_enabled: bool = True
     is_space_to_earth: bool = True
+    is_global_coordinate_system: bool = False
 
     # Sensor center frequency [MHz]
     frequency: float = None  # Center frequency of the sensor in MHz
@@ -57,14 +58,29 @@ class ParametersSingleSpaceStation(ParametersBase):
         es_long_deg: float = -47.882778
         es_lat_deg: float = -15.793889
 
+        # Used if azimuth or elevation are POINTING_AT_LAT_LONG_ALT
+        # [deg]
+        pointing_at_lat: typing.Optional[float] = None
+        # [deg]
+        pointing_at_long: typing.Optional[float] = None
+        # [m]
+        pointing_at_alt: typing.Optional[float] = None
+
         @dataclass
         class PointingParam(ParametersBase):
             """
             Defines pointing parameters for the space station geometry.
             """
-            __EXISTING_TYPES = ["FIXED", "POINTING_AT_IMT"]
-            type: typing.Literal["FIXED", "POINTING_AT_IMT"] = None
+            __EXISTING_TYPES = [
+                "FIXED", "POINTING_AT_IMT", "POINTING_AT_LAT_LONG_ALT", "RANDOM_RANGE",
+            ]
+            type: typing.Literal[
+                "FIXED", "POINTING_AT_IMT", "POINTING_AT_LAT_LONG_ALT", "RANDOM_RANGE",
+            ] = None
             fixed: float = None
+            # RANDOM_RANGE: drawn uniformly in [min, max] once per snapshot
+            min: float = None
+            max: float = None
 
             def validate(self, ctx):
                 """
@@ -83,6 +99,15 @@ class ParametersSingleSpaceStation(ParametersBase):
                                 self.fixed,
                                 float):
                             raise ValueError(f"{ctx}.fixed should be a number")
+                    case "RANDOM_RANGE":
+                        for lim in ("min", "max"):
+                            if not isinstance(getattr(self, lim), (int, float)):
+                                raise ValueError(
+                                    f"{ctx}.{lim} should be a number when "
+                                    f"{ctx}.type == 'RANDOM_RANGE'")
+                        if self.min > self.max:
+                            raise ValueError(
+                                f"{ctx}.min should not be greater than {ctx}.max")
                     case "POINTING_AT_IMT":
                         pass
                     case _:

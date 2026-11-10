@@ -49,6 +49,12 @@ class PropagationHDFSSBuildingSide(Propagation):
             self.random_number_gen,
         )
 
+    def get_path_loss(self, *args, **kwargs):
+        """This class isn't supposed to be directly called in the simulation
+        loop, so this methods doesn't need to be implemented
+        """
+        raise NotImplementedError()
+
     def get_loss(self, *args, **kwargs) -> np.array:
         """
 

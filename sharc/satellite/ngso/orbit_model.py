@@ -341,9 +341,32 @@ def main():
 
     print("Orbit parameters:")
     print(orbit_params)
+    param_file = (
+        "/home/artistreak/projects/Radio-Spectrum/SHARC/sharc/campaigns/multiple_mss_dc_to_imt/input/parameter_multiple_mss_dc_to_imt_fr_40exclusion_0.1load_downlink_imt.upto-1GHz.single-bs.urban-macro-bs_system-4.698-960MHz-block2.690km.yaml"
+    )
+    from sharc.parameters.parameters import Parameters
+    parameters = Parameters()
+    parameters.set_file_name(param_file)
+    parameters.read_params()
 
     # Instantiate the OrbitModel
-    orbit_model = OrbitModel(**orbit_params)
+    # orbit_model = OrbitModel(**orbit_params)
+    orbit_model_params = parameters.mss_d2d.orbits[0]
+    orbit_model = OrbitModel(
+        Nsp=orbit_model_params.sats_per_plane,  # Satellites per plane
+        Np=orbit_model_params.n_planes,  # Number of orbital planes
+        phasing=orbit_model_params.phasing_deg,  # Phasing angle in degrees
+        long_asc=orbit_model_params.long_asc_deg,  # Longitude of ascending node in degrees
+        omega=orbit_model_params.omega_deg,  # Argument of perigee in degrees
+        delta=orbit_model_params.inclination_deg,  # Orbital inclination in degrees
+        hp=orbit_model_params.perigee_alt_km,  # Perigee altitude in kilometers
+        ha=orbit_model_params.apogee_alt_km,  # Apogee altitude in kilometers
+        Mo=orbit_model_params.initial_mean_anomaly,  # Initial mean anomaly in degrees
+        # whether to use only time as random variable
+        model_time_as_random_variable=orbit_model_params.model_time_as_random_variable,
+        t_min=orbit_model_params.t_min,
+        t_max=orbit_model_params.t_max,
+    )
 
     # Get satellite positions over time
     positions = orbit_model.get_satellite_positions_time_interval(n_periods=1)

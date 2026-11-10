@@ -11,7 +11,7 @@ sidebar_position: 1
 The **Earth Exploration Satellite Service** is a radiocommunication service that 
 employs satellites to gather environmetal data, facilitating analysis and monitoring 
 of the Earth's surface and atmosphere. The systme is essential in land-use studies, oceanography, 
-disaster and environmental management. The implemented spacial system is indispensable for research
+disaster and environmental management. The implemented spatial system is indispensable for research
 and management actities in atmospherical context.
 
 ### Overview

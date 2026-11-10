@@ -17,9 +17,9 @@ class Station(object):
         self.id = -1
         self.x = 0
         self.y = 0
+        self.z = 0
         self.azimuth = 0
         self.elevation = 0
-        self.height = 0
         self.indoor = False
         self.active = False
         self.tx_power = 0
@@ -44,23 +44,14 @@ class Station(object):
                 self.id == other.id and
                 self.x == other.x and
                 self.y == other.y and
-                self.height == other.height
+                self.z == other.z
             )
             return equal
         else:
             return NotImplemented
 
     def __ne__(self, other):
-        if isinstance(other, self.__class__):
-            not_equal = (
-                self.id != other.id or
-                self.x != other.x or
-                self.y != other.y or
-                self.height != other.height
-            )
-            return not_equal
-        else:
-            return NotImplemented
+        return not self.__eq__(other)
 
     def __hash__(self):
-        return hash(self.id, self.x, self.y, self.height)
+        return hash(self.id, self.x, self.y, self.z)

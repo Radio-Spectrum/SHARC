@@ -10,6 +10,7 @@ from multipledispatch import dispatch
 from sharc.propagation.propagation import Propagation
 from sharc.station_manager import StationManager
 from sharc.parameters.parameters import Parameters
+from sharc.propagation.propagation_path import PropagationPath
 
 
 class PropagationUMi(Propagation):
@@ -27,14 +28,11 @@ class PropagationUMi(Propagation):
         super().__init__(random_number_gen)
         self.los_adjustment_factor = los_adjustment_factor
 
-    @dispatch(Parameters, float, StationManager,
-              StationManager, np.ndarray, np.ndarray)
-    def get_loss(
+    def get_path_loss(
         self,
         params: Parameters,
         frequency: float,
-        station_a: StationManager,
-        station_b: StationManager,
+        path: PropagationPath,
         station_a_gains=None,
         station_b_gains=None,
     ) -> np.array:
@@ -65,23 +63,31 @@ class PropagationUMi(Propagation):
                 and params.imt.topology.hotspot.num_clusters == 1
 
         if wrap_around_enabled and (
-                station_a.is_imt_station() and station_b.is_imt_station()):
+                path.sta_a.is_imt_station() and path.sta_b.is_imt_station()):
             distance_2d, distance_3d, _, _ = \
-                station_a.get_dist_angles_wrap_around(station_b)
+                path.sta_a.geom.get_global_dist_angles_wrap_around(path.sta_b.geom)
         else:
-            distance_2d = station_a.get_distance_to(station_b)
-            distance_3d = station_a.get_3d_distance_to(station_b)
+            distance_2d = path.sta_a.geom.get_local_distance_to(path.sta_b.geom)
+            distance_3d = path.sta_a.geom.get_3d_distance_to(path.sta_b.geom)
 
-        loss = self.get_loss(
-            distance_3d,
-            distance_2d,
-            frequency * np.ones(distance_2d.shape),
-            station_b.height,
-            station_a.height,
+        if path.sta_a.geom.uses_local_coords or path.sta_b.geom.uses_local_coords:
+            raise NotImplementedError(
+                "UMi currently assumes stations z == height. "
+                "If stations has local coords != global coords, this probably isn't true"
+            )
+
+        mskd_distances_3d = path.mtx_to_masked(distance_3d)
+        mskd_distances_2d = path.mtx_to_masked(distance_2d)
+        mskd_loss = self.get_loss(
+            mskd_distances_3d,
+            mskd_distances_2d,
+            frequency * np.ones(mskd_distances_2d.shape),
+            path.sta_b_to_masked(path.sta_b.geom.z_local),
+            path.sta_a_to_masked(path.sta_a.geom.z_local),
             params.imt.shadowing,
         )
 
-        return loss
+        return path.from_masked_mtx(mskd_loss)
 
     # pylint: disable=function-redefined
     # pylint: disable=arguments-renamed
@@ -201,7 +207,7 @@ class PropagationUMi(Propagation):
             fitting_term = -9.5 * \
                 np.log10(
                     breakpoint_distance**2 +
-                    (h_bs - h_ue[:, np.newaxis])**2,
+                    (h_bs - h_ue)**2,
                 )
             loss[idg] = 40 * np.log10(distance_3D[idg]) + 20 * \
                 np.log10(frequency[idg]) - 27.55 + fitting_term[idg]
@@ -236,7 +242,7 @@ class PropagationUMi(Propagation):
         """
         # option 1 for UMi NLOS
         loss_nlos = -37.55 + 35.3 * np.log10(distance_3D) + 21.3 * np.log10(frequency) \
-            - 0.3 * (h_ue[:, np.newaxis] - 1.5)
+            - 0.3 * (h_ue - 1.5)
 
         loss_los = self.get_loss_los(
             distance_2D, distance_3D, frequency, h_bs, h_ue, h_e, 0,
@@ -277,7 +283,7 @@ class PropagationUMi(Propagation):
         """
         #  calculate the effective antenna heights
         h_bs_eff = h_bs - h_e
-        h_ue_eff = h_ue[:, np.newaxis] - h_e
+        h_ue_eff = h_ue - h_e
 
         # calculate the breakpoint distance
         breakpoint_distance = 4 * h_bs_eff * \
@@ -340,7 +346,7 @@ if __name__ == '__main__':
     ###########################################################################
     # Print LOS probability
     # h_ue = np.array([1.5, 17, 23])
-    distance_2D = np.linspace(1, 1000, num=1000)[:, np.newaxis]
+    distance_2D = np.linspace(1, 1000, num=1000)
     umi = PropagationUMi(np.random.RandomState(101), 18)
 
     los_probability = np.empty(distance_2D.shape)

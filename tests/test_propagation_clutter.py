@@ -25,7 +25,7 @@ class TestPropagationClutterLoss(unittest.TestCase):
             frequency=frequency,
             elevation=elevation,
             loc_percentage=loc_percentage,
-            station_type=StationType.FSS_SS,
+            clutter_scenario="spatial",
             earth_station_height=earth_station_height,
             mean_clutter_height=mean_clutter_height,
             below_rooftop=below_rooftop,
@@ -48,7 +48,7 @@ class TestPropagationClutterLoss(unittest.TestCase):
             frequency=frequency,
             distance=distance,
             loc_percentage=loc_percentage,
-            station_type=StationType.IMT_BS,
+            clutter_scenario="terrestrial",
             clutter_type=clutter_type
         )
 
@@ -65,7 +65,7 @@ class TestPropagationClutterLoss(unittest.TestCase):
             frequency=frequency,
             distance=distance,
             loc_percentage="RANDOM",
-            station_type=StationType.IMT_UE,
+            clutter_scenario="terrestrial",
             clutter_type=clutter_type
         )
 

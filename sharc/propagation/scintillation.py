@@ -167,14 +167,14 @@ if __name__ == '__main__':
     plt.figure()
     for elevation in elevation_vec:
         attenuation = propagation.get_tropospheric_attenuation(
-            elevation=elevation,
-            frequency_MHz=frequency_MHz,
-            antenna_gain_dB=antenna_gain,
+            elevation=np.full(percentage_fading_exceeded.shape, elevation),
+            frequency_MHz=np.full(percentage_fading_exceeded.shape, frequency_MHz),
+            antenna_gain_dB=np.full(percentage_fading_exceeded.shape, antenna_gain),
             time_ratio=1 -
             (percentage_fading_exceeded / 100),
             wet_refractivity=wet_refractivity,
         )
-        plt.semilogx(
+        plt.loglog(
             percentage_fading_exceeded, attenuation,
             label="{} deg".format(elevation),
         )
@@ -182,9 +182,9 @@ if __name__ == '__main__':
     percentage_gain_exceeded = 10 ** np.arange(-2, 1.1, .1)
     for elevation in elevation_vec:
         attenuation = propagation.get_tropospheric_attenuation(
-            elevation=elevation,
-            frequency_MHz=frequency_MHz,
-            antenna_gain_dB=antenna_gain,
+            elevation=np.full(percentage_fading_exceeded.shape, elevation),
+            frequency_MHz=np.full(percentage_fading_exceeded.shape, frequency_MHz),
+            antenna_gain_dB=np.full(percentage_fading_exceeded.shape, antenna_gain),
             time_ratio=percentage_gain_exceeded / 100,
             wet_refractivity=wet_refractivity,
         )
@@ -195,6 +195,9 @@ if __name__ == '__main__':
 
     plt.legend(title='elevation')
     plt.grid(True)
+    plt.grid(which='minor', color='gray', linestyle=':', linewidth=0.5)
+    plt.xlim((0.01, 10))
+    plt.ylim((0.1, 10))
 
     plt.title("troposcatter scintillation attenuation")
     plt.xlabel("Percentage time fades and enhancements exceeded")

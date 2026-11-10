@@ -14,6 +14,7 @@ from sharc.station_manager import StationManager
 from sharc.parameters.parameters import Parameters
 from sharc.propagation.propagation_hdfss_roof_top import PropagationHDFSSRoofTop
 from sharc.propagation.propagation_hdfss_building_side import PropagationHDFSSBuildingSide
+from sharc.propagation.propagation_path import PropagationPath
 
 
 class PropagationHDFSS(Propagation):
@@ -38,12 +39,11 @@ class PropagationHDFSS(Propagation):
             )
             sys.exit(1)
 
-    def get_loss(
+    def get_path_loss(
         self,
         params: Parameters,
         frequency: float,
-        station_a: StationManager,
-        station_b: StationManager,
+        path: PropagationPath,
         station_a_gains=None,
         station_b_gains=None,
     ) -> np.array:
@@ -71,20 +71,34 @@ class PropagationHDFSS(Propagation):
             Return an array station_a.num_stations x station_b.num_stations with the path loss
             between each station
         """
-        distance = station_a.get_3d_distance_to(station_b)  # P.452 expects Kms
-        frequency_array = frequency * \
-            np.ones(distance.shape)  # P.452 expects GHz
-        elevation = station_b.get_elevation(station_a)
+        distance = path.sta_a.geom.get_3d_distance_to(path.sta_b.geom)  # P.452 expects Kms
+        distance = path.mtx_to_masked(distance)
 
-        return self.propagation.get_loss(
+        elevation = path.sta_b.geom.get_local_elevation(path.sta_a.geom)
+        elevation = path.mtx_to_masked(elevation.T)
+
+        frequency_array = frequency * np.ones(distance.shape)  # P.452 expects GHz
+
+        if path.sta_a.geom.uses_local_coords or path.sta_b.geom.uses_local_coords:
+            raise NotImplementedError(
+                "HDFSS currently assumes stations z == height. "
+                "If stations has local coords != global coords, this probably isn't true"
+            )
+
+        loss, build_loss, diff_loss = self.propagation.get_loss(
             distance_3D=distance,
             elevation=elevation,
-            imt_sta_type=station_b.station_type,
+            imt_sta_type=path.sta_b.station_type,
             frequency=frequency_array,
-            imt_x=station_b.x,
-            imt_y=station_b.y,
-            imt_z=station_b.height,
-            es_x=station_a.x,
-            es_y=station_a.y,
-            es_z=station_a.height,
+            imt_x=path.sta_b_to_masked(path.sta_b.geom.x_global),
+            imt_y=path.sta_b_to_masked(path.sta_b.geom.y_global),
+            imt_z=path.sta_b_to_masked(path.sta_b.geom.z_global),
+            es_x=path.sta_a_to_masked(path.sta_a.geom.x_global),
+            es_y=path.sta_a_to_masked(path.sta_a.geom.y_global),
+            es_z=path.sta_a_to_masked(path.sta_a.geom.z_global),
+        )
+        return (
+            path.from_masked_mtx(loss),
+            path.from_masked_mtx(build_loss),
+            path.from_masked_mtx(diff_loss)
         )

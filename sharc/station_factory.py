@@ -57,7 +57,7 @@ from sharc.antenna.antenna_s1528 import AntennaS1528
 from sharc.antenna.antenna_s1855 import AntennaS1855
 from sharc.antenna.antenna_f1245_fs import Antenna_f1245_fs
 from sharc.antenna.antenna_s1528 import AntennaS1528, AntennaS1528Leo, AntennaS1528Taylor
-from sharc.antenna.antenna_beamforming_imt import AntennaBeamformingImt
+from sharc.antenna.antenna_array import AntennaArray
 from sharc.topology.topology import Topology
 from sharc.topology.topology_ntn import TopologyNTN
 from sharc.topology.topology_macrocell import TopologyMacrocell
@@ -68,14 +68,9 @@ from sharc.support.sharc_geom import CoordinateSystem
 from sharc.support.sharc_utils import wrap2_180
 
 
-def _set_antenna_site_rotations(antennas: np.ndarray, geom: SimulatorGeometry):
-    """Gives beamforming antennas the global to site rotation of their stations."""
-    if not geom.uses_local_coords:
-        return
-    rotations = geom.global2local.rot.as_matrix()
-    for antenna, rotation in zip(antennas, rotations):
-        if isinstance(antenna, AntennaBeamformingImt):
-            antenna.set_site_rotation(rotation)
+def _site_transforms(geom: SimulatorGeometry):
+    """Global to local transforms of the stations, None if they use global coordinates."""
+    return geom.global2local if geom.uses_local_coords else None
 
 
 class StationFactory(object):
@@ -180,17 +175,15 @@ class StationFactory(object):
         )
 
         # The array orientation is defined in the site's own local frame, and
-        # the antenna gets the site's rotation to bring in the global directions
+        # the antenna gets the site's transform to bring in the global directions
         # the simulator passes. Without it the array would be misaligned by the
         # curvature between the site and the simulation reference point.
         imt_base_stations.antenna = AntennaFactory.create_n_antennas(
             param.bs.antenna,
             imt_base_stations.geom.pointn_azim_local,
             imt_base_stations.geom.pointn_elev_local,
-            num_bs
-        )
-        _set_antenna_site_rotations(
-            imt_base_stations.antenna, imt_base_stations.geom,
+            num_bs,
+            _site_transforms(imt_base_stations.geom),
         )
 
         # imt_base_stations.antenna = [AntennaOmni(0) for bs in range(num_bs)]
@@ -508,8 +501,8 @@ class StationFactory(object):
             imt_ue.geom.pointn_azim_local,
             imt_ue.geom.pointn_elev_local,
             num_ue,
+            _site_transforms(imt_ue.geom),
         )
-        _set_antenna_site_rotations(imt_ue.antenna, imt_ue.geom)
 
         # imt_ue.antenna = [AntennaOmni(0) for bs in range(num_ue)]
         imt_ue.bandwidth = param.bandwidth * np.ones(num_ue)
@@ -691,9 +684,9 @@ class StationFactory(object):
         # TODO: this piece of code works only for uplink
         par = ue_param_ant.get_antenna_parameters()
         for i in range(num_ue):
-            imt_ue.antenna[i] = AntennaBeamformingImt(
-                par, imt_ue.geom.pointn_azim_global[i],
-                imt_ue.geom.pointn_elev_global[i],
+            imt_ue.antenna[i] = AntennaArray(
+                par, azimuth=imt_ue.geom.pointn_azim_global[i],
+                elevation=imt_ue.geom.pointn_elev_global[i],
             )
 
         # imt_ue.antenna = [AntennaOmni(0) for bs in range(num_ue)]
@@ -1853,7 +1846,7 @@ class StationFactory(object):
             antenna_pattern = AntennaS1528(params.antenna.itu_r_s_1528)
         elif params.antenna.pattern == "ITU-R-S.1528-Taylor":
             antenna_pattern = AntennaS1528Taylor(params.antenna.itu_r_s_1528)
-        elif params.antenna.pattern == "ARRAY2":
+        elif params.antenna.pattern == "ARRAY":
             pass
         elif params.antenna.pattern == "MSS Adjacent":
             antenna_pattern = AntennaMSSAdjacent(params.frequency)
@@ -1862,8 +1855,7 @@ class StationFactory(object):
                 f"generate_mss_ss: Invalid antenna type: {params.antenna.pattern}")
 
         for i in range(mss_d2d.num_stations):
-            if params.antenna.pattern == "ARRAY2":
-                from sharc.antenna.antenna_array import AntennaArray
+            if params.antenna.pattern == "ARRAY":
                 antenna_pattern = AntennaArray(
                     params.antenna.array,
                     mss_d2d.geom.global2local.take(i)
@@ -1876,7 +1868,7 @@ class StationFactory(object):
 
             mss_d2d.antenna[i] = antenna_pattern
 
-        if params.antenna.pattern == "ARRAY2":
+        if params.antenna.pattern == "ARRAY":
             mss_d2d.geom.set_local_coords(
                 azim=np.zeros_like(mss_d2d.geom.pointn_azim_global),
                 elev=np.zeros_like(mss_d2d.geom.pointn_elev_global),

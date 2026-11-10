@@ -9,15 +9,15 @@ import unittest
 import numpy as np
 import numpy.testing as npt
 
-from sharc.antenna.antenna_beamforming_imt import AntennaBeamformingImt
+from sharc.antenna.antenna_array import AntennaArray
 from sharc.parameters.imt.parameters_antenna_imt import ParametersAntennaImt
 
 
-class AntennaBeamformingImtTest(unittest.TestCase):
-    """Unit tests for the AntennaBeamformingImt class."""
+class AntennaArrayBeamformingTest(unittest.TestCase):
+    """Unit tests for the AntennaArray class."""
 
     def setUp(self):
-        """Set up test fixtures for AntennaBeamformingImt tests."""
+        """Set up test fixtures for AntennaArray tests."""
         # Array parameters
         self.bs_param = ParametersAntennaImt()
         self.ue_param = ParametersAntennaImt()
@@ -54,9 +54,9 @@ class AntennaBeamformingImtTest(unittest.TestCase):
         self.ue_param.multiplication_factor = 12
         # Create antenna objects
         par = self.bs_param.get_antenna_parameters()
-        self.antenna1 = AntennaBeamformingImt(par, 300, -10)
+        self.antenna1 = AntennaArray(par, azimuth=300, elevation=-10)
         par = self.ue_param.get_antenna_parameters()
-        self.antenna2 = AntennaBeamformingImt(par, -33.21, -5.31)
+        self.antenna2 = AntennaArray(par, azimuth=-33.21, elevation=-5.31)
 
     def test_azimuth(self):
         """Test azimuth property of the antenna."""
@@ -131,7 +131,11 @@ class AntennaBeamformingImtTest(unittest.TestCase):
         # Test 1
         phi = 0
         theta = 0
-        v_vec = self.antenna2._super_position_vector(phi, theta)
+        v_vec = self.antenna2._super_position_vector(
+phi, theta,
+            self.antenna2.n_rows, self.antenna2.n_cols,
+            self.antenna2.dv, self.antenna2.dh,
+        )[0]
         expected_v_vec = np.array([[1.0, 1.0], [-1.0, -1.0]])
         self.assertTrue(
             np.allclose(
@@ -149,7 +153,11 @@ class AntennaBeamformingImtTest(unittest.TestCase):
         # Test 2
         phi = 90
         theta = 90
-        v_vec = self.antenna2._super_position_vector(phi, theta)
+        v_vec = self.antenna2._super_position_vector(
+phi, theta,
+            self.antenna2.n_rows, self.antenna2.n_cols,
+            self.antenna2.dv, self.antenna2.dh,
+        )[0]
         expected_v_vec = np.array([[1.0, -1.0], [1.0, -1.0]])
         self.assertTrue(
             np.allclose(
@@ -167,7 +175,11 @@ class AntennaBeamformingImtTest(unittest.TestCase):
         # Test 3
         phi = 45
         theta = 45
-        v_vec = self.antenna2._super_position_vector(phi, theta)
+        v_vec = self.antenna2._super_position_vector(
+phi, theta,
+            self.antenna2.n_rows, self.antenna2.n_cols,
+            self.antenna2.dv, self.antenna2.dh,
+        )[0]
         expected_v_vec = np.array([
             [1.0 + 0.0j, 0.0 + 1.0j],
             [-0.6056998 + 0.7956932j, -0.7956932 - 0.6056998j],
@@ -188,7 +200,11 @@ class AntennaBeamformingImtTest(unittest.TestCase):
         # Test 4
         phi = 60
         theta = 90
-        v_vec = self.antenna2._super_position_vector(phi, theta)
+        v_vec = self.antenna2._super_position_vector(
+phi, theta,
+            self.antenna2.n_rows, self.antenna2.n_cols,
+            self.antenna2.dv, self.antenna2.dh,
+        )[0]
         expected_v_vec = np.array([
             [1.0 + 0.0j, -0.912724 + 0.408576j],
             [1.0 + 0.0j, -0.912724 + 0.408576j],
@@ -214,7 +230,11 @@ class AntennaBeamformingImtTest(unittest.TestCase):
         # Test 1
         phi_scan = 0
         theta_tilt = 0
-        w_vec = self.antenna2._weight_vector(phi_scan, theta_tilt)
+        w_vec = self.antenna2._weight_vector(
+phi_scan, theta_tilt,
+            self.antenna2.n_rows, self.antenna2.n_cols,
+            self.antenna2.dv, self.antenna2.dh,
+        )[0]
         expected_w_vec = np.array([[0.5, 0.5], [0.5, 0.5]])
         self.assertTrue(
             np.allclose(
@@ -232,7 +252,11 @@ class AntennaBeamformingImtTest(unittest.TestCase):
         # Test 2
         phi_scan = 90
         theta_tilt = 90
-        w_vec = self.antenna2._weight_vector(phi_scan, theta_tilt)
+        w_vec = self.antenna2._weight_vector(
+phi_scan, theta_tilt,
+            self.antenna2.n_rows, self.antenna2.n_cols,
+            self.antenna2.dv, self.antenna2.dh,
+        )[0]
         expected_w_vec = np.array([[0.5, 0.5], [-0.5, -0.5]])
         self.assertTrue(
             np.allclose(
@@ -250,7 +274,11 @@ class AntennaBeamformingImtTest(unittest.TestCase):
         # Test 3
         phi_scan = 45
         theta_tilt = 45
-        w_vec = self.antenna2._weight_vector(phi_scan, theta_tilt)
+        w_vec = self.antenna2._weight_vector(
+phi_scan, theta_tilt,
+            self.antenna2.n_rows, self.antenna2.n_cols,
+            self.antenna2.dv, self.antenna2.dh,
+        )[0]
         expected_w_vec = np.array([
             [0.5 + 0.0j, 0.0 - 0.5j],
             [-0.3028499 + 0.3978466j, 0.3978466 + 0.3028499j],
@@ -271,7 +299,11 @@ class AntennaBeamformingImtTest(unittest.TestCase):
         # Test 4
         phi_scan = 0
         theta_tilt = 90
-        w_vec = self.antenna2._weight_vector(phi_scan, theta_tilt)
+        w_vec = self.antenna2._weight_vector(
+phi_scan, theta_tilt,
+            self.antenna2.n_rows, self.antenna2.n_cols,
+            self.antenna2.dv, self.antenna2.dh,
+        )[0]
         expected_w_vec = np.array([[0.5, 0.5], [-0.5, -0.5]])
         self.assertTrue(
             np.allclose(
@@ -289,7 +321,11 @@ class AntennaBeamformingImtTest(unittest.TestCase):
         # Test 5
         phi_scan = 45
         theta_tilt = 30
-        w_vec = self.antenna2._weight_vector(phi_scan, theta_tilt)
+        w_vec = self.antenna2._weight_vector(
+phi_scan, theta_tilt,
+            self.antenna2.n_rows, self.antenna2.n_cols,
+            self.antenna2.dv, self.antenna2.dh,
+        )[0]
         expected_w_vec = np.array([
             [0.5 + 0.0j, -0.172870 - 0.469169j],
             [0.0 + 0.5j, 0.469165 - 0.172870j],
@@ -312,7 +348,7 @@ class AntennaBeamformingImtTest(unittest.TestCase):
         # Error margin and antenna object
         eps = 1e-5
         par = self.ue_param.get_antenna_parameters()
-        self.antenna2 = AntennaBeamformingImt(par, 0, 0)
+        self.antenna2 = AntennaArray(par, azimuth=0, elevation=0)
 
         # Add first beam
         phi_scan = 45
@@ -335,7 +371,7 @@ class AntennaBeamformingImtTest(unittest.TestCase):
         self.assertAlmostEqual(self.antenna2.beams_list[0][0], 45, delta=eps)
         self.assertAlmostEqual(self.antenna2.beams_list[0][1], 30, delta=eps)
 
-        w_vec = self.antenna2.w_vec_list[0]
+        w_vec = np.outer(*self.antenna2.w_vec_list[0])
         expected_w_vec = np.array([
             [0.5 + 0.0j, -0.172870 - 0.469169j],
             [0.0 + 0.5j, 0.469165 - 0.172870j],
@@ -357,7 +393,7 @@ class AntennaBeamformingImtTest(unittest.TestCase):
         self.assertEqual(self.antenna2.beams_list[1][0], 90)
         self.assertEqual(self.antenna2.beams_list[1][1], 90)
 
-        w_vec = self.antenna2.w_vec_list[1]
+        w_vec = np.outer(*self.antenna2.w_vec_list[1])
         expected_w_vec = np.array([[0.5, 0.5], [-0.5, -0.5]])
         self.assertTrue(
             np.allclose(
@@ -382,7 +418,7 @@ class AntennaBeamformingImtTest(unittest.TestCase):
         # Error margin and antenna
         eps = 1e-4
         par = self.ue_param.get_antenna_parameters()
-        self.antenna2 = AntennaBeamformingImt(par, 0, 0)
+        self.antenna2 = AntennaArray(par, azimuth=0, elevation=0)
 
         # Test 1
         phi = 45
@@ -415,9 +451,9 @@ class AntennaBeamformingImtTest(unittest.TestCase):
         # Error margin and antenna
         eps = 1e-4
         par = self.bs_param.get_antenna_parameters()
-        self.antenna1 = AntennaBeamformingImt(par, 0, 0)
+        self.antenna1 = AntennaArray(par, azimuth=0, elevation=0)
         par = self.ue_param.get_antenna_parameters()
-        self.antenna2 = AntennaBeamformingImt(par, 0, 0)
+        self.antenna2 = AntennaArray(par, azimuth=0, elevation=0)
 
         # Test 1
         phi_vec = np.array([45.0, 32.5])
@@ -498,9 +534,9 @@ class AntennaBeamformingImtTest(unittest.TestCase):
         par.normalization_data = norm_data
 
         # Create antenna objects
-        self.antenna3 = AntennaBeamformingImt(par, 0.0, 0.0)  # Normalized
+        self.antenna3 = AntennaArray(par, azimuth=0.0, elevation=0.0)  # Normalized
         par.normalization = False
-        self.antenna4 = AntennaBeamformingImt(par, 0.0, 0.0)  # Unormalized
+        self.antenna4 = AntennaArray(par, azimuth=0.0, elevation=0.0)  # Unormalized
 
         # Test co-channel gain: no beam
         phi_v = np.array([11.79, -0.71])
@@ -545,7 +581,7 @@ class AntennaBeamformingImtTest(unittest.TestCase):
         par = self.bs_param.get_antenna_parameters()
         azi = 0.0
         ele = 90.0
-        self.antenna3 = AntennaBeamformingImt(par, azi, ele)
+        self.antenna3 = AntennaArray(par, azimuth=azi, elevation=ele)
 
         # Angles to be converted: z, x and y axis
         phi = np.array([0, 90, 0])
@@ -562,7 +598,7 @@ class AntennaBeamformingImtTest(unittest.TestCase):
         # Create antenna object
         azi = -15.0
         ele = 90.0
-        self.antenna3 = AntennaBeamformingImt(par, azi, ele)
+        self.antenna3 = AntennaArray(par, azimuth=azi, elevation=ele)
 
         # Angles to be converted
         phi = np.array([0, 0, 90, 10])
@@ -579,7 +615,7 @@ class AntennaBeamformingImtTest(unittest.TestCase):
         # Create antenna object
         azi = +15.0
         ele = 90.0
-        self.antenna3 = AntennaBeamformingImt(par, azi, ele)
+        self.antenna3 = AntennaArray(par, azimuth=azi, elevation=ele)
 
         # Angles to be converted: z, x and y axis
         phi = np.array([0, 0, 90])
@@ -596,7 +632,7 @@ class AntennaBeamformingImtTest(unittest.TestCase):
         # Create antenna object
         azi = 0.0
         ele = 15.0
-        self.antenna3 = AntennaBeamformingImt(par, azi, ele)
+        self.antenna3 = AntennaArray(par, azimuth=azi, elevation=ele)
 
         # Angles to be converted: z, x and y axis
         phi = np.array([0, 0, 90])
@@ -613,7 +649,7 @@ class AntennaBeamformingImtTest(unittest.TestCase):
         # Create antenna object
         azi = 0.0
         ele = -15.0
-        self.antenna3 = AntennaBeamformingImt(par, azi, ele)
+        self.antenna3 = AntennaArray(par, azimuth=azi, elevation=ele)
 
         # Angles to be converted: z, x and y axis
         phi = np.array([0, 0, 90])
@@ -630,7 +666,7 @@ class AntennaBeamformingImtTest(unittest.TestCase):
         # Create antenna object
         azi = 180.0
         ele = 45.0
-        self.antenna3 = AntennaBeamformingImt(par, azi, ele)
+        self.antenna3 = AntennaArray(par, azimuth=azi, elevation=ele)
 
         # Angles to be converted: z, x and y axis
         phi = np.array([0, 0, 90])
@@ -648,5 +684,5 @@ if __name__ == '__main__':
     unittest.main()
 #
 #    suite = unittest.TestSuite()
-#    suite.addTest(AntennaBeamformingImtTest('test_calculate_gain'))
+#    suite.addTest(AntennaArrayBeamformingTest('test_calculate_gain'))
 #    unittest.TextTestRunner().run(suite)

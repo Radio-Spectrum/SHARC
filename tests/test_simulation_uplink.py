@@ -12,7 +12,7 @@ import math
 from sharc.simulation_uplink import SimulationUplink
 from sharc.parameters.parameters import Parameters
 from sharc.antenna.antenna_omni import AntennaOmni
-from sharc.antenna.antenna_beamforming_imt import AntennaBeamformingImt
+from sharc.antenna.antenna_array import AntennaArray
 from sharc.station_factory import StationFactory
 from sharc.propagation.propagation_factory import PropagationFactory
 from sharc.propagation.propagation_path import PropagationPath
@@ -912,9 +912,9 @@ class SimulationUplinkTest(unittest.TestCase):
 
         par = self.param.imt.ue.antenna.array.get_antenna_parameters()
         for i in range(self.simulation.ue.num_stations):
-            self.simulation.ue.antenna[i] = AntennaBeamformingImt(
-                par, self.simulation.ue.geom.pointn_azim_global[i],
-                self.simulation.ue.geom.pointn_elev_global[i],
+            self.simulation.ue.antenna[i] = AntennaArray(
+                par, azimuth=self.simulation.ue.geom.pointn_azim_global[i],
+                elevation=self.simulation.ue.geom.pointn_elev_global[i],
             )
         self.assertEqual(self.simulation.ue.antenna[0].azimuth, 180)
         self.assertEqual(self.simulation.ue.antenna[0].elevation, -30)

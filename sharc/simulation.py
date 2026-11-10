@@ -19,7 +19,7 @@ from sharc.topology.topology_factory import TopologyFactory
 from sharc.support.sharc_geom import CoordinateSystem
 from sharc.parameters.parameters import Parameters
 from sharc.station_manager import StationManager
-from sharc.antenna.antenna_beamforming_imt import AntennaBeamformingImt
+from sharc.antenna.antenna_array import AntennaArray
 from sharc.results import Results
 from sharc.propagation.propagation_factory import PropagationFactory
 from sharc.propagation.propagation_path import PropagationPath
@@ -551,7 +551,7 @@ class Simulation(ABC, Observable):
             beam_bs = np.asarray(beam_bs)
             beam_ue = np.asarray(beam_ue)
             # add beams to BS antennas
-            AntennaBeamformingImt.add_beams_batch(
+            AntennaArray.add_beams_batch(
                 [self.bs.antenna[bs] for bs in beam_bs],
                 np.asarray(bs_phi, dtype=float),
                 np.asarray(bs_theta, dtype=float),
@@ -559,7 +559,7 @@ class Simulation(ABC, Observable):
             # TODO?: limit beamforming on UE as well
             # would make sense, but we don't have any parameters
             # explicitly setting it
-            AntennaBeamformingImt.add_beams_batch(
+            AntennaArray.add_beams_batch(
                 [self.ue.antenna[ue] for ue in beam_ue],
                 self.bs_to_ue_phi[beam_bs, beam_ue] - 180,
                 180 - self.bs_to_ue_theta[beam_bs, beam_ue],
@@ -632,13 +632,13 @@ class Simulation(ABC, Observable):
         if station_1.station_type is StationType.IMT_BS and not station_2.is_imt_station():
             K = self.parameters.imt.ue.k
             bs_antennas = [station_1.antenna[k] for k in station_1_active]
-            if all(isinstance(a, AntennaBeamformingImt) for a in bs_antennas):
+            if all(isinstance(a, AntennaArray) for a in bs_antennas):
                 # One row per (active BS, beam); all rows evaluated at once.
                 rows = (station_1_active[:, np.newaxis] * K +
                         np.arange(K)[np.newaxis, :]).ravel()
                 ant_rows = [a for a in bs_antennas for _ in range(K)]
                 sel = np.ix_(rows, station_2_active)
-                gains[sel] = AntennaBeamformingImt.calculate_gain_batch(
+                gains[sel] = AntennaArray.calculate_gain_batch(
                     ant_rows, phi[sel], theta[sel], beams_idx[rows], c_channel,
                 )
             else:

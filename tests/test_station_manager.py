@@ -10,7 +10,7 @@ import numpy as np
 import numpy.testing as npt
 
 from sharc.support.enumerations import StationType
-from sharc.antenna.antenna_beamforming_imt import AntennaBeamformingImt
+from sharc.antenna.antenna_array import AntennaArray
 from sharc.parameters.imt.parameters_antenna_imt import ParametersAntennaImt
 from sharc.station import Station
 from sharc.station_manager import StationManager
@@ -72,9 +72,9 @@ class StationManagerTest(unittest.TestCase):
         self.station_manager.rx_power = np.array([-50, -35, -10])
         par = self.bs_param.get_antenna_parameters()
         self.station_manager.antenna = np.array([
-            AntennaBeamformingImt(
-                par, 60, -10,
-            ), AntennaBeamformingImt(par, 180, -10), AntennaBeamformingImt(par, 300, -10),
+            AntennaArray(
+                par, azimuth=60, elevation=-10,
+            ), AntennaArray(par, azimuth=180, elevation=-10), AntennaArray(par, azimuth=300, elevation=-10),
         ])
         self.station_manager.station_type = StationType.IMT_BS
 
@@ -90,7 +90,7 @@ class StationManagerTest(unittest.TestCase):
         self.station_manager2.rx_power = np.array([-50, -35])
         par = self.bs_param.get_antenna_parameters()
         self.station_manager2.antenna = np.array(
-            [AntennaBeamformingImt(par, 0, -5), AntennaBeamformingImt(par, 180, -5)],
+            [AntennaArray(par, azimuth=0, elevation=-5), AntennaArray(par, azimuth=180, elevation=-5)],
         )
         self.station_manager2.station_type = StationType.IMT_BS
 
@@ -106,7 +106,7 @@ class StationManagerTest(unittest.TestCase):
         self.station_manager3.rx_power = np.array([-50, -35])
         par = self.ue_param.get_antenna_parameters()
         self.station_manager3.antenna = np.array(
-            [AntennaBeamformingImt(par, 0, -30), AntennaBeamformingImt(par, 35, 45)],
+            [AntennaArray(par, azimuth=0, elevation=-30), AntennaArray(par, azimuth=35, elevation=45)],
         )
         self.station_manager3.station_type = StationType.IMT_UE
 
@@ -118,7 +118,7 @@ class StationManagerTest(unittest.TestCase):
         self.station.tx_power = 30
         self.station.rx_power = -50
         par = self.ue_param.get_antenna_parameters()
-        self.station.antenna = AntennaBeamformingImt(par, 100, -10)
+        self.station.antenna = AntennaArray(par, azimuth=100, elevation=-10)
         self.station.station_type = StationType.IMT_UE
 
         self.station2 = Station()
@@ -129,7 +129,7 @@ class StationManagerTest(unittest.TestCase):
         self.station2.tx_power = 35
         self.station2.rx_power = -35
         par = self.bs_param.get_antenna_parameters()
-        self.station2.antenna = AntennaBeamformingImt(par, -90, -15)
+        self.station2.antenna = AntennaArray(par, azimuth=-90, elevation=-15)
         self.station2.station_type = StationType.IMT_BS
 
     def test_num_stations(self):

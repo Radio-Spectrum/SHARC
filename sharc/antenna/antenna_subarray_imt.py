@@ -12,7 +12,7 @@ from sharc.antenna.antenna_element_imt_m2101 import AntennaElementImtM2101
 
 # Maybe we should consider using a single array to also make the subarrays
 # Equations are basically the same
-# To make it possible, we should probably update the Beamforming so that, when using subarray:
+# To make it possible, we should probably update AntennaArray so that, when using subarray:
 # - impl doesn't transform coordinates to local twice
 # - impl allows fixed eletrical downtilt (no beamforming in this case?)
 # - parameters are more clearly defined and passed from Parameters class
@@ -20,7 +20,7 @@ class AntennaSubarrayIMT(object):
     """
     Implements a Subarray "Element" for IMT antenna.
     Subarray implementation defined in R23-WP5D-C-0413, Annex 4.2, Table 8.
-    Most equations are already implemented in SHARC beamforming antenna, and M2101 element
+    Most equations are already implemented in AntennaArray, and M2101 element
 
     Attributes
     ----------
@@ -165,7 +165,7 @@ class AntennaSubarrayIMT(object):
 
 if __name__ == '__main__':
     from sharc.parameters.imt.parameters_antenna_imt import ParametersAntennaImt
-    from sharc.antenna.antenna_beamforming_imt import AntennaBeamformingImt, PlotAntennaPattern
+    from sharc.antenna.antenna_array import AntennaArray, PlotAntennaPattern
 
     figs_dir = "figs/"
 
@@ -216,7 +216,7 @@ if __name__ == '__main__':
 
     # Plot BS TX radiation patterns
     par = bs_param.get_antenna_parameters()
-    bs_array = AntennaBeamformingImt(par, 0, -6)
+    bs_array = AntennaArray(par, azimuth=0, elevation=-6)
     f = plot.plot_element_pattern(bs_array, "BS", "ELEMENT")
     # f.savefig(figs_dir + "BS_element.pdf", bbox_inches='tight')
     f = plot.plot_element_pattern(bs_array, "BS", "SUBARRAY")
@@ -225,7 +225,7 @@ if __name__ == '__main__':
 
     # Plot UE TX radiation patterns
     par = bs2_param.get_antenna_parameters()
-    bs2_array = AntennaBeamformingImt(par, 0, 0)
+    bs2_array = AntennaArray(par, azimuth=0, elevation=0)
     # plot.plot_element_pattern(bs2_array, "BS 2", "ELEMENT")
     # plot.plot_element_pattern(bs2_array, "BS 2", "ARRAY")
 

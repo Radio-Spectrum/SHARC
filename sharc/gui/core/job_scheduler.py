@@ -63,6 +63,7 @@ class JobScheduler(QObject):
     """Queue of simulation jobs."""
 
     changed = Signal()
+    job_completed = Signal(int)          # job id, emitted once when a job reaches Completed
 
     def __init__(self, start_fn: Callable[[str], None], stop_fn: Callable[[str], None],
                  log: Callable[[str], None] = lambda _m: None, max_parallel: int = 2, parent=None):
@@ -104,6 +105,13 @@ class JobScheduler(QObject):
         self._log(f"[QUEUE] {len(created)} job(s) added" + (f", scheduled for {start_at:%Y-%m-%d %H:%M}" if start_at else ""))
         self.tick()
         return created
+
+    def duplicate(self, job_id: int) -> Optional[Job]:
+        """Queue the same configuration file again (a new job that starts as soon as a slot is free)."""
+        j = self.job(job_id)
+        if j is None:
+            return None
+        return self.submit([j.path])[0]
 
     def move(self, job_id: int, delta: int) -> None:
         j = self.job(job_id)
@@ -201,7 +209,9 @@ class JobScheduler(QObject):
             j.snap = str(data["snap"])
         if data.get("eta"):
             j.eta = str(data["eta"])
+        newly_completed = False
         if low.startswith("completed"):
+            newly_completed = j.status != COMPLETED
             j.status, j.pct, j.finished = COMPLETED, 100.0, time.time()
             self._log(f"[QUEUE] {j.name} completed")
         elif low.startswith(("error", "failed", "missing", "ssh error")):
@@ -214,5 +224,7 @@ class JobScheduler(QObject):
         else:
             j.status = RUNNING
         self.changed.emit()
+        if newly_completed:
+            self.job_completed.emit(j.id)
         if j.status in FINISHED:
             self.tick()            # a slot is free: start the next job

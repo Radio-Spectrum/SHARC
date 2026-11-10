@@ -447,7 +447,7 @@ class SpectrumWidget(QWidget):
             y=[y_min, p_tx_per_mhz, p_tx_per_mhz, y_min, y_min],
             fill="toself",
             fillcolor=c["imt_fill"],
-            line=dict(color=c["imt"], width=2),
+            line=dict(color=c["imt"], width=1.25),
             name=f"IMT Band ({s['imt_bw']:.0f} MHz)",
             hovertemplate=(
                 "IMT System<br>"
@@ -478,7 +478,7 @@ class SpectrumWidget(QWidget):
             y=[y_min, y_max, y_max, y_min, y_min],
             fill="toself",
             fillcolor=c["victim_fill"],
-            line=dict(color=c["victim"], width=2, dash="dot"),
+            line=dict(color=c["victim"], width=1.25, dash="dot"),
             name=f"{s['victim_label']} ({s['victim_bw']:.0f} MHz)",
             hovertemplate=(
                 f"{s['victim_label']}<br>"
@@ -523,7 +523,7 @@ class SpectrumWidget(QWidget):
                 fig.add_trace(go.Scatter(
                     x=mf_vis, y=mv_vis,
                     mode="lines",
-                    line=dict(color=c["mask"], width=2),
+                    line=dict(color=c["mask"], width=1.25),
                     name=f"Mask ({s['mask_type']})",
                     hovertemplate=(
                         "Spectral Mask<br>"
@@ -535,7 +535,7 @@ class SpectrumWidget(QWidget):
         # ── Spurious floor ──
         fig.add_hline(
             y=s["spurious"],
-            line=dict(color=c["spurious"], width=1.5, dash="dash"),
+            line=dict(color=c["spurious"], width=1, dash="dash"),
             annotation_text=f"Spurious floor: {s['spurious']:.0f} dBm/MHz",
             annotation_position="bottom right",
             annotation_font=dict(size=10, color=c["spurious"]),

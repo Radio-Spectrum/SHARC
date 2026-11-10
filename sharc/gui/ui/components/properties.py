@@ -16,11 +16,74 @@ import re
 from typing import List, Optional, Tuple
 
 from PySide6.QtCore import QEvent, QObject, Qt
+from PySide6.QtGui import QCursor, QGuiApplication
 from PySide6.QtWidgets import (
     QAbstractButton, QCheckBox, QComboBox, QFormLayout, QFrame, QGridLayout, QGroupBox,
-    QHBoxLayout, QLabel, QLayout, QLineEdit, QSizePolicy, QToolButton,
+    QHBoxLayout, QLabel, QLayout, QLineEdit, QMenu, QSizePolicy, QToolButton, QToolTip,
     QVBoxLayout, QWidget,
 )
+
+
+def _read_value(ed):
+    """Current value of a simple editor, or None when the row has no single value (tables, buttons)."""
+    if isinstance(ed, QCheckBox):
+        return ed.isChecked()
+    if isinstance(ed, QComboBox):
+        return ed.currentText()
+    if isinstance(ed, QLineEdit):
+        return ed.text()
+    return None
+
+
+def _write_value(ed, value) -> None:
+    if isinstance(ed, QCheckBox):
+        ed.setChecked(bool(value))
+    elif isinstance(ed, QComboBox):
+        idx = ed.findText(str(value))
+        if idx >= 0:
+            ed.setCurrentIndex(idx)
+        else:
+            ed.setCurrentText(str(value))
+    elif isinstance(ed, QLineEdit):
+        ed.setText(str(value))
+        ed.editingFinished.emit()          # editors bound on editingFinished must see the change too
+
+
+def _exec_menu(menu: QMenu, global_pos) -> None:
+    """Single place that opens a row menu modally (tests replace it)."""
+    menu.exec(global_pos)
+
+
+def build_row_menu(parent: QWidget, label: QLabel, editor, key: str, default) -> QMenu:
+    """Context menu of one parameter row. `default` is the value the row had when it was built."""
+    menu = QMenu(parent)
+    current = _read_value(editor)
+    reset = menu.addAction("Reset to default")
+    reset.setObjectName("act_reset")
+    reset.setEnabled(editor is not None and default is not None and current != default)
+    reset.triggered.connect(lambda: _write_value(editor, default))
+    copy_val = menu.addAction("Copy value")
+    copy_val.setObjectName("act_copy_value")
+    copy_val.setEnabled(current is not None)
+    copy_val.triggered.connect(lambda: QGuiApplication.clipboard().setText(str(_read_value(editor))))
+    copy_key = menu.addAction("Copy parameter name")
+    copy_key.setObjectName("act_copy_name")
+    copy_key.triggered.connect(lambda: QGuiApplication.clipboard().setText(key))
+    menu.addSeparator()
+    desc = menu.addAction("Show description")
+    desc.setObjectName("act_description")
+    desc.triggered.connect(lambda: QToolTip.showText(QCursor.pos(), label.toolTip() or key, label, label.rect(), 15000))
+    helpa = menu.addAction("Open Help panel")
+    helpa.setObjectName("act_help")
+
+    def _open_help():
+        win = label.window()
+        if hasattr(win, "_ensure_help_dock"):
+            win._raise_dock(win._ensure_help_dock())
+            win._update_help()
+    helpa.triggered.connect(_open_help)
+    return menu
+
 
 _ACRONYMS = {
     "bs", "ue", "imt", "dl", "ul", "rb", "es", "ss", "sa", "mss", "eess", "hdfss", "tvro", "itu",
@@ -118,6 +181,7 @@ class SectionBody:
         text, unit_l, key = humanize(label_text)
         unit = unit or unit_l or (str(editor.property("_unit") or "") if editor is not None else "")
         alt = "true" if self.rows % 2 else "false"
+        default_value = _read_value(editor) if editor is not None else None
 
         lbl = QLabel(text)
         lbl.setObjectName("PropLabel")
@@ -154,6 +218,11 @@ class SectionBody:
         self.grid.addWidget(lbl, r, 0)
         self.grid.addWidget(cell, r, 1)
         self.grid.addWidget(u, r, 2)
+        for w in (lbl, cell, u):
+            w.setContextMenuPolicy(Qt.CustomContextMenu)
+            w.customContextMenuRequested.connect(
+                lambda pos, w=w, lbl=lbl, editor=editor, key=key, d=default_value:
+                _exec_menu(build_row_menu(w, lbl, editor, key, d), w.mapToGlobal(pos)))
         if hasattr(self, "row_index"):
             self.row_index.append((f"{text} {key} {unit}".lower(), [lbl, cell, u]))
         self.rows += 1

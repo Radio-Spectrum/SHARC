@@ -118,3 +118,10 @@ sharc/campaigns/*/database/
 /installer/assets/*.ico
 /installer/build_iss.log
 /sharc/build_info.json
+CLAUDE.MD
+SHARC_pacote_instalacao_20261017_Sharc-Contorno-Ceara.zip
+ai-reference/
+bash.exe.stackdump
+logs/
+screenshots/
+sharc/gui/GUI_NEXT_PLAN.md

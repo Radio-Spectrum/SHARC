@@ -13,7 +13,8 @@ from PySide6.QtWidgets import (
     QDialog, QProgressBar, QMessageBox, QHeaderView, QFileDialog
 )
 from PySide6.QtCore import Qt, QTimer
-from PySide6.QtGui import QPixmap
+from PySide6.QtGui import QKeySequence, QPixmap, QShortcut
+from PySide6.QtWidgets import QMenu
 
 try:
     from ui.tabs.assets.results_tab.alt_plot_engine import MatplotlibPlotter
@@ -38,6 +39,12 @@ except ImportError:
 from ui.components.scroll_containers import ScrollableContainer
 from core.yaml_builder import _as_bool  # noqa: E402
 from core.state import SharcVar
+
+
+def _exec_menu(menu, global_pos):
+    """Single place that opens a menu modally (tests replace it)."""
+    menu.exec(global_pos)
+
 
 class ResultsTab(QWidget):
     """
@@ -169,13 +176,24 @@ class ResultsTab(QWidget):
         # Buttons
         btn_frame = QHBoxLayout()
         btn_add = QPushButton("Add Folder...")
+        btn_detect = QPushButton("Detect results")
+        btn_detect.setToolTip("Find simulation results automatically (output folders written by the simulator)")
         btn_rm = QPushButton("Remove")
         btn_clr = QPushButton("Clear")
         btn_add.clicked.connect(self._add_dir_handler)
+        btn_detect.clicked.connect(lambda: self.detect_results())
         btn_rm.clicked.connect(self._remove_dir)
         btn_clr.clicked.connect(self._clear_all_dirs)
-        
+        self.lb_dirs.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.lb_dirs.customContextMenuRequested.connect(self._dirs_menu)
+        for keys, slot in (("Delete", self._remove_dir), ("F5", self._manual_refresh),
+                           ("Ctrl+A", self.lb_dirs.selectAll), ("Ctrl+O", self._add_dir_handler)):
+            sc = QShortcut(QKeySequence(keys), self.lb_dirs)
+            sc.setContext(Qt.WidgetShortcut)
+            sc.activated.connect(slot)
+
         btn_frame.addWidget(btn_add)
+        btn_frame.addWidget(btn_detect)
         btn_frame.addWidget(btn_rm)
         btn_frame.addStretch()
         btn_frame.addWidget(btn_clr)
@@ -694,6 +712,65 @@ class ResultsTab(QWidget):
                     self.app.res_dirs.append(path)
         self._refresh_dir_listbox()
         self._schedule_update()
+
+    def add_result_dir(self, path, refresh: bool = True) -> bool:
+        """Add a local result folder (no-op when already listed). Returns True when it was added."""
+        path = str(path)
+        if path in self.app.res_dirs:
+            return False
+        self.app.res_dirs.append(path)
+        self._refresh_dir_listbox()
+        if refresh:
+            self._schedule_update()
+        return True
+
+    def detect_results(self, roots=None) -> int:
+        """Find result folders written by the simulator and add the ones not listed yet.
+
+        Looks under `sharc/<output dir>` of the General tab and the default `sharc/output`, two levels deep.
+        Returns how many folders were added; "Add Folder..." still accepts any folder."""
+        from core.results_locator import SHARC_DIR, discover
+        if roots is None:
+            roots = [SHARC_DIR / "output"]
+            out = str(self.app.var_outdir.get() or "").strip() if hasattr(self.app, "var_outdir") else ""
+            if out:
+                roots.append(SHARC_DIR / out)
+        added = sum(1 for d in discover(roots) if self.add_result_dir(d, refresh=False))
+        if added:
+            self._refresh_dir_listbox()
+            self._schedule_update()
+        if hasattr(self.app, "_safe_log"):
+            self.app._safe_log(f"[RESULTS] {added} new result folder(s) detected.")
+        return added
+
+    def _dirs_menu(self, pos):
+        rows = sorted({i.row() for i in self.lb_dirs.selectedIndexes()})
+        menu = QMenu(self)
+        for text, slot in (("Detect results", lambda: self.detect_results()), ("Add folder... (Ctrl+O)", self._add_dir_handler)):
+            menu.addAction(text, slot)
+        menu.addSeparator()
+        sel = menu.addAction("Open folder", lambda: self._open_dir(rows))
+        sel.setEnabled(bool(rows))
+        cp = menu.addAction("Copy path", lambda: self._copy_dir(rows))
+        cp.setEnabled(bool(rows))
+        rm = menu.addAction("Remove (Delete)", self._remove_dir)
+        rm.setEnabled(bool(rows))
+        menu.addSeparator()
+        menu.addAction("Refresh plot (F5)", self._manual_refresh)
+        menu.addAction("Select all (Ctrl+A)", self.lb_dirs.selectAll)
+        menu.addAction("Clear list", self._clear_all_dirs)
+        _exec_menu(menu, self.lb_dirs.viewport().mapToGlobal(pos))
+
+    def _open_dir(self, rows):
+        from PySide6.QtCore import QUrl
+        from PySide6.QtGui import QDesktopServices
+        for i in rows[:1]:
+            if i < len(self.app.res_dirs) and not self.app.res_dirs[i].startswith("ssh://"):
+                QDesktopServices.openUrl(QUrl.fromLocalFile(self.app.res_dirs[i]))
+
+    def _copy_dir(self, rows):
+        from PySide6.QtGui import QGuiApplication
+        QGuiApplication.clipboard().setText("\n".join(self.app.res_dirs[i] for i in rows if i < len(self.app.res_dirs)))
 
     def _remove_dir(self):
         rows = sorted([item.row() for item in self.lb_dirs.selectedIndexes()], reverse=True)

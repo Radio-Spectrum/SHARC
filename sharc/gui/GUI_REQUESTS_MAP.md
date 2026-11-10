@@ -27,7 +27,7 @@ technical detail and the resume instructions.
 | Professional look, not "cheap app" | DONE | `ui/theme/theme.py` (graphite theme, QSS tokens) |
 | HFSS-style workbench: tree, docks, windows | DONE | `ui/shell/workbench.py` |
 | Parameters NOT in a single tab; each tree node opens its own parameters | DONE | `ui/tabs/*`, `ui/components/properties.py`, `SectionWindow` |
-| Right-click menus and windows like HFSS/Feko/CST/QGIS | PARTIAL | done: tree, Jobs, 3D view; TODO: parameter rows (reset/copy/help), distance-measure tool |
+| Right-click menus and windows like HFSS/Feko/CST/QGIS | PARTIAL | done: tree, Jobs, 3D view, parameter rows (reset/copy/description/help, `properties.build_row_menu`), Results list; TODO: distance-measure tool |
 | Organised parameter layout (sections, groups) | DONE | `properties.py` (`restructure_page`) |
 | Expanded toolbar, Settings, customisable options | PARTIAL | Preferences + Settings menu done; TODO: shortcuts, units, defaults |
 | Fancy visual interface that sells | DONE | graphite theme, HUD, legend, models |
@@ -44,7 +44,10 @@ technical detail and the resume instructions.
 | Parameters the engine has but the GUI does not expose | TODO | create `tools/param_coverage.py` |
 | Job queue / schedule of running simulations | DONE | `core/job_scheduler.py`, `ui/components/jobs_panel.py` |
 | Run in background when closing; tray icon; warn it keeps running | DONE (user did not see the notice: added an always-visible corner notice besides the system toast; re-verify on the real desktop) | `ui/shell/tray.py` (system toast + always-visible corner notice) |
-| Validation panel before Run | TODO | backlog F3/F4 |
+| Validation panel before Run | DONE (2026-11-10) | `core/validation.py`, `ui/components/problems_panel.py`, `run_service.start_run`; Validate = Ctrl+Shift+V |
+| Results found automatically; keep "plot a specific folder" | DONE (2026-11-10) | `core/results_locator.py`, Results "Detect results" + auto-add on job completion; `Add Folder...` unchanged |
+| Right-click "Plot results" on a completed job | DONE (2026-11-10) | `ui/components/jobs_panel.py` (also Enter / double-click, Ctrl+P) |
+| More shortcuts and right-click options everywhere | PARTIAL (ongoing request) | done: parameter rows, Jobs, Results list, toolbar (Ctrl+Shift+V, Ctrl+Shift+P). TODO: 3D view measure tool, tree nodes |
 
 ## 3. Preview (3D scene)
 | Request | Status | Where |

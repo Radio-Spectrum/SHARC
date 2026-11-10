@@ -37,6 +37,24 @@ def test_macrocell_scene_matches_gui_parameters(win):
     assert scene["hex_radius_m"] == pytest.approx(2400 / 3 ** 0.5)
 
 
+@pytest.mark.parametrize("downtilt", [0, 6, 10])
+def test_downtilt_reaches_engine_cone_and_lobe(win, downtilt):
+    """GUI downtilt -> engine parameter -> cone (scene) -> gain lobe boresight must be one value."""
+    from core import engine_scene as eng
+    from core import gain_lobe
+    st = win.tab_imt.state
+    for key, val in {"topo_type": "MACROCELL", "macro_intersite": "2400", "macro_clusters": "1",
+                     "bs_downtilt": str(downtilt)}.items():
+        st.get(key).set(val)
+    scene = _scene(win, "MACROCELL")
+    assert not scene.get("error"), scene.get("error")
+    es = eng.build_engine_scene(win.tab_preview._current_yaml())
+    assert es.params.imt.bs.antenna.array.downtilt == pytest.approx(downtilt)
+    assert scene["downtilt_deg"] == pytest.approx(downtilt)
+    lobe = gain_lobe.sample_bs_gain(es)
+    assert -lobe["el"] == pytest.approx(downtilt)
+
+
 def test_invalid_parameter_becomes_readable_error(win):
     win.tab_imt.state.get("topo_type").set("MACROCELL")
     win.tab_imt.state.get("macro_intersite").set("abc")

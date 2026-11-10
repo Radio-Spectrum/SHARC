@@ -729,6 +729,8 @@ class App(WorkbenchMixin, QMainWindow):
             stop_fn=lambda path: self.runner_manager.stop_simulations([path]),
             log=self._safe_log, max_parallel=self._saved_parallel(), parent=self)
         self.jobs_panel.bind(self.scheduler)
+        self.jobs_panel.plot_requested.connect(self.plot_job_results)
+        self.scheduler.job_completed.connect(self._on_job_completed)
         from ui.shell.tray import TrayController
         self.tray = TrayController(self, self.scheduler, color=self.tk["accent"])
 

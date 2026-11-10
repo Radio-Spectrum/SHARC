@@ -217,6 +217,8 @@ class WorkbenchMixin:
         add("Run", "mdi.play", self.run_simulation, "Run simulation (Ctrl+R)", "success").setShortcut("Ctrl+R")
         add("Run later", "mdi.calendar-clock", self.run_simulation_later, "Schedule the simulation for a later time")
         add("Stop", "mdi.stop", self.stop_simulation, "Stop running simulations", "danger")
+        add("Validate", "mdi.check-circle-outline", self.check_scenario,
+            "Check the scenario for problems before running (Ctrl+Shift+V)").setShortcut("Ctrl+Shift+V")
         tb.addSeparator()
         add("Refresh preview", "mdi.refresh", self._refresh_preview, "Refresh scene preview")
         add("Parameter sweep", "mdi.table-large", self._proxy_batch_generate,
@@ -224,6 +226,9 @@ class WorkbenchMixin:
         tb.addSeparator()
         add("Results", "mdi.chart-bell-curve-cumulative",
             lambda: self._switch_page("results", "Analysis & Results"), "Go to Analysis & Results")
+        add("Plot last results", "mdi.chart-timeline-variant", self.plot_last_results,
+            "Plot the results of the latest finished simulation, or detect them (Ctrl+Shift+P)"
+            ).setShortcut("Ctrl+Shift+P")
 
         spacer = QWidget()
         spacer.setSizePolicy(spacer.sizePolicy().horizontalPolicy().Expanding,
@@ -521,7 +526,76 @@ class WorkbenchMixin:
         self.dock_jobs.setWidget(jobs)
         self.addDockWidget(Qt.BottomDockWidgetArea, self.dock_jobs)
         self.tabifyDockWidget(self.dock_messages, self.dock_jobs)
+
+        # Problems: validation issues of the scenario (Validate action and the Run gate fill it)
+        from ui.components.problems_panel import ProblemsPanel
+        self.problems_panel = ProblemsPanel()
+        self.problems_panel.jump_requested.connect(self._jump_to_issue)
+        self.dock_problems = QDockWidget("Problems", self)
+        self.dock_problems.setObjectName("DockProblems")
+        self.dock_problems.setWidget(self.problems_panel)
+        self.addDockWidget(Qt.BottomDockWidgetArea, self.dock_problems)
+        self.tabifyDockWidget(self.dock_messages, self.dock_problems)
         self.dock_messages.raise_()
+
+    def check_scenario(self, show: bool = True):
+        """Validate the scenario now. Fills the Problems dock and returns the list of issues."""
+        from core.validation import validate
+        from PySide6.QtGui import QGuiApplication
+        QGuiApplication.setOverrideCursor(Qt.WaitCursor)
+        try:
+            issues = validate(self.tab_preview._current_yaml())
+        finally:
+            QGuiApplication.restoreOverrideCursor()
+        self.problems_panel.set_issues(issues)
+        errors, warnings = self.problems_panel.counts()
+        self.dock_problems.setWindowTitle(f"Problems ({errors} errors, {warnings} warnings)" if issues else "Problems")
+        if issues:
+            self._append_message(f"[VALIDATE] {errors} error(s), {warnings} warning(s). See the Problems tab.")
+            if show:
+                self.dock_problems.show()
+                self.dock_problems.raise_()
+        else:
+            self._append_message("[VALIDATE] No problems found.")
+        return issues
+
+    def plot_job_results(self, job_id: int, switch: bool = True) -> bool:
+        """Locate the result folder of a job, list it in Results and (optionally) open that page."""
+        from core.results_locator import find_job_results
+        job = self.scheduler.job(job_id)
+        if job is None:
+            return False
+        folder = find_job_results(job.path)
+        if folder is None:
+            self._append_message(f"[RESULTS] No result files found yet for {job.name}. "
+                                 "If the simulator wrote them elsewhere, use Add Folder... in Results.")
+            return False
+        added = self.tab_results.add_result_dir(folder)
+        if not added:                      # same folder as a previous run (overwrite mode): drop the cached data
+            self.tab_results._schedule_update(force_refresh=True)
+        self._append_message(f"[RESULTS] {job.name}: {'added' if added else 'already listed, refreshed'} {folder}")
+        if switch:
+            self._switch_page("results", "Analysis & Results")
+        return True
+
+    def _on_job_completed(self, job_id: int):
+        """A simulation finished: its results show up in Results without the user looking for them."""
+        self.plot_job_results(job_id, switch=False)
+
+    def plot_last_results(self):
+        """Ctrl+Shift+P: plot the latest finished job; with none, scan the output folders instead."""
+        from core import job_scheduler as js
+        done = [j for j in self.scheduler.jobs if j.status == js.COMPLETED]
+        if done and self.plot_job_results(max(done, key=lambda j: j.finished or 0).id):
+            return
+        self.tab_results.detect_results()
+        self._switch_page("results", "Analysis & Results")
+
+    def _jump_to_issue(self, page: str, field: str):
+        entry = self._nav_items.get(page)
+        if entry is None:
+            return
+        self._switch_page(page, entry[0].text(0))
 
     def _append_message(self, text: str):
         if hasattr(self, "messages_view") and text:

@@ -1792,6 +1792,28 @@ function setTrees(list) {
 //   "osm"   = Cesium OSM Buildings (every OpenStreetMap building of the world, LOD streamed, city scale)
 //   "photo" = Google Photorealistic 3D Tiles (photogrammetry of buildings and trees), through ion or a Google key
 // While one is active our own extruded buildings/trees are hidden so they do not overlap (and, for "photo", the globe).
+// The bottom-bar counter follows the globe's own tiles. A hidden globe (photorealistic mode) is no longer updated, so it
+// never reports its final "0 pending": the bar then stayed on "loading N map tiles" forever. Clear it when the globe is
+// hidden and follow the photorealistic tileset's own progress instead.
+function setLoadText(text) {
+  const el = document.getElementById("barLoad");
+  if (el) el.textContent = text;
+}
+function clearGlobeTileIndicator() {
+  tileLoadPeak = 0;
+  setLoadText("");
+  Loading.end("map tiles");
+}
+function trackTilesetProgress(ts) {
+  let peak = 0;
+  ts.loadProgress.addEventListener((pending, processing) => {
+    const n = pending + processing;
+    peak = n === 0 ? 0 : Math.max(peak, n);
+    setLoadText(n > 0 ? `loading ${n} 3D tiles...` : "");
+    if (n > 0) Loading.set("3D tiles", peak - n, peak); else Loading.end("3D tiles");
+  });
+}
+
 const photoreal = { tileset: null, key: "", busy: false, mode: "" };
 async function setPhotoreal(mode, ionToken, googleKey) {
   mode = mode || "";
@@ -1806,6 +1828,8 @@ async function setPhotoreal(mode, ionToken, googleKey) {
     viewer.scene.primitives.remove(photoreal.tileset);
     photoreal.tileset = null;
     viewer.scene.globe.show = true;
+    setLoadText("");
+    Loading.end("3D tiles");
     photoreal.mode = "";
     bld.last = "";
     setTimeout(updateBuildings, 200);
@@ -1823,7 +1847,11 @@ async function setPhotoreal(mode, ionToken, googleKey) {
     viewer.scene.primitives.add(ts);
     photoreal.tileset = ts;
     photoreal.mode = mode;
-    if (mode === "photo") viewer.scene.globe.show = false;
+    if (mode === "photo") {
+      viewer.scene.globe.show = false;
+      clearGlobeTileIndicator();
+      trackTilesetProgress(ts);
+    }
     if (bld.ids.size) { bld.source.entities.removeAll(); bld.ids.clear(); }
     clearTrees();
     setStatus(mode === "osm" ? "Cesium OSM Buildings on" : "Photorealistic 3D Tiles on");

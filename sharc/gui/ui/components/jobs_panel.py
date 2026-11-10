@@ -11,8 +11,8 @@ from datetime import datetime, timedelta
 from typing import Optional
 
 import qtawesome as qta
-from PySide6.QtCore import QDateTime, Qt
-from PySide6.QtGui import QColor
+from PySide6.QtCore import QDateTime, Qt, Signal
+from PySide6.QtGui import QColor, QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QAbstractItemView, QApplication, QDateTimeEdit, QDialog, QDialogButtonBox, QHBoxLayout, QLabel, QMenu,
     QProgressBar, QSpinBox, QToolButton, QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget,
@@ -28,6 +28,11 @@ STATUS_STYLE = {
     js.FAILED: ("mdi.alert-circle", "#E0605A"),
     js.STOPPED: ("mdi.stop-circle", "#8A9099"),
 }
+
+
+def _exec_menu(menu: QMenu, global_pos) -> None:
+    """Single place that opens the jobs menu modally (tests replace it)."""
+    menu.exec(global_pos)
 
 
 def _fmt_elapsed(seconds: Optional[float]) -> str:
@@ -61,6 +66,8 @@ class ScheduleDialog(QDialog):
 
 
 class JobsPanel(QWidget):
+    plot_requested = Signal(int)         # job id whose results the user wants to plot
+
     def __init__(self, parent=None):
         super().__init__(parent)
         self.sched: Optional[js.JobScheduler] = None
@@ -106,10 +113,18 @@ class JobsPanel(QWidget):
         self.tree.setSelectionMode(QAbstractItemView.ExtendedSelection)
         self.tree.setContextMenuPolicy(Qt.CustomContextMenu)
         self.tree.customContextMenuRequested.connect(self._menu)
-        self.tree.itemDoubleClicked.connect(lambda *_: self._act("run_now"))
+        self.tree.itemDoubleClicked.connect(lambda *_: self._open_selected())
         for col, w in enumerate((34, 230, 110, 120, 150, 80, 80)):
             self.tree.setColumnWidth(col, w)
         lay.addWidget(self.tree, 1)
+
+        # keyboard: Enter opens (plot results of a completed job, run a waiting one), Delete removes, Ctrl+D duplicates
+        for keys, slot in (("Return", self._open_selected), ("Enter", self._open_selected),
+                           ("Delete", lambda: self._act("remove")), ("Ctrl+D", self._duplicate_selected),
+                           ("Ctrl+P", self._plot_selected)):
+            sc = QShortcut(QKeySequence(keys), self.tree)
+            sc.setContext(Qt.WidgetShortcut)
+            sc.activated.connect(slot)
 
     def _on_parallel(self, n: int) -> None:
         if self.sched is not None:
@@ -159,12 +174,46 @@ class JobsPanel(QWidget):
             for jid in self._selected_ids():
                 self.sched.reschedule(jid, dlg.value())
 
+    def _completed_ids(self):
+        return [i for i in self._selected_ids() if self.sched.job(i) and self.sched.job(i).status == js.COMPLETED]
+
+    def _plot_selected(self):
+        if self.sched is None:
+            return
+        for jid in self._completed_ids():
+            self.plot_requested.emit(jid)
+
+    def _open_selected(self):
+        """Enter / double-click: plot a completed job, otherwise run a waiting one now."""
+        if self.sched is None:
+            return
+        if self._completed_ids():
+            self._plot_selected()
+        else:
+            self._act("run_now")
+
+    def _duplicate_selected(self):
+        if self.sched is not None:
+            for jid in self._selected_ids():
+                self.sched.duplicate(jid)
+
     def _menu(self, pos):
         if self.sched is None:
             return
         ids = self._selected_ids()
+        menu = self._build_menu(ids)
+        _exec_menu(menu, self.tree.viewport().mapToGlobal(pos))
+
+    def _build_menu(self, ids):
         menu = QMenu(self)
         if ids:
+            plot = menu.addAction(qta.icon("mdi.chart-line", color="#4F9DDE"), "Plot results (Enter)", self._plot_selected)
+            plot.setObjectName("act_plot_results")
+            plot.setEnabled(bool(self._completed_ids()))
+            folder = menu.addAction(qta.icon("mdi.folder-open-outline"), "Open results folder", self._open_results_folder)
+            folder.setObjectName("act_open_results")
+            folder.setEnabled(bool(self._completed_ids()))
+            menu.addSeparator()
             menu.addAction(qta.icon("mdi.play", color="#5DB36A"), "Run now", lambda: self._act("run_now"))
             menu.addAction(qta.icon("mdi.stop", color="#E0605A"), "Stop", lambda: self._act("stop"))
             menu.addSeparator()
@@ -173,15 +222,26 @@ class JobsPanel(QWidget):
             menu.addAction(qta.icon("mdi.arrow-up"), "Move up", lambda: self._act("move", -1))
             menu.addAction(qta.icon("mdi.arrow-down"), "Move down", lambda: self._act("move", +1))
             menu.addSeparator()
+            menu.addAction(qta.icon("mdi.content-copy"), "Duplicate (Ctrl+D)", self._duplicate_selected).setObjectName(
+                "act_duplicate")
             menu.addAction("Copy file path", lambda: QApplication.clipboard().setText(
                 "\n".join(self.sched.job(i).path for i in ids if self.sched.job(i))))
             menu.addAction("Open containing folder", self._open_folder)
-            menu.addAction(qta.icon("mdi.delete-outline"), "Remove", lambda: self._act("remove"))
+            menu.addAction(qta.icon("mdi.delete-outline"), "Remove (Delete)", lambda: self._act("remove"))
             menu.addSeparator()
         menu.addAction("Pause queue" if not self.sched.paused else "Resume queue",
                        lambda: (self.btn_pause.setChecked(not self.sched.paused), self._toggle_pause()))
         menu.addAction("Clear finished", self.sched.clear_finished)
-        menu.exec(self.tree.viewport().mapToGlobal(pos))
+        return menu
+
+    def _open_results_folder(self):
+        from PySide6.QtCore import QUrl
+        from PySide6.QtGui import QDesktopServices
+        from core.results_locator import find_job_results
+        for jid in self._completed_ids()[:1]:
+            folder = find_job_results(self.sched.job(jid).path)
+            if folder is not None:
+                QDesktopServices.openUrl(QUrl.fromLocalFile(str(folder)))
 
     def _open_folder(self):
         from PySide6.QtCore import QUrl

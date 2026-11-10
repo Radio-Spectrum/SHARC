@@ -38,6 +38,17 @@ def start_run(app, start_at=None) -> bool:
         app._switch_page("runner", "Execution Engine")
         return False
 
+    if hasattr(app, "check_scenario"):
+        from core.validation import has_errors
+        issues = app.check_scenario()
+        if has_errors(issues):
+            n = sum(1 for i in issues if i.severity == "error")
+            QMessageBox.warning(
+                app, "Run",
+                f"The scenario has {n} error(s), so the simulation was not started.\n"
+                "See the Problems tab (double-click a row to go to the page).")
+            return False
+
     stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     run_dir = run_root() / stamp
     use_sweep = general.var_table.rowCount() > 0

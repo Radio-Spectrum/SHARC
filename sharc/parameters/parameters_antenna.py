@@ -20,13 +20,13 @@ class ParametersAntenna(ParametersBase):
         "OMNI",
         "HibleoX",
         "ITU-R F.699",
+        "ITU-R S.672",
         "ITU-R S.465",
         "ITU-R S.580",
         "MODIFIED ITU-R S.465",
         "ITU-R S.1855",
         "ITU-R Reg. RR. Appendice 7 Annex 3",
         "ARRAY",
-        "ARRAY2",
         "ITU-R-S.1528-Taylor",
         "ITU-R-S.1528-Section1.2",
         "ITU-R-S.1528-LEO",
@@ -43,7 +43,6 @@ class ParametersAntenna(ParametersBase):
                             "ITU-R S.1855",
                             "ITU-R Reg. RR. Appendice 7 Annex 3",
                             "ARRAY",
-                            "ARRAY2",
                             "ITU-R-S.1528-Taylor",
                             "ITU-R-S.1528-Section1.2",
                             "ITU-R-S.1528-LEO",
@@ -118,7 +117,6 @@ class ParametersAntenna(ParametersBase):
             param = getattr(self, attr_name)
 
             for k, v in kwargs.items():
-                # we only set if not already set
                 if k in dir(param) and getattr(param, k, None) is None:
                     setattr(param, k, v)
 
@@ -158,14 +156,14 @@ class ParametersAntenna(ParametersBase):
                 f"{ctx}.pattern should be set. Is None instead",
             )
 
-        if self.pattern != "ARRAY" and self.pattern != "ARRAY2" and self.gain is None:
+        if self.pattern != "ARRAY" and self.gain is None:
             raise ValueError(
                 f"{ctx}.gain should be set if not using array antenna.",
             )
 
         if self.pattern not in self.__SUPPORTED_ANTENNA_PATTERNS:
             raise ValueError(
-                f"Invalid {ctx}.pattern. It should be one of: {
+                f"Invalid {ctx}.pattern='{self.pattern}'. It should be one of: {
                     self.__SUPPORTED_ANTENNA_PATTERNS}.", )
 
         match self.pattern:
@@ -190,7 +188,7 @@ class ParametersAntenna(ParametersBase):
                     # just hijacking validation since diameter is optional
                     self.itu_reg_rr_a7_3.diameter = 0
                 self.itu_reg_rr_a7_3.validate(f"{ctx}.itu_reg_rr_a7_3")
-            case "ARRAY" | "ARRAY2":
+            case "ARRAY":
                 # TODO: validate here and make array non imt specific
                 # self.array.validate(
                 #     f"{ctx}.array",
@@ -202,7 +200,7 @@ class ParametersAntenna(ParametersBase):
                 self.itu_r_s_1528.validate(f"{ctx}.itu_r_s_1528")
             case "ITU-R-S.1528-LEO":
                 self.itu_r_s_1528.validate(f"{ctx}.itu_r_s_1528")
-            case "ITU-R-S.672":
+            case "ITU-R S.672":
                 self.itu_r_s_672.validate(f"{ctx}.itu_r_s_672")
             case "MSS Adjacent":
                 self.mss_adjacent.validate(f"{ctx}.mss_adjacent")

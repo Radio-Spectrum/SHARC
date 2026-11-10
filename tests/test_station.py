@@ -8,7 +8,7 @@ Created on Mon Feb  6 17:59:07 2017
 import unittest
 
 from sharc.support.enumerations import StationType
-from sharc.antenna.antenna_beamforming_imt import AntennaBeamformingImt
+from sharc.antenna.antenna_array import AntennaArray
 from sharc.antenna.antenna_omni import AntennaOmni
 from sharc.parameters.imt.parameters_antenna_imt import ParametersAntennaImt
 from sharc.station import Station
@@ -64,7 +64,7 @@ class StationTest(unittest.TestCase):
         self.station.tx_power = 20
         self.station.rx_power = -3
         par = self.bs_param.get_antenna_parameters()
-        self.station.antenna = AntennaBeamformingImt(par, 300, -10)
+        self.station.antenna = AntennaArray(par, azimuth=300, elevation=-10)
 
         self.station2 = Station()
         self.station2.id = 1
@@ -75,7 +75,7 @@ class StationTest(unittest.TestCase):
         self.station2.tx_power = 17
         self.station2.rx_power = 9
         par = self.ue_param.get_antenna_parameters()
-        self.station2.antenna = AntennaBeamformingImt(par, 270, 2)
+        self.station2.antenna = AntennaArray(par, azimuth=270, elevation=2)
 
         self.station3 = Station()
         self.station3.id = 2

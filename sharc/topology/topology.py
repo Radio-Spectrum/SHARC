@@ -20,6 +20,8 @@ class Topology(object):
         self,
         intersite_distance: float,
         cell_radius: float,
+        *,
+        determines_local_geometry: bool = False
     ):
         """Initialize a Topology instance with intersite distance and cell radius."""
         self.intersite_distance = intersite_distance
@@ -33,7 +35,7 @@ class Topology(object):
         self.azimuth = np.empty(0)
         self.indoor = np.empty(0)
         self.is_space_station = False
-        self.determines_local_geometry = False
+        self.determines_local_geometry = determines_local_geometry
         self.num_base_stations = -1
         self.static_base_stations = False
 
@@ -46,12 +48,14 @@ class Topology(object):
         """
         if not self.determines_local_geometry:
             raise ValueError("cannot get local UE geom if topology doesn't determines_local_geometry")
+        raise NotImplementedError()
 
     def get_bs_geometry(self) -> SimulatorGeometry:
         """Returns BS pre-built SimulatorGeometry if implemented
         """
         if not self.determines_local_geometry:
             raise ValueError("cannot get local BS geom if topology doesn't determines_local_geometry")
+        raise NotImplementedError()
 
     # by default, a sharc topology will translate the UE distribution by the
     # BS position

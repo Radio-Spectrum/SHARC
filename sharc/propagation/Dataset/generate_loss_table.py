@@ -4,6 +4,7 @@ Created on Thu Aug 31 12:59:12 2017
 
 """
 
+from tqdm import tqdm
 import os
 import csv
 import numpy as np
@@ -28,7 +29,7 @@ propagation = PropagationP619(
 
 # Calculate the loss for each elevation angle
 losses = []
-for elevation in apparent_elevation:
+for elevation in tqdm(apparent_elevation):
     loss = propagation._get_atmospheric_gasses_loss(
         frequency_MHz=frequency_MHz,
         apparent_elevation=elevation,
@@ -36,7 +37,7 @@ for elevation in apparent_elevation:
     losses.append(loss)
 
 # Save results to CSV file
-output_dir = os.path.join(os.path.dirname(__file__), 'BRASILIA')
+output_dir = os.path.dirname(__file__)
 os.makedirs(output_dir, exist_ok=True)
 output_file = os.path.join(
     output_dir, f'{city_name}_{

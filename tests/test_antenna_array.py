@@ -11,6 +11,8 @@ import numpy.testing as npt
 
 from sharc.antenna.antenna_array import AntennaArray
 from sharc.parameters.imt.parameters_antenna_imt import ParametersAntennaImt
+from sharc.support.geometry import RigidTransform
+from scipy.spatial.transform import Rotation
 
 
 class AntennaArrayTest(unittest.TestCase):
@@ -22,7 +24,6 @@ class AntennaArrayTest(unittest.TestCase):
         self.bs_param = ParametersAntennaImt()
         self.ue_param = ParametersAntennaImt()
 
-        # NOTE: not implemented:
         self.bs_param.adjacent_antenna_model = "SINGLE_ELEMENT"
         self.bs_param.normalization = False
         self.bs_param.normalization_file = None
@@ -351,6 +352,77 @@ class AntennaArrayTest(unittest.TestCase):
             co_channel=False,
         )
         npt.assert_allclose(gains, np.array([1.6667]), atol=eps)
+
+    def test_minimum_gain_applies_to_total_gain(self):
+        """Test that the floor limits element plus array gain, in every path."""
+        self.bs_param.minimum_array_gain = -5
+        antenna = AntennaArray(self.bs_param)
+        antenna.add_beam(0.0, 90.0)
+        phi = np.array([180.0])
+        theta = np.array([90.0])
+
+        adjacent = antenna.calculate_gain(
+            phi_vec=phi, theta_vec=theta, co_channel=False,
+        )
+        npt.assert_equal(adjacent, np.array([-5.0]))
+
+        co_channel = antenna.calculate_gain(
+            phi_vec=phi, theta_vec=theta, beams_l=np.array([0]),
+        )
+        self.assertGreaterEqual(co_channel[0], -5.0)
+
+        batch = AntennaArray.calculate_gain_batch(
+            [antenna], phi[np.newaxis], theta[np.newaxis], np.array([0]),
+        )
+        npt.assert_equal(batch, co_channel[np.newaxis])
+
+    def test_global2local_transform(self):
+        """Test that gains and beams are evaluated in the transformed frame."""
+        rot = Rotation.from_euler("zyx", [[30.0, 20.0, 10.0]], degrees=True)
+        transform = RigidTransform(rot, np.zeros((1, 3)))
+        rotated = AntennaArray(
+            self.ue_param, transform, azimuth=40.0, elevation=-6.0,
+        )
+        plain = AntennaArray(self.ue_param, azimuth=40.0, elevation=-6.0)
+
+        def global_angles(phi, theta):
+            x, y, z = rot.inv().apply(AntennaArray._angles_to_vector(phi, theta))[0]
+            return np.rad2deg(np.arctan2(y, x)), np.rad2deg(np.arccos(z))
+
+        rotated.add_beam(*global_angles(10.0, 100.0))
+        plain.add_beam(10.0, 100.0)
+
+        phi = np.array([-70.0, 15.0, 120.0])
+        theta = np.array([60.0, 95.0, 130.0])
+        global_phi, global_theta = np.transpose(
+            [global_angles(p, t) for p, t in zip(phi, theta)],
+        )
+
+        npt.assert_allclose(
+            rotated.calculate_gain(
+                phi_vec=global_phi, theta_vec=global_theta,
+                beams_l=np.zeros(3, dtype=int),
+            ),
+            plain.calculate_gain(
+                phi_vec=phi, theta_vec=theta, beams_l=np.zeros(3, dtype=int),
+            ),
+            atol=1e-8,
+        )
+
+    def test_clip_beam_direction_in_site_frame(self):
+        """Test that the steering limits apply in the transformed frame."""
+        rot = Rotation.from_euler("y", [20.0], degrees=True)
+        antenna = AntennaArray(
+            self.bs_param, RigidTransform(rot, np.zeros((1, 3))),
+        )
+
+        phi, theta = antenna.clip_beam_direction(
+            0.0, 90.0, (-60.0, 60.0), (90.0, 100.0), 0.0,
+        )
+
+        local = rot.apply(AntennaArray._angles_to_vector(phi, theta))[0]
+        self.assertAlmostEqual(np.rad2deg(np.arccos(local[2])), 100.0, places=8)
+        self.assertAlmostEqual(np.rad2deg(np.arctan2(local[1], local[0])), 0.0, places=8)
 
 
 if __name__ == '__main__':

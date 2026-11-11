@@ -70,6 +70,11 @@ def static_issues(data: Dict[str, Any]) -> List[Issue]:
                                  "co-channel is on but the IMT and victim bands do not overlap "
                                  f"(IMT {imt_band[0]:g}-{imt_band[1]:g} MHz, victim {vic_band[0]:g}-{vic_band[1]:g} MHz)"))
 
+        # the engine aborts in simulation.py ("Polarization loss is not initialized") when this is blank
+        if "polarization_loss" in victim and _num(victim.get("polarization_loss")) is None:
+            out.append(Issue(ERROR, vic_page, "polarization_loss",
+                             "is blank; enter a value in dB (0 for none)"))
+
     db = data.get("database") or {}
     name = db.get("database_file_name")
     if name and not (os.path.isfile(str(name)) or os.path.isfile(os.path.join(os.getcwd(), str(name)))):

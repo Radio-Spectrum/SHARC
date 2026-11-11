@@ -526,9 +526,12 @@ class SimulationUplink(Simulation):
             self.results.system_ul_interf_power.extend(
                 [self.system.rx_interference],
             )
+            # bandwidth is a float for some systems (e.g. SINGLE_SPACE_STATION)
+            bandwidth = np.atleast_1d(np.asarray(self.system.bandwidth, dtype=float))
+            bandwidth = bandwidth[sys_active] if bandwidth.size > 1 else np.full(len(sys_active), bandwidth[0])
             self.results.system_ul_interf_power_per_mhz.extend(
                 [self.system.rx_interference
-                    - 10 * np.log10(self.system.bandwidth[sys_active])],
+                    - 10 * np.log10(bandwidth)],
             )
             # TODO: generalize this a bit more if needed
             if hasattr(

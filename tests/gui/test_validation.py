@@ -109,3 +109,9 @@ def test_engine_check_is_skipped_when_static_errors_exist(base, monkeypatch):
     base["general"]["num_snapshots"] = 0
     monkeypatch.setattr(v, "engine_issues", lambda d: pytest.fail("engine must not run"))
     assert v.has_errors(v.validate(base))
+
+
+def test_blank_polarization_loss_is_error(base):
+    base["general"]["system"] = "SINGLE_EARTH_STATION"
+    base.setdefault("single_earth_station", {})["polarization_loss"] = None
+    assert ("station", "polarization_loss") in _msgs(v.static_issues(base))

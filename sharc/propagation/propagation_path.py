@@ -178,18 +178,16 @@ class PropagationPath():
             paths_from_to[:, 1]
         ]
 
-        # since deduped_paths_from_to is already ordered
-        # np.unique's unstable sort doesn't eff it up
-        uniq_deduped_paths_from_to, adjacency_vec = np.unique(
-            deduped_paths_from_to,
-            axis=0,
-            return_inverse=True
-        )
+        # Unique (a, b) pairs in lexicographic order and, for each path, the
+        # position of its pair in that order: same result as np.unique over
+        # the rows (axis=0), computed over one integer key per pair, which
+        # avoids the much slower sort of structured rows.
+        n_b = sta_b.num_stations
+        pair_keys = deduped_paths_from_to[:, 0] * n_b + deduped_paths_from_to[:, 1]
+        uniq_keys, adjacency_vec = np.unique(pair_keys, return_inverse=True)
 
         deduplicated_mask = np.zeros((sta_a.num_stations, sta_b.num_stations), dtype=bool)
-        deduplicated_mask[
-            uniq_deduped_paths_from_to[:, 0], uniq_deduped_paths_from_to[:, 1]
-        ] = True
+        deduplicated_mask[uniq_keys // n_b, uniq_keys % n_b] = True
 
         return deduplicated_mask, adjacency_vec
 

@@ -12,7 +12,9 @@ The visible Space Stations are then used to generate the IMT Base Stations.
 """
 
 import numpy as np
-import geopandas as gpd
+from sharc.support.lazy_import import lazy_module
+
+gpd = lazy_module("geopandas")
 import functools
 
 from collections import defaultdict

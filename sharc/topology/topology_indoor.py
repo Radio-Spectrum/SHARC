@@ -7,8 +7,10 @@ Created on Tue Dec  5 15:45:26 2017
 
 from sharc.topology.topology import Topology
 from sharc.parameters.imt.parameters_indoor import ParametersIndoor
-import matplotlib.pyplot as plt
-import matplotlib.axes
+from sharc.support.lazy_import import lazy_module
+
+plt = lazy_module("matplotlib.pyplot")
+matplotlib = lazy_module("matplotlib")
 
 import numpy as np
 from itertools import product
@@ -112,14 +114,14 @@ class TopologyIndoor(Topology):
         self.num_base_stations = -1
         self.static_base_stations = False
 
-    def plot(self, ax: matplotlib.axes.Axes, top_view=True):
+    def plot(self, ax: "matplotlib.axes.Axes", top_view=True):
         """Plot the indoor topology, either top or side view."""
         if top_view:
             self.plot_top_view(ax)
         else:
             self.plot_side_view(ax)
 
-    def plot_top_view(self, ax: matplotlib.axes.Axes):
+    def plot_top_view(self, ax: "matplotlib.axes.Axes"):
         """Plot the top view of the indoor topology on the given axis."""
         # create the building
         for b in range(int(self.num_base_stations / self.num_cells)):
@@ -166,7 +168,7 @@ class TopologyIndoor(Topology):
             linewidth=2, label="Base station",
         )
 
-    def plot_side_view(self, ax: matplotlib.axes.Axes):
+    def plot_side_view(self, ax: "matplotlib.axes.Axes"):
         """Plot the side view of the indoor topology on the given axis."""
 
         # Loop on each floor of each column of buildings

@@ -8,7 +8,9 @@ Created on Wed Dec  6 19:23:21 2017
 from sharc.propagation.propagation import Propagation
 
 import numpy as np
-import matplotlib.pyplot as plt
+from sharc.support.lazy_import import lazy_module
+
+plt = lazy_module("matplotlib.pyplot")
 from cycler import cycler
 
 

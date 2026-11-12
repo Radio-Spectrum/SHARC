@@ -1,14 +1,37 @@
-from sharc.results import Results
+from sharc.results import Results, SampleList
 
 from dataclasses import dataclass, field
 import plotly.graph_objects as go
 from plotly.colors import DEFAULT_PLOTLY_COLORS
 import os
 import numpy as np
-import scipy
 import typing
 import pathlib
-import pathlib
+
+
+def _as_array(samples):
+    """Samples as NumPy sees them: the array a SampleList keeps, instead of converting the list on every call."""
+    return samples.as_array() if isinstance(samples, SampleList) else samples
+
+
+def _normal_interval(confidence: float, mean: float, std: float):
+    """
+    Central interval of a normal distribution: the value of
+    ``scipy.stats.norm.interval(confidence, loc=mean, scale=std)``.
+
+    For the ordinary case it is computed with the same expression SciPy uses
+    (``ndtri(q) * scale + loc``), which avoids importing scipy.stats, by far
+    the slowest import of the post-processing. Anything else (no spread,
+    non-finite values, invalid confidence) is left to SciPy itself.
+    """
+    if 0.0 < confidence < 1.0 and np.isfinite(mean) and np.isfinite(std) and std > 0:
+        from scipy.special import ndtri
+        return (
+            ndtri((1.0 - confidence) / 2) * std + mean,
+            ndtri((1.0 + confidence) / 2) * std + mean,
+        )
+    import scipy.stats
+    return scipy.stats.norm.interval(confidence, loc=mean, scale=std)
 
 
 class FieldStatistics:
@@ -29,13 +52,14 @@ class FieldStatistics:
         Compute statistics from a sample and store them in the object.
         """
         self.field_name = field_name
-        self.median = np.median(sample)
-        self.mean = np.mean(sample)
-        self.variance = np.var(sample)
-        self.standard_deviation = np.std(sample)
+        values = _as_array(sample)
+        self.median = np.median(values)
+        self.mean = np.mean(values)
+        self.variance = np.var(values)
+        self.standard_deviation = np.std(values)
         # @important TODO: check if using t distribution here is correct
-        self.confidence_interval = scipy.stats.norm.interval(
-            confidence, loc=self.mean, scale=self.standard_deviation
+        self.confidence_interval = _normal_interval(
+            confidence, self.mean, self.standard_deviation
         )
         return self
 
@@ -720,53 +744,58 @@ class PostProcessor:
             # Validate that the user-provided value is a positive integer.
             raise ValueError(f"n_aggregate must be a positive integer, but got {n_aggregate}.")
 
-        aggregate_samples = np.empty(n_aggregate)
+        # Sum in linear units. For every aggregate sample: S random uplink
+        # samples, then S random downlink samples, as before. The random
+        # numbers of a block of aggregate samples are drawn in one call, in
+        # that same order, and the terms are added one draw at a time (uplink
+        # first), which keeps the random sequence and the exact floating-point
+        # result of the former sample-by-sample loop.
+        ul_linear = dl_linear = None
+        if ul_tdd_factor:
+            ul_linear = np.power(10, np.asarray(_as_array(ul_samples), dtype=float) / 10) * ul_tdd_factor
+        if dl_tdd_factor:
+            dl_linear = np.power(10, np.asarray(_as_array(dl_samples), dtype=float) / 10) * dl_tdd_factor
 
-        for i in range(n_aggregate):
-            # choose S random samples
-            ul_random_indexes = np.floor(
-                random_number_gen.random(size=segment_factor)
-                * len(ul_samples)
-            )
-            dl_random_indexes = np.floor(
-                random_number_gen.random(size=segment_factor)
-                * len(dl_samples)
-            )
-            aggregate_samples[i] = 0
+        aggregate_samples = np.zeros(n_aggregate)
+        block = max(1, 2_000_000 // max(1, segment_factor))     # bounds the memory of the draws
+        for start in range(0, n_aggregate, block):
+            rows = slice(start, min(start + block, n_aggregate))
+            draws = random_number_gen.random(size=(rows.stop - rows.start, 2, segment_factor))
+            total = aggregate_samples[rows]
+            if ul_linear is not None:
+                ul_random_indexes = np.floor(draws[:, 0, :] * len(ul_samples)).astype(int)
+                for j in range(segment_factor):
+                    total += ul_linear[ul_random_indexes[:, j]]
+            if dl_linear is not None:
+                dl_random_indexes = np.floor(draws[:, 1, :] * len(dl_samples)).astype(int)
+                for j in range(segment_factor):
+                    total += dl_linear[dl_random_indexes[:, j]]
 
-            if ul_tdd_factor:
-                for j in ul_random_indexes:  # random samples
-                    aggregate_samples[i] += (
-                        np.power(10, ul_samples[int(j)] / 10) * ul_tdd_factor
-                    )
-
-            if dl_tdd_factor:
-                for j in dl_random_indexes:  # random samples
-                    aggregate_samples[i] += (
-                        np.power(10, dl_samples[int(j)] / 10) * dl_tdd_factor
-                    )
-
-            # convert back to dB or dBm (as was previously)
-            aggregate_samples[i] = 10 * np.log10(
-                aggregate_samples[i]
-            )
-
-        return aggregate_samples
+        # convert back to dB or dBm (as was previously)
+        return 10 * np.log10(aggregate_samples)
 
     @staticmethod
     def cdf_from(data: list[float], *, n_bins=None) -> (list[float], list[float]):
         """
         Takes a dataset and returns both axis of a cdf (x, y)
         """
-        values, base = np.histogram(
-            data,
-            bins=n_bins if n_bins is not None else "auto",
-        )
-        cumulative = np.cumsum(values)
-        x = base[:-1]
-        y = cumulative / cumulative[-1]
+        # The CDF and the CCDF plots of a result need the same histogram: for a
+        # SampleList it is computed once and kept until the list changes.
+        cached = None
+        if isinstance(data, SampleList) and (n_bins is None or isinstance(n_bins, (int, str))):
+            cached = data.derived().get(("cdf", n_bins))
+        if cached is None:
+            values, base = np.histogram(
+                _as_array(data),
+                bins=n_bins if n_bins is not None else "auto",
+            )
+            cumulative = np.cumsum(values)
+            cached = (base[:-1], cumulative / cumulative[-1])
+            if isinstance(data, SampleList) and (n_bins is None or isinstance(n_bins, (int, str))):
+                data.derived()[("cdf", n_bins)] = cached
+        x, y = cached
 
-        return (x, y)
+        return (x.copy(), y.copy())
 
     @staticmethod
     def ccdf_from(data: list[float], *, n_bins=None) -> (list[float], list[float]):

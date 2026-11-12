@@ -1,3 +1,4 @@
+import os
 import yaml
 from dataclasses import dataclass
 from copy import deepcopy
@@ -13,6 +14,32 @@ def tuple_constructor(loader, node):
 yaml.SafeLoader.add_constructor(
     'tag:yaml.org,2002:python/tuple',
     tuple_constructor)
+
+
+# Parsed parameter files, keyed by path: (modification time, size, content).
+# Every parameter section (general, imt, each system...) loads the same file,
+# so without this the whole YAML was parsed once per section.
+_PARSED_FILES = {}
+_PARSED_FILES_MAX = 4
+
+
+def load_yaml_file(config_file: str):
+    """Parse a YAML parameter file, reusing the last parse while the file is unchanged.
+
+    Returns a fresh copy each time, exactly as a new ``yaml.safe_load`` would.
+    """
+    path = os.path.abspath(config_file)
+    stat = os.stat(path)
+    stamp = (stat.st_mtime_ns, stat.st_size)
+    cached = _PARSED_FILES.get(path)
+    if cached is None or cached[0] != stamp:
+        with open(path, 'r') as file:
+            config = yaml.safe_load(file)
+        if len(_PARSED_FILES) >= _PARSED_FILES_MAX:
+            _PARSED_FILES.pop(next(iter(_PARSED_FILES)))
+        cached = (stamp, config)
+        _PARSED_FILES[path] = cached
+    return deepcopy(cached[1])
 
 
 @dataclass
@@ -128,8 +155,7 @@ class ParametersBase:
             if a parameter is not valid
         """
 
-        with open(config_file, 'r') as file:
-            config = yaml.safe_load(file)
+        config = load_yaml_file(config_file)
 
         if self.section_name.lower() not in config.keys():
             if not quiet:

@@ -23,6 +23,39 @@ def run_root() -> Path:
     return root
 
 
+def _review_run(app, general, issues, use_sweep: bool) -> bool:
+    """Show the review dialog (parameters, resources, test run). True = the user confirmed.
+
+    Skipped when SHARC_GUI_NO_REVIEW is set or the scene cannot be built (the validation gate
+    above already reported why), so a failure here never blocks a run by itself.
+    """
+    if os.environ.get("SHARC_GUI_NO_REVIEW"):
+        return True
+    from PySide6.QtCore import QSettings
+    if str(QSettings("SHARC", "GUI").value("sim/review", True)).lower() in ("false", "0", "no"):
+        return True
+    from core import preflight
+    from core.engine_scene import EngineSceneError, build_engine_scene
+    from ui.tabs.assets.general_tab.general_tools import parse_list_safe
+    from ui.shell.preflight_dialog import PreflightDialog
+    from PySide6.QtWidgets import QDialog
+
+    try:
+        data = app.tab_preview._current_yaml()
+        scene = build_engine_scene(data)          # cached by the validation that just ran
+    except (EngineSceneError, AttributeError):
+        return True
+    rows = []
+    if use_sweep:
+        t = general.var_table
+        for r in range(t.rowCount()):
+            rows.append((len(parse_list_safe(t.item(r, 1).text(), [])),
+                         len(parse_list_safe(t.item(r, 2).text(), []))))
+    parallel = app._saved_parallel() if hasattr(app, "_saved_parallel") else 1
+    plan = preflight.build_plan(data, scene, preflight.count_sweep_runs(rows), parallel, str(run_root()))
+    return PreflightDialog(app, data, plan, issues).exec() == QDialog.Accepted
+
+
 def start_run(app, start_at=None) -> bool:
     """Gera as configurações em segundo plano e inicia a simulação. Retorna True se iniciou."""
     general = getattr(app, "tab_general", None)
@@ -49,9 +82,12 @@ def start_run(app, start_at=None) -> bool:
                 "See the Problems tab (double-click a row to go to the page).")
             return False
 
+    use_sweep = general.var_table.rowCount() > 0
+    if not _review_run(app, general, issues if hasattr(app, "check_scenario") else [], use_sweep):
+        return False
+
     stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     run_dir = run_root() / stamp
-    use_sweep = general.var_table.rowCount() > 0
     try:
         files = general._internal_save_logic(use_combinations=use_sweep, save_dir=run_dir, quiet=True)
     except Exception as exc:  # invalid parameter, etc.

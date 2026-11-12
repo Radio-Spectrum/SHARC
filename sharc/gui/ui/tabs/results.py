@@ -54,20 +54,16 @@ _KALEIDO_LOCK = threading.Lock()
 
 class ResultsTab(QWidget):
     results_changed = Signal()          # the list of result folders changed (added, removed, cleared)
+    _ui_progress = Signal(int)          # render thread -> GUI thread
+    _ui_status = Signal(str, int)
+    _ui_image = Signal(bytes)
+    _ui_error = Signal(str)
 
     """
     Results Tab - PySide6 Edition
     Features: Smart Column Scan, float32 Optimization, Auto-Cache Clearing, 
     and Dual Plotting Engine (Plotly/Matplotlib QtAgg).
     """
-    # The Plotly preview is rendered in a worker thread. Its results come back to the GUI thread through
-    # these signals: a QTimer.singleShot() called from a plain Python thread never fires, so the finished
-    # image used to be lost and the tab stayed on "Preparing Plot...".
-    _sig_render_progress = Signal(float, int)
-    _sig_render_status = Signal(str, int)
-    _sig_render_done = Signal(object, int)
-    _sig_render_failed = Signal(str, int)
-
     # Sorted sample arrays kept in memory (one per folder and field), so that changing a title, a limit
     # or the CDF/CCDF mode does not sort every dataset again.
     _SORTED_CACHE_MAX = 64
@@ -90,13 +86,14 @@ class ResultsTab(QWidget):
         self._render_lock = threading.Lock()
         self._data_lock = threading.Lock()
         self._sorted_cache = OrderedDict()
-        self._render_request = 0          # id of the latest refresh asked for
         self._render_busy = False         # a Plotly render is running (only touched in the GUI thread)
         self._pending_refresh = None      # force_refresh of a refresh asked while another was rendering
-        self._sig_render_progress.connect(self._on_render_progress)
-        self._sig_render_status.connect(self._on_render_status)
-        self._sig_render_done.connect(self._on_render_done)
-        self._sig_render_failed.connect(self._on_render_failed)
+        # The render thread must not touch widgets or call QTimer.singleShot: a QTimer started from a thread
+        # without an event loop never fires, which left the page stuck on "Preparing Plot... 0%".
+        self._ui_progress.connect(self._update_progress_ui)
+        self._ui_status.connect(self._show_render_status)
+        self._ui_image.connect(self._on_render_done)
+        self._ui_error.connect(self._on_render_failed)
         self._update_timer = None
         self._max_axes = 9
         self._disable_traces = False
@@ -1073,8 +1070,6 @@ class ResultsTab(QWidget):
             self._pending_refresh = bool(force_refresh) or bool(self._pending_refresh)
             return
         self._pending_refresh = None
-        self._render_request += 1          # whatever an older render still delivers is now out of date
-        request = self._render_request
 
         if self._mpl_canvas:
             self.preview_layout.removeWidget(self._mpl_canvas)
@@ -1126,7 +1121,7 @@ class ResultsTab(QWidget):
 
             state = self._plot_state()     # widgets are read here, in the GUI thread
             self._render_busy = True
-            threading.Thread(target=self._render_worker, args=(w, h, force_refresh, state, request),
+            threading.Thread(target=self._render_worker, args=(w, h, force_refresh, state),
                              daemon=True).start()
 
     def _stop_loading_ui(self):
@@ -1140,25 +1135,20 @@ class ResultsTab(QWidget):
         self.pb_loading.setValue(int(percent))
         self.lbl_preview.setText(f"Plotting... {int(percent)}%")
 
-    # ---- results of the render thread, delivered in the GUI thread by the _sig_render_* signals ----
-    def _on_render_progress(self, percent, request):
-        if request == self._render_request:
-            self._update_progress_ui(percent)
+    def _show_render_status(self, text: str, percent: int):
+        self.lbl_preview.setText(text)
+        self.pb_loading.setValue(percent)
 
-    def _on_render_status(self, text, request):
-        if request == self._render_request:
-            self.lbl_preview.setText(text)
-            self.pb_loading.setValue(90)
-
-    def _on_render_done(self, img_bytes, request):
+    # ---- end of a render, delivered in the GUI thread by _ui_image / _ui_error ----
+    def _on_render_done(self, img_bytes):
         self._render_busy = False
-        if request == self._render_request and self._pending_refresh is None:
+        if self._pending_refresh is None:      # else the settings changed meanwhile: draw again instead
             self._display_image(img_bytes)
         self._run_pending_refresh()
 
-    def _on_render_failed(self, msg, request):
+    def _on_render_failed(self, msg):
         self._render_busy = False
-        if request == self._render_request and self._pending_refresh is None:
+        if self._pending_refresh is None:
             self._on_render_error(msg)
         self._run_pending_refresh()
 
@@ -1167,26 +1157,27 @@ class ResultsTab(QWidget):
             force, self._pending_refresh = self._pending_refresh, None
             self._update_plot_preview(force)
 
-    def _render_worker(self, w, h, force_refresh=False, state=None, request=0):
+    def _render_worker(self, w, h, force_refresh=False, state=None):
+        if not self._render_lock.acquire(blocking=False):
+            # another render is running; never leave "Preparing Plot..." on screen for a render that was dropped
+            self._ui_error.emit("A plot is already being prepared. Press Refresh when it finishes.")
+            return
         failure, img_bytes = None, None
-        self._render_lock.acquire()
         try:
-            def _progress(p): self._sig_render_progress.emit(float(p), request)
-            fig = self._create_plotly_fig(progress_callback=_progress, is_preview=True, force_refresh=force_refresh,
-                                          state=state)
-
-            self._sig_render_status.emit("Rasterizing...", request)
+            fig = self._create_plotly_fig(progress_callback=lambda p: self._ui_progress.emit(int(p)),
+                                          is_preview=True, force_refresh=force_refresh, state=state)
+            self._ui_status.emit("Rasterizing (the first plot starts the image engine and takes a few seconds)...", 90)
             with _KALEIDO_LOCK:
                 img_bytes = fig.to_image(format="png", width=w, height=h, scale=1)
-        except Exception as e:
-            failure = f"Plot Error:\n{e}"
+        except Exception as e:  # noqa: BLE001 - any plotting failure must reach the user
+            failure = f"Plot Error:\n{type(e).__name__}: {e}"
         finally:
             self._render_lock.release()
         # emitted after the lock is released, so that a refresh asked meanwhile can start right away
         if failure is None:
-            self._sig_render_done.emit(img_bytes, request)
+            self._ui_image.emit(img_bytes)
         else:
-            self._sig_render_failed.emit(failure, request)
+            self._ui_error.emit(failure)
 
     def _display_image(self, img_bytes):
         self._stop_loading_ui()

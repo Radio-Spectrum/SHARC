@@ -93,6 +93,7 @@ class PreviewTab(QWidget, Geometry3DMixin, SceneBuilderMixin, CesiumBridgeMixin)
             main_layout.addWidget(self._cesium_embed)
             self._cesium_embed.ready.connect(self._draw_preview)
             self._cesium_embed.center_picked.connect(self._on_center_picked)
+            self._cesium_embed.bridge.resample_requested.connect(self._resample_sites)
         else:
             lbl_no_cesium = QLabel(
                 "CesiumJS not available.\n\n"
@@ -383,6 +384,18 @@ class PreviewTab(QWidget, Geometry3DMixin, SceneBuilderMixin, CesiumBridgeMixin)
         msg = f"{len(wet)} of {len(lat)} base stations are on open water (ESA WorldCover)"
         self.app._safe_log(f"[WARNING] {msg}. Check their coordinates.")
         self._apply_site_warning({"message": msg, "sites": sites[:200]})
+
+    def _resample_sites(self) -> None:
+        """Next seed, then redraw: the sites (and the water check) are drawn again."""
+        import random
+        try:
+            seed = int(self.app.var_seed.get()) + 1
+        except (TypeError, ValueError):                   # "RANDOM" or blank
+            seed = random.randint(1, 999999)
+        self.app.var_seed.set(seed)
+        self._site_key = None
+        self.app._safe_log(f"[SCENARIO] Sites resampled with seed {seed}")
+        self._draw_preview()
 
     def _apply_site_warning(self, payload):
         import json

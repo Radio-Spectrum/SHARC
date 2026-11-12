@@ -46,11 +46,36 @@
       }
     },
 
+    legendsVisible: function () { try { return localStorage.getItem("sharc.legends") !== "0"; } catch (e) { return true; } },
+    setLegendsVisible: function (on) {                  // hides the layer list here and, through the bridge, the colour-scale dock
+      try { localStorage.setItem("sharc.legends", on ? "1" : "0"); } catch (e) { /* private mode */ }
+      var hl = document.getElementById("hudLegend");
+      if (hl) hl.classList.toggle("hidden", !on);
+      var b = document.getElementById("btnLegend");
+      if (b) b.classList.toggle("on", !!on);
+      if (window.pyBridge && window.pyBridge.set_legends_visible) window.pyBridge.set_legends_visible(!!on);
+    },
     setLegend: function (items) {
       try {
         var hudLegend = document.getElementById("hudLegend");
         if (!hudLegend) return;
+        if (window.pyBridge && window.pyBridge.set_legends_visible && this._legendSynced !== this.legendsVisible()) {
+          this._legendSynced = this.legendsVisible();   // tell the Qt side once per change (first legend after a load)
+          window.pyBridge.set_legends_visible(this._legendSynced);
+        }
+        hudLegend.classList.toggle("hidden", !this.legendsVisible());
+        var bl = document.getElementById("btnLegend");
+        if (bl) bl.classList.toggle("on", this.legendsVisible());
         hudLegend.textContent = "";
+        var head = document.createElement("div");           // header: click to fold the list, x hides the panel
+        head.className = "head";
+        var ht = document.createElement("span"); ht.textContent = "LAYERS"; head.appendChild(ht);
+        var hx = document.createElement("button"); hx.className = "x"; hx.title = "Hide the legends (K)"; hx.textContent = "\u00d7";
+        hx.addEventListener("click", function (ev) { ev.stopPropagation(); window.SharcHud.setLegendsVisible(false); });
+        head.appendChild(hx);
+        head.addEventListener("click", function () { var f = hudLegend.classList.toggle("folded"); try { localStorage.setItem("sharc.legendFolded", f ? "1" : "0"); } catch (e) { /* private mode */ } });
+        hudLegend.appendChild(head);
+        try { hudLegend.classList.toggle("folded", localStorage.getItem("sharc.legendFolded") === "1"); } catch (e) { /* private mode */ }
         if (Array.isArray(items) && items.length > 0) {
           for (var i = 0; i < items.length; i++) {
             var item = items[i];
@@ -58,12 +83,20 @@
             var row = document.createElement("div");
             row.className = "row";
             var sw = document.createElement("span");
-            sw.className = "sw";
+            sw.className = "sw" + (item.dash ? " dash" : "");
             if (item.color) {
-              sw.style.backgroundColor = item.color;
+              if (item.dash) sw.style.borderColor = item.color; else sw.style.backgroundColor = item.color;
             }
             row.appendChild(sw);
             row.appendChild(document.createTextNode(item.label != null ? String(item.label) : ""));
+            if (item.layer && window.toggleLayer) {           // click-to-hide layer
+              (function (layer, r) {
+                r.classList.add("toggle");
+                r.title = "Click to show / hide";
+                if (window.layerOn && !window.layerOn(layer)) r.classList.add("off");
+                r.addEventListener("click", function () { r.classList.toggle("off", !window.toggleLayer(layer)); });
+              })(item.layer, row);
+            }
             hudLegend.appendChild(row);
           }
           hudLegend.classList.add("show");
@@ -243,12 +276,19 @@
       }
 
       // ── 4. Buttons ──
+      var btnLegend = document.getElementById("btnLegend");
+      if (btnLegend) {
+        btnLegend.classList.toggle("on", window.SharcHud.legendsVisible());
+        btnLegend.addEventListener("click", function () { window.SharcHud.setLegendsVisible(!window.SharcHud.legendsVisible()); });
+      }
       if (btnHome) {
         btnHome.addEventListener("click", function () {
           try {
             var curViewer = getViewer();
             if (!curViewer) return;
-            if (curViewer.entities && curViewer.entities.values && curViewer.entities.values.length > 0) {
+            if (typeof window.frameScene === "function") {
+              window.frameScene();
+            } else if (curViewer.entities && curViewer.entities.values && curViewer.entities.values.length > 0) {
               curViewer.zoomTo(curViewer.entities);
             } else if (curViewer.camera && typeof curViewer.camera.flyHome === "function") {
               curViewer.camera.flyHome(1.0);
@@ -430,7 +470,9 @@
             return;
           }
           var key = e.key ? e.key.toUpperCase() : "";
-          if (key === "H") {
+          if (key === "K") {
+            e.preventDefault(); window.SharcHud.setLegendsVisible(!window.SharcHud.legendsVisible());
+          } else if (key === "H") {
             if (btnHome) { e.preventDefault(); btnHome.click(); }
           } else if (key === "G") {
             if (btnGrid) { e.preventDefault(); btnGrid.click(); }
@@ -485,4 +527,23 @@
   } else {
     initHud();
   }
+})();
+
+// Scene card: click the "SCENE" header to fold it; state is remembered.
+(function foldSceneCard() {
+  function wire() {
+    var card = document.getElementById("hudScene");
+    var eye = card && card.querySelector(".eyebrow");
+    if (!eye) return;
+    eye.style.cursor = "pointer"; eye.title = "Click to fold / unfold (I)";
+    function apply(f) { card.classList.toggle("folded", f); try { localStorage.setItem("sharc.cardFolded", f ? "1" : "0"); } catch (e) { /* private mode */ } }
+    try { card.classList.toggle("folded", localStorage.getItem("sharc.cardFolded") === "1"); } catch (e) { /* private mode */ }
+    eye.addEventListener("click", function () { apply(!card.classList.contains("folded")); });
+    window.addEventListener("keydown", function (e) {
+      var t = e.target && e.target.tagName ? e.target.tagName.toUpperCase() : "";
+      if (t === "INPUT" || t === "TEXTAREA" || e.ctrlKey || e.altKey || e.metaKey) return;
+      if ((e.key || "").toUpperCase() === "I") apply(!card.classList.contains("folded"));
+    });
+  }
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", wire); else wire();
 })();

@@ -439,6 +439,12 @@ class App(WorkbenchMixin, QMainWindow):
         act_auto.toggled.connect(update_dialog.set_check_on_start)
         m_help.addAction(act_auto)
 
+        # Free right corner of the menu bar: machine and simulator telemetry.
+        from ui.components.telemetry import TelemetryWidget
+        from core.run_service import run_root
+        self.telemetry = TelemetryWidget(lambda: getattr(self, "scheduler", None), lambda: str(run_root()), self)
+        menubar.setCornerWidget(self.telemetry, Qt.TopRightCorner)
+
     # ==========================================================
     # THEME ENGINE
     # ==========================================================

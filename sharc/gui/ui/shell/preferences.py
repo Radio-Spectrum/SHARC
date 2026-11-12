@@ -190,6 +190,10 @@ class PreferencesDialog(QDialog):
         open_jobs.setChecked(_flag(settings().value("sim/show_jobs", True)))
         open_jobs.toggled.connect(lambda on: settings().setValue("sim/show_jobs", on))
         form.addRow(open_jobs)
+        review = QCheckBox("Review resources and run a test before each simulation")
+        review.setChecked(_flag(settings().value("sim/review", True)))
+        review.toggled.connect(lambda on: settings().setValue("sim/review", on))
+        form.addRow(review)
         lay.addLayout(form)
         from core.run_service import run_root
         row = QHBoxLayout()

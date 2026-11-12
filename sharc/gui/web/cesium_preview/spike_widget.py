@@ -47,6 +47,8 @@ class PyBridge(QObject):
     link_selected = Signal(str)           # JSON link budget of the UE link the user clicked
     plots_changed = Signal(str)           # JSON data for the PSD / CDF plots of the current scene
     satellite_changed = Signal(str)       # JSON summary of the satellite footprint and the IMT interference into it
+    legends_visible_changed = Signal(bool)  # the toolbar / K key hid or showed the legends
+    resample_requested = Signal()         # "Resample" on the sites-on-water warning: draw the sites with the next seed
 
     def __init__(self, scene_provider: Optional[Callable[[str], str]] = None, parent=None):
         super().__init__(parent)
@@ -103,6 +105,14 @@ class PyBridge(QObject):
     @Slot(str)
     def set_satellite(self, payload: str) -> None:
         self.satellite_changed.emit(payload)
+
+    @Slot(bool)
+    def set_legends_visible(self, on: bool) -> None:
+        self.legends_visible_changed.emit(on)
+
+    @Slot()
+    def resample_sites(self) -> None:
+        self.resample_requested.emit()
 
     @Slot()
     def notify_ready(self) -> None:

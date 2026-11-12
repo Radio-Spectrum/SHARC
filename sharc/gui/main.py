@@ -336,6 +336,10 @@ class App(WorkbenchMixin, QMainWindow):
         act_prefs.setShortcut("Ctrl+,")
         act_prefs.triggered.connect(lambda: open_preferences(self))
         m_settings.addAction(act_prefs)
+        from ui.components.photoreal_setup import open_photoreal_setup
+        act_photo = QAction("Photorealistic 3D set-up (Cesium token)...", self)
+        act_photo.triggered.connect(lambda: open_photoreal_setup(self))
+        m_settings.addAction(act_photo)
         m_settings.addSeparator()
 
         m_theme = m_settings.addMenu("Theme")
@@ -482,10 +486,8 @@ class App(WorkbenchMixin, QMainWindow):
     # LÓGICAS DE SISTEMA E SLOTS
     # ==========================================================
     def _about_dialog(self):
-        QMessageBox.information(
-            self, "About SHARC",
-            "SHARC – SHARing and Compatibility\nGUI Manager\n\n©"
-        )
+        from ui.shell.about_dialog import AboutDialog
+        AboutDialog(self, tokens=self.tk).exec()
 
     # --- Menu Actions ---
     def _open_yaml_folder(self):
@@ -580,6 +582,7 @@ class App(WorkbenchMixin, QMainWindow):
             return False
         self.projects.new_project()
         self._refresh_project_title()
+        self._reset_validation()
         self._safe_log("[PROJECT] New project")
         return True
 
@@ -599,6 +602,7 @@ class App(WorkbenchMixin, QMainWindow):
             self._safe_log(f"[PROJECT] Could not open {path}: {exc}")
             return False
         self._refresh_project_title()
+        self._reset_validation()
         extra = f" ({len(report['skipped'])} values from a different SHARC version were skipped)" if report["skipped"] else ""
         self._safe_log(f"[PROJECT] Opened {path}{extra}")
         self.statusBar().showMessage(f"Opened {path}{extra}", 8000)
@@ -731,6 +735,12 @@ class App(WorkbenchMixin, QMainWindow):
         self.jobs_panel.bind(self.scheduler)
         self.jobs_panel.plot_requested.connect(self.plot_job_results)
         self.scheduler.job_completed.connect(self._on_job_completed)
+        self.scheduler.changed.connect(self._refresh_workflow)
+        self.tab_results.results_changed.connect(self._refresh_workflow)
+        from core import sound_fx
+        self.scheduler.job_started.connect(lambda _id: sound_fx.play("started"))
+        self.scheduler.job_completed.connect(lambda _id: sound_fx.play("finished"))
+        self.scheduler.job_failed.connect(lambda _id: sound_fx.play("failed"))
         from ui.shell.tray import TrayController
         self.tray = TrayController(self, self.scheduler, color=self.tk["accent"])
 

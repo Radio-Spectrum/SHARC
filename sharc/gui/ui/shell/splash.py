@@ -334,6 +334,9 @@ def run_startup(app: QApplication, skip: bool = False) -> Tuple[StartupSplash | 
     splash = None if skip or os.environ.get("SHARC_GUI_NO_SPLASH") else StartupSplash()
     if splash:
         splash.show()
+        from core import sound_fx, startup_chime
+        startup_chime.prepare()      # render the sounds in the background while the checks run
+        sound_fx.prepare()
     t0 = time.time()
     total = len(CHECKS) + 1
     for i, (label, fn) in enumerate(CHECKS):
@@ -349,4 +352,6 @@ def run_startup(app: QApplication, skip: bool = False) -> Tuple[StartupSplash | 
     report.seconds = time.time() - t0
     if splash:
         splash.progress(int(100 * len(CHECKS) / total), "Building workspace...")
+        from core import startup_chime
+        startup_chime.play()   # honours Preferences > Appearance; silent under SHARC_GUI_NO_SPLASH
     return splash, report

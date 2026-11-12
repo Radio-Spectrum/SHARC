@@ -23,7 +23,7 @@ from PySide6.QtCore import QSettings, QSize, Qt, QTimer, Slot
 from PySide6.QtGui import QAction, QFont, QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QDockWidget, QFrame, QHBoxLayout, QLabel, QMainWindow, QPlainTextEdit,
-    QProgressBar, QPushButton, QScrollArea, QStackedWidget, QStatusBar,
+    QProgressBar, QPushButton, QScrollArea, QSizePolicy, QStackedWidget, QStatusBar,
     QTabWidget, QToolBar, QToolButton, QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget, QMenu,
 )
 
@@ -201,7 +201,7 @@ class WorkbenchMixin:
         tb = QToolBar("Main", self)
         tb.setObjectName("MainToolBar")
         tb.setMovable(False)
-        tb.setIconSize(QSize(18, 18))
+        tb.setIconSize(QSize(20, 20))
         self.addToolBar(Qt.TopToolBarArea, tb)
         self.main_toolbar = tb
         self._tb_actions = []  # (QAction, glifo, papel-de-cor)
@@ -230,10 +230,14 @@ class WorkbenchMixin:
             "Plot the results of the latest finished simulation, or detect them (Ctrl+Shift+P)"
             ).setShortcut("Ctrl+Shift+P")
 
-        spacer = QWidget()
-        spacer.setSizePolicy(spacer.sizePolicy().horizontalPolicy().Expanding,
-                             spacer.sizePolicy().verticalPolicy().Preferred)
-        tb.addWidget(spacer)
+        # Workflow strip in the middle: Setup > Validate > Run > Results (state-aware, click to jump)
+        from ui.shell.workflow_strip import WorkflowStrip
+        tb.addWidget(self._stretch())
+        self.workflow_strip = WorkflowStrip()
+        self.workflow_strip.stage_clicked.connect(self._on_stage_clicked)
+        tb.addWidget(self.workflow_strip)
+        tb.addWidget(self._stretch())
+        self._validated = False
         add("Theme", "mdi.theme-light-dark", self._toggle_theme_safely, "Toggle graphite / light theme")
 
         self.btn_help = QToolButton()
@@ -247,6 +251,137 @@ class WorkbenchMixin:
         self._help_shortcut = QShortcut(QKeySequence("F1"), self)
         self._help_shortcut.activated.connect(self._toggle_help)
         self._style_help_button()
+
+    @staticmethod
+    def _stretch():
+        w = QWidget()
+        w.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+        return w
+
+    # ------------------------------------------------------------------
+    # Workflow strip (Setup > Validate > Run > Results)
+    # ------------------------------------------------------------------
+    def _workflow_facts(self):
+        from core.workflow_status import WorkflowFacts
+        from core import job_scheduler as js
+        sched = getattr(self, "scheduler", None)
+        jobs = list(sched.jobs) if sched is not None else []
+        errors, warnings = self.problems_panel.counts()
+        results = getattr(self, "tab_results", None)
+        loaded = results.loaded_count() if results is not None else 0
+        return WorkflowFacts(
+            validated=self._validated, errors=errors, warnings=warnings,
+            running=sum(1 for j in jobs if j.status == js.RUNNING),
+            queued=sum(1 for j in jobs if j.status in (js.QUEUED, js.SCHEDULED)),
+            completed=sum(1 for j in jobs if j.status == js.COMPLETED),
+            results_loaded=loaded,
+        )
+
+    def _reset_validation(self):
+        """A different scenario is now loaded (new, template, opened project): forget the previous validation."""
+        self._validated = False
+        if getattr(self, "problems_panel", None) is not None:
+            self.problems_panel.set_issues([])
+            self.dock_problems.setWindowTitle("Problems")
+        self._refresh_workflow()
+
+    def _refresh_workflow(self, *_):
+        from core.workflow_status import stage_states
+        strip = getattr(self, "workflow_strip", None)
+        if strip is None:
+            return
+        strip.set_states(stage_states(self._workflow_facts()))
+
+    def _on_stage_clicked(self, stage: str):
+        from core import workflow_status as ws
+        if stage == ws.VALIDATE:
+            self.check_scenario()
+        elif stage == ws.RUN:
+            self._switch_page("runner", "Execution Engine")
+        elif stage == ws.RESULTS:
+            self._switch_page("results", "Analysis & Results")
+        else:
+            self._switch_page("general", "General Settings")
+
+    # ------------------------------------------------------------------
+    # Start Page
+    # ------------------------------------------------------------------
+    def _build_start_page(self):
+        from ui.shell.start_page import StartPage, start_page_enabled
+        page = StartPage(recent_provider=lambda: self.projects.recent() if hasattr(self, "projects") else [])
+        page.template_chosen.connect(self._on_template_chosen)
+        page.blank_requested.connect(self._on_blank_scenario)
+        page.open_requested.connect(lambda: self.open_project_dialog() and self._leave_start_page())
+        page.recent_chosen.connect(lambda p: self.open_project(p) and self._leave_start_page())
+        page.learn_requested.connect(self._open_learn)
+        page.close_requested.connect(self._leave_start_page)
+        self.start_page = page
+        page.refresh_icons(self.tk)
+        self.doc_tabs.insertTab(0, page, qta.icon("mdi.home-outline", color=self.tk["icon"]), "Start")
+        self._doc_pages["start"] = page
+        if start_page_enabled() and not os.environ.get("SHARC_GUI_NO_RESTORE"):
+            self.doc_tabs.setCurrentWidget(page)
+        else:
+            self._leave_start_page()
+
+    def show_start_page(self):
+        self.start_page.refresh_recent()
+        self.doc_tabs.setCurrentWidget(self.start_page)
+
+    def _leave_start_page(self):
+        preview = self._doc_pages.get("preview")
+        if preview is not None and self.doc_tabs.currentWidget() is self.start_page:
+            self.doc_tabs.setCurrentWidget(preview)
+
+    def _on_template_chosen(self, key: str):
+        from core.scenario_templates import apply_template, find_template
+        tpl = find_template(key)
+        if tpl is None or not self.new_project():      # asks about unsaved changes, resets the project
+            return
+        apply_template(tpl, system_var=self.state_model.var_system, link_var=self.state_model.var_imt_link,
+                       imt_state=self.tab_imt.state)
+        detail = ", ".join(f"{k}={v}" for k, v in tpl.imt.items())
+        self._append_message(f"[TEMPLATE] {tpl.title}: {tpl.system}, {tpl.link}, {detail}")
+        self._switch_page("preview", "Topology Preview")
+        self._refresh_preview()
+
+    def _on_blank_scenario(self):
+        if self.new_project():
+            self._switch_page("general", "General Settings")
+            self._leave_start_page()
+
+    def _open_learn(self, key: str):
+        from PySide6.QtCore import QUrl
+        from PySide6.QtGui import QDesktopServices
+        from ui.shell.start_page import find_learn_link
+        link = find_learn_link(key)
+        if link is None:
+            return
+        if link.kind == "help":
+            self._toggle_help()
+        elif link.kind == "handbook":
+            self._open_handbook()
+        elif link.kind == "url":
+            QDesktopServices.openUrl(QUrl(link.target))
+        elif link.kind == "manual":
+            path = self._manual_path(link.target)
+            if path:
+                QDesktopServices.openUrl(QUrl.fromLocalFile(path))
+            else:
+                self._append_message("[LEARN] The PDF manuals are not installed with this copy; "
+                                     "see docs/manual in the repository.")
+                self._open_handbook()
+
+    @staticmethod
+    def _manual_path(volume: str) -> "str | None":
+        here = os.path.dirname(os.path.abspath(__file__))
+        gui = os.path.dirname(os.path.dirname(os.path.dirname(here)))        # sharc/gui
+        repo = os.path.dirname(os.path.dirname(gui))
+        for base in (os.path.join(gui, "docs"), os.path.join(repo, "docs", "manual")):
+            p = os.path.join(base, f"{volume}.pdf")
+            if os.path.isfile(p):
+                return p
+        return None
 
     def _style_help_button(self):
         t = self.tk
@@ -550,7 +685,11 @@ class WorkbenchMixin:
         self.problems_panel.set_issues(issues)
         errors, warnings = self.problems_panel.counts()
         self.dock_problems.setWindowTitle(f"Problems ({errors} errors, {warnings} warnings)" if issues else "Problems")
+        self._validated = True
+        self._refresh_workflow()
         if issues:
+            from core import sound_fx
+            sound_fx.play("blocked" if errors else "warning")
             self._append_message(f"[VALIDATE] {errors} error(s), {warnings} warning(s). See the Problems tab.")
             if show:
                 self.dock_problems.show()
@@ -716,6 +855,8 @@ class WorkbenchMixin:
 
         self._apply_param_tooltips()
         self.scenario_tree.expandAll()
+        self._build_start_page()
+        self._refresh_workflow()
         self.doc_tabs.currentChanged.connect(self._on_doc_tab_changed)
         self._resize_default_docks()
         self._default_dock_state = self.saveState(LAYOUT_VERSION)
@@ -840,6 +981,9 @@ class WorkbenchMixin:
         self.current_key = key
         self._update_help()
         self.lbl_page_title.setText(label_text)
+        if getattr(self, "workflow_strip", None) is not None:
+            from ui.shell.workflow_strip import stage_for_page
+            self.workflow_strip.set_current(stage_for_page(key))
         if hasattr(self, "prop_search") and self.prop_search.text():
             self.prop_search.clear()
         entry = self._nav_items.get(key)
@@ -888,11 +1032,18 @@ class WorkbenchMixin:
         if getattr(self, "ribbon", None) is not None:
             self.ribbon.refresh_icons(t)
             self.ribbon_toolbar.setStyleSheet(self.ribbon.stylesheet(t))
-        if hasattr(self, "tray_frame") and hasattr(self, "dock_jobs"):
-            pass
+        for themed in (getattr(self, "workflow_strip", None), getattr(self, "start_page", None),
+                       getattr(self, "jobs_panel", None), getattr(self, "problems_panel", None),
+                       getattr(self, "tab_results", None)):
+            refresh = getattr(themed, "refresh_icons", None)
+            if refresh is not None:
+                refresh(t)
 
     def _populate_view_menu(self, m_view: QMenu):
         """Adiciona ao menu View os atalhos dos docks e o reset do layout."""
+        act_start = QAction("Start Page", self)
+        act_start.triggered.connect(self.show_start_page)
+        m_view.addAction(act_start)
         m_view.addSeparator()
         for dock in (self.dock_scenario, self.dock_properties, getattr(self, "dock_view", None),
                      self.dock_messages, self.dock_jobs):

@@ -64,6 +64,8 @@ class JobScheduler(QObject):
 
     changed = Signal()
     job_completed = Signal(int)          # job id, emitted once when a job reaches Completed
+    job_started = Signal(int)            # job id, emitted when a job starts running
+    job_failed = Signal(int)             # job id, emitted once when a job reaches Failed
 
     def __init__(self, start_fn: Callable[[str], None], stop_fn: Callable[[str], None],
                  log: Callable[[str], None] = lambda _m: None, max_parallel: int = 2, parent=None):
@@ -176,12 +178,15 @@ class JobScheduler(QObject):
         job.status, job.started, job.finished = RUNNING, time.time(), None
         job.pct, job.snap, job.eta = 0.0, "--", "--"
         self._log(f"[QUEUE] starting {job.name}")
+        started = True
         try:
             self._start_fn(job.path)
         except Exception as exc:  # noqa: BLE001
+            started = False
             job.status, job.finished, job.message = FAILED, time.time(), str(exc)
             self._log(f"[QUEUE] could not start {job.name}: {exc}")
         self.changed.emit()
+        (self.job_started if started else self.job_failed).emit(job.id)
 
     def tick(self) -> None:
         """Start every job that is due, in list order, while there are free slots."""
@@ -209,12 +214,13 @@ class JobScheduler(QObject):
             j.snap = str(data["snap"])
         if data.get("eta"):
             j.eta = str(data["eta"])
-        newly_completed = False
+        newly_completed = newly_failed = False
         if low.startswith("completed"):
             newly_completed = j.status != COMPLETED
             j.status, j.pct, j.finished = COMPLETED, 100.0, time.time()
             self._log(f"[QUEUE] {j.name} completed")
         elif low.startswith(("error", "failed", "missing", "ssh error")):
+            newly_failed = j.status != FAILED
             j.status, j.finished, j.message = FAILED, time.time(), status
             self._log(f"[QUEUE] {j.name} failed: {status}")
         elif low.startswith("stopped"):
@@ -226,5 +232,7 @@ class JobScheduler(QObject):
         self.changed.emit()
         if newly_completed:
             self.job_completed.emit(j.id)
+        if newly_failed:
+            self.job_failed.emit(j.id)
         if j.status in FINISHED:
             self.tick()            # a slot is free: start the next job

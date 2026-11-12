@@ -64,7 +64,8 @@ class PreferencesDialog(QDialog):
         outer.addWidget(self.stack, 1)
         for title, builder in (
             ("Appearance", self._page_appearance), ("Map & Terrain", self._page_map),
-            ("Simulation", self._page_simulation), ("Notifications & Tray", self._page_tray),
+            ("Simulation", self._page_simulation), ("Sound", self._page_sound),
+            ("Notifications & Tray", self._page_tray),
             ("Data & Cache", self._page_data), ("Advanced", self._page_advanced),
         ):
             self.nav.addItem(title)
@@ -115,6 +116,35 @@ class PreferencesDialog(QDialog):
         size.valueChanged.connect(self._set_font_size)
         form.addRow("Interface font size", size)
         lay.addLayout(form)
+        from ui.shell.start_page import set_start_page_enabled, start_page_enabled
+        start = QCheckBox("Show the Start Page when SHARC opens")
+        start.setChecked(start_page_enabled())
+        start.toggled.connect(set_start_page_enabled)
+        lay.addWidget(start)
+        lay.addStretch(1)
+        return w
+
+    def _page_sound(self):
+        from core import sound_fx, startup_chime
+        w, lay = self._page("Sound")
+        chime = QCheckBox("Play the start-up chime when SHARC finishes loading")
+        chime.setChecked(startup_chime.enabled())
+        chime.toggled.connect(startup_chime.set_enabled)
+        lay.addWidget(chime)
+        b = QPushButton("Play start-up chime")
+        b.setFixedWidth(170)
+        b.clicked.connect(lambda: startup_chime.play(force=True))
+        lay.addWidget(b)
+        fx = QCheckBox("Play sound effects for simulator events")
+        fx.setChecked(sound_fx.enabled())
+        fx.toggled.connect(sound_fx.set_enabled)
+        lay.addWidget(fx)
+        lay.addWidget(QLabel("These two switches are independent. Click a name to hear that effect."))
+        for name in sound_fx.EVENTS:
+            row = QPushButton(sound_fx.LABELS[name])
+            row.setFixedWidth(220)
+            row.clicked.connect(lambda _=False, n=name: sound_fx.play(n, force=True))
+            lay.addWidget(row)
         lay.addStretch(1)
         return w
 
@@ -247,7 +277,7 @@ class PreferencesDialog(QDialog):
         if QMessageBox.question(self, "Reset preferences", "Restore every preference to its default?\nRestart SHARC to apply all of them.",
                                 QMessageBox.Yes | QMessageBox.No, QMessageBox.No) == QMessageBox.Yes:
             s = settings()
-            for group in ("terrain", "tray", "appearance", "sim", "workbench"):
+            for group in ("terrain", "tray", "appearance", "sim", "workbench", "startup", "sounds"):
                 s.remove(group)
             for k, v in terrain_mod.DEFAULTS.items():
                 self.win.tab_terrain.state.get(k).set(v)

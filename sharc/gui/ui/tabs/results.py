@@ -12,7 +12,7 @@ from PySide6.QtWidgets import (
     QLineEdit, QSpinBox, QTabWidget, QTableWidget, QTableWidgetItem, 
     QDialog, QProgressBar, QMessageBox, QHeaderView, QFileDialog
 )
-from PySide6.QtCore import Qt, QTimer
+from PySide6.QtCore import Qt, QTimer, Signal
 from PySide6.QtGui import QKeySequence, QPixmap, QShortcut
 from PySide6.QtWidgets import QMenu
 
@@ -47,6 +47,8 @@ def _exec_menu(menu, global_pos):
 
 
 class ResultsTab(QWidget):
+    results_changed = Signal()          # the list of result folders changed (added, removed, cleared)
+
     """
     Results Tab - PySide6 Edition
     Features: Smart Column Scan, float32 Optimization, Auto-Cache Clearing, 
@@ -419,9 +421,19 @@ class ResultsTab(QWidget):
         self.preview_layout = QVBoxLayout(self.preview_frame)
         self.preview_layout.setContentsMargins(0, 0, 0, 0)
         
-        self.lbl_preview = QLabel("Waiting for data...")
+        from ui.components.empty_state import EmptyState
+        self.empty_state = EmptyState(
+            "mdi.chart-box-plus-outline", "No results loaded",
+            "Add a result folder, or let SHARC detect the output of the latest simulation.", "Detect results")
+        self.empty_state.action_clicked.connect(lambda: self.detect_results())
+        self.preview_layout.addWidget(self.empty_state, 0, Qt.AlignCenter)
+        self.lbl_preview = QLabel("")
         self.lbl_preview.setAlignment(Qt.AlignCenter)
         self.preview_layout.addWidget(self.lbl_preview)
+        model = self.lb_dirs.model()
+        model.rowsInserted.connect(self._sync_empty_state)
+        model.rowsRemoved.connect(self._sync_empty_state)
+        model.modelReset.connect(self._sync_empty_state)
         
         self.pb_loading = QProgressBar()
         self.pb_loading.hide()
@@ -693,6 +705,20 @@ class ResultsTab(QWidget):
             display = f"[SSH] {os.path.basename(p)}" if p.startswith("ssh://") else os.path.basename(os.path.normpath(p))
             if not display: display = p
             self.lb_dirs.addItem(display)
+
+    def loaded_count(self) -> int:
+        """Result folders currently listed."""
+        return self.lb_dirs.count()
+
+    def _sync_empty_state(self, *_):
+        empty = self.loaded_count() == 0
+        self.results_changed.emit()
+        self.empty_state.setVisible(empty)
+        if empty:
+            self.lbl_preview.clear()
+
+    def refresh_icons(self, tokens: dict) -> None:
+        self.empty_state.refresh_icons(tokens)
 
     def _add_dir_handler(self):
         if self.rb_remote.isChecked():
@@ -967,6 +993,9 @@ class ResultsTab(QWidget):
 
     def _update_plot_preview(self, force_refresh=False):
         if self._render_lock.locked(): return
+        if self.loaded_count() == 0:          # nothing to plot: the empty state is showing, skip the render worker
+            self._sync_empty_state()
+            return
         engine = "MATPLOTLIB" if hasattr(self, 'rb_mpl') and self.rb_mpl.isChecked() else "PLOTLY"
 
         if self._mpl_canvas:

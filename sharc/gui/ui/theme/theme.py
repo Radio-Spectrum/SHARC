@@ -1107,6 +1107,100 @@ def _workbench_qss(t: dict) -> str:
         color: {t['text_secondary']};
     }}
     QStatusBar#WorkbenchStatusBar QProgressBar::chunk {{ background: {t['accent']}; }}
+
+    /* Workflow strip (Setup > Validate > Run > Results) */
+    QFrame#WorkflowStrip {{
+        background: {t['bg_card']};
+        border: 1px solid {t['border']};
+        border-radius: 4px;
+    }}
+    QLabel#WorkflowChevron {{ color: {t['text_faint']}; font-size: 14px; padding: 0 2px; }}
+    QToolButton#WorkflowStage {{
+        background: transparent;
+        border: 1px solid transparent;
+        border-radius: 3px;
+        padding: 3px 10px;
+        color: {t['text_secondary']};
+        font-weight: 600;
+        letter-spacing: 0.3px;
+    }}
+    QToolButton#WorkflowStage:hover {{ background: {t['bg_hover']}; color: {t['text_primary']}; }}
+    QToolButton#WorkflowStage[current="true"] {{
+        background: {t['accent_soft']};
+        border-color: {t['accent_deep']};
+        color: {t['text_primary']};
+    }}
+    QToolButton#WorkflowStage[state="ok"] {{ color: {t['success']}; }}
+    QToolButton#WorkflowStage[state="warn"] {{ color: {t['warn']}; }}
+    QToolButton#WorkflowStage[state="error"] {{ color: {t['danger']}; }}
+    QToolButton#WorkflowStage[state="active"] {{ color: {t['accent_strong']}; }}
+
+    /* Start Page */
+    QWidget#StartPage, QWidget#StartBody, QScrollArea#StartScroll {{ background: {t['bg_app']}; }}
+    QLabel#ColumnTitle {{
+        color: {t['text_muted']};
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 1.4px;
+        padding-bottom: 2px;
+        border-bottom: 1px solid {t['border']};
+    }}
+    QFrame#TemplateCard {{
+        background: {t['bg_card']};
+        border: 1px solid {t['border']};
+        border-radius: 6px;
+    }}
+    QFrame#TemplateCard:hover {{ border-color: {t['accent']}; background: {t['bg_hover']}; }}
+    QLabel#CardTitle {{ color: {t['text_primary']}; font-size: 13px; font-weight: 600; }}
+    QLabel#CardSummary {{ color: {t['text_secondary']}; font-size: 12px; }}
+    QLabel#CardTags {{ color: {t['accent_dim']}; font-size: 10px; font-weight: 600; letter-spacing: 0.6px; }}
+    QPushButton#StartLink {{
+        background: transparent;
+        border: 1px solid transparent;
+        border-radius: 4px;
+        padding: 6px 10px;
+        color: {t['text_primary']};
+        font-size: 13px;
+        text-align: left;
+    }}
+    QPushButton#StartLink:hover {{ background: {t['bg_hover']}; border-color: {t['border']}; }}
+    QListWidget#RecentList {{
+        background: {t['bg_card']};
+        border: 1px solid {t['border']};
+        border-radius: 6px;
+        padding: 4px;
+    }}
+    QListWidget#RecentList::item {{ padding: 6px 8px; border-radius: 4px; }}
+    QListWidget#RecentList::item:hover {{ background: {t['bg_hover']}; }}
+    QListWidget#RecentList::item:selected {{ background: {t['accent_soft']}; color: {t['text_primary']}; }}
+    QFrame#StartFooter {{ background: {t['bg_panel']}; border-top: 1px solid {t['border']}; }}
+    QPushButton#PrimaryButton {{
+        background: {t['accent']};
+        color: {t['accent_text_on']};
+        border: 1px solid {t['accent_dim']};
+        border-radius: 4px;
+        padding: 6px 18px;
+        font-weight: 600;
+    }}
+    QPushButton#PrimaryButton:hover {{ background: {t['accent_strong']}; }}
+    QPushButton#PrimaryButton:pressed {{ background: {t['accent_dim']}; }}
+
+    /* Empty states */
+    QFrame#EmptyState {{ background: transparent; border: none; }}
+    QLabel#EmptyStateHeadline {{ color: {t['text_secondary']}; font-size: 13px; font-weight: 600; }}
+    QLabel#EmptyStateHint {{ color: {t['text_muted']}; font-size: 11px; }}
+    QPushButton#EmptyStateAction {{
+        background: {t['bg_card']};
+        border: 1px solid {t['border_strong']};
+        border-radius: 4px;
+        padding: 4px 14px;
+        color: {t['text_primary']};
+        margin-top: 6px;
+    }}
+    QPushButton#EmptyStateAction:hover {{ border-color: {t['accent']}; color: {t['accent_strong']}; }}
+
+    /* Dialogs */
+    QDialog#AboutDialog {{ background: {t['bg_panel']}; }}
     """
 
 

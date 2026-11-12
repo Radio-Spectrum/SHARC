@@ -117,6 +117,11 @@ class JobsPanel(QWidget):
         for col, w in enumerate((34, 230, 110, 120, 150, 80, 80)):
             self.tree.setColumnWidth(col, w)
         lay.addWidget(self.tree, 1)
+        from ui.components.empty_state import EmptyState, EmptyStateOverlay
+        self.empty_state = EmptyStateOverlay(self.tree, EmptyState(
+            "mdi.tray-full", "No simulations in the queue",
+            "Run (Ctrl+R) queues the current scenario; right-click a job for options."))
+        self.empty_state.set_empty(True)
 
         # keyboard: Enter opens (plot results of a completed job, run a waiting one), Delete removes, Ctrl+D duplicates
         for keys, slot in (("Return", self._open_selected), ("Enter", self._open_selected),
@@ -125,6 +130,9 @@ class JobsPanel(QWidget):
             sc = QShortcut(QKeySequence(keys), self.tree)
             sc.setContext(Qt.WidgetShortcut)
             sc.activated.connect(slot)
+
+    def refresh_icons(self, tokens: dict) -> None:
+        self.empty_state.refresh_icons(tokens)
 
     def _on_parallel(self, n: int) -> None:
         if self.sched is not None:
@@ -257,6 +265,7 @@ class JobsPanel(QWidget):
             return
         selected = set(self._selected_ids())
         jobs = self.sched.jobs
+        self.empty_state.set_empty(not jobs)
         ids = [j.id for j in jobs]
         current = [self.tree.topLevelItem(i).data(0, Qt.UserRole) for i in range(self.tree.topLevelItemCount())]
         if ids != current:                                   # structure changed: rebuild rows

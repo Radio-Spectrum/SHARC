@@ -125,3 +125,5 @@ bash.exe.stackdump
 logs/
 screenshots/
 sharc/gui/GUI_NEXT_PLAN.md
+.CLAUDE
+docs/manual

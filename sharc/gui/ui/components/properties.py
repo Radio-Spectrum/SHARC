@@ -556,10 +556,12 @@ def properties_qss(t: dict) -> str:
         background: {t['bg_panel']};
         color: {t['text_primary']};
         border: 1px solid {t['border']};
+        border-left: 3px solid {t['accent']};
         border-radius: 0;
-        padding: 3px 6px;
+        padding: 4px 8px;
         text-align: left;
         font-weight: 600;
+        letter-spacing: 0.3px;
     }}
     QToolButton#SectionHeader:hover {{ background: {t['bg_hover']}; }}
     QWidget#SectionBody {{ background: transparent; }}

@@ -17,7 +17,7 @@ def test_preferences_dialog_pages_and_binding(win):
     from ui.shell.preferences import PreferencesDialog
     dlg = PreferencesDialog(win)
     titles = [dlg.nav.item(i).text() for i in range(dlg.nav.count())]
-    assert titles == ["Appearance", "Map & Terrain", "Simulation", "Notifications & Tray", "Data & Cache", "Advanced"]
+    assert titles == ["Appearance", "Map & Terrain", "Simulation", "Sound", "Notifications & Tray", "Data & Cache", "Advanced"]
     # the map page edits the same variables as the Terrain tab
     var = win.tab_terrain.state.get("terr_quality")
     var.set("Ultra")

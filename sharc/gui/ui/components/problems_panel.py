@@ -28,11 +28,22 @@ class ProblemsPanel(QTableWidget):
         hdr.setSectionResizeMode(3, QHeaderView.Stretch)
         self._issues: List[Issue] = []
         self.cellDoubleClicked.connect(self._on_double_click)
+        from ui.components.empty_state import EmptyState, EmptyStateOverlay
+        self.empty_state = EmptyStateOverlay(self, EmptyState(
+            "mdi.shield-check-outline", "No problems reported",
+            "Validate (Ctrl+Shift+V) checks the scenario; errors and warnings are listed here."))
+        self.empty_state.set_empty(True)
+
+    def refresh_icons(self, tokens: dict) -> None:
+        self.empty_state.refresh_icons(tokens)
 
     def set_issues(self, issues: List[Issue]) -> None:
         # errors first, then warnings, each keeping the order the rules produced them
         self._issues = sorted(issues, key=lambda i: i.severity != ERROR)
         self.setRowCount(0)
+        self.empty_state.set_empty(not self._issues)
+        if not self._issues:
+            self.empty_state.set_text("No problems found", "The scenario passed every validation rule.")
         for issue in self._issues:
             row = self.rowCount()
             self.insertRow(row)

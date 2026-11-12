@@ -364,6 +364,70 @@ def attach_backdrop(widget: QWidget) -> QWidget:
     return backdrop
 
 
+class ArtBanner(QWidget):
+    """Hero band: a graded panel with the Cerrado art, a title and a subtitle (Start Page, About dialog)."""
+
+    def __init__(self, title: str, subtitle: str = "", height: int = 150, parent: QWidget = None):
+        super().__init__(parent)
+        self.setObjectName("ArtBanner")
+        self.title, self.subtitle, self.note = title, subtitle, ""
+        self._t = {"bg_card": "#141926", "bg_app": "#0B0E14", "accent": "#3AC8E8",
+                   "text_primary": "#E8ECF4", "text_secondary": "#9AA4B8"}
+        self.setMinimumHeight(height)
+        self.setMaximumHeight(height)
+
+    def refresh_icons(self, tokens: dict) -> None:
+        """Same theming hook as every other widget of the GUI."""
+        self._t.update(tokens)
+        self.update()
+
+    set_tokens = refresh_icons
+
+    def set_note(self, text: str) -> None:
+        self.note = text
+        self.update()
+
+    def paintEvent(self, _ev):  # noqa: N802
+        from PySide6.QtGui import QFont, QLinearGradient, QPen
+        t = self._t
+        p = QPainter(self)
+        p.setRenderHint(QPainter.Antialiasing)
+        r = QRectF(self.rect())
+        grad = QLinearGradient(r.topLeft(), r.bottomRight())
+        grad.setColorAt(0.0, QColor(t["bg_card"]))
+        grad.setColorAt(1.0, QColor(t["bg_app"]))
+        p.fillRect(r, grad)
+        shade = QColor(t["accent"])
+        shade.setAlpha(60)
+        paint_cerrado_art(p, r, shade)
+        p.setPen(QPen(QColor(t["accent"]), 2))
+        p.drawLine(r.left(), r.bottom() - 1, r.right(), r.bottom() - 1)
+        x, y = 28, r.height() * 0.42
+        # a soft plate behind the text so the art's labels never cross the title
+        plate = QColor(t["bg_app"])
+        plate.setAlpha(170)
+        p.setPen(Qt.NoPen)
+        p.setBrush(plate)
+        p.drawRoundedRect(QRectF(x - 14, y - 44, min(r.width() * 0.62, 640), 100), 8, 8)
+        f = QFont(self.font())
+        f.setPointSize(26)
+        f.setWeight(QFont.DemiBold)
+        f.setLetterSpacing(QFont.AbsoluteSpacing, 1.5)
+        p.setFont(f)
+        p.setPen(QColor(t["text_primary"]))
+        p.drawText(QRectF(x, y - 36, r.width() - 2 * x, 44), Qt.AlignLeft | Qt.AlignVCenter, self.title)
+        f.setPointSize(10)
+        f.setWeight(QFont.Normal)
+        f.setLetterSpacing(QFont.AbsoluteSpacing, 0)
+        p.setFont(f)
+        p.setPen(QColor(t["text_secondary"]))
+        p.drawText(QRectF(x, y + 10, r.width() - 2 * x, 40), Qt.AlignLeft | Qt.AlignTop, self.subtitle)
+        if self.note:
+            p.setPen(QColor(t["text_secondary"]))
+            p.drawText(QRectF(x, 10, r.width() - 2 * x, 20), Qt.AlignRight | Qt.AlignTop, self.note)
+        p.end()
+
+
 if __name__ == "__main__":
     from PySide6.QtWidgets import QApplication
     app = QApplication(sys.argv)

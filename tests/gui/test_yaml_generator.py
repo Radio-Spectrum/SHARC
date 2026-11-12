@@ -88,3 +88,28 @@ def test_parameter_sweep_generates_cartesian_product(win, tmp_path):
     st.get("imt_freq").set("3500")
     st.get("macro_intersite").set("600")
     win.var_prefix.set("output_mss_{long}")
+
+
+def test_macro_countries_saved_yaml_and_legacy_casing_accepted(win, tmp_path):
+    """Regression: _internal_save_logic must write MACRO_COUNTRIES (not Macro_countries),
+    and the engine must also accept Macro_countries / macro_countries in existing YAML files."""
+    win.var_system.set("SINGLE_EARTH_STATION")
+    win.tab_imt.state.get("topo_type").set("Macro_countries")
+    win.tab_imt.state.get("ue_dist_type").set("Macro_countries")
+    win.var_imt_link.set("DOWNLINK")
+
+    files = win.tab_general._internal_save_logic(use_combinations=False, save_dir=tmp_path, quiet=True)
+    assert len(files) == 1
+    saved = yaml.safe_load(open(files[0], encoding="utf-8"))
+    assert saved["imt"]["topology"]["type"] == "MACRO_COUNTRIES"
+    assert saved["imt"]["ue"]["distribution_type"] == "ANGLE_AND_DISTANCE"
+    params = _load_in_engine(saved, tmp_path)
+    assert params.imt.topology.type == "MACRO_COUNTRIES"
+
+    # Legacy YAML files with Macro_countries or macro_countries casing must also load cleanly
+    for raw_type in ("Macro_countries", "macro_countries", "Macro_Countries"):
+        legacy = dict(saved)
+        legacy["imt"] = dict(saved["imt"], topology=dict(saved["imt"]["topology"], type=raw_type))
+        p_leg = _load_in_engine(legacy, tmp_path)
+        assert p_leg.imt.topology.type == "MACRO_COUNTRIES"
+

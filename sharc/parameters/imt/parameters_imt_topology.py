@@ -52,6 +52,9 @@ class ParametersImtTopology(ParametersBase):
         ValueError
             If any nested parameter set is invalid.
         """
+        if isinstance(self.type, str) and self.type.strip().upper().replace(" ", "_") == "MACRO_COUNTRIES":
+            self.type = "MACRO_COUNTRIES"
+
         match self.type:
             case "MACROCELL":
                 self.macrocell.validate(f"{ctx}.macrocell")

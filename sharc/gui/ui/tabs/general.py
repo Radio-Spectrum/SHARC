@@ -17,7 +17,7 @@ from PySide6.QtCore import Qt, Slot
 import qtawesome as qta
 
 # --- Core Imports ---
-from core.yaml_builder import build_yaml_structure
+from core.yaml_builder import build_yaml_structure, _engine_topology_type
 from core.yaml_builder import _as_bool  # noqa: E402
 from ui.tabs.assets.general_tab.variable_editor import VariableEditor
 from ui.tabs.assets.general_tab.general_tools import parse_list_safe
@@ -662,7 +662,7 @@ class GeneralTab(QWidget):
             try:
                 topo = final_structure.get("imt", {}).get("topology", {})
                 if isinstance(topo, dict) and "type" in topo:
-                    topo["type"] = _normalize_topology_type(topo["type"])
+                    topo["type"] = _engine_topology_type(_normalize_topology_type(topo["type"]))
             except Exception:
                 pass
 

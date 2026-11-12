@@ -494,11 +494,13 @@ def build_yaml_structure(app_state):
             "eletrical_downtilt": n(g_imt("ue_sub_e_downtilt")),
         }
 
+    raw_ue_dist = str(g_imt("ue_dist_type") or "").strip()
+    is_macro_countries_ue = raw_ue_dist.lower().replace(" ", "_") == "macro_countries"
     ue_block = {
         "k": int(n(g_imt("ue_k")) or 0),
         "k_m": int(n(g_imt("ue_km")) or 0),
         "indoor_percent": n(g_imt("ue_indoor")),
-        "distribution_type": g_imt("ue_dist_type"),
+        "distribution_type": "ANGLE_AND_DISTANCE" if is_macro_countries_ue else raw_ue_dist,
         "tx_power_control": _as_bool(g_imt("ue_tx_power_ctrl")),
         "p_o_pusch": n(g_imt("ue_p_o_pusch")),
         "alpha": n(g_imt("ue_alpha")),
@@ -510,7 +512,13 @@ def build_yaml_structure(app_state):
         "body_loss": n(g_imt("ue_body_loss")),
         "antenna": {"array": ue_array},
     }
-    if str(g_imt("ue_dist_type")).upper() == "ANGLE_AND_DISTANCE":
+    if is_macro_countries_ue:
+        ue_block["distribution_distance"] = "SQRT(UNIFORM)"
+        ue_block["distribution_azimuth"] = "UNIFORM"
+        az_min = n(g_imt("ue_az_min"))
+        az_max = n(g_imt("ue_az_max"))
+        ue_block["azimuth_range"] = YamlTuple((az_min, az_max))
+    elif raw_ue_dist.upper() == "ANGLE_AND_DISTANCE":
         ue_block["distribution_distance"] = g_imt("ue_dist_distance")
         ue_block["distribution_azimuth"] = g_imt("ue_dist_azimuth")
         az_min = n(g_imt("ue_az_min"))

@@ -10,7 +10,9 @@ from sharc.mask.spectral_mask import SpectralMask
 
 from warnings import warn
 import numpy as np
-import matplotlib.pyplot as plt
+from sharc.support.lazy_import import lazy_module
+
+plt = lazy_module("matplotlib.pyplot")
 
 
 class SpectralMaskImt(SpectralMask):

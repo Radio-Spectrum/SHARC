@@ -5,7 +5,9 @@ from sharc.support.enumerations import StationType
 
 import numpy as np
 import scipy
-import matplotlib.pyplot as plt
+from sharc.support.lazy_import import lazy_module
+
+plt = lazy_module("matplotlib.pyplot")
 
 
 class PropagationClutterLoss(Propagation):

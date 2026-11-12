@@ -15,7 +15,9 @@ from pathlib import Path
 from typing import Optional
 
 import numpy as np
-import pandas as pd
+from sharc.support.lazy_import import lazy_module
+
+pd = lazy_module("pandas")
 
 from sharc.parameters.parameters_base import ParametersBase
 from sharc.parameters.database.parameters_database_imt_antenna import (
@@ -125,7 +127,7 @@ class ParametersDatabase(ParametersBase):
     _config_dir: Optional[Path] = field(default=None, init=False, repr=False)
     _adaptive_mesh: Optional[object] = field(default=None, init=False, repr=False)
     _reference_ground: Optional[float] = field(default=None, init=False, repr=False)
-    _data_full: Optional[pd.DataFrame] = field(default=None, init=False, repr=False)
+    _data_full: "Optional[pd.DataFrame]" = field(default=None, init=False, repr=False)
     _antenna_params_full: Optional[list] = field(default=None, init=False, repr=False)
     _subset_bounds: Optional[np.ndarray] = field(default=None, init=False, repr=False)
     _subset_index: int = field(default=0, init=False, repr=False)
@@ -247,7 +249,7 @@ class ParametersDatabase(ParametersBase):
         self.select_subset(0)
 
     @staticmethod
-    def _check_topology_columns(data: pd.DataFrame):
+    def _check_topology_columns(data: "pd.DataFrame"):
         """Check the columns MACRO_COUNTRIES reads from the database."""
         missing = [c for c in TOPOLOGY_COUNTRIES_COLUMNS if c not in data.columns]
         if missing:
@@ -269,12 +271,12 @@ class ParametersDatabase(ParametersBase):
         return self._data_full is not None
 
     @property
-    def data_full(self) -> pd.DataFrame:
+    def data_full(self) -> "pd.DataFrame":
         """All the rows of the database."""
         return self._data_full
 
     @property
-    def data(self) -> Optional[pd.DataFrame]:
+    def data(self) -> "Optional[pd.DataFrame]":
         """The rows of the current subset (None while nothing is loaded)."""
         if self._data_full is None:
             return None

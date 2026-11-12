@@ -1,8 +1,10 @@
 import os
+import copy
 import math
 import time
 import posixpath
 import threading
+from collections import OrderedDict
 from pathlib import Path
 import numpy as np
 
@@ -46,6 +48,10 @@ def _exec_menu(menu, global_pos):
     menu.exec(global_pos)
 
 
+# Kaleido (the Plotly rasteriser) drives one helper process and must not be used by two threads at once.
+_KALEIDO_LOCK = threading.Lock()
+
+
 class ResultsTab(QWidget):
     results_changed = Signal()          # the list of result folders changed (added, removed, cleared)
 
@@ -54,6 +60,18 @@ class ResultsTab(QWidget):
     Features: Smart Column Scan, float32 Optimization, Auto-Cache Clearing, 
     and Dual Plotting Engine (Plotly/Matplotlib QtAgg).
     """
+    # The Plotly preview is rendered in a worker thread. Its results come back to the GUI thread through
+    # these signals: a QTimer.singleShot() called from a plain Python thread never fires, so the finished
+    # image used to be lost and the tab stayed on "Preparing Plot...".
+    _sig_render_progress = Signal(float, int)
+    _sig_render_status = Signal(str, int)
+    _sig_render_done = Signal(object, int)
+    _sig_render_failed = Signal(str, int)
+
+    # Sorted sample arrays kept in memory (one per folder and field), so that changing a title, a limit
+    # or the CDF/CCDF mode does not sort every dataset again.
+    _SORTED_CACHE_MAX = 64
+
     def __init__(self, app, parent_frame=None):
         super().__init__(parent_frame)
         self.app = app
@@ -70,6 +88,15 @@ class ResultsTab(QWidget):
 
         # Rendering Control
         self._render_lock = threading.Lock()
+        self._data_lock = threading.Lock()
+        self._sorted_cache = OrderedDict()
+        self._render_request = 0          # id of the latest refresh asked for
+        self._render_busy = False         # a Plotly render is running (only touched in the GUI thread)
+        self._pending_refresh = None      # force_refresh of a refresh asked while another was rendering
+        self._sig_render_progress.connect(self._on_render_progress)
+        self._sig_render_status.connect(self._on_render_status)
+        self._sig_render_done.connect(self._on_render_done)
+        self._sig_render_failed.connect(self._on_render_failed)
         self._update_timer = None
         self._max_axes = 9
         self._disable_traces = False
@@ -567,15 +594,53 @@ class ResultsTab(QWidget):
         return self.data_client.get_data(cli, folder_tag, field, base, force_refresh)
 
     def _compute_ecdf(self, x, ccdf=False, downsample_to=0):
-        x = np.sort(x)
+        return self._ecdf_from_sorted(np.sort(x), ccdf=ccdf, downsample_to=downsample_to)
+
+    @staticmethod
+    def _ecdf_from_sorted(x, ccdf=False, downsample_to=0):
+        """Empirical CDF (or CCDF) of already sorted samples: same values as sorting and dividing the ranks,
+        but when a downsampled curve is asked for only its points are computed."""
         n = x.size
         if n == 0: return [], []
-        y = np.arange(1, n+1)/n
-        if ccdf: y = 1.0 - y
         if downsample_to > 0 and n > downsample_to:
             idx = np.linspace(0, n - 1, downsample_to).astype(int)
-            x, y = x[idx], y[idx]
+            x, y = x[idx], (idx + 1) / n
+        else:
+            y = np.arange(1, n+1)/n
+        if ccdf: y = 1.0 - y
         return x, y
+
+    def _get_sorted_data(self, folder_tag, field, force_refresh=False):
+        """Samples of a field sorted in ascending order (None when there is no data). The sorted array is
+        kept while the file is unchanged; safe to call from the render thread."""
+        with self._data_lock:
+            data = self._get_data(folder_tag, field, force_refresh=force_refresh)
+            if data is None or len(data) == 0:
+                return None
+            key = (folder_tag, field)
+            cached = self._sorted_cache.get(key)
+            if cached is not None and cached[0] is data:      # same array object = same file contents
+                self._sorted_cache.move_to_end(key)
+                return cached[1]
+            ordered = np.sort(data)
+            ordered.flags.writeable = False
+            self._sorted_cache[key] = (data, ordered)
+            while len(self._sorted_cache) > self._SORTED_CACHE_MAX:
+                self._sorted_cache.popitem(last=False)
+            return ordered
+
+    def _plot_state(self):
+        """Everything a plot needs from the widgets, read in the GUI thread, so that a render running in the
+        worker thread neither touches Qt objects nor sees half of a later edit."""
+        return {
+            "rows": max(1, self.sp_rows.value()),
+            "cols": max(1, self.sp_cols.value()),
+            "axes_cfg": copy.deepcopy(self._axes_cfg),
+            "res_dirs": list(self.app.res_dirs),
+            "res_styles": copy.deepcopy(self.app.res_styles),
+            "sel_indices": [i.row() for i in self.lb_dirs.selectedIndexes()],
+            "plot_selected_only": self.var_plot_selected_only.get(),
+        }
 
     def _scan_columns_handler(self):
         if not self.app.res_dirs:
@@ -901,17 +966,19 @@ class ResultsTab(QWidget):
         self._update_timer.start(500)
 
     # ---------------- Plotly Core Logic ----------------
-    def _create_plotly_fig(self, progress_callback=None, is_preview=False, force_refresh=False):
-        rows = max(1, self.sp_rows.value())
-        cols = max(1, self.sp_cols.value())
+    def _create_plotly_fig(self, progress_callback=None, is_preview=False, force_refresh=False, state=None):
+        if state is None:
+            state = self._plot_state()
+        rows, cols = state["rows"], state["cols"]
+        axes_cfg, res_dirs, res_styles = state["axes_cfg"], state["res_dirs"], state["res_styles"]
         n_plots = min(rows*cols, self._max_axes)
-        total_steps = n_plots * max(1, len(self.app.res_dirs))
+        total_steps = n_plots * max(1, len(res_dirs))
         current_step = 0
         last_progress_time = 0
 
         titles = []
         for i in range(n_plots):
-            cfg = self._axes_cfg[i]
+            cfg = axes_cfg[i]
             t = cfg.get("title")
             if not t: t = RESULT_FIELDNAME_TO_PLOT_INFO.get(cfg["field"], {}).get("title", cfg["field"])
             titles.append(t)
@@ -921,15 +988,16 @@ class ResultsTab(QWidget):
         dash_map = {"-": "solid", "--": "dash", "-.": "dashdot", ":": "dot", "Auto": None}
         color_map = {"tab:blue": "#1f77b4", "tab:orange": "#ff7f0e", "tab:green": "#2ca02c", "tab:red": "#d62728"}
         
-        sel_indices = [i.row() for i in self.lb_dirs.selectedIndexes()]
-        plot_selected_only = self.var_plot_selected_only.get()
+        sel_indices = state["sel_indices"]
+        plot_selected_only = state["plot_selected_only"]
+        refreshed = set()      # a forced refresh reads each file once, even when several subplots show it
 
         for i in range(n_plots):
-            cfg = self._axes_cfg[i]
+            cfg = axes_cfg[i]
             r, c = (i // cols) + 1, (i % cols) + 1
             field = cfg["field"]
 
-            for dir_idx, folder in enumerate(self.app.res_dirs):
+            for dir_idx, folder in enumerate(res_dirs):
                 current_step += 1
                 now = time.time()
                 if progress_callback and total_steps > 0 and (now - last_progress_time > 0.1):
@@ -938,17 +1006,19 @@ class ResultsTab(QWidget):
 
                 if plot_selected_only and (dir_idx not in sel_indices): continue
 
-                data = self._get_data(folder, field, force_refresh=force_refresh)
-                if data is None or len(data) == 0: continue
+                ordered = self._get_sorted_data(folder, field,
+                                                force_refresh=force_refresh and (folder, field) not in refreshed)
+                refreshed.add((folder, field))
+                if ordered is None: continue
 
-                x, y = self._compute_ecdf(data, ccdf=(cfg["mode"] == "CCDF"), downsample_to=2000 if is_preview else 0)
+                x, y = self._ecdf_from_sorted(ordered, ccdf=(cfg["mode"] == "CCDF"), downsample_to=2000 if is_preview else 0)
                 x = x + cfg.get("x_shift", 0.0)
                 if cfg["x_log"]: x, y = x[x > 0], y[x > 0]
                 if cfg["y_log"]: x, y = x[y > 0], y[y > 0]
 
                 if len(x) == 0: continue
 
-                style = self.app.res_styles.get(folder, {})
+                style = res_styles.get(folder, {})
                 custom_label = style.get("label", "")
                 name = custom_label if custom_label else (os.path.basename(folder) if "ssh://" not in folder else f"[SSH] {os.path.basename(folder)}")
                 name += cfg.get('legend_suffix', '')
@@ -992,11 +1062,19 @@ class ResultsTab(QWidget):
         return fig
 
     def _update_plot_preview(self, force_refresh=False):
-        if self._render_lock.locked(): return
         if self.loaded_count() == 0:          # nothing to plot: the empty state is showing, skip the render worker
             self._sync_empty_state()
             return
         engine = "MATPLOTLIB" if hasattr(self, 'rb_mpl') and self.rb_mpl.isChecked() else "PLOTLY"
+
+        if engine == "PLOTLY" and self._render_busy:
+            # A render is still running: draw again as soon as it ends instead of dropping this request
+            # (the plot would otherwise keep showing the settings of the previous request).
+            self._pending_refresh = bool(force_refresh) or bool(self._pending_refresh)
+            return
+        self._pending_refresh = None
+        self._render_request += 1          # whatever an older render still delivers is now out of date
+        request = self._render_request
 
         if self._mpl_canvas:
             self.preview_layout.removeWidget(self._mpl_canvas)
@@ -1019,9 +1097,16 @@ class ResultsTab(QWidget):
                     self._axes_cfg, self.app.res_dirs, self.app.res_styles, 
                     self.sp_rows.value(), self.sp_cols.value(), self._max_axes
                 )
-                def data_provider(folder, field): return self._get_data(folder, field, force_refresh=force_refresh)
+                refreshed = set()
+
+                def sorted_provider(folder, field):
+                    force = force_refresh and (folder, field) not in refreshed
+                    refreshed.add((folder, field))
+                    return self._get_sorted_data(folder, field, force_refresh=force)
+
                 sel_indices = [i.row() for i in self.lb_dirs.selectedIndexes()]
-                fig = plotter.create_figure(data_provider, plot_selected_only=self.var_plot_selected_only.get(), selected_indices=sel_indices)
+                fig = plotter.create_figure(sorted_provider, plot_selected_only=self.var_plot_selected_only.get(),
+                                            selected_indices=sel_indices, data_is_sorted=True)
                 
                 self._mpl_canvas = FigureCanvasQTAgg(fig)
                 self._mpl_toolbar = NavigationToolbar2QT(self._mpl_canvas, self.preview_frame)
@@ -1038,8 +1123,11 @@ class ResultsTab(QWidget):
             self.lbl_preview.setText("Preparing Plot...")
             self.pb_loading.setValue(0)
             self.pb_loading.show()
-            
-            threading.Thread(target=self._render_worker, args=(w, h, force_refresh), daemon=True).start()
+
+            state = self._plot_state()     # widgets are read here, in the GUI thread
+            self._render_busy = True
+            threading.Thread(target=self._render_worker, args=(w, h, force_refresh, state, request),
+                             daemon=True).start()
 
     def _stop_loading_ui(self):
         self.pb_loading.hide()
@@ -1052,22 +1140,53 @@ class ResultsTab(QWidget):
         self.pb_loading.setValue(int(percent))
         self.lbl_preview.setText(f"Plotting... {int(percent)}%")
 
-    def _render_worker(self, w, h, force_refresh=False):
-        if not self._render_lock.acquire(blocking=False): return
+    # ---- results of the render thread, delivered in the GUI thread by the _sig_render_* signals ----
+    def _on_render_progress(self, percent, request):
+        if request == self._render_request:
+            self._update_progress_ui(percent)
+
+    def _on_render_status(self, text, request):
+        if request == self._render_request:
+            self.lbl_preview.setText(text)
+            self.pb_loading.setValue(90)
+
+    def _on_render_done(self, img_bytes, request):
+        self._render_busy = False
+        if request == self._render_request and self._pending_refresh is None:
+            self._display_image(img_bytes)
+        self._run_pending_refresh()
+
+    def _on_render_failed(self, msg, request):
+        self._render_busy = False
+        if request == self._render_request and self._pending_refresh is None:
+            self._on_render_error(msg)
+        self._run_pending_refresh()
+
+    def _run_pending_refresh(self):
+        if self._pending_refresh is not None:
+            force, self._pending_refresh = self._pending_refresh, None
+            self._update_plot_preview(force)
+
+    def _render_worker(self, w, h, force_refresh=False, state=None, request=0):
+        failure, img_bytes = None, None
+        self._render_lock.acquire()
         try:
-            def _progress(p): QTimer.singleShot(0, lambda: self._update_progress_ui(p))
-            fig = self._create_plotly_fig(progress_callback=_progress, is_preview=True, force_refresh=force_refresh)
-            
-            QTimer.singleShot(0, lambda: self.lbl_preview.setText("Rasterizing..."))
-            QTimer.singleShot(0, lambda: self.pb_loading.setValue(90))
-            
-            img_bytes = fig.to_image(format="png", width=w, height=h, scale=1)
-            QTimer.singleShot(0, lambda: self._display_image(img_bytes))
+            def _progress(p): self._sig_render_progress.emit(float(p), request)
+            fig = self._create_plotly_fig(progress_callback=_progress, is_preview=True, force_refresh=force_refresh,
+                                          state=state)
+
+            self._sig_render_status.emit("Rasterizing...", request)
+            with _KALEIDO_LOCK:
+                img_bytes = fig.to_image(format="png", width=w, height=h, scale=1)
         except Exception as e:
-            err = str(e)  # `e` não existe depois do except; o lambda roda depois
-            QTimer.singleShot(0, lambda: self._on_render_error(f"Plot Error:\n{err}"))
+            failure = f"Plot Error:\n{e}"
         finally:
             self._render_lock.release()
+        # emitted after the lock is released, so that a refresh asked meanwhile can start right away
+        if failure is None:
+            self._sig_render_done.emit(img_bytes, request)
+        else:
+            self._sig_render_failed.emit(failure, request)
 
     def _display_image(self, img_bytes):
         self._stop_loading_ui()

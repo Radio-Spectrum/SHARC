@@ -8,7 +8,9 @@ Created on Mon Apr 17 15:35:00 2017
 
 import os
 import csv
-from scipy.interpolate import interp1d
+from sharc.support.lazy_import import lazy_module
+
+_scipy_interpolate = lazy_module("scipy.interpolate")
 import numpy as np
 from multipledispatch import dispatch
 from warnings import warn
@@ -144,7 +146,7 @@ class PropagationP619(Propagation):
                     for row in reader:
                         elevations.append(float(row[0]))
                         losses.append(float(row[1]))
-                interpolation_function = interp1d(
+                interpolation_function = _scipy_interpolate.interp1d(
                     elevations, losses, kind='linear', fill_value='extrapolate', )
                 return interpolation_function(apparent_elevation)
             else:

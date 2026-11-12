@@ -6,9 +6,11 @@ Created on Mon Mar 13 15:37:01 2017
 """
 import numpy as np
 from typing import List
-import matplotlib.pyplot as plt
-import matplotlib.axes
-import matplotlib.patches as patches
+from sharc.support.lazy_import import lazy_module
+
+plt = lazy_module("matplotlib.pyplot")
+matplotlib = lazy_module("matplotlib")
+patches = lazy_module("matplotlib.patches")
 
 from sharc.topology.topology import Topology
 
@@ -78,7 +80,7 @@ class TopologySingleBaseStation(Topology):
 
         self.z = np.zeros_like(self.x)
 
-    def plot(self, ax: matplotlib.axes.Axes):
+    def plot(self, ax: "matplotlib.axes.Axes"):
         """
         Plots the base stations and their coverage areas on the given axes.
 

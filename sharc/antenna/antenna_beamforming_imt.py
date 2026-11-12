@@ -5,9 +5,12 @@ Created on Sat Apr 15 15:35:51 2017
 @author: Calil
 """
 
+import functools
 import sys
 import numpy as np
-import matplotlib.pyplot as plt
+from sharc.support.lazy_import import lazy_module
+
+plt = lazy_module("matplotlib.pyplot")
 
 from sharc.antenna.antenna_element_imt_m2101 import AntennaElementImtM2101
 from sharc.antenna.antenna_element_imt_f1336 import AntennaElementImtF1336
@@ -15,6 +18,32 @@ from sharc.antenna.antenna_element_imt_const import AntennaElementImtConst
 from sharc.antenna.antenna_subarray_imt import AntennaSubarrayIMT
 from sharc.antenna.antenna import Antenna
 from sharc.parameters.imt.parameters_antenna_imt import ParametersAntennaImt
+
+
+def _compute_rotation_matrix(azimuth, elevation) -> np.ndarray:
+    """Rotation from the simulator axes to the antenna's local axes."""
+    alpha = np.deg2rad(azimuth)
+    beta = np.deg2rad(elevation)
+
+    ry = np.array([
+        [np.cos(beta), 0.0, np.sin(beta)],
+        [0.0, 1.0, 0.0],
+        [-np.sin(beta), 0.0, np.cos(beta)],
+    ])
+    rz = np.array([
+        [np.cos(alpha), -np.sin(alpha), 0.0],
+        [np.sin(alpha), np.cos(alpha), 0.0],
+        [0.0, 0.0, 1.0],
+    ])
+    return ry @ rz.T
+
+
+@functools.lru_cache(maxsize=4096)
+def _rotation_matrix(azimuth: float, elevation: float) -> np.ndarray:
+    """Cached _compute_rotation_matrix. The matrix is shared, so it is read-only."""
+    mtx = _compute_rotation_matrix(azimuth, elevation)
+    mtx.flags.writeable = False
+    return mtx
 
 
 class AntennaBeamformingImt(Antenna):
@@ -441,6 +470,125 @@ class AntennaBeamformingImt(Antenna):
 
         return np.maximum(gains, ref.minimum_array_gain)
 
+    # Number of complex array-factor terms (directions x elements) evaluated
+    # in one go by calculate_gain_matrix. At 16 bytes per term and a few
+    # temporaries, this keeps the working set inside the CPU cache (measured
+    # fastest for 8x8 arrays) and bounds the memory for large networks.
+    _MATRIX_CHUNK_TERMS = 32_000
+
+    @staticmethod
+    def can_use_gain_matrix(antennas) -> bool:
+        """
+        Whether calculate_gain_matrix evaluates these antennas in one batch.
+
+        They must be AntennaBeamformingImt sharing the same array parameters
+        (same ``par`` object) and, unless their gain is constant, store the
+        same non-zero number of beams.
+        """
+        if len(antennas) == 0:
+            return False
+        ref = antennas[0]
+        if not isinstance(ref, AntennaBeamformingImt):
+            return False
+        par = ref.param
+        for a in antennas:
+            if not isinstance(a, AntennaBeamformingImt) or a.param is not par:
+                return False
+        if ref.constant_gain:
+            return True
+        n_beams = len(ref.w_vec_list)
+        if n_beams == 0:
+            return False
+        return all(len(a.w_vec_list) == n_beams for a in antennas)
+
+    @staticmethod
+    def calculate_gain_matrix(
+        antennas,
+        phi: np.ndarray,
+        theta: np.ndarray,
+        beams_l: np.ndarray,
+    ) -> np.ndarray:
+        """
+        Co-channel gain of many antennas, one stored beam per direction.
+
+        Equivalent to calling ``antennas[i].calculate_gain(phi_vec=phi[i],
+        theta_vec=theta[i], beams_l=beams_l)`` for every row i, with the same
+        NumPy operations applied to all rows at once instead of one Python
+        call per antenna: rotation to local coordinates, element/subarray
+        pattern and array factor. This is how the gains between IMT stations
+        (every BS towards every UE and back) are computed in each snapshot.
+
+        Parameters
+        ----------
+        antennas : sequence of AntennaBeamformingImt, length N
+            Must satisfy can_use_gain_matrix.
+        phi, theta : (N, M) angles in the simulator coordinate system [deg]
+        beams_l : (M,) index of the stored beam used for each direction (the
+            same for every antenna, as in calculate_gain)
+
+        Returns
+        -------
+        (N, M) gains [dBi]
+        """
+        phi = np.asarray(phi)
+        theta = np.asarray(theta)
+        n_ant, n_dir = phi.shape
+        ref = antennas[0]
+
+        if ref.constant_gain:
+            gains = ref.element.element_pattern(phi, theta)
+            return np.maximum(gains, ref.minimum_array_gain)
+
+        gains = np.empty((n_ant, n_dir))
+        if n_ant == 0 or n_dir == 0:
+            return gains
+
+        beams_l = np.asarray(beams_l, dtype=int)[:n_dir]
+        terms_per_row = max(1, n_dir * ref.n_rows * ref.n_cols)
+        rows_per_chunk = max(
+            1, AntennaBeamformingImt._MATRIX_CHUNK_TERMS // terms_per_row)
+
+        for start in range(0, n_ant, rows_per_chunk):
+            chunk = antennas[start:start + rows_per_chunk]
+            n = len(chunk)
+            rows = slice(start, start + n)
+
+            # ---- rotation to each antenna's local coordinates: (n,3,3)@(n,3,M)
+            rot = np.stack([a.rotation_mtx for a in chunk])
+            phi_rad = np.deg2rad(np.asarray(phi[rows], dtype=float))
+            theta_rad = np.deg2rad(np.asarray(theta[rows], dtype=float))
+            points = np.stack([
+                np.sin(theta_rad) * np.cos(phi_rad),
+                np.sin(theta_rad) * np.sin(phi_rad),
+                np.cos(theta_rad),
+            ], axis=1)                                          # (n, 3, M)
+            rotated = rot @ points                              # (n, 3, M)
+            lo_phi = np.rad2deg(
+                np.arctan2(rotated[:, 1, :], rotated[:, 0, :])).ravel()
+            lo_theta = np.rad2deg(
+                np.arccos(np.clip(rotated[:, 2, :], -1.0, 1.0))).ravel()
+
+            if ref.subarray is None:
+                element_g = ref.element.element_pattern(lo_phi, lo_theta)
+            else:
+                element_g = ref.subarray.calculate_gain(lo_phi, lo_theta)
+
+            v_mtx = ref._super_position_matrix(lo_phi, lo_theta)   # (n*M, r, c)
+            # weights of the beam each direction uses: (n, B, r, c) -> (n*M, r, c)
+            w_all = np.stack([np.stack(a.w_vec_list) for a in chunk])
+            w_mtx = w_all[:, beams_l].reshape(
+                n * n_dir, ref.n_rows, ref.n_cols)
+            corr = np.array(
+                [a.co_correction_factor_list for a in chunk],
+            )[:, beams_l].ravel()
+
+            array_g = 10 * np.log10(
+                np.abs(np.sum(v_mtx * w_mtx, axis=(1, 2))) ** 2,
+            )
+            gains[rows] = (element_g + array_g + corr).reshape(n, n_dir)
+
+        return np.maximum(gains, ref.minimum_array_gain)
+
     def reset_beams(self):
         """Reset beams lists
         """
@@ -614,21 +762,19 @@ class AntennaBeamformingImt(Antenna):
         return lo_phi, lo_theta
 
     def _calculate_rotation_matrix(self):
-
-        alpha = np.deg2rad(self.azimuth)
-        beta = np.deg2rad(self.elevation)
-
-        ry = np.array([
-            [np.cos(beta), 0.0, np.sin(beta)],
-            [0.0, 1.0, 0.0],
-            [-np.sin(beta), 0.0, np.cos(beta)],
-        ])
-        rz = np.array([
-            [np.cos(alpha), -np.sin(alpha), 0.0],
-            [np.sin(alpha), np.cos(alpha), 0.0],
-            [0.0, 0.0, 1.0],
-        ])
-        self.rotation_mtx = ry @ rz.T
+        # Fixed stations (e.g. the sectors of a macrocell network) are created
+        # again with the same pointing in every snapshot: reuse their matrix.
+        try:
+            scalars = np.ndim(self.azimuth) == 0 and np.ndim(self.elevation) == 0
+            key = (float(self.azimuth), float(self.elevation)) if scalars else None
+        except (TypeError, ValueError):
+            key = None
+        if key is None:
+            # pointing given as something other than one number each
+            self.rotation_mtx = _compute_rotation_matrix(
+                self.azimuth, self.elevation)
+        else:
+            self.rotation_mtx = _rotation_matrix(*key)
 
 ###############################################################################
 

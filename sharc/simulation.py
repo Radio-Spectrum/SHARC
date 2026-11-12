@@ -166,6 +166,8 @@ class Simulation(ABC, Observable):
                 "Both co_channel and adjacent_channel can't be false")
 
         random_number_gen = np.random.RandomState(self.parameters.general.seed)
+        # shared by the propagation models across snapshots: saved in checkpoints
+        self.random_number_gen = random_number_gen
         self.propagation_imt = PropagationFactory.create_propagation(
             self.parameters.imt.channel_model,
             self.parameters,
@@ -277,12 +279,16 @@ class Simulation(ABC, Observable):
             self.num_rb_per_bs / self.parameters.imt.ue.k,
         )
 
-        self.results = Results().prepare_to_write(
-            self.parameters_filename,
-            self.parameters.general.overwrite_output,
-            self.parameters.general.output_dir,
-            self.parameters.general.output_dir_prefix,
-        )
+        resume_dir = kwargs.get("resume_dir")
+        if resume_dir:
+            self.results = Results().prepare_to_resume(resume_dir)
+        else:
+            self.results = Results().prepare_to_write(
+                self.parameters_filename,
+                self.parameters.general.overwrite_output,
+                self.parameters.general.output_dir,
+                self.parameters.general.output_dir_prefix,
+            )
 
         if hasattr(self.param_system, "polarization_loss"):
             if self.param_system.polarization_loss is not None:

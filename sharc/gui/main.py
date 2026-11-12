@@ -176,6 +176,7 @@ class App(WorkbenchMixin, QMainWindow):
         QTimer.singleShot(800, self._show_welcome_toast)
         QTimer.singleShot(1000, self._disable_strict_validation)
         QTimer.singleShot(4000, self._check_updates_on_start)
+        QTimer.singleShot(2500, self._offer_resume_interrupted)
 
         self._ui_initialized = True
 
@@ -233,6 +234,18 @@ class App(WorkbenchMixin, QMainWindow):
         from ui.shell import update_dialog
         if update_dialog.check_on_start_enabled() and not os.environ.get("SHARC_GUI_NO_RESTORE"):
             update_dialog.check_for_updates(self)
+
+    def _offer_resume_interrupted(self):
+        """Simulations cut short by a crash / closed SHARC / power loss: offer to continue them."""
+        if os.environ.get("SHARC_GUI_NO_RESTORE"):
+            return
+        from ui.shell.resume_dialog import offer_resume_interrupted
+        offer_resume_interrupted(self)
+
+    def _resume_interrupted_dialog(self):
+        """File > Resume Interrupted Simulations: same dialog, also says when there is nothing to resume."""
+        from ui.shell.resume_dialog import offer_resume_interrupted
+        offer_resume_interrupted(self, quiet=False)
 
     def _disable_strict_validation(self):
         print(">> UI Ready: SHARC ready!")
@@ -301,6 +314,10 @@ class App(WorkbenchMixin, QMainWindow):
         act_export_figs.setShortcut("Ctrl+Shift+E")
         act_export_figs.triggered.connect(self._export_publication_figures)
         m_file.addAction(act_export_figs)
+
+        act_resume = QAction("Resume Interrupted Simulations...", self)
+        act_resume.triggered.connect(lambda: self._resume_interrupted_dialog())
+        m_file.addAction(act_resume)
 
         m_file.addSeparator()
 
@@ -731,7 +748,8 @@ class App(WorkbenchMixin, QMainWindow):
         self.scheduler = JobScheduler(
             start_fn=lambda path: self.runner_manager.run_local_parallel([path], 1),
             stop_fn=lambda path: self.runner_manager.stop_simulations([path]),
-            log=self._safe_log, max_parallel=self._saved_parallel(), parent=self)
+            log=self._safe_log, max_parallel=self._saved_parallel(), parent=self,
+            resume_fn=lambda path: self.runner_manager.run_local_parallel([path], 1, resume=True))
         self.jobs_panel.bind(self.scheduler)
         self.jobs_panel.plot_requested.connect(self.plot_job_results)
         self.scheduler.job_completed.connect(self._on_job_completed)

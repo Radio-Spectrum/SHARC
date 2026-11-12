@@ -153,6 +153,20 @@ class Results(object):
 
         return self
 
+    def prepare_to_resume(self, output_directory: str):
+        """Reopen the output folder of an interrupted run: new samples are appended to its CSVs.
+
+        Parameters
+        ----------
+        output_directory : str
+            Folder written by the interrupted run (see sharc.support.checkpoint).
+        """
+        self.output_directory = pathlib.Path(output_directory)
+        self.output_dir_parent = str(self.output_directory.parent)
+        self.overwrite_sample_files = False
+        SimulationLogger.set_output_dir(self.output_directory)
+        return self
+
     def create_dir(self, results_number: int, dir_head: str):
         """Creates the output directory if it doesn't exist.
 
@@ -218,7 +232,9 @@ class Results(object):
             if self.overwrite_sample_files:
                 df.to_csv(file_path, mode="w", index=False)
             else:
-                df.to_csv(file_path, mode="a", index=False, header=False)
+                # a file first written in a later flush (or after a resume) still needs its header
+                new_file = not os.path.exists(file_path) or os.path.getsize(file_path) == 0
+                df.to_csv(file_path, mode="a", index=False, header=new_file)
             setattr(self, attr_name, SampleList())
 
         if self.overwrite_sample_files:

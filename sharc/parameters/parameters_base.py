@@ -93,6 +93,8 @@ class ParametersBase:
                         loaded_attr_vals.append(prm)
 
                 setattr(self, attr_name, loaded_attr_vals)
+            elif isinstance(default_attr_value, tuple) and isinstance(params[attr_name], (list, tuple)):
+                setattr(self, attr_name, tuple(params[attr_name]))
             else:
                 setattr(self, attr_name, params[attr_name])
 

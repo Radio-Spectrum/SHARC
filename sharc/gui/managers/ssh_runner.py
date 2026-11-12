@@ -693,19 +693,20 @@ print(json.dumps(items))
     # LOCAL EXECUTION (unchanged)
     # =========================================================================
 
-    def run_local_parallel(self, file_paths, max_workers):
+    def run_local_parallel(self, file_paths, max_workers, resume=False):
+        """Run local YAMLs; `resume` continues each one from its last checkpoint (main_cli --resume)."""
         self.active_threads = [t for t in self.active_threads if t.is_alive()]
         semaphore = threading.Semaphore(max_workers)
         for fpath in file_paths:
             t = threading.Thread(target=self._worker_local,
-                                 args=(fpath, semaphore), daemon=True)
+                                 args=(fpath, semaphore, resume), daemon=True)
             self.active_threads.append(t)
             t.start()
 
-    def _worker_local(self, ypath, semaphore):
+    def _worker_local(self, ypath, semaphore, resume=False):
         with semaphore:
             self._emit_status(
-                {"iid": ypath, "status": "Starting...", "snap": None})
+                {"iid": ypath, "status": "Resuming..." if resume else "Starting...", "snap": None})
 
             known_total = self._get_yaml_total_snapshots(
                 ypath, is_remote=False)
@@ -724,6 +725,8 @@ print(json.dumps(items))
             # Installed build: sys.executable is SHARC.exe, which runs the CLI via --sharc-cli.
             cmd = ([sys.executable, "--sharc-cli", "-p", ypath] if frozen
                    else [sys.executable, main_script, "-p", ypath])
+            if resume:
+                cmd.append("--resume")
 
             try:
                 # The child process must find the `sharc` package even when the GUI was
@@ -1192,6 +1195,7 @@ print(json.dumps(items))
         """
         total_snaps = known_total
         current_snap = 0
+        base_snap = 0
         start_time = time.time()
 
         pat_prog = re.compile(
@@ -1216,6 +1220,9 @@ print(json.dumps(items))
             if m_prog:
                 current_snap = int(m_prog.group(1))
                 total_snaps = int(m_prog.group(2))
+                if "resuming" in clean_text.lower():
+                    # resumed run: the ETA counts only the snapshots done by this process
+                    base_snap, start_time = current_snap, time.time()
             elif m_step:
                 if not m_prog:
                     current_snap = int(m_step.group(1))
@@ -1232,8 +1239,9 @@ print(json.dumps(items))
                     status_data["pct"] = f"{pct:.1f}%"
 
                     elapsed = time.time() - start_time
-                    if elapsed > 0:
-                        rate = elapsed / current_snap
+                    done_here = current_snap - base_snap
+                    if elapsed > 0 and done_here > 0:
+                        rate = elapsed / done_here
                         remaining = max(0, total_snaps - current_snap)
                         eta_seconds = max(0.0, remaining * rate)
                         status_data["eta"] = str(

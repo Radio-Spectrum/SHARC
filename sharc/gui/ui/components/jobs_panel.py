@@ -14,8 +14,8 @@ import qtawesome as qta
 from PySide6.QtCore import QDateTime, Qt, Signal
 from PySide6.QtGui import QColor, QKeySequence, QShortcut
 from PySide6.QtWidgets import (
-    QAbstractItemView, QApplication, QDateTimeEdit, QDialog, QDialogButtonBox, QHBoxLayout, QLabel, QMenu,
-    QProgressBar, QSpinBox, QToolButton, QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget,
+    QAbstractItemView, QApplication, QCheckBox, QDateTimeEdit, QDialog, QDialogButtonBox, QHBoxLayout, QLabel,
+    QMenu, QProgressBar, QSpinBox, QToolButton, QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget,
 )
 
 from core import job_scheduler as js
@@ -82,12 +82,14 @@ class JobsPanel(QWidget):
         self.btn_pause = self._tool("mdi.pause-circle-outline", "Pause / resume the queue", self._toggle_pause, True)
         self.btn_now = self._tool("mdi.play", "Run selected job now", lambda: self._act("run_now"))
         self.btn_stop = self._tool("mdi.stop", "Stop selected job", lambda: self._act("stop"))
+        self.btn_resume = self._tool("mdi.restore", "Resume selected job from its last checkpoint",
+                                     self._resume_selected)
         self.btn_up = self._tool("mdi.arrow-up", "Move up", lambda: self._act("move", -1))
         self.btn_down = self._tool("mdi.arrow-down", "Move down", lambda: self._act("move", +1))
         self.btn_when = self._tool("mdi.calendar-clock", "Schedule start time", self._schedule_selected)
         self.btn_remove = self._tool("mdi.delete-outline", "Remove selected job", lambda: self._act("remove"))
         self.btn_clear = self._tool("mdi.broom", "Clear finished jobs", lambda: self.sched and self.sched.clear_finished())
-        for b in (self.btn_pause, self.btn_now, self.btn_stop, self.btn_up, self.btn_down,
+        for b in (self.btn_pause, self.btn_now, self.btn_stop, self.btn_resume, self.btn_up, self.btn_down,
                   self.btn_when, self.btn_remove, self.btn_clear):
             bar.addWidget(b)
         bar.addSpacing(10)
@@ -98,6 +100,12 @@ class JobsPanel(QWidget):
         self.spin.setToolTip("Maximum simulations running at the same time")
         self.spin.valueChanged.connect(self._on_parallel)
         bar.addWidget(self.spin)
+        self.chk_auto = QCheckBox("Auto-resume")
+        self.chk_auto.setToolTip("When a simulation crashes, continue it automatically from its last "
+                                 "checkpoint (up to 3 times, only while it keeps making progress)")
+        self.chk_auto.setChecked(True)
+        self.chk_auto.toggled.connect(self._on_auto_resume)
+        bar.addWidget(self.chk_auto)
         bar.addStretch(1)
         self.lbl_summary = QLabel("")
         self.lbl_summary.setObjectName("StatusMsg")
@@ -141,6 +149,22 @@ class JobsPanel(QWidget):
             from PySide6.QtCore import QSettings
             QSettings("SHARC", "GUI").setValue("sim/parallel", n)
 
+    def _on_auto_resume(self, on: bool) -> None:
+        if self.sched is not None:
+            self.sched.auto_resume = bool(on)
+        if not os.environ.get("SHARC_GUI_NO_RESTORE"):
+            from PySide6.QtCore import QSettings
+            QSettings("SHARC", "GUI").setValue("sim/auto_resume", bool(on))
+
+    def _resumable_ids(self):
+        return [i for i in self._selected_ids() if self.sched.can_resume(i)]
+
+    def _resume_selected(self):
+        if self.sched is None:
+            return
+        for jid in self._resumable_ids():
+            self.sched.resume(jid)
+
     # ------------------------------------------------------------- setup
     def _tool(self, icon, tip, slot, checkable=False):
         b = QToolButton()
@@ -154,6 +178,12 @@ class JobsPanel(QWidget):
     def bind(self, scheduler: js.JobScheduler) -> None:
         self.sched = scheduler
         self.spin.setValue(scheduler.max_parallel)
+        auto = True
+        if not os.environ.get("SHARC_GUI_NO_RESTORE"):
+            from PySide6.QtCore import QSettings
+            auto = str(QSettings("SHARC", "GUI").value("sim/auto_resume", True)).lower() in ("true", "1", "yes")
+        self.chk_auto.setChecked(auto)
+        scheduler.auto_resume = auto
         scheduler.changed.connect(self.refresh)
         self.refresh()
 
@@ -224,6 +254,10 @@ class JobsPanel(QWidget):
             menu.addSeparator()
             menu.addAction(qta.icon("mdi.play", color="#5DB36A"), "Run now", lambda: self._act("run_now"))
             menu.addAction(qta.icon("mdi.stop", color="#E0605A"), "Stop", lambda: self._act("stop"))
+            resume = menu.addAction(qta.icon("mdi.restore", color="#4F9DDE"), "Resume from last checkpoint",
+                                    self._resume_selected)
+            resume.setObjectName("act_resume")
+            resume.setEnabled(bool(self._resumable_ids()))
             menu.addSeparator()
             menu.addAction(qta.icon("mdi.calendar-clock"), "Reschedule...", self._schedule_selected)
             menu.addAction("Start as soon as possible", lambda: [self.sched.reschedule(i, None) for i in ids])
@@ -286,7 +320,14 @@ class JobsPanel(QWidget):
             it.setText(0, str(i + 1))
             it.setText(1, j.name)
             it.setToolTip(1, j.path)
-            it.setText(2, j.status)
+            status = j.status
+            if j.resume and j.status in (js.QUEUED, js.SCHEDULED, js.RUNNING):
+                status = {js.RUNNING: "Resumed", js.SCHEDULED: "Resume pending"}.get(j.status, "Resume queued")
+            it.setText(2, status)
+            tip = j.message or ""
+            if j.auto_resumes:
+                tip += f"\nAutomatic resumes: {j.auto_resumes}"
+            it.setToolTip(2, tip.strip())
             it.setIcon(2, qta.icon(icon, color=color))
             it.setForeground(2, QColor(color))
             it.setText(3, f"{j.start_at:%m-%d %H:%M}" if j.start_at and j.status == js.SCHEDULED else "--")

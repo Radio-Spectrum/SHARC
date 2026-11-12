@@ -22,9 +22,10 @@ class ThreadSimulation(Thread):
         model (Model) : Reference to the Model implementation of MVC
     """
 
-    def __init__(self, model: Model):
+    def __init__(self, model: Model, resume: bool = False):
         Thread.__init__(self)
         self.model = model
+        self.resume = resume
         self.stop_flag = Event()
 
     def stop(self):
@@ -51,7 +52,7 @@ class ThreadSimulation(Thread):
         """
         start = time.perf_counter()
 
-        self.model.initialize()
+        self.model.initialize(resume=self.resume)
         while not self.model.is_finished() and not self.is_stopped():
             self.model.snapshot()
         self.model.finalize()

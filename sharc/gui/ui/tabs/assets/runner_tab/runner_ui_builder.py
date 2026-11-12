@@ -251,6 +251,11 @@ def build_runner_ui(tab) -> None:
     btn_run.clicked.connect(tab._run_selected_ui)
     run_layout.addWidget(btn_run)
 
+    btn_resume_local = QPushButton("Resume Selected")
+    btn_resume_local.setToolTip("Continue selected simulation(s) from their last checkpoint")
+    btn_resume_local.clicked.connect(tab._resume_selected_ui)
+    run_layout.addWidget(btn_resume_local)
+
     btn_stop = QPushButton("Stop")
     btn_stop.clicked.connect(tab._stop_selected_ui)
     run_layout.addWidget(btn_stop)
@@ -277,6 +282,8 @@ def build_runner_ui(tab) -> None:
     tab.tree.customContextMenuRequested.connect(tab._on_tree_right_click)
     
     tab._menu = QMenu(tab.frame)
+    tab._menu.addAction("Resume from last checkpoint", tab._resume_selected_ui)
+    tab._menu.addSeparator()
     tab._menu.addAction("Open containing folder (local only)", tab._open_local_containing_folder)
     tab._menu.addAction("Copy path", tab._copy_selected_path)
     

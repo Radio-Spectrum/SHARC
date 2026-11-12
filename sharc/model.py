@@ -11,7 +11,9 @@ from sharc.support.enumerations import State
 from sharc.simulation_downlink import SimulationDownlink
 from sharc.simulation_uplink import SimulationUplink
 from sharc.parameters.parameters import Parameters
+from sharc.support import checkpoint
 
+import os
 import random
 
 
@@ -53,10 +55,17 @@ class Model(Observable):
             message="Loading file:\n" + self.param_file,
         )
 
-    def initialize(self):
+    def initialize(self, resume: bool = False):
         """
         Initializes the simulation and performs all pre-simulation tasks, such
         as loading parameters.
+
+        Parameters
+        ----------
+        resume : bool
+            Continue the interrupted run of this parameter file from its last
+            checkpoint (see sharc.support.checkpoint). Starts from scratch when
+            there is no valid checkpoint.
         """
         self.parameters = Parameters()
         self.parameters.set_file_name(self.param_file)
@@ -81,7 +90,16 @@ class Model(Observable):
         )
         self.current_snapshot = 0
 
-        self.simulation.initialize()
+        ckpt = None
+        if resume:
+            ckpt, reason = checkpoint.find_valid(self.param_file)
+            if ckpt is None:
+                self.notify_observers(
+                    source=__name__,
+                    message=f"Cannot resume ({reason}): starting from the beginning.",
+                )
+
+        self.simulation.initialize(resume_dir=ckpt.output_dir if ckpt else None)
 
         random.seed(self.parameters.general.seed)
 
@@ -91,6 +109,40 @@ class Model(Observable):
 
         for index in range(self.parameters.general.num_snapshots):
             self.secondary_seeds[index] = random.randint(1, max_seed)
+
+        sample_names = self.simulation.results.get_relevant_attributes()
+        if ckpt is not None:
+            checkpoint.restore_files(ckpt, sample_names)
+            if ckpt.rng_state:
+                self.simulation.random_number_gen.set_state(
+                    checkpoint.rng_state_from_json(ckpt.rng_state))
+            self.current_snapshot = ckpt.snapshot
+            self.notify_observers(
+                source=__name__,
+                message=f"Resuming from snapshot {ckpt.snapshot} of "
+                f"{self.parameters.general.num_snapshots} ({ckpt.output_dir})",
+            )
+
+        self._checkpoint = checkpoint.Checkpoint(
+            param_file=os.path.abspath(self.param_file),
+            param_hash=checkpoint.file_hash(self.param_file),
+            output_dir=str(self.simulation.results.output_directory),
+            num_snapshots=self.parameters.general.num_snapshots,
+        )
+        self._sample_names = sample_names
+        self.save_checkpoint()
+
+    def save_checkpoint(self, completed: bool = False):
+        """Record that every snapshot up to the current one is safely on disk."""
+        ckpt = getattr(self, "_checkpoint", None)
+        if ckpt is None:
+            return
+        ckpt.snapshot = self.current_snapshot
+        ckpt.completed = completed
+        ckpt.files = (checkpoint.csv_sizes(ckpt.output_dir, self._sample_names)
+                      if self.current_snapshot else {})   # nothing of this run flushed yet
+        ckpt.rng_state = checkpoint.rng_state_to_json(self.simulation.random_number_gen)
+        checkpoint.save(ckpt)
 
     def get_description(self) -> str:
         """
@@ -141,6 +193,8 @@ class Model(Observable):
             snapshot_number=self.current_snapshot,
             seed=self.secondary_seeds[self.current_snapshot - 1],
         )
+        if write_to_file:          # the samples were just flushed to the CSVs
+            self.save_checkpoint()
 
     def is_finished(self) -> bool:
         """
@@ -161,6 +215,7 @@ class Model(Observable):
         Finalizes the simulation and performs all post-simulation tasks
         """
         self.simulation.finalize(snapshot_number=self.current_snapshot)
+        self.save_checkpoint(completed=self.is_finished())
         self.notify_observers(
             source=__name__,
             message="FINISHED!", state=State.FINISHED,

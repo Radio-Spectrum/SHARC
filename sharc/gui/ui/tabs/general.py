@@ -17,7 +17,7 @@ from PySide6.QtCore import Qt, Slot
 import qtawesome as qta
 
 # --- Core Imports ---
-from core.yaml_builder import build_yaml_structure, _engine_topology_type
+from core.yaml_builder import build_yaml_structure, _engine_topology_type, YamlTuple
 from core.yaml_builder import _as_bool  # noqa: E402
 from ui.tabs.assets.general_tab.variable_editor import VariableEditor
 from ui.tabs.assets.general_tab.general_tools import parse_list_safe
@@ -47,6 +47,8 @@ GUI_TOPOLOGY_TYPES = [
 # =============================================================================
 
 def _sanitize_for_yaml(obj: Any) -> Any:
+    if isinstance(obj, YamlTuple):
+        return YamlTuple(_sanitize_for_yaml(x) for x in obj)
     if isinstance(obj, tuple):
         return [_sanitize_for_yaml(x) for x in obj]
     if isinstance(obj, list):
@@ -571,6 +573,8 @@ class GeneralTab(QWidget):
     def _recursive_inject(self, obj, mapping):
         if isinstance(obj, dict):
             return {k: self._recursive_inject(v, mapping) for k, v in obj.items()}
+        if isinstance(obj, YamlTuple):
+            return YamlTuple(self._recursive_inject(v, mapping) for v in obj)
         if isinstance(obj, list):
             return [self._recursive_inject(v, mapping) for v in obj]
         if isinstance(obj, str):

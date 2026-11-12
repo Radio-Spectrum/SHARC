@@ -54,6 +54,9 @@ def main(argv):
                         help="Path to the parameter file: a YAML, or a .sharc project (default: input/parameters.yaml)")
     parser.add_argument("-l", "--log-file", default=None,
                         help="Path to output log file (optional)")
+    parser.add_argument("-r", "--resume", action="store_true",
+                        help="Continue the interrupted run of this parameter file from its last checkpoint "
+                             "(starts from the beginning when there is none)")
 
     args = parser.parse_args(argv)
     param_file = os.path.join(os.getcwd(), args.param_file) if not os.path.isabs(args.param_file) else args.param_file
@@ -79,7 +82,7 @@ def main(argv):
     model.add_observer(view_cli)
 
     try:
-        view_cli.initialize(param_file)
+        view_cli.initialize(param_file, resume=args.resume)
     finally:
         sim_logger.end()
 

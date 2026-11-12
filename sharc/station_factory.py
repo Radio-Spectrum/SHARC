@@ -346,6 +346,8 @@ class StationFactory(object):
 
         # TODO: Sanitaze the azimuth_range parameter
         azimuth_range = param.ue.azimuth_range
+        if isinstance(azimuth_range, list):
+            azimuth_range = tuple(azimuth_range)
         if (not isinstance(azimuth_range, tuple)) or len(azimuth_range) != 2:
             raise ValueError(
                 "Invalid type or length for parameter azimuth_range")

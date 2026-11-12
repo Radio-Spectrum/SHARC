@@ -247,6 +247,9 @@ class RunnerTab(QWidget, RemoteBrowserMixin):
     def _run_selected_ui(self):
         _run_selected_impl(self)
 
+    def _resume_selected_ui(self):
+        _run_selected_impl(self, resume=True)
+
     def _stop_selected_ui(self):
         _stop_selected_impl(self)
 

@@ -21,7 +21,7 @@ class ViewCli(Observer):
         super().__init__()
         self.parent = parent
 
-    def initialize(self, param_file):
+    def initialize(self, param_file, resume=False):
         """
         Initializes the simulation with the given parameter file by triggering
         the controller action to start a single-threaded simulation.
@@ -30,10 +30,13 @@ class ViewCli(Observer):
         ----------
         param_file : str
             Path to the parameter file to be used for the simulation.
+        resume : bool
+            Continue an interrupted run of this file from its last checkpoint.
         """
         self.controller.action(
             action=Action.START_SIMULATION_SINGLE_THREAD,
             param_file=param_file,
+            resume=resume,
         )
 
     def set_controller(self, controller: Controller):

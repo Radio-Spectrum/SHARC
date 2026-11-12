@@ -25,13 +25,23 @@ def scan_yaml_files(tab) -> None:
             files.sort()
             for f in files:
                 full_path = os.path.join(folder, f)
+                status, snap, pct = "Ready", "0/--", "0"
+                try:
+                    from sharc.support import checkpoint
+                    ckpt = checkpoint.find(full_path)
+                    if ckpt is not None and ckpt.resumable:
+                        status = "Interrupted (resumable)"
+                        snap = f"{ckpt.snapshot}/{ckpt.num_snapshots}"
+                        pct = f"{ckpt.pct:.1f}%"
+                except Exception:
+                    pass
                 insert_job_row(
                     tab,
                     iid=full_path,
                     yaml_name=f,
-                    status="Ready",
-                    snap="0/--",
-                    pct="0",
+                    status=status,
+                    snap=snap,
+                    pct=pct,
                     eta="--",
                     branch="(local)",
                     location=folder,
@@ -101,7 +111,7 @@ def insert_job_row(tab, iid: str, yaml_name: str, status: str, snap: str, pct: s
         tab.tree.addTopLevelItem(new_item)
 
 
-def run_selected(tab) -> None:
+def run_selected(tab, resume: bool = False) -> None:
     if not tab.manager:
         QMessageBox.critical(tab.frame, "Runner", "runner_manager not found.")
         return
@@ -115,7 +125,8 @@ def run_selected(tab) -> None:
     workers = tab.spin_workers.value()
     files = [item.data(0, Qt.UserRole) for item in sel_items]
 
-    tab._append_log(f"[RUN] Starting {len(files)} simulation(s) in {mode} mode (workers={workers})...")
+    action_label = "Resuming" if resume else "Starting"
+    tab._append_log(f"[RUN] {action_label} {len(files)} simulation(s) in {mode} mode (workers={workers})...")
 
     global_branch = tab.cmb_git_branch.currentText().strip()
     host = tab._current_host_label()
@@ -124,13 +135,13 @@ def run_selected(tab) -> None:
         iid = item.data(0, Qt.UserRole)
         branch = global_branch or item.text(5)
         
-        item.setText(1, "Queued")
+        item.setText(1, "Resume queued" if resume else "Queued")
         item.setText(5, branch)
         item.setText(7, host)
         
         job = tab._jobs.get(iid, {})
         job.update({
-            "status": "Queued",
+            "status": "Resume queued" if resume else "Queued",
             "branch": branch,
             "host": host,
         })
@@ -139,7 +150,7 @@ def run_selected(tab) -> None:
     if mode == "SSH":
         tab.manager.run_remote_parallel(files, workers)
     else:
-        tab.manager.run_local_parallel(files, workers)
+        tab.manager.run_local_parallel(files, workers, resume=resume)
 
 
 def stop_selected(tab) -> None:

@@ -54,14 +54,15 @@ class Controller:
             Action: this non-keyworded argument indicates the action to be taken
         """
         action = kwargs["action"]
+        resume = bool(kwargs.get("resume", False))
 
         if action is Action.START_SIMULATION:
             self.model.set_param_file(kwargs["param_file"])
-            self.simulation_thread = ThreadSimulation(self.model)
+            self.simulation_thread = ThreadSimulation(self.model, resume=resume)
             self.simulation_thread.start()
         if action is Action.START_SIMULATION_SINGLE_THREAD:
             self.model.set_param_file(kwargs["param_file"])
-            self.simulation_thread = ThreadSimulation(self.model)
+            self.simulation_thread = ThreadSimulation(self.model, resume=resume)
             # call run method directly, without starting a new thread
             self.simulation_thread.run()
         if action is Action.STOP_SIMULATION:

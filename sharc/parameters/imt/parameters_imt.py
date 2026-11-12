@@ -110,6 +110,8 @@ class ParametersImt(ParametersBase):
 
         def validate(self, ctx: str):
             """Validate the UE antenna beamsteering range parameters."""
+            if isinstance(self.azimuth_range, list):
+                self.azimuth_range = tuple(self.azimuth_range)
             if self.antenna.array.horizontal_beamsteering_range != (-180., 179.9999)\
                     or self.antenna.array.vertical_beamsteering_range != (0., 179.9999):
                 raise NotImplementedError(

@@ -809,7 +809,8 @@ class ResultsTab(QWidget):
         QGuiApplication.clipboard().setText("\n".join(self.app.res_dirs[i] for i in rows if i < len(self.app.res_dirs)))
 
     def _remove_dir(self):
-        rows = sorted([item.row() for item in self.lb_dirs.selectedIndexes()], reverse=True)
+        rows = sorted({i.row() for i in self.lb_dirs.selectedIndexes() if 0 <= i.row() < len(self.app.res_dirs)},
+                      reverse=True)
         for i in rows:
             del self.app.res_dirs[i]
         self._refresh_dir_listbox()
@@ -878,22 +879,25 @@ class ResultsTab(QWidget):
         l.addLayout(btns)
         win.exec()
 
+    def _selected_criteria_rows(self, criteria) -> list:
+        """Distinct selected rows, valid for `criteria`. selectedItems() returns one item per CELL (4 per row),
+        so rows must be de-duplicated; stale rows beyond the list are dropped instead of raising."""
+        return sorted({i.row() for i in self.tv_crit.selectedItems() if 0 <= i.row() < len(criteria)})
+
     def _toggle_criteria(self, *args):
-        rows = set([i.row() for i in self.tv_crit.selectedItems()])
-        if not rows: return
         idx = int(self.cb_subplot_sel.currentText()) - 1
         cfg = self._axes_cfg[idx]
+        rows = self._selected_criteria_rows(cfg["criteria"])
         for r in rows:
             cfg["criteria"][r]["enabled"] = not cfg["criteria"][r].get("enabled", True)
-        self._refresh_criteria_list(cfg["criteria"])
-        self._schedule_update()
+        self._refresh_criteria_list(cfg["criteria"])      # also re-syncs a table that had gone stale
+        if rows:
+            self._schedule_update()
 
     def _remove_criteria(self):
-        rows = sorted([item.row() for item in self.tv_crit.selectedItems()], reverse=True)
-        if not rows: return
         idx = int(self.cb_subplot_sel.currentText()) - 1
         cfg = self._axes_cfg[idx]
-        for r in rows:
+        for r in reversed(self._selected_criteria_rows(cfg["criteria"])):
             cfg["criteria"].pop(r)
         self._refresh_criteria_list(cfg["criteria"])
         self._schedule_update()

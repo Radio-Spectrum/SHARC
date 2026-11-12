@@ -874,9 +874,13 @@ class WorkbenchMixin:
         self.dock_legend.setFloating(True)
         self.dock_legend.hide()
         self._legend_placed = False
+        self._legends_hidden = False        # user hid the legends (toolbar, K key or the dock's own close button)
+        self._legend_auto = False           # True while the code itself shows or hides the dock
         embed = getattr(preview, "_cesium_embed", None)
         if embed is not None:
             embed.bridge.legend_changed.connect(self._on_legend_changed)
+            embed.bridge.legends_visible_changed.connect(self._on_legends_visible)
+            self.dock_legend.visibilityChanged.connect(self._on_legend_dock_visibility)
             self._build_preview_panels(embed.bridge)
 
     def _build_preview_panels(self, bridge):
@@ -924,12 +928,27 @@ class WorkbenchMixin:
                 self._link_placed = True
                 self.dock_link.move(self.doc_tabs.mapToGlobal(QPoint(70, 120)))
 
+    def _set_legend_dock(self, visible):
+        self._legend_auto = True
+        try:
+            self.dock_legend.setVisible(visible)
+        finally:
+            self._legend_auto = False
+
+    def _on_legends_visible(self, on):
+        self._legends_hidden = not on
+        self._set_legend_dock(bool(on and self.legend_panel.items))
+
+    def _on_legend_dock_visibility(self, visible):
+        if not visible and not self._legend_auto and self.legend_panel.items:
+            self._legends_hidden = True            # closed with the dock's own button: stay closed until the toolbar shows it again
+
     def _on_legend_changed(self, payload):
         self.legend_panel.set_payload(payload)
-        if not self.legend_panel.items:
-            self.dock_legend.hide()
+        if not self.legend_panel.items or self._legends_hidden:
+            self._set_legend_dock(False)
             return
-        self.dock_legend.show()
+        self._set_legend_dock(True)
         self.dock_legend.adjustSize()
         if not self._legend_placed:                         # first time: bottom-left of the 3D scene
             from PySide6.QtCore import QPoint

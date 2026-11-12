@@ -59,10 +59,16 @@
     <button id="btnLinks" title="UE links coloured by SNR; click a link to see its link budget"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5.5" cy="17.5" r="2.2"/><circle cx="18.5" cy="6.5" r="2.2"/><path d="m7.3 16 9.4-8"/></svg></button>
     <button id="btnPlay" title="Play the snapshot sequence (UEs are redrawn as in the simulation)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l10.5-6.5z" fill="currentColor" stroke="none"/></svg></button>
     <button id="btnInterf" title="Interferer vs victim: base stations coloured by their contribution to the interference, paths to the victim"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 18.5h5l3.5-13 3.5 13h5"/><path d="M12 5.5v-2"/></svg></button>
+    <button id="btnNav" title="Mouse and keyboard navigation (?)"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="m15.5 8.5-2 5-5 2 2-5z"/></svg></button>
+    <button id="btnLegend" class="on" title="Show / hide the legends: layer list and colour scales (K)"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5" width="3" height="3"/><rect x="4" y="10.5" width="3" height="3"/><rect x="4" y="16" width="3" height="3"/><path d="M10 6.5h10M10 12h10M10 17.5h10"/></svg></button>
+    <button id="btnFoot" title="Satellite footprint: -3 dB area and gain contours on the ground"><svg viewBox="0 0 24 24" aria-hidden="true"><ellipse cx="12" cy="15" rx="8" ry="4"/><ellipse cx="12" cy="15" rx="4" ry="2"/><path d="M12 3v8"/><circle cx="12" cy="3" r="1.4"/></svg></button>
     <button id="btnHeat" title="Ground heat map: aggregate IMT PSD, I/N, strongest-BS power (click to cycle)"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="1.5"/><path d="M4 9.3h16M4 14.7h16M9.3 4v16M14.7 4v16"/><path d="M9.3 9.3h5.4v5.4H9.3z" fill="currentColor" stroke="none" opacity=".55"/></svg></button>
     <button id="btnLobes" title="Antenna gain lobes: 3D heat map of the base-station pattern (cold = side lobes, hot = main beam)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 12 6.5 3.5C9 2.5 15 2.5 17.5 3.5z"/><path d="M12 12 4 8.5c-1.5 2-1.8 5-.8 7.5z"/><path d="M12 12l8-3.5c1.5 2 1.8 5 .8 7.5z"/><path d="M12 12v8"/></svg></button>
     <button id="btnShot" title="Save screenshot"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 8.5h3l1.6-2.5h7.8l1.6 2.5h3v11h-17z"/><circle cx="12" cy="13.5" r="3.6"/></svg></button>
   </div>
+
+  <div id="hudCompass" title="Heading. Click: north up. Double-click: top-down view"><div class="n">N</div><div class="dial"></div></div>
+  <div id="navHelp" class="panel"><b>Left-drag</b>rotate the globe<br><b>Right-drag / wheel</b>zoom to the cursor<br><b>Middle / Shift / Ctrl-drag</b>tilt and turn<br><b>Double-click</b>fly to that point<br><b>Arrows</b>pan<br><b>+ / -</b>zoom<br><b>Q / E</b>turn around the centre<br><b>N</b>north up<br><b>T</b>top-down<br><b>H</b>frame the scene<br><b>K</b>legends &nbsp; <b>I</b>scene card<br><b>?</b>this help</div>
 
   <!-- Legenda (inferior esquerdo) -->
   <div id="hudLegend" class="panel legend"></div>

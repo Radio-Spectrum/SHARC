@@ -183,7 +183,9 @@ def compute(es, n: int = GRID_N) -> Optional[Dict[str, Any]]:
                    "freq_mhz": f_sat, "imt_freq_mhz": float(p.frequency), "n_bs": int(len(bx)),
                    "pointing_type": str(getattr(ss.geometry.azimuth, "type", "")),
                    "imt_psd_at_sat_dbm_mhz": round(i_psd, 1), "noise_psd_dbm_mhz": round(noise_psd, 1),
-                   "inr_db": round(i_psd - noise_psd, 1), "gain_toward_network_dbi": round(float(g_sat.mean()), 1)}
+                   "inr_db": round(i_psd - noise_psd, 1), "gain_toward_network_dbi": round(float(g_sat.mean()), 1),
+                   "imt_bw_mhz": float(p.bandwidth), "noise_temperature_k": t_noise,
+                   "bs_eirp_dbm": round(float(p.bs.conducted_power) - float(p.bs.ohmic_loss) + float(np.max(g_bs)), 1)}
         result = {"n": n, "west": float(lons[0]), "east": float(lons[-1]), "south": float(lats[0]),
                   "north": float(lats[-1]), "maps": maps, "summary": summary,
                   "contrib": [round(float(v), 1) for v in per_bs],

@@ -48,6 +48,10 @@ def _exec_menu(menu, global_pos):
 
 class ResultsTab(QWidget):
     results_changed = Signal()          # the list of result folders changed (added, removed, cleared)
+    _ui_progress = Signal(int)          # render thread -> GUI thread
+    _ui_status = Signal(str, int)
+    _ui_image = Signal(bytes)
+    _ui_error = Signal(str)
 
     """
     Results Tab - PySide6 Edition
@@ -70,6 +74,12 @@ class ResultsTab(QWidget):
 
         # Rendering Control
         self._render_lock = threading.Lock()
+        # The render thread must not touch widgets or call QTimer.singleShot: a QTimer started from a thread
+        # without an event loop never fires, which left the page stuck on "Preparing Plot... 0%".
+        self._ui_progress.connect(self._update_progress_ui)
+        self._ui_status.connect(self._show_render_status)
+        self._ui_image.connect(self._display_image)
+        self._ui_error.connect(self._on_render_error)
         self._update_timer = None
         self._max_axes = 9
         self._disable_traces = False
@@ -1052,20 +1062,23 @@ class ResultsTab(QWidget):
         self.pb_loading.setValue(int(percent))
         self.lbl_preview.setText(f"Plotting... {int(percent)}%")
 
+    def _show_render_status(self, text: str, percent: int):
+        self.lbl_preview.setText(text)
+        self.pb_loading.setValue(percent)
+
     def _render_worker(self, w, h, force_refresh=False):
-        if not self._render_lock.acquire(blocking=False): return
+        if not self._render_lock.acquire(blocking=False):
+            # another render is running; never leave "Preparing Plot..." on screen for a render that was dropped
+            self._ui_status.emit("A plot is already being prepared. Press Refresh when it finishes.", 0)
+            return
         try:
-            def _progress(p): QTimer.singleShot(0, lambda: self._update_progress_ui(p))
-            fig = self._create_plotly_fig(progress_callback=_progress, is_preview=True, force_refresh=force_refresh)
-            
-            QTimer.singleShot(0, lambda: self.lbl_preview.setText("Rasterizing..."))
-            QTimer.singleShot(0, lambda: self.pb_loading.setValue(90))
-            
+            fig = self._create_plotly_fig(progress_callback=lambda p: self._ui_progress.emit(int(p)),
+                                          is_preview=True, force_refresh=force_refresh)
+            self._ui_status.emit("Rasterizing (the first plot starts the image engine and takes a few seconds)...", 90)
             img_bytes = fig.to_image(format="png", width=w, height=h, scale=1)
-            QTimer.singleShot(0, lambda: self._display_image(img_bytes))
-        except Exception as e:
-            err = str(e)  # `e` não existe depois do except; o lambda roda depois
-            QTimer.singleShot(0, lambda: self._on_render_error(f"Plot Error:\n{err}"))
+            self._ui_image.emit(img_bytes)
+        except Exception as e:  # noqa: BLE001 - any plotting failure must reach the user
+            self._ui_error.emit(f"Plot Error:\n{type(e).__name__}: {e}")
         finally:
             self._render_lock.release()
 

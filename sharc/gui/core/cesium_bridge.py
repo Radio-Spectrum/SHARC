@@ -561,6 +561,7 @@ class CesiumBridgeMixin:
                 es = build_engine_scene(data)
                 system["lobe"] = gain_lobe.system_lobe_for_scene(es)
                 from core import sat_footprint
+                system["footprint_boundary"] = system.get("footprint")   # -3 dB boundary polygon (list of lla)
                 system["footprint"] = sat_footprint.compute(es)
                 if system["footprint"] and self.app.var_show_gainmap.get():
                     system["show_heat"] = "sat_gain"             # "Show gain map": the satellite antenna footprint

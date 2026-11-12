@@ -8,6 +8,7 @@ import pytest
 pytest.importorskip("PySide6")
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 os.environ.setdefault("SHARC_GUI_NO_RESTORE", "1")
+os.environ.setdefault("SHARC_GUI_NO_REVIEW", "1")      # the review dialog is modal; it has its own tests
 
 _REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 _GUI = os.path.join(_REPO, "sharc", "gui")

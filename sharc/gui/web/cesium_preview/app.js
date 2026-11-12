@@ -489,6 +489,7 @@ function glow(color, power = 0.22) {
 }
 
 function addBeamCone(toWorld, entities, bx, by, bz, azDeg, downtiltDeg, length, color, halfAngleDeg = 12) {
+  const beamStart = entities.values.length;
   const { apex, base } = beamConePositions(bx, by, bz, azDeg, downtiltDeg, length, halfAngleDeg);
   const apexWorld = toWorld(apex[0], apex[1], apex[2]);
   const baseWorld = base.map((p) => toWorld(p[0], p[1], p[2]));
@@ -507,6 +508,7 @@ function addBeamCone(toWorld, entities, bx, by, bz, azDeg, downtiltDeg, length, 
       polyline: { positions: [apexWorld, baseWorld[i]], width: 2.5, material: glow(color.withAlpha(0.85), 0.3) },
     });
   }
+  for (const e of entities.values.slice(beamStart)) if (e.layer === undefined) tag(e, "beams");
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -571,6 +573,89 @@ function renderGainMap(scene) {
 // ═══════════════════════════════════════════════════════════════════
 
 // ── Colour-scale legends live in a detached Qt window (the 3D view only reports what is on screen)
+// ── Show/hide layers: every entity tagged with `layer` can be toggled from the legend (state survives redraws)
+const layerState = {};
+function tag(ent, layer) { ent.layer = layer; if (layerState[layer] === false) ent.show = false; return ent; }
+function setLayer(name, on) {
+  layerState[name] = !!on;
+  const all = viewer.entities.values.concat(warnSource.entities.values);
+  for (const e of all) if (e.layer === name) e.show = !!on;
+  if (name === "footprint" && !on && heat.mode.startsWith("sat_")) setHeat("");
+  viewer.scene.requestRender();
+}
+function toggleLayer(name) { setLayer(name, layerState[name] === false); return layerState[name] !== false; }
+function layerOn(name) { return layerState[name] !== false; }
+window.setLayer = setLayer; window.toggleLayer = toggleLayer; window.layerOn = layerOn;
+
+// Frame the whole scene (satellite + network + earth station), not only the IMT cells.
+const frame = { points: [] };
+// Home view. Aims at the point on the GROUND under the scene (never at a point in space) from the south, looking down.
+// With a satellite in the scene the camera backs off far enough to keep it in frame.
+function frameScene() {
+  const C3 = Cesium.Cartesian3, rad = Cesium.Math.toRadians;
+  const heightOf = (p) => Cesium.Cartographic.fromCartesian(p).height;
+  let pts = frame.points.filter(Boolean);
+  let ground = pts.filter((p) => heightOf(p) < 2.0e5);
+  const far = pts.filter((p) => heightOf(p) >= 2.0e5);
+  if (ground.length < 2 || Cesium.BoundingSphere.fromPoints(ground).radius < 150) {   // too little geometry: use every positioned entity
+    const t = viewer.clock.currentTime;
+    for (const e of viewer.entities.values) {
+      const v = e.position && e.position.getValue ? e.position.getValue(t) : null;
+      if (v && heightOf(v) < 2.0e5) ground.push(v);
+    }
+  }
+  if (!ground.length) { viewer.zoomTo(viewer.entities); return; }
+  const bs = Cesium.BoundingSphere.fromPoints(ground);
+  const c = Cesium.Cartographic.fromCartesian(bs.center);
+  const target = C3.fromRadians(c.longitude, c.latitude, 0);        // straight down to the surface
+  const radius = Math.max(bs.radius, 250);
+  if (far.length) {                                                // satellite: orbital view, spherical geometry
+    // The tangent-plane offset of HeadingPitchRange breaks down at orbital range, so place the camera by hand: above and
+    // south of the network, looking at the middle of the network-to-satellite segment, "up" pointing away from the Earth.
+    const fb = Cesium.BoundingSphere.fromPoints(far);
+    const dSat = C3.distance(target, fb.center) + fb.radius;
+    const rHat = C3.normalize(target, new C3());
+    const east = C3.normalize(C3.cross(new C3(0, 0, 1), rHat, new C3()), new C3());
+    const south = C3.negate(C3.cross(rHat, east, new C3()), new C3());           // tangent, pointing south
+    const th = rad(20), rc = Cesium.Ellipsoid.WGS84.maximumRadius + dSat * 2.0;
+    const cp = C3.multiplyByScalar(
+      C3.normalize(C3.add(C3.multiplyByScalar(rHat, Math.cos(th), new C3()), C3.multiplyByScalar(south, Math.sin(th), new C3()), new C3()), new C3()),
+      rc, new C3());
+    const mid = C3.midpoint(target, fb.center, new C3());
+    const dir = C3.normalize(C3.subtract(mid, cp, new C3()), new C3());
+    const pHat = C3.normalize(cp, new C3());
+    const up = C3.normalize(C3.subtract(pHat, C3.multiplyByScalar(dir, C3.dot(pHat, dir), new C3()), new C3()), new C3());
+    viewer.camera.flyTo({ destination: cp, orientation: { direction: dir, up }, duration: 1.4 });
+    return;
+  }
+  const range = Math.max(radius * 2.6, 400);
+  const pitch = rad(radius > 5.0e4 ? -60 : -45);
+  viewer.camera.flyToBoundingSphere(new Cesium.BoundingSphere(target, 1),
+    { duration: 1.2, offset: new Cesium.HeadingPitchRange(0, pitch, range) });
+}
+window.frameScene = frameScene;
+
+// Elevation [deg] of `satWorld` seen from the ground point (lat, lon).
+function elevationDeg(latDeg, lonDeg, satWorld) {
+  const ground = Cesium.Cartesian3.fromDegrees(lonDeg, latDeg, 0);
+  const inv = Cesium.Matrix4.inverse(Cesium.Transforms.eastNorthUpToFixedFrame(ground), new Cesium.Matrix4());
+  const l = Cesium.Matrix4.multiplyByPoint(inv, satWorld, new Cesium.Cartesian3());
+  return Cesium.Math.toDegrees(Math.atan2(l.z, Math.hypot(l.x, l.y)));
+}
+
+// Tag the entities the scene renderers did not tag themselves, by what they are drawn as (towers and sector wedges: bs,
+// small points: UEs, hex outlines / fills / circles: cells), so every legend row can hide its elements.
+function autoTag() {
+  for (const e of viewer.entities.values) {
+    if (e.layer !== undefined) continue;
+    if (e.model) { if (e.name === "Base station") tag(e, "bs"); }
+    else if (e.point) { const px = e.point.pixelSize && e.point.pixelSize.getValue ? e.point.pixelSize.getValue() : e.point.pixelSize; if (px && px <= 5) tag(e, "ues"); else if (px && px <= 8) tag(e, "bs"); }
+    else if (e.ellipse) tag(e, "cells");
+    else if (e.polygon) { const pph = e.polygon.perPositionHeight; tag(e, pph && (pph.getValue ? pph.getValue() : pph) ? "bs" : "cells"); }
+    else if (e.polyline) { const w = e.polyline.width && e.polyline.width.getValue ? e.polyline.width.getValue() : e.polyline.width; if (w === 3) tag(e, "cells"); }
+  }
+}
+
 function publishLegend() {
   const items = [];
   if (lobes.on && lobes.info) {
@@ -606,6 +691,23 @@ function setLobes(on) {
   }
   viewer.scene.requestRender();
 }
+
+(function wireFootprintButton() {
+  const btn = document.getElementById("btnFoot");
+  if (!btn) return;
+  btn.addEventListener("click", () => {
+    const on = heat.mode === "sat_gain";
+    if (on) { setHeat(""); btn.classList.remove("on"); return; }
+    if (!heat.sat || !heat.sat.maps || !heat.sat.maps.sat_gain) { setStatus("No satellite footprint map for this scene"); return; }
+    setLayer("footprint", true);
+    setHeat("sat_gain");
+    btn.classList.add("on");
+    const sm = heat.sat.summary || {};
+    const rKm = sm.beamwidth_deg && sm.altitude_km ? sm.altitude_km * Math.tan(Cesium.Math.toRadians(sm.beamwidth_deg / 2)) : null;
+    setStatus(rKm ? `Footprint: -3 dB radius about ${rKm.toFixed(0)} km (area ${(Math.PI * rKm * rKm).toExponential(2)} km²), contours at -3/-6/-10/-15/-20 dB`
+                  : "Satellite footprint: gain contours at -3/-6/-10/-15/-20 dB");
+  });
+})();
 
 (function wireLobesButton() {
   const btn = document.getElementById("btnLobes");
@@ -750,6 +852,7 @@ function setHeatStyle(style) {
 }
 
 function setHeat(mode) {
+  const fb = document.getElementById("btnFoot"); if (fb) fb.classList.toggle("on", mode === "sat_gain");
   heat.mode = mode || "";
   if (heat.ent) { viewer.entities.remove(heat.ent); heat.ent = null; }
   const btn = document.getElementById("btnHeat");
@@ -1161,20 +1264,21 @@ function renderCountryNetwork(scene) {
     const h = Math.max(s.height_m || 20, 5);
     const { toWorld } = makeEnuHelpers({ lat_deg: s.lat_deg, lon_deg: s.lon_deg, alt_m: 0 });
     const top = toWorld(0, 0, h);
-    viewer.entities.add({                               // visible from space: a site is a dot until you zoom in
+    tag(viewer.entities.add({                           // visible from space: a site is a dot until you zoom in
       position: top,
       point: { pixelSize: 7, color: C.countryBs, outlineColor: C.bsOutline, outlineWidth: 1.5, distanceDisplayCondition: dotFar,
                disableDepthTestDistance: Number.POSITIVE_INFINITY },
-    });
-    viewer.entities.add({                               // the cell, to scale
+    }), "bs");
+    tag(viewer.entities.add({                           // the cell, to scale
       position: toWorld(0, 0, 0),
       ellipse: { semiMajorAxis: R, semiMinorAxis: R, material: C.hex.withAlpha(0.10), outline: true,
                  outlineColor: C.hex.withAlpha(0.7), distanceDisplayCondition: near },
-    });
-    viewer.entities.add({                               // sector wedge along the engine azimuth (site frame)
+    }), "cells");
+    tag(viewer.entities.add({                           // sector wedge along the engine azimuth (site frame)
       polygon: { hierarchy: sectorWedgePositions(toWorld, 0, 0, h, s.azimuth_deg, R * 0.9), material: C.sector.withAlpha(0.14),
                  outline: true, outlineColor: C.sector.withAlpha(0.6), perPositionHeight: true, distanceDisplayCondition: near },
-    });
+    }), "sectors");
+    frame.points.push(top);
     if (!detailed) continue;
     addBeamCone(toWorld, viewer.entities, 0, 0, h, s.azimuth_deg, s.downtilt_deg, R * 0.6, C.beam);
     addModel("Base station", "/models/tower.glb", toWorld(0, 0, 0), -s.azimuth_deg, 0,
@@ -1187,12 +1291,12 @@ function renderCountryNetwork(scene) {
   }
 
   for (const u of c.ues || []) {
-    viewer.entities.add({
+    tag(viewer.entities.add({
       position: Cesium.Cartesian3.fromDegrees(u.lon_deg, u.lat_deg, 1.5),
       point: { pixelSize: 4.5, color: C.ue.withAlpha(0.95), outlineColor: Cesium.Color.WHITE.withAlpha(0.6), outlineWidth: 0.8,
                heightReference: Cesium.HeightReference.CLAMP_TO_GROUND, distanceDisplayCondition: dotFar,
                disableDepthTestDistance: Number.POSITIVE_INFINITY },
-    });
+    }), "ues");
   }
   for (const k of c.links || []) {                      // engine-assigned serving BS, coloured by nominal SNR
     const ent = viewer.entities.add({
@@ -1216,6 +1320,10 @@ function renderSingleSpaceStationScene(scene) {
   const isMacroCountries = scene.topology_type === "Macro_countries";
   const satWorld = Cesium.Cartesian3.fromDegrees(sat.lon_deg, sat.lat_deg, sat.alt_m);
   const esWorld = Cesium.Cartesian3.fromDegrees(es.lon_deg, es.lat_deg, es.alt_m);
+  const nadirWorld = Cesium.Cartesian3.fromDegrees(sat.lon_deg, sat.lat_deg, 0);
+  const boundary = Array.isArray(scene.footprint_boundary) ? scene.footprint_boundary
+                 : (Array.isArray(scene.footprint) ? scene.footprint : []);
+  frame.points.push(satWorld, nadirWorld);
 
   // Gain map (heatmap) — rendered first so it sits under other elements
   renderGainMap(scene);
@@ -1224,8 +1332,8 @@ function renderSingleSpaceStationScene(scene) {
   // The engine points the satellite (by default at the IMT network); aim the model and its lobe the same way.
   const fpt = scene.footprint && scene.footprint.pointing;
   const aimAt = fpt ? Cesium.Cartesian3.fromDegrees(fpt.target_lon_deg, fpt.target_lat_deg, 0) : null;
-  const satModel = addModel("Satellite model", "/models/satellite.glb", satWorld, 0, -90,
-    { minimumPixelSize: 72, maximumScale: 400000 });
+  const satModel = tag(addModel("Satellite model", "/models/satellite.glb", satWorld, 0, -90,
+    { minimumPixelSize: 72, maximumScale: 400000 }), "sat");
   if (aimAt) satModel.orientation = orientToward(satWorld, aimAt);
   heat.sat = scene.footprint || null;                 // satellite footprint maps join the heat-map button
   interf.victimWorld = satWorld;
@@ -1251,13 +1359,27 @@ function renderSingleSpaceStationScene(scene) {
     lobes.info = lobes.info || scene.lobe;
   }
 
-  // Satellite
-  viewer.entities.add({
+  // Satellite: marker, nadir line and sub-satellite point (so the beam always has a visible origin)
+  tag(viewer.entities.add({
+    polyline: { positions: [satWorld, nadirWorld], width: 1.4, arcType: Cesium.ArcType.NONE,
+                material: new Cesium.PolylineDashMaterialProperty({ color: C.satellite.withAlpha(0.8), dashLength: 24 }) },
+  }), "nadir");
+  tag(viewer.entities.add({
+    position: nadirWorld,
+    point: { pixelSize: 7, color: C.satellite, outlineColor: Cesium.Color.WHITE, outlineWidth: 1.5,
+             disableDepthTestDistance: Number.POSITIVE_INFINITY },
+    label: { text: `nadir ${sat.lat_deg.toFixed(2)}°, ${sat.lon_deg.toFixed(2)}°`, font: "11px 'Segoe UI', Arial, sans-serif",
+             fillColor: C.satellite, outlineColor: Cesium.Color.BLACK, outlineWidth: 3, style: Cesium.LabelStyle.FILL_AND_OUTLINE,
+             verticalOrigin: Cesium.VerticalOrigin.TOP, pixelOffset: new Cesium.Cartesian2(0, 8),
+             disableDepthTestDistance: Number.POSITIVE_INFINITY },
+  }), "nadir");
+  tag(viewer.entities.add({
     name: "Satellite",
     position: satWorld,
-    point: { pixelSize: 14, color: C.satellite, outlineColor: Cesium.Color.WHITE, outlineWidth: 2 },
+    point: { pixelSize: 14, color: C.satellite, outlineColor: Cesium.Color.WHITE, outlineWidth: 2,
+             disableDepthTestDistance: Number.POSITIVE_INFINITY },
     label: {
-      text: "SAT",
+      text: `SAT  alt ${(sat.alt_m / 1000).toFixed(0)} km\nsub-sat ${sat.lat_deg.toFixed(2)}°, ${sat.lon_deg.toFixed(2)}°`,
       font: "bold 13px 'Segoe UI', Arial, sans-serif",
       fillColor: C.satellite,
       outlineColor: Cesium.Color.BLACK,
@@ -1267,9 +1389,10 @@ function renderSingleSpaceStationScene(scene) {
       pixelOffset: new Cesium.Cartesian2(0, -16),
       disableDepthTestDistance: Number.POSITIVE_INFINITY,
     },
-  });
+  }), "sat");
 
   if (!isMacroCountries) {
+    frame.points.push(esWorld);
     // Earth station (only for non-Macro_countries)
     viewer.entities.add({
       name: "Earth Station",
@@ -1297,10 +1420,11 @@ function renderSingleSpaceStationScene(scene) {
     });
   }
 
-  // Footprint
-  if (scene.footprint && scene.footprint.length > 1) {
+  // Footprint (-3 dB boundary): tagged as one layer
+  const fpStart = viewer.entities.values.length;
+  if (boundary.length > 1) {
     const footprintPositions = Cesium.Cartesian3.fromDegreesArray(
-      scene.footprint.flatMap((p) => [p.lon_deg, p.lat_deg])
+      boundary.flatMap((p) => [p.lon_deg, p.lat_deg])
     );
     // Contorno fino com brilho; preenchimento translúcido
     viewer.entities.add({
@@ -1338,7 +1462,10 @@ function renderSingleSpaceStationScene(scene) {
     }
   }
 
+  for (const e of viewer.entities.values.slice(fpStart)) tag(e, "footprint");
+
   // Country borders
+  const bdStart = viewer.entities.values.length;
   if (scene.borders && scene.borders.length > 0) {
     for (const b of scene.borders) {
       if (b.lat_deg.length < 2) continue;
@@ -1355,6 +1482,8 @@ function renderSingleSpaceStationScene(scene) {
     }
   }
 
+  for (const e of viewer.entities.values.slice(bdStart)) tag(e, "borders");
+
   // Macro_countries from the engine: sites with sectors, cells, UEs, links, lobes and ground maps
   if (scene.country) renderCountryNetwork(scene);
 
@@ -1369,18 +1498,18 @@ function renderSingleSpaceStationScene(scene) {
     // Link lines from satellite to BS centroid area
     if (scene.bs_centroid) {
       const centroidWorld = Cesium.Cartesian3.fromDegrees(scene.bs_centroid.lon_deg, scene.bs_centroid.lat_deg, 0);
-      viewer.entities.add({
+      tag(viewer.entities.add({
         polyline: {
           positions: [satWorld, centroidWorld], width: 2.5,
           material: new Cesium.PolylineDashMaterialProperty({ color: C.link }),
           arcType: Cesium.ArcType.NONE,
         },
-      });
-      viewer.entities.add({
+      }), "boresight");
+      tag(viewer.entities.add({
         position: centroidWorld,
         point: { pixelSize: 8, color: C.link, outlineColor: Cesium.Color.WHITE, outlineWidth: 1.5 },
         label: {
-          text: `${scene.country_bs.length} BS`,
+          text: `boresight target: centroid of ${scene.country_bs.length} BS`,
           font: "bold 11px 'Segoe UI', Arial, sans-serif",
           fillColor: C.link,
           outlineColor: Cesium.Color.BLACK, outlineWidth: 3,
@@ -1389,14 +1518,14 @@ function renderSingleSpaceStationScene(scene) {
           pixelOffset: new Cesium.Cartesian2(0, -12),
           disableDepthTestDistance: Number.POSITIVE_INFINITY,
         },
-      });
+      }), "boresight");
     }
   }
 
-  viewer.zoomTo(viewer.entities);
+  frameScene();
   let statusMsg =
     `${scene.topology_type}: satellite (${sat.lat_deg.toFixed(1)}°, ${sat.lon_deg.toFixed(1)}°), ` +
-    `footprint ${scene.footprint.length} pts`;
+    `footprint ${boundary.length} pts`;
   if (scene._countryStatus) statusMsg += `, ${scene._countryStatus}`;
   else if (scene.country_bs) statusMsg += `, ${scene.country_bs.length} BS`;
   if (scene.borders) statusMsg += `, ${scene.borders.length} borders`;
@@ -1645,8 +1774,9 @@ function renderNtnScene(scene) {
 // Scene dispatcher + QWebChannel bridge
 // ═══════════════════════════════════════════════════════════════════
 
-function hudFromScene(scene) {
+function hudFromScene(scene, system) {
   if (!window.SharcHud || scene.error) return;
+  const sys = system || (scene.satellite ? scene : null);
   const n = (a) => (Array.isArray(a) ? a.length : 0);
   const stats = [];
   const add = (k, v) => { if (v) stats.push([k, String(v)]); };
@@ -1667,16 +1797,54 @@ function hudFromScene(scene) {
   }
   if (scene.satellite) add("Satellite", "1");
   if (scene.station) add("Earth station", "1");
+  if (sys && sys.satellite) {                           // the numbers that matter for a satellite victim
+    const sm = (sys.footprint && sys.footprint.summary) || {};
+    const sat = sys.satellite;
+    const satWorld = Cesium.Cartesian3.fromDegrees(sat.lon_deg, sat.lat_deg, sat.alt_m);
+    const tgt = (sys.footprint && sys.footprint.pointing)
+      ? { lat: sys.footprint.pointing.target_lat_deg, lon: sys.footprint.pointing.target_lon_deg }
+      : (sys.bs_centroid ? { lat: sys.bs_centroid.lat_deg, lon: sys.bs_centroid.lon_deg }
+      : (scene.reference ? { lat: scene.reference.lat_deg, lon: scene.reference.lon_deg } : null));
+    add("Sat altitude", `${(sat.alt_m / 1000).toFixed(0)} km`);
+    if (tgt) add("Sat elevation @ network", `${elevationDeg(tgt.lat, tgt.lon, satWorld).toFixed(1)}°`);
+    if (sm.freq_mhz) add("Sat frequency", `${sm.freq_mhz} MHz`);
+    if (sm.imt_freq_mhz) add("IMT frequency", `${sm.imt_freq_mhz} MHz`);
+    if (sm.imt_bw_mhz) add("IMT bandwidth", `${sm.imt_bw_mhz} MHz`);
+    if (sm.bs_eirp_dbm != null) add("BS EIRP toward sat (max)", `${sm.bs_eirp_dbm} dBm`);
+    if (sm.peak_gain_dbi != null) add("Sat peak gain", `${sm.peak_gain_dbi} dBi`);
+    if (sm.beamwidth_deg) {
+      add("Sat 3 dB beamwidth", `${sm.beamwidth_deg}°`);
+      const rKm = (sat.alt_m / 1000) * Math.tan(Cesium.Math.toRadians(sm.beamwidth_deg / 2));   // nadir approximation
+      add("-3 dB radius", `${rKm.toFixed(0)} km`);
+      add("-3 dB area", `${(Math.PI * rKm * rKm).toExponential(2)} km²`);
+    }
+    if (sm.inr_db != null) add("I/N estimate", `${sm.inr_db} dB`);
+  }
   if (scene.reference) {
     stats.push(["Reference", scene.reference.lat_deg.toFixed(3) + ", " + scene.reference.lon_deg.toFixed(3)]);
   }
   window.SharcHud.setScene({ title: scene.topology_type || "Scene", stats });
-  window.SharcHud.setLegend([
-    { color: "#4fc3f7", label: "Base station / sector" },
-    { color: "#ef5350", label: "UE" },
-    { color: "#ffd54f", label: "Beam" },
-    { color: "#7986cb", label: "Cell" },
-  ]);
+  window.SharcHud.setLegend(legendItems(scene, sys));
+}
+
+// Legend rows; those with a `layer` are click-to-hide (see hud.js). Only layers present in the scene are listed.
+function legendItems(scene, sys) {
+  const country = scene.country || (sys && sys.country);
+  const items = [{ color: "#4fc3f7", label: "Base station / sector", layer: "bs" }];
+  if (country) items.push({ color: "#7986cb", label: "Cell", layer: "cells" }, { color: "#ffd54f", label: "Sector", layer: "sectors" });
+  items.push({ color: "#ef5350", label: "UE", layer: "ues" });
+  if (!country) items.push({ color: "#ffd54f", label: "Beam", layer: "beams" }, { color: "#7986cb", label: "Cell", layer: "cells" });
+  if (sys && sys.satellite) {
+    items.push({ color: "#ff1744", label: `Satellite${sys.roles && sys.roles.system ? " (" + sys.roles.system + ")" : ""}`, layer: "sat" },
+               { color: "#ff1744", label: "Nadir line / sub-satellite point", layer: "nadir", dash: true },
+               { color: "#e040fb", label: "Footprint (-3 dB)", layer: "footprint" });
+    if (sys.bs_centroid) items.push({ color: "#ffa726", label: "Boresight: satellite to BS centroid", layer: "boresight", dash: true });
+    if (sys.borders) items.push({ color: "#90a4ae", label: "Country borders", layer: "borders" });
+  } else if (sys) {
+    items.push({ color: "#00e5ff", label: (sys.topology_type || "system") + " (victim)" });
+  }
+  if (warnSource.entities.values.length) items.push({ color: "#ff5252", label: "Sites on water", layer: "water" });
+  return items;
 }
 
 
@@ -1956,19 +2124,46 @@ function setSiteWarning(info) {
     box.className = "warn";
     card.appendChild(box);
   }
-  box.textContent = "\u26A0 " + info.message;
-  for (const s of info.sites || []) {
-    warnSource.entities.add({
+  box.textContent = "";
+  const msg = document.createElement("div");
+  msg.textContent = "\u26A0 " + info.message;
+  box.appendChild(msg);
+  const chips = document.createElement("div");
+  chips.className = "chips";
+  const sites = info.sites || [];
+  const flyTo = (s) => viewer.camera.flyTo({ destination: Cesium.Cartesian3.fromDegrees(s.lon, s.lat, 12000), duration: 1.2 });
+  sites.slice(0, 24).forEach((s) => {                   // one chip per site: click to fly there
+    const b = document.createElement("button");
+    b.textContent = "#" + (s.index + 1);
+    b.title = `Fly to site ${s.index + 1} (${s.lat.toFixed(3)}, ${s.lon.toFixed(3)})`;
+    b.addEventListener("click", () => flyTo(s));
+    chips.appendChild(b);
+  });
+  if (sites.length > 24) chips.appendChild(document.createTextNode(` +${sites.length - 24} more`));
+  if (window.pyBridge && window.pyBridge.resample_sites) {
+    const r = document.createElement("button");
+    r.className = "act";
+    r.textContent = "Resample";
+    r.title = "Draw the sites again with the next seed";
+    r.addEventListener("click", () => { r.disabled = true; r.textContent = "Resampling..."; window.pyBridge.resample_sites(); });
+    chips.appendChild(r);
+  }
+  box.appendChild(chips);
+  const blink = new Cesium.CallbackProperty(() =>                     // pulsing ring so the eye finds the site
+    Cesium.Color.fromCssColorString("#ff5252").withAlpha(0.45 + 0.55 * Math.abs(Math.sin(Date.now() / 350))), false);
+  for (const s of sites) {
+    tag(warnSource.entities.add({
       position: Cesium.Cartesian3.fromDegrees(s.lon, s.lat, 30),
-      point: { pixelSize: 16, color: Cesium.Color.TRANSPARENT, outlineColor: Cesium.Color.fromCssColorString("#ff5252"),
+      point: { pixelSize: 16, color: Cesium.Color.TRANSPARENT, outlineColor: blink,
                outlineWidth: 3, disableDepthTestDistance: Number.POSITIVE_INFINITY },
       label: { text: "ON WATER", font: "bold 11px 'Segoe UI', sans-serif", fillColor: Cesium.Color.fromCssColorString("#ff8a80"),
                outlineColor: Cesium.Color.BLACK, outlineWidth: 3, style: Cesium.LabelStyle.FILL_AND_OUTLINE,
                verticalOrigin: Cesium.VerticalOrigin.BOTTOM, pixelOffset: new Cesium.Cartesian2(0, -14),
                distanceDisplayCondition: new Cesium.DistanceDisplayCondition(0, 60000),
                disableDepthTestDistance: Number.POSITIVE_INFINITY },
-    });
+    }), "water");
   }
+  if (window.SharcHud && lastScene) window.SharcHud.setLegend(legendItems(lastScene.imt || lastScene, lastScene.system || null));
   viewer.scene.requestRender();
 }
 
@@ -2295,26 +2490,21 @@ function renderComposite(scene) {
   if (scene.terrain && scene.imt && scene.imt.reference) warmTiles(scene.imt.reference.lat_deg, scene.imt.reference.lon_deg);
   const realZoom = viewer.zoomTo.bind(viewer);
   viewer.zoomTo = () => Promise.resolve(true);   // só enquadra uma vez, no fim
+  if (scene.imt && scene.imt.reference) frame.points.push(Cesium.Cartesian3.fromDegrees(scene.imt.reference.lon_deg, scene.imt.reference.lat_deg, 0));
   renderPart(scene.imt);
   const imtCount = viewer.entities.values.length;
   const imtEntities = viewer.entities.values.slice();
   if (scene.system) renderPart(scene.system);
+  autoTag();
   if (lobes.on) setLobes(true);                        // refresh the colour bar after a redraw
   if (interf.on || interf.bsEnts.length) setInterf(interf.on);   // victim position is known only now
   viewer.zoomTo = realZoom;
   // enquadra a rede IMT (a escala de células); o sistema fica a um zoom-out
   viewer.zoomTo(imtEntities.length ? imtEntities : viewer.entities);
   if (window.SharcHud) {
-    hudFromScene(scene.imt);
-    if (scene.system) {
-      const sysName = (scene.system.topology_type || 'system');
-      window.SharcHud.setLegend([
-        { color: '#4fc3f7', label: 'Base station / sector' }, { color: '#ef5350', label: 'UE' },
-        { color: '#ffd54f', label: 'Beam' }, { color: '#00e5ff', label: sysName + ' (victim)' },
-        { color: '#ff1744', label: 'Satellite' },
-      ]);
-    }
+    hudFromScene(scene.imt, scene.system);
   }
+  if (scene.system && scene.system.satellite) frameScene();   // satellite + network in one frame, never a beam without origin
   setStatus((scene.topology_type || '') + ': ' + imtCount + ' IMT entities' + (scene.system ? ' + victim system' : ''));
 }
 
@@ -2379,8 +2569,11 @@ function setContour(payload, fly) {
   viewer.scene.requestRender();
 }
 
+let lastScene = null;
 function renderScene(scene) {
+  lastScene = scene;
   viewer.entities.removeAll();
+  frame.points = [];
   showWarnings(scene.warnings);
   applyTerrain(scene.terrain || null);
   if (scene.composite && !scene.error) { clearSceneProblem(); renderComposite(scene); return; }
@@ -2405,6 +2598,7 @@ function renderScene(scene) {
   } else {
     renderHexSectorScene(scene);
   }
+  autoTag();
   hudFromScene(scene);
 }
 
@@ -2543,4 +2737,84 @@ function streetStep() {
     street.drag = { x: e.clientX, y: e.clientY };
   });
   window.SharcStreet = { enter: enterStreet, leave: leaveStreet, state: street };
+})();
+
+
+// ═════════════════════════════════════════════════
+// Navigation: damped, collision-aware camera; Shift/Ctrl/middle drag tilts; double-click flies to the point under the cursor;
+// arrow / Q E / N T keys; compass and help card.
+// ═════════════════════════════════════════════════
+(function navigation() {
+  const cam = viewer.camera, canvas = viewer.canvas, ctl = viewer.scene.screenSpaceCameraController;
+  const T = Cesium.CameraEventType, M = Cesium.KeyboardEventModifier;
+  ctl.enableCollisionDetection = true;
+  ctl.minimumZoomDistance = 25;                       // never dive into the ground
+  ctl.maximumZoomDistance = 6.0e7;
+  ctl.inertiaSpin = 0.92; ctl.inertiaTranslate = 0.92; ctl.inertiaZoom = 0.82;
+  ctl.tiltEventTypes = [T.MIDDLE_DRAG, T.PINCH, { eventType: T.LEFT_DRAG, modifier: M.CTRL }, { eventType: T.RIGHT_DRAG, modifier: M.CTRL },
+                        { eventType: T.LEFT_DRAG, modifier: M.SHIFT }];
+  ctl.zoomEventTypes = [T.RIGHT_DRAG, T.WHEEL, T.PINCH];
+
+  const deg = Cesium.Math.toDegrees, rad = Cesium.Math.toRadians;
+  const centrePoint = () => groundPick(new Cesium.Cartesian2(canvas.clientWidth / 2, canvas.clientHeight / 2));
+
+  // Orbit about the screen centre: new heading / pitch keep the distance to the point looked at.
+  function orbit(headingDeg, pitchDeg) {
+    const target = centrePoint();
+    if (!target) return;
+    const range = Cesium.Cartesian3.distance(cam.positionWC, target);
+    const h = headingDeg == null ? cam.heading : rad(headingDeg);
+    const p = pitchDeg == null ? cam.pitch : rad(pitchDeg);
+    cam.flyToBoundingSphere(new Cesium.BoundingSphere(target, 1), { duration: 0.6, offset: new Cesium.HeadingPitchRange(h, p, range) });
+  }
+  const step = (d) => orbit(deg(cam.heading) + d, null);
+
+  // Double-click: fly closer to the point under the cursor, keep heading, look down at least 30 degrees.
+  viewer.screenSpaceEventHandler.removeInputAction(Cesium.ScreenSpaceEventType.LEFT_DOUBLE_CLICK);
+  viewer.screenSpaceEventHandler.setInputAction((m) => {
+    if (street.on) return;
+    const target = groundPick(m.position);
+    if (!target) return;
+    const range = Math.max(Cesium.Cartesian3.distance(cam.positionWC, target) * 0.4, 120);
+    cam.flyToBoundingSphere(new Cesium.BoundingSphere(target, 1), {
+      duration: 1.1, offset: new Cesium.HeadingPitchRange(cam.heading, Math.min(cam.pitch, rad(-30)), range) });
+  }, Cesium.ScreenSpaceEventType.LEFT_DOUBLE_CLICK);
+
+  // Keyboard (skipped while typing, in street view, or with a modifier).
+  window.addEventListener("keydown", (e) => {
+    const t = e.target && e.target.tagName ? e.target.tagName.toUpperCase() : "";
+    if (t === "INPUT" || t === "TEXTAREA" || t === "SELECT" || e.ctrlKey || e.altKey || e.metaKey || street.on) return;
+    const height = Math.max(cam.positionCartographic ? cam.positionCartographic.height : 1000, 50);
+    const k = e.key;
+    const done = () => { e.preventDefault(); viewer.scene.requestRender(); };
+    if (k === "ArrowUp") { cam.moveForward(height * 0.08); done(); }
+    else if (k === "ArrowDown") { cam.moveBackward(height * 0.08); done(); }
+    else if (k === "ArrowLeft") { cam.moveLeft(height * 0.08); done(); }
+    else if (k === "ArrowRight") { cam.moveRight(height * 0.08); done(); }
+    else if (k === "+" || k === "=") { cam.zoomIn(height * 0.25); done(); }
+    else if (k === "-" || k === "_") { cam.zoomOut(height * 0.25); done(); }
+    else if (k === "q" || k === "Q") { step(-10); e.preventDefault(); }
+    else if (k === "e" || k === "E") { step(10); e.preventDefault(); }
+    else if (k === "n" || k === "N") { orbit(0, null); e.preventDefault(); }
+    else if (k === "t" || k === "T") { orbit(null, -90); e.preventDefault(); }
+    else if (k === "?") { toggleHelp(); e.preventDefault(); }
+  });
+
+  // Compass: needle follows the heading; click = north up, double-click = top-down.
+  const compass = document.getElementById("hudCompass");
+  if (compass) {
+    const dial = compass.querySelector(".dial");
+    viewer.scene.postRender.addEventListener(() => { dial.style.transform = `rotate(${-deg(cam.heading).toFixed(1)}deg)`; });
+    compass.addEventListener("click", () => orbit(0, null));
+    compass.addEventListener("dblclick", () => orbit(0, -90));
+  }
+
+  function toggleHelp() {
+    const h = document.getElementById("navHelp"), b = document.getElementById("btnNav");
+    if (!h) return;
+    const on = h.classList.toggle("show");
+    if (b) b.classList.toggle("on", on);
+  }
+  const bn = document.getElementById("btnNav");
+  if (bn) bn.addEventListener("click", toggleHelp);
 })();

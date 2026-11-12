@@ -51,8 +51,19 @@ html, body, #cesiumContainer {
 
 .legend { left: 10px; bottom: 34px; padding: 6px 10px; display: none; }
 .legend.show { display: block; }
+.legend.hidden { display: none !important; }
 .legend .row { display: flex; align-items: center; gap: 8px; margin: 2px 0; color: var(--muted); }
-.legend .sw { width: 10px; height: 10px; border-radius: 1px; border: 1px solid rgba(255,255,255,0.35); }
+.legend .sw { width: 10px; height: 10px; border-radius: 1px; border: 1px solid rgba(255,255,255,0.35); flex: none; }
+.legend .sw.dash { height: 0; border-width: 0 0 2px 0; border-style: dashed; }
+.legend .row.toggle { cursor: pointer; user-select: none; }
+.legend .row.toggle:hover { color: var(--text); }
+.legend .row.off { opacity: 0.4; text-decoration: line-through; }
+#hudWarn .chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 5px; align-items: center; }
+#hudWarn .chips button { font: inherit; font-size: 10px; padding: 1px 6px; color: #ffb4ab; background: rgba(255, 82, 82, 0.15);
+  border: 1px solid rgba(255, 82, 82, 0.6); border-radius: 3px; cursor: pointer; }
+#hudWarn .chips button:hover { background: rgba(255, 82, 82, 0.35); color: #fff; }
+#hudWarn .chips button.act { margin-left: auto; color: #fff; background: rgba(255, 82, 82, 0.5); font-weight: 600; }
+#hudWarn .chips button:disabled { opacity: 0.5; cursor: default; }
 
 .bar {
   position: absolute; z-index: 10; left: 0; right: 0; bottom: 0; height: 22px;
@@ -108,3 +119,28 @@ body.placing #cesiumContainer { cursor: crosshair; }
 
 /* Line icons for the 3D toolbar (no glyphs or emoji) */
 .tools button svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; display: block; margin: 0 auto; pointer-events: none; }
+
+/* fold / hide controls */
+#hudScene.folded > :not(.eyebrow) { display: none; }
+#hudScene.folded { min-width: 0; padding-bottom: 6px; }
+#hudScene .eyebrow::after { content: "  \2013"; opacity: 0.6; }
+#hudScene.folded .eyebrow::after { content: "  +"; }
+.legend .head { display: flex; justify-content: space-between; align-items: center; gap: 14px; font-size: 9px; letter-spacing: 0.16em;
+  font-weight: 700; color: var(--accent); cursor: pointer; margin-bottom: 3px; user-select: none; }
+.legend .head .x { background: none; border: 0; color: var(--muted); font-size: 14px; line-height: 1; cursor: pointer; padding: 0 2px; }
+.legend .head .x:hover { color: #fff; }
+.legend.folded .row { display: none; }
+.legend .row.toggle::before { content: ""; width: 8px; height: 8px; border: 1px solid currentColor; background: currentColor; flex: none; border-radius: 1px; }
+.legend .row.toggle.off::before { background: transparent; }
+/* compass and navigation help */
+#hudCompass { position: absolute; z-index: 10; right: 64px; bottom: 40px; width: 44px; height: 44px; border-radius: 50%; cursor: pointer;
+  background: var(--bg); border: 1px solid var(--border); box-shadow: 0 4px 14px rgba(0,0,0,.45); }
+#hudCompass .dial { position: absolute; inset: 0; }
+#hudCompass .dial::before { content: ""; position: absolute; left: 50%; top: 6px; margin-left: -4px; border: 4px solid transparent;
+  border-bottom: 14px solid #ef5350; border-top: 0; }
+#hudCompass .dial::after { content: ""; position: absolute; left: 50%; bottom: 6px; margin-left: -4px; border: 4px solid transparent;
+  border-top: 14px solid #8d949b; border-bottom: 0; }
+#hudCompass .n { position: absolute; left: 0; right: 0; top: -15px; text-align: center; font-size: 10px; font-weight: 700; color: #ef5350; }
+#navHelp { right: 64px; bottom: 92px; padding: 8px 12px; display: none; line-height: 1.7; color: var(--muted); }
+#navHelp.show { display: block; }
+#navHelp b { color: var(--text); font-weight: 600; display: inline-block; min-width: 130px; }

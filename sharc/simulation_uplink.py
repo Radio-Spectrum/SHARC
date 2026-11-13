@@ -1355,8 +1355,8 @@ class SimulationUplink(Simulation):
         self.system.sta.ext_interference[sta_active] = 10 * np.log10(rx_interference_linear_sta[sta_active])
 
         #calculate total interference at the system
-        intra_ap_mw = np.power(10, 0.1 * self.system.ap.rx_interference).flatten()
-        intra_sta_mw = np.power(10, 0.1 * self.system.sta.rx_interference).flatten()
+        intra_ap_mw = np.power(10, 0.1 * self.system.ap.intra_interference)
+        intra_sta_mw = np.power(10, 0.1 * self.system.sta.intra_interference)
 
         total_interf_ap_mw = intra_ap_mw
         total_interf_sta_mw = intra_sta_mw

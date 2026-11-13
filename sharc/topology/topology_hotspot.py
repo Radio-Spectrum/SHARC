@@ -180,6 +180,11 @@ class TopologyHotspot(Topology):
         -------
             True if there is intersection between any two hotspots
         """
+        # NumPy >= 2.5 refuses math.* on 1-element arrays: use plain floats
+        candidate_x = float(np.ravel(candidate_x)[0])
+        candidate_y = float(np.ravel(candidate_y)[0])
+        candidate_azimuth = float(np.ravel(candidate_azimuth)[0])
+
         # Each hotspot coverage area corresponds to a Polygon object
         # Creating the set of polygons
         set_polygons = list()

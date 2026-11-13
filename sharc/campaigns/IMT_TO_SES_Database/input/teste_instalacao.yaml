@@ -1,0 +1,179 @@
+# TESTE DE INSTALACAO DO SHARC (pacote de 09/10/2026)
+# Derivado da linha de base da campanha db_400 do estudo RAS/ROEN (Ceara): 30 estacoes-base mais
+# proximas do ROEN, SEM terreno real, 10 snapshots. Caminhos relativos a pasta sharc/ (rodar de la).
+# Ver LEIA-ME_INSTALACAO.md, secao 5. Os comentarios abaixo sao os da campanha original.
+#
+### Campanha RAS/ROEN - Ceara | Hte REAL por BS
+#
+# Estacao vitima: VGOS 12 m do FGO/ROEN, Eusebio (CE). Faixa RA3 (4800-4990 MHz).
+# Interferencia por espurias do n78 -> canal adjacente, cocanal desligado.
+#
+# Esta e a campanha de altura REAL: 'hte_from_db: true' faz o P.452 usar a altura
+# de cada BS (coluna 'altura' da base, 1,6 a 102 m, mediana 40).
+# O par de comparacao e RAS_CE_hte_40m.yaml, identico exceto por esse ponto.
+
+general:
+  num_snapshots: 5        # x num_subsets (2) = 10 snapshots
+  imt_link: DOWNLINK
+  system: SINGLE_EARTH_STATION
+  enable_cochannel: false       # a interferencia e por espurias, nao cocanal
+  enable_adjacent_channel: true
+  seed: 75
+  overwrite_output: false
+  output_dir: 'campaigns/IMT_TO_SES_Database/output/'
+  output_dir_prefix: teste_instalacao
+database:
+  # Base ja pre-processada: azimute convertido para ENU e linhas embaralhadas
+  # com seed 75. Ver database/LEIAME.md. NAO reconverter o azimute.
+  database_file_name: '../database/db_teste_30bs.csv'
+  delimiter: ','
+  num_subsets: 2
+  from_db_topology_countries: true
+  use_real_terrain: false
+  terrain:
+    ref_gpkg: ''
+    mesh_resolution_m: 100.0   # 100 m, nao 1000: a 1000 m o mesh degenera em malha uniforme
+    mesh_urban_res_m: 35       # a 100 m/px estes tres passam a ter efeito real
+    mesh_suburban_res_m: 150
+    mesh_rural_res_m: 500
+    mesh_output_dir: '../teste_instalacao/saida/data'
+imt:
+  minimum_separation_distance_bs_ue: 35
+  interfered_with: false
+  imt_dl_intra_sinr_calculation_disabled: true
+  frequency: 3500           # centro do bloco equivalente (3300-3700)
+  bandwidth: 400            # 4 operadoras reunidas num bloco equivalente
+  rb_bandwidth: 0.18
+  spectral_mask: 3GPP E-UTRA   # a mascara IMT-2020 so e definida de 24,25 a 86 GHz (mask/spectral_mask_imt.py:96-126)
+  spurious_emissions: -23.98   # -30 + 10log10(4): Cat B x4 operadoras
+  adjacent_ch_emissions: SPECTRAL_MASK
+  adjacent_antenna_model: SINGLE_ELEMENT   # obrigatorio com SPECTRAL_MASK e ue.k > 1
+  guard_band_ratio: 0.1
+  topology:
+    central_latitude: -3.77      # mediana das BS do Ceara
+    central_longitude: -38.55
+    central_altitude: 30
+    type: MACRO_COUNTRIES
+    macrocell_countries:
+      country_names:
+      - Brazil
+      num_bs_total: 500       # inerte com from_db_topology_countries: true
+      cell_radius: 400.0      # idem
+      rng_seed: 10
+      dist_type: Suburban
+      raster_encoding: indexed
+      height: 20.0
+  bs:
+    load_probability: 0.5
+    conducted_power: 40.018   # 33.997 + 10log10(4): PSD volta a 14,00 dBm/MHz
+    height: 20.0
+    noise_figure: 11
+    ohmic_loss: 0
+    antenna:
+      array:
+        normalization: false
+        element_pattern: M2101
+        minimum_array_gain: -200
+        horizontal_beamsteering_range: !!python/tuple
+        - -60.0
+        - 60.0
+        vertical_beamsteering_range: !!python/tuple
+        - 90.0
+        - 100.0
+        downtilt: 6
+        element_max_g: 3.65
+        element_phi_3db: 90
+        element_theta_3db: 65
+        n_rows: 8
+        n_columns: 8
+        element_horiz_spacing: 0.5
+        element_vert_spacing: 4.2
+        element_am: 30
+        element_sla_v: 30
+        multiplication_factor: 12
+        subarray:
+          is_enabled: true
+          n_rows: 6
+          element_vert_spacing: 0.7
+          eletrical_downtilt: 3.0
+  ue:
+    k: 4
+    k_m: 1
+    indoor_percent: 70
+    distribution_type: ANGLE_AND_DISTANCE
+    distribution_distance: SQRT(UNIFORM)
+    distribution_azimuth: UNIFORM
+    tx_power_control: true
+    p_o_pusch: -92.2
+    alpha: 0.8
+    p_cmax: 23
+    power_dynamic_range: 56
+    height: 1.5
+    noise_figure: 9
+    ohmic_loss: 0
+    body_loss: 4
+    antenna:
+      array:
+        element_pattern: FIXED
+        element_max_g: -4
+        n_rows: 1
+        n_columns: 1
+  uplink:
+    attenuation_factor: 0.4
+    sinr_min: -10
+    sinr_max: 22
+  downlink:
+    attenuation_factor: 0.6
+    sinr_min: -10
+    sinr_max: 30
+  channel_model: UMa
+  shadowing: true
+
+single_earth_station:
+  antenna:
+    gain: 0.0
+    pattern: OMNI          # 0 dBi: a referencia de lobulo lateral da RA.769
+  bandwidth: 190.0         # largura de RA3: 4990 - 4800
+  channel_model: P452
+  frequency: 4895          # centro de RA3
+  polarization_loss: 0
+  geometry:
+    azimuth:
+      type: POINTING_AT_IMT_CENTER
+    elevation:
+      fixed: 0
+      type: FIXED
+    height: 15.0
+    location:
+      type: FIXED_GEO
+      fixed_geo:
+        latitude: -3.87350      # FGO/ROEN, Eusebio (CE)
+        longitude: -38.42216
+        altitude: 30.0
+  noise_temperature: 50    # Tsys do VGOS: 40-50 K
+  param_p452:
+    Dcr: 101.0
+    Dct: 100.0
+    Hre: 15.0              # igual a geometry.height da estacao RAS
+    Hte: 40                # so vale se hte_from_db for desligado; e a mediana das BS
+    hte_from_db: true      # usa a altura real de cada BS no P.452
+    N0: 352.58
+    air_temperature: 293.15
+    atmospheric_pressure: 1017
+    clutter_loss: false
+    delta_N: 60
+    percentage_p: 2.0      # 07/10/2026: p = 2 % (RA.1513/RA.1031)
+    polarization: horizontal
+    rx_lat: -3.87350       # latitude do ROEN
+    tx_lat: -3.77          # latitude representativa das BS (mediana), nao a longitude
+    clutter_type: "both_ends"
+    is_terrain: false
+    override_from_db: false
+    # --- variante c (07/10/2026): base CelPlan, ver PLANO_RESIMULACAO.md
+    profile_source: mesh
+    profile_raster: ''
+    profile_step_m: 50.0
+    clutter_raster: ''
+    clutter_heights: celplan
+    zone_raster: ''
+  tx_power_density: -200

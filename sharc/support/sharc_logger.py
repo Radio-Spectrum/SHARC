@@ -141,6 +141,11 @@ class SimulationLogger:
         return sys.version.replace("\n", " ")
 
     def _get_installed_packages(self) -> List[str]:
+        if getattr(sys, "frozen", False):
+            # sys.executable is SHARC.exe here: `-m pip` would relaunch the app, not pip.
+            from importlib import metadata
+            return sorted(f"{d.metadata['Name']}=={d.version}" for d in metadata.distributions()
+                          if d.metadata["Name"])
         try:
             output = subprocess.check_output(
                 [sys.executable, "-m", "pip", "freeze"], stderr=subprocess.DEVNULL

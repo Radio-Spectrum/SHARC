@@ -45,8 +45,15 @@ class SpectralMask3Gpp(SpectralMask):
             sys.stderr.write(message)
             sys.exit(1)
 
-        if band_mhz not in [5, 10, 15, 20]:
-            message = "ERROR\nInvalid bandwidth for 3GPP mask: " + band_mhz
+        # 100 and 400 MHz are accepted for equivalent wide blocks (e.g. several
+        # operators of 3300-3700 MHz modelled as one 400 MHz carrier), but the
+        # mask does NOT scale with the bandwidth: the BS levels stay those of
+        # 3GPP TS 36.104 for 5-20 MHz LTE channels (0-5 MHz and 10 MHz from the
+        # channel edge, then the spurious floor). That is harmless for a victim
+        # far beyond the edge, which only sees the spurious floor, and wrong for
+        # a victim close to the edge of a wide block.
+        if band_mhz not in [5, 10, 15, 20, 100, 400]:
+            message = "ERROR\nInvalid bandwidth for 3GPP mask: " + str(band_mhz)
             sys.stderr.write(message)
             sys.exit(1)
 

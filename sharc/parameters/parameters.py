@@ -22,6 +22,7 @@ from sharc.parameters.parameters_single_earth_station import ParametersSingleEar
 from sharc.parameters.parameters_mss_ss import ParametersMssSs
 from sharc.parameters.parameters_mss_d2d import ParametersMssD2d
 from sharc.parameters.parameters_single_space_station import ParametersSingleSpaceStation
+from sharc.parameters.database.parameters_database import ParametersDatabase
 
 
 class Parameters(object):
@@ -46,6 +47,7 @@ class Parameters(object):
         self.metsat_ss = ParametersMetSatSS()
         self.mss_ss = ParametersMssSs()
         self.mss_d2d = ParametersMssD2d()
+        self.database = ParametersDatabase()
 
     def set_file_name(self, file_name: str):
         """sets the configuration file name
@@ -127,6 +129,16 @@ class Parameters(object):
         self.mss_d2d.load_parameters_from_file(self.file_name)
 
         self.single_space_station.load_parameters_from_file(self.file_name)
+
+        #######################################################################
+        # Base-station database (optional)
+        #######################################################################
+        self.database.load_parameters_from_file(self.file_name)
+        if self.database.is_loaded:
+            # general.num_snapshots counts the snapshots of ONE subset: the
+            # subsets are simulated in order, each one that many times.
+            self.database.set_snapshots_per_subset(self.general.num_snapshots)
+            self.general.num_snapshots *= self.database.num_subsets
 
 
 if __name__ == "__main__":

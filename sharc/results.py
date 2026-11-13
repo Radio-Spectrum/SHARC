@@ -105,6 +105,10 @@ class Results(object):
         self.system_pfd = SampleList()
         self.system_rx_interf = SampleList()
 
+        # Base-station database runs: the subset that produced each system_inr
+        # sample (see PostProcessor.aggregate_over_subsets)
+        self.system_database_subset = SampleList()
+
         self.__sharc_dir = pathlib.Path(__file__).parent.resolve()
 
     def prepare_to_write(

@@ -79,6 +79,18 @@ class StationFactory(object):
     """
 
     @staticmethod
+    def _bs_heights(param: ParametersImt, topology: Topology) -> np.ndarray:
+        """Antenna height above ground of each BS (m).
+
+        imt.bs.height for every BS, unless the topology carries the height of
+        each site (e.g. sites read from a database).
+        """
+        site_heights = getattr(topology, "site_heights", None)
+        if site_heights is not None:
+            return np.asarray(site_heights, dtype=float)
+        return param.bs.height * np.ones(topology.num_base_stations)
+
+    @staticmethod
     def generate_imt_base_stations(
         param: ParametersImt,
         param_ant_bs: ParametersAntennaImt,
@@ -105,6 +117,8 @@ class StationFactory(object):
         """
         param_ant = param_ant_bs.get_antenna_parameters()
         num_bs = topology.num_base_stations
+        # per-site array antenna and downtilt (e.g. read from a database)
+        site_antenna_params = getattr(topology, "site_antenna_params", None)
         imt_base_stations = StationManager(num_bs)
         imt_base_stations.station_type = StationType.IMT_BS
         if param.topology.type == "NTN":
@@ -127,11 +141,15 @@ class StationFactory(object):
             if topology.determines_local_geometry:
                 imt_base_stations.geom = topology.get_bs_geometry()
 
+            if site_antenna_params is None:
+                downtilt = param_ant.downtilt * np.ones(num_bs)
+            else:
+                downtilt = np.array([p.downtilt for p in site_antenna_params])
             imt_base_stations.geom.set_local_coords(
                 topology.x * np.ones(num_bs),
                 topology.y * np.ones(num_bs),
-                param.bs.height * np.ones(num_bs),
-                elev=-param_ant.downtilt * np.ones(num_bs)
+                StationFactory._bs_heights(param, topology),
+                elev=-downtilt
             )
             if param.topology.type == 'INDOOR':
                 imt_base_stations.geom.set_local_coords(
@@ -178,13 +196,23 @@ class StationFactory(object):
         # the antenna gets the site's transform to bring in the global directions
         # the simulator passes. Without it the array would be misaligned by the
         # curvature between the site and the simulation reference point.
-        imt_base_stations.antenna = AntennaFactory.create_n_antennas(
-            param.bs.antenna,
-            imt_base_stations.geom.pointn_azim_local,
-            imt_base_stations.geom.pointn_elev_local,
-            num_bs,
-            _site_transforms(imt_base_stations.geom),
-        )
+        if site_antenna_params is None:
+            imt_base_stations.antenna = AntennaFactory.create_n_antennas(
+                param.bs.antenna,
+                imt_base_stations.geom.pointn_azim_local,
+                imt_base_stations.geom.pointn_elev_local,
+                num_bs,
+                _site_transforms(imt_base_stations.geom),
+            )
+        else:
+            imt_base_stations.antenna = AntennaFactory.create_n_antennas_from_db(
+                param.bs.antenna,
+                site_antenna_params,
+                imt_base_stations.geom.pointn_azim_local,
+                imt_base_stations.geom.pointn_elev_local,
+                num_bs,
+                _site_transforms(imt_base_stations.geom),
+            )
 
         # imt_base_stations.antenna = [AntennaOmni(0) for bs in range(num_bs)]
         imt_base_stations.bandwidth = param.bandwidth * np.ones(num_bs)
@@ -435,6 +463,7 @@ class StationFactory(object):
 
             ue_azims = np.zeros_like(imt_ue.geom.pointn_azim_global)
             ue_elevs = np.zeros_like(imt_ue.geom.pointn_elev_global)
+            bs_heights = StationFactory._bs_heights(param, topology)
 
             for bs in range(num_bs):
                 idx = [
@@ -465,7 +494,7 @@ class StationFactory(object):
                     (topology.x[bs] - x) ** 2 + (topology.y[bs] - y) ** 2,
                 )
                 psi = np.degrees(
-                    np.arctan((param.bs.height - param.ue.height) / distance),
+                    np.arctan((bs_heights[bs] - param.ue.height) / distance),
                 )
                 ue_elevs[idx] = elevation[idx] + psi
             imt_ue.geom.set_local_coords(
@@ -758,7 +787,8 @@ class StationFactory(object):
                 parameters.single_earth_station,
                 random_number_gen,
                 StationType.SINGLE_EARTH_STATION,
-                topology)
+                topology,
+                coordinate_system=coordinate_system)
         elif parameters.general.system == "SINGLE_SPACE_STATION":
             return StationFactory.generate_single_space_station(
                 parameters.single_space_station,
@@ -1163,11 +1193,17 @@ class StationFactory(object):
         return fss_earth_station
 
     @staticmethod
+    def _earth_station_ground(param: ParametersSingleEarthStation) -> float:
+        """Ground altitude of a FIXED_GEO earth-station site [m]."""
+        return float(param.geometry.location.fixed_geo.altitude)
+
+    @staticmethod
     def generate_single_earth_station(
         param: ParametersSingleEarthStation,
         random_number_gen: np.random.RandomState,
         station_type=StationType.SINGLE_EARTH_STATION,
         topology=None,
+        coordinate_system: CoordinateSystem | None = None,
     ):
         """Generate a single earth station with the given parameters.
 
@@ -1181,6 +1217,10 @@ class StationFactory(object):
             Type of the station (default is SINGLE_EARTH_STATION).
         topology : Topology, optional
             Topology object containing station positions.
+        coordinate_system : CoordinateSystem, optional
+            Simulator reference point. Needed by the FIXED_GEO location: the
+            station then has its own local ENU frame at its site, and its
+            azimuth and elevation are given in that frame.
 
         Returns
         -------
@@ -1190,7 +1230,28 @@ class StationFactory(object):
         single_earth_station = StationManager(1)
         single_earth_station.station_type = StationType.SINGLE_EARTH_STATION
 
+        geo_location = param.geometry.location.type == "FIXED_GEO"
         match param.geometry.location.type:
+            case "FIXED_GEO":
+                if coordinate_system is None or coordinate_system.ref_lat is None:
+                    raise ValueError(
+                        "Single-ES location FIXED_GEO needs the simulator reference point "
+                        "(imt.topology.central_latitude/central_longitude/central_altitude)")
+                fixed_geo = param.geometry.location.fixed_geo
+                single_earth_station.geom = SimulatorGeometry(
+                    1, uses_local_coords=True,
+                    global_cs=ENUReferenceFrame.from_coordinate_system(coordinate_system),
+                )
+                # the site's own ENU frame, at its ground altitude
+                single_earth_station.geom.set_local_reference_frame(
+                    ENUReferenceFrame(
+                        lat=np.array([fixed_geo.latitude], dtype=float),
+                        lon=np.array([fixed_geo.longitude], dtype=float),
+                        alt=np.array([StationFactory._earth_station_ground(param)], dtype=float),
+                    )
+                )
+                x = np.array([0.0])
+                y = np.array([0.0])
             case "FIXED":
                 x = np.array(
                     [param.geometry.location.fixed.x],
@@ -1214,27 +1275,28 @@ class StationFactory(object):
                 y = np.array(y)
             case "UNIFORM_DIST":
                 # ES is randomly (uniform) created inside a circle of radius
-                # equal to param.max_dist_to_bs
-                if param.geometry.location.uniform_dist.min_dist_to_bs < 0:
+                # equal to uniform_dist.max_dist_to_center
+                uniform = param.geometry.location.uniform_dist
+                if uniform.min_dist_to_center < 0:
                     sys.stderr.write(
-                        "ERROR\nInvalid minimum distance from Single ES to BS: {}".format(
-                            param.geometry.location.uniform_dist.min_dist_to_bs, ), )
+                        "ERROR\nInvalid minimum distance from Single ES to center: {}".format(
+                            uniform.min_dist_to_center, ), )
                     sys.exit(1)
                 while (True):
                     dist_x = random_number_gen.uniform(
-                        -param.geometry.location.uniform_dist.max_dist_to_bs,
-                        param.geometry.location.uniform_dist.max_dist_to_bs,
+                        -uniform.max_dist_to_center,
+                        uniform.max_dist_to_center,
                     )
                     dist_y = random_number_gen.uniform(
-                        -param.geometry.location.uniform_dist.max_dist_to_bs,
-                        param.geometry.location.uniform_dist.max_dist_to_bs,
+                        -uniform.max_dist_to_center,
+                        uniform.max_dist_to_center,
                     )
                     radius = np.sqrt(dist_x**2 + dist_y**2)
-                    if (radius > param.geometry.location.uniform_dist.min_dist_to_bs) & (
-                            radius < param.geometry.location.uniform_dist.max_dist_to_bs):
+                    if (radius > uniform.min_dist_to_center) & (
+                            radius < uniform.max_dist_to_center):
                         break
-                x = np.array(dist_x)
-                y = np.array(dist_y)
+                x = np.array([dist_x])
+                y = np.array([dist_y])
             case _:
                 sys.stderr.write(
                     "ERROR\nSingle-ES location type {} not supported".format(
@@ -1244,11 +1306,32 @@ class StationFactory(object):
 
         z = np.array([param.geometry.height])
 
-        single_earth_station.geom.set_global_coords(
-            x, y, z
-        )
+        if geo_location:
+            single_earth_station.geom.set_local_coords(x, y, z)
+        else:
+            single_earth_station.geom.set_global_coords(
+                x, y, z
+            )
 
-        if param.geometry.azimuth.type == "UNIFORM_DIST":
+        # direction of the simulator reference point (the IMT center), in the
+        # station's own frame
+        center_azim, center_elev = None, None
+        if "POINTING_AT_IMT_CENTER" in (
+                param.geometry.azimuth.type, param.geometry.elevation.type):
+            geom = single_earth_station.geom
+            # unit-free vector from the station to the reference point (the
+            # origin of the global frame), rotated into the station's frame
+            to_center = -np.stack([geom.x_global, geom.y_global, geom.z_global], axis=-1)
+            if geom.uses_local_coords:
+                to_center = geom._global2local_vectors(to_center)
+            center_azim = np.degrees(np.arctan2(to_center[:, 1], to_center[:, 0]))
+            center_elev = np.degrees(np.arctan2(
+                to_center[:, 2], np.hypot(to_center[:, 0], to_center[:, 1]),
+            ))
+
+        if param.geometry.azimuth.type == "POINTING_AT_IMT_CENTER":
+            azim = center_azim
+        elif param.geometry.azimuth.type == "UNIFORM_DIST":
             if param.geometry.azimuth.uniform_dist.min < -180:
                 sys.stderr.write(
                     "ERROR\nInvalid minimum azimuth: {} < -180".format(
@@ -1272,7 +1355,9 @@ class StationFactory(object):
                 [param.geometry.azimuth.fixed],
             )
 
-        if param.geometry.elevation.type == "UNIFORM_DIST":
+        if param.geometry.elevation.type == "POINTING_AT_IMT_CENTER":
+            elev = center_elev
+        elif param.geometry.elevation.type == "UNIFORM_DIST":
             elev = np.array([
                 random_number_gen.uniform(
                     param.geometry.elevation.uniform_dist.min, param.geometry.elevation.uniform_dist.max,
@@ -1283,16 +1368,24 @@ class StationFactory(object):
                 [param.geometry.elevation.fixed],
             )
 
-        single_earth_station.geom.set_global_coords(
-            azim=azim,
-            elev=elev,
-        )
+        if geo_location:
+            single_earth_station.geom.set_local_coords(
+                azim=azim,
+                elev=elev,
+            )
+        else:
+            single_earth_station.geom.set_global_coords(
+                azim=azim,
+                elev=elev,
+            )
 
+        # pointing as defined, in the station's own frame (the global one
+        # unless the location is FIXED_GEO)
         single_earth_station.antenna = np.array([
             AntennaFactory.create_antenna(
                 param.antenna,
-                single_earth_station.geom.pointn_azim_global,
-                single_earth_station.geom.pointn_elev_global
+                single_earth_station.geom.pointn_azim_local,
+                single_earth_station.geom.pointn_elev_local
             )
         ])
 

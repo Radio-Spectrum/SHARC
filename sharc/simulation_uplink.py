@@ -40,6 +40,8 @@ class SimulationUplink(Simulation):
 
         random_number_gen = np.random.RandomState(seed)
 
+        self.select_database_subset(snapshot_number)
+
         # In case of hotspots, base stations coordinates have to be calculated
         # on every snapshot. Anyway, let topology decide whether to calculate
         # or not
@@ -519,13 +521,17 @@ class SimulationUplink(Simulation):
         sys_active = np.where(self.system.active)[0]
         if not self.parameters.imt.interfered_with and np.any(self.bs.active):
             self.results.system_inr.extend(self.system.inr[sys_active].tolist())
+            self.record_database_subset(len(sys_active))
             # FIXME: self.system.rx_interference should not be a scalar
             self.results.system_ul_interf_power.extend(
                 [self.system.rx_interference],
             )
+            # bandwidth is a float for some systems (e.g. SINGLE_SPACE_STATION)
+            bandwidth = np.atleast_1d(np.asarray(self.system.bandwidth, dtype=float))
+            bandwidth = bandwidth[sys_active] if bandwidth.size > 1 else np.full(len(sys_active), bandwidth[0])
             self.results.system_ul_interf_power_per_mhz.extend(
                 [self.system.rx_interference
-                    - 10 * math.log10(self.system.bandwidth[sys_active])],
+                    - 10 * np.log10(bandwidth)],
             )
             # TODO: generalize this a bit more if needed
             if hasattr(

@@ -144,3 +144,29 @@ body.placing #cesiumContainer { cursor: crosshair; }
 #navHelp { right: 64px; bottom: 92px; padding: 8px 12px; display: none; line-height: 1.7; color: var(--muted); }
 #navHelp.show { display: block; }
 #navHelp b { color: var(--text); font-weight: 600; display: inline-block; min-width: 130px; }
+
+#hudReadout { right: 10px; top: 10px; padding: 5px 10px; display: none; pointer-events: none; font-variant-numeric: tabular-nums; color: var(--text); }
+#hudReadout.show { display: block; }
+#hudReadout .k { color: var(--muted); }
+
+/* Loading screen: opaque the first time (the globe is still black), a light veil on later redraws */
+#loadScreen { position: fixed; inset: 0; z-index: 60; display: flex; align-items: center; justify-content: center;
+  background: radial-gradient(ellipse at 50% 40%, #16202f 0%, #0b1018 70%); transition: opacity .45s; font-family: "Segoe UI", sans-serif; }
+#loadScreen.soft { background: rgba(11, 16, 24, 0.55); pointer-events: none; }
+#loadScreen.hide { opacity: 0; pointer-events: none; }
+#loadScreen .card { text-align: center; color: #C9D1DE; min-width: 260px; }
+#loadScreen .ring { width: 46px; height: 46px; margin: 0 auto 14px; border-radius: 50%; border: 3px solid #26334a;
+  border-top-color: #4F9DDE; animation: lsspin 0.9s linear infinite; }
+#loadScreen .brand { font-size: 20px; font-weight: 700; letter-spacing: 0.32em; color: #E6ECF5; margin-bottom: 4px; }
+#loadScreen .msg { font-size: 12px; color: #8EA0B8; margin-bottom: 14px; min-height: 16px; }
+#loadScreen .steps { list-style: none; margin: 0 auto; padding: 0; display: inline-block; text-align: left; font-size: 12px; }
+#loadScreen .steps li { padding: 2px 0 2px 20px; position: relative; color: #5E6E85; }
+#loadScreen .steps li::before { content: ""; position: absolute; left: 3px; top: 7px; width: 8px; height: 8px; border-radius: 50%; border: 1.5px solid #3b4a63; }
+#loadScreen .steps li.doing { color: #E6ECF5; }
+#loadScreen .steps li.doing::before { border-color: #4F9DDE; background: #4F9DDE; animation: lspulse 1s ease-in-out infinite; }
+#loadScreen .steps li.done { color: #8EA0B8; }
+#loadScreen .steps li.done::before { border-color: #43a047; background: #43a047; }
+#loadScreen.soft .steps, #loadScreen.soft .brand { display: none; }
+#loadScreen.soft .card { background: rgba(20, 26, 38, 0.92); border: 1px solid #2A3446; border-radius: 8px; padding: 16px 22px 8px; }
+@keyframes lsspin { to { transform: rotate(360deg); } }
+@keyframes lspulse { 50% { opacity: 0.35; } }

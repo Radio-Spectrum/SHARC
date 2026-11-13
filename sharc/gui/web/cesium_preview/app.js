@@ -36,6 +36,48 @@ const Loading = (function () {
 })();
 window.SharcLoading = Loading;
 
+// ── Loading screen (index.html #loadScreen): first load is opaque (viewer, engine scene, map tiles); later redraws
+//    show a light veil only when the engine takes longer than a moment.
+const LoadScreen = (function () {
+  const el = document.getElementById("loadScreen"), msg = document.getElementById("lsMsg");
+  const step = { viewer: document.getElementById("lsViewer"), engine: document.getElementById("lsEngine"), tiles: document.getElementById("lsTiles") };
+  let firstDone = false, softTimer = null, safety = null;
+  function mark(name, state) { if (step[name]) step[name].className = state || ""; }
+  function hide() {
+    clearTimeout(softTimer); clearTimeout(safety); softTimer = safety = null;
+    el.classList.add("hide");
+    firstDone = true;
+  }
+  return {
+    viewerReady() { mark("viewer", "done"); mark("engine", "doing"); if (msg && !firstDone) msg.textContent = "Waiting for the engine..."; },
+    engineStart(topology) {
+      topology = topology === "SCENARIO" ? "scenario" : topology + " scene";
+      if (!firstDone) { mark("engine", "doing"); if (msg) msg.textContent = `Building the ${topology} in the engine...`; return; }
+      clearTimeout(softTimer);
+      softTimer = setTimeout(() => {                       // a redraw that takes a moment: veil with a spinner
+        if (msg) msg.textContent = `Building the ${topology}...`;
+        el.classList.add("soft"); el.classList.remove("hide");
+      }, 700);
+    },
+    engineDone(ok, err) {
+      mark("engine", ok ? "done" : "");
+      if (!ok) { if (msg) msg.textContent = "Scene failed: " + err; setTimeout(hide, 2500); return; }
+      if (firstDone) { hide(); return; }
+      mark("tiles", "doing"); if (msg) msg.textContent = "Loading map, terrain and tiles...";
+      const globe = viewer.scene.globe;
+      let quiet = 0;
+      const check = () => {                                // tiles settle: queue empty for a short while
+        if (globe.tilesLoaded) quiet++; else quiet = 0;
+        if (quiet >= 3) { mark("tiles", "done"); hide(); return; }
+        setTimeout(check, 250);
+      };
+      setTimeout(check, 400);
+      safety = setTimeout(hide, 12000);                    // never keep the view covered if a tile server is slow
+    },
+  };
+})();
+window.SharcLoadScreen = LoadScreen;
+
 function setStatus(text) {
   statusEl.textContent = text;
   console.log("[cesium_spike]", text);
@@ -880,6 +922,32 @@ function setHeat(mode) {
   viewer.scene.requestRender();
 }
 
+// Hover read-out: lat/lon and the value of the active heat map under the cursor, in a fixed corner box so it never hides under the pointer
+(function wireHeatReadout() {
+  const box = document.getElementById("hudReadout");
+  if (!box) return;
+  let busy = false;
+  const hide = () => box.classList.remove("show");
+  const h = new Cesium.ScreenSpaceEventHandler(viewer.canvas);
+  h.setInputAction((mv) => {
+    if (busy) return;
+    busy = true;
+    requestAnimationFrame(() => {
+      busy = false;
+      const src = heat.mode && heat.ent ? heatSource() : null, m = src ? src.maps[heat.mode] : null;
+      const hit = m ? groundPick(mv.endPosition) : null;
+      if (!hit) return hide();
+      const c = Cesium.Cartographic.fromCartesian(hit), lon = Cesium.Math.toDegrees(c.longitude), lat = Cesium.Math.toDegrees(c.latitude);
+      const x = (lon - src.west) / (src.east - src.west), y = (lat - src.south) / (src.north - src.south);
+      if (!(x >= 0 && x <= 1 && y >= 0 && y <= 1)) return hide();
+      const v = heatSample(m.values, src.n, x * (src.n - 1), y * (src.n - 1));   // row 0 is south
+      const val = Number.isFinite(v) ? v.toFixed(1) + " " + m.unit : "n/a";
+      box.innerHTML = `<span class="k">${m.title}</span> <b>${val}</b><br><span class="k">lat</span> ${lat.toFixed(4)} &nbsp;<span class="k">lon</span> ${lon.toFixed(4)}`;
+      box.classList.add("show");
+    });
+  }, Cesium.ScreenSpaceEventType.MOUSE_MOVE);
+})();
+
 (function wireHeatButton() {
   const btn = document.getElementById("btnHeat");
   if (btn) btn.addEventListener("click", () => {
@@ -1420,46 +1488,40 @@ function renderSingleSpaceStationScene(scene) {
     });
   }
 
-  // Footprint (-3 dB boundary): tagged as one layer
+  // Footprint: the beam is a heat map. Nested shells at -20 ... -1 dB below the peak (from the engine gain grid, so
+  // real pointing and beam shape), each coloured with the gain scale; drawn from the outside in, the translucent
+  // layers add up to a hot core, both on the ground and in the volume of the cone. Without that grid the circular
+  // -3 dB boundary is drawn. One layer.
   const fpStart = viewer.entities.values.length;
-  if (boundary.length > 1) {
-    const footprintPositions = Cesium.Cartesian3.fromDegreesArray(
-      boundary.flatMap((p) => [p.lon_deg, p.lat_deg])
-    );
-    // Contorno fino com brilho; preenchimento translúcido
-    viewer.entities.add({
-      polyline: { positions: footprintPositions, width: 1.8, material: glow(C.footprint.withAlpha(0.95), 0.22), clampToGround: true },
-    });
-    viewer.entities.add({
-      polygon: {
-        hierarchy: new Cesium.PolygonHierarchy(footprintPositions),
-        material: C.footprint.withAlpha(0.12),
-        outline: false,
-      },
-    });
-    // Volume do feixe: leque de triângulos translúcidos (satélite -> contorno) + poucas arestas finas
-    const triStep = Math.max(1, Math.floor(footprintPositions.length / 48));
-    for (let i = 0; i + triStep < footprintPositions.length; i += triStep) {
-      viewer.entities.add({
-        polygon: {
-          hierarchy: [satWorld, footprintPositions[i], footprintPositions[i + triStep]],
-          perPositionHeight: true,
-          material: C.footprint.withAlpha(0.045),
-          outline: false,
-        },
-      });
+  const rings = scene.footprint && scene.footprint.rings && scene.footprint.rings["-3"] ? scene.footprint.rings : null;
+  const levelsDb = rings ? Object.keys(rings).sort((a, b) => parseFloat(a) - parseFloat(b)) : ["-3"];   // most negative first
+  const heatOf = (k) => { const t = 0.12 + 0.83 * Math.max(0, Math.min(1, 1 + parseFloat(k) / 20)); const c = turboColor(t); return new Cesium.Color(c.red, c.green, c.blue, 1); };
+  for (const k of levelsDb) {
+    const ring = rings ? rings[k] : boundary;
+    if (!ring || ring.length < 3) continue;
+    const col = rings ? heatOf(k) : C.footprint, main = k === "-3";
+    const pos = Cesium.Cartesian3.fromDegreesArray(ring.flatMap((p) => [p.lon_deg, p.lat_deg]));
+    viewer.entities.add({ name: `Footprint ${k} dB`, polyline: { positions: pos.concat([pos[0]]), width: main ? 2.4 : 1.2, clampToGround: true,
+      material: main ? glow(col.withAlpha(1.0), 0.25) : col.withAlpha(0.75) } });
+    viewer.entities.add({ polygon: { hierarchy: new Cesium.PolygonHierarchy(pos), material: col.withAlpha(rings ? 0.22 : 0.12), outline: false } });
+    const vstep = Math.max(1, Math.round(pos.length / 48));
+    for (let n = 0; n < pos.length; n += vstep) {                   // translucent volume: fan from the satellite to the ring
+      viewer.entities.add({ polygon: { hierarchy: [satWorld, pos[n], pos[(n + vstep) % pos.length]], perPositionHeight: true,
+        material: col.withAlpha(rings ? 0.05 : 0.06), outline: false } });
     }
-    const beamStep = Math.max(1, Math.floor(footprintPositions.length / 8));
-    for (let i = 0; i < footprintPositions.length; i += beamStep) {
-      viewer.entities.add({
-        polyline: {
-          positions: [satWorld, footprintPositions[i]],
-          width: 1,
-          material: C.footprint.withAlpha(0.35),
-          arcType: Cesium.ArcType.NONE,
-        },
-      });
+    const edgeStep = Math.max(1, Math.floor(pos.length / (main ? 12 : 6)));
+    for (let n = 0; n < pos.length; n += edgeStep) {                // edges
+      viewer.entities.add({ polyline: { positions: [satWorld, pos[n]], width: main ? 1.4 : 0.8, arcType: Cesium.ArcType.NONE,
+        material: col.withAlpha(main ? 0.6 : 0.22) } });
     }
+  }
+  const aim = scene.footprint && scene.footprint.pointing;           // boresight: where the engine points the beam
+  if (aim) {
+    const target = Cesium.Cartesian3.fromDegrees(aim.target_lon_deg, aim.target_lat_deg, 0);
+    viewer.entities.add({ name: "Beam boresight", polyline: { positions: [satWorld, target], width: 1.6, arcType: Cesium.ArcType.NONE,
+      material: new Cesium.PolylineDashMaterialProperty({ color: C.footprint.withAlpha(0.9), dashLength: 18 }) } });
+    viewer.entities.add({ position: target, point: { pixelSize: 6, color: C.footprint, outlineColor: Cesium.Color.WHITE, outlineWidth: 1.5,
+      heightReference: Cesium.HeightReference.CLAMP_TO_GROUND } });
   }
 
   for (const e of viewer.entities.values.slice(fpStart)) tag(e, "footprint");
@@ -1651,15 +1713,17 @@ function renderSingleStationScene(scene) {
 
 // MSS_DC: a constellation seen from the ground (core/country_scene.constellation). Beams are the engine's "base
 // stations": each footprint is where the beam boresight meets the Earth; colour = serving satellite.
+const mssdcPick = { dispose: () => {} };      // the click handler of the last MSS_DC scene: released before the next draw
 function renderMssDcScene(scene) {
   const c = scene.constellation;
   if (!scene.as_system) resetEngineLayers({});   // a victim constellation draws after the IMT network: keep its layers
   const hue = (k) => Cesium.Color.fromHsl((k * 0.618033988) % 1, 0.65, 0.55);
   const satPos = c.satellites.map((s) => Cesium.Cartesian3.fromDegrees(s.lon_deg, s.lat_deg, s.alt_m));
+  const sel = { sat: -1, beams: [], links: [], pts: [] };    // click a satellite: its beams and links stand out, the rest fade
 
   c.satellites.forEach((s, k) => {
     addModel("Satellite model", "/models/satellite.glb", satPos[k], 0, -90, { minimumPixelSize: 30, maximumScale: 300000 });
-    viewer.entities.add({
+    const pt = viewer.entities.add({
       position: satPos[k],
       point: { pixelSize: 6, color: hue(k), outlineColor: Cesium.Color.WHITE, outlineWidth: 1 },
       label: { text: `SAT ${k + 1} · ${s.beams} beams`, font: "11px 'Segoe UI', Arial, sans-serif", fillColor: hue(k),
@@ -1667,13 +1731,15 @@ function renderMssDcScene(scene) {
                verticalOrigin: Cesium.VerticalOrigin.BOTTOM, pixelOffset: new Cesium.Cartesian2(0, -14),
                distanceDisplayCondition: new Cesium.DistanceDisplayCondition(0, 6.0e6) },
     });
+    pt.satIndex = k;
+    sel.pts.push(pt);
   });
   for (const b of c.beams) {                           // footprint on the ground, to scale
-    viewer.entities.add({
+    sel.beams.push({ sat: b.sat, ent: viewer.entities.add({
       position: Cesium.Cartesian3.fromDegrees(b.lon_deg, b.lat_deg, 0),
       ellipse: { semiMajorAxis: c.beam_radius_m, semiMinorAxis: c.beam_radius_m, material: hue(b.sat).withAlpha(0.20),
                  outline: true, outlineColor: hue(b.sat).withAlpha(0.75) },
-    });
+    }) });
   }
   for (const u of c.ues) {
     viewer.entities.add({
@@ -1682,13 +1748,41 @@ function renderMssDcScene(scene) {
     });
   }
   for (const l of c.links) {                           // UE to the satellite of its beam
-    viewer.entities.add({
+    sel.links.push({ sat: l.sat, link: l, ent: viewer.entities.add({
       name: `UE link: ${l.dist_km} km, elevation ${l.elev_deg}°`,
       polyline: { positions: [Cesium.Cartesian3.fromDegrees(l.ue_lon_deg, l.ue_lat_deg, 1.5), satPos[l.sat]], width: 1.2,
                   material: new Cesium.PolylineDashMaterialProperty({ color: hue(l.sat).withAlpha(0.6) }),
                   arcType: Cesium.ArcType.NONE },
-    });
+    }) });
   }
+  const baseStatus = () => `${scene.topology_type}: ${c.satellites.length} satellites, ${c.beams.length} beams of ${(c.beam_radius_m / 1000).toFixed(1)} km radius`;
+  function selectSat(k) {                             // k = -1 clears the selection
+    sel.sat = k;
+    for (const b of sel.beams) {
+      const on = k < 0 || b.sat === k;
+      b.ent.ellipse.material = hue(b.sat).withAlpha(k < 0 ? 0.20 : on ? 0.40 : 0.04);
+      b.ent.ellipse.outlineColor = hue(b.sat).withAlpha(k < 0 ? 0.75 : on ? 1.0 : 0.12);
+    }
+    for (const l of sel.links) l.ent.show = k < 0 || l.sat === k;
+    sel.pts.forEach((p) => { p.point.pixelSize = p.satIndex === k ? 11 : 6; });
+    if (k < 0) { setStatus(baseStatus()); viewer.scene.requestRender(); return; }
+    const mine = sel.links.filter((l) => l.sat === k).map((l) => l.link);
+    const el = mine.map((l) => l.elev_deg), d = mine.map((l) => l.dist_km);
+    const rng = (a, u) => (a.length ? `${Math.min(...a).toFixed(0)} to ${Math.max(...a).toFixed(0)} ${u}` : "no UE sampled");
+    setStatus(`SAT ${k + 1}: altitude ${(c.satellites[k].alt_m / 1000).toFixed(0)} km, ${c.satellites[k].beams} beams, ` +
+              `${mine.length} UE links shown (elevation ${rng(el, "deg")}, distance ${rng(d, "km")}). Click it again or press Esc to clear`);
+    viewer.scene.requestRender();
+  }
+  const pickH = new Cesium.ScreenSpaceEventHandler(viewer.canvas);
+  pickH.setInputAction((click) => {
+    const p = viewer.scene.pick(click.position);
+    const k = p && p.id && Number.isInteger(p.id.satIndex) ? p.id.satIndex : null;
+    if (k !== null) selectSat(sel.sat === k ? -1 : k);
+  }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
+  const onKey = (ev) => { if (ev.key === "Escape" && sel.sat >= 0) selectSat(-1); };
+  document.addEventListener("keydown", onKey);
+  mssdcPick.dispose();
+  mssdcPick.dispose = () => { pickH.destroy(); document.removeEventListener("keydown", onKey); };
   viewer.zoomTo(viewer.entities);
   const miss = c.beams_missing ? `, ${c.beams_missing} beams miss the Earth` : "";
   setStatus(`${scene.topology_type}: ${c.satellites.length} satellites, ${c.beams.length} beams of ${(c.beam_radius_m / 1000).toFixed(1)} km radius, ` +
@@ -2606,15 +2700,20 @@ function requestScene(topologyType) {
   if (!window.pyBridge) return;
   setStatus(`loading ${topologyType}…`);
   Loading.set('scenario', 0, 0);
-  window.pyBridge.get_scene(topologyType, function (json) {
+  LoadScreen.engineStart(topologyType);
+  // get_scene runs the engine on the Qt thread and blocks it: let the loading screen paint first
+  requestAnimationFrame(() => setTimeout(() => window.pyBridge.get_scene(topologyType, function (json) {
+    let ok = true, err = "";
     try {
       renderScene(JSON.parse(json));
     } catch (e) {
+      ok = false; err = String(e);
       setStatus("render failed: " + e);
     } finally {
       Loading.end('scenario');
     }
-  });
+    LoadScreen.engineDone(ok, err);
+  }), 30));
 }
 
 document.getElementById("topoSelect").addEventListener("change", function (event) {
@@ -2629,9 +2728,11 @@ if (typeof qt !== "undefined" && qt.webChannelTransport) {
     const pyBridge = channel.objects.pyBridge;
     if (!pyBridge) {
       setStatus("viewer ready (no pyBridge)");
+      document.getElementById("loadScreen").classList.add("hide");
       return;
     }
     window.pyBridge = pyBridge;
+    LoadScreen.viewerReady();
     pyBridge.pong.connect(function (message) {
       setStatus("pong: " + message);
     });
@@ -2643,6 +2744,7 @@ if (typeof qt !== "undefined" && qt.webChannelTransport) {
   });
 } else {
   setStatus("viewer ready (no QWebChannel — standalone browser?)");
+  document.getElementById("loadScreen").classList.add("hide");
 }
 
 

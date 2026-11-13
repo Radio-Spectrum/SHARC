@@ -27,6 +27,21 @@ FOOTPRINT_LEVELS_DB = (-3.0, -6.0, -10.0, -15.0, -20.0)     # iso-gain contours,
 FLOOR_DB = -20.0                   # below this the map is transparent: only the beam is drawn, not the side-lobe floor
 
 
+# User options (Preview tab): grid size and the elevation under which the satellite is not usable from the ground.
+OPTIONS: Dict[str, float] = {"grid": GRID_N, "min_elev_deg": 0.0}
+GRID_RANGE = (41, 321)
+
+
+def set_options(grid: Optional[int] = None, min_elev_deg: Optional[float] = None) -> bool:
+    """Set the footprint options; True when something changed (the cached maps of the scene are then stale)."""
+    before = dict(OPTIONS)
+    if grid is not None:
+        OPTIONS["grid"] = int(min(GRID_RANGE[1], max(GRID_RANGE[0], grid)))
+    if min_elev_deg is not None:
+        OPTIONS["min_elev_deg"] = float(min(60.0, max(0.0, min_elev_deg)))
+    return before != OPTIONS
+
+
 def _unit_ll(lat_deg, lon_deg):
     lat, lon = np.radians(lat_deg), np.radians(lon_deg)
     return np.stack([np.cos(lat) * np.cos(lon), np.cos(lat) * np.sin(lon), np.sin(lat)], axis=-1)
@@ -74,17 +89,50 @@ def pattern_directivity(antenna, peak: float):
     return float(peak - 10.0 * math.log10(mean_lin)), float(10.0 * math.log10(mean_lin))
 
 
-def _beam_map(values, peak: float, unit: str, title: str) -> Dict[str, Any]:
+CONTOUR_DB = (-1.0, -3.0, -6.0, -10.0, -15.0, -20.0)    # rings drawn as nested, heat-coloured beam cones (relative to the peak)
+MAX_RING_POINTS = 96
+
+
+def _rings(lons, lats, gain, peak: float) -> Dict[str, Any]:
+    """Closed ground rings of the antenna gain at fixed dB below the peak, from the real gain grid.
+
+    They follow the engine pattern, the real pointing (oblique incidence) and elliptical beams, which a circle
+    around the nadir cannot. Per level the longest closed line is kept, thinned to MAX_RING_POINTS."""
+    out: Dict[str, Any] = {}
+    try:
+        from contourpy import contour_generator
+        gen = contour_generator(lons, lats, np.nan_to_num(gain, nan=peak - 60.0))
+        for d in CONTOUR_DB:
+            lines = gen.lines(peak + d)
+            if not lines:
+                continue
+            ring = max(lines, key=len)
+            if len(ring) < 8:
+                continue
+            ring = ring[np.linspace(0, len(ring) - 1, min(len(ring), MAX_RING_POINTS)).astype(int)]
+            out[f"{d:g}"] = [{"lon_deg": round(float(x), 5), "lat_deg": round(float(y), 5)} for x, y in ring]
+    except Exception:                                        # noqa: BLE001 - the circular fallback is drawn instead
+        out = {}
+    return out
+
+
+def _beam_map(values, peak: float, unit: str, title: str, usable=None) -> Dict[str, Any]:
     """A footprint map: values plus what makes it read as a beam: contours at fixed dB below the peak (-3 dB drawn
-    bold: the beam edge) and a floor under which the 3D view draws nothing."""
+    bold: the beam edge) and a floor under which the 3D view draws nothing. Cells where the satellite is under the
+    minimum elevation (`usable` False) are pushed under that floor, so they are not drawn."""
+    if usable is not None:
+        values = np.where(usable, values, peak + FLOOR_DB - 10.0)
     return {"values": np.round(values, 1).tolist(), "vmin": round(peak + FLOOR_DB, 1), "vmax": round(peak, 1),
             "unit": unit, "title": title, "levels": [round(peak + d, 2) for d in FOOTPRINT_LEVELS_DB],
             "bold": round(peak - 3.0, 2), "fade_below": round(peak + FLOOR_DB, 2)}
 
 
-def compute(es, n: int = GRID_N) -> Optional[Dict[str, Any]]:
+def compute(es, n: Optional[int] = None) -> Optional[Dict[str, Any]]:
+    n = int(n if n is not None else OPTIONS["grid"])
+    min_elev = float(OPTIONS["min_elev_deg"])
+    key = (n, min_elev)
     cached = getattr(es, "_sat_footprint", "unset")
-    if cached != "unset":
+    if cached != "unset" and getattr(es, "_sat_footprint_key", None) == key:
         return cached
     result = None
     try:
@@ -147,14 +195,19 @@ def compute(es, n: int = GRID_N) -> Optional[Dict[str, Any]]:
         ground = _unit_ll(LAT.ravel(), LON.ravel()) * EARTH_RADIUS
         theta, dist, phi = off_axis(ground)
         gain = np.asarray(antenna_service.gain_at(antenna, theta, phi), dtype=float)
+        usable = None
+        if min_elev > 0.0:                                                    # satellite seen from each ground cell
+            to_sat = sat_pos - ground
+            sin_el = np.einsum("ij,ij->i", to_sat, ground) / (np.linalg.norm(to_sat, axis=1) * EARTH_RADIUS)
+            usable = np.degrees(np.arcsin(np.clip(sin_el, -1.0, 1.0))) >= min_elev
 
         maps = {}
-        maps["sat_gain"] = _beam_map(gain, peak, "dBi", "Satellite antenna gain (footprint)")
+        maps["sat_gain"] = _beam_map(gain, peak, "dBi", "Satellite antenna gain (footprint)", usable)
         tx = getattr(ss, "tx_power_density", None)
         if tx is not None:
             pol = float(getattr(ss, "polarization_loss", 0.0) or 0.0)
             psd = float(tx) + 90.0 + gain - _fspl(dist, f_sat) - pol                     # dBW/Hz -> dBm/MHz
-            maps["sat_psd"] = _beam_map(psd, float(np.nanmax(psd)), "dBm/MHz", "Satellite PSD on the ground")
+            maps["sat_psd"] = _beam_map(psd, float(np.nanmax(psd if usable is None or not usable.any() else psd[usable])), "dBm/MHz", "Satellite PSD on the ground", usable)
 
         # aggregate IMT interference at the satellite receiver
         data = gain_lobe.sample_bs_gain(es)
@@ -189,12 +242,14 @@ def compute(es, n: int = GRID_N) -> Optional[Dict[str, Any]]:
         result = {"n": n, "west": float(lons[0]), "east": float(lons[-1]), "south": float(lats[0]),
                   "north": float(lats[-1]), "maps": maps, "summary": summary,
                   "contrib": [round(float(v), 1) for v in per_bs],
+                  "rings": _rings(lons, lats, gain.reshape(n, n), peak),
                   "victim_lla": {"lat_deg": lat_s, "lon_deg": lon_s, "alt_m": alt},
                   "pointing": {"target_lat_deg": lat_t, "target_lon_deg": lon_t}}
     except Exception:                                        # noqa: BLE001 - decoration only
         result = None
     try:
         es._sat_footprint = result
+        es._sat_footprint_key = key
     except Exception:                                        # noqa: BLE001
         pass
     return result

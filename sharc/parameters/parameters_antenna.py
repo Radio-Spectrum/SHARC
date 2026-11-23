@@ -202,12 +202,6 @@ class ParametersAntenna(ParametersBase):
                     # just hijacking validation since diameter is optional
                     self.itu_reg_rr_a7_3.diameter = 0
                 self.itu_reg_rr_a7_3.validate(f"{ctx}.itu_reg_rr_a7_3")
-            case "ARRAY" | "ARRAY2":
-                # TODO: validate here and make array non imt specific
-                # self.array.validate(
-                #     f"{ctx}.array",
-                # )
-                pass
             case "ITU-R-S.1528-Taylor":
                 self.itu_r_s_1528.validate(f"{ctx}.itu_r_s_1528")
             case "ITU-R-S.1528-Section1.2":

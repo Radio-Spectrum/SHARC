@@ -191,6 +191,7 @@ class PreviewTab(QWidget, Geometry3DMixin, SceneBuilderMixin, CesiumBridgeMixin)
         right_layout.addWidget(frm_vis)
 
         right_layout.addWidget(self._build_heat_style_group())
+        right_layout.addWidget(self._build_footprint_group())
 
         # --- 3. Supported Types ---
         frm_catalog = QGroupBox("Visible Before Run")
@@ -525,6 +526,50 @@ class PreviewTab(QWidget, Geometry3DMixin, SceneBuilderMixin, CesiumBridgeMixin)
         w["thr"].setEnabled(w["thr_on"].isChecked())
         if self._cesium_embed is not None:
             self._cesium_embed.ready.connect(self._push_heat_style)     # the page restarts with the default style
+        return box
+
+    def _build_footprint_group(self) -> QGroupBox:
+        """Grid resolution and minimum elevation of the satellite footprint maps (`core/sat_footprint.py`).
+
+        Saved in QSettings; a change recomputes the maps and redraws the scene."""
+        from PySide6.QtCore import QSettings
+        from PySide6.QtWidgets import QDoubleSpinBox, QSpinBox
+        from core import sat_footprint
+
+        st = QSettings("SHARC", "GUI")
+        box = QGroupBox("Satellite footprint")
+        lay = QVBoxLayout(box)
+        grid = self.footprint_grid = QSpinBox()
+        grid.setRange(*sat_footprint.GRID_RANGE)
+        grid.setSingleStep(20)
+        grid.setSuffix(" cells")
+        grid.setToolTip("Cells per side of the footprint grid (default 161). More cells give a finer map and "
+                        "contours, but take longer to compute.")
+        grid.setValue(int(st.value("footprint/grid", sat_footprint.GRID_N)))
+        elev = self.footprint_min_elev = QDoubleSpinBox()
+        elev.setRange(0.0, 60.0)
+        elev.setDecimals(1)
+        elev.setSingleStep(5.0)
+        elev.setSuffix(" deg")
+        elev.setToolTip("Ground cells that see the satellite under this elevation are not drawn. 0 draws the whole "
+                        "beam pattern.")
+        elev.setValue(float(st.value("footprint/min_elev_deg", 0.0)))
+        for label, widget in (("Grid:", grid), ("Min. elevation:", elev)):
+            row = QHBoxLayout()
+            row.addWidget(QLabel(label))
+            row.addWidget(widget, 1)
+            lay.addLayout(row)
+            widget.setKeyboardTracking(False)               # recompute on Enter / focus out, not on every digit
+
+        def apply(*_):
+            st.setValue("footprint/grid", grid.value())
+            st.setValue("footprint/min_elev_deg", elev.value())
+            if sat_footprint.set_options(grid.value(), elev.value()):
+                self._draw_preview()
+
+        sat_footprint.set_options(grid.value(), elev.value())
+        grid.valueChanged.connect(apply)
+        elev.valueChanged.connect(apply)
         return box
 
     def _push_heat_style(self, *_):

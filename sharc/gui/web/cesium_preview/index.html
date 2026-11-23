@@ -13,6 +13,20 @@
 <body>
   <div id="cesiumContainer"></div>
 
+  <!-- Loading screen: covers the black globe while the viewer starts and the engine builds the scene -->
+  <div id="loadScreen" class="first" role="status" aria-live="polite">
+    <div class="card">
+      <div class="ring"></div>
+      <div class="brand">SHARC</div>
+      <div id="lsMsg" class="msg">Starting the 3D viewer...</div>
+      <ul class="steps">
+        <li id="lsViewer" class="doing">3D viewer</li>
+        <li id="lsEngine">Engine scene (sites, antennas, links)</li>
+        <li id="lsTiles">Map, terrain and tiles</li>
+      </ul>
+    </div>
+  </div>
+
   <!-- Cartão da cena (canto superior esquerdo) -->
   <div id="hudScene" class="panel">
     <div class="eyebrow">SCENE</div>
@@ -72,6 +86,7 @@
 
   <!-- Legenda (inferior esquerdo) -->
   <div id="hudLegend" class="panel legend"></div>
+  <div id="hudReadout" class="panel"></div>
 
   <!-- Barra de coordenadas (inferior) -->
   <div id="hudBar" class="bar">

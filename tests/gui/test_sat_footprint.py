@@ -184,3 +184,30 @@ def test_3d_lobe_is_not_circular_for_an_elliptical_antenna():
     for angle in (15.0, 30.0):                                    # on the 3 deg azimuth grid and on the 2.5 deg elevation grid
         assert abs(at(round_, angle, 0.0) - at(round_, 0.0, angle)) < 0.5
     assert max(abs(at(ellipse, a, 0.0) - at(ellipse, 0.0, a)) for a in (15.0, 30.0)) > 1.5
+
+
+def test_footprint_options_change_grid_and_hide_low_elevation_cells(win):
+    es = _es(win)
+    try:
+        sat_footprint.set_options(grid=81, min_elev_deg=0.0)
+        base = sat_footprint.compute(es)
+        assert base["n"] == 81
+        floor = base["maps"]["sat_gain"]["fade_below"]
+        n_visible = int((np.array(base["maps"]["sat_gain"]["values"]) >= floor).sum())
+        assert sat_footprint.set_options(min_elev_deg=89.0)                # changed: the cached maps are stale
+        high = sat_footprint.compute(es)                                   # recomputed under the new key
+        assert high is not base
+        assert int((np.array(high["maps"]["sat_gain"]["values"]) >= floor).sum()) < n_visible
+        assert not sat_footprint.set_options(min_elev_deg=89.0)            # no change, no redraw
+    finally:
+        sat_footprint.set_options(grid=sat_footprint.GRID_N, min_elev_deg=0.0)
+
+
+def test_footprint_rings_follow_the_gain_grid(win):
+    fp = sat_footprint.compute(_es(win))
+    rings = fp["rings"]
+    assert set(rings) >= {"-3", "-10"}, "levels are drawn as nested cones"
+    sizes = {k: (max(p["lon_deg"] for p in r) - min(p["lon_deg"] for p in r)) for k, r in rings.items()}
+    assert sizes["-3"] < sizes["-10"] < sizes.get("-20", 1e9) + 1e-9      # nested, widest at the lowest level
+    c = (fp["west"] + fp["east"]) / 2
+    assert min(p["lon_deg"] for p in rings["-3"]) < c < max(p["lon_deg"] for p in rings["-3"])   # encloses the centre

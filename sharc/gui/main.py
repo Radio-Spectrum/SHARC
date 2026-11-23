@@ -777,6 +777,11 @@ class App(WorkbenchMixin, QMainWindow):
     def run_simulation(self, start_at=None):
         """Run button: generates the configuration in the background and queues the simulation."""
         from core.run_service import start_run
+        import datetime
+        # A button or menu action connected here passes its "checked" flag (a bool) as the first argument;
+        # only a real date/time is a scheduled start.
+        if not isinstance(start_at, datetime.datetime):
+            start_at = None
         return start_run(self, start_at=start_at)
 
     def run_simulation_later(self):

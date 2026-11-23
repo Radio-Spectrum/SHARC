@@ -1,5 +1,7 @@
 import numpy as np
 import shapely as shp
+import shapely.ops
+import shapely.validation
 import shapely.vectorized
 import pyproj
 import scipy.spatial.transform

@@ -7,7 +7,9 @@ Created on Tue Feb 14 12:48:58 2017
 
 from abc import ABCMeta, abstractmethod
 import numpy as np
-import matplotlib.axes
+from sharc.support.lazy_import import lazy_module
+
+matplotlib = lazy_module("matplotlib")
 from sharc.support.geometry import SimulatorGeometry
 
 
@@ -73,5 +75,5 @@ class Topology(object):
         )
 
     @abstractmethod
-    def plot(self, ax: matplotlib.axes.Axes):
+    def plot(self, ax: "matplotlib.axes.Axes"):
         """Plot the topology on the given axis."""

@@ -366,9 +366,11 @@ class StationFactory(object):
                 param.ue.distribution_type.upper() == "UNIFORM_IN_CELL":
 
             central_cell = False
-            deterministic_cell = False
+            # Every UE is drawn inside the cell of the base station it is linked to (connect_ue_to_bs links
+            # them by index), as the main branch does for UNIFORM too. Drawing UNIFORM UEs in random cells
+            # left 95% of them closer to another site than to the one serving them.
+            deterministic_cell = True
             if param.ue.distribution_type.upper() != "UNIFORM":
-                deterministic_cell = True
                 if param.ue.distribution_type.upper() == "CELL":
                     central_cell = True
             else:
@@ -1992,7 +1994,9 @@ class StationFactory(object):
         tuple
             x, y, z, azimuth and elevation angles.
         """
-        hexagon_radius = topology.intersite_distance * 2 / 3
+        # Radius of the hexagon of one sector, with the site at one of its vertices: one third of the
+        # inter-site distance, as in the main branch (2/3 drew UEs up to twice as far, into neighbour cells).
+        hexagon_radius = topology.intersite_distance / 3
 
         x = np.array([])
         y = np.array([])

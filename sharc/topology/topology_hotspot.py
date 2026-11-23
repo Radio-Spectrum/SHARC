@@ -8,9 +8,11 @@ Created on Tue May 16 16:59:40 2017
 import sys
 import numpy as np
 import math
-import matplotlib.pyplot as plt
-import matplotlib.axes
-import matplotlib.patches as patches
+from sharc.support.lazy_import import lazy_module
+
+plt = lazy_module("matplotlib.pyplot")
+matplotlib = lazy_module("matplotlib")
+patches = lazy_module("matplotlib.patches")
 
 from shapely.geometry import Polygon
 
@@ -274,7 +276,7 @@ class TopologyHotspot(Topology):
         occ = np.where(distance < min_dist_bs_hotspot)[0]
         return len(occ) == 0
 
-    def plot(self, ax: matplotlib.axes.Axes):
+    def plot(self, ax: "matplotlib.axes.Axes"):
         """Plot the macrocell and hotspot topology on the given axis."""
         # plot macrocells
         self.macrocell.plot(ax)

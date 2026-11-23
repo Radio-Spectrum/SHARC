@@ -6,8 +6,10 @@ Created on Tue Feb 14 12:51:22 2017
 """
 
 from sharc.topology.topology import Topology
-import matplotlib.pyplot as plt
-import matplotlib.axes
+from sharc.support.lazy_import import lazy_module
+
+plt = lazy_module("matplotlib.pyplot")
+matplotlib = lazy_module("matplotlib")
 
 import math
 import numpy as np
@@ -91,7 +93,7 @@ class TopologyMacrocell(Topology):
 
             self.indoor = np.zeros(self.num_base_stations, dtype=bool)
 
-    def plot(self, ax: matplotlib.axes.Axes):
+    def plot(self, ax: "matplotlib.axes.Axes"):
         """Plot the macrocell topology on the given axis."""
         # create the hexagons
         r = self.intersite_distance / 3

@@ -1,7 +1,9 @@
 import numpy as np
-import matplotlib.pyplot as plt
-import cartopy.crs as ccrs
-import cartopy.feature as cfeature
+from sharc.support.lazy_import import lazy_module
+
+plt = lazy_module("matplotlib.pyplot")
+ccrs = lazy_module("cartopy.crs")
+cfeature = lazy_module("cartopy.feature")
 from scipy.special import jv
 
 

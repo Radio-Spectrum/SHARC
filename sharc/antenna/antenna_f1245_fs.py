@@ -1,4 +1,6 @@
-import matplotlib.pyplot as plt
+from sharc.support.lazy_import import lazy_module
+
+plt = lazy_module("matplotlib.pyplot")
 from sharc.antenna.antenna import Antenna
 from sharc.parameters.parameters_antenna_with_diameter import ParametersAntennaWithDiameter
 import numpy as np

@@ -1,7 +1,9 @@
 import numpy as np
 import typing
 from pathlib import Path
-import geopandas as gpd
+from sharc.support.lazy_import import lazy_module
+
+gpd = lazy_module("geopandas")
 
 from sharc.satellite.ngso.constants import EARTH_DEFAULT_CRS
 
@@ -80,7 +82,7 @@ def load_gdf(
     country_shapes_filename: typing.Union[Path, str],
     filters: dict[str, list[str]],
     err_ctx: str = "load_gdf",
-) -> gpd.GeoDataFrame:
+) -> "gpd.GeoDataFrame":
     """
     It is assumed that the shapefile is in EPSG:4326
         containing polygons specified by (lon, lat) points

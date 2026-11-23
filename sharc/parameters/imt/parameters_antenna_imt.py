@@ -199,11 +199,13 @@ class ParametersAntennaImt(ParametersBase):
                 f"Invalid {ctx}.vertical_beamsteering_range={self.vertical_beamsteering_range}\n"
                 "The second value must be bigger than the first"
             )
-        if not all(map(lambda x: x >= 0. and x < 180.,
+        # theta from the zenith: 0 is the zenith, 90 the horizon, 180 the nadir (all three are valid limits)
+        if not all(map(lambda x: x >= 0. and x <= 180.,
                    self.vertical_beamsteering_range)):
             raise ValueError(
                 f"Invalid {ctx}.vertical_beamsteering_range={self.vertical_beamsteering_range}\n"
-                "vertical beamsteering limit angles must be in the range [0, 180)"
+                "vertical beamsteering limit angles are measured from the zenith and must be in the range "
+                "[0, 180], with the horizon at 90 (e.g. 75 to 105 for the horizon ±15 degrees)"
             )
 
     def get_normalization_data_if_needed(self):

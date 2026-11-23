@@ -6,7 +6,9 @@ Created on Mon Jun  5 16:56:13 2017
 """
 
 import numpy as np
-import matplotlib.pyplot as plt
+from sharc.support.lazy_import import lazy_module
+
+plt = lazy_module("matplotlib.pyplot")
 from cycler import cycler
 from multipledispatch import dispatch
 

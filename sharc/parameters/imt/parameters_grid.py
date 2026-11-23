@@ -4,6 +4,9 @@ import numpy as np
 import typing
 from pathlib import Path
 import shapely as shp
+import shapely.ops
+import shapely.validation
+import shapely.vectorized
 from collections.abc import Iterable
 
 from sharc.support.sharc_utils import load_gdf

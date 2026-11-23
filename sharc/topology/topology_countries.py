@@ -24,7 +24,9 @@ from typing import List, Dict, Optional, Tuple
 from sharc.support.geometry import SimulatorGeometry, ENUReferenceFrame
 
 import numpy as np
-import geopandas as gpd
+from sharc.support.lazy_import import lazy_module
+
+gpd = lazy_module("geopandas")
 from shapely.geometry import Point, Polygon, MultiPolygon
 from shapely.ops import unary_union
 
@@ -352,7 +354,7 @@ class TopologyCountries(Topology):
         return ue_geom
 
     # ---------- helpers ----------
-    def _load_countries_gdf(self, shapefile_path: Optional[str]) -> gpd.GeoDataFrame:
+    def _load_countries_gdf(self, shapefile_path: Optional[str]) -> "gpd.GeoDataFrame":
         if shapefile_path:
             gdf = gpd.read_file(shapefile_path)
             return gdf.to_crs(EARTH_DEFAULT_CRS)

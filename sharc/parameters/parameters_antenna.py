@@ -177,6 +177,10 @@ class ParametersAntenna(ParametersBase):
                     self.__SUPPORTED_ANTENNA_PATTERNS}.", )
 
         match self.pattern:
+            case "ARRAY" | "ARRAY2":
+                # beam-steering ranges and the rest of the array; without this a vertical range given
+                # in the wrong convention (e.g. -15..15 instead of 75..105) was used as is
+                self.array.validate(f"{ctx}.array")
             case "OMNI":
                 pass
             case "HibleoX":
@@ -198,12 +202,6 @@ class ParametersAntenna(ParametersBase):
                     # just hijacking validation since diameter is optional
                     self.itu_reg_rr_a7_3.diameter = 0
                 self.itu_reg_rr_a7_3.validate(f"{ctx}.itu_reg_rr_a7_3")
-            case "ARRAY" | "ARRAY2":
-                # TODO: validate here and make array non imt specific
-                # self.array.validate(
-                #     f"{ctx}.array",
-                # )
-                pass
             case "ITU-R-S.1528-Taylor":
                 self.itu_r_s_1528.validate(f"{ctx}.itu_r_s_1528")
             case "ITU-R-S.1528-Section1.2":

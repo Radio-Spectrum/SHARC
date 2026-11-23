@@ -10,15 +10,79 @@ import os
 import datetime
 import re
 import pathlib
-import pandas as pd
+from concurrent.futures import ThreadPoolExecutor
+
+import numpy as np
 from shutil import copy
 from sharc.support.sharc_logger import SimulationLogger
+
+# pandas takes more than a second to import and a simulation run only needs it
+# for unusual sample types (see Results.write_files): loaded on first use.
+_pd = None
+
+
+def _pandas():
+    global _pd
+    if _pd is None:
+        import pandas
+        _pd = pandas
+    return _pd
 
 
 class SampleList(list):
     """
-    This class only exists so that no list property can be confused with a SampleList
+    A list of samples of one result. Being its own class, no other list
+    property of Results can be confused with a sample list.
+
+    Post-processing reads the samples as NumPy arrays several times (median,
+    mean, histogram...). Converting a list of a million numbers takes far
+    longer than the computation itself, so the array is built once
+    (as_array) and kept, together with anything derived from it (derived),
+    until the list is modified.
     """
+
+    def as_array(self) -> np.ndarray:
+        """The samples as an array (the one ``np.asarray(self)`` gives), read-only and reused between calls."""
+        arr = self.__dict__.get("_array")
+        if arr is None or len(arr) != len(self):
+            arr = np.asarray(self)
+            arr.flags.writeable = False
+            self.__dict__["_array"] = arr
+            self.__dict__.pop("_derived", None)
+        return arr
+
+    def set_array(self, arr: np.ndarray):
+        """Give the array the list was just built from, so that as_array does not convert it back."""
+        arr = np.asarray(arr)
+        if arr.ndim == 1 and len(arr) == len(self):
+            arr.flags.writeable = False
+            self.__dict__["_array"] = arr
+            self.__dict__.pop("_derived", None)
+
+    def derived(self) -> dict:
+        """Scratch space for values computed from the samples (e.g. a histogram); emptied when the list changes."""
+        return self.__dict__.setdefault("_derived", {})
+
+    def _changed(self):
+        self.__dict__.pop("_array", None)
+        self.__dict__.pop("_derived", None)
+
+
+def _forget_array_on(name):
+    method = getattr(list, name)
+
+    def wrapper(self, *args, **kwargs):
+        self._changed()
+        return method(self, *args, **kwargs)
+    wrapper.__name__ = name
+    wrapper.__doc__ = method.__doc__
+    return wrapper
+
+
+for _name in ("append", "extend", "insert", "pop", "remove", "clear", "sort", "reverse",
+              "__setitem__", "__delitem__", "__iadd__", "__imul__"):
+    setattr(SampleList, _name, _forget_array_on(_name))
+del _name
 
 
 class Results(object):
@@ -228,17 +292,49 @@ class Results(object):
             samples = getattr(self, attr_name)
             if len(samples) == 0:
                 continue
-            df = pd.DataFrame({"samples": samples})
             if self.overwrite_sample_files:
-                df.to_csv(file_path, mode="w", index=False)
+                mode, header = "w", True
             else:
                 # a file first written in a later flush (or after a resume) still needs its header
                 new_file = not os.path.exists(file_path) or os.path.getsize(file_path) == 0
-                df.to_csv(file_path, mode="a", index=False, header=new_file)
+                mode, header = "a", new_file
+            if not self._write_float_samples(file_path, samples, mode, header):
+                df = _pandas().DataFrame({"samples": samples})
+                df.to_csv(file_path, mode=mode, index=False, header=header)
             setattr(self, attr_name, SampleList())
 
         if self.overwrite_sample_files:
             self.overwrite_sample_files = False
+
+    @staticmethod
+    def _write_float_samples(file_path: str, samples: list, mode: str, header: bool) -> bool:
+        """Write a sample file whose samples are all floats, without pandas.
+
+        Produces the same bytes as ``DataFrame({"samples": samples}).to_csv(
+        file_path, mode=mode, index=False, header=header)``: pandas formats a float column with
+        ``ndarray.astype(str)`` and writes a missing value as a quoted empty
+        field, which is what is done here. Any other content (integers,
+        booleans, arrays...) is left to pandas.
+
+        Returns
+        -------
+        bool
+            False when the samples are not plain floats and nothing was written.
+        """
+        if not set(map(type, samples)) <= {float, np.float64}:
+            return False
+        values = np.asarray(samples, dtype=np.float64)
+        text = values.astype(str)
+        missing = np.isnan(values)
+        if missing.any():
+            text = text.astype(object)
+            text[missing] = '""'
+        lines = text.tolist()
+        if header:
+            lines.insert(0, "samples")
+        with open(file_path, mode, newline="", encoding="utf-8") as file:
+            file.write(os.linesep.join(lines) + os.linesep)
+        return True
 
     @staticmethod
     def load_many_from_dir(
@@ -305,32 +401,50 @@ class Results(object):
                 lambda x: isinstance(getattr(self, x), SampleList), self_dict
             )
 
+        pd = _pandas()
+
+        def read_samples(attr_name, file_path):
+            """Samples of one file as an array (None if it has no data)."""
+            # Try reading the .csv file using pandas with different
+            # delimiters
+            try:
+                data = pd.read_csv(file_path, delimiter=",")
+            except pd.errors.ParserError:
+                data = pd.read_csv(file_path, delimiter=";")
+
+            # Ensure the data has exactly one column
+            if data.shape[1] != 1:
+                raise Exception(
+                    f"The file with samples of {attr_name} should have a single column.", )
+
+            # Remove rows that do not contain valid numeric values
+            data = data.apply(pd.to_numeric, errors="coerce").dropna()
+
+            # Ignore if there is no data
+            if data.empty:
+                return None
+            return data.to_numpy()[:, 0]
+
+        present = []
         for attr_name in results_relevant_attr_names:
             file_path = os.path.join(abs_path, f"{attr_name}.csv")
             if os.path.exists(file_path):
+                present.append((attr_name, file_path))
+
+        # The files are independent and parsing them releases the interpreter
+        # lock, so they are read side by side; the results are then taken in
+        # the original order (the first bad file, in that order, is reported).
+        workers = max(1, min(8, os.cpu_count() or 1, len(present)))
+        with ThreadPoolExecutor(max_workers=workers) as pool:
+            pending = [pool.submit(read_samples, *item) for item in present]
+            for (attr_name, _), future in zip(present, pending):
                 try:
-                    # Try reading the .csv file using pandas with different
-                    # delimiters
-                    try:
-                        data = pd.read_csv(file_path, delimiter=",")
-                    except pd.errors.ParserError:
-                        data = pd.read_csv(file_path, delimiter=";")
-
-                    # Ensure the data has exactly one column
-                    if data.shape[1] != 1:
-                        raise Exception(
-                            f"The file with samples of {attr_name} should have a single column.", )
-
-                    # Remove rows that do not contain valid numeric values
-                    data = data.apply(pd.to_numeric, errors="coerce").dropna()
-
-                    # Ignore if there is no data
-                    if data.empty:
+                    values = future.result()
+                    if values is None:
                         continue
-                    # Check if there is enough data to load results from.
-
-                    setattr(self, attr_name, SampleList(data.to_numpy()[:, 0]))
-
+                    samples = SampleList(values)
+                    samples.set_array(values)
+                    setattr(self, attr_name, samples)
                 except Exception as e:
                     print(e)
                     raise Exception(

@@ -7,8 +7,10 @@ Created on Wed Aug 30 10:31:00 2017
 
 from sharc.propagation.propagation import Propagation
 import numpy as np
-from scipy.stats import norm
-import matplotlib.pyplot as plt
+from sharc.support.lazy_import import lazy_module
+
+plt = lazy_module("matplotlib.pyplot")
+_scipy_stats = lazy_module("scipy.stats")
 
 
 class PropagationBuildingEntryLoss(Propagation):
@@ -85,6 +87,7 @@ class PropagationBuildingEntryLoss(Propagation):
         sigma_1 = u + v * np.log10(f_GHz)
         sigma_2 = y + z * np.log10(f_GHz)
 
+        norm = _scipy_stats.norm
         a_dB = norm.ppf(prob) * sigma_1 + mu_1
         b_dB = norm.ppf(prob) * sigma_2 + mu_2
 

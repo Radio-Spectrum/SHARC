@@ -1,9 +1,11 @@
 from sharc.topology.topology import Topology
 import numpy as np
 import math
-import matplotlib.pyplot as plt
-import matplotlib.axes
-import geopandas as gpd
+from sharc.support.lazy_import import lazy_module
+
+plt = lazy_module("matplotlib.pyplot")
+matplotlib = lazy_module("matplotlib")
+gpd = lazy_module("geopandas")
 from shapely.geometry import Polygon, MultiPolygon
 from pathlib import Path
 
@@ -145,7 +147,7 @@ class TopologyNTN(Topology):
         self.x = self.x_rotated
         self.y = self.y_rotated
 
-    def plot(self, axis: matplotlib.axes.Axes, scale=1000):
+    def plot(self, axis: "matplotlib.axes.Axes", scale=1000):
         """Plot the NTN sector layout in 2D using matplotlib.
 
         Parameters
@@ -189,7 +191,7 @@ class TopologyNTN(Topology):
         axis.legend()
         plt.tight_layout()
 
-    def plot_3d(self, axis: matplotlib.axes.Axes, map=False):
+    def plot_3d(self, axis: "matplotlib.axes.Axes", map=False):
         """Plot the NTN sector layout and satellite in 3D using matplotlib.
 
         Parameters

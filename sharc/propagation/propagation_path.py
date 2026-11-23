@@ -63,19 +63,16 @@ class PropagationPath():
         """Calculates mask depending on propagation, then calls the propagation
         get_path_loss methods that may or may not consider the given paths.
         """
-        if propagation.needs_antenna_gains:
-            # NOTE: currently implemented propagation models that require gain
-            # DIFFERENTIATE between stations at the same position
-            # so we can't deduplicate solely based on (position, indoor, ...)
-            self.calc_mask(deduplicate=False)
-        else:
+        if not propagation.needs_antenna_gains:
             # NOTE: making sure the propagation has set needs_antenna_gains
             # if it needs the gains
             sta_a_gains = None
             sta_b_gains = None
-            # NOTE: only propagation models that require gain
-            # differentiate between stations at the same position
-            self.calc_mask(deduplicate=True)
+        # Every path gets its own loss, also between stations at the same place (the sectors of one
+        # site): random parts such as the LoS/NLoS draw of UMa/UMi are drawn per path, as the main branch
+        # does. Merging co-located stations (deduplicate=True) made the three sectors of a site share
+        # one draw, which changed the IMT SINR statistics with respect to the main branch.
+        self.calc_mask(deduplicate=False)
 
         return propagation.get_path_loss(
             parameters,
@@ -178,18 +175,16 @@ class PropagationPath():
             paths_from_to[:, 1]
         ]
 
-        # since deduped_paths_from_to is already ordered
-        # np.unique's unstable sort doesn't eff it up
-        uniq_deduped_paths_from_to, adjacency_vec = np.unique(
-            deduped_paths_from_to,
-            axis=0,
-            return_inverse=True
-        )
+        # Unique (a, b) pairs in lexicographic order and, for each path, the
+        # position of its pair in that order: same result as np.unique over
+        # the rows (axis=0), computed over one integer key per pair, which
+        # avoids the much slower sort of structured rows.
+        n_b = sta_b.num_stations
+        pair_keys = deduped_paths_from_to[:, 0] * n_b + deduped_paths_from_to[:, 1]
+        uniq_keys, adjacency_vec = np.unique(pair_keys, return_inverse=True)
 
         deduplicated_mask = np.zeros((sta_a.num_stations, sta_b.num_stations), dtype=bool)
-        deduplicated_mask[
-            uniq_deduped_paths_from_to[:, 0], uniq_deduped_paths_from_to[:, 1]
-        ] = True
+        deduplicated_mask[uniq_keys // n_b, uniq_keys % n_b] = True
 
         return deduplicated_mask, adjacency_vec
 

@@ -11,7 +11,9 @@ from sharc.support.observable import Observable
 import numpy as np
 import math
 import sys
-import matplotlib.pyplot as plt
+from sharc.support.lazy_import import lazy_module
+
+plt = lazy_module("matplotlib.pyplot")
 import typing
 
 from sharc.support.enumerations import StationType
@@ -717,17 +719,27 @@ class Simulation(ABC, Observable):
                         phi_vec=phi[k, station_2_active],
                 )
         else:  # for IMT <-> IMT
-            off_axis_angle = station_1.geom.get_off_axis_angle(station_2.geom)
-            for k in station_1_active:
-                gains[k, station_2_active] = station_1.antenna[k].calculate_gain(
-                    off_axis_angle_vec=off_axis_angle[k, station_2_active],
-                    phi_vec=phi[k, station_2_active],
-                    theta_vec=theta[
-                        k,
-                        station_2_active,
-                    ],
-                    beams_l=beams_idx,
+            antennas = [station_1.antenna[k] for k in station_1_active]
+            if AntennaBeamformingImt.can_use_gain_matrix(antennas):
+                # Every active station towards every active station of the
+                # other side, evaluated at once instead of one call per
+                # station (array antennas do not use the off-axis angle).
+                sel = np.ix_(station_1_active, station_2_active)
+                gains[sel] = AntennaBeamformingImt.calculate_gain_matrix(
+                    antennas, phi[sel], theta[sel], beams_idx,
                 )
+            else:
+                off_axis_angle = station_1.geom.get_off_axis_angle(station_2.geom)
+                for k in station_1_active:
+                    gains[k, station_2_active] = station_1.antenna[k].calculate_gain(
+                        off_axis_angle_vec=off_axis_angle[k, station_2_active],
+                        phi_vec=phi[k, station_2_active],
+                        theta_vec=theta[
+                            k,
+                            station_2_active,
+                        ],
+                        beams_l=beams_idx,
+                    )
         return gains
 
     def calculate_imt_tput(

@@ -63,19 +63,16 @@ class PropagationPath():
         """Calculates mask depending on propagation, then calls the propagation
         get_path_loss methods that may or may not consider the given paths.
         """
-        if propagation.needs_antenna_gains:
-            # NOTE: currently implemented propagation models that require gain
-            # DIFFERENTIATE between stations at the same position
-            # so we can't deduplicate solely based on (position, indoor, ...)
-            self.calc_mask(deduplicate=False)
-        else:
+        if not propagation.needs_antenna_gains:
             # NOTE: making sure the propagation has set needs_antenna_gains
             # if it needs the gains
             sta_a_gains = None
             sta_b_gains = None
-            # NOTE: only propagation models that require gain
-            # differentiate between stations at the same position
-            self.calc_mask(deduplicate=True)
+        # Every path gets its own loss, also between stations at the same place (the sectors of one
+        # site): random parts such as the LoS/NLoS draw of UMa/UMi are drawn per path, as the main branch
+        # does. Merging co-located stations (deduplicate=True) made the three sectors of a site share
+        # one draw, which changed the IMT SINR statistics with respect to the main branch.
+        self.calc_mask(deduplicate=False)
 
         return propagation.get_path_loss(
             parameters,

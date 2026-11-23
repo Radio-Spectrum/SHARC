@@ -177,6 +177,10 @@ class ParametersAntenna(ParametersBase):
                     self.__SUPPORTED_ANTENNA_PATTERNS}.", )
 
         match self.pattern:
+            case "ARRAY" | "ARRAY2":
+                # beam-steering ranges and the rest of the array; without this a vertical range given
+                # in the wrong convention (e.g. -15..15 instead of 75..105) was used as is
+                self.array.validate(f"{ctx}.array")
             case "OMNI":
                 pass
             case "HibleoX":
